@@ -3,6 +3,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:rsupa/features/home/presentation/pages/home_page.dart';
 import 'package:rsupa/features/profile/presentation/pages/profile_page.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
 /// Main navigation shell with bottom navigation bar
 class MainShell extends HookConsumerWidget {
@@ -11,6 +12,7 @@ class MainShell extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentIndex = useState(0);
+    final colorScheme = shadcnui.Theme.of(context).colorScheme;
 
     final pages = [
       const HomePage(),
@@ -21,14 +23,13 @@ class MainShell extends HookConsumerWidget {
       body: pages[currentIndex.value],
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, -2),
+          color: colorScheme.card,
+          border: Border(
+            top: BorderSide(
+              color: colorScheme.border,
+              width: 1,
             ),
-          ],
+          ),
         ),
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
         child: SafeArea(
@@ -70,13 +71,15 @@ class _NavButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF6366F1).withOpacity(0.1)
+              ? colorScheme.primary.withOpacity(0.1)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
         ),
@@ -85,7 +88,7 @@ class _NavButton extends StatelessWidget {
           children: [
             Icon(
               icon,
-              color: isSelected ? const Color(0xFF6366F1) : Colors.grey,
+              color: isSelected ? colorScheme.primary : colorScheme.mutedForeground,
               size: 24,
             ),
             const SizedBox(height: 4),
@@ -94,7 +97,7 @@ class _NavButton extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                color: isSelected ? const Color(0xFF6366F1) : Colors.grey,
+                color: isSelected ? colorScheme.primary : colorScheme.mutedForeground,
               ),
             ),
           ],

@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart' hide ThemeData, Colors;
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:hooks_riverpod/hooks_riverpod.dart';
+
+/// Theme mode provider
+final themeModeProvider = StateProvider<shadcnui.ThemeMode>((ref) {
+  return shadcnui.ThemeMode.dark; // Default to dark mode
+});
 
 /// Moneko app theme configuration matching web's Tailwind design system
 class AppTheme {

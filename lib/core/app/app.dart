@@ -10,10 +10,11 @@ class App extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+    final themeMode = ref.watch(themeModeProvider);
 
     return shadcnui.ShadcnApp.router(
       title: 'Moneko',
-      themeMode: shadcnui.ThemeMode.system, // Follow system theme like web version
+      themeMode: themeMode,
       theme: AppTheme.lightTheme(),
       darkTheme: AppTheme.darkTheme(),
       routeInformationParser: router.routeInformationParser,
