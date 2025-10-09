@@ -1,20 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:rsupa/features/auth/presentation/states/auth.dart';
 
+/// Home/Dashboard Page - Empty for now, will be implemented later
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Scaffold(
+    return const Scaffold(
       body: Center(
-        child: ElevatedButton.icon(
-          onPressed: () {
-            ref.watch(authProvider.notifier).signOut();
-          },
-          icon: const Icon(Icons.logout),
-          label: const Text('Logout'),
+        child: Text(
+          'Home Dashboard - Coming Soon',
+          style: TextStyle(fontSize: 18),
         ),
       ),
     );

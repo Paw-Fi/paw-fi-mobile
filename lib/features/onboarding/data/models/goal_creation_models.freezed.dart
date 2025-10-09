@@ -97,10 +97,10 @@ class __$$CreateGoalWithAIRequestImplCopyWithImpl<$Res>
     return _then(_$CreateGoalWithAIRequestImpl(
       questionnaireData: null == questionnaireData
           ? _value._questionnaireData
-          : questionnaireData,
+          : questionnaireData as Map<String, dynamic>,
       mode: freezed == mode
           ? _value.mode
-          : mode,
+          : mode as String?,
     ));
   }
 }
@@ -243,31 +243,31 @@ class _$GoalCreationResultCopyWithImpl<$Res, $Val extends GoalCreationResult>
     return _then(_value.copyWith(
       goalId: null == goalId
           ? _value.goalId
-          : goalId,
+          : goalId as String,
       goalType: null == goalType
           ? _value.goalType
-          : goalType,
+          : goalType as String,
       goalName: null == goalName
           ? _value.goalName
-          : goalName,
+          : goalName as String,
       targetAmount: null == targetAmount
           ? _value.targetAmount
-          : targetAmount,
+          : targetAmount as double,
       targetDate: null == targetDate
           ? _value.targetDate
-          : targetDate,
+          : targetDate as DateTime,
       description: freezed == description
           ? _value.description
-          : description,
+          : description as String?,
       insights: null == insights
           ? _value.insights
           : insights as Map<String, dynamic>,
       keyInsights: freezed == keyInsights
           ? _value.keyInsights
-          : keyInsights,
+          : keyInsights as List<String>?,
       nextSteps: freezed == nextSteps
           ? _value.nextSteps
-          : nextSteps,
+          : nextSteps as List<String>?,
     ) as $Val);
   }
 }
@@ -316,31 +316,31 @@ class __$$GoalCreationResultImplCopyWithImpl<$Res>
     return _then(_$GoalCreationResultImpl(
       goalId: null == goalId
           ? _value.goalId
-          : goalId,
+          : goalId as String,
       goalType: null == goalType
           ? _value.goalType
-          : goalType,
+          : goalType as String,
       goalName: null == goalName
           ? _value.goalName
-          : goalName,
+          : goalName as String,
       targetAmount: null == targetAmount
           ? _value.targetAmount
-          : targetAmount,
+          : targetAmount as double,
       targetDate: null == targetDate
           ? _value.targetDate
-          : targetDate,
+          : targetDate as DateTime,
       description: freezed == description
           ? _value.description
-          : description,
+          : description as String?,
       insights: null == insights
           ? _value._insights
           : insights as Map<String, dynamic>,
       keyInsights: freezed == keyInsights
           ? _value._keyInsights
-          : keyInsights,
+          : keyInsights as List<String>?,
       nextSteps: freezed == nextSteps
           ? _value._nextSteps
-          : nextSteps,
+          : nextSteps as List<String>?,
     ));
   }
 }
@@ -561,25 +561,25 @@ class _$FinancialHealthProfileRequestCopyWithImpl<$Res,
     return _then(_value.copyWith(
       monthlyIncome: null == monthlyIncome
           ? _value.monthlyIncome
-          : monthlyIncome,
+          : monthlyIncome as double,
       monthlyExpenses: null == monthlyExpenses
           ? _value.monthlyExpenses
-          : monthlyExpenses,
+          : monthlyExpenses as double,
       currentSavings: null == currentSavings
           ? _value.currentSavings
-          : currentSavings,
+          : currentSavings as double,
       existingDebts: null == existingDebts
           ? _value.existingDebts
-          : existingDebts,
+          : existingDebts as double,
       riskTolerance: null == riskTolerance
           ? _value.riskTolerance
-          : riskTolerance,
+          : riskTolerance as String,
       savingHorizon: null == savingHorizon
           ? _value.savingHorizon
-          : savingHorizon,
+          : savingHorizon as int,
       additionalData: freezed == additionalData
           ? _value.additionalData
-          : additionalData,
+          : additionalData as Map<String, dynamic>?,
     ) as $Val);
   }
 }
@@ -627,25 +627,25 @@ class __$$FinancialHealthProfileRequestImplCopyWithImpl<$Res>
     return _then(_$FinancialHealthProfileRequestImpl(
       monthlyIncome: null == monthlyIncome
           ? _value.monthlyIncome
-          : monthlyIncome,
+          : monthlyIncome as double,
       monthlyExpenses: null == monthlyExpenses
           ? _value.monthlyExpenses
-          : monthlyExpenses,
+          : monthlyExpenses as double,
       currentSavings: null == currentSavings
           ? _value.currentSavings
-          : currentSavings,
+          : currentSavings as double,
       existingDebts: null == existingDebts
           ? _value.existingDebts
-          : existingDebts,
+          : existingDebts as double,
       riskTolerance: null == riskTolerance
           ? _value.riskTolerance
-          : riskTolerance,
+          : riskTolerance as String,
       savingHorizon: null == savingHorizon
           ? _value.savingHorizon
-          : savingHorizon,
+          : savingHorizon as int,
       additionalData: freezed == additionalData
           ? _value._additionalData
-          : additionalData,
+          : additionalData as Map<String, dynamic>?,
     ));
   }
 }
@@ -826,13 +826,13 @@ class _$FinancialHealthProfileResponseCopyWithImpl<$Res,
     return _then(_value.copyWith(
       success: null == success
           ? _value.success
-          : success,
+          : success as bool,
       profileId: null == profileId
           ? _value.profileId
-          : profileId,
+          : profileId as String,
       message: freezed == message
           ? _value.message
-          : message,
+          : message as String?,
     ) as $Val);
   }
 }
@@ -869,13 +869,13 @@ class __$$FinancialHealthProfileResponseImplCopyWithImpl<$Res>
     return _then(_$FinancialHealthProfileResponseImpl(
       success: null == success
           ? _value.success
-          : success,
+          : success as bool,
       profileId: null == profileId
           ? _value.profileId
-          : profileId,
+          : profileId as String,
       message: freezed == message
           ? _value.message
-          : message,
+          : message as String?,
     ));
   }
 }

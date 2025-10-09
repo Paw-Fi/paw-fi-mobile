@@ -59,13 +59,13 @@ class _$OnboardingCoachRequestCopyWithImpl<$Res,
     return _then(_value.copyWith(
       message: null == message
           ? _value.message
-          : message,
+          : message as String,
       isFirstMessage: null == isFirstMessage
           ? _value.isFirstMessage
-          : isFirstMessage,
+          : isFirstMessage as bool,
       withWelcomeAndResponse: null == withWelcomeAndResponse
           ? _value.withWelcomeAndResponse
-          : withWelcomeAndResponse,
+          : withWelcomeAndResponse as bool,
     ) as $Val);
   }
 }
@@ -102,13 +102,13 @@ class __$$OnboardingCoachRequestImplCopyWithImpl<$Res>
     return _then(_$OnboardingCoachRequestImpl(
       message: null == message
           ? _value.message
-          : message,
+          : message as String,
       isFirstMessage: null == isFirstMessage
           ? _value.isFirstMessage
-          : isFirstMessage,
+          : isFirstMessage as bool,
       withWelcomeAndResponse: null == withWelcomeAndResponse
           ? _value.withWelcomeAndResponse
-          : withWelcomeAndResponse,
+          : withWelcomeAndResponse as bool,
     ));
   }
 }
@@ -234,10 +234,10 @@ class _$OnboardingCoachResponseCopyWithImpl<$Res,
     return _then(_value.copyWith(
       response: null == response
           ? _value.response
-          : response,
+          : response as String,
       conversationId: freezed == conversationId
           ? _value.conversationId
-          : conversationId,
+          : conversationId as String?,
     ) as $Val);
   }
 }
@@ -273,10 +273,10 @@ class __$$OnboardingCoachResponseImplCopyWithImpl<$Res>
     return _then(_$OnboardingCoachResponseImpl(
       response: null == response
           ? _value.response
-          : response,
+          : response as String,
       conversationId: freezed == conversationId
           ? _value.conversationId
-          : conversationId,
+          : conversationId as String?,
     ));
   }
 }
@@ -391,13 +391,13 @@ class _$ChatMessageCopyWithImpl<$Res, $Val extends ChatMessage>
     return _then(_value.copyWith(
       content: null == content
           ? _value.content
-          : content,
+          : content as String,
       isUser: null == isUser
           ? _value.isUser
-          : isUser,
+          : isUser as bool,
       timestamp: null == timestamp
           ? _value.timestamp
-          : timestamp,
+          : timestamp as DateTime,
     ) as $Val);
   }
 }
@@ -431,13 +431,13 @@ class __$$ChatMessageImplCopyWithImpl<$Res>
     return _then(_$ChatMessageImpl(
       content: null == content
           ? _value.content
-          : content,
+          : content as String,
       isUser: null == isUser
           ? _value.isUser
-          : isUser,
+          : isUser as bool,
       timestamp: null == timestamp
           ? _value.timestamp
-          : timestamp,
+          : timestamp as DateTime,
     ));
   }
 }

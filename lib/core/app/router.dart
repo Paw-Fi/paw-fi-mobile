@@ -8,7 +8,7 @@ import 'package:rsupa/features/auth/presentation/pages/register_screen.dart';
 import 'package:rsupa/features/auth/presentation/pages/auth_callback_screen.dart';
 import 'package:rsupa/features/avatar/presentation/pages/avatar_customizer_screen.dart';
 import 'package:rsupa/features/onboarding/presentation/pages/onboarding_screen.dart';
-import 'package:rsupa/features/home/home.dart';
+import 'package:rsupa/core/navigation/main_shell.dart';
 
 import '../ui/pages/error_page.dart';
 
@@ -29,7 +29,7 @@ GoRouter router(RouterRef ref) {
       ),
       GoRoute(
         path: '/dashboard',
-        builder: (context, state) => const HomePage(),
+        builder: (context, state) => const MainShell(),
       ),
 
       // Auth Routes
