@@ -3,6 +3,11 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:rsupa/features/auth/auth.dart';
+import 'package:rsupa/features/auth/presentation/pages/login_screen.dart';
+import 'package:rsupa/features/auth/presentation/pages/register_screen.dart';
+import 'package:rsupa/features/auth/presentation/pages/auth_callback_screen.dart';
+import 'package:rsupa/features/avatar/presentation/pages/avatar_customizer_screen.dart';
+import 'package:rsupa/features/onboarding/presentation/pages/onboarding_screen.dart';
 import 'package:rsupa/features/home/home.dart';
 
 import '../ui/pages/error_page.dart';
@@ -17,31 +22,75 @@ GoRouter router(RouterRef ref) {
     initialLocation: '/login',
     refreshListenable: RouterNotifier(ref),
     routes: [
+      // Home/Dashboard Route
       GoRoute(
         path: '/',
-        builder: (context, state) => const HomePage(),
+        redirect: (context, state) => '/dashboard',
       ),
       GoRoute(
+        path: '/dashboard',
+        builder: (context, state) => const HomePage(),
+      ),
+
+      // Auth Routes
+      GoRoute(
         path: '/login',
-        builder: (context, state) => const LoginPage(),
+        builder: (context, state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: '/register',
+        builder: (context, state) => const RegisterScreen(),
+      ),
+      GoRoute(
+        path: '/auth/callback',
+        builder: (context, state) {
+          final next = state.uri.queryParameters['next'];
+          return AuthCallbackScreen(next: next);
+        },
+      ),
+
+      // Onboarding Routes
+      GoRoute(
+        path: '/avatar',
+        builder: (context, state) => const AvatarCustomizerScreen(),
+      ),
+      GoRoute(
+        path: '/onboarding',
+        builder: (context, state) => const OnboardingScreen(),
       ),
     ],
     redirect: (context, state) {
-      /**
-      * Your Redirection Logic Code  Here..........
-      */
       final isAuthenticated = !auth.isEmpty;
-      debugPrint('isAuth $isAuthenticated path ${state.fullPath}');
+      final isOnAuthPage = state.matchedLocation == '/login' ||
+                          state.matchedLocation == '/register' ||
+                          state.matchedLocation.startsWith('/auth/callback');
+      final isOnboardingPage = state.matchedLocation == '/avatar' ||
+                              state.matchedLocation == '/onboarding';
 
-      /// [state.fullPath] will give current  route Path
+      debugPrint('🔐 Auth redirect: isAuth=$isAuthenticated, path=${state.matchedLocation}');
 
-      if (state.fullPath == '/login') {
-        return isAuthenticated ? '/' : '/login';
+      // Allow auth callback to proceed
+      if (state.matchedLocation.startsWith('/auth/callback')) {
+        return null;
       }
 
-      /// null redirects to Initial Location
+      // Allow onboarding pages for both authenticated and unauthenticated users
+      if (isOnboardingPage) {
+        return null;
+      }
 
-      return isAuthenticated ? null : '/login';
+      // If authenticated and on auth page, redirect to dashboard
+      if (isAuthenticated && isOnAuthPage) {
+        return '/dashboard';
+      }
+
+      // If not authenticated and not on auth/onboarding page, redirect to login
+      if (!isAuthenticated && !isOnAuthPage) {
+        return '/login';
+      }
+
+      // Allow navigation
+      return null;
     },
     errorBuilder: (context, state) => ErrorPage(state.error),
   );

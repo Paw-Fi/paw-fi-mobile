@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:rsupa/core/core.dart';
@@ -14,7 +13,6 @@ class LoginPage extends HookConsumerWidget {
     final passwordController = useTextEditingController(text: '');
     final login = useState<Future<void>?>(null);
     final loginSnap = useFuture(login.value);
-    final auth = ref.watch(authProvider);
 
     return Scaffold(
       body: Padding(
@@ -43,7 +41,7 @@ class LoginPage extends HookConsumerWidget {
               onPressed: loginSnap.isWaiting
                   ? null
                   : () async {
-                      login.value = ref.read(authProvider.notifier).login(
+                      login.value = ref.read(authProvider.notifier).signIn(
                             emailController.text,
                             passwordController.text,
                           );

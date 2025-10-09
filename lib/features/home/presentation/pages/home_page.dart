@@ -11,7 +11,7 @@ class HomePage extends ConsumerWidget {
       body: Center(
         child: ElevatedButton.icon(
           onPressed: () {
-            ref.watch(authProvider.notifier).logout();
+            ref.watch(authProvider.notifier).signOut();
           },
           icon: const Icon(Icons.logout),
           label: const Text('Logout'),
