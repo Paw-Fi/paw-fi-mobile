@@ -17,36 +17,21 @@ class Auth extends _$Auth {
   @override
   AppUser build() {
     initListener();
-
-    return supabase.auth.currentSession == null
-        ? AppUser.empty
-        : AppUser.fromSession(supabase.auth.currentSession!);
+    return AppUser.fromSession(supabase.auth.currentSession);
   }
 
   bool get isLoading => _isLoading;
   bool get isAuthenticated => state.uid.isNotEmpty;
 
   initListener() {
-    _authStateSubscription = supabase.auth.onAuthStateChange.listen((data) {
+    _authStateSubscription = supabase.auth.onAuthStateChange.listen((data) async {
       state = AppUser.fromSession(data.session);
 
-      // Update last login and migrate guest data on sign in
-      if (data.event == AuthChangeEvent.signedIn && data.session?.user != null) {
-        _updateLastLogin(data.session!.user.id);
+      // Migrate guest data on sign in
+      if (data.event == AuthChangeEvent.signedIn && data.session != null) {
         _migrateGuestData(data.session!.user.id);
       }
     });
-  }
-
-  Future<void> _updateLastLogin(String userId) async {
-    try {
-      await supabase
-          .from('users')
-          .update({'last_login': DateTime.now().toIso8601String()})
-          .eq('id', userId);
-    } catch (error) {
-      print('Error updating last login: $error');
-    }
   }
 
   /// Migrate guest goals and profiles to authenticated user

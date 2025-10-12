@@ -8,6 +8,8 @@ import 'package:rsupa/features/auth/presentation/pages/register_screen.dart';
 import 'package:rsupa/features/auth/presentation/pages/auth_callback_screen.dart';
 import 'package:rsupa/features/avatar/presentation/pages/avatar_customizer_screen.dart';
 import 'package:rsupa/features/onboarding/presentation/pages/onboarding_screen.dart';
+import 'package:rsupa/features/subscription/presentation/pages/paywall_screen.dart';
+import 'package:rsupa/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:rsupa/core/navigation/main_shell.dart';
 
 import '../ui/pages/error_page.dart';
@@ -17,6 +19,10 @@ part 'router.g.dart';
 @riverpod
 GoRouter router(RouterRef ref) {
   final auth = ref.watch(authProvider);
+  final hasSubscription = ref.watch(hasActiveSubscriptionProvider);
+
+  // Keep subscription provider alive
+  ref.watch(subscriptionNotifierProvider);
 
   return GoRouter(
     initialLocation: '/login',
@@ -49,6 +55,12 @@ GoRouter router(RouterRef ref) {
         },
       ),
 
+      // Subscription Routes
+      GoRoute(
+        path: '/paywall',
+        builder: (context, state) => const PaywallScreen(),
+      ),
+
       // Onboarding Routes
       GoRoute(
         path: '/avatar',
@@ -66,8 +78,9 @@ GoRouter router(RouterRef ref) {
                           state.matchedLocation.startsWith('/auth/callback');
       final isOnboardingPage = state.matchedLocation == '/avatar' ||
                               state.matchedLocation == '/onboarding';
+      final isOnPaywallPage = state.matchedLocation == '/paywall';
 
-      debugPrint('🔐 Auth redirect: isAuth=$isAuthenticated, path=${state.matchedLocation}');
+      debugPrint('🔐 Auth redirect: isAuth=$isAuthenticated, hasSub=$hasSubscription, path=${state.matchedLocation}');
 
       // Allow auth callback to proceed
       if (state.matchedLocation.startsWith('/auth/callback')) {
@@ -79,14 +92,28 @@ GoRouter router(RouterRef ref) {
         return null;
       }
 
-      // If authenticated and on auth page, redirect to dashboard
-      if (isAuthenticated && isOnAuthPage) {
-        return '/dashboard';
+      // Allow paywall page for authenticated users
+      if (isOnPaywallPage && isAuthenticated) {
+        return null;
       }
 
       // If not authenticated and not on auth/onboarding page, redirect to login
       if (!isAuthenticated && !isOnAuthPage) {
         return '/login';
+      }
+
+      // If authenticated and on auth page, check subscription then redirect
+      if (isAuthenticated && isOnAuthPage) {
+        // Check subscription status
+        if (!hasSubscription) {
+          return '/paywall';
+        }
+        return '/dashboard';
+      }
+
+      // If authenticated but no subscription and trying to access protected pages
+      if (isAuthenticated && !hasSubscription && !isOnPaywallPage) {
+        return '/paywall';
       }
 
       // Allow navigation
@@ -100,6 +127,7 @@ class RouterNotifier extends ChangeNotifier {
   final Ref _ref;
 
   RouterNotifier(this._ref) {
+    // Listen to auth changes which triggers router rebuild
     _ref.listen<AppUser>(
       authProvider,
       (_, __) => notifyListeners(),

@@ -4,6 +4,8 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:rsupa/features/auth/presentation/states/auth.dart';
 import 'package:rsupa/core/theme/app_theme.dart';
+import 'package:rsupa/features/profile/data/providers/whatsapp_binding_provider.dart';
+import 'package:rsupa/features/profile/presentation/widgets/whatsapp_tutorial_modal.dart';
 
 class ProfilePage extends HookConsumerWidget {
   const ProfilePage({super.key});
@@ -27,9 +29,12 @@ class ProfilePage extends HookConsumerWidget {
                 const shadcnui.Gap(40),
                 _buildProfileHeader(context, user),
                 const shadcnui.Gap(32),
-                _buildNavigationTabs(context, selectedTab),
-                const shadcnui.Gap(32),
-                _buildTabContent(context, selectedTab.value, user, ref),
+                _buildWhatsAppBindingCard(context, ref),
+                const shadcnui.Gap(24),
+                _buildActionButtons(ref)
+                // _buildNavigationTabs(context, selectedTab),
+                // const shadcnui.Gap(32),
+                // _buildTabContent(context, selectedTab.value, user, ref),
               ],
             ),
           ),
@@ -73,11 +78,40 @@ class ProfilePage extends HookConsumerWidget {
     final colorScheme = shadcnui.Theme.of(context).colorScheme;
     return Column(
       children: [
-        shadcnui.Avatar(
-          initials: user.displayName?.substring(0, 2).toUpperCase() ??
-                    user.email.substring(0, 2).toUpperCase(),
-          size: 96,
-          backgroundColor: colorScheme.primary,
+        SizedBox(
+          width: 96,
+          height: 96,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Container(
+                width: 96,
+                height: 96,
+                decoration: BoxDecoration(
+                  color: colorScheme.primary,
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  (user.displayName?.substring(0, 2).toUpperCase() ?? user.email.substring(0, 2).toUpperCase()),
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.primaryForeground,
+                  ),
+                ),
+              ),
+              if (user.photoUrl != null)
+                ClipOval(
+                  child: Image.network(
+                    user.photoUrl!,
+                    width: 96,
+                    height: 96,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+            ],
+          ),
         ),
         const shadcnui.Gap(20),
         Text(
@@ -264,6 +298,216 @@ class ProfilePage extends HookConsumerWidget {
     );
   }
 
+
+  // WhatsApp binding card
+  Widget _buildWhatsAppBindingCard(BuildContext context, WidgetRef ref) {
+    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final whatsappBinding = ref.watch(whatsAppBindingProvider);
+
+    return whatsappBinding.when(
+      data: (isBound) {
+        if (isBound) {
+          // Success state - show connected
+          return Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: colorScheme.card,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFF25D366).withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF25D366).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.check_circle,
+                    color: Color(0xFF25D366),
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'WhatsApp Connected',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.foreground,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Log expenses via WhatsApp messages',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: colorScheme.mutedForeground,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right,
+                  color: colorScheme.mutedForeground,
+                ),
+              ],
+            ),
+          );
+        }
+
+        // CTA state - not bound yet
+        return GestureDetector(
+          onTap: () async {
+            final result = await showDialog<bool>(
+              context: context,
+              builder: (context) => const WhatsAppTutorialModal(),
+            );
+            if (result == true) {
+              ref.invalidate(whatsAppBindingProvider);
+            }
+          },
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFF25D366).withOpacity(0.1),
+                  const Color(0xFF128C7E).withOpacity(0.05),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: const Color(0xFF25D366).withOpacity(0.3),
+                width: 2,
+              ),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                   
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                'Connect WhatsApp',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: colorScheme.foreground,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF25D366),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Text(
+                                  'NEW',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Log expenses instantly via chat',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: colorScheme.mutedForeground,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_forward,
+                      color: colorScheme.foreground,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildBenefitIcon(
+                      context,
+                      Icons.flash_on,
+                      'Fast',
+                    ),
+                    _buildBenefitIcon(
+                      context,
+                      Icons.mic,
+                      'Voice',
+                    ),
+                    _buildBenefitIcon(
+                      context,
+                      Icons.sync,
+                      'Auto-sync',
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+      loading: () => Container(
+        height: 120,
+        decoration: BoxDecoration(
+          color: colorScheme.card,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      ),
+      error: (error, stack) => const SizedBox.shrink(),
+    );
+  }
+
+  Widget _buildBenefitIcon(BuildContext context, IconData icon, String label) {
+    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    return Column(
+      children: [
+        Icon(
+          icon,
+          color: const Color(0xFF25D366),
+          size: 24,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: colorScheme.mutedForeground,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
 
   Widget _buildActionButtons(WidgetRef ref) {
     return Column(

@@ -12,7 +12,7 @@ part of 'app_user.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#custom-getters-and-methods');
+    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
 
 AppUser _$AppUserFromJson(Map<String, dynamic> json) {
   return _AppUser.fromJson(json);
@@ -43,9 +43,7 @@ class _$AppUserCopyWithImpl<$Res, $Val extends AppUser>
     implements $AppUserCopyWith<$Res> {
   _$AppUserCopyWithImpl(this._value, this._then);
 
-  // ignore: unused_field
   final $Val _value;
-  // ignore: unused_field
   final $Res Function($Val) _then;
 
   @pragma('vm:prefer-inline')
@@ -59,20 +57,16 @@ class _$AppUserCopyWithImpl<$Res, $Val extends AppUser>
     return _then(_value.copyWith(
       uid: null == uid
           ? _value.uid
-          : uid // ignore: cast_nullable_to_non_nullable
-              as String,
+          : uid as String,
       email: null == email
           ? _value.email
-          : email // ignore: cast_nullable_to_non_nullable
-              as String,
+          : email as String,
       displayName: freezed == displayName
           ? _value.displayName
-          : displayName // ignore: cast_nullable_to_non_nullable
-              as String?,
+          : displayName as String?,
       photoUrl: freezed == photoUrl
           ? _value.photoUrl
-          : photoUrl // ignore: cast_nullable_to_non_nullable
-              as String?,
+          : photoUrl as String?,
     ) as $Val);
   }
 }
@@ -106,20 +100,16 @@ class __$$AppUserImplCopyWithImpl<$Res>
     return _then(_$AppUserImpl(
       uid: null == uid
           ? _value.uid
-          : uid // ignore: cast_nullable_to_non_nullable
-              as String,
+          : uid as String,
       email: null == email
           ? _value.email
-          : email // ignore: cast_nullable_to_non_nullable
-              as String,
+          : email as String,
       displayName: freezed == displayName
           ? _value.displayName
-          : displayName // ignore: cast_nullable_to_non_nullable
-              as String?,
+          : displayName as String?,
       photoUrl: freezed == photoUrl
           ? _value.photoUrl
-          : photoUrl // ignore: cast_nullable_to_non_nullable
-              as String?,
+          : photoUrl as String?,
     ));
   }
 }
@@ -200,7 +190,8 @@ abstract class _AppUser implements AppUser {
       final String? displayName,
       final String? photoUrl}) = _$AppUserImpl;
 
-  factory _AppUser.fromJson(Map<String, dynamic> json) = _$AppUserImpl.fromJson;
+  factory _AppUser.fromJson(Map<String, dynamic> json) =
+      _$AppUserImpl.fromJson;
 
   @override
   String get uid;

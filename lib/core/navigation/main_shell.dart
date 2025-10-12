@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:rsupa/features/home/presentation/pages/home_page.dart';
+import 'package:rsupa/features/home/presentation/pages/transactions_page.dart';
+import 'package:rsupa/features/insights/presentation/pages/insights_page.dart';
 import 'package:rsupa/features/profile/presentation/pages/profile_page.dart';
+import 'package:rsupa/features/reminders/presentation/pages/reminder_page.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
 /// Main navigation shell with bottom navigation bar
@@ -16,6 +19,8 @@ class MainShell extends HookConsumerWidget {
 
     final pages = [
       const HomePage(),
+      const ReminderPage(),
+      const AnalyticsPage(),
       const ProfilePage(),
     ];
 
@@ -43,10 +48,22 @@ class MainShell extends HookConsumerWidget {
                 onTap: () => currentIndex.value = 0,
               ),
               _NavButton(
-                icon: currentIndex.value == 1 ? Icons.person : Icons.person_outline,
-                label: 'Profile',
+                icon: currentIndex.value == 1 ? Icons.calendar_today : Icons.calendar_today_outlined,
+                label: 'Reminder',
                 isSelected: currentIndex.value == 1,
                 onTap: () => currentIndex.value = 1,
+              ),
+              _NavButton(
+                icon: currentIndex.value == 2 ? Icons.analytics : Icons.analytics_outlined,
+                label: 'Analytics',
+                isSelected: currentIndex.value == 2,
+                onTap: () => currentIndex.value = 2,
+              ),
+              _NavButton(
+                icon: currentIndex.value == 3 ? Icons.person : Icons.person_outline,
+                label: 'Profile',
+                isSelected: currentIndex.value == 3,
+                onTap: () => currentIndex.value = 3,
               ),
             ],
           ),
@@ -73,34 +90,38 @@ class _NavButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = shadcnui.Theme.of(context).colorScheme;
     
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? colorScheme.primary.withOpacity(0.1)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              color: isSelected ? colorScheme.primary : colorScheme.mutedForeground,
-              size: 24,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? colorScheme.primary.withOpacity(0.1)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
                 color: isSelected ? colorScheme.primary : colorScheme.mutedForeground,
+                size: 22,
               ),
-            ),
-          ],
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  color: isSelected ? colorScheme.primary : colorScheme.mutedForeground,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
         ),
       ),
     );

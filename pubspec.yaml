@@ -1,5 +1,5 @@
-name: rsupa
-description: A new Flutter project.
+name: moneko
+description: AI Personal Finance Coach & Budgeting App
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -30,7 +30,7 @@ environment:
 dependencies:
   cupertino_icons: ^1.0.2
   dio: ^5.4.0
-  fl_chart: ^1.1.0
+  fl_chart: ^0.69.0
   flutter:
     sdk: flutter
   flutter_dotenv: ^5.1.0
@@ -46,6 +46,14 @@ dependencies:
   shadcn_flutter: ^0.0.36
   shared_preferences: ^2.2.2
   supabase_flutter: ^2.10.3
+  url_launcher: ^6.2.2
+  vector_math: ^2.1.4
+  image_picker: ^1.0.7
+  camera: ^0.10.5+9
+  path_provider: ^2.1.2
+  permission_handler: ^11.3.0
+  markdown: ^7.3.0
+  flutter_html: ^3.0.0
 
 dev_dependencies:
   build_runner: ^2.4.12
@@ -64,6 +72,7 @@ dev_dependencies:
   retrofit_generator: ^8.0.6
   riverpod_generator: ^2.3.9
   riverpod_lint: ^2.3.7
+  flutter_launcher_icons: ^0.13.1
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -76,6 +85,8 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - .env
+    - lib/assets/images/whatsapp/receipt.png
+    - lib/assets/images/whatsapp/text.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware
@@ -100,3 +111,11 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/custom-fonts/#from-packages
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path_android: "lib/assets/images/logo192.png"
+  image_path_ios: "lib/assets/images/logo192.png"
+  remove_alpha_ios: true
+
