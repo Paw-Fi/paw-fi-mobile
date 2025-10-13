@@ -5,7 +5,8 @@ import 'package:moneko/features/auth/auth.dart';
 part 'whatsapp_binding_provider.g.dart';
 
 /// Provider to check if user has bound their WhatsApp account
-@riverpod
+/// Keep alive to cache the binding status across navigation
+@Riverpod(keepAlive: true)
 class WhatsAppBinding extends _$WhatsAppBinding {
   @override
   Future<bool> build() async {
@@ -54,5 +55,10 @@ class WhatsAppBinding extends _$WhatsAppBinding {
       print('Error fetching WhatsApp contact: $error');
       return null;
     }
+  }
+  
+  /// Clear cached state (useful on logout)
+  void clear() {
+    state = const AsyncValue.data(false);
   }
 }

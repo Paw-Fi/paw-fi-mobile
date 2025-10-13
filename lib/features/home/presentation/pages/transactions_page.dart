@@ -45,7 +45,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     DateTime startDate;
     switch (selectedPeriod) {
       case '1W':
-        startDate = now.subtract(const Duration(days: 7));
+        startDate = DateTime(now.year, now.month, now.day - 7);
         break;
       case '1M':
         startDate = DateTime(now.year, now.month - 1, now.day);
@@ -59,7 +59,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       default:
         startDate = DateTime(now.year, now.month - 1, now.day);
     }
-    expenses = expenses.where((e) => e.date.isAfter(startDate)).toList();
+    
+    // Filter expenses that are on or after the start date
+    expenses = expenses.where((e) => !e.date.isBefore(startDate)).toList();
 
     // Filter by search query
     if (searchQuery.isNotEmpty) {

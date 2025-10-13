@@ -51,3 +51,15 @@ bool hasActiveSubscription(HasActiveSubscriptionRef ref) {
     orElse: () => false,
   );
 }
+
+// Helper provider to check subscription loading state
+// Returns true if subscription check is complete (loaded or error)
+@riverpod
+bool isSubscriptionLoaded(IsSubscriptionLoadedRef ref) {
+  final subscriptionAsync = ref.watch(subscriptionNotifierProvider);
+  return subscriptionAsync.maybeWhen(
+    data: (_) => true,
+    error: (_, __) => true,
+    orElse: () => false,
+  );
+}

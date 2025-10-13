@@ -206,4 +206,9 @@ class ExpenseProcessingNotifier extends StateNotifier<ProcessingState> {
   void clearMessage() {
     state = state.copyWith(clearMessage: true);
   }
+
+  /// Clear all processing state (on logout)
+  void clear() {
+    state = ProcessingState();
+  }
 }

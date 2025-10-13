@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -11,6 +12,8 @@ import 'package:moneko/features/onboarding/presentation/pages/onboarding_screen.
 import 'package:moneko/features/subscription/presentation/pages/paywall_screen.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/core/navigation/main_shell.dart';
+import 'package:moneko/core/app/app_initialization_provider.dart';
+import 'package:moneko/core/ui/pages/splash_screen.dart';
 
 import '../ui/pages/error_page.dart';
 
@@ -20,14 +23,22 @@ part 'router.g.dart';
 GoRouter router(RouterRef ref) {
   final auth = ref.watch(authProvider);
   final hasSubscription = ref.watch(hasActiveSubscriptionProvider);
+  final isSubscriptionLoaded = ref.watch(isSubscriptionLoadedProvider);
+  final appInitState = ref.watch(appInitializationProvider);
 
   // Keep subscription provider alive
   ref.watch(subscriptionNotifierProvider);
 
   return GoRouter(
-    initialLocation: '/login',
+    initialLocation: '/splash',
     refreshListenable: RouterNotifier(ref),
     routes: [
+      // Splash Screen Route
+      GoRoute(
+        path: '/splash',
+        builder: (context, state) => const SplashScreen(),
+      ),
+
       // Home/Dashboard Route
       GoRoute(
         path: '/',
@@ -73,6 +84,7 @@ GoRouter router(RouterRef ref) {
     ],
     redirect: (context, state) {
       final isAuthenticated = !auth.isEmpty;
+      final isOnSplashPage = state.matchedLocation == '/splash';
       final isOnAuthPage = state.matchedLocation == '/login' ||
                           state.matchedLocation == '/register' ||
                           state.matchedLocation.startsWith('/auth/callback');
@@ -80,7 +92,36 @@ GoRouter router(RouterRef ref) {
                               state.matchedLocation == '/onboarding';
       final isOnPaywallPage = state.matchedLocation == '/paywall';
 
-      debugPrint('🔐 Auth redirect: isAuth=$isAuthenticated, hasSub=$hasSubscription, path=${state.matchedLocation}');
+      if (kDebugMode) {
+        debugPrint('🔐 Auth redirect: init=$appInitState, isAuth=$isAuthenticated, hasSub=$hasSubscription, loaded=$isSubscriptionLoaded, path=${state.matchedLocation}');
+      }
+
+      // If app is still initializing, stay on splash screen
+      if (appInitState != AppInitState.initialized) {
+        if (!isOnSplashPage) {
+          return '/splash';
+        }
+        return null;
+      }
+
+      // App is initialized, proceed with normal routing
+      
+      // Don't redirect if already leaving splash
+      if (isOnSplashPage) {
+        // Redirect from splash to appropriate page
+        if (isAuthenticated) {
+          if (!isSubscriptionLoaded) {
+            // Wait for subscription to load
+            return null;
+          }
+          if (!hasSubscription) {
+            return '/paywall';
+          }
+          return '/dashboard';
+        } else {
+          return '/login';
+        }
+      }
 
       // Allow auth callback to proceed
       if (state.matchedLocation.startsWith('/auth/callback')) {
@@ -104,6 +145,10 @@ GoRouter router(RouterRef ref) {
 
       // If authenticated and on auth page, check subscription then redirect
       if (isAuthenticated && isOnAuthPage) {
+        // If subscription is still loading, allow navigation (don't redirect yet)
+        if (!isSubscriptionLoaded) {
+          return null;
+        }
         // Check subscription status
         if (!hasSubscription) {
           return '/paywall';
@@ -112,11 +157,12 @@ GoRouter router(RouterRef ref) {
       }
 
       // If authenticated but no subscription and trying to access protected pages
-      if (isAuthenticated && !hasSubscription && !isOnPaywallPage) {
+      // Only redirect to paywall if subscription is confirmed loaded
+      if (isAuthenticated && isSubscriptionLoaded && !hasSubscription && !isOnPaywallPage) {
         return '/paywall';
       }
 
-      // Allow navigation
+      // Allow navigation (includes when subscription is loading)
       return null;
     },
     errorBuilder: (context, state) => ErrorPage(state.error),
@@ -130,6 +176,31 @@ class RouterNotifier extends ChangeNotifier {
     // Listen to auth changes which triggers router rebuild
     _ref.listen<AppUser>(
       authProvider,
+      (previous, next) {
+        notifyListeners();
+        // Reset initialization when auth changes
+        if (previous?.uid != next.uid) {
+          if (kDebugMode) {
+            debugPrint('🔄 Auth changed: ${previous?.uid} -> ${next.uid}');
+          }
+          
+          // If logging out (going from authenticated to not authenticated)
+          if (previous != null && !previous.isEmpty && next.isEmpty) {
+            if (kDebugMode) {
+              debugPrint('👋 User logged out, clearing cache');
+            }
+            _ref.read(appInitializationProvider.notifier).clearCache();
+          }
+          
+          // Reset initialization for both login and logout
+          _ref.read(appInitializationProvider.notifier).reset();
+        }
+      },
+    );
+    
+    // Listen to app initialization state changes
+    _ref.listen<AppInitState>(
+      appInitializationProvider,
       (_, __) => notifyListeners(),
     );
   }

@@ -134,4 +134,9 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
         return {'from': from, 'to': today};
     }
   }
+
+  /// Clear all user data (on logout)
+  void clear() {
+    state = AnalyticsData();
+  }
 }

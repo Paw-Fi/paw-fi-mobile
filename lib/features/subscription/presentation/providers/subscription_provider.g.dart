@@ -41,5 +41,23 @@ final hasActiveSubscriptionProvider = AutoDisposeProvider<bool>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef HasActiveSubscriptionRef = AutoDisposeProviderRef<bool>;
+String _$isSubscriptionLoadedHash() =>
+    r'1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d';
+
+/// See also [isSubscriptionLoaded].
+@ProviderFor(isSubscriptionLoaded)
+final isSubscriptionLoadedProvider = AutoDisposeProvider<bool>.internal(
+  isSubscriptionLoaded,
+  name: r'isSubscriptionLoadedProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$isSubscriptionLoadedHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef IsSubscriptionLoadedRef = AutoDisposeProviderRef<bool>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package

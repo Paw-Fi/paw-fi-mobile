@@ -1,13 +1,8 @@
-import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
-import 'package:moneko/core/core.dart';
 import 'package:moneko/features/auth/auth.dart';
-import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
@@ -55,20 +50,17 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   Future<void> _handleCameraCapture() async {
-    // Request camera permission
-    final cameraStatus = await Permission.camera.request();
-    if (!cameraStatus.isGranted) {
-      if (mounted) {
-        _showToast('Camera permission is required');
-      }
-      return;
-    }
-
+    debugPrint('🎥 Starting camera capture...');
+    
     try {
+      // On iOS, image_picker handles permissions internally
+      // Just try to open the camera directly
       final XFile? photo = await _imagePicker.pickImage(
         source: ImageSource.camera,
         imageQuality: 85,
       );
+
+      debugPrint('🎥 Photo captured: ${photo != null}');
 
       if (photo != null && mounted) {
         final user = ref.read(authProvider);
@@ -79,36 +71,50 @@ class _HomePageState extends ConsumerState<HomePage> {
           return;
         }
 
+        // Show processing toast
+        _showProcessingToast('Processing receipt...');
+
         try {
-          print('=== STARTING IMAGE PROCESSING ===');
+          debugPrint('=== STARTING IMAGE PROCESSING ===');
           await ref.read(expenseProcessingProvider.notifier).processImage(
             File(photo.path),
             contact.phoneE164,
           );
-          print('=== IMAGE PROCESSING COMPLETED ===');
+          debugPrint('=== IMAGE PROCESSING COMPLETED ===');
+
+          // Hide processing toast
+          if (mounted) {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          }
 
           // Show success toast with View link
           final processingState = ref.read(expenseProcessingProvider);
-          print('=== PROCESSING STATE: createdExpense is ${processingState.createdExpense != null ? "NOT NULL" : "NULL"} ===');
+          debugPrint('=== PROCESSING STATE: createdExpense is ${processingState.createdExpense != null ? "NOT NULL" : "NULL"} ===');
 
-          if (processingState.createdExpense != null) {
-            print('=== SHOWING SUCCESS TOAST ===');
+          if (processingState.createdExpense != null && mounted) {
+            debugPrint('=== SHOWING SUCCESS TOAST ===');
             _showSuccessToast(processingState.createdExpense!, contact, localImagePath: processingState.localImagePath);
           }
 
           // Refresh analytics data immediately
           final userId = user.uid;
           if (userId.isNotEmpty) {
-            print('=== REFRESHING ANALYTICS DATA FOR USER: $userId ===');
+            debugPrint('=== REFRESHING ANALYTICS DATA FOR USER: $userId ===');
             await ref.read(analyticsProvider.notifier).loadData(userId);
-            print('=== ANALYTICS DATA REFRESH COMPLETED ===');
+            debugPrint('=== ANALYTICS DATA REFRESH COMPLETED ===');
           } else {
-            print('=== ERROR: User ID is null or empty, cannot refresh analytics ===');
+            debugPrint('=== ERROR: User ID is null or empty, cannot refresh analytics ===');
           }
         } catch (e) {
-          print('=== ERROR IN IMAGE PROCESSING: $e ===');
-          // Error is already handled in the notifier
+          debugPrint('=== ERROR IN IMAGE PROCESSING: $e ===');
+          // Hide processing toast
+          if (mounted) {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            _showToast('Failed to process receipt. Please try again.');
+          }
         }
+      } else if (photo == null) {
+        debugPrint('🎥 User cancelled or permission denied');
       }
     } catch (e) {
       if (mounted) {
@@ -137,6 +143,64 @@ class _HomePageState extends ConsumerState<HomePage> {
       SnackBar(
         content: Text(message),
         duration: const Duration(seconds: 3),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _showProcessingToast(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Text(message),
+          ],
+        ),
+        duration: const Duration(minutes: 5), // Long duration, will be dismissed manually
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _showPermissionDeniedToast() {
+    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Camera permission is required. Please enable it in Settings.',
+                style: TextStyle(color: colorScheme.primaryForeground),
+              ),
+            ),
+            GestureDetector(
+              onTap: () {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                openAppSettings();
+              },
+              child: Text(
+                'Settings',
+                style: TextStyle(
+                  color: colorScheme.primaryForeground,
+                  decoration: TextDecoration.underline,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: colorScheme.destructive,
+        duration: const Duration(seconds: 5),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -280,8 +344,6 @@ class _HomePageState extends ConsumerState<HomePage> {
       }
     });
 
-    final processingState = ref.watch(expenseProcessingProvider);
-
     return Scaffold(
       backgroundColor: colorScheme.background,
       body: Stack(
@@ -326,7 +388,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                     color: colorScheme.primary,
                                     borderRadius: BorderRadius.circular(16),
                                   ),
-                                  child: Text(
+                                  child: const Text(
                                     'Single',
                                     style: TextStyle(
                                       fontSize: 13,
@@ -462,13 +524,11 @@ class _HomePageState extends ConsumerState<HomePage> {
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        child: buildCategoryBreakdownCard(colorScheme, analyticsData.expenses, analyticsData.contact),
+                        child: buildCategoryBreakdownCard(context, colorScheme, analyticsData.expenses, analyticsData.contact),
                       ),
                     ),
 
                   const SliverToBoxAdapter(child: SizedBox(height: 16)),
-
-                  // Spending Breakdown Pie Chart
                   if (_getCategorySummaries(analyticsData.expenses).isNotEmpty)
                     SliverToBoxAdapter(
                       child: Padding(
@@ -477,32 +537,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                       ),
                     ),
 
-                  // See All Button
-                  if (_getCategorySummaries(analyticsData.expenses).isNotEmpty)
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
-                        child: Center(
-                          child: TextButton(
-                            onPressed: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) => const TransactionsPage(),
-                                ),
-                              );
-                            },
-                            child: Text(
-                              'See All',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: colorScheme.primary,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
+                 
 
                   const SliverToBoxAdapter(child: SizedBox(height: 24)),
                 ],
