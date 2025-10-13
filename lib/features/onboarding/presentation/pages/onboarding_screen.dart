@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:rsupa/features/auth/auth.dart';
-import 'package:rsupa/features/onboarding/presentation/providers/onboarding_providers.dart';
-import 'package:rsupa/features/onboarding/presentation/widgets/chat_bubble.dart';
-import 'package:rsupa/features/onboarding/presentation/widgets/questionnaire_modal.dart';
-import 'package:rsupa/features/onboarding/presentation/widgets/goal_presentation_modal.dart';
+import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/onboarding/presentation/providers/onboarding_providers.dart';
+import 'package:moneko/features/onboarding/presentation/widgets/chat_bubble.dart';
+import 'package:moneko/features/onboarding/presentation/widgets/questionnaire_modal.dart';
+import 'package:moneko/features/onboarding/presentation/widgets/goal_presentation_modal.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
 class OnboardingScreen extends HookConsumerWidget {

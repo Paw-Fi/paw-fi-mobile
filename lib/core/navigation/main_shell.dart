@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:rsupa/features/home/presentation/pages/home_page.dart';
-import 'package:rsupa/features/home/presentation/pages/transactions_page.dart';
-import 'package:rsupa/features/insights/presentation/pages/insights_page.dart';
-import 'package:rsupa/features/profile/presentation/pages/profile_page.dart';
-import 'package:rsupa/features/reminders/presentation/pages/reminder_page.dart';
+import 'package:moneko/features/home/presentation/pages/home_page.dart';
+import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
+import 'package:moneko/features/insights/presentation/pages/insights_page.dart';
+import 'package:moneko/features/profile/presentation/pages/profile_page.dart';
+import 'package:moneko/features/reminders/presentation/pages/reminder_page.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
 /// Main navigation shell with bottom navigation bar

@@ -5,10 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
-import 'package:rsupa/core/core.dart';
-import 'package:rsupa/features/auth/auth.dart';
-import 'package:rsupa/features/home/presentation/pages/transactions_page.dart';
-import 'package:rsupa/features/home/presentation/widgets/transaction_detail_sheet.dart';
+import 'package:moneko/core/core.dart';
+import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
+import 'package:moneko/features/home/presentation/widgets/transaction_detail_sheet.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -1052,7 +1052,7 @@ class _HomePageState extends ConsumerState<HomePage> {
               ),
               const SizedBox(height: 16),
               Text(
-                'Describe your expense (e.g., "Spent \$25 on lunch")',
+                'Describe your expense (eg: "Spent 25 on lunch")',
                 style: TextStyle(
                   fontSize: 14,
                   color: colorScheme.mutedForeground,
@@ -1391,39 +1391,20 @@ class _HomePageState extends ConsumerState<HomePage> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Start tracking your expenses via WhatsApp to see your analytics here.',
+                    'Start logging your expenses to see your analytics here.',
                     style: TextStyle(
                       fontSize: 16,
                       color: colorScheme.mutedForeground,
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 32),
-                  shadcnui.PrimaryButton(
-                    onPressed: () async {
-                      final url = Uri.parse('https://wa.link/67a9gl');
-                      if (await canLaunchUrl(url)) {
-                        await launchUrl(url, mode: LaunchMode.externalApplication);
-                      }
-                    },
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children:  [
-                        Icon(Icons.chat, size: 20),
-                        SizedBox(width: 8),
-                        Text('Connect WhatsApp'),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  shadcnui.OutlineButton(
-                    onPressed: () => ref.read(analyticsProvider.notifier).refresh(user.uid),
-                    child: const Text('Refresh'),
-                  ),
+                
+                 
                 ],
               ),
             ),
           ),
+          floatingActionButton: _buildExpandableFAB(colorScheme),
         );
       }
     }

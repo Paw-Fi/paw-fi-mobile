@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:rsupa/features/onboarding/data/models/goal_creation_models.dart';
+import 'package:moneko/features/onboarding/data/models/goal_creation_models.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:intl/intl.dart';
 

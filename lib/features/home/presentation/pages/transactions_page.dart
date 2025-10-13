@@ -3,7 +3,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:rsupa/features/auth/presentation/states/auth.dart';
+import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'home_page.dart' show ExpenseEntry, UserContact, getCategoryColor, getCategoryIcon, analyticsProvider;
 import '../widgets/transaction_detail_sheet.dart';
 

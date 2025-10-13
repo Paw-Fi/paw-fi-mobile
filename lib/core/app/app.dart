@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart' hide ThemeMode;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:rsupa/core/app/router.dart';
-import 'package:rsupa/core/theme/app_theme.dart';
+import 'package:moneko/core/app/router.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
 class App extends ConsumerWidget {

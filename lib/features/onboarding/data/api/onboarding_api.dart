@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:retrofit/retrofit.dart';
-import 'package:rsupa/features/onboarding/data/models/onboarding_chat_models.dart';
-import 'package:rsupa/features/onboarding/data/models/goal_creation_models.dart';
+import 'package:moneko/features/onboarding/data/models/onboarding_chat_models.dart';
+import 'package:moneko/features/onboarding/data/models/goal_creation_models.dart';
 
 part 'onboarding_api.g.dart';
 

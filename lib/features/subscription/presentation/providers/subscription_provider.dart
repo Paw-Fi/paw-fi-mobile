@@ -1,7 +1,7 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:rsupa/core/core.dart';
-import 'package:rsupa/features/auth/auth.dart';
+import 'package:moneko/core/core.dart';
+import 'package:moneko/features/auth/auth.dart';
 import '../../data/models/subscription.dart';
 
 part 'subscription_provider.g.dart';

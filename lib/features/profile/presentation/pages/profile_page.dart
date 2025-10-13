@@ -2,10 +2,10 @@ import 'package:flutter/material.dart' hide IconButton, Card, Divider, Switch, C
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
-import 'package:rsupa/features/auth/presentation/states/auth.dart';
-import 'package:rsupa/core/theme/app_theme.dart';
-import 'package:rsupa/features/profile/data/providers/whatsapp_binding_provider.dart';
-import 'package:rsupa/features/profile/presentation/widgets/whatsapp_tutorial_modal.dart';
+import 'package:moneko/features/auth/presentation/states/auth.dart';
+import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/features/profile/data/providers/whatsapp_binding_provider.dart';
+import 'package:moneko/features/profile/presentation/widgets/whatsapp_tutorial_modal.dart';
 
 class ProfilePage extends HookConsumerWidget {
   const ProfilePage({super.key});
@@ -458,8 +458,8 @@ class ProfilePage extends HookConsumerWidget {
                     ),
                     _buildBenefitIcon(
                       context,
-                      Icons.mic,
-                      'Voice',
+                      Icons.receipt,
+                      'Photo',
                     ),
                     _buildBenefitIcon(
                       context,

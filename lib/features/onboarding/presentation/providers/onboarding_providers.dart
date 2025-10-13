@@ -1,10 +1,10 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:rsupa/features/onboarding/data/api/onboarding_api.dart';
-import 'package:rsupa/features/onboarding/data/repositories/onboarding_repository.dart';
-import 'package:rsupa/features/onboarding/data/models/onboarding_chat_models.dart';
-import 'package:rsupa/features/onboarding/data/models/goal_creation_models.dart';
+import 'package:moneko/features/onboarding/data/api/onboarding_api.dart';
+import 'package:moneko/features/onboarding/data/repositories/onboarding_repository.dart';
+import 'package:moneko/features/onboarding/data/models/onboarding_chat_models.dart';
+import 'package:moneko/features/onboarding/data/models/goal_creation_models.dart';
 
 part 'onboarding_providers.g.dart';
 

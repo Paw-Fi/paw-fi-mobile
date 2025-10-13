@@ -2,15 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:rsupa/features/auth/auth.dart';
-import 'package:rsupa/features/auth/presentation/pages/login_screen.dart';
-import 'package:rsupa/features/auth/presentation/pages/register_screen.dart';
-import 'package:rsupa/features/auth/presentation/pages/auth_callback_screen.dart';
-import 'package:rsupa/features/avatar/presentation/pages/avatar_customizer_screen.dart';
-import 'package:rsupa/features/onboarding/presentation/pages/onboarding_screen.dart';
-import 'package:rsupa/features/subscription/presentation/pages/paywall_screen.dart';
-import 'package:rsupa/features/subscription/presentation/providers/subscription_provider.dart';
-import 'package:rsupa/core/navigation/main_shell.dart';
+import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/auth/presentation/pages/login_screen.dart';
+import 'package:moneko/features/auth/presentation/pages/register_screen.dart';
+import 'package:moneko/features/auth/presentation/pages/auth_callback_screen.dart';
+import 'package:moneko/features/avatar/presentation/pages/avatar_customizer_screen.dart';
+import 'package:moneko/features/onboarding/presentation/pages/onboarding_screen.dart';
+import 'package:moneko/features/subscription/presentation/pages/paywall_screen.dart';
+import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
+import 'package:moneko/core/navigation/main_shell.dart';
 
 import '../ui/pages/error_page.dart';
 

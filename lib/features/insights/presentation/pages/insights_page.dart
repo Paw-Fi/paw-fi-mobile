@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
-import 'package:rsupa/features/home/presentation/pages/home_page.dart';
-import 'package:rsupa/core/core.dart';
-import 'package:rsupa/features/auth/auth.dart';
-import 'package:rsupa/core/theme/app_theme.dart';
+import 'package:moneko/features/home/presentation/pages/home_page.dart';
+import 'package:moneko/core/core.dart';
+import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 import '../widgets/scenario_result_sheet.dart';
 
 // ============================================================================

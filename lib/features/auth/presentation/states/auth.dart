@@ -1,9 +1,9 @@
 import 'dart:async';
 
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:rsupa/core/core.dart';
-import 'package:rsupa/features/auth/auth.dart';
-import 'package:rsupa/features/onboarding/data/services/guest_goal_service.dart';
+import 'package:moneko/core/core.dart';
+import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/onboarding/data/services/guest_goal_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 

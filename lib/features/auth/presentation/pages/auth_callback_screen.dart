@@ -3,7 +3,7 @@ import 'package:flutter/material.dart' show Icons;
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:rsupa/core/core.dart';
+import 'package:moneko/core/core.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
 /// OAuth callback handler - matches web's /auth/callback route
