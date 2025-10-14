@@ -16,5 +16,8 @@ initApp() async {
   await Supabase.initialize(
     url: Constants.supabaseUrl,
     anonKey: Constants.supabaseAnon,
+    authOptions: const FlutterAuthClientOptions(
+      authFlowType: AuthFlowType.pkce, // Use PKCE flow for proper OAuth handling
+    ),
   );
 }

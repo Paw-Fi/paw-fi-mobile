@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/constants/deep_links.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:go_router/go_router.dart';
 
@@ -42,8 +43,33 @@ class DeepLinkService {
     debugPrint('🔗 Handling deep link: ${uri.scheme}://${uri.host}${uri.path}');
     debugPrint('🔗 Query parameters: ${uri.queryParameters}');
 
+    // Handle Supabase OAuth callback: io.supabase.moneko://login-callback
+    if (DeepLinks.isOAuthCallback(uri)) {
+      debugPrint('🔐 Supabase OAuth callback received');
+      debugPrint('🔐 Access token: ${uri.fragment.contains('access_token') ? 'Present' : 'Missing'}');
+      
+      // Supabase auth tokens are in the URL fragment (#access_token=...)
+      // Navigate to auth callback screen which will process the session
+      if (context.mounted) {
+        // For new users, redirect to avatar customizer
+        // For existing users, redirect to dashboard
+        // The AuthCallbackScreen will determine this
+        context.go('/auth/callback');
+      }
+      return;
+    }
+    
+    // Legacy OAuth callback support: moneko://auth/callback (kept for backward compatibility)
+    if (DeepLinks.isLegacyOAuthCallback(uri)) {
+      debugPrint('🔐 Legacy OAuth callback received');
+      if (context.mounted) {
+        context.go('/auth/callback');
+      }
+      return;
+    }
+
     // Handle payment callback: moneko://payment?status=success/failed/canceled
-    if (uri.host == 'payment') {
+    if (DeepLinks.isPaymentCallback(uri)) {
       final status = uri.queryParameters['status'];
       debugPrint('💳 Payment callback received with status: $status');
 

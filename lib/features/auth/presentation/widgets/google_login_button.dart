@@ -27,16 +27,29 @@ class GoogleLoginButton extends HookConsumerWidget {
       isLoading.value = true;
 
       try {
-        // Use built-in Supabase OAuth - following web implementation exactly
-        await supabase.auth.signInWithOAuth(
+        debugPrint('🔐 Starting Google OAuth flow...');
+        debugPrint('🔐 Redirect URL: ${DeepLinks.oauthCallback}');
+        
+        // Use Supabase's recommended mobile deep link pattern
+        // Important: Don't add query parameters to redirectTo - handle them in the callback screen
+        final result = await supabase.auth.signInWithOAuth(
           OAuthProvider.google,
-          redirectTo: 'moneko://auth/callback?next=${Uri.encodeComponent(redirectUrl ?? '/dashboard')}',
+          redirectTo: DeepLinks.oauthCallback,
           authScreenLaunchMode: LaunchMode.externalApplication,
         );
 
+        debugPrint('🔐 OAuth initiated: ${result ? "Success" : "Failed"}');
+        
+        // Store the intended redirect location for after auth completes
+        // The DeepLinkService will handle navigation to this route
+        if (redirectUrl != null) {
+          debugPrint('🔐 Will redirect to: $redirectUrl after auth');
+        }
+        
         // OAuth will redirect to browser, then back to app via deep link
         // No need to set loading to false - app will be backgrounded
       } catch (e) {
+        debugPrint('❌ OAuth error: $e');
         error.value = e.toString().replaceAll('Exception: ', '').replaceAll('AuthException: ', '');
         isLoading.value = false;
       }

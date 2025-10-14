@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/core.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -13,46 +15,118 @@ class PaywallScreen extends ConsumerWidget {
     final user = ref.read(authProvider);
     
     if (user.isEmpty) {
-      debugPrint('User not authenticated, cannot proceed to checkout');
+      if (ref.context.mounted) {
+        ScaffoldMessenger.of(ref.context).showSnackBar(
+          const SnackBar(content: Text('Please log in to continue')),
+        );
+      }
       return;
     }
 
-    // Build checkout URL with parameters
-    // The redirectUrl will be used by the web page to redirect back to the app
-    final checkoutUrl = Uri.parse('https://www.moneko.io/checkout').replace(
-      queryParameters: {
-        'userId': user.uid,
-        'source': 'mobile',
-        'plan': 'plus',
-        'billing': 'monthly',
-        // Deep link back to the app after payment
-        // The web page will append status=success/failed/canceled to this URL
-        // Format: moneko://payment?status=success&session_id=xxx
-        'redirectUrl': 'moneko://payment',
-      },
+    if (!ref.context.mounted) return;
+
+    // Show loading modal
+    showDialog(
+      context: ref.context,
+      barrierDismissible: false,
+      barrierColor: Colors.black.withOpacity(0.5),
+      builder: (context) => PopScope(
+        canPop: false,
+        child: Center(
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 32),
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: shadcnui.Theme.of(context).colorScheme.background,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const shadcnui.CircularProgressIndicator(),
+                const SizedBox(height: 24),
+                shadcnui.Text(
+                  'Creating checkout session...',
+                  style: shadcnui.Theme.of(context).typography.large,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                shadcnui.Text(
+                  'Please wait',
+                  style: shadcnui.Theme.of(context).typography.base,
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
 
-    debugPrint('Launching checkout: $checkoutUrl');
-    
-    if (!await launchUrl(checkoutUrl, mode: LaunchMode.externalApplication)) {
-      debugPrint('Could not launch $checkoutUrl');
+    try {
+      final response = await supabase.functions.invoke(
+        'create-checkout-session',
+        body: {
+          'plan': 'plus',
+          'billingInterval': 'monthly',
+          'successUrl': '${DeepLinks.paymentCallback}?status=success&session_id={CHECKOUT_SESSION_ID}',
+          'cancelUrl': '${DeepLinks.paymentCallback}?status=canceled&session_id={CHECKOUT_SESSION_ID}',
+        },
+      );
+
+      if (!ref.context.mounted) return;
+      Navigator.of(ref.context).pop();
+
+      if (response.status != 200) {
+        final errorMsg = response.data?['error'] ?? response.data?['message'] ?? 'Unknown error';
+        throw Exception('Server error: $errorMsg');
+      }
+
+      if (response.data == null) {
+        throw Exception('No data returned from server');
+      }
+
+      final checkoutUrl = response.data['checkoutUrl'] as String?;
+      
+      if (checkoutUrl == null || checkoutUrl.isEmpty) {
+        throw Exception('No checkout URL in response');
+      }
+
+      if (!await launchUrl(
+        Uri.parse(checkoutUrl),
+        mode: LaunchMode.externalApplication,
+      )) {
+        throw Exception('Could not open browser');
+      }
+      
+    } catch (e) {
+      if (ref.context.mounted) {
+        Navigator.of(ref.context).pop();
+        ScaffoldMessenger.of(ref.context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to start checkout: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
     }
   }
 
   Future<void> _handleRefresh(BuildContext context, WidgetRef ref) async {
-    // Refresh subscription status from database
     await ref.read(subscriptionNotifierProvider.notifier).refresh();
 
-    // Check if user is now subscribed
     final hasSubscription = ref.read(hasActiveSubscriptionProvider);
 
-    if (hasSubscription) {
-      debugPrint('✅ Subscription detected! Redirecting to dashboard...');
-      if (context.mounted) {
-        context.go('/dashboard');
-      }
-    } else {
-      debugPrint('ℹ️ Still on free plan');
+    if (hasSubscription && context.mounted) {
+      context.go('/dashboard');
     }
   }
 
@@ -173,11 +247,12 @@ class PaywallScreen extends ConsumerWidget {
                         'Start Free Trial',
                         style: TextStyle(
                           fontSize: 18,
+                          color: colorScheme.buttonText,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Icon(Icons.arrow_forward, size: 20),
+                      Icon(Icons.arrow_forward, size: 20, color: colorScheme.buttonText),
                     ],
                   ),
                 ),
