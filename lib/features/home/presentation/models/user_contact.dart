@@ -2,14 +2,14 @@
 class UserContact {
   final String id;
   final String? userId;
-  final String phoneE164;
+  final String? phoneE164;  // Nullable for mobile-only users without WhatsApp
   final bool verified;
   final String? preferredCurrency;
 
   UserContact({
     required this.id,
     this.userId,
-    required this.phoneE164,
+    this.phoneE164,  // Optional
     required this.verified,
     this.preferredCurrency,
   });
@@ -18,8 +18,8 @@ class UserContact {
     return UserContact(
       id: json['id'] as String,
       userId: json['user_id'] as String?,
-      phoneE164: json['phone_e164'] as String,
-      verified: json['verified'] as bool,
+      phoneE164: json['phone_e164'] as String?,  // Nullable cast
+      verified: json['verified'] as bool? ?? false,  // Default to false if null
       preferredCurrency: json['preferred_currency'] as String?,
     );
   }
@@ -30,7 +30,7 @@ class UserContact {
     return UserContact(
       id: id,
       userId: userId,
-      phoneE164: phoneE164,
+      phoneE164: phoneE164,  // Already nullable, no issue
       verified: verified,
       preferredCurrency: preferredCurrency ?? this.preferredCurrency,
     );

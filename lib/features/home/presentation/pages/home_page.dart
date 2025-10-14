@@ -199,7 +199,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             // If 'id' exists, it's from DB, otherwise it's a newly created item
             createdExpense = ExpenseEntry(
               id: expenseData['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
-              contactId: expenseData['contact_id'] ?? contact?.id ?? '',
+              contactId: expenseData['contact_id'] ?? contact?.id,
               amountCents: expenseData['amount_cents'] ?? 
                           (expenseData['amount'] != null ? (expenseData['amount'] * 100).toInt() : 0),
               category: expenseData['category'] ?? 'other',
@@ -410,7 +410,10 @@ class _HomePageState extends ConsumerState<HomePage> {
       };
 
       if (contact != null) {
-        payload['phone'] = contact.phoneE164;
+        // Only add phone if it exists (WhatsApp connected)
+        if (contact.phoneE164 != null) {
+          payload['phone'] = contact.phoneE164;
+        }
         final preferredCurrency = contact.preferredCurrency;
         if (preferredCurrency != null && preferredCurrency.isNotEmpty) {
           payload['currency'] = preferredCurrency;
@@ -551,7 +554,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
     // Check if user has EVER logged expenses (not just in current filter)
     // We only show the empty state if they have absolutely no historical data
-    final hasHistoricalData = analyticsData.contact != null;
+    final hasHistoricalData = analyticsData.allExpenses.isNotEmpty;
     final hasExpensesInCurrentFilter = filteredExpenses.isNotEmpty;
 
     // Show empty state ONLY if user has never logged any expenses

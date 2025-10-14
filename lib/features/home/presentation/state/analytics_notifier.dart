@@ -26,8 +26,6 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
           .eq('user_id', userId)
           .maybeSingle();
 
-      print(contactResponse);
-
       if (contactResponse == null) {
         state = state.copyWith(
           contact: null,

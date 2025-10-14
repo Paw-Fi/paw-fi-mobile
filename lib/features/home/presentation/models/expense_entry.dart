@@ -1,7 +1,7 @@
 /// Represents a single spending entry from expenses table
 class ExpenseEntry {
   final String id;
-  final String contactId;
+  final String? contactId;
   final DateTime date;
   final int amountCents;
   final String? currency;
@@ -12,7 +12,7 @@ class ExpenseEntry {
 
   ExpenseEntry({
     required this.id,
-    required this.contactId,
+    this.contactId,
     required this.date,
     required this.amountCents,
     this.currency,
@@ -27,7 +27,7 @@ class ExpenseEntry {
   factory ExpenseEntry.fromJson(Map<String, dynamic> json) {
     return ExpenseEntry(
       id: json['id'] as String,
-      contactId: json['contact_id'] as String,
+      contactId: json['contact_id'] as String?,
       date: DateTime.parse(json['date'] as String),
       amountCents: json['amount_cents'] as int,
       currency: json['currency'] as String?,
