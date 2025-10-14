@@ -6,6 +6,7 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/insights/presentation/widgets/charts/charts.dart';
+import 'package:moneko/features/insights/presentation/widgets/scenario_result_sheet.dart';
 
 Widget buildScenarioPlanningTab(shadcnui.ColorScheme colorScheme, AnalyticsData analyticsData) {
   return ScenarioPlanningTabContent(colorScheme: colorScheme, analyticsData: analyticsData);
@@ -255,153 +256,6 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
     );
   }
 
-  void _showScenarioResultSheet(String advice, Map<String, dynamic> meta) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) {
-        return Container(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.85,
-          ),
-          decoration: BoxDecoration(
-            color: widget.colorScheme.background,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Drag Handle
-              Container(
-                margin: const EdgeInsets.symmetric(vertical: 12),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: widget.colorScheme.mutedForeground.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-
-              // Header
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Scenario Analysis',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: widget.colorScheme.foreground,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.close, color: widget.colorScheme.foreground),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Content
-              Flexible(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Target Date Badge
-                      if (meta['targetDate'] != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: widget.colorScheme.primary.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            'Target: ${meta['targetDate']}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: widget.colorScheme.primary,
-                            ),
-                          ),
-                        ),
-
-                      const SizedBox(height: 16),
-
-                      // AI Advice
-                      Text(
-                        advice,
-                        style: TextStyle(
-                          fontSize: 15,
-                          height: 1.6,
-                          color: widget.colorScheme.foreground,
-                        ),
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Stats Section
-                      if (meta['stats'] != null) ...[
-                        Text(
-                          'Quick Stats',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: widget.colorScheme.foreground,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        _buildStatRow('Current Balance', '\$${meta['stats']['currentRunningBalance']?.toStringAsFixed(2) ?? '0.00'}'),
-                        _buildStatRow('Projected (No Change)', '\$${meta['stats']['projectedNoScenarioByTarget']?.toStringAsFixed(2) ?? '0.00'}'),
-                        _buildStatRow('Avg Daily Net', '\$${meta['stats']['avgNetPerDay']?.toStringAsFixed(2) ?? '0.00'}'),
-                      ],
-
-                      const SizedBox(height: 32),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildStatRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 14,
-              color: widget.colorScheme.mutedForeground,
-            ),
-          ),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: widget.colorScheme.foreground,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final bool isDark = widget.colorScheme.background == AppTheme.darkBackground;
@@ -522,15 +376,47 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
 
                                 setState(() { _scenarioLoading = true; });
 
-                                // Show loading toast
-                                _showToast(
-                                  'Analyzing scenario...',
-                                  trailing: const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                // Show loading modal
+                                showDialog(
+                                  context: context,
+                                  barrierDismissible: false,
+                                  builder: (dialogContext) => PopScope(
+                                    canPop: false,
+                                    child: Center(
+                                      child: Container(
+                                        padding: const EdgeInsets.all(32),
+                                        decoration: BoxDecoration(
+                                          color: colorScheme.background,
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Image.asset(
+                                              'lib/assets/gifs/loading-anim.gif',
+                                              width: 80,
+                                              height: 80,
+                                            ),
+                                            const SizedBox(height: 16),
+                                            Text(
+                                              'Analyzing scenario...',
+                                              style: TextStyle(
+                                                color: colorScheme.foreground,
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Text(
+                                              'This might take a while',
+                                              style: TextStyle(
+                                                color: colorScheme.mutedForeground,
+                                                fontSize: 14,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 );
@@ -547,27 +433,17 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
 
                                   if (!mounted) return;
 
+                                  // Close loading modal
+                                  Navigator.of(context, rootNavigator: true).pop();
+
                                   if (response.data != null && response.data['success'] == true) {
                                     final advice = response.data['advice'] ?? 'No analysis available';
                                     final meta = response.data['meta'] ?? {};
 
                                     setState(() { _scenarioLoading = false; });
 
-                                    // Show success toast
-                                    _showToast('Analysis complete! Tap to view', trailing: TextButton(
-                                      onPressed: () {
-                                        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                                        _showScenarioResultSheet(advice, meta);
-                                      },
-                                      child: const Text('View', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                    ));
-
                                     // Auto-show the result sheet
-                                    Future.delayed(const Duration(milliseconds: 500), () {
-                                      if (mounted) {
-                                        _showScenarioResultSheet(advice, meta);
-                                      }
-                                    });
+                                    showScenarioResultSheet(context, advice, meta);
                                   } else {
                                     final error = response.data?['error'] ?? 'Failed to analyze scenario';
                                     throw Exception(error);
@@ -575,20 +451,14 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
                                 } catch (e) {
                                   if (!mounted) return;
 
+                                  // Close loading modal
+                                  Navigator.of(context, rootNavigator: true).pop();
+
                                   setState(() { _scenarioLoading = false; });
                                   _showToast('Analysis failed: ${e.toString()}');
                                 }
                               },
-                              child: _scenarioLoading
-                                  ?  SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation<Color>(colorScheme.mutedForeground),
-                                      ),
-                                    )
-                                  :  Text('Check', style: TextStyle(color: colorScheme.mutedForeground, fontWeight: FontWeight.bold)),
+                              child: Text('Check', style: TextStyle(color: colorScheme.buttonText, fontWeight: FontWeight.bold)),
                             ),
                           ),
                         ),

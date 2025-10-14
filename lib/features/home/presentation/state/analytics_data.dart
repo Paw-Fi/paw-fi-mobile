@@ -1,7 +1,7 @@
 import 'package:moneko/features/home/presentation/models/models.dart';
-import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 
-/// Analytics data state
+/// Analytics data state - stores ALL unfiltered data
+/// Filtering is done locally in home page, keeping insights page data intact
 class AnalyticsData {
   final UserContact? contact;
   final List<ExpenseEntry> expenses;
@@ -11,10 +11,6 @@ class AnalyticsData {
   final bool isLoading;
   final String? error;
   final String? preferredCurrency;
-  final DateRangeFilter dateRangeFilter;
-  final DateTime? customStartDate;
-  final DateTime? customEndDate;
-  final bool updateDateRange;
 
   AnalyticsData({
     this.contact,
@@ -25,10 +21,6 @@ class AnalyticsData {
     this.isLoading = true,
     this.error,
     this.preferredCurrency,
-    this.dateRangeFilter = DateRangeFilter.today,
-    this.customStartDate,
-    this.customEndDate,
-    this.updateDateRange = false,
   });
 
   AnalyticsData copyWith({
@@ -40,11 +32,7 @@ class AnalyticsData {
     bool? isLoading,
     String? error,
     String? preferredCurrency,
-    DateRangeFilter? dateRangeFilter,
-    DateTime? customStartDate,
-    DateTime? customEndDate,
     bool clearError = false,
-    bool updateDateRange = false,
   }) {
     return AnalyticsData(
       contact: contact ?? this.contact,
@@ -55,10 +43,6 @@ class AnalyticsData {
       isLoading: isLoading ?? this.isLoading,
       error: clearError ? null : (error ?? this.error),
       preferredCurrency: preferredCurrency ?? this.preferredCurrency,
-      dateRangeFilter: updateDateRange && dateRangeFilter != null ? dateRangeFilter : this.dateRangeFilter,
-      customStartDate: customStartDate ?? this.customStartDate,
-      customEndDate: customEndDate ?? this.customEndDate,
-      updateDateRange: updateDateRange,
     );
   }
 }

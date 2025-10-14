@@ -3,9 +3,15 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/utils/currency.dart';
 
-Widget buildSpendingBreakdownChart(shadcnui.ColorScheme colorScheme, List<ExpenseEntry> expenses, UserContact? contact) {
+Widget buildSpendingBreakdownChart(
+  shadcnui.ColorScheme colorScheme,
+  List<ExpenseEntry> expenses,
+  UserContact? contact,
+  DateRangeFilter dateRangeFilter,
+) {
   final categorySummaries = _getCategorySummaries(expenses);
   final totalSpent = _getTotalSpent(expenses);
   final currencySymbol = getCurrencySymbol(contact);
@@ -36,7 +42,7 @@ Widget buildSpendingBreakdownChart(shadcnui.ColorScheme colorScheme, List<Expens
         ),
         const SizedBox(height: 8),
         Text(
-          'This Year',
+          dateRangeFilter.label,
           style: TextStyle(
             fontSize: 14,
             color: colorScheme.mutedForeground,
@@ -115,27 +121,7 @@ Widget buildSpendingBreakdownChart(shadcnui.ColorScheme colorScheme, List<Expens
             );
           }).toList(),
         ),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: colorScheme.muted,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                '$currencySymbol${remaining.toStringAsFixed(0)} left',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.foreground,
-                ),
-              ),
-            ],
-          ),
-        ),
+      
       ],
     ),
   );

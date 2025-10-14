@@ -1,7 +1,6 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
-import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/state/analytics_data.dart';
 
 /// Analytics data provider
@@ -40,15 +39,16 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
 
       final fetchedContact = UserContact.fromJson(contactResponse);
 
-      // Calculate date range based on filter
-      final dateRange = _getDateRange(state.dateRangeFilter, state.customStartDate, state.customEndDate);
-      final from = dateRange['from']!;
-      final to = dateRange['to']!;
+      // Always fetch ALL data (last 365 days) without date filtering
+      // This ensures insights page always has full data
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final oneYearAgo = today.subtract(const Duration(days: 365));
 
-      final fromStr = '${from.year}-${from.month.toString().padLeft(2, '0')}-${from.day.toString().padLeft(2, '0')}';
-      final toStr = '${to.year}-${to.month.toString().padLeft(2, '0')}-${to.day.toString().padLeft(2, '0')}';
+      final fromStr = '${oneYearAgo.year}-${oneYearAgo.month.toString().padLeft(2, '0')}-${oneYearAgo.day.toString().padLeft(2, '0')}';
+      final toStr = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
 
-      // Fetch expenses
+      // Fetch ALL expenses (unfiltered)
       final expensesResponse = await supabase
           .from('expenses')
           .select('id,contact_id,date,amount_cents,currency,category,created_at,raw_text,receipt_image_url')
@@ -57,7 +57,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
           .lte('date', toStr)
           .order('date', ascending: true);
 
-      // Fetch budgets
+      // Fetch ALL budgets (unfiltered)
       final budgetsResponse = await supabase
           .from('daily_budgets')
           .select('id,contact_id,date,amount_cents,currency')
@@ -66,14 +66,22 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
           .lte('date', toStr)
           .order('date', ascending: true);
 
+      final allExpenses = (expensesResponse as List)
+          .map((e) => ExpenseEntry.fromJson(e as Map<String, dynamic>))
+          .toList();
+      
+      final allBudgets = (budgetsResponse as List)
+          .map((b) => DailyBudgetEntry.fromJson(b as Map<String, dynamic>))
+          .toList();
+
+      // Store ALL data in both allExpenses/allBudgets AND expenses/budgets
+      // Filtering will be done locally in the home page
       state = state.copyWith(
         contact: fetchedContact,
-        expenses: (expensesResponse as List)
-            .map((e) => ExpenseEntry.fromJson(e as Map<String, dynamic>))
-            .toList(),
-        budgets: (budgetsResponse as List)
-            .map((b) => DailyBudgetEntry.fromJson(b as Map<String, dynamic>))
-            .toList(),
+        expenses: allExpenses,
+        allExpenses: allExpenses,
+        budgets: allBudgets,
+        allBudgets: allBudgets,
         preferredCurrency: fetchedContact.preferredCurrency?.toUpperCase(),
         isLoading: false,
       );
@@ -96,15 +104,8 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
     );
   }
 
-  void setDateRangeFilter(DateRangeFilter filter, String userId, {DateTime? startDate, DateTime? endDate}) {
-    state = state.copyWith(
-      dateRangeFilter: filter,
-      customStartDate: startDate,
-      customEndDate: endDate,
-      updateDateRange: true,
-    );
-    loadData(userId);
-  }
+  // Removed setDateRangeFilter - filtering is now done locally in home page
+  // This keeps the provider data unfiltered for insights page
 
   void setBudgetAmount(double amount) {
     final newAmountCents = (amount * 100).round();
@@ -157,45 +158,6 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
     }
 
     state = state.copyWith(budgets: updatedBudgets);
-  }
-
-  Map<String, DateTime> _getDateRange(DateRangeFilter filter, DateTime? customStart, DateTime? customEnd) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-
-    switch (filter) {
-      case DateRangeFilter.today:
-        return {'from': today, 'to': today};
-
-      case DateRangeFilter.yesterday:
-        final yesterday = today.subtract(const Duration(days: 1));
-        return {'from': yesterday, 'to': yesterday};
-
-      case DateRangeFilter.thisWeek:
-        final weekStart = today.subtract(Duration(days: today.weekday - 1));
-        return {'from': weekStart, 'to': today};
-
-      case DateRangeFilter.lastWeek:
-        final lastWeekEnd = today.subtract(Duration(days: today.weekday));
-        final lastWeekStart = lastWeekEnd.subtract(const Duration(days: 6));
-        return {'from': lastWeekStart, 'to': lastWeekEnd};
-
-      case DateRangeFilter.thisMonth:
-        final monthStart = DateTime(now.year, now.month, 1);
-        return {'from': monthStart, 'to': today};
-
-      case DateRangeFilter.last30Days:
-        final from = today.subtract(const Duration(days: 29));
-        return {'from': from, 'to': today};
-
-      case DateRangeFilter.custom:
-        if (customStart != null && customEnd != null) {
-          return {'from': customStart, 'to': customEnd};
-        }
-        // Fallback to last 30 days if custom dates not set
-        final from = today.subtract(const Duration(days: 29));
-        return {'from': from, 'to': today};
-    }
   }
 
   /// Clear all user data (on logout)

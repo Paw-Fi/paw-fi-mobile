@@ -9,13 +9,12 @@ import 'package:moneko/features/home/presentation/widgets/widgets.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
+import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dart';
 import '../widgets/transaction_detail_sheet.dart';
 
 // ============================================================================
 // TRANSACTIONS PAGE
 // ============================================================================
-
-enum ChartType { line, bar, pie }
 
 class TransactionsPage extends ConsumerStatefulWidget {
   const TransactionsPage({super.key});
@@ -28,13 +27,15 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   String searchQuery = '';
   String selectedCategory = 'all';
   String selectedPeriod = '1M';
-  ChartType selectedChartType = ChartType.line;
+  int currentChartIndex = 0;
   
   final TextEditingController _searchController = TextEditingController();
+  final PageController _chartPageController = PageController();
 
   @override
   void dispose() {
     _searchController.dispose();
+    _chartPageController.dispose();
     super.dispose();
   }
 
@@ -43,27 +44,29 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     var expenses = analyticsData.expenses;
 
     // Filter by period
-    final now = DateTime.now();
-    DateTime startDate;
-    switch (selectedPeriod) {
-      case '1W':
-        startDate = DateTime(now.year, now.month, now.day - 7);
-        break;
-      case '1M':
-        startDate = DateTime(now.year, now.month - 1, now.day);
-        break;
-      case '6M':
-        startDate = DateTime(now.year, now.month - 6, now.day);
-        break;
-      case '1Y':
-        startDate = DateTime(now.year - 1, now.month, now.day);
-        break;
-      default:
-        startDate = DateTime(now.year, now.month - 1, now.day);
+    if (selectedPeriod != 'All') {
+      final now = DateTime.now();
+      DateTime startDate;
+      switch (selectedPeriod) {
+        case '1W':
+          startDate = DateTime(now.year, now.month, now.day - 7);
+          break;
+        case '1M':
+          startDate = DateTime(now.year, now.month - 1, now.day);
+          break;
+        case '6M':
+          startDate = DateTime(now.year, now.month - 6, now.day);
+          break;
+        case '1Y':
+          startDate = DateTime(now.year - 1, now.month, now.day);
+          break;
+        default:
+          startDate = DateTime(now.year, now.month - 1, now.day);
+      }
+      
+      // Filter expenses that are on or after the start date
+      expenses = expenses.where((e) => !e.date.isBefore(startDate)).toList();
     }
-    
-    // Filter expenses that are on or after the start date
-    expenses = expenses.where((e) => !e.date.isBefore(startDate)).toList();
 
     // Filter by search query
     if (searchQuery.isNotEmpty) {
@@ -87,6 +90,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       }).toList();
     }
 
+    // Sort by date, newest first
+    expenses.sort((a, b) => b.date.compareTo(a.date));
+
     return expenses;
   }
 
@@ -99,6 +105,25 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       ..sort();
     return ['all', ...cats];
   }
+
+  String get periodLabel {
+    switch (selectedPeriod) {
+      case '1W':
+        return 'This week';
+      case '1M':
+        return 'This month';
+      case '6M':
+        return 'Last 6 months';
+      case '1Y':
+        return 'This year';
+      case 'All':
+        return 'All time';
+      default:
+        return 'This month';
+    }
+  }
+
+  String get chartIntervalType => getChartIntervalTypeFromPeriod(selectedPeriod);
 
   @override
   Widget build(BuildContext context) {
@@ -155,26 +180,6 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                         ],
                       ),
                     ),
-                    // Chart type toggle buttons
-                    // Container(
-                    //   decoration: BoxDecoration(
-                    //     color: colorScheme.muted,
-                    //     borderRadius: BorderRadius.circular(8),
-                    //   ),
-                    //   child: Row(
-                    //     children: [
-                    //       _buildChartToggle(Icons.show_chart, selectedChartType == ChartType.line, colorScheme, () {
-                    //         setState(() => selectedChartType = ChartType.line);
-                    //       }),
-                    //       _buildChartToggle(Icons.bar_chart, selectedChartType == ChartType.bar, colorScheme, () {
-                    //         setState(() => selectedChartType = ChartType.bar);
-                    //       }),
-                    //       _buildChartToggle(Icons.pie_chart, selectedChartType == ChartType.pie, colorScheme, () {
-                    //         setState(() => selectedChartType = ChartType.pie);
-                    //       }),
-                    //     ],
-                    //   ),
-                    // ),
                   ],
                 ),
               ),
@@ -235,7 +240,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
-                    children: ['1W', '1M', '6M', '1Y'].map((period) {
+                    children: ['1W', '1M', '6M', '1Y', 'All'].map((period) {
                       final isSelected = selectedPeriod == period;
                       return Padding(
                         padding: const EdgeInsets.only(right: 8.0),
@@ -356,38 +361,20 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     );
   }
 
-  Widget _buildChartToggle(IconData icon, bool isActive, shadcnui.ColorScheme colorScheme, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: isActive ? colorScheme.background : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Icon(
-          icon,
-          size: 20,
-          color: isActive ? colorScheme.foreground : colorScheme.mutedForeground,
-        ),
-      ),
-    );
-  }
-
   Widget _buildChart(shadcnui.ColorScheme colorScheme, UserContact? contact) {
     final totalSpent = filteredExpenses.where((e) => e.amountCents > 0).fold(0.0, (sum, e) => sum + e.amount);
     final currencySymbol = getCurrencySymbol(contact);
 
     return Container(
-      height: 280,
       decoration: BoxDecoration(
         color: colorScheme.card,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: colorScheme.border, width: 1),
       ),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             'Spent',
@@ -397,49 +384,71 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
             ),
           ),
           const SizedBox(height: 8),
-          Row(
-            children: [
-              Text(
-                '$currencySymbol${totalSpent.toStringAsFixed(0)}',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.foreground,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Row(
-                children: [
-                  Icon(
-                    Icons.arrow_upward,
-                    color: const Color(0xFF10B981),
-                    size: 16,
-                  ),
-                  Text(
-                    ' €686',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Color(0xFF10B981),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+          Text(
+            '$currencySymbol${totalSpent.toStringAsFixed(0)}',
+            style: TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+              color: colorScheme.foreground,
+            ),
           ),
           Text(
-            'This month',
+            periodLabel,
             style: TextStyle(
               fontSize: 12,
               color: colorScheme.mutedForeground,
             ),
           ),
-          const SizedBox(height: 24),
-          Expanded(
-            child: selectedChartType == ChartType.line
-                ? _buildLineChart(colorScheme)
-                : selectedChartType == ChartType.bar
-                    ? _buildBarChart(colorScheme)
-                    : _buildPieChart(colorScheme, totalSpent, currencySymbol),
+          const SizedBox(height: 20),
+          // Chart with aspect ratio for proper sizing
+          AspectRatio(
+            aspectRatio: 1.1, // Slightly wider than tall for better mobile fit
+            child: PageView(
+              controller: _chartPageController,
+              onPageChanged: (index) {
+                setState(() {
+                  currentChartIndex = index;
+                });
+              },
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: _buildLineChart(colorScheme),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: _buildBarChart(colorScheme),
+                ),
+                _buildPieChart(colorScheme, totalSpent, currencySymbol),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Carousel indicators
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(3, (index) {
+              return GestureDetector(
+                onTap: () {
+                  _chartPageController.animateToPage(
+                    index,
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                  );
+                },
+                child: Container(
+                  width: currentChartIndex == index ? 24 : 8,
+                  height: 8,
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: BoxDecoration(
+                    color: currentChartIndex == index
+                        ? colorScheme.primary
+                        : colorScheme.muted,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              );
+            }),
           ),
         ],
       ),
@@ -447,14 +456,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   }
 
   Widget _buildLineChart(shadcnui.ColorScheme colorScheme) {
-    // Group expenses by day
-    final Map<DateTime, double> dailyTotals = {};
-    for (final expense in filteredExpenses) {
-      final dateOnly = DateTime(expense.date.year, expense.date.month, expense.date.day);
-      dailyTotals[dateOnly] = (dailyTotals[dateOnly] ?? 0) + expense.amount;
-    }
-
-    final sortedDates = dailyTotals.keys.toList()..sort();
+    // Group expenses using utility function
+    final periodTotals = groupExpensesByInterval(filteredExpenses, chartIntervalType);
+    final sortedDates = periodTotals.keys.toList()..sort();
     if (sortedDates.isEmpty) {
       return Center(
         child: Text('No data', style: TextStyle(color: colorScheme.mutedForeground)),
@@ -464,132 +468,131 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     // Calculate cumulative spending
     double cumulative = 0;
     final cumulativeData = sortedDates.map((date) {
-      cumulative += dailyTotals[date] ?? 0;
+      cumulative += periodTotals[date] ?? 0;
       return FlSpot(
         sortedDates.indexOf(date).toDouble(),
         cumulative,
       );
     }).toList();
 
-    return LineChart(
-      LineChartData(
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          horizontalInterval: cumulative > 0 ? cumulative / 4 : 100,
-          getDrawingHorizontalLine: (value) {
-            return FlLine(
-              color: colorScheme.border.withOpacity(0.3),
-              strokeWidth: 1,
-              dashArray: [5, 5],
-            );
-          },
-        ),
-        titlesData: FlTitlesData(
-          leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 40,
-              getTitlesWidget: (value, meta) {
-                return Text(
-                  '${(value / 1000).toStringAsFixed(1)}k',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: colorScheme.mutedForeground,
-                  ),
-                );
-              },
-            ),
+    return Padding(
+      padding: const EdgeInsets.only(top: 16, bottom: 8),
+      child: LineChart(
+        LineChartData(
+          gridData: FlGridData(
+            show: true,
+            drawVerticalLine: false,
+            horizontalInterval: cumulative > 0 ? cumulative / 4 : 100,
+            getDrawingHorizontalLine: (value) {
+              return FlLine(
+                color: colorScheme.border.withValues(alpha: 0.3),
+                strokeWidth: 1,
+                dashArray: [5, 5],
+              );
+            },
           ),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              interval: sortedDates.length > 10 ? 5 : 1,
-              getTitlesWidget: (value, meta) {
-                if (value.toInt() >= sortedDates.length) return const SizedBox();
-                final date = sortedDates[value.toInt()];
-                return Text(
-                  date.day.toString(),
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: colorScheme.mutedForeground,
-                  ),
-                );
-              },
-            ),
-          ),
-        ),
-        borderData: FlBorderData(show: false),
-        lineBarsData: [
-          LineChartBarData(
-            spots: cumulativeData,
-            isCurved: true,
-            color: const Color(0xFF10B981),
-            barWidth: 3,
-            dotData: FlDotData(
-              show: true,
-              getDotPainter: (spot, percent, barData, index) {
-                if (index == cumulativeData.length - 1) {
-                  return FlDotCirclePainter(
-                    radius: 6,
-                    color: const Color(0xFF10B981),
-                    strokeWidth: 2,
-                    strokeColor: colorScheme.background,
+          titlesData: FlTitlesData(
+            leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            rightTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 40,
+                getTitlesWidget: (value, meta) {
+                  return Text(
+                    '${(value / 1000).toStringAsFixed(1)}k',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: colorScheme.mutedForeground,
+                    ),
                   );
-                }
-                return FlDotCirclePainter(
-                  radius: 0,
-                  color: Colors.transparent,
-                );
-              },
+                },
+              ),
             ),
-            belowBarData: BarAreaData(
-              show: true,
-              gradient: LinearGradient(
-                colors: [
-                  const Color(0xFF10B981).withOpacity(0.3),
-                  const Color(0xFF10B981).withOpacity(0.0),
-                ],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
+            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                interval: 1, // Show all data points (already bucketed to 6-7 points)
+                getTitlesWidget: (value, meta) {
+                  if (value.toInt() >= sortedDates.length) return const SizedBox();
+                  final date = sortedDates[value.toInt()];
+                  return Text(
+                    formatDateForInterval(date, chartIntervalType),
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: colorScheme.mutedForeground,
+                    ),
+                  );
+                },
               ),
             ),
           ),
-        ],
-        minY: 0,
-        maxY: cumulative > 0 ? (cumulative * 1.2).ceilToDouble() : 100,
+          borderData: FlBorderData(show: false),
+          lineBarsData: [
+            LineChartBarData(
+              spots: cumulativeData,
+              isCurved: true,
+              color: const Color(0xFF10B981),
+              barWidth: 3,
+              dotData: FlDotData(
+                show: true,
+                getDotPainter: (spot, percent, barData, index) {
+                  if (index == cumulativeData.length - 1) {
+                    return FlDotCirclePainter(
+                      radius: 6,
+                      color: const Color(0xFF10B981),
+                      strokeWidth: 2,
+                      strokeColor: colorScheme.background,
+                    );
+                  }
+                  return FlDotCirclePainter(
+                    radius: 0,
+                    color: Colors.transparent,
+                  );
+                },
+              ),
+              belowBarData: BarAreaData(
+                show: true,
+                gradient: LinearGradient(
+                  colors: [
+                    const Color(0xFF10B981).withValues(alpha: 0.3),
+                    const Color(0xFF10B981).withValues(alpha: 0.0),
+                  ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+              ),
+            ),
+          ],
+          minY: 0,
+          maxY: cumulative > 0 ? (cumulative * 1.25).ceilToDouble() : 100,
+        ),
       ),
     );
   }
 
   Widget _buildBarChart(shadcnui.ColorScheme colorScheme) {
-    // Group expenses by week
-    final Map<String, double> weeklyTotals = {};
-    for (final expense in filteredExpenses) {
-      final weekStart = expense.date.subtract(Duration(days: expense.date.weekday - 1));
-      final weekKey = '${weekStart.day}-${weekStart.add(const Duration(days: 6)).day}';
-      weeklyTotals[weekKey] = (weeklyTotals[weekKey] ?? 0) + expense.amount;
-    }
+    // Group expenses using utility function
+    final barData = groupExpensesForBarChart(filteredExpenses, chartIntervalType);
 
-    if (weeklyTotals.isEmpty) {
+    if (barData.periodTotals.isEmpty) {
       return Center(
         child: Text('No data', style: TextStyle(color: colorScheme.mutedForeground)),
       );
     }
 
-    final sortedWeeks = weeklyTotals.keys.toList();
-    final maxValue = weeklyTotals.values.reduce((a, b) => a > b ? a : b);
+    final maxValue = barData.periodTotals.values.reduce((a, b) => a > b ? a : b);
 
-    return BarChart(
+    return Padding(
+      padding: const EdgeInsets.only(top: 16, bottom: 8),
+      child: BarChart(
       BarChartData(
         alignment: BarChartAlignment.spaceAround,
         maxY: maxValue * 1.2,
-        barGroups: sortedWeeks.asMap().entries.map((entry) {
+        barGroups: barData.sortedPeriods.asMap().entries.map((entry) {
           final index = entry.key;
-          final week = entry.value;
-          final value = weeklyTotals[week] ?? 0;
+          final period = entry.value;
+          final value = barData.periodTotals[period] ?? 0;
           
           return BarChartGroupData(
             x: index,
@@ -625,9 +628,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
             sideTitles: SideTitles(
               showTitles: true,
               getTitlesWidget: (value, meta) {
-                if (value.toInt() >= sortedWeeks.length) return const SizedBox();
+                if (value.toInt() >= barData.sortedPeriods.length) return const SizedBox();
                 return Text(
-                  sortedWeeks[value.toInt()],
+                  barData.sortedPeriods[value.toInt()],
                   style: TextStyle(
                     fontSize: 10,
                     color: colorScheme.mutedForeground,
@@ -643,13 +646,14 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
           horizontalInterval: maxValue / 4,
           getDrawingHorizontalLine: (value) {
             return FlLine(
-              color: colorScheme.border.withOpacity(0.3),
+              color: colorScheme.border.withValues(alpha: 0.3),
               strokeWidth: 1,
               dashArray: [5, 5],
             );
           },
         ),
         borderData: FlBorderData(show: false),
+      ),
       ),
     );
   }
@@ -713,7 +717,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                 ),
               ),
               Text(
-                'This month',
+                periodLabel,
                 style: TextStyle(
                   fontSize: 10,
                   color: colorScheme.mutedForeground,
@@ -750,7 +754,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: categoryColor.withOpacity(0.2),
+              color: categoryColor.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(

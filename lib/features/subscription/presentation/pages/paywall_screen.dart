@@ -3,15 +3,39 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:moneko/features/auth/auth.dart';
 import '../providers/subscription_provider.dart';
 
 class PaywallScreen extends ConsumerWidget {
   const PaywallScreen({super.key});
 
-  Future<void> _launchPricing() async {
-    final Uri url = Uri.parse('https://www.moneko.io/pricing');
-    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-      debugPrint('Could not launch $url');
+  Future<void> _launchCheckout(WidgetRef ref) async {
+    final user = ref.read(authProvider);
+    
+    if (user.isEmpty) {
+      debugPrint('User not authenticated, cannot proceed to checkout');
+      return;
+    }
+
+    // Build checkout URL with parameters
+    // The redirectUrl will be used by the web page to redirect back to the app
+    final checkoutUrl = Uri.parse('https://www.moneko.io/checkout').replace(
+      queryParameters: {
+        'userId': user.uid,
+        'source': 'mobile',
+        'plan': 'plus',
+        'billing': 'monthly',
+        // Deep link back to the app after payment
+        // The web page will append status=success/failed/canceled to this URL
+        // Format: moneko://payment?status=success&session_id=xxx
+        'redirectUrl': 'moneko://payment',
+      },
+    );
+
+    debugPrint('Launching checkout: $checkoutUrl');
+    
+    if (!await launchUrl(checkoutUrl, mode: LaunchMode.externalApplication)) {
+      debugPrint('Could not launch $checkoutUrl');
     }
   }
 
@@ -141,7 +165,7 @@ class PaywallScreen extends ConsumerWidget {
                 width: double.infinity,
                 height: 56,
                 child: shadcnui.PrimaryButton(
-                  onPressed: _launchPricing,
+                  onPressed: () => _launchCheckout(ref),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -177,34 +201,6 @@ class PaywallScreen extends ConsumerWidget {
         ),
           ),
       ),
-    );
-  }
-}
-
-class _FeatureItem extends StatelessWidget {
-  final String text;
-  final shadcnui.ColorScheme colorScheme;
-
-  const _FeatureItem({
-    required this.text,
-    required this.colorScheme,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            text,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-              color: colorScheme.foreground,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

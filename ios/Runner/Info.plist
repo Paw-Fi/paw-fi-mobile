@@ -51,5 +51,18 @@
 	<string>We need access to your photo library to select receipt images for expense tracking.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>We need permission to save receipt photos to your photo library.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>io.moneko.app</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>moneko</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

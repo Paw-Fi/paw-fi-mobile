@@ -5,6 +5,7 @@ import 'package:moneko/features/home/presentation/constants/category_constants.d
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/models/user_contact.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/datetime.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
 /// Shows transaction detail bottom sheet
@@ -44,7 +45,7 @@ void showTransactionDetailSheet(
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: colorScheme.mutedForeground.withOpacity(0.3),
+                color: colorScheme.mutedForeground.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -94,7 +95,7 @@ void showTransactionDetailSheet(
                             width: 64,
                             height: 64,
                             decoration: BoxDecoration(
-                              color: categoryColor.withOpacity(0.2),
+                              color: categoryColor.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: Icon(
@@ -210,7 +211,7 @@ void showTransactionDetailSheet(
                     // Date
                     _buildDetailRow(
                       'Date',
-                      dateFormat.format(expense.date),
+                      dateFormat.format(toLocalTime(expense.date)),
                       Icons.calendar_today,
                       colorScheme,
                     ),
@@ -219,7 +220,7 @@ void showTransactionDetailSheet(
                     // Time
                     _buildDetailRow(
                       'Time',
-                      timeFormat.format(expense.createdAt),
+                      timeFormat.format(toLocalTime(expense.createdAt)),
                       Icons.access_time,
                       colorScheme,
                     ),

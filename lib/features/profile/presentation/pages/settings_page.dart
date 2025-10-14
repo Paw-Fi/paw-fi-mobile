@@ -119,7 +119,6 @@ class SettingsPage extends HookConsumerWidget {
                 border: Border.all(color: colorScheme.border, width: 1),
               ),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Icon(
                     Icons.payments_outlined,
@@ -128,24 +127,23 @@ class SettingsPage extends HookConsumerWidget {
                   ),
                   const shadcnui.Gap(16),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Display currency',
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: colorScheme.foreground,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        _CurrencyDropdown(
-                          colorScheme: colorScheme,
-                          options: currencies,
-                          selected: selectedCurrency.value,
-                          isSaving: isSaving.value,
-                          onChanged: (code) async {
+                    child: Text(
+                      'Currency',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: colorScheme.foreground,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 90,
+                    child: _CurrencyDropdown(
+                      colorScheme: colorScheme,
+                      options: currencies,
+                      selected: selectedCurrency.value,
+                      isSaving: isSaving.value,
+                      onChanged: (code) async {
                             if (code == null) return;
                             final normalized = code.toUpperCase();
                             if (normalized == selectedCurrency.value) return;
@@ -212,9 +210,7 @@ class SettingsPage extends HookConsumerWidget {
                             }
                           },
                         ),
-                      ],
-                    ),
-                  ),
+                      ),
                 ],
               ),
             ),
@@ -247,31 +243,40 @@ class _CurrencyDropdown extends StatelessWidget {
         ? normalizedSelected
         : options.keys.first;
 
-    return DropdownButtonHideUnderline(
-      child: DropdownButton<String>(
-        value: current,
-        icon: isSaving
-            ? SizedBox(
-                height: 16,
-                width: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation(colorScheme.primary),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: colorScheme.muted.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colorScheme.border.withValues(alpha: 0.5), width: 1),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: current,
+          icon: isSaving
+              ? SizedBox(
+                  height: 14,
+                  width: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation(colorScheme.primary),
+                  ),
+                )
+              : Icon(Icons.keyboard_arrow_down, size: 16, color: colorScheme.mutedForeground),
+          isDense: true,
+          isExpanded: true,
+          dropdownColor: colorScheme.card,
+          style: TextStyle(color: colorScheme.foreground, fontSize: 13, fontWeight: FontWeight.w500),
+          items: options.entries
+              .map(
+                (entry) => DropdownMenuItem<String>(
+                  value: entry.key,
+                  child: Text('${entry.value}  ${entry.key}'),
                 ),
               )
-            : Icon(Icons.keyboard_arrow_down, color: colorScheme.mutedForeground),
-        isExpanded: true,
-        dropdownColor: colorScheme.card,
-        style: TextStyle(color: colorScheme.foreground, fontSize: 14),
-        items: options.entries
-            .map(
-              (entry) => DropdownMenuItem<String>(
-                value: entry.key,
-                child: Text('${entry.value}  ${entry.key}'),
-              ),
-            )
-            .toList(),
-        onChanged: isSaving ? null : onChanged,
+              .toList(),
+          onChanged: isSaving ? null : onChanged,
+        ),
       ),
     );
   }

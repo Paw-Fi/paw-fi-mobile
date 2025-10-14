@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/theme/theme.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -78,12 +79,8 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   Future<void> _processExpense({String? text, String? imagePath}) async {
+    final user = ref.read(authProvider);
     final contact = ref.read(analyticsProvider).contact;
-
-    if (contact == null) {
-      _showToast('No contact found. Please link your WhatsApp first.');
-      return;
-    }
 
     // Show processing modal
     if (!mounted) return;
@@ -104,7 +101,11 @@ class _HomePageState extends ConsumerState<HomePage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const CircularProgressIndicator(),
+                Image.asset(
+                  'lib/assets/gifs/loading-anim.gif',
+                  width: 80,
+                  height: 80,
+                ),
                 const SizedBox(height: 16),
                 Text(
                   imagePath != null ? 'Processing receipt...' : 'Processing expense...',
@@ -122,9 +123,14 @@ class _HomePageState extends ConsumerState<HomePage> {
 
     try {
       Map<String, dynamic> body = {
-        'phone': contact.phoneE164,
+        'userId': user.uid,
         'date': DateTime.now().toIso8601String().split('T')[0],
       };
+      
+      // Add phone if WhatsApp is connected (optional)
+      if (contact?.phoneE164 != null) {
+        body['phone'] = contact!.phoneE164;
+      }
 
       // Add either text or image to the request
       if (text != null) {
@@ -193,7 +199,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             // If 'id' exists, it's from DB, otherwise it's a newly created item
             createdExpense = ExpenseEntry(
               id: expenseData['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
-              contactId: expenseData['contact_id'] ?? contact.id,
+              contactId: expenseData['contact_id'] ?? contact?.id ?? '',
               amountCents: expenseData['amount_cents'] ?? 
                           (expenseData['amount'] != null ? (expenseData['amount'] * 100).toInt() : 0),
               category: expenseData['category'] ?? 'other',
@@ -255,8 +261,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   void _showDateRangeFilter() {
     final colorScheme = shadcnui.Theme.of(context).colorScheme;
-    final user = ref.read(authProvider);
-    showDateRangeFilter(context, colorScheme, user.uid);
+    showDateRangeFilter(context, colorScheme);
   }
 
   Future<void> _showBudgetUpdateSheet() async {
@@ -473,7 +478,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             Expanded(
               child: Text(
                 'Logged successfully',
-                style: TextStyle(color: colorScheme.mutedForeground),
+                style: TextStyle(color: colorScheme.buttonText),
               ),
             ),
             GestureDetector(
@@ -484,9 +489,9 @@ class _HomePageState extends ConsumerState<HomePage> {
               child: Text(
                 'View',
                 style: TextStyle(
-                  color: colorScheme.mutedForeground,
+                  color: colorScheme.buttonText,
                   decoration: TextDecoration.underline,
-                  decorationColor: colorScheme.mutedForeground,
+                  decorationColor: colorScheme.buttonText,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -503,7 +508,10 @@ class _HomePageState extends ConsumerState<HomePage> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = shadcnui.Theme.of(context).colorScheme;
-    final analyticsData = ref.watch(analyticsProvider);   
+    final analyticsData = ref.watch(analyticsProvider);
+    final filterState = ref.watch(homeFilterProvider);
+    final filteredExpenses = ref.watch(homeFilteredExpensesProvider);
+    final filteredBudgets = ref.watch(homeFilteredBudgetsProvider);
     final user = ref.watch(authProvider);
 
     if (analyticsData.isLoading) {
@@ -544,12 +552,12 @@ class _HomePageState extends ConsumerState<HomePage> {
     // Check if user has EVER logged expenses (not just in current filter)
     // We only show the empty state if they have absolutely no historical data
     final hasHistoricalData = analyticsData.contact != null;
-    final hasExpensesInCurrentFilter = analyticsData.expenses.isNotEmpty;
+    final hasExpensesInCurrentFilter = filteredExpenses.isNotEmpty;
 
     // Show empty state ONLY if user has never logged any expenses
-    if (!hasHistoricalData || (hasHistoricalData && !hasExpensesInCurrentFilter && analyticsData.dateRangeFilter == DateRangeFilter.last30Days)) {
+    if (!hasHistoricalData || (hasHistoricalData && !hasExpensesInCurrentFilter && filterState.dateRangeFilter == DateRangeFilter.last30Days)) {
       // This is the first-time user experience
-      if (analyticsData.expenses.isEmpty && analyticsData.dateRangeFilter == DateRangeFilter.last30Days) {
+      if (filteredExpenses.isEmpty && filterState.dateRangeFilter == DateRangeFilter.last30Days) {
         return Scaffold(
           backgroundColor: colorScheme.background,
           body: SafeArea(
@@ -639,7 +647,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                     style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,
-                                     color: colorScheme.mutedForeground,
+                                     color: colorScheme.buttonText,
                                     ),
                                   ),
                                 ),
@@ -685,7 +693,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                             child: Row(
                               children: [
                                 Text(
-                                  analyticsData.dateRangeFilter.label,
+                                  filterState.dateRangeFilter.label,
                                   style: TextStyle(
                                     fontSize: 16,
                                     color: colorScheme.primary,
@@ -712,7 +720,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: buildSpendingCard(colorScheme, analyticsData.expenses, analyticsData.contact, analyticsData.dateRangeFilter),
+                      child: buildSpendingCard(colorScheme, filteredExpenses, analyticsData.contact, filterState.dateRangeFilter),
                     ),
                   ),
 
@@ -730,17 +738,17 @@ class _HomePageState extends ConsumerState<HomePage> {
                             width: 200,
                             child: buildBudgetCard(
                               colorScheme,
-                              analyticsData.budgets,
-                              analyticsData.expenses,
+                              filteredBudgets,
+                              filteredExpenses,
                               analyticsData.contact,
-                              analyticsData.dateRangeFilter,
+                              filterState.dateRangeFilter,
                               onTap: _showBudgetUpdateSheet,
                             ),
                           ),
                           const SizedBox(width: 12),
                           SizedBox(
                             width: 200,
-                            child: buildNetCashflowCard(colorScheme, analyticsData.budgets, analyticsData.expenses, analyticsData.contact),
+                            child: buildNetCashflowCard(colorScheme, filteredBudgets, filteredExpenses, analyticsData.contact),
                           ),
                           const SizedBox(width: 12),
                         ],
@@ -748,45 +756,23 @@ class _HomePageState extends ConsumerState<HomePage> {
                     ),
                   ),
 
-                  const SliverToBoxAdapter(child: SizedBox(height: 24)),
-
-                  // Overview Section
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Overview',
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: colorScheme.foreground,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                  const SliverToBoxAdapter(child: SizedBox(height: 16)),            
 
                   // Category Breakdown
-                  if (_getCategorySummaries(analyticsData.expenses).isNotEmpty)
+                  if (_getCategorySummaries(filteredExpenses).isNotEmpty)
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        child: buildCategoryBreakdownCard(context, colorScheme, analyticsData.expenses, analyticsData.contact),
+                        child: buildCategoryBreakdownCard(context, colorScheme, filteredExpenses, analyticsData.contact),
                       ),
                     ),
 
                   const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                  if (_getCategorySummaries(analyticsData.expenses).isNotEmpty)
+                  if (_getCategorySummaries(filteredExpenses).isNotEmpty)
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        child: buildSpendingBreakdownChart(colorScheme, analyticsData.expenses, analyticsData.contact),
+                        child: buildSpendingBreakdownChart(colorScheme, filteredExpenses, analyticsData.contact, filterState.dateRangeFilter),
                       ),
                     ),
 

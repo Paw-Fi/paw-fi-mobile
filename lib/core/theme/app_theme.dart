@@ -81,6 +81,7 @@ class AppTheme {
   static const Color lightInputBg = Color(0xFFFFFFFF); // --input-bg
   static const Color lightBorder = Color(0xFFE5E7EB); // --subtle-border
   static const Color lightMuted = Color(0xFF6B7280); // --muted-foreground-color
+  static const Color lightButtonText = Color(0xFFFFFFFF); // Button text color (white)
 
   // Dark theme colors
   static const Color darkBackground = Color(0xFF0A0E1A); // --moneko-background (dark)
@@ -89,6 +90,7 @@ class AppTheme {
   static const Color darkInputBg = Color(0xFF1F2937); // --input-bg (dark)
   static const Color darkBorder = Color(0xFF374151); // --subtle-border (dark)
   static const Color darkMuted = Color(0xFFD7D7D7); // --muted-foreground-color (dark)
+  static const Color darkButtonText = Color(0xFFD7D7D7); // Button text color (same as darkMuted)
 
   /// Light theme matching web design
   static shadcnui.ThemeData lightTheme() {
@@ -134,4 +136,14 @@ class AppTheme {
 
   // Helper to generate ColorScheme seed matching Moneko brand
   static Color get monekoSeed => monekoPrimary;
+}
+
+/// Extension on ColorScheme to add button text color
+extension ColorSchemeExtension on shadcnui.ColorScheme {
+  /// Returns button text color based on theme
+  /// White for light theme, mutedForeground for dark theme
+  Color get buttonText {
+    final isDark = background.computeLuminance() < 0.5;
+    return isDark ? AppTheme.darkButtonText : AppTheme.lightButtonText;
+  }
 }

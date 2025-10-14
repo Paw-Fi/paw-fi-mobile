@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
-import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 
-void showDateRangeFilter(BuildContext context, shadcnui.ColorScheme colorScheme, String userId) {
+void showDateRangeFilter(BuildContext context, shadcnui.ColorScheme colorScheme) {
   showModalBottomSheet(
     context: context,
     backgroundColor: colorScheme.background,
@@ -43,7 +43,8 @@ void showDateRangeFilter(BuildContext context, shadcnui.ColorScheme colorScheme,
                   style: TextStyle(color: colorScheme.foreground),
                 ),
                 onTap: () {
-                  ProviderScope.containerOf(context).read(analyticsProvider.notifier).setDateRangeFilter(filter, userId);
+                  // Use local home filter instead of modifying the analytics provider
+                  ProviderScope.containerOf(context).read(homeFilterProvider.notifier).setFilter(filter);
                   Navigator.pop(context);
                 },
               );

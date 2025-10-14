@@ -58,19 +58,6 @@ class _TextInputContentState extends ConsumerState<_TextInputContent> {
       return;
     }
 
-    final contact = ref.read(analyticsProvider).contact;
-
-    if (contact == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No contact found. Please link your WhatsApp first.'),
-          duration: Duration(seconds: 3),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
     setState(() {
       _isProcessing = true;
     });

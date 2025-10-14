@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
-import 'package:markdown/markdown.dart' as md;
-import 'package:flutter_html/flutter_html.dart';
+import 'package:markdown_widget/markdown_widget.dart';
 
 /// Shows scenario analysis result bottom sheet
 void showScenarioResultSheet(
-  BuildContext context, {
-  required String question,
-  required String targetDate,
-  required String advice,
-}) {
+  BuildContext context,
+  String advice,
+  Map<String, dynamic> meta,
+) {
   final colorScheme = shadcnui.Theme.of(context).colorScheme;
 
   showModalBottomSheet(
@@ -34,7 +32,7 @@ void showScenarioResultSheet(
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: colorScheme.mutedForeground.withOpacity(0.3),
+                color: colorScheme.mutedForeground.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -65,86 +63,72 @@ void showScenarioResultSheet(
 
             const SizedBox(height: 16),
 
+            // Content
             Flexible(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 24.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Question Card
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: colorScheme.card,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: colorScheme.border, width: 1),
+                    // Target Date Badge
+                    if (meta['targetDate'] != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: colorScheme.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          'Target: ${meta['targetDate']}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.primary,
+                          ),
+                        ),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Icon
-                          Container(
-                            width: 56,
-                            height: 56,
-                            decoration: BoxDecoration(
-                              color: colorScheme.primary.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Icon(
-                              Icons.lightbulb_outline,
-                              color: colorScheme.primary,
-                              size: 28,
+
+                    const SizedBox(height: 16),
+
+                    // AI Advice (parsed from markdown)
+                    MarkdownBlock(
+                      data: advice,
+                      config: MarkdownConfig(
+                        configs: [
+                          PConfig(
+                            textStyle: TextStyle(
+                              fontSize: 15,
+                              height: 1.6,
+                              color: colorScheme.foreground,
                             ),
                           ),
-                          const SizedBox(height: 16),
-
-                          // Question Label
-                          Text(
-                            'Your Question',
+                          H1Config(
                             style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: colorScheme.mutedForeground,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.foreground,
                             ),
                           ),
-                          const SizedBox(height: 8),
-
-                          // Question Text
-                          Text(
-                            'Can I $question',
+                          H2Config(
                             style: TextStyle(
                               fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.foreground,
+                            ),
+                          ),
+                          H3Config(
+                            style: TextStyle(
+                              fontSize: 16,
                               fontWeight: FontWeight.w600,
                               color: colorScheme.foreground,
                             ),
                           ),
-                          const SizedBox(height: 16),
-
-                          // Target Date
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.calendar_today,
-                                size: 16,
-                                color: colorScheme.mutedForeground,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Target Date: ',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: colorScheme.mutedForeground,
-                                ),
-                              ),
-                              Text(
-                                targetDate,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: colorScheme.foreground,
-                                ),
-                              ),
-                            ],
+                          CodeConfig(
+                            style: TextStyle(
+                              backgroundColor: colorScheme.muted,
+                              fontFamily: 'monospace',
+                              color: colorScheme.foreground,
+                            ),
                           ),
                         ],
                       ),
@@ -152,128 +136,21 @@ void showScenarioResultSheet(
 
                     const SizedBox(height: 24),
 
-                    // Analysis Result
-                    Text(
-                      'AI Analysis',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.foreground,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: colorScheme.card,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: colorScheme.border,
-                          width: 1,
+                    // Stats Section
+                    if (meta['stats'] != null) ...[
+                      Text(
+                        'Quick Stats',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.foreground,
                         ),
                       ),
-                      child: Html(
-                        data: md.markdownToHtml(advice),
-                        style: {
-                          "body": Style(
-                            fontSize: FontSize(15),
-                            lineHeight: const LineHeight(1.6),
-                            color: colorScheme.foreground,
-                            margin: Margins.zero,
-                            padding: HtmlPaddings.zero,
-                          ),
-                          "p": Style(
-                            fontSize: FontSize(15),
-                            lineHeight: const LineHeight(1.6),
-                            color: colorScheme.foreground,
-                            margin: Margins.only(bottom: 12),
-                          ),
-                          "h1": Style(
-                            fontSize: FontSize(24),
-                            fontWeight: FontWeight.bold,
-                            color: colorScheme.foreground,
-                            margin: Margins.only(top: 16, bottom: 12),
-                          ),
-                          "h2": Style(
-                            fontSize: FontSize(20),
-                            fontWeight: FontWeight.bold,
-                            color: colorScheme.foreground,
-                            margin: Margins.only(top: 14, bottom: 10),
-                          ),
-                          "h3": Style(
-                            fontSize: FontSize(18),
-                            fontWeight: FontWeight.w600,
-                            color: colorScheme.foreground,
-                            margin: Margins.only(top: 12, bottom: 8),
-                          ),
-                          "strong": Style(
-                            fontWeight: FontWeight.bold,
-                            color: colorScheme.foreground,
-                          ),
-                          "em": Style(
-                            fontStyle: FontStyle.italic,
-                            color: colorScheme.foreground,
-                          ),
-                          "ul": Style(
-                            margin: Margins.only(left: 16, bottom: 12),
-                          ),
-                          "ol": Style(
-                            margin: Margins.only(left: 16, bottom: 12),
-                          ),
-                          "li": Style(
-                            fontSize: FontSize(15),
-                            lineHeight: const LineHeight(1.6),
-                            color: colorScheme.foreground,
-                            margin: Margins.only(bottom: 4),
-                          ),
-                          "code": Style(
-                            fontSize: FontSize(14),
-                            fontFamily: 'monospace',
-                            color: colorScheme.foreground,
-                            backgroundColor: colorScheme.muted,
-                            padding: HtmlPaddings.symmetric(horizontal: 4, vertical: 2),
-                          ),
-                          "pre": Style(
-                            fontSize: FontSize(14),
-                            fontFamily: 'monospace',
-                            color: colorScheme.foreground,
-                            backgroundColor: colorScheme.muted,
-                            padding: HtmlPaddings.all(12),
-                            margin: Margins.only(bottom: 12),
-                            border: Border.all(color: colorScheme.border),
-                          ),
-                          "blockquote": Style(
-                            fontSize: FontSize(15),
-                            fontStyle: FontStyle.italic,
-                            color: colorScheme.mutedForeground,
-                            backgroundColor: colorScheme.muted,
-                            padding: HtmlPaddings.all(12),
-                            margin: Margins.only(bottom: 12),
-                            border: Border(
-                              left: BorderSide(
-                                color: colorScheme.primary,
-                                width: 4,
-                              ),
-                            ),
-                          ),
-                          "a": Style(
-                            color: colorScheme.primary,
-                            textDecoration: TextDecoration.underline,
-                          ),
-                          "hr": Style(
-                            margin: Margins.symmetric(vertical: 16),
-                            border: Border(
-                              bottom: BorderSide(
-                                color: colorScheme.border,
-                                width: 1,
-                              ),
-                            ),
-                          ),
-                        },
-                      ),
-                    ),
+                      const SizedBox(height: 12),
+                      _buildStatRow(colorScheme, 'Current Balance', '\$${meta['stats']['currentRunningBalance']?.toStringAsFixed(2) ?? '0.00'}'),
+                      _buildStatRow(colorScheme, 'Projected (No Change)', '\$${meta['stats']['projectedNoScenarioByTarget']?.toStringAsFixed(2) ?? '0.00'}'),
+                      _buildStatRow(colorScheme, 'Avg Daily Net', '\$${meta['stats']['avgNetPerDay']?.toStringAsFixed(2) ?? '0.00'}'),
+                    ],
 
                     const SizedBox(height: 32),
                   ],
@@ -284,5 +161,31 @@ void showScenarioResultSheet(
         ),
       );
     },
+  );
+}
+
+Widget _buildStatRow(shadcnui.ColorScheme colorScheme, String label, String value) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 6.0),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            color: colorScheme.mutedForeground,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: colorScheme.foreground,
+          ),
+        ),
+      ],
+    ),
   );
 }
