@@ -2,6 +2,11 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
+// Public interface for controlling the FAB from outside
+abstract class ExpandableFabController {
+  void close();
+}
+
 @immutable
 class ExpandableFab extends StatefulWidget {
   const ExpandableFab({
@@ -9,18 +14,21 @@ class ExpandableFab extends StatefulWidget {
     this.initialOpen,
     required this.distance,
     required this.children,
+    this.onToggle,
   });
 
   final bool? initialOpen;
   final double distance;
   final List<Widget> children;
+  final ValueChanged<bool>? onToggle;
 
   @override
-  State<ExpandableFab> createState() => _ExpandableFabState();
+  State<ExpandableFab> createState() => ExpandableFabState();
 }
 
-class _ExpandableFabState extends State<ExpandableFab>
-    with SingleTickerProviderStateMixin {
+class ExpandableFabState extends State<ExpandableFab>
+    with SingleTickerProviderStateMixin
+    implements ExpandableFabController {
   late final AnimationController _controller;
   late final Animation<double> _expandAnimation;
   bool _open = false;
@@ -55,7 +63,18 @@ class _ExpandableFabState extends State<ExpandableFab>
       } else {
         _controller.reverse();
       }
+      widget.onToggle?.call(_open);
     });
+  }
+
+  void close() {
+    if (_open) {
+      setState(() {
+        _open = false;
+        _controller.reverse();
+        widget.onToggle?.call(false);
+      });
+    }
   }
 
   @override

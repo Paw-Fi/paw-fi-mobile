@@ -1,65 +1,87 @@
 import 'package:flutter/material.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/features/home/presentation/models/models.dart';
+import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
+import 'package:moneko/features/utils/currency.dart';
 
-Widget buildBudgetCard(shadcnui.ColorScheme colorScheme, List<DailyBudgetEntry> budgets, List<ExpenseEntry> expenses, UserContact? contact) {
+Widget buildBudgetCard(
+  shadcnui.ColorScheme colorScheme,
+  List<DailyBudgetEntry> budgets,
+  List<ExpenseEntry> expenses,
+  UserContact? contact,
+  DateRangeFilter filter, {
+  VoidCallback? onTap,
+}) {
   final totalBudget = _getTotalBudget(budgets);
-  final currencySymbol = _getCurrencySymbol(contact);
+  final currencySymbol = getCurrencySymbol(contact);
+  final title = _budgetTitleForFilter(filter);
 
-  return Container(
-    decoration: BoxDecoration(
-      color: colorScheme.card,
+  return Material(
+    color: Colors.transparent,
+    child: InkWell(
       borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: colorScheme.border, width: 1),
-    ),
-    padding: const EdgeInsets.all(16.0),
-    child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Budget',
-            style: TextStyle(
-              fontSize: 14,
-              color: colorScheme.mutedForeground,
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: colorScheme.card,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: colorScheme.border, width: 1),
+        ),
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 14,
+                color: colorScheme.mutedForeground,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '$currencySymbol${totalBudget.toStringAsFixed(0)}',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: colorScheme.foreground,
+            const SizedBox(height: 8),
+            Text(
+              '$currencySymbol${totalBudget.toStringAsFixed(0)}',
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: colorScheme.foreground,
+              ),
             ),
-          ),
-          const Spacer(),
-          Text(
-            '${expenses.length} transactions',
-            style: TextStyle(
-              fontSize: 12,
-              color: colorScheme.mutedForeground,
+            const Spacer(),
+            Text(
+              '${expenses.length} transactions',
+              style: TextStyle(
+                fontSize: 12,
+                color: colorScheme.mutedForeground,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    );
-  }
+    ),
+  );
+}
 
 double _getTotalBudget(List<DailyBudgetEntry> budgets) {
   return budgets.fold(0.0, (sum, b) => sum + b.amount);
 }
 
-String _getCurrencySymbol(UserContact? contact) {
-  final cur = contact?.preferredCurrency ?? 'USD';
-  switch (cur.toUpperCase()) {
-    case 'EUR':
-      return '€';
-    case 'GBP':
-      return '£';
-    case 'JPY':
-      return '¥';
-    case 'USD':
-    default:
-      return '\$';
+String _budgetTitleForFilter(DateRangeFilter filter) {
+  switch (filter) {
+    case DateRangeFilter.today:
+      return "Today's budget";
+    case DateRangeFilter.yesterday:
+      return "Yesterday's budget";
+    case DateRangeFilter.thisWeek:
+      return 'Sum of daily budgets this week';
+    case DateRangeFilter.lastWeek:
+      return 'Sum of daily budgets last week';
+    case DateRangeFilter.thisMonth:
+      return 'Sum of daily budgets this month';
+    case DateRangeFilter.last30Days:
+      return 'Sum of daily budgets over the last 30 days';
+    case DateRangeFilter.custom:
+      return 'Sum of daily budgets for the selected range';
   }
 }
+

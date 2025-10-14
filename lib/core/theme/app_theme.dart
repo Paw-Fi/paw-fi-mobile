@@ -1,11 +1,68 @@
 import 'package:flutter/material.dart' hide ThemeData, Colors;
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
 /// Theme mode provider
-final themeModeProvider = StateProvider<shadcnui.ThemeMode>((ref) {
-  return shadcnui.ThemeMode.dark; // Default to dark mode
+final themeModeProvider =
+    StateNotifierProvider<ThemeModeNotifier, shadcnui.ThemeMode>((ref) {
+  return ThemeModeNotifier();
 });
+
+class ThemeModeNotifier extends StateNotifier<shadcnui.ThemeMode> {
+  ThemeModeNotifier() : super(shadcnui.ThemeMode.system) {
+    _loadThemeMode();
+  }
+
+  static const _storageKey = 'moneko_theme_mode';
+
+  Future<void> _loadThemeMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getString(_storageKey);
+
+    if (stored == null) {
+      final platformBrightness =
+          WidgetsBinding.instance.platformDispatcher.platformBrightness;
+      final fallback = platformBrightness == Brightness.dark
+          ? shadcnui.ThemeMode.dark
+          : shadcnui.ThemeMode.light;
+      state = fallback;
+      return;
+    }
+
+    state = _themeModeFromString(stored);
+  }
+
+  Future<void> setThemeMode(shadcnui.ThemeMode mode) async {
+    state = mode;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_storageKey, _themeModeToString(mode));
+  }
+
+  shadcnui.ThemeMode _themeModeFromString(String value) {
+    switch (value) {
+      case 'dark':
+        return shadcnui.ThemeMode.dark;
+      case 'light':
+        return shadcnui.ThemeMode.light;
+      case 'system':
+        return shadcnui.ThemeMode.system;
+      default:
+        return shadcnui.ThemeMode.light;
+    }
+  }
+
+  String _themeModeToString(shadcnui.ThemeMode mode) {
+    switch (mode) {
+      case shadcnui.ThemeMode.dark:
+        return 'dark';
+      case shadcnui.ThemeMode.light:
+        return 'light';
+      case shadcnui.ThemeMode.system:
+        return 'system';
+    }
+  }
+}
 
 /// Moneko app theme configuration matching web's Tailwind design system
 class AppTheme {

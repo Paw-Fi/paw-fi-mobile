@@ -23,4 +23,16 @@ class UserContact {
       preferredCurrency: json['preferred_currency'] as String?,
     );
   }
+
+  UserContact copyWith({
+    String? preferredCurrency,
+  }) {
+    return UserContact(
+      id: id,
+      userId: userId,
+      phoneE164: phoneE164,
+      verified: verified,
+      preferredCurrency: preferredCurrency ?? this.preferredCurrency,
+    );
+  }
 }

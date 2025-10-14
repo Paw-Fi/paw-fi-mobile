@@ -38,9 +38,6 @@ class ExpenseProcessingNotifier extends StateNotifier<ProcessingState> {
   Future<void> processText(String text, String phone) async {
     state = state.copyWith(isProcessing: true, message: 'Processing expense...', progress: 0.1, clearExpense: true);
 
-    // Start fake progress simulation
-    _simulateProgress();
-
     try {
       final response = await supabase.functions.invoke(
         'process-expenses',
@@ -95,11 +92,8 @@ class ExpenseProcessingNotifier extends StateNotifier<ProcessingState> {
           }
         }
 
-        // Jump to 100% on success
-        state = state.copyWith(progress: 1.0, createdExpense: createdExpense);
-        // Very short delay to show completion, then hide to allow toast to show immediately
-        await Future.delayed(const Duration(milliseconds: 50));
-        state = state.copyWith(isProcessing: false, clearMessage: true);
+        // Mark as complete
+        state = state.copyWith(isProcessing: false, progress: 1.0, createdExpense: createdExpense, clearMessage: true);
       } else {
         final error = response.data?['error'] ?? 'Failed to process expense';
         throw Exception(error);
@@ -112,9 +106,6 @@ class ExpenseProcessingNotifier extends StateNotifier<ProcessingState> {
 
   Future<void> processImage(File imageFile, String phone) async {
     state = state.copyWith(isProcessing: true, message: 'Processing receipt image...', progress: 0.1, clearExpense: true, localImagePath: imageFile.path);
-
-    // Start fake progress simulation
-    _simulateProgress();
 
     try {
       // Read image bytes
@@ -188,11 +179,8 @@ class ExpenseProcessingNotifier extends StateNotifier<ProcessingState> {
           print('expenses isEmpty: ${responseData?['expenses']?.isEmpty}');
         }
 
-        // Jump to 100% on success
-        state = state.copyWith(progress: 1.0, createdExpense: createdExpense);
-        // Very short delay to show completion, then hide to allow toast to show immediately
-        await Future.delayed(const Duration(milliseconds: 50));
-        state = state.copyWith(isProcessing: false, clearMessage: true);
+        // Mark as complete
+        state = state.copyWith(isProcessing: false, progress: 1.0, createdExpense: createdExpense, clearMessage: true);
       } else {
         final error = response.data?['error'] ?? 'Failed to process receipt';
         throw Exception(error);

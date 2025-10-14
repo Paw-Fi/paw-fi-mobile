@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/core.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
@@ -9,7 +11,7 @@ import 'package:moneko/features/home/presentation/constants/category_constants.d
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:moneko/features/utils/currency.dart';
 
 // ============================================================================
 // HOME PAGE
@@ -25,6 +27,7 @@ class HomePage extends ConsumerStatefulWidget {
 class _HomePageState extends ConsumerState<HomePage> {
   final ImagePicker _imagePicker = ImagePicker();
   final TextEditingController _textController = TextEditingController();
+  final GlobalKey<ExpandableFabState> _fabKey = GlobalKey<ExpandableFabState>();
 
   @override
   void initState() {
@@ -63,56 +66,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       debugPrint('🎥 Photo captured: ${photo != null}');
 
       if (photo != null && mounted) {
-        final user = ref.read(authProvider);
-        final contact = ref.read(analyticsProvider).contact;
-
-        if (contact == null) {
-          _showToast('No contact found. Please link your WhatsApp first.');
-          return;
-        }
-
-        // Show processing toast
-        _showProcessingToast('Processing receipt...');
-
-        try {
-          debugPrint('=== STARTING IMAGE PROCESSING ===');
-          await ref.read(expenseProcessingProvider.notifier).processImage(
-            File(photo.path),
-            contact.phoneE164,
-          );
-          debugPrint('=== IMAGE PROCESSING COMPLETED ===');
-
-          // Hide processing toast
-          if (mounted) {
-            ScaffoldMessenger.of(context).hideCurrentSnackBar();
-          }
-
-          // Show success toast with View link
-          final processingState = ref.read(expenseProcessingProvider);
-          debugPrint('=== PROCESSING STATE: createdExpense is ${processingState.createdExpense != null ? "NOT NULL" : "NULL"} ===');
-
-          if (processingState.createdExpense != null && mounted) {
-            debugPrint('=== SHOWING SUCCESS TOAST ===');
-            _showSuccessToast(processingState.createdExpense!, contact, localImagePath: processingState.localImagePath);
-          }
-
-          // Refresh analytics data immediately
-          final userId = user.uid;
-          if (userId.isNotEmpty) {
-            debugPrint('=== REFRESHING ANALYTICS DATA FOR USER: $userId ===');
-            await ref.read(analyticsProvider.notifier).loadData(userId);
-            debugPrint('=== ANALYTICS DATA REFRESH COMPLETED ===');
-          } else {
-            debugPrint('=== ERROR: User ID is null or empty, cannot refresh analytics ===');
-          }
-        } catch (e) {
-          debugPrint('=== ERROR IN IMAGE PROCESSING: $e ===');
-          // Hide processing toast
-          if (mounted) {
-            ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            _showToast('Failed to process receipt. Please try again.');
-          }
-        }
+        await _processExpense(imagePath: photo.path);
       } else if (photo == null) {
         debugPrint('🎥 User cancelled or permission denied');
       }
@@ -123,8 +77,175 @@ class _HomePageState extends ConsumerState<HomePage> {
     }
   }
 
+  Future<void> _processExpense({String? text, String? imagePath}) async {
+    final contact = ref.read(analyticsProvider).contact;
+
+    if (contact == null) {
+      _showToast('No contact found. Please link your WhatsApp first.');
+      return;
+    }
+
+    // Show processing modal
+    if (!mounted) return;
+    
+    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => PopScope(
+        canPop: false,
+        child: Center(
+          child: Container(
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: colorScheme.background,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(),
+                const SizedBox(height: 16),
+                Text(
+                  imagePath != null ? 'Processing receipt...' : 'Processing expense...',
+                  style: TextStyle(
+                    color: colorScheme.foreground,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      Map<String, dynamic> body = {
+        'phone': contact.phoneE164,
+        'date': DateTime.now().toIso8601String().split('T')[0],
+      };
+
+      // Add either text or image to the request
+      if (text != null) {
+        body['text'] = text;
+      } else if (imagePath != null) {
+        // Read image bytes and convert to base64
+        final imageFile = File(imagePath);
+        final bytes = await imageFile.readAsBytes();
+        final base64Image = base64Encode(bytes);
+
+        // Determine content type from file extension
+        String contentType = 'image/jpeg';
+        final extension = imagePath.split('.').last.toLowerCase();
+        if (extension == 'png') {
+          contentType = 'image/png';
+        } else if (extension == 'jpg' || extension == 'jpeg') {
+          contentType = 'image/jpeg';
+        } else if (extension == 'heic') {
+          contentType = 'image/heic';
+        }
+
+        body['image'] = {
+          'data': base64Image,
+          'contentType': contentType,
+        };
+      }
+
+      // Call the backend
+      final response = await supabase.functions.invoke(
+        'process-expenses',
+        body: body,
+      );
+
+      if (!mounted) return;
+
+      // Close processing modal
+      Navigator.of(context, rootNavigator: true).pop();
+
+      // Log the response
+      debugPrint('=== PROCESSING RESPONSE ===');
+      debugPrint('response.data: ${response.data}');
+      debugPrint('=========================');
+
+      if (response.data != null && response.data['success'] == true) {
+        final responseData = response.data['data'];
+        ExpenseEntry? createdExpense;
+
+        // Parse expense from response - check both 'expenses' and 'items' arrays
+        if (responseData != null) {
+          List? expensesArray = responseData['expenses'];
+          List? itemsArray = responseData['items'];
+          
+          Map<String, dynamic>? expenseData;
+          
+          // Try 'expenses' array first (for full expense objects from DB)
+          if (expensesArray != null && expensesArray.isNotEmpty) {
+            expenseData = expensesArray[0];
+          } 
+          // Fall back to 'items' array (for parsed items from BE)
+          else if (itemsArray != null && itemsArray.isNotEmpty) {
+            expenseData = itemsArray[0];
+          }
+
+          if (expenseData != null) {
+            // Create expense entry from data
+            // If 'id' exists, it's from DB, otherwise it's a newly created item
+            createdExpense = ExpenseEntry(
+              id: expenseData['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
+              contactId: expenseData['contact_id'] ?? contact.id,
+              amountCents: expenseData['amount_cents'] ?? 
+                          (expenseData['amount'] != null ? (expenseData['amount'] * 100).toInt() : 0),
+              category: expenseData['category'] ?? 'other',
+              date: DateTime.parse(expenseData['date'] ?? DateTime.now().toIso8601String()),
+              createdAt: DateTime.parse(expenseData['created_at'] ?? DateTime.now().toIso8601String()),
+              rawText: expenseData['raw_text'] ?? text ?? 'Receipt image',
+              currency: expenseData['currency'] ?? 'USD',
+              receiptImageUrl: expenseData['receipt_image_url'],
+            );
+          }
+        }
+
+        if (createdExpense != null) {
+          // Show success toast with View link
+          _showSuccessToast(
+            createdExpense,
+            contact,
+            localImagePath: imagePath,
+          );
+
+          // Refresh analytics data
+          final user = ref.read(authProvider);
+          if (user.uid.isNotEmpty) {
+            ref.read(analyticsProvider.notifier).loadData(user.uid);
+          }
+        } else {
+          _showToast('Failed to process: No expense data returned');
+        }
+      } else {
+        final error = response.data?['error'] ?? 'Failed to process';
+        _showToast('Failed to process: $error');
+      }
+    } catch (e) {
+      debugPrint('=== ERROR IN PROCESSING: $e ===');
+      if (!mounted) return;
+
+      // Close processing modal
+      Navigator.of(context, rootNavigator: true).pop();
+
+      _showToast('Failed to process: ${e.toString()}');
+    }
+  }
+
   void _showTextInputDrawer() {
-    showTextInputDrawer(context, _textController);
+    showTextInputDrawer(
+      context,
+      _textController,
+      (text) async {
+        // Process the expense with text
+        await _processExpense(text: text);
+      },
+    );
   }
 
   void _showJointAccountModal() {
@@ -138,6 +259,197 @@ class _HomePageState extends ConsumerState<HomePage> {
     showDateRangeFilter(context, colorScheme, user.uid);
   }
 
+  Future<void> _showBudgetUpdateSheet() async {
+    final analytics = ref.read(analyticsProvider);
+    final contact = analytics.contact;
+    final user = ref.read(authProvider);
+
+    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final initialAmount = _totalBudgetAmount(analytics.budgets);
+    String rawAmountInput = initialAmount > 0 ? initialAmount.toStringAsFixed(0) : '';
+
+    String? validationError;
+
+    final amount = await showModalBottomSheet<double>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: colorScheme.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        final sheetColorScheme = shadcnui.Theme.of(sheetContext).colorScheme;
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 24,
+            left: 24,
+            right: 24,
+            top: 24,
+          ),
+          child: StatefulBuilder(
+            builder: (context, setModalState) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Update budget',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: sheetColorScheme.foreground,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Enter the new total monthly budget.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: sheetColorScheme.mutedForeground,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    initialValue: rawAmountInput,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      prefixText: getCurrencySymbol(contact),
+                      labelText: 'Budget amount',
+                      errorText: validationError,
+                    ),
+                    autofocus: true,
+                    onChanged: (value) {
+                      rawAmountInput = value;
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(),
+                        child: const Text('Cancel'),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: shadcnui.PrimaryButton(
+                          onPressed: () {
+                            final normalizedInput = rawAmountInput.replaceAll(',', '').trim();
+                            final parsed = double.tryParse(normalizedInput);
+
+                            if (parsed == null || parsed <= 0) {
+                              setModalState(() {
+                                validationError = 'Enter a valid amount greater than 0';
+                              });
+                              return;
+                            }
+
+                            FocusScope.of(sheetContext).unfocus();
+                            Navigator.of(sheetContext).pop(parsed);
+                          },
+                          child: const Text('Save'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
+        );
+      },
+    );
+
+    final capturedAmount = amount;
+
+    if (capturedAmount == null) {
+      return;
+    }
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        final dialogScheme = shadcnui.Theme.of(dialogContext).colorScheme;
+        return PopScope(
+          canPop: false,
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.all(28),
+              decoration: BoxDecoration(
+                color: dialogScheme.background,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Updating budget...',
+                    style: TextStyle(color: dialogScheme.foreground, fontSize: 16),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    try {
+      final payload = <String, dynamic>{
+        'userId': user.uid,
+        'amount': capturedAmount,
+      };
+
+      if (contact != null) {
+        payload['phone'] = contact.phoneE164;
+        final preferredCurrency = contact.preferredCurrency;
+        if (preferredCurrency != null && preferredCurrency.isNotEmpty) {
+          payload['currency'] = preferredCurrency;
+        }
+      }
+
+      final response = await supabase.functions.invoke(
+        'set-budget',
+        body: payload,
+      );
+      print(response);
+
+      final data = response.data as Map<String, dynamic>?;
+
+      if (response.status >= 400) {
+        final responseError = data?['error'] as String?;
+        throw Exception(responseError ?? 'Failed with status ${response.status}');
+      }
+
+      if (data == null || data['ok'] != true) {
+        final errorMessage = data?['error'] as String? ?? 'Unknown error';
+        throw Exception(errorMessage);
+      }
+
+      ref.read(analyticsProvider.notifier).setBudgetAmount(capturedAmount);
+
+      // Refresh analytics data if user is logged in
+      if (user.uid.isNotEmpty) {
+        ref.read(analyticsProvider.notifier).loadData(user.uid);
+      }
+
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        final replyMessage = (data['reply'] as String?)?.trim();
+        _showToast(replyMessage?.isNotEmpty == true ? replyMessage! : 'Budget updated');
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        _showToast('Failed to update budget: ${e.toString()}');
+      }
+    }
+  }
+
   void _showToast(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -148,62 +460,8 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  void _showProcessingToast(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Text(message),
-          ],
-        ),
-        duration: const Duration(minutes: 5), // Long duration, will be dismissed manually
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
-  void _showPermissionDeniedToast() {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Camera permission is required. Please enable it in Settings.',
-                style: TextStyle(color: colorScheme.primaryForeground),
-              ),
-            ),
-            GestureDetector(
-              onTap: () {
-                ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                openAppSettings();
-              },
-              child: Text(
-                'Settings',
-                style: TextStyle(
-                  color: colorScheme.primaryForeground,
-                  decoration: TextDecoration.underline,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: colorScheme.destructive,
-        duration: const Duration(seconds: 5),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+  double _totalBudgetAmount(List<DailyBudgetEntry> budgets) {
+    return budgets.fold(0.0, (sum, entry) => sum + entry.amount);
   }
 
   void _showSuccessToast(ExpenseEntry expense, UserContact? contact, {String? localImagePath}) {
@@ -215,7 +473,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             Expanded(
               child: Text(
                 'Logged successfully',
-                style: TextStyle(color: colorScheme.primaryForeground),
+                style: TextStyle(color: colorScheme.mutedForeground),
               ),
             ),
             GestureDetector(
@@ -226,8 +484,9 @@ class _HomePageState extends ConsumerState<HomePage> {
               child: Text(
                 'View',
                 style: TextStyle(
-                  color: colorScheme.primaryForeground,
+                  color: colorScheme.mutedForeground,
                   decoration: TextDecoration.underline,
+                  decorationColor: colorScheme.mutedForeground,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -244,7 +503,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = shadcnui.Theme.of(context).colorScheme;
-    final analyticsData = ref.watch(analyticsProvider);
+    final analyticsData = ref.watch(analyticsProvider);   
     final user = ref.watch(authProvider);
 
     if (analyticsData.isLoading) {
@@ -331,19 +590,6 @@ class _HomePageState extends ConsumerState<HomePage> {
       }
     }
 
-    // Listen for processing state changes and show toasts
-    ref.listen<ProcessingState>(expenseProcessingProvider, (previous, next) {
-      if (previous?.message != next.message && next.message != null) {
-        _showToast(next.message!);
-        // Clear message after showing
-        Future.delayed(const Duration(milliseconds: 100), () {
-          if (mounted) {
-            ref.read(expenseProcessingProvider.notifier).clearMessage();
-          }
-        });
-      }
-    });
-
     return Scaffold(
       backgroundColor: colorScheme.background,
       body: Stack(
@@ -388,12 +634,12 @@ class _HomePageState extends ConsumerState<HomePage> {
                                     color: colorScheme.primary,
                                     borderRadius: BorderRadius.circular(16),
                                   ),
-                                  child: const Text(
+                                  child: Text(
                                     'Single',
                                     style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,
-                                      color: Colors.white,
+                                     color: colorScheme.mutedForeground,
                                     ),
                                   ),
                                 ),
@@ -482,7 +728,14 @@ class _HomePageState extends ConsumerState<HomePage> {
                         children: [
                           SizedBox(
                             width: 200,
-                            child: buildBudgetCard(colorScheme, analyticsData.budgets, analyticsData.expenses, analyticsData.contact),
+                            child: buildBudgetCard(
+                              colorScheme,
+                              analyticsData.budgets,
+                              analyticsData.expenses,
+                              analyticsData.contact,
+                              analyticsData.dateRangeFilter,
+                              onTap: _showBudgetUpdateSheet,
+                            ),
                           ),
                           const SizedBox(width: 12),
                           SizedBox(
@@ -575,15 +828,22 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   Widget _buildExpandableFAB(shadcnui.ColorScheme colorScheme) {
     return ExpandableFab(
+      key: _fabKey,
       distance: 90,
       children: [
         ActionButton(
-          onPressed: _showTextInputDrawer,
+          onPressed: () {
+            _fabKey.currentState?.close();
+            _showTextInputDrawer();
+          },
           icon: const Icon(Icons.text_fields),
           label: 'Free form text',
         ),
         ActionButton(
-          onPressed: _handleCameraCapture,
+          onPressed: () {
+            _fabKey.currentState?.close();
+            _handleCameraCapture();
+          },
           icon: const Icon(Icons.camera_alt),
           label: 'Take photo',
         ),

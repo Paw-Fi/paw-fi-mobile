@@ -3,41 +3,65 @@ import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
 Widget buildProfileAvatarHeader(BuildContext context, user) {
   final colorScheme = shadcnui.Theme.of(context).colorScheme;
+  final initials =
+      user.displayName?.trim().isNotEmpty == true
+          ? user.displayName!.trim().substring(0, 1).toUpperCase()
+          : user.email.substring(0, 1).toUpperCase();
+  final avatarUrl = user.photoUrl;
+
   return Column(
     children: [
-      SizedBox(
-        width: 96,
-        height: 96,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Container(
-              width: 96,
-              height: 96,
-              decoration: BoxDecoration(
-                color: colorScheme.primary,
-                shape: BoxShape.circle,
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                (user.displayName?.substring(0, 2).toUpperCase() ?? user.email.substring(0, 2).toUpperCase()),
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.primaryForeground,
+      Container(
+        width: 104,
+        height: 104,
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: avatarUrl != null
+              ? null
+              : const LinearGradient(
+                  colors: [Color(0xFF7458FF), Color(0xFF836DFF)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-              ),
+          boxShadow: [
+            BoxShadow(
+              color: colorScheme.primary.withValues(alpha: 0.25),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
             ),
-            if (user.photoUrl != null)
-              ClipOval(
-                child: Image.network(
-                  user.photoUrl!,
-                  width: 96,
-                  height: 96,
-                  fit: BoxFit.cover,
-                ),
-              ),
           ],
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: colorScheme.card,
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: avatarUrl != null
+              ? Image.network(
+                  avatarUrl,
+                  fit: BoxFit.cover,
+                )
+              : Container(
+                  alignment: Alignment.center,
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xFF7458FF), Color(0xFF836DFF)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                  child: Text(
+                    initials,
+                    style: const TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                ),
         ),
       ),
       const shadcnui.Gap(20),

@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/features/home/presentation/models/models.dart';
+import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 
 Widget buildSpendingCard(shadcnui.ColorScheme colorScheme, List<ExpenseEntry> expenses, UserContact? contact, DateRangeFilter dateFilter) {
   // Calculate cumulative spending by day
   final Map<DateTime, double> dailyTotals = {};
   final totalSpent = _getTotalSpent(expenses);
-  final currencySymbol = _getCurrencySymbol(contact);
+  final currencySymbol = getCurrencySymbol(contact);
 
   for (final expense in expenses) {
     final dateOnly = DateTime(expense.date.year, expense.date.month, expense.date.day);
@@ -137,19 +138,4 @@ Widget buildSpendingCard(shadcnui.ColorScheme colorScheme, List<ExpenseEntry> ex
 
 double _getTotalSpent(List<ExpenseEntry> expenses) {
   return expenses.where((e) => e.amountCents > 0).fold(0.0, (sum, e) => sum + e.amount);
-}
-
-String _getCurrencySymbol(UserContact? contact) {
-  final cur = contact?.preferredCurrency ?? 'USD';
-  switch (cur.toUpperCase()) {
-    case 'EUR':
-      return '€';
-    case 'GBP':
-      return '£';
-    case 'JPY':
-      return '¥';
-    case 'USD':
-    default:
-      return '\$';
-  }
 }

@@ -134,39 +134,7 @@ class PaywallScreen extends ConsumerWidget {
 
               const SizedBox(height: 32),
 
-              // Features List
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: colorScheme.muted,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  children: [
-                    _FeatureItem(
-                      text: 'Advanced AI-powered insights',
-                      colorScheme: colorScheme,
-                    ),
-                    const SizedBox(height: 12),
-                    _FeatureItem(
-                      text: 'Unlimited scenario planning',
-                      colorScheme: colorScheme,
-                    ),
-                    const SizedBox(height: 12),
-                    _FeatureItem(
-                      text: 'Priority support',
-                      colorScheme: colorScheme,
-                    ),
-                    const SizedBox(height: 12),
-                    _FeatureItem(
-                      text: 'Enhanced security features',
-                      colorScheme: colorScheme,
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 40),
+           
 
               // CTA Button
               SizedBox(

@@ -1,23 +1,98 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
-import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/core/core.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/home/presentation/models/models.dart';
 
-void showTextInputDrawer(BuildContext context, TextEditingController textController) {
-  final colorScheme = shadcnui.Theme.of(context).colorScheme;
+void showTextInputDrawer(
+  BuildContext parentContext,
+  TextEditingController textController,
+  Function(String text) onSubmit,
+) {
+  final colorScheme = shadcnui.Theme.of(parentContext).colorScheme;
 
   showModalBottomSheet(
-    context: context,
+    context: parentContext,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (context) => Padding(
+    builder: (modalContext) => _TextInputContent(
+      parentContext: parentContext,
+      textController: textController,
+      colorScheme: colorScheme,
+      onSubmit: onSubmit,
+    ),
+  );
+}
+
+class _TextInputContent extends ConsumerStatefulWidget {
+  final BuildContext parentContext;
+  final TextEditingController textController;
+  final shadcnui.ColorScheme colorScheme;
+  final Function(String text) onSubmit;
+
+  const _TextInputContent({
+    required this.parentContext,
+    required this.textController,
+    required this.colorScheme,
+    required this.onSubmit,
+  });
+
+  @override
+  ConsumerState<_TextInputContent> createState() => _TextInputContentState();
+}
+
+class _TextInputContentState extends ConsumerState<_TextInputContent> {
+  bool _isProcessing = false;
+
+  Future<void> _processExpense() async {
+    final text = widget.textController.text.trim();
+    if (text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter expense details'),
+          duration: Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final contact = ref.read(analyticsProvider).contact;
+
+    if (contact == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No contact found. Please link your WhatsApp first.'),
+          duration: Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isProcessing = true;
+    });
+
+    // Close the input modal and trigger the processing in parent
+    if (mounted) {
+      Navigator.pop(context);
+      widget.onSubmit(text);
+      // Clear the text field
+      widget.textController.clear();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
       child: Container(
         decoration: BoxDecoration(
-          color: colorScheme.background,
+          color: widget.colorScheme.background,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         padding: const EdgeInsets.all(24.0),
@@ -33,11 +108,11 @@ void showTextInputDrawer(BuildContext context, TextEditingController textControl
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: colorScheme.foreground,
+                    color: widget.colorScheme.foreground,
                   ),
                 ),
                 IconButton(
-                  icon: Icon(Icons.close, color: colorScheme.foreground),
+                  icon: Icon(Icons.close, color: widget.colorScheme.foreground),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
@@ -47,137 +122,48 @@ void showTextInputDrawer(BuildContext context, TextEditingController textControl
               'Describe your expense (eg: "Spent 25 on lunch")',
               style: TextStyle(
                 fontSize: 14,
-                color: colorScheme.mutedForeground,
+                color: widget.colorScheme.mutedForeground,
               ),
             ),
             const SizedBox(height: 16),
             TextField(
-              controller: textController,
+              controller: widget.textController,
               autofocus: true,
               maxLines: 4,
               decoration: InputDecoration(
                 hintText: 'Enter expense details...',
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: colorScheme.border),
+                  borderSide: BorderSide(color: widget.colorScheme.border),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: colorScheme.primary, width: 2),
+                  borderSide: BorderSide(color: widget.colorScheme.primary, width: 2),
                 ),
               ),
-              style: TextStyle(color: colorScheme.foreground),
+              style: TextStyle(color: widget.colorScheme.foreground),
             ),
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
               child: shadcnui.PrimaryButton(
-                onPressed: () async {
-                  final text = textController.text.trim();
-                  if (text.isEmpty) {
-                    _showToast(context, 'Please enter expense details');
-                    return;
-                  }
-
-                  Navigator.pop(context);
-
-                  final user = ProviderScope.containerOf(context).read(authProvider);
-                  final contact = ProviderScope.containerOf(context).read(analyticsProvider).contact;
-
-                  if (contact == null) {
-                    _showToast(context, 'No contact found. Please link your WhatsApp first.');
-                    return;
-                  }
-
-                  try {
-                    print('=== STARTING TEXT PROCESSING ===');
-                    await ProviderScope.containerOf(context).read(expenseProcessingProvider.notifier).processText(
-                      text,
-                      contact.phoneE164,
-                    );
-                    print('=== TEXT PROCESSING COMPLETED ===');
-
-                    textController.clear();
-
-                    // Show success toast with View link
-                    final processingState = ProviderScope.containerOf(context).read(expenseProcessingProvider);
-                    print('=== PROCESSING STATE: createdExpense is ${processingState.createdExpense != null ? "NOT NULL" : "NULL"} ===');
-
-                    if (processingState.createdExpense != null) {
-                      print('=== SHOWING SUCCESS TOAST ===');
-                      _showSuccessToast(context, processingState.createdExpense!, contact);
-                    }
-
-                    // Close drawer
-                    if (context.mounted) Navigator.pop(context);
-
-                    // Refresh analytics data immediately
-                    final userId = user.uid;
-                    if (userId.isNotEmpty) {
-                      print('=== REFRESHING ANALYTICS DATA FOR USER: $userId ===');
-                      await ProviderScope.containerOf(context).read(analyticsProvider.notifier).loadData(userId);
-                      print('=== ANALYTICS DATA REFRESH COMPLETED ===');
-                    } else {
-                      print('=== ERROR: User ID is null or empty, cannot refresh analytics ===');
-                    }
-                  } catch (e) {
-                    print('=== ERROR IN TEXT PROCESSING: $e ===');
-                    // Error is already handled in the notifier
-                  }
-                },
-                child: const Text('Add Expense'),
+                onPressed: _isProcessing ? null : _processExpense,
+                child: _isProcessing
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Text('Add Expense'),
               ),
             ),
             const SizedBox(height: 16),
           ],
         ),
       ),
-    ),
-  );
-}
-
-void _showToast(BuildContext context, String message) {
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(message),
-      duration: const Duration(seconds: 3),
-      behavior: SnackBarBehavior.floating,
-    ),
-  );
-}
-
-void _showSuccessToast(BuildContext context, dynamic expense, dynamic contact) {
-  final colorScheme = shadcnui.Theme.of(context).colorScheme;
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Row(
-        children: [
-          Expanded(
-            child: Text(
-              'Logged successfully',
-              style: TextStyle(color: colorScheme.primaryForeground),
-            ),
-          ),
-          GestureDetector(
-            onTap: () {
-              ScaffoldMessenger.of(context).hideCurrentSnackBar();
-              // TODO: Implement showTransactionDetailSheet
-              // showTransactionDetailSheet(context, expense, contact: contact);
-            },
-            child: Text(
-              'View',
-              style: TextStyle(
-                color: colorScheme.primaryForeground,
-                decoration: TextDecoration.underline,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-      backgroundColor: colorScheme.primary,
-      duration: const Duration(seconds: 4),
-      behavior: SnackBarBehavior.floating,
-    ),
-  );
+    );
+  }
 }

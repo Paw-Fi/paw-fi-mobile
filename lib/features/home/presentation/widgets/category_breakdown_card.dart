@@ -3,10 +3,11 @@ import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/features/utils/currency.dart';
 Widget buildCategoryBreakdownCard(BuildContext context, shadcnui.ColorScheme colorScheme, List<ExpenseEntry> expenses, UserContact? contact) {
   final categorySummaries = _getCategorySummaries(expenses);
   final totalSpent = _getTotalSpent(expenses);
-  final currencySymbol = _getCurrencySymbol(contact);
+  final currencySymbol = getCurrencySymbol(contact);
 
   return GestureDetector(
     onTap: () {
@@ -133,19 +134,4 @@ List<CategorySummary> _getCategorySummaries(List<ExpenseEntry> expenses) {
 
 double _getTotalSpent(List<ExpenseEntry> expenses) {
   return expenses.where((e) => e.amountCents > 0).fold(0.0, (sum, e) => sum + e.amount);
-}
-
-String _getCurrencySymbol(UserContact? contact) {
-  final cur = contact?.preferredCurrency ?? 'USD';
-  switch (cur.toUpperCase()) {
-    case 'EUR':
-      return '€';
-    case 'GBP':
-      return '£';
-    case 'JPY':
-      return '¥';
-    case 'USD':
-    default:
-      return '\$';
-  }
 }

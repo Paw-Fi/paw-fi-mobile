@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/models/user_contact.dart';
+import 'package:moneko/features/utils/currency.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
 /// Shows transaction detail bottom sheet
@@ -17,7 +18,7 @@ void showTransactionDetailSheet(
   final category = expense.category ?? 'uncategorized';
   final categoryColor = getCategoryColor(category);
   final categoryIcon = getCategoryIcon(category);
-  final currencySymbol = _getCurrencySymbol(contact);
+  final currencySymbol = getCurrencySymbol(contact);
   final dateFormat = DateFormat('EEEE, MMMM d, yyyy');
   final timeFormat = DateFormat('h:mm a');
 
@@ -317,17 +318,3 @@ Widget _buildDetailRow(String label, String value, IconData icon, shadcnui.Color
   );
 }
 
-String _getCurrencySymbol(UserContact? contact) {
-  final cur = contact?.preferredCurrency ?? 'USD';
-  switch (cur.toUpperCase()) {
-    case 'EUR':
-      return '€';
-    case 'GBP':
-      return '£';
-    case 'JPY':
-      return '¥';
-    case 'USD':
-    default:
-      return '\$';
-  }
-}

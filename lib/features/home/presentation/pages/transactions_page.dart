@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:intl/intl.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
-import 'package:intl/intl.dart';
+import 'package:moneko/features/home/presentation/widgets/widgets.dart';
+import 'package:moneko/features/utils/currency.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import '../widgets/transaction_detail_sheet.dart';
@@ -119,7 +121,18 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Row(
-                  children: [                
+                  children: [
+                    IconButton(
+                      onPressed: () => Navigator.of(context).maybePop(),
+                      icon: Icon(
+                        Icons.chevron_left,
+                        color: colorScheme.foreground,
+                        size: 28,
+                      ),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -143,25 +156,25 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                       ),
                     ),
                     // Chart type toggle buttons
-                    Container(
-                      decoration: BoxDecoration(
-                        color: colorScheme.muted,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          _buildChartToggle(Icons.show_chart, selectedChartType == ChartType.line, colorScheme, () {
-                            setState(() => selectedChartType = ChartType.line);
-                          }),
-                          _buildChartToggle(Icons.bar_chart, selectedChartType == ChartType.bar, colorScheme, () {
-                            setState(() => selectedChartType = ChartType.bar);
-                          }),
-                          _buildChartToggle(Icons.pie_chart, selectedChartType == ChartType.pie, colorScheme, () {
-                            setState(() => selectedChartType = ChartType.pie);
-                          }),
-                        ],
-                      ),
-                    ),
+                    // Container(
+                    //   decoration: BoxDecoration(
+                    //     color: colorScheme.muted,
+                    //     borderRadius: BorderRadius.circular(8),
+                    //   ),
+                    //   child: Row(
+                    //     children: [
+                    //       _buildChartToggle(Icons.show_chart, selectedChartType == ChartType.line, colorScheme, () {
+                    //         setState(() => selectedChartType = ChartType.line);
+                    //       }),
+                    //       _buildChartToggle(Icons.bar_chart, selectedChartType == ChartType.bar, colorScheme, () {
+                    //         setState(() => selectedChartType = ChartType.bar);
+                    //       }),
+                    //       _buildChartToggle(Icons.pie_chart, selectedChartType == ChartType.pie, colorScheme, () {
+                    //         setState(() => selectedChartType = ChartType.pie);
+                    //       }),
+                    //     ],
+                    //   ),
+                    // ),
                   ],
                 ),
               ),
@@ -363,7 +376,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
   Widget _buildChart(shadcnui.ColorScheme colorScheme, UserContact? contact) {
     final totalSpent = filteredExpenses.where((e) => e.amountCents > 0).fold(0.0, (sum, e) => sum + e.amount);
-    final currencySymbol = _getCurrencySymbol(contact);
+    final currencySymbol = getCurrencySymbol(contact);
 
     return Container(
       height: 280,
@@ -717,7 +730,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     final category = expense.category ?? 'uncategorized';
     final categoryColor = getCategoryColor(category);
     final categoryIcon = getCategoryIcon(category);
-    final currencySymbol = _getCurrencySymbol(contact);
+    final currencySymbol = getCurrencySymbol(contact);
     final dateFormat = DateFormat('MMM d, yyyy');
 
     return GestureDetector(
@@ -787,21 +800,6 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     );
   }
 
-
-  String _getCurrencySymbol(UserContact? contact) {
-    final cur = contact?.preferredCurrency ?? 'USD';
-    switch (cur.toUpperCase()) {
-      case 'EUR':
-        return '€';
-      case 'GBP':
-        return '£';
-      case 'JPY':
-        return '¥';
-      case 'USD':
-      default:
-        return '\$';
-    }
-  }
 
   void _showFilterSheet(BuildContext context, shadcnui.ColorScheme colorScheme) {
     showModalBottomSheet(

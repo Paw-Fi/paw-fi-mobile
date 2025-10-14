@@ -25,12 +25,14 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
           .from('user_contacts')
           .select('id,user_id,phone_e164,verified,preferred_currency')
           .eq('user_id', userId)
-          .eq('verified', true)
           .maybeSingle();
+
+      print(contactResponse);
 
       if (contactResponse == null) {
         state = state.copyWith(
           contact: null,
+          preferredCurrency: null,
           isLoading: false,
         );
         return;
@@ -72,6 +74,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
         budgets: (budgetsResponse as List)
             .map((b) => DailyBudgetEntry.fromJson(b as Map<String, dynamic>))
             .toList(),
+        preferredCurrency: fetchedContact.preferredCurrency?.toUpperCase(),
         isLoading: false,
       );
     } catch (e) {
@@ -86,6 +89,13 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
     loadData(userId);
   }
 
+  void updatePreferredCurrency(String currency) {
+    state = state.copyWith(
+      preferredCurrency: currency.toUpperCase(),
+      contact: state.contact?.copyWith(preferredCurrency: currency.toUpperCase()),
+    );
+  }
+
   void setDateRangeFilter(DateRangeFilter filter, String userId, {DateTime? startDate, DateTime? endDate}) {
     state = state.copyWith(
       dateRangeFilter: filter,
@@ -94,6 +104,59 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
       updateDateRange: true,
     );
     loadData(userId);
+  }
+
+  void setBudgetAmount(double amount) {
+    final newAmountCents = (amount * 100).round();
+    if (newAmountCents <= 0) {
+      return;
+    }
+
+    final currentBudgets = state.budgets;
+
+    if (currentBudgets.isEmpty) {
+      final contactId = state.contact?.id;
+      if (contactId == null || contactId.isEmpty) {
+        return;
+      }
+
+      final newEntry = DailyBudgetEntry(
+        id: 'local-budget-${DateTime.now().millisecondsSinceEpoch}',
+        contactId: contactId,
+        date: DateTime.now(),
+        amountCents: newAmountCents,
+        currency: state.contact?.preferredCurrency,
+      );
+
+      state = state.copyWith(budgets: [newEntry]);
+      return;
+    }
+
+    final totalCurrentCents = currentBudgets.fold<int>(0, (sum, budget) => sum + budget.amountCents);
+
+    List<DailyBudgetEntry> updatedBudgets;
+    if (totalCurrentCents <= 0) {
+      final perEntryCents = (newAmountCents / currentBudgets.length).round();
+      updatedBudgets = currentBudgets
+          .map((budget) => budget.copyWith(amountCents: perEntryCents))
+          .toList();
+    } else {
+      final ratio = newAmountCents / totalCurrentCents;
+      updatedBudgets = currentBudgets
+          .map((budget) => budget.copyWith(amountCents: (budget.amountCents * ratio).round()))
+          .toList();
+
+      final diff = newAmountCents -
+          updatedBudgets.fold<int>(0, (sum, budget) => sum + budget.amountCents);
+
+      if (diff != 0 && updatedBudgets.isNotEmpty) {
+        final lastBudget = updatedBudgets.last;
+        updatedBudgets[updatedBudgets.length - 1] =
+            lastBudget.copyWith(amountCents: lastBudget.amountCents + diff);
+      }
+    }
+
+    state = state.copyWith(budgets: updatedBudgets);
   }
 
   Map<String, DateTime> _getDateRange(DateRangeFilter filter, DateTime? customStart, DateTime? customEnd) {

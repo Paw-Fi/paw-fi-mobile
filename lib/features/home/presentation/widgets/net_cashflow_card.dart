@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/features/home/presentation/models/models.dart';
+import 'package:moneko/features/utils/currency.dart';
 
 Widget buildNetCashflowCard(shadcnui.ColorScheme colorScheme, List<DailyBudgetEntry> budgets, List<ExpenseEntry> expenses, UserContact? contact) {
   final totalBudget = _getTotalBudget(budgets);
   final totalSpent = _getTotalSpent(expenses);
-  final currencySymbol = _getCurrencySymbol(contact);
+  final currencySymbol = getCurrencySymbol(contact);
   final netCashflow = totalBudget - totalSpent;
   final isNegative = netCashflow < 0;
 
@@ -66,17 +67,3 @@ double _getTotalSpent(List<ExpenseEntry> expenses) {
   return expenses.where((e) => e.amountCents > 0).fold(0.0, (sum, e) => sum + e.amount);
 }
 
-String _getCurrencySymbol(UserContact? contact) {
-  final cur = contact?.preferredCurrency ?? 'USD';
-  switch (cur.toUpperCase()) {
-    case 'EUR':
-      return '€';
-    case 'GBP':
-      return '£';
-    case 'JPY':
-      return '¥';
-    case 'USD':
-    default:
-      return '\$';
-  }
-}
