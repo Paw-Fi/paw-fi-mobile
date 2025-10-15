@@ -39,6 +39,7 @@ class WhatsAppTutorialModal extends HookWidget {
     }, [pageController]);
 
     Future<void> handleBindWhatsApp() async {
+      // This wa link contains a "start" welcome message
       final Uri url = Uri.parse('https://wa.link/67a9gl');
       if (await canLaunchUrl(url)) {
         await launchUrl(url, mode: LaunchMode.externalApplication);

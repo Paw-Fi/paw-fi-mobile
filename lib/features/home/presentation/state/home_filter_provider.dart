@@ -122,12 +122,18 @@ final homeFilteredExpensesProvider = Provider<List<ExpenseEntry>>((ref) {
 });
 
 /// Filtered budgets for home page based on local filter
+/// Uses most recent budget as fallback if no budget exists for the filtered date range
 final homeFilteredBudgetsProvider = Provider<List<DailyBudgetEntry>>((ref) {
   final analyticsData = ref.watch(analyticsProvider);
   final filterState = ref.watch(homeFilterProvider);
 
-  // Get all budgets from provider
+  // Get all budgets from provider (sorted by date ascending)
   final allBudgets = analyticsData.allBudgets;
+
+  // If no budgets at all, return empty
+  if (allBudgets.isEmpty) {
+    return [];
+  }
 
   // Calculate date range from local filter
   final dateRange = getDateRangeFromFilter(
@@ -139,8 +145,8 @@ final homeFilteredBudgetsProvider = Provider<List<DailyBudgetEntry>>((ref) {
   final from = dateRange['from']!;
   final to = dateRange['to']!;
 
-  // Filter budgets locally
-  return allBudgets.where((budget) {
+  // Filter budgets in the date range
+  final budgetsInRange = allBudgets.where((budget) {
     final budgetDate = DateTime(
       budget.date.year,
       budget.date.month,
@@ -149,4 +155,33 @@ final homeFilteredBudgetsProvider = Provider<List<DailyBudgetEntry>>((ref) {
     return (budgetDate.isAtSameMomentAs(from) || budgetDate.isAfter(from)) &&
            (budgetDate.isAtSameMomentAs(to) || budgetDate.isBefore(to) || budgetDate.isAtSameMomentAs(to));
   }).toList();
+
+  // If we have budgets in the range, return them
+  if (budgetsInRange.isNotEmpty) {
+    return budgetsInRange;
+  }
+
+  // No budgets in range - find the most recent budget before the range start date
+  DailyBudgetEntry? mostRecentBudget;
+  for (final budget in allBudgets.reversed) {
+    final budgetDate = DateTime(
+      budget.date.year,
+      budget.date.month,
+      budget.date.day,
+    );
+    if (budgetDate.isBefore(from)) {
+      mostRecentBudget = budget;
+      break;
+    }
+  }
+
+  // If we found a recent budget, use it as the default for the entire range
+  if (mostRecentBudget != null) {
+    // Return a single entry representing the most recent budget
+    // The UI will display this as the budget for the period
+    return [mostRecentBudget];
+  }
+
+  // No budgets at all before this date range - return empty
+  return [];
 });

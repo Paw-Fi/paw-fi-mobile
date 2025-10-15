@@ -38,6 +38,12 @@ class WhatsAppBinding extends _$WhatsAppBinding {
     state = await AsyncValue.guard(() => checkBinding());
   }
 
+  /// Mark as verified without fetching from database
+  /// Use this after successful verification to update UI immediately
+  void setVerified() {
+    state = const AsyncValue.data(true);
+  }
+
   /// Get WhatsApp contact details if bound
   Future<Map<String, dynamic>?> getContactDetails() async {
     try {

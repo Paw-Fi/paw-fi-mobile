@@ -10,3 +10,7 @@ A flutter supabase auth starter build with riverpod
 
 - cp .env.example .env
 - update url and anon keys
+
+### Release to Production
+`flutter build ios  --dart-define=ENV=prod`
+

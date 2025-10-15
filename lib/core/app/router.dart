@@ -19,6 +19,9 @@ import '../ui/pages/error_page.dart';
 
 part 'router.g.dart';
 
+/// Global navigator key for accessing navigator from anywhere
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
+
 @riverpod
 GoRouter router(RouterRef ref) {
   final auth = ref.watch(authProvider);
@@ -30,6 +33,7 @@ GoRouter router(RouterRef ref) {
   ref.watch(subscriptionNotifierProvider);
 
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/splash',
     refreshListenable: RouterNotifier(ref),
     routes: [

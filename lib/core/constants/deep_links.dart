@@ -33,6 +33,15 @@ class DeepLinks {
   /// - moneko://payment?status=canceled
   static const String paymentCallback = '$appScheme://payment';
 
+  // ==================== WhatsApp Verification Deep Links ====================
+
+  /// WhatsApp verification callback URL
+  /// Format: moneko://verify-whatsapp?otp=123456
+  /// 
+  /// Users receive this link via WhatsApp when they start verification.
+  /// The OTP parameter contains the 6-digit verification code.
+  static const String whatsappVerification = '$appScheme://verify-whatsapp';
+
   /// Payment success callback with status parameter
   static String paymentSuccess({String? sessionId}) {
     final params = <String, String>{'status': 'success'};
@@ -64,6 +73,11 @@ class DeepLinks {
   /// Check if a URI is a payment callback
   static bool isPaymentCallback(Uri uri) {
     return uri.scheme == appScheme && uri.host == 'payment';
+  }
+
+  /// Check if a URI is a WhatsApp verification callback
+  static bool isWhatsAppVerification(Uri uri) {
+    return uri.scheme == appScheme && uri.host == 'verify-whatsapp';
   }
 
   /// Legacy OAuth callback (kept for backward compatibility)

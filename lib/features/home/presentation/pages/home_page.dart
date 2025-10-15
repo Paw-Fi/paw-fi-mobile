@@ -307,7 +307,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Enter the new total monthly budget.',
+                    'Enter the new total daily budget.',
                     style: TextStyle(
                       fontSize: 14,
                       color: sheetColorScheme.mutedForeground,

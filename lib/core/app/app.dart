@@ -14,14 +14,29 @@ class App extends ConsumerStatefulWidget {
 
 class _AppState extends ConsumerState<App> {
   final DeepLinkService _deepLinkService = DeepLinkService();
+  bool _deepLinkInitialized = false;
 
   @override
   void initState() {
     super.initState();
-    // Initialize deep link service after the first frame
+    // Initialize deep link service immediately to catch cold start links
+    // Context will be available after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _deepLinkService.initialize(ref, context);
+      if (!_deepLinkInitialized && mounted) {
+        _deepLinkService.initialize(ref, context);
+        _deepLinkInitialized = true;
+      }
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Try to initialize as early as possible once context is available
+    if (!_deepLinkInitialized && mounted) {
+      _deepLinkService.initialize(ref, context);
+      _deepLinkInitialized = true;
+    }
   }
 
   @override

@@ -3,7 +3,10 @@ import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/constants/deep_links.dart';
+import 'package:moneko/core/app/router.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
+import 'package:moneko/features/settings/presentation/widgets/whatsapp_verification_modal.dart';
+import 'package:moneko/features/profile/data/providers/whatsapp_binding_provider.dart';
 import 'package:go_router/go_router.dart';
 
 /// Deep link service that handles app links
@@ -109,7 +112,69 @@ class DeepLinkService {
           );
         }
       }
+      return;
     }
+
+    // Handle WhatsApp verification: moneko://verify-whatsapp?otp=123456
+    if (DeepLinks.isWhatsAppVerification(uri)) {
+      final otp = uri.queryParameters['otp'];
+      debugPrint('📱 WhatsApp verification callback received!');
+      debugPrint('📱 OTP: $otp');
+
+      // Use global navigator key to get a valid context
+      // This ensures the modal can be shown even when app comes from background
+      final navigatorContext = rootNavigatorKey.currentContext;
+      
+      if (navigatorContext == null) {
+        debugPrint('⚠️ Navigator context is null, waiting...');
+        // Wait a bit longer and try again
+        Future.delayed(const Duration(milliseconds: 1000), () {
+          final retryContext = rootNavigatorKey.currentContext;
+          if (retryContext != null) {
+            debugPrint('📱 Got context on retry, showing modal...');
+            _showVerificationModal(retryContext, otp, ref);
+          } else {
+            debugPrint('❌ Still no context after retry');
+          }
+        });
+        return;
+      }
+
+      // Add small delay to ensure app UI is ready when coming from background
+      Future.delayed(const Duration(milliseconds: 500), () {
+        final delayedContext = rootNavigatorKey.currentContext;
+        if (delayedContext == null) {
+          debugPrint('⚠️ Context lost after delay');
+          return;
+        }
+
+        debugPrint('📱 Showing verification modal...');
+        _showVerificationModal(delayedContext, otp, ref);
+      });
+      return;
+    }
+  }
+
+  /// Show WhatsApp verification modal
+  void _showVerificationModal(BuildContext context, String? otp, WidgetRef ref) {
+    showWhatsAppVerificationModal(
+      context,
+      otpFromUrl: otp,
+      onVerificationSuccess: () {
+        debugPrint('✅ Verification success callback triggered');
+        
+        // Update WhatsApp binding status immediately without fetching from DB
+        ref.read(whatsAppBindingProvider.notifier).setVerified();
+        
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ WhatsApp verified successfully!'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      },
+    );
   }
 
   /// Dispose the subscription

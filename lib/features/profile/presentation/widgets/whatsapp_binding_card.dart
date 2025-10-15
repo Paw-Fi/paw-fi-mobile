@@ -4,16 +4,30 @@ import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/features/profile/data/providers/whatsapp_binding_provider.dart';
 import 'package:moneko/features/profile/presentation/widgets/profile_helpers.dart';
 import 'package:moneko/features/profile/presentation/widgets/whatsapp_tutorial_modal.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 Widget buildWhatsAppBindingCard(BuildContext context, WidgetRef ref) {
   final colorScheme = shadcnui.Theme.of(context).colorScheme;
   final whatsappBinding = ref.watch(whatsAppBindingProvider);
 
+    Future<void> handleBindWhatsApp() async {
+      // This wa link doesnt contains a "start" welcome message
+      final Uri url = Uri.parse('https://wa.link/zxwtld');
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+        if (context.mounted) {
+          Navigator.of(context).pop(true); // Return true to refresh status
+        }
+      }
+    }
+
   return whatsappBinding.when(
     data: (isBound) {
       if (isBound) {
         // Success state - show connected
-        return Container(
+        return InkWell(
+          onTap: () => handleBindWhatsApp(),
+          child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             color: colorScheme.card,
@@ -64,7 +78,7 @@ Widget buildWhatsAppBindingCard(BuildContext context, WidgetRef ref) {
               ),
             ],
           ),
-        );
+        ));
       }
 
       // CTA state - not bound yet
