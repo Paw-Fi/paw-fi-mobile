@@ -54,7 +54,7 @@ class MainShell extends HookConsumerWidget {
                 onTap: () => currentIndex.value = 1,
               ),
               _NavButton(
-                icon: currentIndex.value == 2 ? Icons.analytics : Icons.analytics_outlined,
+                icon: currentIndex.value == 2 ? Icons.insights : Icons.insights_outlined,
                 label: 'Insights',
                 isSelected: currentIndex.value == 2,
                 onTap: () => currentIndex.value = 2,
