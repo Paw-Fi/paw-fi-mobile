@@ -27,12 +27,23 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
           .maybeSingle();
 
       if (contactResponse == null) {
+        // No contact found - this is okay for mobile-only users
+        // Set empty state and show empty expenses/budgets
         state = state.copyWith(
           contact: null,
+          expenses: [],
+          allExpenses: [],
+          budgets: [],
+          allBudgets: [],
           preferredCurrency: null,
           isLoading: false,
         );
         return;
+      }
+
+      // Validate contact has required ID field
+      if (contactResponse['id'] == null) {
+        throw Exception('Contact record missing ID field');
       }
 
       final fetchedContact = UserContact.fromJson(contactResponse);
@@ -46,31 +57,45 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
       final fromStr = '${oneYearAgo.year}-${oneYearAgo.month.toString().padLeft(2, '0')}-${oneYearAgo.day.toString().padLeft(2, '0')}';
       final toStr = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
 
-      // Fetch ALL expenses (unfiltered)
-      final expensesResponse = await supabase
-          .from('expenses')
-          .select('id,contact_id,date,amount_cents,currency,category,created_at,raw_text,receipt_image_url')
-          .eq('contact_id', fetchedContact.id)
-          .gte('date', fromStr)
-          .lte('date', toStr)
-          .order('date', ascending: true);
+      // Fetch ALL expenses (unfiltered) with error handling
+      List<ExpenseEntry> allExpenses = [];
+      try {
+        final expensesResponse = await supabase
+            .from('expenses')
+            .select('id,contact_id,date,amount_cents,currency,category,created_at,raw_text,receipt_image_url')
+            .eq('contact_id', fetchedContact.id)
+            .gte('date', fromStr)
+            .lte('date', toStr)
+            .order('date', ascending: true);
 
-      // Fetch ALL budgets (unfiltered)
-      final budgetsResponse = await supabase
-          .from('daily_budgets')
-          .select('id,contact_id,date,amount_cents,currency')
-          .eq('contact_id', fetchedContact.id)
-          .gte('date', fromStr)
-          .lte('date', toStr)
-          .order('date', ascending: true);
+        allExpenses = (expensesResponse as List)
+            .map((e) => ExpenseEntry.fromJson(e as Map<String, dynamic>))
+            .toList();
+      } catch (expenseError) {
+        // Handle foreign key errors or empty results gracefully
+        print('[Analytics] Error fetching expenses: $expenseError');
+        allExpenses = [];
+      }
 
-      final allExpenses = (expensesResponse as List)
-          .map((e) => ExpenseEntry.fromJson(e as Map<String, dynamic>))
-          .toList();
-      
-      final allBudgets = (budgetsResponse as List)
-          .map((b) => DailyBudgetEntry.fromJson(b as Map<String, dynamic>))
-          .toList();
+      // Fetch ALL budgets (unfiltered) with error handling
+      List<DailyBudgetEntry> allBudgets = [];
+      try {
+        final budgetsResponse = await supabase
+            .from('daily_budgets')
+            .select('id,contact_id,date,amount_cents,currency')
+            .eq('contact_id', fetchedContact.id)
+            .gte('date', fromStr)
+            .lte('date', toStr)
+            .order('date', ascending: true);
+
+        allBudgets = (budgetsResponse as List)
+            .map((b) => DailyBudgetEntry.fromJson(b as Map<String, dynamic>))
+            .toList();
+      } catch (budgetError) {
+        // Handle foreign key errors or empty results gracefully
+        print('[Analytics] Error fetching budgets: $budgetError');
+        allBudgets = [];
+      }
 
       // Store ALL data in both allExpenses/allBudgets AND expenses/budgets
       // Filtering will be done locally in the home page

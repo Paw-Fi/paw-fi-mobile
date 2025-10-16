@@ -75,7 +75,7 @@ class PaywallScreen extends ConsumerWidget {
         'create-checkout-session',
         body: {
           'plan': 'plus',
-          'billingInterval': 'monthly',
+          'billingInterval': 'yearly',
           'successUrl': '${DeepLinks.paymentCallback}?status=success&session_id={CHECKOUT_SESSION_ID}',
           'cancelUrl': '${DeepLinks.paymentCallback}?status=canceled&session_id={CHECKOUT_SESSION_ID}',
         },
@@ -262,7 +262,7 @@ class PaywallScreen extends ConsumerWidget {
 
               // Footer Text
               Text(
-                'Cancel anytime • No credit card required',
+                'Annual plan • Cancel anytime • No credit card required',
                 style: TextStyle(
                   fontSize: 12,
                   color: colorScheme.mutedForeground,
