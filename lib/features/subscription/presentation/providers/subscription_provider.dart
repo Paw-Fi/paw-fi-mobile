@@ -18,16 +18,32 @@ class SubscriptionNotifier extends _$SubscriptionNotifier {
 
   Future<Subscription?> _fetchSubscription(String userId) async {
     try {
+      print('🔍 [SubscriptionProvider] Fetching subscription for userId: $userId');
+      
       final response = await supabase
           .from('subscriptions')
           .select()
           .eq('user_id', userId)
-          .maybeSingle();
+          .order('updated_at', ascending: false)
+          .limit(1);
 
-      if (response == null) return null;
-      return Subscription.fromJson(response);
+      final responseList = response as List;
+      print('📊 [SubscriptionProvider] Response: ${responseList.length} rows');
+      
+      if (responseList.isEmpty) {
+        print('❌ [SubscriptionProvider] No subscription found - returning null');
+        return null;
+      }
+      
+      final subData = responseList[0] as Map<String, dynamic>;
+      print('📦 [SubscriptionProvider] Subscription data: plan=${subData['plan']}, stripe_sub_id=${subData['stripe_subscription_id']}');
+      
+      final subscription = Subscription.fromJson(subData);
+      print('✅ [SubscriptionProvider] Created Subscription object, isSubscribed=${subscription.isSubscribed}');
+      
+      return subscription;
     } catch (e) {
-      print('Error fetching subscription: $e');
+      print('❌ [SubscriptionProvider] Error fetching subscription: $e');
       return null;
     }
   }
@@ -46,10 +62,19 @@ class SubscriptionNotifier extends _$SubscriptionNotifier {
 @riverpod
 bool hasActiveSubscription(HasActiveSubscriptionRef ref) {
   final subscriptionAsync = ref.watch(subscriptionNotifierProvider);
-  return subscriptionAsync.maybeWhen(
-    data: (subscription) => subscription?.isSubscribed ?? false,
-    orElse: () => false,
+  final result = subscriptionAsync.maybeWhen(
+    data: (subscription) {
+      final hasActive = subscription?.isSubscribed ?? false;
+      print('🎯 [hasActiveSubscription] Subscription: ${subscription?.plan}, isSubscribed: $hasActive');
+      return hasActive;
+    },
+    orElse: () {
+      print('⏳ [hasActiveSubscription] Subscription still loading or error - returning false');
+      return false;
+    },
   );
+  print('🎯 [hasActiveSubscription] Final result: $result');
+  return result;
 }
 
 // Helper provider to check subscription loading state

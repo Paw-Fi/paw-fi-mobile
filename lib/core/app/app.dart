@@ -3,6 +3,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/app/router.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/services/deep_link_service.dart';
+import 'package:moneko/features/app_version/presentation/widgets/version_check_wrapper.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
 class App extends ConsumerStatefulWidget {
@@ -58,6 +59,10 @@ class _AppState extends ConsumerState<App> {
       routeInformationParser: router.routeInformationParser,
       routerDelegate: router.routerDelegate,
       routeInformationProvider: router.routeInformationProvider,
+      builder: (context, child) {
+        // Wrap with version check inside the MaterialApp tree
+        return VersionCheckWrapper(child: child ?? const SizedBox.shrink());
+      },
     );
   }
 }

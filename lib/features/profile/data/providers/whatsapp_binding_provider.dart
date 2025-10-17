@@ -23,9 +23,10 @@ class WhatsAppBinding extends _$WhatsAppBinding {
           .from('user_contacts')
           .select('id')
           .eq('user_id', user.uid)
-          .maybeSingle();
+          .order('id', ascending: false)
+          .limit(1);
 
-      return response != null;
+      return (response as List).isNotEmpty;
     } catch (error) {
       print('Error checking WhatsApp binding: $error');
       return false;
@@ -54,9 +55,12 @@ class WhatsAppBinding extends _$WhatsAppBinding {
           .from('user_contacts')
           .select()
           .eq('user_id', user.uid)
-          .maybeSingle();
+          .order('id', ascending: false)
+          .limit(1);
 
-      return response;
+      return (response as List).isNotEmpty 
+          ? response[0] as Map<String, dynamic>?
+          : null;
     } catch (error) {
       print('Error fetching WhatsApp contact: $error');
       return null;

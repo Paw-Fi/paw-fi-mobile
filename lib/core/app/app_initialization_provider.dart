@@ -56,10 +56,26 @@ class AppInitialization extends _$AppInitialization {
       // Mark as initialized
       state = AppInitState.initialized;
       debugPrint('🎉 App initialization complete');
+      
+      // IMPORTANT: Version check happens AFTER initialization
+      // This ensures the splash screen doesn't block on version check
+      // The force update dialog will show on top of the app if needed
+      _checkAppVersion();
     } catch (e) {
       debugPrint('❌ Error during app initialization: $e');
       // Even if there's an error, mark as initialized to avoid stuck splash screen
       state = AppInitState.initialized;
+    }
+  }
+  
+  /// Check app version (non-blocking)
+  Future<void> _checkAppVersion() async {
+    try {
+      // This will be handled by a separate version check in the main app widget
+      // We don't want to block initialization on version check
+      debugPrint('📱 Version check will be performed by version provider');
+    } catch (e) {
+      debugPrint('❌ Error checking version: $e');
     }
   }
 

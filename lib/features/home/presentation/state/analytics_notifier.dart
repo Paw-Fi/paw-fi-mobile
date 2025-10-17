@@ -19,12 +19,18 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
         return;
       }
 
-      // Fetch user contact
-      final contactResponse = await supabase
+      // Fetch user contact (get most recent if duplicates exist)
+      // Order by id descending to get latest entry in case of duplicates
+      final contactsResponse = await supabase
           .from('user_contacts')
           .select('id,user_id,phone_e164,verified,preferred_currency')
           .eq('user_id', userId)
-          .maybeSingle();
+          .order('id', ascending: false)
+          .limit(1);
+      
+      final contactResponse = (contactsResponse as List).isNotEmpty 
+          ? contactsResponse[0] as Map<String, dynamic>?
+          : null;
 
       if (contactResponse == null) {
         // No contact found - this is okay for mobile-only users
