@@ -22,7 +22,7 @@ class SubscriptionNotifier extends _$SubscriptionNotifier {
       
       final response = await supabase
           .from('subscriptions')
-          .select()
+          .select('id, user_id, stripe_subscription_id, plan, status, created_at, updated_at')
           .eq('user_id', userId)
           .order('updated_at', ascending: false)
           .limit(1);

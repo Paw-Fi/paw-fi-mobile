@@ -1,3 +1,5 @@
+import 'subscription.dart';
+
 class SubscriptionDetails {
   final Subscription? subscription;
   final List<SubscriptionFeature>? features;
@@ -143,52 +145,7 @@ class SubscriptionDetails {
   }
 }
 
-class Subscription {
-  final String id;
-  final String? plan;
-  final String? status;
-  final DateTime? currentPeriodEnd;
-  final DateTime? nextPaymentDate;
-  final bool? cancelAtPeriodEnd;
-  final String? stripeSubscriptionId;
-  final String? stripeCustomerId;
-  final DateTime createdAt;
-  final DateTime? updatedAt;
-
-  Subscription({
-    required this.id,
-    this.plan,
-    this.status,
-    this.currentPeriodEnd,
-    this.nextPaymentDate,
-    this.cancelAtPeriodEnd,
-    this.stripeSubscriptionId,
-    this.stripeCustomerId,
-    required this.createdAt,
-    this.updatedAt,
-  });
-
-  factory Subscription.fromJson(Map<String, dynamic> json) {
-    return Subscription(
-      id: json['id'] as String,
-      plan: json['plan'] as String?,
-      status: json['status'] as String?,
-      currentPeriodEnd: json['current_period_end'] != null
-          ? DateTime.parse(json['current_period_end'] as String)
-          : null,
-      nextPaymentDate: json['next_payment_date'] != null
-          ? DateTime.parse(json['next_payment_date'] as String)
-          : null,
-      cancelAtPeriodEnd: json['cancel_at_period_end'] as bool?,
-      stripeSubscriptionId: json['stripe_subscription_id'] as String?,
-      stripeCustomerId: json['stripe_customer_id'] as String?,
-      createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: json['updated_at'] != null
-          ? DateTime.parse(json['updated_at'] as String)
-          : null,
-    );
-  }
-}
+// Subscription class is now imported from subscription.dart to avoid duplication
 
 class SubscriptionFeature {
   final String name;
@@ -203,7 +160,7 @@ class SubscriptionFeature {
 
   factory SubscriptionFeature.fromJson(Map<String, dynamic> json) {
     return SubscriptionFeature(
-      name: json['name'] as String,
+      name: json['name']?.toString() ?? 'Unknown Feature',
       description: json['description'] as String?,
       enabled: json['enabled'] as bool? ?? false,
     );
@@ -227,11 +184,11 @@ class PaymentMethod {
 
   factory PaymentMethod.fromJson(Map<String, dynamic> json) {
     return PaymentMethod(
-      id: json['id'] as String,
-      brand: json['brand'] as String,
-      last4: json['last4'] as String,
-      expMonth: json['exp_month'] as int,
-      expYear: json['exp_year'] as int,
+      id: json['id']?.toString() ?? '',
+      brand: json['brand']?.toString() ?? 'Unknown',
+      last4: json['last4']?.toString() ?? '0000',
+      expMonth: json['exp_month'] as int? ?? 0,
+      expYear: json['exp_year'] as int? ?? 0,
     );
   }
 
@@ -261,11 +218,15 @@ class Invoice {
 
   factory Invoice.fromJson(Map<String, dynamic> json) {
     return Invoice(
-      id: json['id'] as String,
-      amountPaid: (json['amount_paid'] as num).toDouble(),
-      currency: json['currency'] as String,
-      status: json['status'] as String,
-      created: DateTime.parse(json['created'] as String),
+      id: json['id']?.toString() ?? '',
+      amountPaid: json['amount_paid'] != null 
+          ? (json['amount_paid'] as num).toDouble() 
+          : 0.0,
+      currency: json['currency']?.toString() ?? 'USD',
+      status: json['status']?.toString() ?? 'unknown',
+      created: json['created'] != null 
+          ? DateTime.tryParse(json['created'].toString()) ?? DateTime.now()
+          : DateTime.now(),
       hostedInvoiceUrl: json['hosted_invoice_url'] as String?,
       pdf: json['pdf'] as String?,
     );

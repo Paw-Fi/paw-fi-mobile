@@ -2,57 +2,88 @@ class Subscription {
   final String id;
   final String userId;
   final String? stripeSubscriptionId;
+  final String? stripeCustomerId;
   final String? plan;
+  final String? status;
+  final DateTime? currentPeriodEnd;
+  final DateTime? nextPaymentDate;
+  final bool? cancelAtPeriodEnd;
   final DateTime createdAt;
+  final DateTime? updatedAt;
 
   Subscription({
     required this.id,
     required this.userId,
     this.stripeSubscriptionId,
+    this.stripeCustomerId,
     this.plan,
+    this.status,
+    this.currentPeriodEnd,
+    this.nextPaymentDate,
+    this.cancelAtPeriodEnd,
     required this.createdAt,
+    this.updatedAt,
   });
 
   factory Subscription.fromJson(Map<String, dynamic> json) {
     return Subscription(
-      id: json['id'] as String,
-      userId: json['user_id'] as String,
+      id: json['id']?.toString() ?? '',
+      userId: json['user_id']?.toString() ?? '',
       stripeSubscriptionId: json['stripe_subscription_id'] as String?,
+      stripeCustomerId: json['stripe_customer_id'] as String?,
       plan: json['plan'] as String?,
-      createdAt: DateTime.parse(json['created_at'] as String),
+      status: json['status'] as String?,
+      currentPeriodEnd: json['current_period_end'] != null
+          ? DateTime.tryParse(json['current_period_end'].toString())
+          : null,
+      nextPaymentDate: json['next_payment_date'] != null
+          ? DateTime.tryParse(json['next_payment_date'].toString())
+          : null,
+      cancelAtPeriodEnd: json['cancel_at_period_end'] as bool?,
+      createdAt: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+      updatedAt: json['updated_at'] != null
+          ? DateTime.tryParse(json['updated_at'].toString())
+          : null,
     );
   }
 
   /// Subscription logic:
   /// 1. No row in DB → Provider returns null → hasActiveSubscription = false (FREE)
-  /// 2. Row exists + stripe_subscription_id is null + plan is NOT "lifetime" → FREE
-  /// 3. Row exists + stripe_subscription_id is null + plan IS "lifetime" → SUBSCRIBED
-  /// 4. Row exists + stripe_subscription_id is NOT null → SUBSCRIBED (plus/premium)
+  /// 2. Row exists + stripe_subscription_id is null + plan is NOT "lifetime" + status is NOT "trialing" → FREE
+  /// 3. Row exists + plan IS "lifetime" + status = "active" → SUBSCRIBED
+  /// 4. Row exists + status = "trialing" → SUBSCRIBED (trial period)
+  /// 5. Row exists + status = "active" + stripe_subscription_id is NOT null → SUBSCRIBED (active subscription)
   bool get isSubscribed {
-    print('🔍 [Subscription] Checking isSubscribed: plan=$plan, stripeSubId=$stripeSubscriptionId');
+    print('🔍 [Subscription] Checking isSubscribed: plan=$plan, stripeSubId=$stripeSubscriptionId, status=$status');
     
-    // Case 3: Lifetime plan (one-time payment, no recurring subscription)
-    if (plan == 'lifetime') {
-      print('✅ [Subscription] LIFETIME plan - subscribed=true');
+    // Case 3: Lifetime plan with active status
+    if (plan == 'lifetime' && status == 'active') {
+      print('✅ [Subscription] LIFETIME plan with active status - subscribed=true');
       return true;
     }
     
-    // Case 2: No Stripe subscription ID means free plan
-    // (unless it's lifetime which was checked above)
-    if (stripeSubscriptionId == null) {
-      print('❌ [Subscription] No stripe_subscription_id and not lifetime - subscribed=false (FREE)');
-      return false;
+    // Case 4: Trialing status - user is in trial period
+    if (status == 'trialing') {
+      print('✅ [Subscription] TRIALING status - subscribed=true');
+      return true;
     }
     
-    // Case 4: Has Stripe subscription ID - check it's not explicitly free
-    if (plan == null || plan == 'free') {
-      print('❌ [Subscription] Plan is null or "free" - subscribed=false (FREE)');
-      return false;
+    // Case 5: Active status with Stripe subscription ID
+    if (status == 'active' && stripeSubscriptionId != null) {
+      // Additional check: plan should not be explicitly free
+      if (plan == 'free') {
+        print('❌ [Subscription] Active status but plan is "free" - subscribed=false');
+        return false;
+      }
+      print('✅ [Subscription] ACTIVE status with stripe_subscription_id - subscribed=true');
+      return true;
     }
     
-    // Case 4: Valid recurring subscription (plus, premium)
-    print('✅ [Subscription] Has stripe_subscription_id and valid plan - subscribed=true');
-    return true;
+    // Case 2: All other cases mean free/inactive
+    print('❌ [Subscription] No matching active/trialing subscription - subscribed=false (FREE)');
+    return false;
   }
 
   /// Helper to check if user is on free plan
