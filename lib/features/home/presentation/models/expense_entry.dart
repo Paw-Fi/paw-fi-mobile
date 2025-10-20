@@ -37,4 +37,29 @@ class ExpenseEntry {
       receiptImageUrl: json['receipt_image_url'] as String?,
     );
   }
+
+  /// Create a copy of this ExpenseEntry with some fields replaced
+  ExpenseEntry copyWith({
+    String? id,
+    String? contactId,
+    DateTime? date,
+    int? amountCents,
+    String? currency,
+    String? category,
+    DateTime? createdAt,
+    String? rawText,
+    String? receiptImageUrl,
+  }) {
+    return ExpenseEntry(
+      id: id ?? this.id,
+      contactId: contactId ?? this.contactId,
+      date: date ?? this.date,
+      amountCents: amountCents ?? this.amountCents,
+      currency: currency ?? this.currency,
+      category: category ?? this.category,
+      createdAt: createdAt ?? this.createdAt,
+      rawText: rawText ?? this.rawText,
+      receiptImageUrl: receiptImageUrl ?? this.receiptImageUrl,
+    );
+  }
 }

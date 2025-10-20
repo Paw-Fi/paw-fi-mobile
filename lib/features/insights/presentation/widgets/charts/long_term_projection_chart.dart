@@ -4,9 +4,24 @@ import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/features/home/presentation/models/models.dart';
 
 Widget buildLongTermProjectionChart(shadcnui.ColorScheme colorScheme, List<ExpenseEntry> expenses, List<DailyBudgetEntry> budgets) {
-  // Project 18 months based on current average
-  final avgMonthly = expenses.isEmpty ? 0.0 : expenses.fold(0.0, (sum, e) => sum + e.amount);
+  // Calculate average monthly spend from historical data
+  double avgMonthly = 0.0;
+  
+  if (expenses.isNotEmpty) {
+    // Group expenses by month
+    final Map<String, double> monthlyTotals = {};
+    for (final expense in expenses) {
+      final monthKey = '${expense.date.year}-${expense.date.month.toString().padLeft(2, '0')}';
+      monthlyTotals[monthKey] = (monthlyTotals[monthKey] ?? 0) + expense.amount;
+    }
+    
+    // Calculate average from available months
+    avgMonthly = monthlyTotals.isEmpty 
+      ? 0.0 
+      : monthlyTotals.values.reduce((a, b) => a + b) / monthlyTotals.length;
+  }
 
+  // Project 18 months using the calculated average
   final projectionSpots = List.generate(18, (i) {
     return FlSpot(i.toDouble(), avgMonthly * (i + 1));
   });

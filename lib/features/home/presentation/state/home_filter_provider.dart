@@ -9,22 +9,27 @@ class HomeFilterState {
   final DateRangeFilter dateRangeFilter;
   final DateTime? customStartDate;
   final DateTime? customEndDate;
+  final String? selectedCurrency; // null = "All Currencies"
 
   HomeFilterState({
     this.dateRangeFilter = DateRangeFilter.last30Days,
     this.customStartDate,
     this.customEndDate,
+    this.selectedCurrency,
   });
 
   HomeFilterState copyWith({
     DateRangeFilter? dateRangeFilter,
     DateTime? customStartDate,
     DateTime? customEndDate,
+    String? selectedCurrency,
+    bool clearCurrency = false,
   }) {
     return HomeFilterState(
       dateRangeFilter: dateRangeFilter ?? this.dateRangeFilter,
       customStartDate: customStartDate ?? this.customStartDate,
       customEndDate: customEndDate ?? this.customEndDate,
+      selectedCurrency: clearCurrency ? null : (selectedCurrency ?? this.selectedCurrency),
     );
   }
 }
@@ -38,6 +43,13 @@ class HomeFilterNotifier extends StateNotifier<HomeFilterState> {
       dateRangeFilter: filter,
       customStartDate: startDate,
       customEndDate: endDate,
+    );
+  }
+
+  void setSelectedCurrency(String? currency) {
+    state = state.copyWith(
+      selectedCurrency: currency,
+      clearCurrency: currency == null,
     );
   }
 }
@@ -91,7 +103,7 @@ Map<String, DateTime> getDateRangeFromFilter(
   }
 }
 
-/// Filtered expenses for home page based on local filter
+/// Filtered expenses for home page based on local filter (date + currency)
 final homeFilteredExpensesProvider = Provider<List<ExpenseEntry>>((ref) {
   final analyticsData = ref.watch(analyticsProvider);
   final filterState = ref.watch(homeFilterProvider);
@@ -108,20 +120,23 @@ final homeFilteredExpensesProvider = Provider<List<ExpenseEntry>>((ref) {
 
   final from = dateRange['from']!;
   final to = dateRange['to']!;
+  final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
 
-  // Filter expenses locally
+  // Filter expenses locally by date AND currency
   return allExpenses.where((expense) {
     final expenseDate = DateTime(
       expense.date.year,
       expense.date.month,
       expense.date.day,
     );
-    return (expenseDate.isAtSameMomentAs(from) || expenseDate.isAfter(from)) &&
-           (expenseDate.isAtSameMomentAs(to) || expenseDate.isBefore(to) || expenseDate.isAtSameMomentAs(to));
+    // Simplified date range check (inclusive boundaries)
+    final dateOk = !expenseDate.isBefore(from) && !expenseDate.isAfter(to);
+    final currencyOk = selectedCurrency == null || (expense.currency?.toUpperCase() == selectedCurrency);
+    return dateOk && currencyOk;
   }).toList();
 });
 
-/// Filtered budgets for home page based on local filter
+/// Filtered budgets for home page based on local filter (date + currency)
 /// Uses most recent budget as fallback if no budget exists for the filtered date range
 final homeFilteredBudgetsProvider = Provider<List<DailyBudgetEntry>>((ref) {
   final analyticsData = ref.watch(analyticsProvider);
@@ -144,16 +159,19 @@ final homeFilteredBudgetsProvider = Provider<List<DailyBudgetEntry>>((ref) {
 
   final from = dateRange['from']!;
   final to = dateRange['to']!;
+  final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
 
-  // Filter budgets in the date range
+  // Filter budgets in the date range AND currency
   final budgetsInRange = allBudgets.where((budget) {
     final budgetDate = DateTime(
       budget.date.year,
       budget.date.month,
       budget.date.day,
     );
-    return (budgetDate.isAtSameMomentAs(from) || budgetDate.isAfter(from)) &&
-           (budgetDate.isAtSameMomentAs(to) || budgetDate.isBefore(to) || budgetDate.isAtSameMomentAs(to));
+    // Simplified date range check (inclusive boundaries)
+    final dateOk = !budgetDate.isBefore(from) && !budgetDate.isAfter(to);
+    final currencyOk = selectedCurrency == null || (budget.currency?.toUpperCase() == selectedCurrency);
+    return dateOk && currencyOk;
   }).toList();
 
   // If we have budgets in the range, return them
@@ -161,7 +179,7 @@ final homeFilteredBudgetsProvider = Provider<List<DailyBudgetEntry>>((ref) {
     return budgetsInRange;
   }
 
-  // No budgets in range - find the most recent budget before the range start date
+  // No budgets in range - find the most recent budget before the range start date (matching currency)
   DailyBudgetEntry? mostRecentBudget;
   for (final budget in allBudgets.reversed) {
     final budgetDate = DateTime(
@@ -169,7 +187,8 @@ final homeFilteredBudgetsProvider = Provider<List<DailyBudgetEntry>>((ref) {
       budget.date.month,
       budget.date.day,
     );
-    if (budgetDate.isBefore(from)) {
+    final currencyOk = selectedCurrency == null || (budget.currency?.toUpperCase() == selectedCurrency);
+    if (currencyOk && budgetDate.isBefore(from)) {
       mostRecentBudget = budget;
       break;
     }
@@ -184,4 +203,70 @@ final homeFilteredBudgetsProvider = Provider<List<DailyBudgetEntry>>((ref) {
 
   // No budgets at all before this date range - return empty
   return [];
+});
+
+/// Unique list of currencies present in expenses/budgets (uppercased)
+final availableCurrenciesProvider = Provider<List<String>>((ref) {
+  final data = ref.watch(analyticsProvider);
+  final set = <String>{};
+  
+  for (final e in data.allExpenses) {
+    final c = e.currency?.toUpperCase();
+    if (c != null && c.isNotEmpty) set.add(c);
+  }
+  
+  for (final b in data.allBudgets) {
+    final c = b.currency?.toUpperCase();
+    if (c != null && c.isNotEmpty) set.add(c);
+  }
+  
+  final list = set.toList()..sort();
+  return list;
+});
+
+/// Per-currency summaries for the current date range
+final currencySummariesProvider = Provider<List<CurrencySummary>>((ref) {
+  final data = ref.watch(analyticsProvider);
+  final filter = ref.watch(homeFilterProvider);
+  final range = getDateRangeFromFilter(
+    filter.dateRangeFilter,
+    filter.customStartDate,
+    filter.customEndDate,
+  );
+  final from = range['from']!;
+  final to = range['to']!;
+
+  final byCurExpenses = <String, double>{};
+  final byCurBudgets = <String, double>{};
+  final byCurCount = <String, int>{};
+
+  // Group expenses by currency
+  for (final e in data.allExpenses) {
+    final c = (e.currency ?? '').toUpperCase();
+    if (c.isEmpty) continue;
+    final d = DateTime(e.date.year, e.date.month, e.date.day);
+    if (d.isBefore(from) || d.isAfter(to)) continue;
+    byCurExpenses[c] = (byCurExpenses[c] ?? 0) + e.amount;
+    byCurCount[c] = (byCurCount[c] ?? 0) + 1;
+  }
+
+  // Group budgets by currency
+  for (final b in data.allBudgets) {
+    final c = (b.currency ?? '').toUpperCase();
+    if (c.isEmpty) continue;
+    final d = DateTime(b.date.year, b.date.month, b.date.day);
+    if (d.isBefore(from) || d.isAfter(to)) continue;
+    byCurBudgets[c] = (byCurBudgets[c] ?? 0) + b.amount;
+  }
+
+  // Create summaries
+  final codes = {...byCurExpenses.keys, ...byCurBudgets.keys}.toList()..sort();
+  return codes
+      .map((code) => CurrencySummary(
+            currencyCode: code,
+            totalExpenses: byCurExpenses[code] ?? 0,
+            totalBudget: byCurBudgets[code] ?? 0,
+            transactionCount: byCurCount[code] ?? 0,
+          ))
+      .toList();
 });

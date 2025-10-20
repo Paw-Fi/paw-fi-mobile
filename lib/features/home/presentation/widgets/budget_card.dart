@@ -11,9 +11,14 @@ Widget buildBudgetCard(
   UserContact? contact,
   DateRangeFilter filter, {
   VoidCallback? onTap,
+  String? selectedCurrency,
 }) {
   final totalBudget = _getTotalBudget(budgets);
-  final currencySymbol = getCurrencySymbol(contact);
+  
+  // selectedCurrency is never null (defaults to USD)
+  final currencySymbol = resolveCurrencySymbol(selectedCurrency ?? 'USD');
+  final displayText = '$currencySymbol${totalBudget.toStringAsFixed(0)}';
+  
   final title = _budgetTitleForFilter(filter);
 
   return Material(
@@ -40,7 +45,7 @@ Widget buildBudgetCard(
             ),
             const SizedBox(height: 8),
             Text(
-              '$currencySymbol${totalBudget.toStringAsFixed(0)}',
+              displayText,
               style: TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.bold,

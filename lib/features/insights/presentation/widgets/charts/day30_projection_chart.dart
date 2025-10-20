@@ -4,8 +4,18 @@ import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/features/home/presentation/models/models.dart';
 
 Widget build30DayProjectionChart(shadcnui.ColorScheme colorScheme, List<ExpenseEntry> expenses, List<DailyBudgetEntry> budgets) {
-  // Calculate 30-day average
-  final avgDaily = expenses.isEmpty ? 0.0 : expenses.fold(0.0, (sum, e) => sum + e.amount) / 30;
+  // Calculate trailing 30-day average
+  final now = DateTime.now();
+  final thirtyDaysAgo = now.subtract(const Duration(days: 30));
+  
+  // Filter to last 30 days only
+  final recentExpenses = expenses.where((e) => 
+    e.date.isAfter(thirtyDaysAgo) && e.date.isBefore(now)
+  ).toList();
+  
+  // Calculate average daily spend from last 30 days
+  final totalRecent = recentExpenses.fold(0.0, (sum, e) => sum + e.amount);
+  final avgDaily = recentExpenses.isEmpty ? 0.0 : totalRecent / 30;
 
   // Project next 30 days
   final projectionSpots = List.generate(30, (i) {

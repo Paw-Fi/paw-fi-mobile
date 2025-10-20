@@ -35,16 +35,56 @@ class _HomePageState extends ConsumerState<HomePage> {
     super.initState();
 
     // Load data on first mount
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final user = ref.read(authProvider);
       final analyticsData = ref.read(analyticsProvider);
 
-      // Only load if not already loaded or if there's an error
-      if (analyticsData.isLoading || analyticsData.error != null ||
-          (analyticsData.contact == null && analyticsData.expenses.isEmpty)) {
+      // Only load if we've NEVER loaded successfully before
+      // Don't reload if data already exists, even if there was a previous error
+      if (!(analyticsData.hasLoadedOnce ?? false)) {
         ref.read(analyticsProvider.notifier).loadData(user.uid);
       }
+      
+      // Initialize currency filter on first load (one-time)
+      // Check provider state instead of local flag to prevent race conditions
+      final currentCurrency = ref.read(homeFilterProvider).selectedCurrency;
+      if (currentCurrency == null) {
+        await _initializeCurrencyFilter();
+      }
     });
+  }
+  
+  Future<void> _initializeCurrencyFilter() async {
+    // Early exit if already initialized (idempotency check)
+    if (ref.read(homeFilterProvider).selectedCurrency != null) {
+      return;
+    }
+    
+    // Read current analytics data once (not listening to changes)
+    final analyticsData = ref.read(analyticsProvider);
+    final service = ref.read(currencyPreferenceServiceProvider);
+    
+    String selectedCurrency = 'USD'; // Default to USD
+    
+    // 1. Try local storage first
+    try {
+      final storedCurrency = await service.getSelectedCurrency();
+      if (storedCurrency != null && storedCurrency.isNotEmpty) {
+        selectedCurrency = storedCurrency;
+      }
+    } catch (e) {
+      debugPrint('Error loading currency from storage: $e');
+    }
+    
+    // 2. If no stored currency, use preferred currency if available
+    if (selectedCurrency == 'USD' && analyticsData.contact?.preferredCurrency != null) {
+      selectedCurrency = analyticsData.contact!.preferredCurrency!.toUpperCase();
+    }
+    
+    // Always set the currency (never null, always defaults to USD)
+    if (mounted) {
+      ref.read(homeFilterProvider.notifier).setSelectedCurrency(selectedCurrency);
+    }
   }
 
   @override
@@ -130,6 +170,11 @@ class _HomePageState extends ConsumerState<HomePage> {
       // Add phone if WhatsApp is connected (optional)
       if (contact?.phoneE164 != null) {
         body['phone'] = contact!.phoneE164;
+      }
+      
+      // Add preferred currency (used as fallback if AI can't detect currency)
+      if (contact?.preferredCurrency != null) {
+        body['currency'] = contact!.preferredCurrency!.toUpperCase();
       }
 
       // Add either text or image to the request
@@ -264,13 +309,26 @@ class _HomePageState extends ConsumerState<HomePage> {
     showDateRangeFilter(context, colorScheme);
   }
 
+  void _showCurrencySelector() {
+    showCurrencySelectorModal(context, ref);
+  }
+
   Future<void> _showBudgetUpdateSheet() async {
     final analytics = ref.read(analyticsProvider);
     final contact = analytics.contact;
     final user = ref.read(authProvider);
+    final filterState = ref.read(homeFilterProvider);
 
     final colorScheme = shadcnui.Theme.of(context).colorScheme;
-    final initialAmount = _totalBudgetAmount(analytics.budgets);
+    
+    // Determine the currency for the budget update
+    final selectedCurrency = filterState.selectedCurrency ?? contact?.preferredCurrency;
+    final currencySymbol = resolveCurrencySymbol(selectedCurrency);
+    
+    // Get initial amount for the selected currency
+    final initialAmount = selectedCurrency != null
+        ? _totalBudgetAmountForCurrency(analytics.budgets, selectedCurrency)
+        : _totalBudgetAmount(analytics.budgets);
     String rawAmountInput = initialAmount > 0 ? initialAmount.toStringAsFixed(0) : '';
 
     String? validationError;
@@ -318,7 +376,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     initialValue: rawAmountInput,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     decoration: InputDecoration(
-                      prefixText: getCurrencySymbol(contact),
+                      prefixText: currencySymbol,
                       labelText: 'Budget amount',
                       errorText: validationError,
                     ),
@@ -414,10 +472,11 @@ class _HomePageState extends ConsumerState<HomePage> {
         if (contact.phoneE164 != null) {
           payload['phone'] = contact.phoneE164;
         }
-        final preferredCurrency = contact.preferredCurrency;
-        if (preferredCurrency != null && preferredCurrency.isNotEmpty) {
-          payload['currency'] = preferredCurrency;
-        }
+      }
+      
+      // Add currency to payload (selected currency or preferred currency)
+      if (selectedCurrency != null && selectedCurrency.isNotEmpty) {
+        payload['currency'] = selectedCurrency;
       }
 
       final response = await supabase.functions.invoke(
@@ -438,7 +497,13 @@ class _HomePageState extends ConsumerState<HomePage> {
         throw Exception(errorMessage);
       }
 
-      ref.read(analyticsProvider.notifier).setBudgetAmount(capturedAmount);
+      // Update local state with currency-specific budget
+      if (selectedCurrency != null && selectedCurrency.isNotEmpty) {
+        ref.read(analyticsProvider.notifier).setBudgetAmountForCurrency(selectedCurrency, capturedAmount);
+      } else {
+        // Fallback to old method if no currency specified
+        ref.read(analyticsProvider.notifier).setBudgetAmount(capturedAmount);
+      }
 
       // Refresh analytics data if user is logged in
       if (user.uid.isNotEmpty) {
@@ -470,6 +535,13 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   double _totalBudgetAmount(List<DailyBudgetEntry> budgets) {
     return budgets.fold(0.0, (sum, entry) => sum + entry.amount);
+  }
+
+  double _totalBudgetAmountForCurrency(List<DailyBudgetEntry> budgets, String currencyCode) {
+    final code = currencyCode.toUpperCase();
+    return budgets
+        .where((b) => (b.currency ?? '').toUpperCase() == code)
+        .fold(0.0, (sum, entry) => sum + entry.amount);
   }
 
   void _showSuccessToast(ExpenseEntry expense, UserContact? contact, {String? localImagePath}) {
@@ -517,7 +589,9 @@ class _HomePageState extends ConsumerState<HomePage> {
     final filteredBudgets = ref.watch(homeFilteredBudgetsProvider);
     final user = ref.watch(authProvider);
 
-    if (analyticsData.isLoading) {
+    // Only show loading indicator if we've never loaded before
+    // If we have data already, show it even if a refresh is in progress
+    if (analyticsData.isLoading && !(analyticsData.hasLoadedOnce ?? false)) {
       return Scaffold(
         backgroundColor: colorScheme.background,
         body: const Center(child: CircularProgressIndicator()),
@@ -550,55 +624,6 @@ class _HomePageState extends ConsumerState<HomePage> {
           ),
         ),
       );
-    }
-
-    // Check if user has EVER logged expenses (not just in current filter)
-    // We only show the empty state if they have absolutely no historical data
-    final hasHistoricalData = analyticsData.allExpenses.isNotEmpty;
-    final hasExpensesInCurrentFilter = filteredExpenses.isNotEmpty;
-
-    // Show empty state ONLY if user has never logged any expenses
-    if (!hasHistoricalData || (hasHistoricalData && !hasExpensesInCurrentFilter && filterState.dateRangeFilter == DateRangeFilter.last30Days)) {
-      // This is the first-time user experience
-      if (filteredExpenses.isEmpty && filterState.dateRangeFilter == DateRangeFilter.last30Days) {
-        return Scaffold(
-          backgroundColor: colorScheme.background,
-          body: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.inbox_outlined,
-                    size: 80,
-                    color: colorScheme.mutedForeground,
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'No Expenses Yet',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: colorScheme.foreground,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Start logging your expenses to see your analytics here.',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: colorScheme.mutedForeground,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          floatingActionButton: _buildExpandableFAB(colorScheme),
-        );
-      }
     }
 
     return Scaffold(
@@ -677,20 +702,50 @@ class _HomePageState extends ConsumerState<HomePage> {
                     ),
                   ),
 
-                  // Period Selector
+                  // Period Selector with Currency Button
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            'Personal',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: colorScheme.foreground,
-                            ),
+                          // Left side:  Currency Button
+                          Row(
+                            children: [
+                            
+                              // Currency selector button
+                              GestureDetector(
+                                onTap: _showCurrencySelector,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: colorScheme.muted,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        filterState.selectedCurrency ?? 'USD',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: colorScheme.foreground,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Icon(
+                                        Icons.arrow_drop_down,
+                                        color: colorScheme.foreground,
+                                        size: 18,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
+                          // Right side: Date filter
                           GestureDetector(
                             onTap: _showDateRangeFilter,
                             child: Row(
@@ -723,7 +778,13 @@ class _HomePageState extends ConsumerState<HomePage> {
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: buildSpendingCard(colorScheme, filteredExpenses, analyticsData.contact, filterState.dateRangeFilter),
+                      child: buildSpendingCard(
+                        colorScheme, 
+                        filteredExpenses, 
+                        analyticsData.contact, 
+                        filterState.dateRangeFilter,
+                        selectedCurrency: filterState.selectedCurrency,
+                      ),
                     ),
                   ),
 
@@ -746,12 +807,19 @@ class _HomePageState extends ConsumerState<HomePage> {
                               analyticsData.contact,
                               filterState.dateRangeFilter,
                               onTap: _showBudgetUpdateSheet,
+                              selectedCurrency: filterState.selectedCurrency,
                             ),
                           ),
                           const SizedBox(width: 12),
                           SizedBox(
                             width: 200,
-                            child: buildNetCashflowCard(colorScheme, filteredBudgets, filteredExpenses, analyticsData.contact),
+                            child: buildNetCashflowCard(
+                              colorScheme, 
+                              filteredBudgets, 
+                              filteredExpenses, 
+                              analyticsData.contact,
+                              selectedCurrency: filterState.selectedCurrency,
+                            ),
                           ),
                           const SizedBox(width: 12),
                         ],
@@ -762,22 +830,33 @@ class _HomePageState extends ConsumerState<HomePage> {
                   const SliverToBoxAdapter(child: SizedBox(height: 16)),            
 
                   // Category Breakdown
-                  if (_getCategorySummaries(filteredExpenses).isNotEmpty)
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        child: buildCategoryBreakdownCard(context, colorScheme, filteredExpenses, analyticsData.contact),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: buildCategoryBreakdownCard(
+                        context, 
+                        colorScheme, 
+                        filteredExpenses, 
+                        analyticsData.contact,
+                        selectedCurrency: filterState.selectedCurrency,
                       ),
                     ),
+                  ),
 
                   const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                  if (_getCategorySummaries(filteredExpenses).isNotEmpty)
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        child: buildSpendingBreakdownChart(colorScheme, filteredExpenses, analyticsData.contact, filterState.dateRangeFilter),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: buildSpendingBreakdownChart(
+                        colorScheme, 
+                        filteredExpenses,
+                        filteredBudgets,
+                        analyticsData.contact, 
+                        filterState.dateRangeFilter,
+                        selectedCurrency: filterState.selectedCurrency,
                       ),
                     ),
+                  ),
 
                  
 
@@ -790,29 +869,6 @@ class _HomePageState extends ConsumerState<HomePage> {
       ),
       floatingActionButton: _buildExpandableFAB(colorScheme),
     );
-  }
-
-  List<CategorySummary> _getCategorySummaries(List<ExpenseEntry> expenses) {
-    final Map<String, double> categoryTotals = {};
-    final Map<String, int> categoryCounts = {};
-
-    for (final expense in expenses) {
-      if (expense.amountCents > 0) {
-        final cat = (expense.category ?? 'uncategorized').toLowerCase();
-        categoryTotals[cat] = (categoryTotals[cat] ?? 0) + expense.amount;
-        categoryCounts[cat] = (categoryCounts[cat] ?? 0) + 1;
-      }
-    }
-
-    return categoryTotals.entries.map((e) {
-      return CategorySummary(
-        category: e.key,
-        amount: e.value,
-        transactionCount: categoryCounts[e.key] ?? 0,
-        color: getCategoryColor(e.key),
-      );
-    }).toList()
-      ..sort((a, b) => b.amount.compareTo(a.amount));
   }
 
   Widget _buildExpandableFAB(shadcnui.ColorScheme colorScheme) {

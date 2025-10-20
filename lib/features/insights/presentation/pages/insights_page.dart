@@ -34,6 +34,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> with SingleTicker
   Widget build(BuildContext context) {
     final colorScheme = shadcnui.Theme.of(context).colorScheme;
     final analyticsData = ref.watch(analyticsProvider);
+    final filterState = ref.watch(homeFilterProvider);
 
     return Scaffold(
       backgroundColor: colorScheme.background,
@@ -96,10 +97,10 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> with SingleTicker
                 child: TabBarView(
                   controller: _tabController,
                   children: [
-                    buildRunningBalanceTab(colorScheme, analyticsData),
-                    build30DayLookAheadTab(colorScheme, analyticsData),
-                    buildLongTermProjectionTab(colorScheme, analyticsData),
-                    _buildScenarioPlanningTabWithProvider(colorScheme, analyticsData),
+                    buildRunningBalanceTab(colorScheme, analyticsData, selectedCurrency: filterState.selectedCurrency),
+                    build30DayLookAheadTab(colorScheme, analyticsData, selectedCurrency: filterState.selectedCurrency),
+                    buildLongTermProjectionTab(colorScheme, analyticsData, selectedCurrency: filterState.selectedCurrency),
+                    _buildScenarioPlanningTabWithProvider(colorScheme, analyticsData, filterState.selectedCurrency),
                   ],
                 ),
               ),
@@ -110,12 +111,12 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> with SingleTicker
     );
   }
 
-  Widget _buildScenarioPlanningTabWithProvider(shadcnui.ColorScheme colorScheme, AnalyticsData analyticsData) {
+  Widget _buildScenarioPlanningTabWithProvider(shadcnui.ColorScheme colorScheme, AnalyticsData analyticsData, String? selectedCurrency) {
     return ProviderScope(
       overrides: [
         // Override any providers if needed
       ],
-      child: buildScenarioPlanningTab(colorScheme, analyticsData),
+      child: buildScenarioPlanningTab(colorScheme, analyticsData, selectedCurrency: selectedCurrency),
     );
   }
 }

@@ -11,6 +11,7 @@ class AnalyticsData {
   final bool isLoading;
   final String? error;
   final String? preferredCurrency;
+  final bool? hasLoadedOnce; // Track if we've successfully loaded data at least once (nullable for hot reload compatibility)
 
   AnalyticsData({
     this.contact,
@@ -18,9 +19,10 @@ class AnalyticsData {
     this.allExpenses = const [],
     this.budgets = const [],
     this.allBudgets = const [],
-    this.isLoading = true,
+    this.isLoading = false, // Changed default to false
     this.error,
     this.preferredCurrency,
+    this.hasLoadedOnce,
   });
 
   AnalyticsData copyWith({
@@ -32,6 +34,7 @@ class AnalyticsData {
     bool? isLoading,
     String? error,
     String? preferredCurrency,
+    bool? hasLoadedOnce,
     bool clearError = false,
   }) {
     return AnalyticsData(
@@ -43,6 +46,7 @@ class AnalyticsData {
       isLoading: isLoading ?? this.isLoading,
       error: clearError ? null : (error ?? this.error),
       preferredCurrency: preferredCurrency ?? this.preferredCurrency,
+      hasLoadedOnce: hasLoadedOnce ?? this.hasLoadedOnce,
     );
   }
 }

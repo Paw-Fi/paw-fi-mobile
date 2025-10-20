@@ -1,14 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:markdown_widget/markdown_widget.dart';
+import 'package:moneko/features/utils/currency.dart';
+
+/// Helper to safely convert dynamic value to double
+double _asDouble(dynamic v) {
+  if (v is num) return v.toDouble();
+  if (v is String) return double.tryParse(v) ?? 0.0;
+  return 0.0;
+}
 
 /// Shows scenario analysis result bottom sheet
 void showScenarioResultSheet(
   BuildContext context,
   String advice,
-  Map<String, dynamic> meta,
-) {
+  Map<String, dynamic> meta, {
+  String? selectedCurrency,
+}) {
   final colorScheme = shadcnui.Theme.of(context).colorScheme;
+  
+  // Use correct currency symbol based on selection
+  final String currencySymbol;
+  if (selectedCurrency != null) {
+    currencySymbol = resolveCurrencySymbol(selectedCurrency);
+  } else {
+    // Mixed mode - no single symbol
+    currencySymbol = '';
+  }
+  
+  // Safely extract stats map and values
+  final Map<String, dynamic>? stats = (meta['stats'] as Map?)?.cast<String, dynamic>();
+  final curr = _asDouble(stats?['currentRunningBalance']);
+  final proj = _asDouble(stats?['projectedNoScenarioByTarget']);
+  final avg = _asDouble(stats?['avgNetPerDay']);
 
   showModalBottomSheet(
     context: context,
@@ -147,9 +171,9 @@ void showScenarioResultSheet(
                         ),
                       ),
                       const SizedBox(height: 12),
-                      _buildStatRow(colorScheme, 'Current Balance', '\$${meta['stats']['currentRunningBalance']?.toStringAsFixed(2) ?? '0.00'}'),
-                      _buildStatRow(colorScheme, 'Projected (No Change)', '\$${meta['stats']['projectedNoScenarioByTarget']?.toStringAsFixed(2) ?? '0.00'}'),
-                      _buildStatRow(colorScheme, 'Avg Daily Net', '\$${meta['stats']['avgNetPerDay']?.toStringAsFixed(2) ?? '0.00'}'),
+                      _buildStatRow(colorScheme, 'Current Balance', '$currencySymbol${curr.toStringAsFixed(2)}'),
+                      _buildStatRow(colorScheme, 'Projected (No Change)', '$currencySymbol${proj.toStringAsFixed(2)}'),
+                      _buildStatRow(colorScheme, 'Avg Daily Net', '$currencySymbol${avg.toStringAsFixed(2)}'),
                     ],
 
                     const SizedBox(height: 32),

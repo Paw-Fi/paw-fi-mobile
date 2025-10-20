@@ -8,8 +8,10 @@ import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/currency_flags.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
 import 'package:moneko/features/subscription/data/models/subscription_details.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsPage extends HookConsumerWidget {
   const SettingsPage({super.key});
@@ -28,6 +30,9 @@ class SettingsPage extends HookConsumerWidget {
     final isSaving = useState(false);
 
     useEffect(() {
+      // Debug: Log what we're reading from the database
+      print('🔍 Settings: contact.preferredCurrency = ${contact?.preferredCurrency}');
+      print('🔍 Settings: normalized = ${contact?.preferredCurrency?.toUpperCase()}');
       selectedCurrency.value = contact?.preferredCurrency?.toUpperCase();
       return null;
     }, [contact?.preferredCurrency]);
@@ -120,14 +125,129 @@ class SettingsPage extends HookConsumerWidget {
               subscriptionAsync: subscriptionAsync,
             ),
             const shadcnui.Gap(24),
-            Text(
-              'Currency',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: colorScheme.foreground,
-                letterSpacing: -0.2,
-              ),
+            Row(
+              children: [
+                Text(
+                  'Preferred Currency',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.foreground,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () {
+                    showDialog(
+                      context: context,
+                      builder: (dialogContext) => AlertDialog(
+                        backgroundColor: colorScheme.card,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        contentPadding: const EdgeInsets.all(20),
+                        content: SizedBox(
+                          width: 280,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'About Preferred Currency',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: colorScheme.foreground,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Your preferred currency is used as the default currency when Moneko AI cannot detect the currency from your text or receipt.',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: colorScheme.foreground,
+                                  height: 1.4,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.muted.withValues(alpha: 0.3),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: colorScheme.border.withValues(alpha: 0.5),
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.smart_toy_outlined,
+                                          size: 16,
+                                          color: colorScheme.primary,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'AI Fallback',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: colorScheme.foreground,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      'When you log expenses via text or receipt, Moneko AI tries to detect the currency. If detection fails, your preferred currency is used automatically.',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: colorScheme.foreground,
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                '• Initial filter on home screen\n'
+                                '• Track multiple currencies separately\n'
+                                '• Switch between currencies anytime\n'
+                                '• Each currency has its own budget',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: colorScheme.foreground,
+                                  height: 1.5,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Tip: You can view expenses in any currency by tapping the currency selector on the home screen.',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: colorScheme.mutedForeground,
+                                  fontStyle: FontStyle.italic,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                  child: Icon(
+                    Icons.info_outline,
+                    size: 18,
+                    color: colorScheme.mutedForeground,
+                  ),
+                ),
+              ],
             ),
             const shadcnui.Gap(16),
             Container(
@@ -147,7 +267,7 @@ class SettingsPage extends HookConsumerWidget {
                   const shadcnui.Gap(16),
                   Expanded(
                     child: Text(
-                      'Currency',
+                      'Preferred Currency',
                       style: TextStyle(
                         fontSize: 15,
                         color: colorScheme.foreground,
@@ -210,6 +330,13 @@ class SettingsPage extends HookConsumerWidget {
 
                               selectedCurrency.value = normalized;
                               ref.read(analyticsProvider.notifier).updatePreferredCurrency(normalized);
+                              
+                              // Save to local storage
+                              final prefs = await SharedPreferences.getInstance();
+                              await prefs.setString('selected_currency', normalized);
+                              
+                              // Update home filter to sync with modal
+                              ref.read(homeFilterProvider.notifier).setSelectedCurrency(normalized);
 
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
@@ -258,12 +385,20 @@ class _CurrencyDropdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final normalizedSelected = selected?.toUpperCase();
+    // Debug: Log what the dropdown is receiving
+    print('🔍 Dropdown: selected = $selected');
+    print('🔍 Dropdown: normalizedSelected = $normalizedSelected');
+    print('🔍 Dropdown: options.containsKey($normalizedSelected) = ${options.containsKey(normalizedSelected)}');
+    
+    // Default to USD if no selection or invalid selection
     final current = normalizedSelected != null && options.containsKey(normalizedSelected)
         ? normalizedSelected
-        : options.keys.first;
+        : 'USD';
+    
+    print('🔍 Dropdown: current = $current');
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
         color: colorScheme.muted.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(8),
@@ -286,12 +421,115 @@ class _CurrencyDropdown extends StatelessWidget {
           isExpanded: true,
           dropdownColor: colorScheme.card,
           style: TextStyle(color: colorScheme.foreground, fontSize: 13, fontWeight: FontWeight.w500),
+          selectedItemBuilder: (context) {
+            return options.entries.map((entry) {
+              final flagPath = getCurrencyFlagPath(entry.key);
+              final symbol = resolveCurrencySymbol(entry.key);
+              
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (flagPath != null) ...[
+                    Container(
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: colorScheme.border.withValues(alpha: 0.2),
+                          width: 0.5,
+                        ),
+                      ),
+                      child: ClipOval(
+                        child: Image.asset(
+                          flagPath,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Center(
+                            child: Text(
+                              symbol,
+                              style: const TextStyle(fontSize: 10),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ] else ...[
+                    Text(
+                      symbol,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                  Text(entry.key),
+                ],
+              );
+            }).toList();
+          },
           items: options.entries
               .map(
-                (entry) => DropdownMenuItem<String>(
-                  value: entry.key,
-                  child: Text('${entry.value}  ${entry.key}'),
-                ),
+                (entry) {
+                  final flagPath = getCurrencyFlagPath(entry.key);
+                  final symbol = resolveCurrencySymbol(entry.key);
+                  
+                  return DropdownMenuItem<String>(
+                    value: entry.key,
+                    child: Row(
+                      children: [
+                        if (flagPath != null) ...[
+                          Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: colorScheme.border.withValues(alpha: 0.2),
+                                width: 0.5,
+                              ),
+                            ),
+                            child: ClipOval(
+                              child: Image.asset(
+                                flagPath,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Center(
+                                  child: Text(
+                                    symbol,
+                                    style: const TextStyle(fontSize: 11),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                        ] else ...[
+                          Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: colorScheme.muted.withValues(alpha: 0.3),
+                            ),
+                            child: Center(
+                              child: Text(
+                                symbol,
+                                style: const TextStyle(fontSize: 11),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                        ],
+                        Text(
+                          entry.key,
+                          style: TextStyle(
+                            color: colorScheme.foreground,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               )
               .toList(),
           onChanged: isSaving ? null : onChanged,

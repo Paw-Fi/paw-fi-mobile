@@ -41,7 +41,16 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
   List<ExpenseEntry> get filteredExpenses {
     final analyticsData = ref.watch(analyticsProvider);
+    final filterState = ref.watch(homeFilterProvider);
     var expenses = analyticsData.expenses;
+
+    // Filter by currency if selected
+    final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
+    if (selectedCurrency != null) {
+      expenses = expenses.where((e) {
+        return (e.currency?.toUpperCase() == selectedCurrency);
+      }).toList();
+    }
 
     // Filter by period
     if (selectedPeriod != 'All') {
@@ -363,7 +372,11 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
   Widget _buildChart(shadcnui.ColorScheme colorScheme, UserContact? contact) {
     final totalSpent = filteredExpenses.where((e) => e.amountCents > 0).fold(0.0, (sum, e) => sum + e.amount);
-    final currencySymbol = getCurrencySymbol(contact);
+    final filterState = ref.watch(homeFilterProvider);
+    
+    // selectedCurrency is never null (defaults to USD)
+    final currencySymbol = resolveCurrencySymbol(filterState.selectedCurrency ?? 'USD');
+    final displayText = '$currencySymbol${totalSpent.toStringAsFixed(0)}';
 
     return Container(
       decoration: BoxDecoration(
@@ -385,7 +398,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
           ),
           const SizedBox(height: 8),
           Text(
-            '$currencySymbol${totalSpent.toStringAsFixed(0)}',
+            displayText,
             style: TextStyle(
               fontSize: 32,
               fontWeight: FontWeight.bold,
@@ -419,7 +432,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                   padding: const EdgeInsets.only(right: 8),
                   child: _buildBarChart(colorScheme),
                 ),
-                _buildPieChart(colorScheme, totalSpent, currencySymbol),
+                _buildPieChart(colorScheme, totalSpent, displayText),
               ],
             ),
           ),
@@ -614,7 +627,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
               reservedSize: 40,
               getTitlesWidget: (value, meta) {
                 return Text(
-                  '${(value / 100).toStringAsFixed(0)}',
+                  (value / 100).toStringAsFixed(0),
                   style: TextStyle(
                     fontSize: 10,
                     color: colorScheme.mutedForeground,
@@ -658,7 +671,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     );
   }
 
-  Widget _buildPieChart(shadcnui.ColorScheme colorScheme, double totalSpent, String currencySymbol) {
+  Widget _buildPieChart(shadcnui.ColorScheme colorScheme, double totalSpent, String displayText) {
     // Group expenses by category
     final Map<String, double> categoryTotals = {};
     for (final expense in filteredExpenses) {
@@ -709,7 +722,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                 ),
               ),
               Text(
-                '$currencySymbol${totalSpent.toStringAsFixed(0)}',
+                displayText,
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
@@ -734,7 +747,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     final category = expense.category ?? 'uncategorized';
     final categoryColor = getCategoryColor(category);
     final categoryIcon = getCategoryIcon(category);
-    final currencySymbol = getCurrencySymbol(contact);
+    // Use the expense's own currency, not user's preferred currency
+    final currencySymbol = resolveCurrencySymbol(expense.currency);
     final dateFormat = DateFormat('MMM d, yyyy');
 
     return GestureDetector(

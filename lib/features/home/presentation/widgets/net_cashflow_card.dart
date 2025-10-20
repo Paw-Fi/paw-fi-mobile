@@ -3,12 +3,15 @@ import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/utils/currency.dart';
 
-Widget buildNetCashflowCard(shadcnui.ColorScheme colorScheme, List<DailyBudgetEntry> budgets, List<ExpenseEntry> expenses, UserContact? contact) {
+Widget buildNetCashflowCard(shadcnui.ColorScheme colorScheme, List<DailyBudgetEntry> budgets, List<ExpenseEntry> expenses, UserContact? contact, {String? selectedCurrency}) {
   final totalBudget = _getTotalBudget(budgets);
   final totalSpent = _getTotalSpent(expenses);
-  final currencySymbol = getCurrencySymbol(contact);
   final netCashflow = totalBudget - totalSpent;
   final isNegative = netCashflow < 0;
+  
+  // selectedCurrency is never null (defaults to USD)
+  final currencySymbol = resolveCurrencySymbol(selectedCurrency ?? 'USD');
+  final displayText = '${isNegative ? '-' : ''}$currencySymbol${netCashflow.abs().toStringAsFixed(0)}';
 
   return Container(
     decoration: BoxDecoration(
@@ -29,7 +32,7 @@ Widget buildNetCashflowCard(shadcnui.ColorScheme colorScheme, List<DailyBudgetEn
           ),
           const SizedBox(height: 8),
           Text(
-            '${isNegative ? '-' : ''}$currencySymbol${netCashflow.abs().toStringAsFixed(0)}',
+            displayText,
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.bold,

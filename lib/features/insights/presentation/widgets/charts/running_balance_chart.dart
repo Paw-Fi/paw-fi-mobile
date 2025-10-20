@@ -43,12 +43,20 @@ Widget buildRunningBalanceChart(shadcnui.ColorScheme colorScheme, List<ExpenseEn
     spentSpots.add(FlSpot(i.toDouble(), spent));
   }
 
+  // Use max value from series for better grid scaling
+  double maxValue = 0;
+  for (final spot in spots) {
+    final absY = spot.y.abs();
+    if (absY > maxValue) maxValue = absY;
+  }
+  final double interval = maxValue > 0 ? maxValue / 4 : 100;
+  
   return LineChart(
     LineChartData(
       gridData: FlGridData(
         show: true,
         drawVerticalLine: false,
-        horizontalInterval: runningBalance.abs() / 4,
+        horizontalInterval: interval,
         getDrawingHorizontalLine: (value) {
           return FlLine(
             color: colorScheme.border.withOpacity(0.3),

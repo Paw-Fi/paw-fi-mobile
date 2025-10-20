@@ -9,19 +9,17 @@ import 'package:moneko/features/utils/currency.dart';
 Widget buildSpendingBreakdownChart(
   shadcnui.ColorScheme colorScheme,
   List<ExpenseEntry> expenses,
+  List<DailyBudgetEntry> budgets,
   UserContact? contact,
-  DateRangeFilter dateRangeFilter,
-) {
+  DateRangeFilter dateRangeFilter, {
+  String? selectedCurrency,
+}) {
   final categorySummaries = _getCategorySummaries(expenses);
   final totalSpent = _getTotalSpent(expenses);
-  final currencySymbol = getCurrencySymbol(contact);
-  // Calculate budget remaining (using a simple calculation based on total budget)
-  final totalBudget = totalSpent * 1.5; // Assume budget is 1.5x of spent for demo
-  final remaining = totalBudget - totalSpent;
-
-  if (categorySummaries.isEmpty) {
-    return const SizedBox.shrink();
-  }
+  
+  // selectedCurrency is never null (defaults to USD)
+  final currencySymbol = resolveCurrencySymbol(selectedCurrency ?? 'USD');
+  final displayText = '$currencySymbol${totalSpent.toStringAsFixed(0)}';
 
   return Container(
     decoration: BoxDecoration(
@@ -72,7 +70,7 @@ Widget buildSpendingBreakdownChart(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      '$currencySymbol${totalSpent.toStringAsFixed(0)}',
+                      displayText,
                       style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,

@@ -4,10 +4,14 @@ import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/utils/currency.dart';
-Widget buildCategoryBreakdownCard(BuildContext context, shadcnui.ColorScheme colorScheme, List<ExpenseEntry> expenses, UserContact? contact) {
+Widget buildCategoryBreakdownCard(BuildContext context, shadcnui.ColorScheme colorScheme, List<ExpenseEntry> expenses, UserContact? contact, {String? selectedCurrency}) {
   final categorySummaries = _getCategorySummaries(expenses);
   final totalSpent = _getTotalSpent(expenses);
-  final currencySymbol = getCurrencySymbol(contact);
+  
+  // selectedCurrency is never null (defaults to USD)
+  final currencySymbol = resolveCurrencySymbol(selectedCurrency ?? 'USD');
+  
+  String formatAmount(double amount) => '-$currencySymbol${amount.toStringAsFixed(0)}';
 
   return GestureDetector(
     onTap: () {
@@ -36,6 +40,37 @@ Widget buildCategoryBreakdownCard(BuildContext context, shadcnui.ColorScheme col
             ),
           ),
           const SizedBox(height: 16),
+          if (categorySummaries.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 32.0),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.category_outlined,
+                      size: 48,
+                      color: colorScheme.mutedForeground.withValues(alpha: 0.5),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'No expenses yet',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: colorScheme.mutedForeground,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Start logging expenses to see categories',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: colorScheme.mutedForeground.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ...categorySummaries.take(5).map((category) {
             final percentage = category.getPercentage(totalSpent);
             return Padding(
@@ -83,7 +118,7 @@ Widget buildCategoryBreakdownCard(BuildContext context, shadcnui.ColorScheme col
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        '-$currencySymbol${category.amount.toStringAsFixed(0)}',
+                        formatAmount(category.amount),
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,

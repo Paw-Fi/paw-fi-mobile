@@ -8,8 +8,8 @@ import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/insights/presentation/widgets/charts/charts.dart';
 import 'package:moneko/features/insights/presentation/widgets/scenario_result_sheet.dart';
 
-Widget buildScenarioPlanningTab(shadcnui.ColorScheme colorScheme, AnalyticsData analyticsData) {
-  return ScenarioPlanningTabContent(colorScheme: colorScheme, analyticsData: analyticsData);
+Widget buildScenarioPlanningTab(shadcnui.ColorScheme colorScheme, AnalyticsData analyticsData, {String? selectedCurrency}) {
+  return ScenarioPlanningTabContent(colorScheme: colorScheme, analyticsData: analyticsData, selectedCurrency: selectedCurrency);
 }
 
 void _showCategoryGuide(BuildContext context, shadcnui.ColorScheme colorScheme) {
@@ -219,11 +219,13 @@ class _ScenarioHelpSlide extends StatelessWidget {
 class ScenarioPlanningTabContent extends ConsumerStatefulWidget {
   final shadcnui.ColorScheme colorScheme;
   final AnalyticsData analyticsData;
+  final String? selectedCurrency;
 
   const ScenarioPlanningTabContent({
     super.key,
     required this.colorScheme,
     required this.analyticsData,
+    this.selectedCurrency,
   });
 
   @override
@@ -443,7 +445,7 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
                                     setState(() { _scenarioLoading = false; });
 
                                     // Auto-show the result sheet
-                                    showScenarioResultSheet(context, advice, meta);
+                                    showScenarioResultSheet(context, advice, meta, selectedCurrency: widget.selectedCurrency);
                                   } else {
                                     final error = response.data?['error'] ?? 'Failed to analyze scenario';
                                     throw Exception(error);
@@ -521,7 +523,17 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
                 const SizedBox(height: 24),
                 SizedBox(
                   height: 250,
-                  child: buildCategoryBarChart(widget.colorScheme, widget.analyticsData.expenses),
+                  child: Builder(
+                    builder: (context) {
+                      // Filter expenses by selected currency if applicable
+                      var expenses = widget.analyticsData.expenses;
+                      if (widget.selectedCurrency != null) {
+                        final currency = widget.selectedCurrency!.toUpperCase();
+                        expenses = expenses.where((e) => e.currency?.toUpperCase() == currency).toList();
+                      }
+                      return buildCategoryBarChart(widget.colorScheme, expenses);
+                    },
+                  ),
                 ),
               ],
             ),

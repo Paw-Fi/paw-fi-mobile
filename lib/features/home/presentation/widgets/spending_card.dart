@@ -6,9 +6,13 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dart';
 
-Widget buildSpendingCard(shadcnui.ColorScheme colorScheme, List<ExpenseEntry> expenses, UserContact? contact, DateRangeFilter dateFilter) {
+Widget buildSpendingCard(shadcnui.ColorScheme colorScheme, List<ExpenseEntry> expenses, UserContact? contact, DateRangeFilter dateFilter, {String? selectedCurrency}) {
   final totalSpent = _getTotalSpent(expenses);
-  final currencySymbol = getCurrencySymbol(contact);
+  
+  // selectedCurrency is never null (defaults to USD)
+  final currencySymbol = resolveCurrencySymbol(selectedCurrency ?? 'USD');
+  final displayText = '$currencySymbol${totalSpent.toStringAsFixed(0)}';
+  
   final intervalType = getChartIntervalTypeFromFilter(dateFilter);
   
   // Group expenses by appropriate interval
@@ -56,7 +60,7 @@ Widget buildSpendingCard(shadcnui.ColorScheme colorScheme, List<ExpenseEntry> ex
         ),
         const SizedBox(height: 8),
         Text(
-          '$currencySymbol${totalSpent.toStringAsFixed(0)}',
+          displayText,
           style: TextStyle(
             fontSize: 32,
             fontWeight: FontWeight.bold,

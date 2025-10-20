@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
@@ -8,7 +9,12 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
   AnalyticsNotifier() : super(AnalyticsData());
 
   Future<void> loadData(String userId) async {
-    state = state.copyWith(isLoading: true, clearError: true);
+    // Set hasLoadedOnce immediately to prevent infinite retry loops
+    state = state.copyWith(
+      isLoading: true, 
+      clearError: true,
+      hasLoadedOnce: true
+    );
 
     try {
       if (userId.isEmpty) {
@@ -20,17 +26,30 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
       }
 
       // Fetch user contact (get most recent if duplicates exist)
-      // Order by id descending to get latest entry in case of duplicates
+      // Order by updated_at/created_at descending to get latest entry
       final contactsResponse = await supabase
           .from('user_contacts')
-          .select('id,user_id,phone_e164,verified,preferred_currency')
+          .select('id,user_id,phone_e164,verified,preferred_currency,created_at,updated_at')
           .eq('user_id', userId)
-          .order('id', ascending: false)
+          .order('updated_at', ascending: false)
+          .order('created_at', ascending: false)
           .limit(1);
+      
+      // Debug: Log what we fetched from database (only in debug mode)
+      if (kDebugMode) {
+        debugPrint('🔍 Analytics: userId = $userId');
+        debugPrint('🔍 Analytics: contactsResponse = $contactsResponse');
+        debugPrint('🔍 Analytics: contactsResponse length = ${(contactsResponse as List).length}');
+      }
       
       final contactResponse = (contactsResponse as List).isNotEmpty 
           ? contactsResponse[0] as Map<String, dynamic>?
           : null;
+      
+      if (kDebugMode) {
+        debugPrint('🔍 Analytics: contactResponse = $contactResponse');
+        debugPrint('🔍 Analytics: preferred_currency from DB = ${contactResponse?['preferred_currency']}');
+      }
 
       if (contactResponse == null) {
         // No contact found - this is okay for mobile-only users
@@ -53,6 +72,12 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
       }
 
       final fetchedContact = UserContact.fromJson(contactResponse);
+      
+      // Debug: Log parsed contact (only in debug mode)
+      if (kDebugMode) {
+        debugPrint('🔍 Analytics: fetchedContact.id = ${fetchedContact.id}');
+        debugPrint('🔍 Analytics: fetchedContact.preferredCurrency = ${fetchedContact.preferredCurrency}');
+      }
 
       // Always fetch ALL data (last 365 days) without date filtering
       // This ensures insights page always has full data
@@ -79,7 +104,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
             .toList();
       } catch (expenseError) {
         // Handle foreign key errors or empty results gracefully
-        print('[Analytics] Error fetching expenses: $expenseError');
+        debugPrint('[Analytics] Error fetching expenses: $expenseError');
         allExpenses = [];
       }
 
@@ -99,7 +124,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
             .toList();
       } catch (budgetError) {
         // Handle foreign key errors or empty results gracefully
-        print('[Analytics] Error fetching budgets: $budgetError');
+        debugPrint('[Analytics] Error fetching budgets: $budgetError');
         allBudgets = [];
       }
 
@@ -183,6 +208,74 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
         final lastBudget = updatedBudgets.last;
         updatedBudgets[updatedBudgets.length - 1] =
             lastBudget.copyWith(amountCents: lastBudget.amountCents + diff);
+      }
+    }
+
+    state = state.copyWith(budgets: updatedBudgets);
+  }
+
+  /// Set budget amount for a specific currency
+  void setBudgetAmountForCurrency(String currencyCode, double amount) {
+    final code = currencyCode.toUpperCase();
+    final newAmountCents = (amount * 100).round();
+    if (newAmountCents <= 0) {
+      return;
+    }
+
+    final currentBudgets = state.budgets;
+    final currentBudgetsForCurrency = currentBudgets.where((b) => (b.currency ?? '').toUpperCase() == code).toList();
+
+    if (currentBudgetsForCurrency.isEmpty) {
+      final contactId = state.contact?.id;
+      if (contactId == null || contactId.isEmpty) {
+        return;
+      }
+
+      final newEntry = DailyBudgetEntry(
+        id: 'local-budget-${DateTime.now().millisecondsSinceEpoch}',
+        contactId: contactId,
+        date: DateTime.now(),
+        amountCents: newAmountCents,
+        currency: code,
+      );
+
+      state = state.copyWith(budgets: [...currentBudgets, newEntry]);
+      return;
+    }
+
+    final totalCurrentCents = currentBudgetsForCurrency.fold<int>(0, (sum, budget) => sum + budget.amountCents);
+    List<DailyBudgetEntry> updatedBudgets = List.of(currentBudgets);
+
+    if (totalCurrentCents <= 0) {
+      final perEntryCents = (newAmountCents / currentBudgetsForCurrency.length).round();
+      updatedBudgets = updatedBudgets.map((budget) {
+        if ((budget.currency ?? '').toUpperCase() == code) {
+          return budget.copyWith(amountCents: perEntryCents);
+        }
+        return budget;
+      }).toList();
+    } else {
+      final ratio = newAmountCents / totalCurrentCents;
+      updatedBudgets = updatedBudgets.map((budget) {
+        if ((budget.currency ?? '').toUpperCase() == code) {
+          return budget.copyWith(amountCents: (budget.amountCents * ratio).round());
+        }
+        return budget;
+      }).toList();
+
+      final diff = newAmountCents -
+          updatedBudgets
+              .where((b) => (b.currency ?? '').toUpperCase() == code)
+              .fold<int>(0, (sum, budget) => sum + budget.amountCents);
+
+      if (diff != 0) {
+        for (int i = updatedBudgets.length - 1; i >= 0; i--) {
+          final b = updatedBudgets[i];
+          if ((b.currency ?? '').toUpperCase() == code) {
+            updatedBudgets[i] = b.copyWith(amountCents: b.amountCents + diff);
+            break;
+          }
+        }
       }
     }
 

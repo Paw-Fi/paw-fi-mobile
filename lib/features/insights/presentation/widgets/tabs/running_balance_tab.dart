@@ -4,7 +4,17 @@ import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/insights/presentation/widgets/charts/charts.dart';
 import 'package:moneko/features/insights/presentation/widgets/chart_legend.dart';
 
-Widget buildRunningBalanceTab(shadcnui.ColorScheme colorScheme, AnalyticsData analyticsData) {
+Widget buildRunningBalanceTab(shadcnui.ColorScheme colorScheme, AnalyticsData analyticsData, {String? selectedCurrency}) {
+  // Filter data by currency if selected
+  var expenses = analyticsData.expenses;
+  var budgets = analyticsData.budgets;
+  
+  if (selectedCurrency != null) {
+    final currency = selectedCurrency.toUpperCase();
+    expenses = expenses.where((e) => e.currency?.toUpperCase() == currency).toList();
+    budgets = budgets.where((b) => b.currency?.toUpperCase() == currency).toList();
+  }
+  
   return SingleChildScrollView(
     padding: const EdgeInsets.all(16),
     child: Column(
@@ -58,7 +68,7 @@ Widget buildRunningBalanceTab(shadcnui.ColorScheme colorScheme, AnalyticsData an
               const SizedBox(height: 24),
               SizedBox(
                 height: 250,
-                child: buildRunningBalanceChart(colorScheme, analyticsData.expenses, analyticsData.budgets),
+                child: buildRunningBalanceChart(colorScheme, expenses, budgets),
               ),
               const SizedBox(height: 16),
               buildChartLegend(
