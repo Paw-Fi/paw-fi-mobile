@@ -11,7 +11,7 @@ import '../providers/subscription_provider.dart';
 class PaywallScreen extends ConsumerWidget {
   const PaywallScreen({super.key});
 
-  Future<void> _launchCheckout(WidgetRef ref) async {
+  Future<void> _launchDiscord(WidgetRef ref) async {
     final user = ref.read(authProvider);
     
     if (user.isEmpty) {
@@ -53,7 +53,7 @@ class PaywallScreen extends ConsumerWidget {
                 const shadcnui.CircularProgressIndicator(),
                 const SizedBox(height: 24),
                 shadcnui.Text(
-                  'Creating checkout session...',
+                  'Opening Discord...',
                   style: shadcnui.Theme.of(context).typography.large,
                   textAlign: TextAlign.center,
                 ),
@@ -71,39 +71,16 @@ class PaywallScreen extends ConsumerWidget {
     );
 
     try {
-      final response = await supabase.functions.invoke(
-        'create-checkout-session',
-        body: {
-          'plan': 'plus',
-          'billingInterval': 'yearly',
-          'successUrl': '${DeepLinks.paymentCallback}?status=success&session_id={CHECKOUT_SESSION_ID}',
-          'cancelUrl': '${DeepLinks.paymentCallback}?status=canceled&session_id={CHECKOUT_SESSION_ID}',
-        },
-      );
+      final discordUrl = 'https://discord.gg/M2Dgujvtze';
 
       if (!ref.context.mounted) return;
       Navigator.of(ref.context).pop();
 
-      if (response.status != 200) {
-        final errorMsg = response.data?['error'] ?? response.data?['message'] ?? 'Unknown error';
-        throw Exception('Server error: $errorMsg');
-      }
-
-      if (response.data == null) {
-        throw Exception('No data returned from server');
-      }
-
-      final checkoutUrl = response.data['checkoutUrl'] as String?;
-      
-      if (checkoutUrl == null || checkoutUrl.isEmpty) {
-        throw Exception('No checkout URL in response');
-      }
-
       if (!await launchUrl(
-        Uri.parse(checkoutUrl),
+        Uri.parse(discordUrl),
         mode: LaunchMode.externalApplication,
       )) {
-        throw Exception('Could not open browser');
+        throw Exception('Could not open Discord link');
       }
       
     } catch (e) {
@@ -111,7 +88,7 @@ class PaywallScreen extends ConsumerWidget {
         Navigator.of(ref.context).pop();
         ScaffoldMessenger.of(ref.context).showSnackBar(
           SnackBar(
-            content: Text('Failed to start checkout: ${e.toString()}'),
+            content: Text('Failed to open Discord: ${e.toString()}'),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 5),
           ),
@@ -149,7 +126,7 @@ class PaywallScreen extends ConsumerWidget {
               children: [
               const SizedBox(height: 40),
 
-              // Rocket Icon
+              // Beta Icon
               Container(
                 width: 100,
                 height: 100,
@@ -158,9 +135,13 @@ class PaywallScreen extends ConsumerWidget {
                   shape: BoxShape.circle,
                 ),
                 child: Center(
-                  child: Text(
-                    '🚀',
-                    style: TextStyle(fontSize: 50),
+                  child: ClipOval(
+                    child: Image.asset(
+                      'lib/assets/mascots/moneko.png',
+                      width: 80,
+                      height: 80,
+                      fit: BoxFit.cover,
+                    ),
                   ),
                 ),
               ),
@@ -169,7 +150,7 @@ class PaywallScreen extends ConsumerWidget {
 
               // Title
               Text(
-                'Unlock Premium Features!',
+                'You\'re Early! 🚀',
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
@@ -182,7 +163,7 @@ class PaywallScreen extends ConsumerWidget {
 
               // Description
               Text(
-                'This app is available exclusively to our Plus Plan members — and we\'ve got something special for you! 🎁',
+                'Access opens soon — join our Discord to get verified and unlock early access!',
                 style: TextStyle(
                   fontSize: 16,
                   color: colorScheme.mutedForeground,
@@ -206,19 +187,25 @@ class PaywallScreen extends ConsumerWidget {
                 ),
                 child: Column(
                   children: [
-                    Text(
-                      'Enjoy 1 month of Plus access, completely free — no strings attached.',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.foreground,
-                        height: 1.5,
+                    Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: 'Join our Discord channel to get early access!',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.foreground,
+                              height: 1.5,
+                            ),
+                          ),
+                        ],
                       ),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Get access to advanced tools, faster performance, and an even smoother experience.',
+                      'Get verified, unlock exclusive features, connect with our community, and be among the first to experience the app.',
                       style: TextStyle(
                         fontSize: 14,
                         color: colorScheme.mutedForeground,
@@ -239,12 +226,12 @@ class PaywallScreen extends ConsumerWidget {
                 width: double.infinity,
                 height: 56,
                 child: shadcnui.PrimaryButton(
-                  onPressed: () => _launchCheckout(ref),
+                  onPressed: () => _launchDiscord(ref),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        'Start Free Trial',
+                        'Join Discord for Early Access',
                         style: TextStyle(
                           fontSize: 18,
                           color: colorScheme.buttonText,
@@ -262,10 +249,11 @@ class PaywallScreen extends ConsumerWidget {
 
               // Footer Text
               Text(
-                'Annual plan • Cancel anytime • No credit card required',
+                'Free to join • Limited spots • Exclusive perks',
                 style: TextStyle(
-                  fontSize: 12,
-                  color: colorScheme.mutedForeground,
+                  fontSize: 13,
+                  color: colorScheme.mutedForeground.withOpacity(0.9),
+                  fontWeight: FontWeight.w500,
                 ),
                 textAlign: TextAlign.center,
               ),

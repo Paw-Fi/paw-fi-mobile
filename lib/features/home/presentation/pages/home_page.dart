@@ -172,10 +172,18 @@ class _HomePageState extends ConsumerState<HomePage> {
         body['phone'] = contact!.phoneE164;
       }
       
-      // Add preferred currency (used as fallback if AI can't detect currency)
-      if (contact?.preferredCurrency != null) {
+      // Get the currently selected currency from the UI filter
+      final filterState = ref.read(homeFilterProvider);
+      final selectedCurrency = filterState.selectedCurrency;
+
+      // Send currency with proper fallback chain:
+      // Priority: UI selection → Account preference → USD (BE default)
+      if (selectedCurrency != null && selectedCurrency.isNotEmpty) {
+        body['currency'] = selectedCurrency.toUpperCase();
+      } else if (contact?.preferredCurrency != null) {
         body['currency'] = contact!.preferredCurrency!.toUpperCase();
       }
+      // Note: If both are null, backend validateCurrency() defaults to USD
 
       // Add either text or image to the request
       if (text != null) {
@@ -329,7 +337,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     final initialAmount = selectedCurrency != null
         ? _totalBudgetAmountForCurrency(analytics.budgets, selectedCurrency)
         : _totalBudgetAmount(analytics.budgets);
-    String rawAmountInput = initialAmount > 0 ? initialAmount.toStringAsFixed(0) : '';
+    String rawAmountInput = initialAmount > 0 ? formatAmount(initialAmount) : '';
 
     String? validationError;
 
@@ -818,6 +826,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                               filteredBudgets, 
                               filteredExpenses, 
                               analyticsData.contact,
+                              filterState.dateRangeFilter,
                               selectedCurrency: filterState.selectedCurrency,
                             ),
                           ),

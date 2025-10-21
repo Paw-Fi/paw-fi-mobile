@@ -9,9 +9,7 @@ Widget buildCategoryBreakdownCard(BuildContext context, shadcnui.ColorScheme col
   final totalSpent = _getTotalSpent(expenses);
   
   // selectedCurrency is never null (defaults to USD)
-  final currencySymbol = resolveCurrencySymbol(selectedCurrency ?? 'USD');
-  
-  String formatAmount(double amount) => '-$currencySymbol${amount.toStringAsFixed(0)}';
+  String formatCategoryAmount(double amount) => '-${formatCurrency(amount, selectedCurrency ?? 'USD')}';
 
   return GestureDetector(
     onTap: () {
@@ -118,7 +116,7 @@ Widget buildCategoryBreakdownCard(BuildContext context, shadcnui.ColorScheme col
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        formatAmount(category.amount),
+                        formatCategoryAmount(category.amount),
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,

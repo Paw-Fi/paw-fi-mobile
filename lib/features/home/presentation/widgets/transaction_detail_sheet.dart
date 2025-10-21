@@ -40,7 +40,6 @@ void showTransactionDetailSheet(
 }) {
   final category = expense.category ?? 'uncategorized';
   final categoryIcon = getCategoryIcon(category);
-  final currencySymbol = resolveCurrencySymbol(expense.currency);
   final timeFormat = DateFormat('HH:mm');
 
   showModalBottomSheet(
@@ -106,7 +105,7 @@ void showTransactionDetailSheet(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            '-$currencySymbol${expense.amount.toStringAsFixed(2)}',
+                            '-${formatCurrency(expense.amount, expense.currency)}',
                             style: TextStyle(
                               fontSize: 48,
                               fontWeight: FontWeight.w700,

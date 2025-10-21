@@ -1,17 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/features/home/presentation/models/models.dart';
+import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/utils/currency.dart';
 
-Widget buildNetCashflowCard(shadcnui.ColorScheme colorScheme, List<DailyBudgetEntry> budgets, List<ExpenseEntry> expenses, UserContact? contact, {String? selectedCurrency}) {
+Widget buildNetCashflowCard(
+  shadcnui.ColorScheme colorScheme,
+  List<DailyBudgetEntry> budgets,
+  List<ExpenseEntry> expenses,
+  UserContact? contact,
+  DateRangeFilter filter, {
+  String? selectedCurrency,
+}) {
   final totalBudget = _getTotalBudget(budgets);
   final totalSpent = _getTotalSpent(expenses);
   final netCashflow = totalBudget - totalSpent;
   final isNegative = netCashflow < 0;
   
   // selectedCurrency is never null (defaults to USD)
-  final currencySymbol = resolveCurrencySymbol(selectedCurrency ?? 'USD');
-  final displayText = '${isNegative ? '-' : ''}$currencySymbol${netCashflow.abs().toStringAsFixed(0)}';
+  final absAmount = netCashflow.abs();
+  final formattedAmount = formatCurrency(absAmount, selectedCurrency ?? 'USD');
+  final displayText = isNegative ? '-$formattedAmount' : formattedAmount;
+  
+  final title = _netCashflowTitleForFilter(filter);
 
   return Container(
     decoration: BoxDecoration(
@@ -24,7 +35,7 @@ Widget buildNetCashflowCard(shadcnui.ColorScheme colorScheme, List<DailyBudgetEn
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Net cashflow',
+            title,
             style: TextStyle(
               fontSize: 14,
               color: colorScheme.mutedForeground,
@@ -68,5 +79,24 @@ double _getTotalBudget(List<DailyBudgetEntry> budgets) {
 
 double _getTotalSpent(List<ExpenseEntry> expenses) {
   return expenses.where((e) => e.amountCents > 0).fold(0.0, (sum, e) => sum + e.amount);
+}
+
+String _netCashflowTitleForFilter(DateRangeFilter filter) {
+  switch (filter) {
+    case DateRangeFilter.today:
+      return "Net cashflow today";
+    case DateRangeFilter.yesterday:
+      return "Net cashflow yesterday";
+    case DateRangeFilter.thisWeek:
+      return 'Net cashflow this week';
+    case DateRangeFilter.lastWeek:
+      return 'Net cashflow last week';
+    case DateRangeFilter.thisMonth:
+      return 'Net cashflow this month';
+    case DateRangeFilter.last30Days:
+      return 'Net cashflow (last 30 days)';
+    case DateRangeFilter.custom:
+      return 'Net cashflow (custom)';
+  }
 }
 

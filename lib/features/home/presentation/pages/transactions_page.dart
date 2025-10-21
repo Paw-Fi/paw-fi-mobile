@@ -375,8 +375,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     final filterState = ref.watch(homeFilterProvider);
     
     // selectedCurrency is never null (defaults to USD)
-    final currencySymbol = resolveCurrencySymbol(filterState.selectedCurrency ?? 'USD');
-    final displayText = '$currencySymbol${totalSpent.toStringAsFixed(0)}';
+    final displayText = formatCurrency(totalSpent, filterState.selectedCurrency ?? 'USD');
 
     return Container(
       decoration: BoxDecoration(
@@ -627,7 +626,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
               reservedSize: 40,
               getTitlesWidget: (value, meta) {
                 return Text(
-                  (value / 100).toStringAsFixed(0),
+                  formatAmount(value / 100),
                   style: TextStyle(
                     fontSize: 10,
                     color: colorScheme.mutedForeground,
@@ -747,8 +746,6 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     final category = expense.category ?? 'uncategorized';
     final categoryColor = getCategoryColor(category);
     final categoryIcon = getCategoryIcon(category);
-    // Use the expense's own currency, not user's preferred currency
-    final currencySymbol = resolveCurrencySymbol(expense.currency);
     final dateFormat = DateFormat('MMM d, yyyy');
 
     return GestureDetector(
@@ -805,7 +802,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
           ),
           // Amount
           Text(
-            '-$currencySymbol${expense.amount.toStringAsFixed(2)}',
+            '-${formatCurrency(expense.amount, expense.currency)}',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,

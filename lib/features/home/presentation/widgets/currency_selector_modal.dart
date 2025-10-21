@@ -6,6 +6,8 @@ import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/currency_flags.dart';
+import 'package:moneko/core/resources/lib/supabase.dart';
+import 'package:moneko/features/auth/presentation/states/auth.dart';
 
 /// Shows a full-screen currency selector modal
 Future<void> showCurrencySelectorModal(BuildContext context, WidgetRef ref) async {
@@ -120,9 +122,38 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
     activeCurrencies = _applyCustomOrder(activeCurrencies);
     inactiveCurrencies = _applyCustomOrder(inactiveCurrencies);
     
-    final visibleCurrencies = _showAllCurrencies 
+    var visibleCurrencies = _showAllCurrencies 
       ? [...activeCurrencies, ...inactiveCurrencies]
       : activeCurrencies;
+    
+    // Always put selected currency at the top and ensure it's visible
+    final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
+    if (selectedCurrency != null) {
+      final selectedIndex = visibleCurrencies.indexWhere(
+        (s) => s.currencyCode == selectedCurrency
+      );
+      
+      if (selectedIndex > 0) {
+        // Move selected currency to the front
+        final selected = visibleCurrencies.removeAt(selectedIndex);
+        visibleCurrencies.insert(0, selected);
+      } else if (selectedIndex == -1) {
+        // Selected currency not in visible list, add it from inactive currencies
+        final selectedFromInactive = inactiveCurrencies.firstWhere(
+          (s) => s.currencyCode == selectedCurrency,
+          orElse: () => allCurrencySummaries.firstWhere(
+            (s) => s.currencyCode == selectedCurrency,
+            orElse: () => CurrencySummary(
+              currencyCode: selectedCurrency,
+              totalExpenses: 0,
+              totalBudget: 0,
+              transactionCount: 0,
+            ),
+          ),
+        );
+        visibleCurrencies.insert(0, selectedFromInactive);
+      }
+    }
 
     return Scaffold(
       backgroundColor: colorScheme.background,
@@ -176,15 +207,110 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
                 summary: summary,
                 isSelected: filterState.selectedCurrency?.toUpperCase() == summary.currencyCode,
                 onTap: () async {
-                  // Save to local storage via service
+                  final colorScheme = shadcnui.Theme.of(context).colorScheme;
+                  final authState = ref.read(authProvider);
+                  final previousCurrency = filterState.selectedCurrency;
+                  
+                  // Optimistically update UI immediately
                   final service = ref.read(currencyPreferenceServiceProvider);
                   await service.setSelectedCurrency(summary.currencyCode);
-                  
-                  // Update state
                   ref.read(homeFilterProvider.notifier).setSelectedCurrency(summary.currencyCode);
                   
+                  // Close modal immediately for better UX
                   if (context.mounted) {
                     Navigator.pop(context);
+                  }
+                  
+                  // Update analytics state optimistically
+                  ref.read(analyticsProvider.notifier).updatePreferredCurrency(summary.currencyCode);
+                  
+                  // Make BE call in background
+                  if (authState.uid.isNotEmpty) {
+                    try {
+                      final response = await supabase.functions.invoke(
+                        'update-preferred-currency',
+                        body: {
+                          'userId': authState.uid,
+                          'currency': summary.currencyCode,
+                        },
+                      );
+
+                      final status = response.status;
+                      if (status >= 400) {
+                        throw Exception('Request failed ($status)');
+                      }
+
+                      final payload = response.data as Map<String, dynamic>?;
+                      if (payload == null || payload['ok'] != true) {
+                        final message = payload?['error'] as String? ?? 'Unable to update currency';
+                        throw Exception(message);
+                      }
+                      
+                      // Success - currency is now synced with backend
+                    } catch (error) {
+                      // Rollback on error
+                      debugPrint('Failed to update preferred currency on backend: $error');
+                      
+                      // Revert to previous currency
+                      if (previousCurrency != null) {
+                        await service.setSelectedCurrency(previousCurrency);
+                        ref.read(homeFilterProvider.notifier).setSelectedCurrency(previousCurrency);
+                        ref.read(analyticsProvider.notifier).updatePreferredCurrency(previousCurrency);
+                      }
+                      
+                      // Show error to user if context is still mounted
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Failed to sync currency preference: $error'),
+                            backgroundColor: colorScheme.destructive,
+                            action: SnackBarAction(
+                              label: 'Retry',
+                              textColor: Colors.white,
+                              onPressed: () async {
+                                // Retry the operation
+                                try {
+                                  final retryResponse = await supabase.functions.invoke(
+                                    'update-preferred-currency',
+                                    body: {
+                                      'userId': authState.uid,
+                                      'currency': summary.currencyCode,
+                                    },
+                                  );
+                                  
+                                  if (retryResponse.status >= 400) {
+                                    throw Exception('Retry failed');
+                                  }
+                                  
+                                  // Update UI again after successful retry
+                                  await service.setSelectedCurrency(summary.currencyCode);
+                                  ref.read(homeFilterProvider.notifier).setSelectedCurrency(summary.currencyCode);
+                                  ref.read(analyticsProvider.notifier).updatePreferredCurrency(summary.currencyCode);
+                                  
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: const Text('Currency updated successfully'),
+                                        backgroundColor: colorScheme.primary,
+                                      ),
+                                    );
+                                  }
+                                } catch (retryError) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Retry failed: $retryError'),
+                                        backgroundColor: colorScheme.destructive,
+                                      ),
+                                    );
+                                  }
+                                }
+                              },
+                            ),
+                          ),
+                        );
+                      }
+                    }
                   }
                 },
               ),
@@ -361,7 +487,7 @@ class _CurrencyCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Budget: $currencySymbol${summary.totalBudget.toStringAsFixed(0)}',
+                            'Budget: ${formatCurrency(summary.totalBudget, summary.currencyCode)}',
                             style: TextStyle(
                               fontSize: 12,
                               color: colorScheme.mutedForeground,
@@ -369,7 +495,7 @@ class _CurrencyCard extends StatelessWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Spent: $currencySymbol${summary.totalExpenses.toStringAsFixed(0)}',
+                            'Spent: ${formatCurrency(summary.totalExpenses, summary.currencyCode)}',
                             style: TextStyle(
                               fontSize: 12,
                               color: colorScheme.mutedForeground,
@@ -385,7 +511,7 @@ class _CurrencyCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            '${isPositive ? '+' : ''}$currencySymbol${netCashflow.toStringAsFixed(0)}',
+                            '${isPositive ? '+' : ''}${formatCurrency(netCashflow, summary.currencyCode)}',
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,

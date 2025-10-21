@@ -16,8 +16,7 @@ Widget buildBudgetCard(
   final totalBudget = _getTotalBudget(budgets);
   
   // selectedCurrency is never null (defaults to USD)
-  final currencySymbol = resolveCurrencySymbol(selectedCurrency ?? 'USD');
-  final displayText = '$currencySymbol${totalBudget.toStringAsFixed(0)}';
+  final displayText = formatCurrency(totalBudget, selectedCurrency ?? 'USD');
   
   final title = _budgetTitleForFilter(filter);
 

@@ -18,8 +18,7 @@ Widget buildSpendingBreakdownChart(
   final totalSpent = _getTotalSpent(expenses);
   
   // selectedCurrency is never null (defaults to USD)
-  final currencySymbol = resolveCurrencySymbol(selectedCurrency ?? 'USD');
-  final displayText = '$currencySymbol${totalSpent.toStringAsFixed(0)}';
+  final displayText = formatCurrency(totalSpent, selectedCurrency ?? 'USD');
 
   return Container(
     decoration: BoxDecoration(
