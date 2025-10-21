@@ -37,10 +37,19 @@ class DeepLinks {
 
   /// WhatsApp verification callback URL
   /// Format: moneko://verify-whatsapp?otp=123456
-  /// 
+  ///
   /// Users receive this link via WhatsApp when they start verification.
   /// The OTP parameter contains the 6-digit verification code.
   static const String whatsappVerification = '$appScheme://verify-whatsapp';
+
+  // ==================== Household Invitation Deep Links ====================
+
+  /// Household invitation callback URL
+  /// Format: moneko://households/join?token=abc123
+  ///
+  /// Users receive this link via web after accepting an invitation.
+  /// The token parameter is used to complete the invitation process.
+  static const String householdInvitation = '$appScheme://households/join';
 
   /// Payment success callback with status parameter
   static String paymentSuccess({String? sessionId}) {
@@ -78,6 +87,13 @@ class DeepLinks {
   /// Check if a URI is a WhatsApp verification callback
   static bool isWhatsAppVerification(Uri uri) {
     return uri.scheme == appScheme && uri.host == 'verify-whatsapp';
+  }
+
+  /// Check if a URI is a household invitation callback
+  static bool isHouseholdInvitation(Uri uri) {
+    return uri.scheme == appScheme &&
+           uri.host == 'households' &&
+           uri.path == '/join';
   }
 
   /// Legacy OAuth callback (kept for backward compatibility)

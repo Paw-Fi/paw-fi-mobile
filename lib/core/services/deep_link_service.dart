@@ -153,6 +153,26 @@ class DeepLinkService {
       });
       return;
     }
+
+    // Handle household invitation: moneko://households/join?token=abc123
+    if (DeepLinks.isHouseholdInvitation(uri)) {
+      final token = uri.queryParameters['token'];
+      debugPrint('🏠 Household invitation callback received!');
+      debugPrint('🏠 Token: $token');
+
+      if (token == null || token.isEmpty) {
+        debugPrint('❌ No invitation token provided');
+        return;
+      }
+
+      // Navigate to household invitation acceptance page
+      if (context.mounted) {
+        // Navigate to a page that will handle the invitation acceptance
+        // This could be the household overview or a dedicated invitation page
+        context.go('/households/invitation/$token');
+      }
+      return;
+    }
   }
 
   /// Show WhatsApp verification modal
