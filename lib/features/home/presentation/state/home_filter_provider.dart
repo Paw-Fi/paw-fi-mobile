@@ -2,6 +2,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
+import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 
 /// Local filter state for home page only
 /// This doesn't affect the analytics provider data
@@ -103,10 +104,11 @@ Map<String, DateTime> getDateRangeFromFilter(
   }
 }
 
-/// Filtered expenses for home page based on local filter (date + currency)
+/// Filtered expenses for home page based on local filter (date + currency + view mode)
 final homeFilteredExpensesProvider = Provider<List<ExpenseEntry>>((ref) {
   final analyticsData = ref.watch(analyticsProvider);
   final filterState = ref.watch(homeFilterProvider);
+  final viewMode = ref.watch(viewModeProvider);
 
   // Get all expenses from provider
   final allExpenses = analyticsData.allExpenses;
@@ -122,7 +124,7 @@ final homeFilteredExpensesProvider = Provider<List<ExpenseEntry>>((ref) {
   final to = dateRange['to']!;
   final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
 
-  // Filter expenses locally by date AND currency
+  // Filter expenses locally by date AND currency AND view mode
   return allExpenses.where((expense) {
     final expenseDate = DateTime(
       expense.date.year,
@@ -132,7 +134,13 @@ final homeFilteredExpensesProvider = Provider<List<ExpenseEntry>>((ref) {
     // Simplified date range check (inclusive boundaries)
     final dateOk = !expenseDate.isBefore(from) && !expenseDate.isAfter(to);
     final currencyOk = selectedCurrency == null || (expense.currency?.toUpperCase() == selectedCurrency);
-    return dateOk && currencyOk;
+
+    // View mode check - filter by household
+    final viewModeOk = viewMode.mode == ViewMode.personal
+        ? expense.householdId == null  // Personal mode: only expenses without household_id
+        : expense.householdId == viewMode.selectedHouseholdId;  // Household mode: only expenses for selected household
+
+    return dateOk && currencyOk && viewModeOk;
   }).toList();
 });
 

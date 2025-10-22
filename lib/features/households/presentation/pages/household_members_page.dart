@@ -73,9 +73,8 @@ class HouseholdMembersPage extends ConsumerWidget {
                 style: TextStyle(color: colorScheme.destructive),
               ),
               const SizedBox(height: 8),
-              shadcnui.Button(
+              shadcnui.OutlineButton(
                 onPressed: () => ref.read(householdMembersProvider(householdId).notifier).load(),
-                variant: shadcnui.ButtonVariant.outline,
                 child: const Text('Retry'),
               ),
             ],

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
-import '../../domain/entities/household.dart';
 import '../../domain/entities/shared_budget.dart';
 import '../providers/household_providers.dart';
 
@@ -38,7 +37,6 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage>
 
   @override
   Widget build(BuildContext context) {
-    final household Async = ref.watch(householdProvider(widget.householdId));
     final colorScheme = shadcnui.Theme.of(context).colorScheme;
 
     return Scaffold(
@@ -94,7 +92,7 @@ class _BudgetsTab extends ConsumerWidget {
         padding: const EdgeInsets.all(16),
         children: [
           // Add Budget Button
-          shadcnui.Button(
+          shadcnui.PrimaryButton(
             onPressed: () => _showCreateBudgetDialog(context, ref),
             child: const Row(
               mainAxisSize: MainAxisSize.min,
@@ -184,16 +182,14 @@ class _BudgetsTab extends ConsumerWidget {
             onPressed: () async {
               final amount = double.tryParse(amountController.text);
               if (nameController.text.isNotEmpty && amount != null) {
-                await ref.read(householdBudgetsProvider(householdId).notifier).createBudget({
-                  'household_id': householdId,
-                  'name': nameController.text,
-                  'period': selectedPeriod.toJson(),
-                  'currency': 'USD',
-                  'amount_cents': (amount * 100).toInt(),
-                  'warn_threshold': warnThreshold,
-                  'alert_threshold': alertThreshold,
-                  'is_active': true,
-                });
+                await ref.read(householdBudgetsProvider(householdId).notifier).createBudget(
+                  name: nameController.text,
+                  period: selectedPeriod.toJson(),
+                  currency: 'USD',
+                  amountCents: (amount * 100).toInt(),
+                  warnThreshold: warnThreshold,
+                  alertThreshold: alertThreshold,
+                );
                 Navigator.pop(context);
               }
             },
@@ -350,9 +346,8 @@ class _PrivacyTab extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 16),
-        shadcnui.Button(
+        shadcnui.OutlineButton(
           onPressed: () {},
-          variant: shadcnui.ButtonVariant.outline,
           child: const Text('Add Category Override'),
         ),
       ],
@@ -466,7 +461,7 @@ class _NotificationsTabState extends ConsumerState<_NotificationsTab> {
           },
         ),
         const SizedBox(height: 24),
-        shadcnui.Button(
+        shadcnui.PrimaryButton(
           onPressed: () {
             // Save preferences
           },

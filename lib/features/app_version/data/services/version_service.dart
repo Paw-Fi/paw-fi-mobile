@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:moneko/core/core.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../models/app_version_config.dart';
@@ -18,12 +19,14 @@ class VersionService {
   /// Fetch version config from Supabase
   Future<AppVersionConfig?> getVersionConfig() async {
     try {
-      print('[VersionService] Fetching version config from database...');
+      // Dynamically detect platform
+      final platform = Platform.isIOS ? 'ios' : 'android';
+      print('[VersionService] Fetching version config for platform: $platform');
       
       final response = await supabase
           .from('app_version_config')
           .select()
-          .eq('platform', 'ios') // Change to 'android' for Android builds
+          .eq('platform', platform)
           .limit(1);
 
       final responseList = response as List;

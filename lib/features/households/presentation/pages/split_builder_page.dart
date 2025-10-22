@@ -162,7 +162,7 @@ class _SplitBuilderPageState extends ConsumerState<SplitBuilderPage> {
               // Create Split Button
               SizedBox(
                 width: double.infinity,
-                child: shadcnui.Button(
+                child: shadcnui.PrimaryButton(
                   onPressed: _canCreateSplit(members)
                       ? () => _createSplit(members)
                       : null,

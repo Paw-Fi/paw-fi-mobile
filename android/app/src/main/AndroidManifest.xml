@@ -1,4 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Android 13+ runtime notifications permission -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
@@ -48,6 +50,17 @@
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="moneko" android:host="verify-whatsapp"/>
+            </intent-filter>
+            <!-- Deep Link for Household Invitation -->
+            <!-- Web URL: https://moneko.app/invites/:token -->
+            <!-- Deep Link: moneko://households/join?token=... -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="moneko" android:host="households"/>
+                <data android:scheme="https" android:host="moneko.app" android:pathPrefix="/invites"/>
+                <data android:scheme="https" android:host="www.moneko.app" android:pathPrefix="/invites"/>
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.

@@ -1,4 +1,4 @@
-package com.example.stocks_investing_edu
+package com.moneko.mobile
 
 import io.flutter.embedding.android.FlutterActivity
 

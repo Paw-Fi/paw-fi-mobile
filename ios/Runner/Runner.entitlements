@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Associated Domains for Universal Links -->
+	<!-- This enables deep linking from web (moneko.app) to the mobile app -->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<!-- Universal Links for household invitations -->
+		<!-- Web URL: https://moneko.app/invites/:token -->
+		<!-- Opens in app: moneko://households/join?token=... -->
+		<string>applinks:moneko.app</string>
+		<string>applinks:www.moneko.app</string>
+	</array>
+
+	<!-- Push Notifications Entitlement -->
+	<!-- Required for Firebase Cloud Messaging (APNs) -->
+	<key>aps-environment</key>
+	<string>development</string>
+	<!-- Change to 'production' for App Store builds -->
+</dict>
+</plist>

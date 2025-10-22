@@ -74,7 +74,7 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
                 padding: const EdgeInsets.all(16),
                 children: [
                   // Create Invite Button
-                  shadcnui.Button(
+                  shadcnui.PrimaryButton(
                     onPressed: () => _showCreateInviteDialog(context),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
@@ -228,7 +228,7 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
   }) async {
     try {
       final repository = ref.read(householdRepositoryProvider);
-      final invite = await repository.createInvite(
+      final token = await repository.createInvite(
         householdId: widget.householdId,
         invitedEmail: email,
         personalMessage: message,
@@ -243,7 +243,15 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
         );
 
         // Automatically copy the invite link
-        _copyInviteLink(invite);
+        final inviteUrl = 'https://moneko.app/invites/$token';
+        Clipboard.setData(ClipboardData(text: inviteUrl));
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Invite link copied to clipboard!'),
+            duration: Duration(seconds: 2),
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -289,7 +297,7 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
     if (confirmed == true) {
       try {
         final repository = ref.read(householdRepositoryProvider);
-        await repository.revokeInvite(invite.id);
+        await repository.revokeInvite(inviteId: invite.id);
         await _loadInvites();
 
         if (mounted) {
@@ -381,14 +389,13 @@ class _InviteCard extends StatelessWidget {
                 children: [
                   if (onCopy != null)
                     Expanded(
-                      child: shadcnui.Button(
+                      child: shadcnui.OutlineButton(
                         onPressed: onCopy,
-                        variant: shadcnui.ButtonVariant.outline,
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.copy, size: 16),
-                            SizedBox(width: 4),
+                            SizedBox(width: 8),
                             Text('Copy Link'),
                           ],
                         ),
@@ -397,14 +404,13 @@ class _InviteCard extends StatelessWidget {
                   if (onCopy != null && onRevoke != null) const SizedBox(width: 8),
                   if (onRevoke != null)
                     Expanded(
-                      child: shadcnui.Button(
+                      child: shadcnui.DestructiveButton(
                         onPressed: onRevoke,
-                        variant: shadcnui.ButtonVariant.destructive,
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.cancel, size: 16),
-                            SizedBox(width: 4),
+                            SizedBox(width: 8),
                             Text('Revoke'),
                           ],
                         ),
@@ -470,15 +476,11 @@ class _StatusBadge extends StatelessWidget {
   Color _getStatusColor() {
     if (isExpired) return Colors.red;
 
-    switch (status) {
-      case InviteStatus.pending:
-        return Colors.orange;
-      case InviteStatus.accepted:
-        return Colors.green;
-      case InviteStatus.revoked:
-        return Colors.red;
-      case InviteStatus.expired:
-        return Colors.grey;
-    }
+    return switch (status) {
+      InviteStatus.pending => Colors.orange,
+      InviteStatus.accepted => Colors.green,
+      InviteStatus.revoked => Colors.red,
+      InviteStatus.expired => Colors.grey,
+    };
   }
 }

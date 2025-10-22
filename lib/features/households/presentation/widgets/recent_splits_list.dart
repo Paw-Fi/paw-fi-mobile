@@ -11,7 +11,9 @@ class RecentSplitsList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = shadcnui.Theme.of(context).colorScheme;
-    final splitsAsync = ref.watch(householdSplitsProvider(householdId: householdId));
+    final splitsAsync = ref.watch(householdSplitsProvider(
+      HouseholdSplitsParams(householdId: householdId),
+    ));
 
     return splitsAsync.when(
       data: (splits) {

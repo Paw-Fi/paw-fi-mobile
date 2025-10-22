@@ -2,6 +2,7 @@
 class ExpenseEntry {
   final String id;
   final String? contactId;
+  final String? householdId;
   final DateTime date;
   final int amountCents;
   final String? currency;
@@ -13,6 +14,7 @@ class ExpenseEntry {
   ExpenseEntry({
     required this.id,
     this.contactId,
+    this.householdId,
     required this.date,
     required this.amountCents,
     this.currency,
@@ -28,6 +30,7 @@ class ExpenseEntry {
     return ExpenseEntry(
       id: json['id'] as String,
       contactId: json['contact_id'] as String?,
+      householdId: json['household_id'] as String?,
       date: DateTime.parse(json['date'] as String),
       amountCents: json['amount_cents'] as int,
       currency: json['currency'] as String?,
@@ -42,6 +45,7 @@ class ExpenseEntry {
   ExpenseEntry copyWith({
     String? id,
     String? contactId,
+    String? householdId,
     DateTime? date,
     int? amountCents,
     String? currency,
@@ -53,6 +57,7 @@ class ExpenseEntry {
     return ExpenseEntry(
       id: id ?? this.id,
       contactId: contactId ?? this.contactId,
+      householdId: householdId ?? this.householdId,
       date: date ?? this.date,
       amountCents: amountCents ?? this.amountCents,
       currency: currency ?? this.currency,

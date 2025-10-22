@@ -20,8 +20,10 @@ class BudgetProgressCard extends ConsumerWidget {
 
     // Get summary to calculate actual spending
     final summaryAsync = ref.watch(householdSummaryProvider(
-      householdId: householdId,
-      currency: budget.currency,
+      HouseholdSummaryParams(
+        householdId: householdId,
+        currency: budget.currency,
+      ),
     ));
 
     return Card(
@@ -55,7 +57,7 @@ class BudgetProgressCard extends ConsumerWidget {
             const SizedBox(height: 12),
             summaryAsync.when(
               data: (summary) {
-                final spentCents = summary.totals.totalExpensesCents;
+                final spentCents = summary?.totals.totalExpensesCents ?? 0;
                 final percentageUsed = budget.amountCents > 0
                     ? (spentCents / budget.amountCents).clamp(0.0, 1.0)
                     : 0.0;

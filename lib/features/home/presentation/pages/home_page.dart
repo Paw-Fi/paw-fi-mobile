@@ -13,6 +13,9 @@ import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/households/domain/entities/household.dart';
+import 'package:moneko/core/services/feature_flag_service.dart';
 
 // ============================================================================
 // HOME PAGE
@@ -308,8 +311,96 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   void _showJointAccountModal() {
+    final user = ref.read(authProvider);
+    final householdsState = ref.read(userHouseholdsProvider(user.uid));
+
+    if (!mounted) return;
+
+    householdsState.when(
+      data: (households) {
+        // If no households, navigate to create one
+        if (households.isEmpty) {
+          navigateToHousehold(context, ref);
+          return;
+        }
+
+        // If only one household, switch to it directly
+        if (households.length == 1) {
+          ref.read(viewModeProvider.notifier).setHouseholdMode(households.first.id);
+          return;
+        }
+
+        // If multiple households, show selector
+        _showHouseholdSelector(households);
+      },
+      loading: () {
+        // Data is still loading, show message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Loading households...')),
+        );
+      },
+      error: (error, stack) {
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading households: $error')),
+        );
+      },
+    );
+  }
+
+  void _showHouseholdSelector(List<Household> households) {
     final colorScheme = shadcnui.Theme.of(context).colorScheme;
-    showJointAccountModal(context, colorScheme);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: colorScheme.background,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Select Household',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.foreground,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ...households.map((household) => ListTile(
+                    leading: Text(
+                      household.emoji ?? '🏠',
+                      style: const TextStyle(fontSize: 24),
+                    ),
+                    title: Text(household.name),
+                    onTap: () {
+                      ref.read(viewModeProvider.notifier).setHouseholdMode(household.id);
+                      Navigator.pop(context);
+                    },
+                  )),
+              const SizedBox(height: 8),
+              ListTile(
+                leading: Icon(Icons.add, color: colorScheme.primary),
+                title: Text(
+                  'Create New Household',
+                  style: TextStyle(color: colorScheme.primary),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  navigateToHousehold(context, ref);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _showDateRangeFilter() {
@@ -596,6 +687,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     final filteredExpenses = ref.watch(homeFilteredExpensesProvider);
     final filteredBudgets = ref.watch(homeFilteredBudgetsProvider);
     final user = ref.watch(authProvider);
+    final viewMode = ref.watch(viewModeProvider);
 
     // Only show loading indicator if we've never loaded before
     // If we have data already, show it even if a refresh is in progress
@@ -661,7 +753,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                               color: colorScheme.foreground,
                             ),
                           ),
-                          // Account Type Switch
+                          // Account Type Switch (always visible)
                           Container(
                             padding: const EdgeInsets.all(4),
                             decoration: BoxDecoration(
@@ -671,33 +763,56 @@ class _HomePageState extends ConsumerState<HomePage> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                // Single (Active)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: colorScheme.primary,
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: Text(
-                                    'Single',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                     color: colorScheme.buttonText,
+                                // Single
+                                GestureDetector(
+                                  onTap: viewMode.mode == ViewMode.personal
+                                      ? null
+                                      : () => ref.read(viewModeProvider.notifier).setPersonalMode(),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: viewMode.mode == ViewMode.personal
+                                          ? colorScheme.primary
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    child: Text(
+                                      'For me',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: viewMode.mode == ViewMode.personal
+                                            ? FontWeight.w600
+                                            : FontWeight.w500,
+                                        color: viewMode.mode == ViewMode.personal
+                                            ? colorScheme.buttonText
+                                            : colorScheme.mutedForeground,
+                                      ),
                                     ),
                                   ),
                                 ),
-                                // Joint (Inactive - clickable)
+                                // Joint
                                 GestureDetector(
-                                  onTap: _showJointAccountModal,
+                                  onTap: viewMode.mode == ViewMode.household
+                                      ? null
+                                      : _showJointAccountModal,
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: viewMode.mode == ViewMode.household
+                                          ? colorScheme.primary
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
                                     child: Text(
-                                      'Joint',
+                                      'For us',
                                       style: TextStyle(
                                         fontSize: 13,
-                                        fontWeight: FontWeight.w500,
-                                        color: colorScheme.mutedForeground,
+                                        fontWeight: viewMode.mode == ViewMode.household
+                                            ? FontWeight.w600
+                                            : FontWeight.w500,
+                                        color: viewMode.mode == ViewMode.household
+                                            ? colorScheme.buttonText
+                                            : colorScheme.mutedForeground,
                                       ),
                                     ),
                                   ),
@@ -782,8 +897,14 @@ class _HomePageState extends ConsumerState<HomePage> {
 
                   const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
-                  // Spending Card with Line Chart
-                  SliverToBoxAdapter(
+                  // Show placeholder if in Joint mode but no household selected
+                  if (viewMode.mode == ViewMode.household && viewMode.selectedHouseholdId == null)
+                    SliverFillRemaining(
+                      child: _buildJointPlaceholder(colorScheme),
+                    )
+                  else ...[
+                    // Spending Card with Line Chart
+                    SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
                       child: buildSpendingCard(
@@ -867,9 +988,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                     ),
                   ),
 
-                 
+
 
                   const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                  ], // end of else block for Joint placeholder
                 ],
               ),
             ),
@@ -877,6 +999,78 @@ class _HomePageState extends ConsumerState<HomePage> {
         ],
       ),
       floatingActionButton: _buildExpandableFAB(colorScheme),
+    );
+  }
+
+  Widget _buildJointPlaceholder(shadcnui.ColorScheme colorScheme) {
+    final user = ref.read(authProvider);
+    final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
+
+    return householdsAsync.when(
+      data: (households) {
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Icon
+                Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    color: colorScheme.muted,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.people_outline,
+                    size: 60,
+                    color: colorScheme.mutedForeground,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                // Title
+                Text(
+                  'No Joint Account Yet',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.foreground,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                // Description
+                Text(
+                  'Create a household to manage finances with your partner, family, or roommates.',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: colorScheme.mutedForeground,
+                    height: 1.5,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 32),
+                // Create Household Button
+                shadcnui.PrimaryButton(
+                  onPressed: () => navigateToHousehold(context, ref),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    child: Text('Create Household'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (err, stack) => Center(
+        child: Text(
+          'Error loading households',
+          style: TextStyle(color: colorScheme.destructive),
+        ),
+      ),
     );
   }
 

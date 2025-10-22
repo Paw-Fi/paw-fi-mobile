@@ -1,13 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../households/presentation/providers/household_providers.dart';
 import '../../../households/presentation/pages/household_overview_page.dart';
 
 /// Navigate to household screen (either overview or onboarding)
-void navigateToHousehold(BuildContext context, WidgetRef ref) {
+void navigateToHousehold(BuildContext context, WidgetRef ref) async {
+  // Get current user ID
+  final userId = Supabase.instance.client.auth.currentUser?.id;
+
+  if (userId == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('User not logged in')),
+    );
+    return;
+  }
+
   // Get user's households
-  final householdsAsync = ref.read(userHouseholdsProvider);
+  final householdsAsync = ref.read(userHouseholdsProvider(userId));
 
   householdsAsync.when(
     data: (households) {
@@ -24,7 +35,7 @@ void navigateToHousehold(BuildContext context, WidgetRef ref) {
         );
       } else {
         // No household, show onboarding modal
-        showHouseholdOnboardingModal(context, ref);
+        showHouseholdOnboardingModal(context, ref, userId);
       }
     },
     loading: () {
@@ -46,7 +57,7 @@ void navigateToHousehold(BuildContext context, WidgetRef ref) {
 }
 
 /// Show household onboarding modal (create or join)
-void showHouseholdOnboardingModal(BuildContext context, WidgetRef ref) {
+void showHouseholdOnboardingModal(BuildContext context, WidgetRef ref, String userId) {
   final colorScheme = shadcnui.Theme.of(context).colorScheme;
 
   showDialog(
@@ -106,7 +117,7 @@ void showHouseholdOnboardingModal(BuildContext context, WidgetRef ref) {
               child: shadcnui.PrimaryButton(
                 onPressed: () {
                   Navigator.of(context).pop();
-                  _showCreateHouseholdDialog(context, ref);
+                  _showCreateHouseholdDialog(context, ref, userId);
                 },
                 child: const Text(
                   'Create Household',
@@ -148,7 +159,7 @@ void showHouseholdOnboardingModal(BuildContext context, WidgetRef ref) {
 }
 
 /// Show create household dialog
-void _showCreateHouseholdDialog(BuildContext context, WidgetRef ref) {
+void _showCreateHouseholdDialog(BuildContext context, WidgetRef ref, String userId) {
   final colorScheme = shadcnui.Theme.of(context).colorScheme;
   final nameController = TextEditingController();
   final emojiController = TextEditingController(text: '🏠');
@@ -226,14 +237,20 @@ void _showCreateHouseholdDialog(BuildContext context, WidgetRef ref) {
                       }
 
                       try {
-                        final household = await ref
-                            .read(userHouseholdsProvider.notifier)
+                        // Create household
+                        await ref
+                            .read(userHouseholdsProvider(userId).notifier)
                             .createHousehold(
                               name: nameController.text,
                               emoji: emojiController.text.isEmpty ? null : emojiController.text,
                             );
 
-                        if (context.mounted) {
+                        // Get the created household from the state
+                        final householdsAsync = ref.read(userHouseholdsProvider(userId));
+                        final households = householdsAsync.value ?? [];
+
+                        if (context.mounted && households.isNotEmpty) {
+                          final household = households.first;
                           Navigator.of(context).pop();
                           Navigator.push(
                             context,

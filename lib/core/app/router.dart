@@ -14,6 +14,7 @@ import 'package:moneko/features/subscription/presentation/providers/subscription
 import 'package:moneko/core/navigation/main_shell.dart';
 import 'package:moneko/core/app/app_initialization_provider.dart';
 import 'package:moneko/core/ui/pages/splash_screen.dart';
+import 'package:moneko/features/households/presentation/pages/household_invitation_handler_page.dart';
 
 import '../ui/pages/error_page.dart';
 
@@ -74,6 +75,15 @@ GoRouter router(RouterRef ref) {
       GoRoute(
         path: '/paywall',
         builder: (context, state) => const PaywallScreen(),
+      ),
+
+      // Household invitation deep link handler
+      GoRoute(
+        path: '/households/invitation/:token',
+        builder: (context, state) {
+          final token = state.pathParameters['token'] ?? '';
+          return HouseholdInvitationHandlerPage(token: token);
+        },
       ),
 
       // Onboarding Routes

@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Service for managing push notification device registration
@@ -20,7 +21,16 @@ class DeviceRegistrationService {
   Future<void> initialize() async {
     debugPrint('🔔 Initializing device registration service...');
 
-    // Request permission
+    // Android 13+: request notifications permission via permission_handler
+    if (Platform.isAndroid) {
+      final status = await Permission.notification.request();
+      if (status.isDenied) {
+        debugPrint('⚠️ Notification permission denied on Android');
+        return;
+      }
+    }
+
+    // Request permission (iOS) and general settings
     final settings = await _messaging.requestPermission(
       alert: true,
       badge: true,
