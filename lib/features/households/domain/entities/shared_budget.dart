@@ -34,6 +34,32 @@ enum BudgetPeriod {
   }
 }
 
+/// Budget type enum
+enum BudgetType {
+  household,
+  personal;
+
+  String toJson() {
+    switch (this) {
+      case BudgetType.household:
+        return 'household';
+      case BudgetType.personal:
+        return 'personal';
+    }
+  }
+
+  static BudgetType fromJson(String value) {
+    switch (value) {
+      case 'household':
+        return BudgetType.household;
+      case 'personal':
+        return BudgetType.personal;
+      default:
+        throw ArgumentError('Unknown BudgetType: $value');
+    }
+  }
+}
+
 /// Shared budget entity
 class SharedBudget {
   final String id;
@@ -47,6 +73,9 @@ class SharedBudget {
   final DateTime? periodStart;
   final DateTime? periodEnd;
   final bool isActive;
+  final BudgetType budgetType;
+  final String? userId;
+  final bool countSplitPortionOnly;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -62,6 +91,9 @@ class SharedBudget {
     this.periodStart,
     this.periodEnd,
     required this.isActive,
+    required this.budgetType,
+    this.userId,
+    required this.countSplitPortionOnly,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -83,6 +115,9 @@ class SharedBudget {
           ? DateTime.parse(json['period_end'] as String)
           : null,
       isActive: json['is_active'] as bool,
+      budgetType: BudgetType.fromJson(json['budget_type'] as String? ?? 'household'),
+      userId: json['user_id'] as String?,
+      countSplitPortionOnly: json['count_split_portion_only'] as bool? ?? false,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );
@@ -101,9 +136,94 @@ class SharedBudget {
       'period_start': periodStart?.toIso8601String(),
       'period_end': periodEnd?.toIso8601String(),
       'is_active': isActive,
+      'budget_type': budgetType.toJson(),
+      'user_id': userId,
+      'count_split_portion_only': countSplitPortionOnly,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
+  }
+
+  SharedBudget copyWith({
+    String? id,
+    String? householdId,
+    String? name,
+    BudgetPeriod? period,
+    String? currency,
+    int? amountCents,
+    double? warnThreshold,
+    double? alertThreshold,
+    DateTime? periodStart,
+    DateTime? periodEnd,
+    bool? isActive,
+    BudgetType? budgetType,
+    String? userId,
+    bool? countSplitPortionOnly,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return SharedBudget(
+      id: id ?? this.id,
+      householdId: householdId ?? this.householdId,
+      name: name ?? this.name,
+      period: period ?? this.period,
+      currency: currency ?? this.currency,
+      amountCents: amountCents ?? this.amountCents,
+      warnThreshold: warnThreshold ?? this.warnThreshold,
+      alertThreshold: alertThreshold ?? this.alertThreshold,
+      periodStart: periodStart ?? this.periodStart,
+      periodEnd: periodEnd ?? this.periodEnd,
+      isActive: isActive ?? this.isActive,
+      budgetType: budgetType ?? this.budgetType,
+      userId: userId ?? this.userId,
+      countSplitPortionOnly: countSplitPortionOnly ?? this.countSplitPortionOnly,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is SharedBudget &&
+        other.id == id &&
+        other.householdId == householdId &&
+        other.name == name &&
+        other.period == period &&
+        other.currency == currency &&
+        other.amountCents == amountCents &&
+        other.warnThreshold == warnThreshold &&
+        other.alertThreshold == alertThreshold &&
+        other.periodStart == periodStart &&
+        other.periodEnd == periodEnd &&
+        other.isActive == isActive &&
+        other.budgetType == budgetType &&
+        other.userId == userId &&
+        other.countSplitPortionOnly == countSplitPortionOnly &&
+        other.createdAt == createdAt &&
+        other.updatedAt == updatedAt;
+  }
+
+  @override
+  int get hashCode {
+    return Object.hash(
+      id,
+      householdId,
+      name,
+      period,
+      currency,
+      amountCents,
+      warnThreshold,
+      alertThreshold,
+      periodStart,
+      periodEnd,
+      isActive,
+      budgetType,
+      userId,
+      countSplitPortionOnly,
+      createdAt,
+      updatedAt,
+    );
   }
 }
 

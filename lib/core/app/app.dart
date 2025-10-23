@@ -60,9 +60,70 @@ class _AppState extends ConsumerState<App> {
       routerDelegate: router.routerDelegate,
       routeInformationProvider: router.routeInformationProvider,
       builder: (context, child) {
-        // Wrap with version check inside the MaterialApp tree
-        return VersionCheckWrapper(child: child ?? const SizedBox.shrink());
+        // Apply global Material theme wrapper for TextField styling
+        return Theme(
+          data: _getMaterialTheme(context, themeMode),
+          child: VersionCheckWrapper(child: child ?? const SizedBox.shrink()),
+        );
       },
+    );
+  }
+
+  /// Get Material theme with proper input decoration for all TextFields
+  ThemeData _getMaterialTheme(BuildContext context, shadcnui.ThemeMode themeMode) {
+    final shadcnTheme = shadcnui.Theme.of(context);
+    final colorScheme = shadcnTheme.colorScheme;
+    final isDark = themeMode == shadcnui.ThemeMode.dark ||
+        (themeMode == shadcnui.ThemeMode.system &&
+            MediaQuery.of(context).platformBrightness == Brightness.dark);
+
+    return ThemeData(
+      brightness: isDark ? Brightness.dark : Brightness.light,
+      // Global input decoration theme - applies to ALL TextField and TextFormField
+      inputDecorationTheme: InputDecorationTheme(
+        // Text styles
+        labelStyle: TextStyle(
+          fontSize: 16,
+          color: colorScheme.foreground,
+          fontWeight: FontWeight.w400,
+        ),
+        hintStyle: TextStyle(
+          fontSize: 16,
+          color: colorScheme.mutedForeground,
+          fontWeight: FontWeight.w400,
+        ),
+        prefixStyle: TextStyle(
+          fontSize: 16,
+          color: colorScheme.foreground,
+          fontWeight: FontWeight.w400,
+        ),
+        suffixStyle: TextStyle(
+          fontSize: 16,
+          color: colorScheme.foreground,
+          fontWeight: FontWeight.w400,
+        ),
+        // Icon theme for prefix/suffix icons
+        prefixIconColor: colorScheme.foreground,
+        suffixIconColor: colorScheme.foreground,
+        iconColor: colorScheme.foreground,
+      ),
+      // Global text theme for ALL text input
+      textTheme: TextTheme(
+        bodyLarge: TextStyle(
+          fontSize: 16,
+          color: colorScheme.foreground,
+          fontWeight: FontWeight.w400,
+        ),
+        bodyMedium: TextStyle(
+          fontSize: 14,
+          color: colorScheme.foreground,
+          fontWeight: FontWeight.w400,
+        ),
+      ),
+      // Icon theme for consistency
+      iconTheme: IconThemeData(
+        color: colorScheme.foreground,
+      ),
     );
   }
 }

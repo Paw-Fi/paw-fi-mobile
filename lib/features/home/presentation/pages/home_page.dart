@@ -8,14 +8,15 @@ import 'package:moneko/core/core.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
-import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/households/presentation/widgets/household_home_content.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
-import 'package:moneko/features/households/domain/entities/household.dart';
-import 'package:moneko/core/services/feature_flag_service.dart';
+import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
+import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
+import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
 
 // ============================================================================
 // HOME PAGE
@@ -151,7 +152,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  imagePath != null ? 'Processing receipt...' : 'Processing expense...',
+                  imagePath != null ? 'Analyzing receipt...' : 'Analyzing expense...',
                   style: TextStyle(
                     color: colorScheme.foreground,
                     fontSize: 16,
@@ -170,23 +171,16 @@ class _HomePageState extends ConsumerState<HomePage> {
         'date': DateTime.now().toIso8601String().split('T')[0],
       };
       
-      // Add phone if WhatsApp is connected (optional)
-      if (contact?.phoneE164 != null) {
-        body['phone'] = contact!.phoneE164;
-      }
-      
       // Get the currently selected currency from the UI filter
       final filterState = ref.read(homeFilterProvider);
       final selectedCurrency = filterState.selectedCurrency;
 
-      // Send currency with proper fallback chain:
-      // Priority: UI selection → Account preference → USD (BE default)
+      // Send currency with proper fallback chain
       if (selectedCurrency != null && selectedCurrency.isNotEmpty) {
         body['currency'] = selectedCurrency.toUpperCase();
       } else if (contact?.preferredCurrency != null) {
         body['currency'] = contact!.preferredCurrency!.toUpperCase();
       }
-      // Note: If both are null, backend validateCurrency() defaults to USD
 
       // Add either text or image to the request
       if (text != null) {
@@ -214,9 +208,9 @@ class _HomePageState extends ConsumerState<HomePage> {
         };
       }
 
-      // Call the backend
+      // Call analyze-expense endpoint (NEW: doesn't save yet)
       final response = await supabase.functions.invoke(
-        'process-expenses',
+        'analyze-expense',
         body: body,
       );
 
@@ -225,78 +219,100 @@ class _HomePageState extends ConsumerState<HomePage> {
       // Close processing modal
       Navigator.of(context, rootNavigator: true).pop();
 
-      // Log the response
-      debugPrint('=== PROCESSING RESPONSE ===');
+      debugPrint('=== ANALYSIS RESPONSE ===');
       debugPrint('response.data: ${response.data}');
-      debugPrint('=========================');
+      debugPrint('========================');
 
       if (response.data != null && response.data['success'] == true) {
         final responseData = response.data['data'];
-        ExpenseEntry? createdExpense;
-
-        // Parse expense from response - check both 'expenses' and 'items' arrays
-        if (responseData != null) {
-          List? expensesArray = responseData['expenses'];
-          List? itemsArray = responseData['items'];
+        
+        if (responseData != null && responseData['items'] != null) {
+          final items = responseData['items'] as List;
           
-          Map<String, dynamic>? expenseData;
-          
-          // Try 'expenses' array first (for full expense objects from DB)
-          if (expensesArray != null && expensesArray.isNotEmpty) {
-            expenseData = expensesArray[0];
-          } 
-          // Fall back to 'items' array (for parsed items from BE)
-          else if (itemsArray != null && itemsArray.isNotEmpty) {
-            expenseData = itemsArray[0];
-          }
+          if (items.isNotEmpty) {
+            // Parse ALL items from the response
+            final parsedExpenses = items.map((item) {
+              return ParsedExpense(
+                amount: (item['amount'] as num).toDouble(),
+                category: item['category'] as String,
+                currency: item['currency'] as String,
+                currencySymbol: item['currencySymbol'] as String? ?? '\$',
+                date: DateTime.parse(item['date'] as String),
+                description: item['description'] as String?,
+                localImagePath: imagePath,
+              );
+            }).toList();
 
-          if (expenseData != null) {
-            // Create expense entry from data
-            // If 'id' exists, it's from DB, otherwise it's a newly created item
-            createdExpense = ExpenseEntry(
-              id: expenseData['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
-              contactId: expenseData['contact_id'] ?? contact?.id,
-              amountCents: expenseData['amount_cents'] ?? 
-                          (expenseData['amount'] != null ? (expenseData['amount'] * 100).toInt() : 0),
-              category: expenseData['category'] ?? 'other',
-              date: DateTime.parse(expenseData['date'] ?? DateTime.now().toIso8601String()),
-              createdAt: DateTime.parse(expenseData['created_at'] ?? DateTime.now().toIso8601String()),
-              rawText: expenseData['raw_text'] ?? text ?? 'Receipt image',
-              currency: expenseData['currency'] ?? 'USD',
-              receiptImageUrl: expenseData['receipt_image_url'],
-            );
-          }
-        }
-
-        if (createdExpense != null) {
-          // Show success toast with View link
-          _showSuccessToast(
-            createdExpense,
-            contact,
-            localImagePath: imagePath,
-          );
-
-          // Refresh analytics data
-          final user = ref.read(authProvider);
-          if (user.uid.isNotEmpty) {
-            ref.read(analyticsProvider.notifier).loadData(user.uid);
+            // If only one expense, show single confirmation
+            if (parsedExpenses.length == 1) {
+              ref.read(pendingExpenseProvider.notifier).state = parsedExpenses[0];
+              showUnifiedTransactionSheet(
+                context,
+                newExpense: parsedExpenses[0],
+                localImagePath: imagePath,
+              );
+            } else {
+              // Multiple expenses - show list confirmation
+              _showMultiExpenseConfirmation(parsedExpenses, imagePath);
+            }
+          } else {
+            _showToast('No expense information extracted');
           }
         } else {
-          _showToast('Failed to process: No expense data returned');
+          _showToast('Failed to analyze: No data returned');
         }
       } else {
-        final error = response.data?['error'] ?? 'Failed to process';
-        _showToast('Failed to process: $error');
+        final error = response.data?['error'] ?? 'Failed to analyze';
+        _showToast('Failed to analyze: $error');
       }
     } catch (e) {
-      debugPrint('=== ERROR IN PROCESSING: $e ===');
+      debugPrint('=== ERROR IN ANALYSIS: $e ===');
       if (!mounted) return;
 
       // Close processing modal
       Navigator.of(context, rootNavigator: true).pop();
 
-      _showToast('Failed to process: ${e.toString()}');
+      _showToast('Failed to analyze: ${e.toString()}');
     }
+  }
+
+  void _showMultiExpenseConfirmation(List<ParsedExpense> expenses, String? imagePath) {
+    // Calculate total amount
+    final totalAmount = expenses.fold<double>(0, (sum, expense) => sum + expense.amount);
+    
+    // Get most common category or use 'other'
+    final categoryCount = <String, int>{};
+    for (final expense in expenses) {
+      categoryCount[expense.category] = (categoryCount[expense.category] ?? 0) + 1;
+    }
+    final mostCommonCategory = categoryCount.entries
+        .reduce((a, b) => a.value > b.value ? a : b)
+        .key;
+    
+    // Build combined description with all items
+    final currencySymbol = expenses.first.currencySymbol;
+    final itemDescriptions = expenses.map((e) => 
+      '${e.description ?? e.category} $currencySymbol${e.amount.toStringAsFixed(2)}'
+    ).join(', ');
+    
+    // Create single combined expense
+    final combinedExpense = ParsedExpense(
+      amount: totalAmount,
+      category: mostCommonCategory,
+      currency: expenses.first.currency,
+      currencySymbol: currencySymbol,
+      date: expenses.first.date,
+      description: 'Receipt: $itemDescriptions',
+      localImagePath: imagePath,
+    );
+    
+    // Store in provider and show unified sheet
+    ref.read(pendingExpenseProvider.notifier).state = combinedExpense;
+    showUnifiedTransactionSheet(
+      context,
+      newExpense: combinedExpense,
+      localImagePath: imagePath,
+    );
   }
 
   void _showTextInputDrawer() {
@@ -311,96 +327,15 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   void _showJointAccountModal() {
+    // Simply switch to household mode
+    // The HouseholdHomeContent widget will handle loading, empty, and error states
     final user = ref.read(authProvider);
-    final householdsState = ref.read(userHouseholdsProvider(user.uid));
-
-    if (!mounted) return;
-
-    householdsState.when(
-      data: (households) {
-        // If no households, navigate to create one
-        if (households.isEmpty) {
-          navigateToHousehold(context, ref);
-          return;
-        }
-
-        // If only one household, switch to it directly
-        if (households.length == 1) {
-          ref.read(viewModeProvider.notifier).setHouseholdMode(households.first.id);
-          return;
-        }
-
-        // If multiple households, show selector
-        _showHouseholdSelector(households);
-      },
-      loading: () {
-        // Data is still loading, show message
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Loading households...')),
-        );
-      },
-      error: (error, stack) {
-        // Show error message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading households: $error')),
-        );
-      },
-    );
-  }
-
-  void _showHouseholdSelector(List<Household> households) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: colorScheme.background,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Select Household',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.foreground,
-                ),
-              ),
-              const SizedBox(height: 16),
-              ...households.map((household) => ListTile(
-                    leading: Text(
-                      household.emoji ?? '🏠',
-                      style: const TextStyle(fontSize: 24),
-                    ),
-                    title: Text(household.name),
-                    onTap: () {
-                      ref.read(viewModeProvider.notifier).setHouseholdMode(household.id);
-                      Navigator.pop(context);
-                    },
-                  )),
-              const SizedBox(height: 8),
-              ListTile(
-                leading: Icon(Icons.add, color: colorScheme.primary),
-                title: Text(
-                  'Create New Household',
-                  style: TextStyle(color: colorScheme.primary),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  navigateToHousehold(context, ref);
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    
+    // ✅ CRITICAL: Invalidate households provider to force refresh when switching modes
+    debugPrint('🔄 Switching to household mode - invalidating userHouseholdsProvider');
+    ref.invalidate(userHouseholdsProvider(user.uid));
+    
+    ref.read(viewModeProvider.notifier).setMode(ViewMode.household);
   }
 
   void _showDateRangeFilter() {
@@ -658,7 +593,12 @@ class _HomePageState extends ConsumerState<HomePage> {
             GestureDetector(
               onTap: () {
                 ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                showTransactionDetailSheet(context, expense, contact: contact, localImagePath: localImagePath);
+                showUnifiedTransactionSheet(
+                  context,
+                  existingExpense: expense,
+                  contact: contact,
+                  localImagePath: localImagePath,
+                );
               },
               child: Text(
                 'View',
@@ -733,7 +673,20 @@ class _HomePageState extends ConsumerState<HomePage> {
           SafeArea(
             child: RefreshIndicator(
               onRefresh: () async {
-                ref.read(analyticsProvider.notifier).refresh(user.uid);
+                // Refresh based on current view mode
+                if (viewMode.mode == ViewMode.household) {
+                  // In household mode: invalidate ALL household-related providers
+                  debugPrint('🔄 Pull-to-refresh: Refreshing household data');
+                  ref.invalidate(userHouseholdsProvider(user.uid));
+                  ref.invalidate(householdExpensesProvider);
+                  ref.invalidate(householdSplitsProvider);
+                  ref.invalidate(householdBudgetsProvider);
+                  ref.invalidate(householdSummaryProvider);
+                  debugPrint('✅ Invalidated: households, expenses, splits, budgets, summary');
+                } else {
+                  // In personal mode: refresh analytics
+                  ref.read(analyticsProvider.notifier).refresh(user.uid);
+                }
                 await Future.delayed(const Duration(milliseconds: 500));
               },
               child: CustomScrollView(
@@ -897,12 +850,12 @@ class _HomePageState extends ConsumerState<HomePage> {
 
                   const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
-                  // Show placeholder if in Joint mode but no household selected
-                  if (viewMode.mode == ViewMode.household && viewMode.selectedHouseholdId == null)
-                    SliverFillRemaining(
-                      child: _buildJointPlaceholder(colorScheme),
-                    )
+                  // Switch between Personal and Household content
+                  if (viewMode.mode == ViewMode.household)
+                    // Household mode - show household content (returns Sliver)
+                    const HouseholdHomeContent()
                   else ...[
+                    // Personal mode - show analytics content
                     // Spending Card with Line Chart
                     SliverToBoxAdapter(
                     child: Padding(
@@ -991,86 +944,14 @@ class _HomePageState extends ConsumerState<HomePage> {
 
 
                   const SliverToBoxAdapter(child: SizedBox(height: 24)),
-                  ], // end of else block for Joint placeholder
+                  ], // end of else block for Personal mode
                 ],
               ),
             ),
           ),
         ],
       ),
-      floatingActionButton: _buildExpandableFAB(colorScheme),
-    );
-  }
-
-  Widget _buildJointPlaceholder(shadcnui.ColorScheme colorScheme) {
-    final user = ref.read(authProvider);
-    final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
-
-    return householdsAsync.when(
-      data: (households) {
-        return Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Icon
-                Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    color: colorScheme.muted,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.people_outline,
-                    size: 60,
-                    color: colorScheme.mutedForeground,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                // Title
-                Text(
-                  'No Joint Account Yet',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: colorScheme.foreground,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 12),
-                // Description
-                Text(
-                  'Create a household to manage finances with your partner, family, or roommates.',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: colorScheme.mutedForeground,
-                    height: 1.5,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 32),
-                // Create Household Button
-                shadcnui.PrimaryButton(
-                  onPressed: () => navigateToHousehold(context, ref),
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    child: Text('Create Household'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, stack) => Center(
-        child: Text(
-          'Error loading households',
-          style: TextStyle(color: colorScheme.destructive),
-        ),
-      ),
+      floatingActionButton: _buildExpandableFAB(colorScheme), // Always show FAB
     );
   }
 

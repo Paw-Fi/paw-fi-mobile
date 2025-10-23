@@ -3,6 +3,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import '../../domain/entities/household.dart';
 import '../providers/household_providers.dart';
+import '../utils/household_ui_utils.dart';
 
 /// Household Members Management Page
 /// View members, update roles, remove members
@@ -16,7 +17,6 @@ class HouseholdMembersPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final householdAsync = ref.watch(householdProvider(householdId));
     final membersAsync = ref.watch(householdMembersProvider(householdId));
     final colorScheme = shadcnui.Theme.of(context).colorScheme;
 
@@ -98,7 +98,7 @@ class HouseholdMembersPage extends ConsumerWidget {
           TextButton(
             onPressed: () async {
               await ref.read(householdMembersProvider(householdId).notifier).removeMember(member.id);
-              Navigator.pop(context);
+              if (context.mounted) Navigator.pop(context);
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('Remove'),
@@ -108,7 +108,7 @@ class HouseholdMembersPage extends ConsumerWidget {
     );
   }
 
-  void _updateMemberRole(BuildContext context, WidgetRef ref, HouseholdMember member, HouseholdRole role) async {
+  Future<void> _updateMemberRole(BuildContext context, WidgetRef ref, HouseholdMember member, HouseholdRole role) async {
     await ref.read(householdMembersProvider(householdId).notifier).updateRole(member.id, role);
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -144,17 +144,12 @@ class _MemberCard extends StatelessWidget {
         child: Row(
           children: [
             // Avatar
-            CircleAvatar(
+            MemberAvatar(
+              role: member.role,
+              avatarUrl: member.avatarUrl,
+              name: member.userName,
+              email: member.userEmail,
               radius: 24,
-              backgroundColor: _getRoleColor(member.role),
-              child: Text(
-                (member.userName ?? member.userEmail ?? 'U')[0].toUpperCase(),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 20,
-                ),
-              ),
             ),
             const SizedBox(width: 16),
 
@@ -173,7 +168,7 @@ class _MemberCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      _RoleBadge(role: member.role),
+                      RoleBadge(role: member.role),
                       if (member.userEmail != null && member.userName != null) ...[
                         const SizedBox(width: 8),
                         Text(
@@ -241,56 +236,5 @@ class _MemberCard extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  Color _getRoleColor(HouseholdRole role) {
-    switch (role) {
-      case HouseholdRole.owner:
-        return Colors.purple;
-      case HouseholdRole.admin:
-        return Colors.blue;
-      case HouseholdRole.member:
-        return Colors.green;
-    }
-  }
-}
-
-/// Role Badge Widget
-class _RoleBadge extends StatelessWidget {
-  final HouseholdRole role;
-
-  const _RoleBadge({required this.role});
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: _getRoleColor(role).withOpacity(0.1),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: _getRoleColor(role), width: 1),
-      ),
-      child: Text(
-        role.toJson().toUpperCase(),
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
-          color: _getRoleColor(role),
-        ),
-      ),
-    );
-  }
-
-  Color _getRoleColor(HouseholdRole role) {
-    switch (role) {
-      case HouseholdRole.owner:
-        return Colors.purple;
-      case HouseholdRole.admin:
-        return Colors.blue;
-      case HouseholdRole.member:
-        return Colors.green;
-    }
   }
 }

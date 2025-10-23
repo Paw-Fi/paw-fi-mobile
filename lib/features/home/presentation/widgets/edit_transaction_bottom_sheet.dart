@@ -176,12 +176,23 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
         inputFormatters: widget.field == EditField.amount
             ? [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))]
             : null,
+        style: TextStyle(
+          fontSize: 16,
+          color: colorScheme.foreground,
+          fontWeight: FontWeight.w400,
+        ),
         decoration: InputDecoration(
           labelText: _getLabel(),
+          labelStyle: TextStyle(color: colorScheme.foreground),
           errorText: _error,
           prefixText: widget.field == EditField.amount 
               ? resolveCurrencySymbol(widget.expense.currency) 
               : null,
+          prefixStyle: TextStyle(
+            fontSize: 16,
+            color: colorScheme.foreground,
+            fontWeight: FontWeight.w400,
+          ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
           ),

@@ -1,6 +1,7 @@
 export 'action_button.dart';
 export 'expandable_fab.dart';
 export 'transaction_detail_sheet.dart';
+export 'unified_transaction_sheet.dart';
 export 'spending_card.dart';
 export 'budget_card.dart';
 export 'net_cashflow_card.dart';

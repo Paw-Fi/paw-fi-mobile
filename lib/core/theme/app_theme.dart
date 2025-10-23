@@ -85,12 +85,13 @@ class AppTheme {
 
   // Dark theme colors
   static const Color darkBackground = Color(0xFF0A0E1A); // --moneko-background (dark)
-  static const Color darkForeground = Color(0xFFF1F5F9); // --moneko-foreground (dark)
+  static const Color darkForeground = Color(0xFFF1F5F9); // --moneko-foreground (dark) - bright for text
   static const Color darkCardBg = Color(0xFF111827); // --card-bg (dark)
   static const Color darkInputBg = Color(0xFF1F2937); // --input-bg (dark)
   static const Color darkBorder = Color(0xFF374151); // --subtle-border (dark)
-  static const Color darkMuted = Color(0xFFD7D7D7); // --muted-foreground-color (dark)
-  static const Color darkButtonText = Color(0xFFD7D7D7); // Button text color (same as darkMuted)
+  static const Color darkMuted = Color(0xFF374151); // Muted background (darker for inputs)
+  static const Color darkMutedForeground = Color(0xFF9CA3AF); // Muted text (lighter gray)
+  static const Color darkButtonText = Color(0xFFFFFFFF); // Button text color (white)
 
   /// Light theme matching web design
   static shadcnui.ThemeData lightTheme() {
@@ -117,13 +118,13 @@ class AppTheme {
   static shadcnui.ThemeData darkTheme() {
     final colorScheme = shadcnui.ColorSchemes.darkZinc().copyWith(
       primary: const Color(0xFF8B70FF), // Lighter purple for dark mode
-      primaryForeground: darkBackground,
+      primaryForeground: const Color(0xFFFFFFFF), // White text on primary buttons
       background: darkBackground,
-      foreground: darkForeground,
+      foreground: darkForeground, // Bright white/light text for readability
       card: darkCardBg,
       border: darkBorder,
-      muted: const Color(0xFF374151),
-      mutedForeground: darkMuted,
+      muted: darkMuted, // Dark background for input fields
+      mutedForeground: darkMutedForeground, // Light gray for muted text
       destructive: const Color(0xFFFF7A7A), // Lighter red for dark mode
     );
 
@@ -138,12 +139,47 @@ class AppTheme {
   static Color get monekoSeed => monekoPrimary;
 }
 
-/// Extension on ColorScheme to add button text color
+/// Extension on ColorScheme to add button text color and input styles
 extension ColorSchemeExtension on shadcnui.ColorScheme {
   /// Returns button text color based on theme
-  /// White for light theme, mutedForeground for dark theme
+  /// White for both light and dark themes on primary buttons
   Color get buttonText {
-    final isDark = background.computeLuminance() < 0.5;
-    return isDark ? AppTheme.darkButtonText : AppTheme.lightButtonText;
+    return const Color(0xFFFFFFFF); // Always white for primary buttons
+  }
+
+  /// Returns the appropriate text color for input fields
+  /// Ensures text is always visible in both light and dark modes
+  Color get inputTextColor {
+    return foreground; // Use foreground which is configured per theme
+  }
+
+  /// Returns the appropriate color for input icons (prefix/suffix)
+  /// Ensures icons are always visible
+  Color get inputIconColor {
+    return foreground; // Use foreground for consistency
+  }
+
+  /// Returns the appropriate color for hint/placeholder text
+  Color get hintTextColor {
+    return mutedForeground; // Use muted foreground for secondary text
+  }
+
+  /// Returns a properly configured TextStyle for input fields
+  TextStyle get inputTextStyle {
+    return TextStyle(
+      fontSize: 16,
+      color: inputTextColor,
+      fontWeight: FontWeight.w400,
+    );
+  }
+
+  /// Returns a properly configured TextStyle for hint text
+  TextStyle get hintTextStyle {
+    return TextStyle(
+      fontSize: 16,
+      color: hintTextColor,
+      fontWeight: FontWeight.w400,
+    );
   }
 }
+

@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:moneko/core/app/app.dart';
 import 'package:moneko/core/app/init.dart';
 import 'package:moneko/firebase_options.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 
 /// Top-level background message handler for Firebase Cloud Messaging
 /// Must be a top-level function for iOS background execution
@@ -36,5 +38,16 @@ void main() async {
   // Initialize Supabase and other app dependencies
   await initApp();
 
-  runApp(const ProviderScope(child: App()));
+  // Initialize SharedPreferences for persistent state
+  final sharedPreferences = await SharedPreferences.getInstance();
+
+  runApp(
+    ProviderScope(
+      overrides: [
+        // Provide SharedPreferences instance to selected household provider
+        sharedPreferencesProvider.overrideWithValue(sharedPreferences),
+      ],
+      child: const App(),
+    ),
+  );
 }

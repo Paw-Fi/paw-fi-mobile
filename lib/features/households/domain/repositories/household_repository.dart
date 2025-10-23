@@ -10,13 +10,13 @@ abstract class HouseholdRepository {
   Future<Household?> getHousehold(String householdId);
   Future<Household> createHousehold({
     required String name,
-    String? emoji,
+    String? coverImageUrl,
     String? themeColor,
   });
   Future<Household> updateHousehold({
     required String householdId,
     String? name,
-    String? emoji,
+    String? coverImageUrl,
     String? themeColor,
   });
   Future<void> deleteHousehold(String householdId);
@@ -58,6 +58,8 @@ abstract class HouseholdRepository {
     required int amountCents,
     double? warnThreshold,
     double? alertThreshold,
+    String? budgetType,
+    bool? countSplitPortionOnly,
   });
   Future<SharedBudget> updateBudget({
     required String budgetId,

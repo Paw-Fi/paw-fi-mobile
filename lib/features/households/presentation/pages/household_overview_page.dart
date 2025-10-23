@@ -32,8 +32,29 @@ class HouseholdOverviewPage extends ConsumerWidget {
         title: householdAsync.when(
           data: (household) => Row(
             children: [
-              if (household?.emoji != null) ...[
-                Text(household!.emoji!, style: const TextStyle(fontSize: 24)),
+              if (household?.coverImageUrl != null) ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: Image.network(
+                    household!.coverImageUrl!,
+                    width: 32,
+                    height: 32,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: colorScheme.muted,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Icon(
+                        Icons.home,
+                        color: colorScheme.mutedForeground,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ),
                 const SizedBox(width: 8),
               ],
               Expanded(

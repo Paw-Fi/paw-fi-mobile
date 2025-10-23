@@ -1,0 +1,529 @@
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path/path.dart' as path;
+import '../providers/household_providers.dart';
+import '../widgets/invitation_share_sheet.dart';
+
+/// Page for creating a new household
+class HouseholdCreatePage extends ConsumerStatefulWidget {
+  const HouseholdCreatePage({super.key});
+
+  @override
+  ConsumerState<HouseholdCreatePage> createState() => _HouseholdCreatePageState();
+}
+
+class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  String _selectedEmoji = '🏠'; // Changed from controller to simple string
+  
+  bool _isCreating = false;
+  bool _isGeneratingInvite = false;
+  String? _createdHouseholdId;
+  String? _householdName;
+
+  // Popular household emojis - organized in groups of 6 for perfect grid rows
+  static const List<String> _householdEmojis = [
+    // Row 1-2: Houses & Buildings (12)
+    '🏠', '🏡', '🏘️', '🏚️', '🏢', '🏬',
+    '🏭', '🏗️', '🏛️', '🏰', '🏯', '🗼',
+    
+    // Row 3-4: Family & Relationships (12)
+    '👨‍👩‍👧‍👦', '👪', '👨‍👩‍👧', '👨‍👩‍👦', '👨‍👦', '👩‍👧',
+    '👨‍👧‍👦', '👩‍👦‍👦', '💑', '💏', '👫', '👬',
+    
+    // Row 5-6: Hearts & Love (12)
+    '❤️', '💕', '💖', '💗', '💓', '💞',
+    '💝', '❤️‍🔥', '💘', '💌', '💟', '♥️',
+    
+    // Row 7-8: Money & Finance (12)
+    '💰', '💵', '💴', '💶', '💷', '💸',
+    '💳', '💎', '🪙', '🏦', '📊', '📈',
+    
+    // Row 9-10: Food & Dining (12)
+    '🍽️', '🍴', '🥄', '🍕', '🍔', '🍜',
+    '☕', '🍷', '🥗', '🍳', '🥘', '🍰',
+    
+    // Row 11-12: Home & Comfort (12)
+    '🛋️', '🛏️', '🚪', '🪑', '🔑', '🗝️',
+    '🪟', '🧺', '🕯️', '🪴', '🖼️', '🧸',
+    
+    // Row 13-14: Activities & Entertainment (12)
+    '🎉', '🎊', '🎈', '🎁', '🎮', '🎬',
+    '📺', '🎵', '📚', '🎨', '🎯', '🎲',
+    
+    // Row 15-16: Nature & Garden (12)
+    '🌳', '🌺', '🌻', '🌷', '🌹', '🪴',
+    '🌿', '☘️', '🍀', '🌱', '🌸', '🏵️',
+    
+    // Row 17-18: Stars & Special (12)
+    '⭐', '✨', '🌟', '💫', '🌈', '☀️',
+    '🌙', '⚡', '🔥', '💥', '✴️', '🎇',
+    
+    // Row 19-20: Pets & Animals (12)
+    '🐕', '🐈', '🐶', '🐱', '🐾', '🦮',
+    '🐕‍🦺', '🐈‍⬛', '🐠', '🐦', '🐰', '🐹',
+    
+    // Row 21-22: Travel & Adventure (12)
+    '✈️', '🗺️', '🧳', '🎒', '🚗', '🚙',
+    '🏖️', '⛱️', '🏔️', '🗻', '🏕️', '⛺',
+    
+    // Row 23-24: Tech & Modern (12)
+    '💻', '📱', '⌚', '🎧', '📷', '🎥',
+    '🖥️', '⌨️', '🖱️', '🕹️', '📡', '🔌',
+  ];
+
+
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+
+    return Scaffold(
+      backgroundColor: colorScheme.background,
+      appBar: AppBar(
+        backgroundColor: colorScheme.background,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: colorScheme.foreground),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          'Create Household',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: colorScheme.foreground,
+          ),
+        ),
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        colorScheme.primary.withOpacity(0.1),
+                        colorScheme.primary.withOpacity(0.05),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    children: [
+                      const Text(
+                        '🏠',
+                        style: TextStyle(fontSize: 56),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Create Your Household',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.foreground,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Set up a shared financial space for your family, partner, or roommates',
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: colorScheme.mutedForeground,
+                          height: 1.4,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 32),
+
+                // Household Name Field
+                Text(
+                  'Household Name',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.foreground,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _nameController,
+                  decoration: InputDecoration(
+                    hintText: 'e.g., The Smiths, Family Budget',
+                    prefixIcon: const Icon(Icons.home),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    filled: true,
+                    fillColor: colorScheme.muted,
+                  ),
+                  style: TextStyle(fontSize: 16, color: colorScheme.foreground),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Please enter a household name';
+                    }
+                    if (value.trim().length < 2) {
+                      return 'Name must be at least 2 characters';
+                    }
+                    return null;
+                  },
+                  enabled: !_isCreating,
+                ),
+
+                const SizedBox(height: 24),
+
+                // Emoji Picker
+                Text(
+                  'Household Icon',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.foreground,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: _isCreating ? null : () => _showEmojiPicker(context, colorScheme),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: colorScheme.muted,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: colorScheme.border,
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        // Selected emoji display
+                        Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            color: colorScheme.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Center(
+                            child: Text(
+                              _selectedEmoji,
+                              style: const TextStyle(fontSize: 32),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Tap to choose icon',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                  color: colorScheme.foreground,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Select an emoji to represent your household',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: colorScheme.mutedForeground,
+                                  height: 1.3,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          Icons.chevron_right,
+                          color: colorScheme.mutedForeground,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 32),
+
+                // Create Button
+                SizedBox(
+                  height: 56,
+                  child: _isCreating || _isGeneratingInvite
+                      ? shadcnui.PrimaryButton(
+                          onPressed: null,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                _isGeneratingInvite
+                                    ? 'Generating invite...'
+                                    : 'Creating household...',
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : shadcnui.PrimaryButton(
+                          onPressed: _createHousehold,
+                          child: const Text(
+                            'Create Household',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _createHousehold() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _isCreating = true;
+    });
+
+    try {
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) {
+        throw Exception('User not authenticated');
+      }
+
+      final name = _nameController.text.trim();
+      final emoji = _selectedEmoji; // Use selected emoji
+
+      // Create household
+      await ref.read(userHouseholdsProvider(userId).notifier).createHousehold(
+            name: name,
+            emoji: emoji,
+          );
+
+      // Get the created household
+      final householdsAsync = ref.read(userHouseholdsProvider(userId));
+      final households = householdsAsync.value ?? [];
+
+      if (households.isEmpty) {
+        throw Exception('Failed to create household');
+      }
+
+      final household = households.first;
+      _createdHouseholdId = household.id;
+      _householdName = household.name;
+
+      setState(() {
+        _isCreating = false;
+        _isGeneratingInvite = true;
+      });
+
+      // Automatically generate invitation
+      await _generateInvitation(household.id, household.name);
+    } catch (e) {
+      setState(() {
+        _isCreating = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error creating household: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _generateInvitation(String householdId, String householdName) async {
+    try {
+      final repository = ref.read(householdRepositoryProvider);
+      final inviteUrl = await repository.createInvite(
+        householdId: householdId,
+        expiresInDays: 7,
+      );
+
+      setState(() {
+        _isGeneratingInvite = false;
+      });
+
+      if (mounted) {
+        // Show success and share sheet
+        InvitationShareSheet.show(
+          context: context,
+          inviteUrl: inviteUrl,
+          householdName: householdName,
+          onClose: () {
+            // Navigate back to home after closing share sheet
+            Navigator.of(context).popUntil((route) => route.isFirst);
+          },
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _isGeneratingInvite = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Household created but failed to generate invite: $e'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+
+        // Still navigate back since household was created
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+    }
+  }
+
+  /// Show emoji picker modal
+  void _showEmojiPicker(BuildContext context, shadcnui.ColorScheme colorScheme) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.7,
+        ),
+        decoration: BoxDecoration(
+          color: colorScheme.card,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Drag handle
+            Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 8),
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: colorScheme.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+
+            // Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Choose Household Icon',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.foreground,
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.close, color: colorScheme.foreground),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+
+            // Emoji grid
+            Expanded(
+              child: GridView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 6,
+                  mainAxisSpacing: 8,
+                  crossAxisSpacing: 8,
+                  childAspectRatio: 1,
+                ),
+                itemCount: _householdEmojis.length,
+                itemBuilder: (context, index) {
+                  final emoji = _householdEmojis[index];
+                  final isSelected = emoji == _selectedEmoji;
+
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _selectedEmoji = emoji;
+                      });
+                      Navigator.pop(context);
+                    },
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? colorScheme.primary.withOpacity(0.15)
+                            : colorScheme.muted,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected
+                              ? colorScheme.primary
+                              : colorScheme.border,
+                          width: isSelected ? 2 : 1,
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(
+                          emoji,
+                          style: const TextStyle(fontSize: 32),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+}

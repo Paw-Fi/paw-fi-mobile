@@ -26,12 +26,12 @@ class HouseholdRepositoryImpl implements HouseholdRepository {
   @override
   Future<Household> createHousehold({
     required String name,
-    String? emoji,
+    String? coverImageUrl,
     String? themeColor,
   }) async {
     final data = await _service.createHousehold(
       name: name,
-      emoji: emoji,
+      coverImageUrl: coverImageUrl,
       themeColor: themeColor,
     );
     return Household.fromJson(data);
@@ -41,13 +41,13 @@ class HouseholdRepositoryImpl implements HouseholdRepository {
   Future<Household> updateHousehold({
     required String householdId,
     String? name,
-    String? emoji,
+    String? coverImageUrl,
     String? themeColor,
   }) async {
     final data = await _service.updateHousehold(
       householdId: householdId,
       name: name,
-      emoji: emoji,
+      coverImageUrl: coverImageUrl,
       themeColor: themeColor,
     );
     return Household.fromJson(data);
@@ -154,6 +154,8 @@ class HouseholdRepositoryImpl implements HouseholdRepository {
     required int amountCents,
     double? warnThreshold,
     double? alertThreshold,
+    String? budgetType,
+    bool? countSplitPortionOnly,
   }) async {
     final data = await _service.createBudget(
       householdId: householdId,
@@ -163,6 +165,8 @@ class HouseholdRepositoryImpl implements HouseholdRepository {
       amountCents: amountCents,
       warnThreshold: warnThreshold,
       alertThreshold: alertThreshold,
+      budgetType: budgetType,
+      countSplitPortionOnly: countSplitPortionOnly,
     );
     return SharedBudget.fromJson(data);
   }

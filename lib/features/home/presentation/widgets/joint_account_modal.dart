@@ -162,7 +162,6 @@ void showHouseholdOnboardingModal(BuildContext context, WidgetRef ref, String us
 void _showCreateHouseholdDialog(BuildContext context, WidgetRef ref, String userId) {
   final colorScheme = shadcnui.Theme.of(context).colorScheme;
   final nameController = TextEditingController();
-  final emojiController = TextEditingController(text: '🏠');
 
   showDialog(
     context: context,
@@ -202,18 +201,6 @@ void _showCreateHouseholdDialog(BuildContext context, WidgetRef ref, String user
               ),
             ),
 
-            const SizedBox(height: 16),
-
-            // Emoji field
-            TextField(
-              controller: emojiController,
-              decoration: const InputDecoration(
-                labelText: 'Emoji (optional)',
-                hintText: '🏠',
-              ),
-              maxLength: 2,
-            ),
-
             const SizedBox(height: 24),
 
             // Buttons
@@ -242,7 +229,6 @@ void _showCreateHouseholdDialog(BuildContext context, WidgetRef ref, String user
                             .read(userHouseholdsProvider(userId).notifier)
                             .createHousehold(
                               name: nameController.text,
-                              emoji: emojiController.text.isEmpty ? null : emojiController.text,
                             );
 
                         // Get the created household from the state

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -11,6 +12,7 @@ import '../../domain/repositories/household_repository.dart';
 import '../../data/repositories/household_repository_impl.dart';
 import '../../data/services/household_service.dart';
 import '../../data/services/device_registration_service.dart';
+import '../../../home/presentation/models/expense_entry.dart';
 
 // ============================================================================
 // CORE PROVIDERS
@@ -62,12 +64,12 @@ class UserHouseholdsNotifier extends StateNotifier<AsyncValue<List<Household>>> 
 
   Future<void> createHousehold({
     required String name,
-    String? emoji,
+    String? coverImageUrl,
     String? themeColor,
   }) async {
     await _repository.createHousehold(
       name: name,
-      emoji: emoji,
+      coverImageUrl: coverImageUrl,
       themeColor: themeColor,
     );
     await load();
@@ -150,6 +152,8 @@ class HouseholdBudgetsNotifier extends StateNotifier<AsyncValue<List<SharedBudge
     required int amountCents,
     double? warnThreshold,
     double? alertThreshold,
+    String? budgetType,
+    bool? countSplitPortionOnly,
   }) async {
     await _repository.createBudget(
       householdId: _householdId,
@@ -159,6 +163,8 @@ class HouseholdBudgetsNotifier extends StateNotifier<AsyncValue<List<SharedBudge
       amountCents: amountCents,
       warnThreshold: warnThreshold,
       alertThreshold: alertThreshold,
+      budgetType: budgetType,
+      countSplitPortionOnly: countSplitPortionOnly,
     );
     await load();
   }
@@ -389,6 +395,150 @@ final householdSplitsProvider =
     return splits;
   },
 );
+
+// ============================================================================
+// HOUSEHOLD EXPENSES
+// ============================================================================
+
+/// Parameter class for household expenses provider
+class HouseholdExpensesParams {
+  final String householdId;
+  final int limit;
+
+  const HouseholdExpensesParams({
+    required this.householdId,
+    this.limit = 10,
+  });
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is HouseholdExpensesParams &&
+          runtimeType == other.runtimeType &&
+          householdId == other.householdId &&
+          limit == other.limit;
+
+  @override
+  int get hashCode => householdId.hashCode ^ limit.hashCode;
+}
+
+/// Household expenses provider
+final householdExpensesProvider =
+    FutureProvider.family<List<ExpenseEntry>, HouseholdExpensesParams>(
+  (ref, params) async {
+    final supabase = ref.watch(supabaseClientProvider);
+
+    // Fetch expenses with user_ids
+    final expenses = await supabase
+        .from('expenses')
+        .select('*')
+        .eq('household_id', params.householdId)
+        .eq('share_scope', 'household')
+        .order('created_at', ascending: false)
+        .limit(params.limit);
+
+    final expensesList = (expenses as List).cast<Map<String, dynamic>>();
+    
+    if (expensesList.isEmpty) {
+      return [];
+    }
+
+    // Get all unique user IDs
+    final userIds = expensesList
+        .map((e) => e['user_id'] as String?)
+        .where((id) => id != null)
+        .cast<String>()
+        .toSet()
+        .toList();
+
+    debugPrint('🔍 Found ${userIds.length} unique user IDs: $userIds');
+
+    // Batch fetch all user data in one query (efficient!)
+    Map<String, Map<String, dynamic>> usersMap = {};
+    if (userIds.isNotEmpty) {
+      try {
+        final usersData = await supabase
+            .from('users')
+            .select('id, full_name, email, avatar_url')
+            .inFilter('id', userIds);
+
+        debugPrint('✅ Fetched ${(usersData as List).length} users from database');
+
+        for (var user in (usersData as List).cast<Map<String, dynamic>>()) {
+          // Create display name with fallback chain: full_name -> email -> "User"
+          String? displayName = user['full_name'] as String?;
+          final email = user['email'] as String?;
+          
+          if (displayName == null || displayName.isEmpty) {
+            if (email != null && email.isNotEmpty) {
+              // Use email before @ as display name
+              displayName = email.split('@').first;
+            } else {
+              displayName = 'User';
+            }
+          }
+          
+          debugPrint('👤 User: ${user['id']} -> full_name="${user['full_name']}", email="$email", display="$displayName"');
+          
+          // Override full_name with display name for UI
+          user['full_name'] = displayName;
+          
+          usersMap[user['id'] as String] = user;
+        }
+      } catch (e) {
+        debugPrint('❌ Error fetching users: $e');
+      }
+    }
+
+    // Attach user data to each expense
+    for (var expense in expensesList) {
+      final userId = expense['user_id'] as String?;
+      if (userId != null && usersMap.containsKey(userId)) {
+        expense['users'] = usersMap[userId];
+        debugPrint('✅ Attached user ${usersMap[userId]!['full_name']} to expense');
+      } else {
+        debugPrint('⚠️ No user data found for userId: $userId (in map: ${usersMap.containsKey(userId)})');
+      }
+    }
+
+    return expensesList
+        .map((json) => ExpenseEntry.fromJson(json))
+        .toList();
+  },
+);
+
+// ============================================================================
+// COVER IMAGES
+// ============================================================================
+
+/// Provider for available household cover images
+/// Hardcoded list of all available cover images
+final coverImagesProvider = FutureProvider<List<String>>((ref) async {
+  const baseUrl = 'https://pbopcsmrcykdzbilpilf.supabase.co/storage/v1/object/public/group-cover-photos/';
+
+  final images = [
+    '${baseUrl}balloons.png',
+    '${baseUrl}basket.png',
+    '${baseUrl}car.png',
+    '${baseUrl}circle.png',
+    '${baseUrl}coffees.png',
+    '${baseUrl}hands.png',
+    '${baseUrl}heart.png',
+    '${baseUrl}house.png',
+    '${baseUrl}notebook.png',
+    '${baseUrl}piggy-bank.png',
+    '${baseUrl}pizza.png',
+    '${baseUrl}rings.png',
+    '${baseUrl}shoes.png',
+    '${baseUrl}shopping_bag.png',
+  ];
+
+  print('🖼️ coverImagesProvider: Returning ${images.length} images');
+  print('🖼️ First image URL: ${images.first}');
+  print('🖼️ Last image URL: ${images.last}');
+
+  return images;
+});
 
 // ============================================================================
 // SINGLE HOUSEHOLD

@@ -37,28 +37,44 @@ class HouseholdService {
 
   Future<Map<String, dynamic>> createHousehold({
     required String name,
-    String? emoji,
+    String? coverImageUrl,
     String? themeColor,
   }) async {
-    final response = await _supabase.from('households').insert({
-      'name': name,
-      'emoji': emoji,
-      'theme_color': themeColor,
-      'owner_id': _supabase.auth.currentUser!.id,
-    }).select().single();
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      print('🏠 Creating household:');
+      print('  - Name: $name');
+      print('  - Cover URL: $coverImageUrl');
+      print('  - Theme: $themeColor');
+      print('  - Owner ID: $userId');
 
-    return response;
+      final response = await _supabase.from('households').insert({
+        'name': name,
+        'cover_image_url': coverImageUrl,
+        'theme_color': themeColor,
+        'owner_id': userId,
+      }).select().single();
+
+      print('✅ Household created successfully: ${response['id']}');
+      return response;
+    } catch (e, stackTrace) {
+      print('❌ HOUSEHOLD SERVICE ERROR:');
+      print('Error type: ${e.runtimeType}');
+      print('Error: $e');
+      print('Stack trace: $stackTrace');
+      rethrow;
+    }
   }
 
   Future<Map<String, dynamic>> updateHousehold({
     required String householdId,
     String? name,
-    String? emoji,
+    String? coverImageUrl,
     String? themeColor,
   }) async {
     final updates = <String, dynamic>{};
     if (name != null) updates['name'] = name;
-    if (emoji != null) updates['emoji'] = emoji;
+    if (coverImageUrl != null) updates['cover_image_url'] = coverImageUrl;
     if (themeColor != null) updates['theme_color'] = themeColor;
 
     final response = await _supabase
@@ -81,12 +97,42 @@ class HouseholdService {
 
   Future<List<Map<String, dynamic>>> getHouseholdMembers(
       String householdId) async {
-    final response = await _supabase
+    // Fetch household members with their user_ids
+    // Note: household_members table has no status column - if they're in the table, they're active
+    final members = await _supabase
         .from('household_members')
-        .select()
+        .select('*')
         .eq('household_id', householdId);
 
-    return (response as List).cast<Map<String, dynamic>>();
+    final membersList = (members as List).cast<Map<String, dynamic>>();
+    
+    if (membersList.isEmpty) {
+      return membersList;
+    }
+
+    // Get all user IDs
+    final userIds = membersList.map((m) => m['user_id'] as String).toList();
+    
+    // Fetch all user data in one query
+    final usersData = await _supabase
+        .from('users')
+        .select('id, email, full_name, avatar_url')
+        .inFilter('id', userIds);
+    
+    final usersMap = <String, Map<String, dynamic>>{};
+    for (var user in (usersData as List).cast<Map<String, dynamic>>()) {
+      usersMap[user['id'] as String] = user;
+    }
+    
+    // Attach user data to each member
+    for (var member in membersList) {
+      final userId = member['user_id'] as String;
+      if (usersMap.containsKey(userId)) {
+        member['users'] = usersMap[userId];
+      }
+    }
+
+    return membersList;
   }
 
   Future<void> removeMember(String memberId) async {
@@ -129,22 +175,40 @@ class HouseholdService {
     String? personalMessage,
     int expiresInDays = 7,
   }) async {
-    final response = await _supabase.functions.invoke(
-      'households-create-invite',
-      body: {
-        'household_id': householdId,
-        'invited_email': invitedEmail,
-        'personal_message': personalMessage,
-        'expires_in_days': expiresInDays,
-      },
-    );
+    try {
+      print('📧 Calling households-create-invite edge function');
+      print('  - household_id: $householdId');
+      print('  - expires_in_days: $expiresInDays');
 
-    if (response.status != 200) {
-      throw Exception('Failed to create invite: ${response.data}');
+      final response = await _supabase.functions.invoke(
+        'households-create-invite',
+        body: {
+          'household_id': householdId,
+          'invited_email': invitedEmail,
+          'personal_message': personalMessage,
+          'expires_in_days': expiresInDays,
+        },
+      );
+
+      print('📧 Edge function response:');
+      print('  - status: ${response.status}');
+      print('  - data: ${response.data}');
+
+      if (response.status != 200) {
+        throw Exception('Failed to create invite: ${response.data}');
+      }
+
+      final data = response.data as Map<String, dynamic>;
+      final inviteUrl = data['invite_url'] as String;
+      print('✅ Invite URL created: $inviteUrl');
+      return inviteUrl;
+    } catch (e, stackTrace) {
+      print('❌ CREATE INVITE ERROR:');
+      print('Error type: ${e.runtimeType}');
+      print('Error: $e');
+      print('Stack trace: $stackTrace');
+      rethrow;
     }
-
-    final data = response.data as Map<String, dynamic>;
-    return data['invite_url'] as String;
   }
 
   Future<Map<String, dynamic>> validateInvite(String token) async {
@@ -258,8 +322,12 @@ class HouseholdService {
     required int amountCents,
     double? warnThreshold,
     double? alertThreshold,
+    String? budgetType,
+    bool? countSplitPortionOnly,
   }) async {
-    final response = await _supabase.from('shared_budgets').insert({
+    final userId = _supabase.auth.currentUser?.id;
+
+    final data = {
       'household_id': householdId,
       'name': name,
       'period': period,
@@ -267,7 +335,16 @@ class HouseholdService {
       'amount_cents': amountCents,
       'warn_threshold': warnThreshold ?? 0.8,
       'alert_threshold': alertThreshold ?? 1.0,
-    }).select().single();
+      'budget_type': budgetType ?? 'household',
+      'count_split_portion_only': countSplitPortionOnly ?? false,
+    };
+
+    // Only add user_id for personal budgets
+    if (budgetType == 'personal' && userId != null) {
+      data['user_id'] = userId;
+    }
+
+    final response = await _supabase.from('shared_budgets').insert(data).select().single();
 
     return response;
   }

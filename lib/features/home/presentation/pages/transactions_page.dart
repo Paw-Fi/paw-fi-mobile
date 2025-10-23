@@ -10,7 +10,7 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dart';
-import '../widgets/transaction_detail_sheet.dart';
+import '../widgets/unified_transaction_sheet.dart';
 
 // ============================================================================
 // TRANSACTIONS PAGE
@@ -749,7 +749,11 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     final dateFormat = DateFormat('MMM d, yyyy');
 
     return GestureDetector(
-      onTap: () => showTransactionDetailSheet(context, expense, contact: contact),
+      onTap: () => showUnifiedTransactionSheet(
+        context,
+        existingExpense: expense,
+        contact: contact,
+      ),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),

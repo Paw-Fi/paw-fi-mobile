@@ -3,7 +3,7 @@ class Household {
   final String id;
   final String name;
   final String ownerId;
-  final String? emoji;
+  final String? coverImageUrl; // Changed from emoji - stores full URL to uploaded image
   final String? themeColor;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -12,7 +12,7 @@ class Household {
     required this.id,
     required this.name,
     required this.ownerId,
-    this.emoji,
+    this.coverImageUrl,
     this.themeColor,
     required this.createdAt,
     required this.updatedAt,
@@ -23,7 +23,7 @@ class Household {
       id: json['id'] as String,
       name: json['name'] as String,
       ownerId: json['owner_id'] as String,
-      emoji: json['emoji'] as String?,
+      coverImageUrl: json['cover_image_url'] as String?,
       themeColor: json['theme_color'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
@@ -35,7 +35,7 @@ class Household {
       'id': id,
       'name': name,
       'owner_id': ownerId,
-      'emoji': emoji,
+      'cover_image_url': coverImageUrl,
       'theme_color': themeColor,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
@@ -46,7 +46,7 @@ class Household {
     String? id,
     String? name,
     String? ownerId,
-    String? emoji,
+    String? coverImageUrl,
     String? themeColor,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -55,7 +55,7 @@ class Household {
       id: id ?? this.id,
       name: name ?? this.name,
       ownerId: ownerId ?? this.ownerId,
-      emoji: emoji ?? this.emoji,
+      coverImageUrl: coverImageUrl ?? this.coverImageUrl,
       themeColor: themeColor ?? this.themeColor,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -70,7 +70,7 @@ class Household {
           id == other.id &&
           name == other.name &&
           ownerId == other.ownerId &&
-          emoji == other.emoji &&
+          coverImageUrl == other.coverImageUrl &&
           themeColor == other.themeColor &&
           createdAt == other.createdAt &&
           updatedAt == other.updatedAt;
@@ -80,7 +80,7 @@ class Household {
       id.hashCode ^
       name.hashCode ^
       ownerId.hashCode ^
-      emoji.hashCode ^
+      coverImageUrl.hashCode ^
       themeColor.hashCode ^
       createdAt.hashCode ^
       updatedAt.hashCode;
@@ -128,6 +128,7 @@ class HouseholdMember {
   final DateTime updatedAt;
   final String? userEmail;
   final String? userName;
+  final String? avatarUrl;
 
   const HouseholdMember({
     required this.id,
@@ -139,9 +140,13 @@ class HouseholdMember {
     required this.updatedAt,
     this.userEmail,
     this.userName,
+    this.avatarUrl,
   });
 
   factory HouseholdMember.fromJson(Map<String, dynamic> json) {
+    // Extract user data from nested users object if available
+    final userData = json['users'] as Map<String, dynamic>?;
+    
     return HouseholdMember(
       id: json['id'] as String,
       householdId: json['household_id'] as String,
@@ -150,8 +155,9 @@ class HouseholdMember {
       joinedAt: DateTime.parse(json['joined_at'] as String),
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
-      userEmail: json['user_email'] as String?,
-      userName: json['user_name'] as String?,
+      userEmail: userData?['email'] as String? ?? json['user_email'] as String?,
+      userName: userData?['full_name'] as String? ?? json['user_name'] as String?,
+      avatarUrl: userData?['avatar_url'] as String?,
     );
   }
 
@@ -166,6 +172,7 @@ class HouseholdMember {
       'updated_at': updatedAt.toIso8601String(),
       'user_email': userEmail,
       'user_name': userName,
+      'avatar_url': avatarUrl,
     };
   }
 
@@ -179,6 +186,7 @@ class HouseholdMember {
     DateTime? updatedAt,
     String? userEmail,
     String? userName,
+    String? avatarUrl,
   }) {
     return HouseholdMember(
       id: id ?? this.id,
@@ -190,6 +198,7 @@ class HouseholdMember {
       updatedAt: updatedAt ?? this.updatedAt,
       userEmail: userEmail ?? this.userEmail,
       userName: userName ?? this.userName,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
     );
   }
 
