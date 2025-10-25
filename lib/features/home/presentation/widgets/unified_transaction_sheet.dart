@@ -13,6 +13,8 @@ import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
 import 'package:moneko/features/home/presentation/models/user_contact.dart';
 import 'package:moneko/features/home/presentation/state/transaction_edit_state.dart';
+import 'package:moneko/features/home/presentation/state/transaction_edit_notifier.dart';
+import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
 import 'package:moneko/features/home/presentation/widgets/edit_transaction_bottom_sheet.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
@@ -100,18 +102,49 @@ class _UnifiedTransactionSheetState
   bool _isLoadingMembers = false;
   String? _membersError;
   List<HouseholdMember>? _householdMembers;
+  ExpenseEntry? _currentExpense; // keeps live-updated expense for existing entries
 
   @override
   void initState() {
     super.initState();
     // Initialize time from existing expense or now
     if (widget.existingExpense != null) {
+      _currentExpense = widget.existingExpense; // seed with initial
       final dateTime = toLocalTime(widget.existingExpense!.createdAt);
       _selectedTime = TimeOfDay(hour: dateTime.hour, minute: dateTime.minute);
       
       // Initialize share state from existing expense (shared if linked to a household or has a split group)
       _isSharedWithHousehold = widget.existingExpense!.householdId != null ||
                                widget.existingExpense!.splitGroupId != null;
+
+      // Listen for optimistic/final updates of this expense and refresh UI
+      ref.listen(transactionEditProvider, (prev, next) {
+        final edited = next.optimisticUpdate;
+        if (edited != null && widget.existingExpense != null && edited.id == widget.existingExpense!.id) {
+          if (!mounted) return;
+          setState(() {
+            _currentExpense = edited;
+            final local = toLocalTime(edited.createdAt);
+            _selectedTime = TimeOfDay(hour: local.hour, minute: local.minute);
+          });
+        }
+      });
+
+      // Also listen to analyticsProvider reload to sync from backend
+      ref.listen(analyticsProvider, (prev, next) {
+        if (widget.existingExpense == null) return;
+        final id = widget.existingExpense!.id;
+        final updated = next.allExpenses.firstWhere(
+          (e) => e.id == id,
+          orElse: () => _currentExpense ?? widget.existingExpense!,
+        );
+        if (!mounted) return;
+        setState(() {
+          _currentExpense = updated;
+          final local = toLocalTime(updated.createdAt);
+          _selectedTime = TimeOfDay(hour: local.hour, minute: local.minute);
+        });
+      });
     } else if (widget.newExpense != null) {
       // For new expenses, default to current local time (BE usually returns date-only)
       _selectedTime = TimeOfDay.now();
@@ -137,11 +170,11 @@ class _UnifiedTransactionSheetState
   // Unified getters that work for both cases
   double get amount => isNewExpense
       ? widget.newExpense!.amount
-      : widget.existingExpense!.amount;
+      : (_currentExpense?.amount ?? widget.existingExpense!.amount);
 
   String get currency => isNewExpense
       ? widget.newExpense!.currency
-      : (widget.existingExpense!.currency ?? 'USD');
+      : ((_currentExpense?.currency ?? widget.existingExpense!.currency) ?? 'USD');
 
   String get currencySymbol => isNewExpense
       ? widget.newExpense!.currencySymbol
@@ -149,17 +182,17 @@ class _UnifiedTransactionSheetState
 
   String get category => isNewExpense
       ? widget.newExpense!.category
-      : (widget.existingExpense!.category ?? 'other');
+      : ((_currentExpense?.category ?? widget.existingExpense!.category) ?? 'other');
 
   DateTime get date => isNewExpense
       ? widget.newExpense!.date
-      : widget.existingExpense!.date;
+      : (_currentExpense?.date ?? widget.existingExpense!.date);
 
   String? get description => isNewExpense
       ? widget.newExpense!.description
-      : widget.existingExpense!.rawText;
+      : (_currentExpense?.rawText ?? widget.existingExpense!.rawText);
 
-  String? get receiptImageUrl => widget.existingExpense?.receiptImageUrl;
+  String? get receiptImageUrl => _currentExpense?.receiptImageUrl ?? widget.existingExpense?.receiptImageUrl;
 
   // Generate note prefix like "I spent $XX on category"
   String _generateNotePrefix() {

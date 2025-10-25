@@ -294,26 +294,58 @@ class DeviceRegistrationService {
   /// Unregister device (call on logout)
   Future<void> unregisterDevice() async {
     try {
-      final token = await _messaging.getToken();
-      if (token != null) {
-        // Call Edge Function to mark device as inactive
-        await _supabase.functions.invoke(
+      // Get user ID before it's cleared by logout
+      final userId = _supabase.auth.currentUser?.id;
+      final prefs = await SharedPreferences.getInstance();
+      final cachePrefix = 'device_reg:${userId ?? "anon"}:';
+      
+      // Try to get token from cache first (more reliable than FCM during logout)
+      String? token = prefs.getString('${cachePrefix}token');
+      
+      // Fallback to FCM token if cache is empty
+      if (token == null || token.isEmpty) {
+        token = await _messaging.getToken();
+      }
+
+      if (token != null && token.isNotEmpty) {
+        debugPrint('🗑️ Deleting device from backend...');
+        
+        // Call Edge Function to DELETE device row (not just mark inactive)
+        final response = await _supabase.functions.invoke(
           'households-register-device',
           body: {
             'push_token': token,
-            'is_active': false,
+            'delete_device': true,
           },
         );
 
-        // Clear cache so next login triggers fresh registration
+        if (response.status == 200) {
+          debugPrint('✅ Device deleted from backend successfully');
+        } else {
+          debugPrint('⚠️ Device deletion failed: ${response.status}');
+        }
+      } else {
+        debugPrint('⚠️ No push token found to delete');
+      }
+
+      // Always clear local cache, even if backend deletion fails
+      await prefs.remove('${cachePrefix}token');
+      await prefs.remove('${cachePrefix}registered_at');
+      debugPrint('✅ Local device cache cleared');
+      
+    } catch (e) {
+      debugPrint('❌ Error unregistering device: $e');
+      
+      // Still try to clear cache even if deletion failed
+      try {
         final userId = _supabase.auth.currentUser?.id;
         final prefs = await SharedPreferences.getInstance();
         final cachePrefix = 'device_reg:${userId ?? "anon"}:';
         await prefs.remove('${cachePrefix}token');
         await prefs.remove('${cachePrefix}registered_at');
+      } catch (_) {
+        // Ignore cache clearing errors
       }
-    } catch (e) {
-      debugPrint('❌ Error unregistering device: $e');
     }
   }
 }

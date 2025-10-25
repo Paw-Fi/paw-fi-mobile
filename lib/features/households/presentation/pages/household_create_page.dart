@@ -11,6 +11,7 @@ import '../providers/household_providers.dart';
 import '../widgets/invitation_share_sheet.dart';
 import '../widgets/household_image_picker.dart';
 import '../../../home/presentation/state/analytics_provider.dart';
+import '../../../home/presentation/state/home_filter_provider.dart';
 import '../../../utils/currency.dart';
 
 /// Modern page for creating a new household with image upload
@@ -24,6 +25,7 @@ class HouseholdCreatePage extends ConsumerStatefulWidget {
 class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
+  final _messageController = TextEditingController();
   String? _selectedCurrency;
 
   String? _selectedImageUrl;
@@ -47,13 +49,19 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
         }
       });
 
-      // Default currency from user's preferred currency via analytics provider
-      final analytics = ref.read(analyticsProvider);
-      final preferred = analytics.preferredCurrency?.toUpperCase();
-      if (preferred != null && isSupportedCurrencyCode(preferred)) {
-        setState(() => _selectedCurrency = preferred);
+      // Set currency silently from Home filter (preferred), fallback to analytics preferred, else USD
+      final homeFilter = ref.read(homeFilterProvider);
+      final selectedFromHome = homeFilter.selectedCurrency?.toUpperCase();
+      if (selectedFromHome != null && isSupportedCurrencyCode(selectedFromHome)) {
+        setState(() => _selectedCurrency = selectedFromHome);
       } else {
-        setState(() => _selectedCurrency = 'USD');
+        final analytics = ref.read(analyticsProvider);
+        final preferred = analytics.preferredCurrency?.toUpperCase();
+        if (preferred != null && isSupportedCurrencyCode(preferred)) {
+          setState(() => _selectedCurrency = preferred);
+        } else {
+          setState(() => _selectedCurrency = 'USD');
+        }
       }
     });
   }
@@ -61,6 +69,7 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
   @override
   void dispose() {
     _nameController.dispose();
+    _messageController.dispose();
     // Clean up temporary image file if it exists
     _selectedImageFile?.delete().catchError((e) {
       debugPrint('Failed to delete temporary image file: $e');
@@ -95,7 +104,8 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
                         const SizedBox(height: 40),
                         _buildNameInput(colorScheme, isLoading),
                         const SizedBox(height: 24),
-                        _buildCurrencySelector(colorScheme, isLoading),
+                        // Currency selector removed — currency is taken from Home filter silently
+                        _buildInviteMessageInput(colorScheme, isLoading),
                         const SizedBox(height: 24),
                         _buildExpirationSelector(colorScheme, isLoading),
                         const SizedBox(height: 32),
@@ -114,15 +124,15 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
     );
   }
 
-  Widget _buildCurrencySelector(shadcnui.ColorScheme colorScheme, bool isLoading) {
-    final options = getAvailableCurrencyOptions();
+  Widget _buildInviteMessageInput(shadcnui.ColorScheme colorScheme, bool isLoading) {
     return Semantics(
-      label: 'Household currency selector',
+      label: 'Invitation personal message input',
+      textField: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Household Currency',
+            'Personal Message (optional)',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
@@ -130,10 +140,21 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
             ),
           ),
           const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
-            value: _selectedCurrency,
-            isExpanded: true,
+          TextFormField(
+            controller: _messageController,
+            enabled: !isLoading,
+            maxLines: 3,
+            maxLength: 200,
+            style: TextStyle(
+              fontSize: 14,
+              color: colorScheme.foreground,
+            ),
             decoration: InputDecoration(
+              hintText: 'Say something to your invitees (e.g., "Join our household budget!")',
+              hintStyle: TextStyle(
+                color: colorScheme.mutedForeground.withOpacity(0.5),
+              ),
+              counterText: '',
               filled: true,
               fillColor: colorScheme.muted.withOpacity(0.3),
               border: OutlineInputBorder(
@@ -143,42 +164,18 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
                   width: 1,
                 ),
               ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
             ),
-            items: options.keys
-                .map((code) => DropdownMenuItem<String>(
-                      value: code,
-                      child: Row(
-                        children: [
-                          Text(options[code]!, style: TextStyle(color: colorScheme.foreground)),
-                          const SizedBox(width: 8),
-                          Text(code, style: TextStyle(color: colorScheme.mutedForeground)),
-                        ],
-                      ),
-                    ))
-                .toList(),
-            onChanged: isLoading
-                ? null
-                : (val) {
-                    if (!mounted) return;
-                    setState(() => _selectedCurrency = val);
-                  },
-            validator: (val) {
-              if (val == null || !isSupportedCurrencyCode(val)) {
-                return 'Please select a valid currency';
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'This sets your household’s base currency and cannot be changed later.',
-            style: TextStyle(fontSize: 12, color: colorScheme.mutedForeground),
           ),
         ],
       ),
     );
   }
+
+  // Currency selector removed intentionally — currency is resolved from providers
 
   Widget _buildHeader(shadcnui.ColorScheme colorScheme) {
     return Semantics(
@@ -784,6 +781,9 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
       final repository = ref.read(householdRepositoryProvider);
       final inviteUrl = await repository.createInvite(
         householdId: householdId,
+        personalMessage: _messageController.text.trim().isEmpty
+            ? null
+            : _messageController.text.trim(),
         expiresInDays: _selectedExpirationDays,
       );
       debugPrint('✅ Invitation generated: $inviteUrl');

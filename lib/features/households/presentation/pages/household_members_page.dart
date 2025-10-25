@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:go_router/go_router.dart';
 import '../../domain/entities/household.dart';
 import '../providers/household_providers.dart';
 import '../utils/household_ui_utils.dart';
@@ -38,7 +39,7 @@ class HouseholdMembersPage extends ConsumerWidget {
             icon: Icon(Icons.person_add, color: colorScheme.primary),
             onPressed: () {
               // Navigate to invites page
-              Navigator.pushNamed(context, '/households/$householdId/invites');
+              context.push('/households/$householdId/invites');
             },
             tooltip: 'Invite Member',
           ),

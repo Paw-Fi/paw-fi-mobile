@@ -3,12 +3,17 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:app_settings/app_settings.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
 import 'package:moneko/features/subscription/data/models/subscription_details.dart';
+import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:go_router/go_router.dart';
 
 class SettingsPage extends HookConsumerWidget {
   const SettingsPage({super.key});
@@ -25,11 +30,87 @@ class SettingsPage extends HookConsumerWidget {
 
     final selectedCurrency = useState<String?>(contact?.preferredCurrency?.toUpperCase());
     final isSaving = useState(false);
+    final notificationsEnabled = useState<bool?>(null);
+    final isCheckingPermission = useState(false);
 
     useEffect(() {
       selectedCurrency.value = contact?.preferredCurrency?.toUpperCase();
       return null;
     }, [contact?.preferredCurrency]);
+
+    // Check notification permission status on mount
+    useEffect(() {
+      Future<void> checkNotificationPermission() async {
+        final status = await Permission.notification.status;
+        notificationsEnabled.value = status.isGranted;
+      }
+      checkNotificationPermission();
+      return null;
+    }, []);
+
+    Future<void> handleNotificationToggle(bool value) async {
+      if (isCheckingPermission.value) return;
+      
+      isCheckingPermission.value = true;
+      
+      try {
+        if (value) {
+          // User wants to enable notifications
+          final status = await Permission.notification.status;
+          
+          if (status.isDenied || status.isPermanentlyDenied) {
+            // Permission was denied, open Moneko's notification settings page specifically
+            await AppSettings.openAppSettings(
+              type: AppSettingsType.notification,
+              asAnotherTask: true,
+            );
+            
+            // Show info dialog
+            if (context.mounted) {
+              shadcnui.showToast(
+                context: context,
+                builder: (context, overlay) => shadcnui.Alert(
+                  leading: const Icon(Icons.info_outline),
+                  title: const shadcnui.Text('Enable notifications for Moneko in your device settings'),
+                ),
+              );
+            }
+          } else if (status.isGranted) {
+            // Already granted, re-initialize device registration
+            try {
+              await ref.read(deviceRegistrationServiceProvider).initialize();
+              notificationsEnabled.value = true;
+            } catch (e) {
+              debugPrint('Error initializing notifications: $e');
+            }
+          } else {
+            // Request permission
+            final newStatus = await Permission.notification.request();
+            if (newStatus.isGranted) {
+              // Initialize device registration
+              try {
+                await ref.read(deviceRegistrationServiceProvider).initialize();
+                notificationsEnabled.value = true;
+              } catch (e) {
+                debugPrint('Error initializing notifications: $e');
+              }
+            } else {
+              notificationsEnabled.value = false;
+            }
+          }
+        } else {
+          // User wants to disable notifications
+          // Just update the local state, actual unregistration happens on logout
+          notificationsEnabled.value = false;
+        }
+      } finally {
+        isCheckingPermission.value = false;
+        
+        // Re-check permission status after settings return
+        final finalStatus = await Permission.notification.status;
+        notificationsEnabled.value = finalStatus.isGranted;
+      }
+    }
 
     final currencies = getAvailableCurrencyOptions();
 
@@ -57,6 +138,93 @@ class SettingsPage extends HookConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Profile Avatar with edit (pencil) overlay
+            Center(
+              child: FutureBuilder<Map<String, dynamic>?>(
+                future: Supabase.instance.client
+                    .from('users')
+                    .select('full_name, avatar_url')
+                    .eq('id', authState.uid)
+                    .maybeSingle(),
+                builder: (context, snapshot) {
+                  final dbName = snapshot.data != null ? snapshot.data!['full_name'] as String? : null;
+                  final dbAvatarUrl = snapshot.data != null ? snapshot.data!['avatar_url'] as String? : null;
+
+                  final displayName = (dbName?.trim().isNotEmpty == true)
+                      ? dbName!.trim()
+                      : (authState.displayName?.trim().isNotEmpty == true ? authState.displayName!.trim() : 'User');
+                  final initials = displayName.isNotEmpty
+                      ? displayName.substring(0, 1).toUpperCase()
+                      : (authState.email.isNotEmpty ? authState.email.substring(0, 1).toUpperCase() : 'U');
+                  final avatarUrl = (dbAvatarUrl != null && dbAvatarUrl.isNotEmpty)
+                      ? dbAvatarUrl
+                      : (authState.photoUrl != null && authState.photoUrl!.isNotEmpty ? authState.photoUrl : null);
+
+                  return Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      GestureDetector(
+                        onTap: () => context.push('/avatar'),
+                        child: Container(
+                          width: 104,
+                          height: 104,
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: avatarUrl != null
+                                ? null
+                                : const LinearGradient(
+                                    colors: [Color(0xFF7458FF), Color(0xFF836DFF)],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: colorScheme.primary.withValues(alpha: 0.25),
+                                blurRadius: 12,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
+                          ),
+                          child: ClipOval(
+                            child: avatarUrl != null
+                                ? Image.network(
+                                    avatarUrl,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => _InitialsAvatar(initials: initials),
+                                  )
+                                : _InitialsAvatar(initials: initials),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: -2,
+                        right: -2,
+                        child: Material(
+                          color: colorScheme.primary,
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            onTap: () => context.push('/avatar'),
+                            customBorder: const CircleBorder(),
+                            child: Container(
+                              width: 36,
+                              height: 36,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(color: colorScheme.background, width: 3),
+                              ),
+                              child: Icon(Icons.edit, size: 18, color: colorScheme.primaryForeground),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+            const shadcnui.Gap(24),
             Text(
               'Appearance',
               style: TextStyle(
@@ -105,6 +273,72 @@ class SettingsPage extends HookConsumerWidget {
             ),
             const shadcnui.Gap(24),
             Text(
+              'Notifications',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.foreground,
+                letterSpacing: -0.2,
+              ),
+            ),
+            const shadcnui.Gap(16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              decoration: BoxDecoration(
+                color: colorScheme.card,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: colorScheme.border, width: 1),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.notifications_outlined,
+                    size: 20,
+                    color: colorScheme.mutedForeground,
+                  ),
+                  const shadcnui.Gap(16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Push Notifications',
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: colorScheme.foreground,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const shadcnui.Gap(2),
+                        Text(
+                          'Receive alerts and updates',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: colorScheme.mutedForeground,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (notificationsEnabled.value == null)
+                    SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation(colorScheme.primary),
+                      ),
+                    )
+                  else
+                    shadcnui.Switch(
+                      value: notificationsEnabled.value!,
+                      onChanged: isCheckingPermission.value ? null : handleNotificationToggle,
+                    ),
+                ],
+              ),
+            ),
+            const shadcnui.Gap(24),
+            Text(
               'Membership',
               style: TextStyle(
                 fontSize: 18,
@@ -119,6 +353,34 @@ class SettingsPage extends HookConsumerWidget {
               subscriptionAsync: subscriptionAsync,
             ),                     
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InitialsAvatar extends StatelessWidget {
+  final String initials;
+  const _InitialsAvatar({required this.initials});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF7458FF), Color(0xFF836DFF)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        initials,
+        style: const TextStyle(
+          fontSize: 32,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+          letterSpacing: -0.5,
         ),
       ),
     );

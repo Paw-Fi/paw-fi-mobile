@@ -96,13 +96,16 @@ class _CustomSplitSheet extends StatefulWidget {
 class _CustomSplitEditorState extends State<CustomSplitEditor> {
   SplitType _selectedType = SplitType.equal;
   late List<MemberSplit> _memberSplits;
+  late List<TextEditingController> _controllers;
   String? _validationError;
   Timer? _debounce;
+  bool _isUpdatingProgrammatically = false;
 
   @override
   void initState() {
     super.initState();
     _initializeSplits();
+    _initializeControllers();
     // notify parent with initial state after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) => _queueNotify());
   }
@@ -110,6 +113,9 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
   @override
   void dispose() {
     _debounce?.cancel();
+    for (var controller in _controllers) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -122,6 +128,137 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
         shares: 1,
       );
     }).toList();
+  }
+
+  void _initializeControllers() {
+    _controllers = List.generate(
+      widget.members.length,
+      (index) => TextEditingController(text: _getFormattedValue(index)),
+    );
+  }
+
+  String _getFormattedValue(int index) {
+    final split = _memberSplits[index];
+    switch (_selectedType) {
+      case SplitType.amount:
+        return split.amount?.toStringAsFixed(2) ?? '0.00';
+      case SplitType.percentage:
+        return split.percentage?.toStringAsFixed(1) ?? '0.0';
+      case SplitType.shares:
+        return split.shares?.toString() ?? '1';
+      case SplitType.equal:
+        return '';
+    }
+  }
+
+  void _updateControllerText(int index, String newText) {
+    if (_controllers[index].text != newText) {
+      _isUpdatingProgrammatically = true;
+      _controllers[index].text = newText;
+      _isUpdatingProgrammatically = false;
+    }
+  }
+
+  void _handleValueChange(int index, String text) {
+    if (_isUpdatingProgrammatically) return;
+
+    double? parsedDouble;
+    int? parsedInt;
+
+    switch (_selectedType) {
+      case SplitType.amount:
+        parsedDouble = double.tryParse(text);
+        if (parsedDouble != null && parsedDouble > widget.totalAmount) {
+          // Exceeds total - show error, don't auto-adjust
+          setState(() {
+            _memberSplits[index].amount = parsedDouble;
+          });
+          _validate();
+          _queueNotify();
+          return;
+        }
+        _memberSplits[index].amount = parsedDouble ?? 0;
+        _autoAdjustOthers(index, SplitType.amount);
+        break;
+
+      case SplitType.percentage:
+        parsedDouble = double.tryParse(text);
+        if (parsedDouble != null && parsedDouble > 100) {
+          // Exceeds 100% - show error, don't auto-adjust
+          setState(() {
+            _memberSplits[index].percentage = parsedDouble;
+          });
+          _validate();
+          _queueNotify();
+          return;
+        }
+        _memberSplits[index].percentage = parsedDouble ?? 0;
+        _autoAdjustOthers(index, SplitType.percentage);
+        break;
+
+      case SplitType.shares:
+        parsedInt = int.tryParse(text);
+        setState(() {
+          _memberSplits[index].shares = parsedInt ?? 1;
+        });
+        _validate();
+        _queueNotify();
+        break;
+
+      case SplitType.equal:
+        break;
+    }
+  }
+
+  void _autoAdjustOthers(int editedIndex, SplitType type) {
+    if (widget.members.length <= 1) {
+      // Can't auto-adjust with only one member
+      setState(() {});
+      _validate();
+      _queueNotify();
+      return;
+    }
+
+    final otherIndices = List.generate(widget.members.length, (i) => i)
+        .where((i) => i != editedIndex)
+        .toList();
+
+    switch (type) {
+      case SplitType.amount:
+        final editedAmount = _memberSplits[editedIndex].amount ?? 0;
+        final remaining = widget.totalAmount - editedAmount;
+        final perOther = remaining / otherIndices.length;
+
+        setState(() {
+          for (var i in otherIndices) {
+            _memberSplits[i].amount = perOther;
+            _updateControllerText(i, perOther.toStringAsFixed(2));
+          }
+        });
+        break;
+
+      case SplitType.percentage:
+        final editedPercentage = _memberSplits[editedIndex].percentage ?? 0;
+        final remaining = 100 - editedPercentage;
+        final perOther = remaining / otherIndices.length;
+
+        setState(() {
+          for (var i in otherIndices) {
+            _memberSplits[i].percentage = perOther;
+            _updateControllerText(i, perOther.toStringAsFixed(1));
+          }
+        });
+        break;
+
+      case SplitType.shares:
+      case SplitType.equal:
+        // No auto-adjustment for shares or equal
+        setState(() {});
+        break;
+    }
+
+    _validate();
+    _queueNotify();
   }
 
   void _validate() {
@@ -244,7 +381,13 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
     return Expanded(
       child: GestureDetector(
         onTap: () {
-          setState(() => _selectedType = type);
+          setState(() {
+            _selectedType = type;
+            // Update all controllers with new formatted values when type changes
+            for (int i = 0; i < _controllers.length; i++) {
+              _updateControllerText(i, _getFormattedValue(i));
+            }
+          });
           _validate();
           _queueNotify();
         },
@@ -343,21 +486,16 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
   }
 
   Widget _buildSplitInput(shadcnui.ColorScheme colorScheme, int index) {
-    final memberSplit = _memberSplits[index];
-    String value = '';
     String suffix = '';
 
     switch (_selectedType) {
       case SplitType.amount:
-        value = memberSplit.amount?.toStringAsFixed(2) ?? '';
         suffix = widget.currencySymbol;
         break;
       case SplitType.percentage:
-        value = memberSplit.percentage?.toStringAsFixed(1) ?? '';
         suffix = '%';
         break;
       case SplitType.shares:
-        value = memberSplit.shares?.toString() ?? '';
         suffix = '';
         break;
       case SplitType.equal:
@@ -365,7 +503,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
     }
 
     return TextField(
-      controller: TextEditingController(text: value),
+      controller: _controllers[index],
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       textAlign: TextAlign.right,
       style: TextStyle(
@@ -388,25 +526,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
           color: colorScheme.mutedForeground,
         ),
       ),
-      onChanged: (text) {
-        setState(() {
-          switch (_selectedType) {
-            case SplitType.amount:
-              _memberSplits[index].amount = double.tryParse(text) ?? 0;
-              break;
-            case SplitType.percentage:
-              _memberSplits[index].percentage = double.tryParse(text) ?? 0;
-              break;
-            case SplitType.shares:
-              _memberSplits[index].shares = int.tryParse(text) ?? 1;
-              break;
-            case SplitType.equal:
-              break;
-          }
-        });
-        _validate();
-        _queueNotify();
-      },
+      onChanged: (text) => _handleValueChange(index, text),
     );
   }
 
