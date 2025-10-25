@@ -4,8 +4,8 @@ class HouseholdConstants {
   /// Default invitation expiration in days
   static const int defaultInviteExpirationDays = 7;
 
-  /// Available invitation expiration options (in days)
-  static const List<int> inviteExpirationOptions = [1, 3, 7, 14, 30];
+  /// Available invitation expiration options (in days). 0 = Unlimited
+  static const List<int> inviteExpirationOptions = [1, 3, 7, 14, 30, 0];
 
   /// Minimum household name length
   static const int minNameLength = 2;

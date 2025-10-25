@@ -19,17 +19,13 @@ class OnboardingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = shadcnui.Theme.of(context).colorScheme;
-    final size = MediaQuery.of(context).size;
 
-    return SizedBox(
-      width: size.width,
-      height: size.height * 0.7, // Constrain height to prevent overflow
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
           // Emoji icon with gradient background
           Container(
             width: 100,
@@ -97,12 +93,11 @@ class OnboardingCard extends StatelessWidget {
             ),
           ),
 
-            if (visual != null) ...[
-              const SizedBox(height: 24),
-              visual!,
-            ],
+          if (visual != null) ...[
+            const SizedBox(height: 24),
+            visual!,
           ],
-        ),
+        ],
       ),
     );
   }

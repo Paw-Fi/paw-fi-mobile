@@ -34,7 +34,8 @@ class _HouseholdOnboardingPageState extends State<HouseholdOnboardingPage> {
         child: Column(
           children: [
             // Flashcard carousel
-            Expanded(
+            SizedBox(
+              height: 310,
               child: PageView(
                 controller: _pageController,
                 onPageChanged: (index) {

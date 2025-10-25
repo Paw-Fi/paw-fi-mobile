@@ -129,11 +129,9 @@ List<CategorySummary> _getCategorySummaries(List<ExpenseEntry> expenses) {
   final Map<String, int> categoryCounts = {};
 
   for (final expense in expenses) {
-    if (expense.amountCents > 0) {
-      final cat = (expense.category ?? 'uncategorized').toLowerCase();
-      categoryTotals[cat] = (categoryTotals[cat] ?? 0) + expense.amount;
-      categoryCounts[cat] = (categoryCounts[cat] ?? 0) + 1;
-    }
+    final cat = (expense.category ?? 'uncategorized').toLowerCase();
+    categoryTotals[cat] = (categoryTotals[cat] ?? 0) + expense.amount.abs();
+    categoryCounts[cat] = (categoryCounts[cat] ?? 0) + 1;
   }
 
   return categoryTotals.entries.map((e) {
@@ -148,5 +146,5 @@ List<CategorySummary> _getCategorySummaries(List<ExpenseEntry> expenses) {
 }
 
 double _getTotalSpent(List<ExpenseEntry> expenses) {
-  return expenses.where((e) => e.amountCents > 0).fold(0.0, (sum, e) => sum + e.amount);
+  return expenses.fold(0.0, (sum, e) => sum + e.amount.abs());
 }

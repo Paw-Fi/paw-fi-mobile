@@ -26,11 +26,13 @@ class HouseholdRepositoryImpl implements HouseholdRepository {
   @override
   Future<Household> createHousehold({
     required String name,
+    required String currency,
     String? coverImageUrl,
     String? themeColor,
   }) async {
     final data = await _service.createHousehold(
       name: name,
+      currency: currency,
       coverImageUrl: coverImageUrl,
       themeColor: themeColor,
     );

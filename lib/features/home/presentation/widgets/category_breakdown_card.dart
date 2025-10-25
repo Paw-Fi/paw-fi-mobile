@@ -4,7 +4,14 @@ import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/utils/currency.dart';
-Widget buildCategoryBreakdownCard(BuildContext context, shadcnui.ColorScheme colorScheme, List<ExpenseEntry> expenses, UserContact? contact, {String? selectedCurrency}) {
+Widget buildCategoryBreakdownCard(
+  BuildContext context,
+  shadcnui.ColorScheme colorScheme,
+  List<ExpenseEntry> expenses,
+  UserContact? contact, {
+  String? selectedCurrency,
+  String? householdId,
+}) {
   final categorySummaries = _getCategorySummaries(expenses);
   final totalSpent = _getTotalSpent(expenses);
   
@@ -15,7 +22,7 @@ Widget buildCategoryBreakdownCard(BuildContext context, shadcnui.ColorScheme col
     onTap: () {
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (context) => const TransactionsPage(),
+          builder: (context) => TransactionsPage(householdId: householdId),
         ),
       );
     },
@@ -147,11 +154,10 @@ List<CategorySummary> _getCategorySummaries(List<ExpenseEntry> expenses) {
   final Map<String, int> categoryCounts = {};
 
   for (final expense in expenses) {
-    if (expense.amountCents > 0) {
-      final cat = (expense.category ?? 'uncategorized').toLowerCase();
-      categoryTotals[cat] = (categoryTotals[cat] ?? 0) + expense.amount;
-      categoryCounts[cat] = (categoryCounts[cat] ?? 0) + 1;
-    }
+    // Treat all rows in expenses as spend; use absolute for robustness
+    final cat = (expense.category ?? 'uncategorized').toLowerCase();
+    categoryTotals[cat] = (categoryTotals[cat] ?? 0) + expense.amount.abs();
+    categoryCounts[cat] = (categoryCounts[cat] ?? 0) + 1;
   }
 
   return categoryTotals.entries.map((e) {
@@ -166,5 +172,6 @@ List<CategorySummary> _getCategorySummaries(List<ExpenseEntry> expenses) {
 }
 
 double _getTotalSpent(List<ExpenseEntry> expenses) {
-  return expenses.where((e) => e.amountCents > 0).fold(0.0, (sum, e) => sum + e.amount);
+  // Sum absolute amounts to align with backend summary (expense-only model)
+  return expenses.fold(0.0, (sum, e) => sum + e.amount.abs());
 }

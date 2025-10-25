@@ -1,4 +1,3 @@
-import '../../../households/domain/entities/shared_budget.dart' show ShareScope;
 
 /// Represents a single spending entry from expenses table
 class ExpenseEntry {
@@ -15,7 +14,6 @@ class ExpenseEntry {
   final DateTime createdAt;
   final String? rawText;
   final String? receiptImageUrl;
-  final ShareScope shareScope;
   final List<String>? sharedMemberIds;
   final String? splitGroupId;
 
@@ -33,7 +31,6 @@ class ExpenseEntry {
     required this.createdAt,
     this.rawText,
     this.receiptImageUrl,
-    this.shareScope = ShareScope.private,
     this.sharedMemberIds,
     this.splitGroupId,
   });
@@ -58,9 +55,6 @@ class ExpenseEntry {
       createdAt: DateTime.parse(json['created_at'] as String),
       rawText: json['raw_text'] as String?,
       receiptImageUrl: json['receipt_image_url'] as String?,
-      shareScope: json['share_scope'] != null
-          ? ShareScope.fromJson(json['share_scope'] as String)
-          : ShareScope.private,
       sharedMemberIds: json['shared_member_ids'] != null
           ? List<String>.from(json['shared_member_ids'] as List)
           : null,
@@ -83,7 +77,6 @@ class ExpenseEntry {
       'created_at': createdAt.toIso8601String(),
       'raw_text': rawText,
       'receipt_image_url': receiptImageUrl,
-      'share_scope': shareScope.toJson(),
       'shared_member_ids': sharedMemberIds,
       'split_group_id': splitGroupId,
     };
@@ -104,7 +97,6 @@ class ExpenseEntry {
     DateTime? createdAt,
     String? rawText,
     String? receiptImageUrl,
-    ShareScope? shareScope,
     List<String>? sharedMemberIds,
     String? splitGroupId,
   }) {
@@ -122,7 +114,6 @@ class ExpenseEntry {
       createdAt: createdAt ?? this.createdAt,
       rawText: rawText ?? this.rawText,
       receiptImageUrl: receiptImageUrl ?? this.receiptImageUrl,
-      shareScope: shareScope ?? this.shareScope,
       sharedMemberIds: sharedMemberIds ?? this.sharedMemberIds,
       splitGroupId: splitGroupId ?? this.splitGroupId,
     );

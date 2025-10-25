@@ -5,8 +5,8 @@ import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
-import 'package:moneko/shared/widgets/user_avatar.dart';
 import 'package:intl/intl.dart';
+import 'package:moneko/features/utils/currency.dart';
 
 /// Full expense list page with filtering and search for a household
 class HouseholdExpensesPage extends ConsumerStatefulWidget {
@@ -494,8 +494,14 @@ class _ExpenseListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dateFormat = DateFormat('MMM d, yyyy');
-    final timeFormat = DateFormat('h:mm a');
+    final dateLabel = DateFormat('MMM d').format(expense.date);
+    final timeLabel = DateFormat('h:mm a').format(expense.createdAt);
+    final title = (expense.rawText ?? expense.category ?? 'Expense').trim();
+    final amountText = formatCurrency(expense.amount.abs(), expense.currency ?? 'USD');
+    final userPrefix = (expense.userName != null && expense.userName!.isNotEmpty)
+        ? '${expense.userName} • '
+        : '';
+    final metaText = '$userPrefix$dateLabel • $timeLabel';
     
     return GestureDetector(
       onTap: () {
@@ -516,32 +522,15 @@ class _ExpenseListItem extends StatelessWidget {
             width: 1,
           ),
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Category icon
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: colorScheme.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                _getCategoryIcon(expense.category),
-                color: colorScheme.primary,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-
-            // Expense details
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Description/Category
-                  Text(
-                    expense.rawText ?? expense.category ?? 'Expense',
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
@@ -550,119 +539,58 @@ class _ExpenseListItem extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
-
-                  // Metadata row
-                  Row(
-                    children: [
-                      // Who added it
-                      if (expense.userName != null) ...[
-                        UserAvatar(
-                          avatarUrl: expense.userAvatarUrl,
-                          name: expense.userName,
-                          size: 'tiny',
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          expense.userName!,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: colorScheme.mutedForeground,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '•',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: colorScheme.mutedForeground,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                      ],
-
-                      // Date
-                      Icon(Icons.calendar_today, size: 12, color: colorScheme.mutedForeground),
-                      const SizedBox(width: 4),
-                      Text(
-                        dateFormat.format(expense.date),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: colorScheme.mutedForeground,
-                        ),
-                      ),
-
-                      // Split badge
-                      if (expense.splitGroupId != null) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: colorScheme.secondary.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            'SPLIT',
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w600,
-                              color: colorScheme.secondaryForeground,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            // Amount
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
+                ),
+                const SizedBox(width: 8),
                 Text(
-                  '${expense.currency ?? 'USD'} ${expense.amount.toStringAsFixed(2)}',
+                  amountText,
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: colorScheme.foreground,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  timeFormat.format(expense.createdAt),
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: colorScheme.mutedForeground,
+              ],
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    metaText,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: colorScheme.mutedForeground,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                if (expense.splitGroupId != null) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: colorScheme.border),
+                    ),
+                    child: Text(
+                      'SPLIT',
+                      style: TextStyle(
+                        fontSize: 10,
+                        letterSpacing: 0.4,
+                        color: colorScheme.mutedForeground,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ],
         ),
       ),
     );
-  }
-
-  IconData _getCategoryIcon(String? category) {
-    if (category == null) return Icons.receipt_outlined;
-    
-    final categoryLower = category.toLowerCase();
-    if (categoryLower.contains('food') || categoryLower.contains('restaurant')) {
-      return Icons.restaurant_outlined;
-    } else if (categoryLower.contains('transport') || categoryLower.contains('uber')) {
-      return Icons.directions_car_outlined;
-    } else if (categoryLower.contains('shop') || categoryLower.contains('retail')) {
-      return Icons.shopping_bag_outlined;
-    } else if (categoryLower.contains('entertainment') || categoryLower.contains('movie')) {
-      return Icons.movie_outlined;
-    } else if (categoryLower.contains('health') || categoryLower.contains('medical')) {
-      return Icons.local_hospital_outlined;
-    } else if (categoryLower.contains('utilities') || categoryLower.contains('bill')) {
-      return Icons.receipt_long_outlined;
-    }
-    return Icons.receipt_outlined;
   }
 }

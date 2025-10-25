@@ -192,6 +192,7 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
                   DropdownMenuItem(value: 7, child: Text('7 days')),
                   DropdownMenuItem(value: 14, child: Text('14 days')),
                   DropdownMenuItem(value: 30, child: Text('30 days')),
+                  DropdownMenuItem(value: 0, child: Text('Unlimited')),
                 ],
                 onChanged: (value) {
                   if (value != null) expiresInDays = value;
@@ -331,7 +332,7 @@ class _InviteCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = shadcnui.Theme.of(context).colorScheme;
-    final isExpired = invite.expiresAt.isBefore(DateTime.now());
+    final isExpired = invite.expiresAt != null && invite.expiresAt!.isBefore(DateTime.now());
     final isPending = invite.status == InviteStatus.pending;
 
     return Card(
@@ -373,9 +374,11 @@ class _InviteCard extends StatelessWidget {
                 Icon(Icons.schedule, size: 14, color: colorScheme.mutedForeground),
                 const SizedBox(width: 4),
                 Text(
-                  isExpired
-                      ? 'Expired ${_formatDate(invite.expiresAt)}'
-                      : 'Expires ${_formatDate(invite.expiresAt)}',
+                  invite.expiresAt == null
+                      ? 'No expiry'
+                      : (isExpired
+                          ? 'Expired ${_formatDate(invite.expiresAt!)}'
+                          : 'Expires ${_formatDate(invite.expiresAt!)}'),
                   style: TextStyle(
                     fontSize: 12,
                     color: isExpired ? Colors.red : colorScheme.mutedForeground,

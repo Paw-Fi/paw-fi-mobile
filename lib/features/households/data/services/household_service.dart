@@ -37,6 +37,7 @@ class HouseholdService {
 
   Future<Map<String, dynamic>> createHousehold({
     required String name,
+    required String currency,
     String? coverImageUrl,
     String? themeColor,
   }) async {
@@ -44,12 +45,14 @@ class HouseholdService {
       final userId = _supabase.auth.currentUser?.id;
       print('🏠 Creating household:');
       print('  - Name: $name');
+      print('  - Currency: ${currency.toUpperCase()}');
       print('  - Cover URL: $coverImageUrl');
       print('  - Theme: $themeColor');
       print('  - Owner ID: $userId');
 
       final response = await _supabase.from('households').insert({
         'name': name,
+        'currency': currency.toUpperCase(),
         'cover_image_url': coverImageUrl,
         'theme_color': themeColor,
         'owner_id': userId,

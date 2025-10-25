@@ -31,16 +31,9 @@ class HouseholdDashboard extends ConsumerWidget {
       children: [
         // Household Header
         Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                colorScheme.primary.withOpacity(0.1),
-                colorScheme.primary.withOpacity(0.05),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+          decoration: const BoxDecoration(
+            color: Colors.transparent,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -56,8 +49,8 @@ class HouseholdDashboard extends ConsumerWidget {
                         Text(
                           household.name,
                           style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
+                            fontSize: 28,
+                            fontWeight: FontWeight.w700,
                             color: colorScheme.foreground,
                           ),
                         ),
@@ -65,7 +58,7 @@ class HouseholdDashboard extends ConsumerWidget {
                         Text(
                           'Shared Household',
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: 13,
                             color: colorScheme.mutedForeground,
                           ),
                         ),
@@ -78,6 +71,8 @@ class HouseholdDashboard extends ConsumerWidget {
                       Icons.settings_outlined,
                       color: colorScheme.foreground,
                     ),
+                    splashColor: Colors.transparent,
+                    highlightColor: Colors.transparent,
                     onPressed: () {
                       Navigator.push(
                         context,
@@ -97,38 +92,34 @@ class HouseholdDashboard extends ConsumerWidget {
               // Quick action buttons
               Row(
                 children: [
-                  Expanded(
-                    child: _QuickActionButton(
-                      icon: Icons.people_outline,
-                      label: 'Members',
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => HouseholdMembersPage(
-                              householdId: household.id,
-                            ),
+                  _QuickActionButton(
+                    icon: Icons.people_outline,
+                    label: 'Members',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => HouseholdMembersPage(
+                            householdId: household.id,
                           ),
-                        );
-                      },
-                    ),
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(width: 12),
-                  Expanded(
-                    child: _QuickActionButton(
-                      icon: Icons.link,
-                      label: 'Invite',
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => HouseholdInvitesPage(
-                              householdId: household.id,
-                            ),
+                  _QuickActionButton(
+                    icon: Icons.link,
+                    label: 'Invite',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => HouseholdInvitesPage(
+                            householdId: household.id,
                           ),
-                        );
-                      },
-                    ),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -172,25 +163,6 @@ class HouseholdDashboard extends ConsumerWidget {
 
         _buildRecentActivity(ref, colorScheme),
 
-        const SizedBox(height: 24),
-
-        // Expense Splits Section
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Text(
-            'Pending Splits',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: colorScheme.foreground,
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-
-        _buildSplitsSection(ref, colorScheme),
-
-        const SizedBox(height: 32),
       ],
     );
   }
@@ -214,21 +186,16 @@ class HouseholdDashboard extends ConsumerWidget {
       data: (budgets) {
         if (budgets.isEmpty) {
           return Padding(
-            padding: const EdgeInsets.all(32),
+            padding: const EdgeInsets.all(24),
             child: Builder(
               builder: (context) => Column(
                 children: [
-                  Icon(
-                    Icons.account_balance_wallet_outlined,
-                    size: 48,
-                    color: colorScheme.mutedForeground,
-                  ),
-                  const SizedBox(height: 12),
                   Text(
                     'No shared budgets yet',
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 15,
                       color: colorScheme.mutedForeground,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -289,27 +256,21 @@ class HouseholdDashboard extends ConsumerWidget {
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Container(
-              padding: const EdgeInsets.all(32),
+              padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 color: colorScheme.muted,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.receipt_long_outlined,
-                    size: 48,
+              child: Center(
+                child: Text(
+                  'No recent activity',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
                     color: colorScheme.mutedForeground,
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'No recent activity',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: colorScheme.mutedForeground,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           );
@@ -344,24 +305,17 @@ class HouseholdDashboard extends ConsumerWidget {
                         ),
                       );
                     },
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'View All Expenses',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: colorScheme.primary,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Icon(
-                          Icons.arrow_forward,
-                          size: 16,
+                    child: Center(
+                      child: Text(
+                        'View All Expenses',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
                           color: colorScheme.primary,
+                          decoration: TextDecoration.underline,
+                          decorationColor: colorScheme.primary,
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -394,27 +348,21 @@ class HouseholdDashboard extends ConsumerWidget {
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Container(
-              padding: const EdgeInsets.all(32),
+              padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 color: colorScheme.muted,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.balance_outlined,
-                    size: 48,
+              child: Center(
+                child: Text(
+                  'No pending splits',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 15,
                     color: colorScheme.mutedForeground,
+                    fontWeight: FontWeight.w500,
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'No pending splits',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: colorScheme.mutedForeground,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           );
@@ -450,33 +398,20 @@ class _QuickActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = shadcnui.Theme.of(context).colorScheme;
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: colorScheme.muted,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: colorScheme.border,
-            width: 1,
+    return Tooltip(
+      message: label,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(24),
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: colorScheme.muted,
+            shape: BoxShape.circle,
           ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 20, color: colorScheme.foreground),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                color: colorScheme.foreground,
-              ),
-            ),
-          ],
+          alignment: Alignment.center,
+          child: Icon(icon, size: 20, color: colorScheme.foreground),
         ),
       ),
     );
@@ -517,11 +452,7 @@ class _BudgetCard extends ConsumerWidget {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: colorScheme.card,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: colorScheme.border,
-            width: 1,
-          ),
+          borderRadius: BorderRadius.circular(14),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -546,22 +477,12 @@ class _BudgetCard extends ConsumerWidget {
               ),
             ),
             const Spacer(),
-            Row(
-              children: [
-                Text(
-                  budget.period.toJson().toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: colorScheme.mutedForeground,
-                  ),
-                ),
-                const Spacer(),
-                Icon(
-                  Icons.chevron_right,
-                  size: 16,
-                  color: colorScheme.mutedForeground,
-                ),
-              ],
+            Text(
+              budget.period.toJson().toUpperCase(),
+              style: TextStyle(
+                fontSize: 12,
+                color: colorScheme.mutedForeground,
+              ),
             ),
           ],
         ),
@@ -582,30 +503,9 @@ class _SplitCard extends StatelessWidget {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colorScheme.card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: colorScheme.border,
-          width: 1,
-        ),
-      ),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 0),
       child: Row(
         children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: colorScheme.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              Icons.balance,
-              color: colorScheme.primary,
-            ),
-          ),
-          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -628,10 +528,6 @@ class _SplitCard extends StatelessWidget {
                 ),
               ],
             ),
-          ),
-          Icon(
-            Icons.chevron_right,
-            color: colorScheme.mutedForeground,
           ),
         ],
       ),
@@ -678,59 +574,12 @@ class _ExpenseActivityCard extends StatelessWidget {
       dateText = '${expense.date.month}/${expense.date.day}/${expense.date.year}';
     }
 
-    // Get category icon
-    IconData categoryIcon = Icons.shopping_bag;
-    if (expense.category != null) {
-      switch (expense.category!.toLowerCase()) {
-        case 'food':
-        case 'groceries':
-          categoryIcon = Icons.restaurant;
-          break;
-        case 'transport':
-        case 'transportation':
-          categoryIcon = Icons.directions_car;
-          break;
-        case 'entertainment':
-          categoryIcon = Icons.movie;
-          break;
-        case 'utilities':
-          categoryIcon = Icons.lightbulb;
-          break;
-        case 'health':
-          categoryIcon = Icons.local_hospital;
-          break;
-        default:
-          categoryIcon = Icons.shopping_bag;
-      }
-    }
-
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colorScheme.card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: colorScheme.border,
-          width: 1,
-        ),
-      ),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 0),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: colorScheme.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              categoryIcon,
-              color: colorScheme.primary,
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -738,15 +587,15 @@ class _ExpenseActivityCard extends StatelessWidget {
                 Text(
                   expense.category ?? 'Expense',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 17,
                     fontWeight: FontWeight.w600,
                     color: colorScheme.foreground,
+                    height: 1.2,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Row(
                   children: [
-                    // Show who added it with avatar
                     if (expense.userName != null) ...[
                       UserAvatar(
                         avatarUrl: expense.userAvatarUrl,
@@ -762,7 +611,7 @@ class _ExpenseActivityCard extends StatelessWidget {
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       Text(
                         '•',
                         style: TextStyle(
@@ -770,7 +619,7 @@ class _ExpenseActivityCard extends StatelessWidget {
                           color: colorScheme.mutedForeground,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                     ],
                     Text(
                       dateText,
@@ -784,7 +633,7 @@ class _ExpenseActivityCard extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: colorScheme.secondary.withOpacity(0.1),
+                          color: colorScheme.secondary.withOpacity(0.08),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
@@ -793,6 +642,7 @@ class _ExpenseActivityCard extends StatelessWidget {
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
                             color: colorScheme.secondaryForeground,
+                            letterSpacing: 0.3,
                           ),
                         ),
                       ),
@@ -802,24 +652,14 @@ class _ExpenseActivityCard extends StatelessWidget {
               ],
             ),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '\$${(expense.amountCents / 100).toStringAsFixed(2)}',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.foreground,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Icon(
-                Icons.chevron_right,
-                size: 20,
-                color: colorScheme.mutedForeground,
-              ),
-            ],
+          const SizedBox(width: 12),
+          Text(
+            '\$${(expense.amountCents / 100).toStringAsFixed(2)}',
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: colorScheme.foreground,
+            ),
           ),
         ],
       ),

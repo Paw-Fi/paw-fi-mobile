@@ -1,6 +1,6 @@
 // Custom split configuration sheet
 // Allows users to split expenses by amount, percentage, or shares
-
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/features/households/domain/entities/household.dart';
@@ -57,6 +57,25 @@ void showCustomSplitSheet({
   );
 }
 
+/// Public, embeddable split editor used both inline and inside the bottom sheet
+class CustomSplitEditor extends StatefulWidget {
+  final List<HouseholdMember> members;
+  final double totalAmount;
+  final String currencySymbol;
+  final void Function(SplitType splitType, List<MemberSplit> splits)? onChanged;
+
+  const CustomSplitEditor({
+    super.key,
+    required this.members,
+    required this.totalAmount,
+    required this.currencySymbol,
+    this.onChanged,
+  });
+
+  @override
+  State<CustomSplitEditor> createState() => _CustomSplitEditorState();
+}
+
 class _CustomSplitSheet extends StatefulWidget {
   final List<HouseholdMember> members;
   final double totalAmount;
@@ -74,15 +93,24 @@ class _CustomSplitSheet extends StatefulWidget {
   State<_CustomSplitSheet> createState() => _CustomSplitSheetState();
 }
 
-class _CustomSplitSheetState extends State<_CustomSplitSheet> {
+class _CustomSplitEditorState extends State<CustomSplitEditor> {
   SplitType _selectedType = SplitType.equal;
   late List<MemberSplit> _memberSplits;
   String? _validationError;
+  Timer? _debounce;
 
   @override
   void initState() {
     super.initState();
     _initializeSplits();
+    // notify parent with initial state after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) => _queueNotify());
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
   }
 
   void _initializeSplits() {
@@ -96,8 +124,8 @@ class _CustomSplitSheetState extends State<_CustomSplitSheet> {
     }).toList();
   }
 
-  void _validateAndSave() {
-    setState(() => _validationError = null);
+  void _validate() {
+    String? error;
 
     // Validate based on split type
     switch (_selectedType) {
@@ -111,9 +139,7 @@ class _CustomSplitSheetState extends State<_CustomSplitSheet> {
           (sum, split) => sum + (split.amount ?? 0),
         );
         if ((totalSplit - widget.totalAmount).abs() > 0.01) {
-          setState(() => _validationError =
-              'Split amounts must equal ${widget.currencySymbol}${widget.totalAmount.toStringAsFixed(2)}');
-          return;
+          error = 'Split amounts must equal ${widget.currencySymbol}${widget.totalAmount.toStringAsFixed(2)}';
         }
         break;
 
@@ -123,182 +149,93 @@ class _CustomSplitSheetState extends State<_CustomSplitSheet> {
           (sum, split) => sum + (split.percentage ?? 0),
         );
         if ((totalPercent - 100).abs() > 0.01) {
-          setState(() => _validationError = 'Percentages must total 100%');
-          return;
+          error = 'Percentages must total 100%';
         }
         break;
 
       case SplitType.shares:
         // Shares always valid as long as > 0
         if (_memberSplits.any((s) => (s.shares ?? 0) <= 0)) {
-          setState(() => _validationError = 'Each person must have at least 1 share');
-          return;
+          error = 'Each person must have at least 1 share';
         }
         break;
     }
+    setState(() => _validationError = error);
+  }
 
-    widget.onSave(_selectedType, _memberSplits);
-    Navigator.pop(context);
+  void _queueNotify() {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      widget.onChanged?.call(_selectedType, List<MemberSplit>.from(_memberSplits));
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+     
 
-    return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.85,
-      ),
-      decoration: BoxDecoration(
-        color: colorScheme.card,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Drag Handle
-          Container(
-            margin: const EdgeInsets.only(top: 10, bottom: 6),
-            width: 36,
-            height: 4,
-            decoration: BoxDecoration(
-              color: colorScheme.border,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
 
-          // Header
+        // Split Type Selector
+        Row(
+          children: [
+            _buildTypeChip(colorScheme, 'Amount', SplitType.amount),
+            const SizedBox(width: 8),
+            _buildTypeChip(colorScheme, 'Percent', SplitType.percentage),
+            const SizedBox(width: 8),
+            _buildTypeChip(colorScheme, 'Share', SplitType.shares),
+          ],
+        ),
+
+        const SizedBox(height: 16),
+
+        // Member List
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: EdgeInsets.zero,
+          itemCount: _memberSplits.length,
+          itemBuilder: (context, index) {
+            return _buildMemberRow(colorScheme, index);
+          },
+        ),
+
+        // Validation Error
+        if (_validationError != null)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            child: Row(
-              children: [
-                Icon(Icons.people_outline, color: colorScheme.foreground),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Split Expense',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: colorScheme.foreground,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  icon: Icon(Icons.close, color: colorScheme.mutedForeground),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
-          ),
-
-          // Total Amount Display
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 24),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: colorScheme.muted.withOpacity(0.3),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: colorScheme.border.withOpacity(0.5)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  'Total: ',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: colorScheme.mutedForeground,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                Text(
-                  '${widget.currencySymbol}${widget.totalAmount.toStringAsFixed(2)}',
-                  style: TextStyle(
-                    fontSize: 24,
-                    color: colorScheme.foreground,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // Split Type Selector
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Row(
-              children: [
-                _buildTypeChip(colorScheme, 'Amount', SplitType.amount),
-                const SizedBox(width: 8),
-                _buildTypeChip(colorScheme, 'Percent', SplitType.percentage),
-                const SizedBox(width: 8),
-                _buildTypeChip(colorScheme, 'Share', SplitType.shares),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // Member List
-          Flexible(
-            child: ListView.builder(
-              shrinkWrap: true,
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              itemCount: _memberSplits.length,
-              itemBuilder: (context, index) {
-                return _buildMemberRow(colorScheme, index);
-              },
-            ),
-          ),
-
-          // Validation Error
-          if (_validationError != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: colorScheme.destructive.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: colorScheme.destructive.withOpacity(0.3)),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.error_outline, 
-                        color: colorScheme.destructive, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _validationError!,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: colorScheme.destructive,
-                          fontWeight: FontWeight.w500,
-                        ),
+            padding: const EdgeInsets.only(top: 8),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: colorScheme.destructive.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: colorScheme.destructive.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.error_outline, 
+                      color: colorScheme.destructive, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _validationError!,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: colorScheme.destructive,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
-                  ],
-                ),
-              ),
-            ),
-
-          // Save Button
-          Padding(
-            padding: EdgeInsets.fromLTRB(24, 16, 24, MediaQuery.of(context).padding.bottom + 16),
-            child: SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: shadcnui.PrimaryButton(
-                onPressed: _validateAndSave,
-                child: const Text('Apply Split'),
+                  ),
+                ],
               ),
             ),
           ),
-        ],
-      ),
+
+        // No explicit Apply button; changes are propagated with debounce
+      ],
     );
   }
 
@@ -306,16 +243,20 @@ class _CustomSplitSheetState extends State<_CustomSplitSheet> {
     final isSelected = _selectedType == type;
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _selectedType = type),
+        onTap: () {
+          setState(() => _selectedType = type);
+          _validate();
+          _queueNotify();
+        },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: isSelected ? colorScheme.primary : colorScheme.muted.withOpacity(0.3),
+            color: isSelected ? colorScheme.primary : colorScheme.muted.withOpacity(0.08),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: isSelected ? colorScheme.primary : colorScheme.border.withOpacity(0.5),
-              width: isSelected ? 2 : 1,
+              color: isSelected ? colorScheme.primary : Colors.transparent,
+              width: isSelected ? 2 : 0,
             ),
           ),
           child: Text(
@@ -337,12 +278,11 @@ class _CustomSplitSheetState extends State<_CustomSplitSheet> {
     final member = memberSplit.member;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
       decoration: BoxDecoration(
-        color: colorScheme.card,
+        color: Colors.transparent,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colorScheme.border, width: 1),
       ),
       child: Row(
         children: [
@@ -394,7 +334,7 @@ class _CustomSplitSheetState extends State<_CustomSplitSheet> {
             )
           else
             SizedBox(
-              width: 100,
+              width: 110,
               child: _buildSplitInput(colorScheme, index),
             ),
         ],
@@ -436,9 +376,11 @@ class _CustomSplitSheetState extends State<_CustomSplitSheet> {
       decoration: InputDecoration(
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        filled: true,
+        fillColor: colorScheme.muted.withOpacity(0.08),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: colorScheme.border),
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide.none,
         ),
         suffixText: suffix,
         suffixStyle: TextStyle(
@@ -461,8 +403,9 @@ class _CustomSplitSheetState extends State<_CustomSplitSheet> {
             case SplitType.equal:
               break;
           }
-          _validationError = null;
         });
+        _validate();
+        _queueNotify();
       },
     );
   }
@@ -490,5 +433,80 @@ class _CustomSplitSheetState extends State<_CustomSplitSheet> {
     }
 
     return 'Owes ${widget.currencySymbol}${amount.toStringAsFixed(2)}';
+  }
+}
+
+class _CustomSplitSheetState extends State<_CustomSplitSheet> {
+  SplitType? _latestType;
+  List<MemberSplit>? _latestSplits;
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.85,
+      ),
+      decoration: BoxDecoration(
+        color: colorScheme.card,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            margin: const EdgeInsets.only(top: 10, bottom: 6),
+            width: 36,
+            height: 4,
+            decoration: BoxDecoration(
+              color: colorScheme.border,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            child: Row(
+              children: [
+                Icon(Icons.people_outline, color: colorScheme.foreground),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Split Expense',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: colorScheme.foreground,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.close, color: colorScheme.mutedForeground),
+                  onPressed: () {
+                    if (_latestType != null && _latestSplits != null) {
+                      widget.onSave(_latestType!, _latestSplits!);
+                    }
+                    Navigator.pop(context);
+                  },
+                ),
+              ],
+            ),
+          ),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+              child: CustomSplitEditor(
+                members: widget.members,
+                totalAmount: widget.totalAmount,
+                currencySymbol: widget.currencySymbol,
+                onChanged: (type, splits) {
+                  _latestType = type;
+                  _latestSplits = splits;
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

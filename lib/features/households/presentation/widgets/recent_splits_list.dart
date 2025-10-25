@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import '../providers/household_providers.dart';
+import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
 
 class RecentSplitsList extends ConsumerWidget {
   final String householdId;
@@ -74,6 +75,13 @@ class RecentSplitsList extends ConsumerWidget {
                     color: colorScheme.mutedForeground,
                   ),
                 ),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => TransactionsPage(householdId: householdId),
+                    ),
+                  );
+                },
               ),
             );
           }).toList(),

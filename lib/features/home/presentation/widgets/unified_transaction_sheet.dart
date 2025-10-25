@@ -19,9 +19,11 @@ import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dar
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/datetime.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
-import 'package:moneko/features/households/domain/entities/shared_budget.dart' show ShareScope;
 import 'package:moneko/features/auth/auth.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/features/households/domain/entities/household.dart';
 
 /// Format date with relative terms
 String _formatRelativeDate(DateTime date) {
@@ -95,6 +97,9 @@ class _UnifiedTransactionSheetState
   TimeOfDay _selectedTime = TimeOfDay.now();
   SplitType? _customSplitType;
   List<MemberSplit>? _customSplits;
+  bool _isLoadingMembers = false;
+  String? _membersError;
+  List<HouseholdMember>? _householdMembers;
 
   @override
   void initState() {
@@ -104,12 +109,25 @@ class _UnifiedTransactionSheetState
       final dateTime = toLocalTime(widget.existingExpense!.createdAt);
       _selectedTime = TimeOfDay(hour: dateTime.hour, minute: dateTime.minute);
       
-      // Initialize share state from existing expense
-      _isSharedWithHousehold = widget.existingExpense!.splitGroupId != null ||
-                               widget.existingExpense!.shareScope == ShareScope.household;
+      // Initialize share state from existing expense (shared if linked to a household or has a split group)
+      _isSharedWithHousehold = widget.existingExpense!.householdId != null ||
+                               widget.existingExpense!.splitGroupId != null;
     } else if (widget.newExpense != null) {
-      final dateTime = widget.newExpense!.date;
-      _selectedTime = TimeOfDay(hour: dateTime.hour, minute: dateTime.minute);
+      // For new expenses, default to current local time (BE usually returns date-only)
+      _selectedTime = TimeOfDay.now();
+      // Auto-enable household sharing when in household view mode
+      final vm = ref.read(viewModeProvider);
+      if (vm.mode == ViewMode.household) {
+        _isSharedWithHousehold = true; // safe to set local field in initState
+        // Defer provider writes until after first frame to avoid modifying providers during build
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final selected = ref.read(selectedHouseholdProvider).householdId;
+          if (selected != null) {
+            ref.read(selectedHouseholdForSharingProvider.notifier).state = selected;
+            _loadMembers(selected);
+          }
+        });
+      }
     }
   }
 
@@ -239,9 +257,6 @@ class _UnifiedTransactionSheetState
                             letterSpacing: -1.5,
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Icon(Icons.edit_outlined,
-                            size: 20, color: colorScheme.mutedForeground),
                       ],
                     ),
                   ),
@@ -298,7 +313,6 @@ class _UnifiedTransactionSheetState
                   // Category Card
                   _buildDetailCard(
                     colorScheme: colorScheme,
-                    icon: getCategoryIcon(displayCategory),
                     label: 'Category',
                     value: displayCategory.substring(0, 1).toUpperCase() +
                         displayCategory.substring(1),
@@ -310,10 +324,10 @@ class _UnifiedTransactionSheetState
                   // Currency Card
                   _buildDetailCard(
                     colorScheme: colorScheme,
-                    icon: Icons.monetization_on_outlined,
                     label: 'Currency',
                     value: currency.toUpperCase(),
-                    onTap: () {}, // Not editable
+                    onTap: () => _handleEditCurrency(currency),
+                    disabled: _isSharedWithHousehold,
                   ),
 
                   const SizedBox(height: 12),
@@ -321,7 +335,6 @@ class _UnifiedTransactionSheetState
                   // Date Card
                   _buildDetailCard(
                     colorScheme: colorScheme,
-                    icon: Icons.calendar_today_outlined,
                     label: 'Date',
                     value: _formatRelativeDate(displayDate),
                     onTap: () => _handleEditDate(displayDate),
@@ -332,7 +345,6 @@ class _UnifiedTransactionSheetState
                   // Time Card
                   _buildDetailCard(
                     colorScheme: colorScheme,
-                    icon: Icons.access_time_outlined,
                     label: 'Time',
                     value: _selectedTime.format(context),
                     onTap: () => _handleEditTime(),
@@ -354,11 +366,18 @@ class _UnifiedTransactionSheetState
                       ),
                     ),
                     const SizedBox(height: 16),
-                    _buildNotesCard(
-                      colorScheme: colorScheme,
-                      notes: displayDescription ?? _generateNotePrefix(),
-                      onTap: () => _handleEditDescription(displayDescription),
-                    ),
+                  _buildNotesCard(
+                    colorScheme: colorScheme,
+                    notes: (() {
+                      final notePrefix = _generateNotePrefix();
+                      final desc = displayDescription;
+                      if (desc == null) return notePrefix;
+                      final trimmed = desc.trimLeft();
+                      final isReceipt = trimmed.toLowerCase().startsWith('receipt:');
+                      return isReceipt ? notePrefix : desc;
+                    })(),
+                    onTap: () => _handleEditDescription(displayDescription),
+                  ),
                     const SizedBox(height: 32),
                   ],
 
@@ -420,12 +439,20 @@ class _UnifiedTransactionSheetState
     List households,
     String? selectedHousehold,
   ) {
+    // Auto-select first household when sharing is enabled but no selection exists yet
+    if (_isSharedWithHousehold && households.isNotEmpty && selectedHousehold == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final firstId = households.first.id;
+        ref.read(selectedHouseholdForSharingProvider.notifier).state = firstId;
+        _loadMembers(firstId);
+      });
+    }
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: colorScheme.muted.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colorScheme.border.withOpacity(0.5), width: 1),
+        color: colorScheme.muted.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -433,9 +460,6 @@ class _UnifiedTransactionSheetState
           // Toggle switch for sharing
           Row(
             children: [
-              Icon(Icons.people_outline,
-                  size: 20, color: colorScheme.foreground),
-              const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   'Share with household',
@@ -456,9 +480,13 @@ class _UnifiedTransactionSheetState
                       ref.read(selectedHouseholdForSharingProvider.notifier).state = null;
                       _customSplitType = null;
                       _customSplits = null;
+                      _householdMembers = null;
+                      _membersError = null;
+                      _isLoadingMembers = false;
                     } else if (households.isNotEmpty) {
                       // Auto-select first household when toggling on
                       ref.read(selectedHouseholdForSharingProvider.notifier).state = households.first.id;
+                      _loadMembers(households.first.id);
                     }
                   });
                 },
@@ -472,9 +500,8 @@ class _UnifiedTransactionSheetState
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               decoration: BoxDecoration(
-                color: colorScheme.card,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: colorScheme.border.withOpacity(0.5)),
+                color: colorScheme.muted.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
@@ -519,7 +546,6 @@ class _UnifiedTransactionSheetState
                                 color: colorScheme.muted,
                                 borderRadius: BorderRadius.circular(6),
                               ),
-                              child: Icon(Icons.home_rounded, size: 16, color: colorScheme.mutedForeground),
                             ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -544,62 +570,101 @@ class _UnifiedTransactionSheetState
                       setState(() {
                         _customSplitType = null;
                         _customSplits = null;
+                        _householdMembers = null;
+                        _membersError = null;
+                        _isLoadingMembers = false;
                       });
+                      _loadMembers(value);
                     }
                   },
                 ),
               ),
             ),
-            
-            // Customize Split Button
             const SizedBox(height: 12),
-            shadcnui.OutlineButton(
-              onPressed: () => _showCustomizeSplit(households, selectedHousehold),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.tune, size: 18, color: colorScheme.primary),
-                  const SizedBox(width: 8),
-                  Text(
-                    _customSplits != null ? 'Edit Split' : 'Customize Split',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: colorScheme.primary,
+            // Inline Split Editor (replaces previous button/secondary sheet)
+            Builder(
+              builder: (context) {
+                if (_isLoadingMembers) {
+                  return Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: colorScheme.muted.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            
-            // Show custom split summary if configured
-            if (_customSplits != null) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: colorScheme.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: colorScheme.primary.withOpacity(0.3)),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.check_circle, color: colorScheme.primary, size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Custom ${_customSplitType.toString().split('.').last} split configured',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: colorScheme.foreground,
-                          fontWeight: FontWeight.w500,
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation(colorScheme.primary),
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 10),
+                        Text('Loading household members...',
+                            style: TextStyle(color: colorScheme.mutedForeground)),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-            ],
+                  );
+                }
+                if (_membersError != null) {
+                  return Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: colorScheme.destructive.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.error_outline, color: colorScheme.destructive, size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _membersError!,
+                            style: TextStyle(color: colorScheme.destructive),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                if (_householdMembers == null) {
+                  return Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: colorScheme.muted.withOpacity(0.06),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Select a household to configure split',
+                      style: TextStyle(color: colorScheme.mutedForeground),
+                    ),
+                  );
+                }
+
+                final pendingExpense = isNewExpense ? ref.read(pendingExpenseProvider) : null;
+                final currentAmount = pendingExpense?.amount ?? amount;
+
+                return Container(
+                  decoration: BoxDecoration(
+                    color: colorScheme.muted.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: CustomSplitEditor(
+                    members: _householdMembers!,
+                    totalAmount: currentAmount,
+                    currencySymbol: currencySymbol,
+                    onChanged: (splitType, splits) {
+                      setState(() {
+                        _customSplitType = splitType;
+                        _customSplits = splits;
+                      });
+                    },
+                  ),
+                );
+              },
+            ),
           ],
         ],
       ),
@@ -608,33 +673,30 @@ class _UnifiedTransactionSheetState
 
   Widget _buildDetailCard({
     required shadcnui.ColorScheme colorScheme,
-    required IconData icon,
     required String label,
     required String value,
     required VoidCallback onTap,
+    bool disabled = false,
   }) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: disabled
+          ? () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('Currency is managed by the household and cannot be changed'),
+                  backgroundColor: colorScheme.muted,
+                  behavior: SnackBarBehavior.floating,
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            }
+          : onTap,
       child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: colorScheme.card,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: colorScheme.border, width: 1),
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 14),
+        decoration: const BoxDecoration(),
         child: Row(
           children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: colorScheme.card,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: colorScheme.border, width: 0.5),
-              ),
-              child: Icon(icon, size: 20, color: colorScheme.foreground),
-            ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 4),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -643,7 +705,7 @@ class _UnifiedTransactionSheetState
                     label,
                     style: TextStyle(
                       fontSize: 13,
-                      color: colorScheme.mutedForeground,
+                      color: disabled ? colorScheme.mutedForeground.withOpacity(0.6) : colorScheme.mutedForeground,
                       fontWeight: FontWeight.w400,
                     ),
                   ),
@@ -652,19 +714,180 @@ class _UnifiedTransactionSheetState
                     value,
                     style: TextStyle(
                       fontSize: 15,
-                      color: colorScheme.foreground,
+                      color: disabled ? colorScheme.mutedForeground : colorScheme.foreground,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
               ),
             ),
-            Icon(Icons.chevron_right,
-                color: colorScheme.mutedForeground, size: 20),
+            Icon(Icons.chevron_right, color: disabled ? colorScheme.mutedForeground.withOpacity(0.4) : colorScheme.mutedForeground, size: 18),
           ],
         ),
       ),
     );
+  }
+
+  Future<T?> _showSelectionSheet<T>({
+    required List<T> items,
+    required String Function(T) getLabel,
+    required T initial,
+  }) async {
+    if (Platform.isIOS) {
+      int selectedIndex = items.indexOf(initial);
+      if (selectedIndex < 0) selectedIndex = 0;
+      return await showCupertinoModalPopup<T>(
+        context: context,
+        builder: (context) {
+          T tempValue = items[selectedIndex];
+          return Container(
+            height: 320,
+            color: CupertinoColors.systemBackground.resolveFrom(context),
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: CupertinoColors.separator.resolveFrom(context),
+                        width: 0.5,
+                      ),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        onPressed: () => Navigator.pop<T>(context),
+                        child: const Text('Cancel'),
+                      ),
+                      CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        onPressed: () => Navigator.pop<T>(context, tempValue),
+                        child: const Text('Done'),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: CupertinoPicker(
+                    scrollController: FixedExtentScrollController(initialItem: selectedIndex),
+                    itemExtent: 40,
+                    onSelectedItemChanged: (i) {
+                      tempValue = items[i];
+                    },
+                    children: items.map((e) => Center(child: Text(getLabel(e)))).toList(),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    } else {
+      return await showModalBottomSheet<T>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        builder: (context) {
+          final scheme = shadcnui.Theme.of(context).colorScheme;
+          return Container(
+            decoration: BoxDecoration(
+              color: scheme.card,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: SafeArea(
+              top: false,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 10, bottom: 6),
+                    width: 32,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: scheme.border,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Flexible(
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: items.length,
+                      separatorBuilder: (_, __) => Divider(height: 1, color: scheme.border.withOpacity(0.4)),
+                      itemBuilder: (context, i) {
+                        final value = items[i];
+                        final label = getLabel(value);
+                        final selected = value == initial;
+                        return ListTile(
+                          title: Text(label, style: TextStyle(color: scheme.foreground)),
+                          trailing: selected ? Icon(Icons.check, color: scheme.primary) : null,
+                          onTap: () => Navigator.pop<T>(context, value),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    }
+  }
+
+  Future<void> _handleEditCurrency(String currentCurrency) async {
+    if (isExistingExpense) {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => EditTransactionBottomSheet(
+          expenseId: widget.existingExpense!.id,
+          expense: widget.existingExpense!,
+          field: EditField.currency,
+          currentValue: currentCurrency,
+        ),
+      );
+      return;
+    }
+
+    if (_isSharedWithHousehold) {
+      final scheme = shadcnui.Theme.of(context).colorScheme;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Currency cannot be changed when sharing with a household'),
+          backgroundColor: scheme.muted,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    final options = getAvailableCurrencyOptions();
+    final codes = options.keys.toList()..sort();
+    final currentPending = ref.read(pendingExpenseProvider);
+    final current = (currentPending?.currency ?? currentCurrency).toUpperCase();
+    final initial = codes.contains(current) ? current : codes.first;
+
+    final selected = await _showSelectionSheet<String>(
+      items: codes,
+      getLabel: (code) => '$code  ${options[code]}',
+      initial: initial,
+    );
+
+    if (selected != null) {
+      final current = ref.read(pendingExpenseProvider);
+      if (current != null) {
+        ref.read(pendingExpenseProvider.notifier).state = current.copyWith(
+          currency: selected,
+          currencySymbol: resolveCurrencySymbol(selected),
+        );
+      }
+    }
   }
 
   Widget _buildNotesCard({
@@ -678,25 +901,13 @@ class _UnifiedTransactionSheetState
         width: double.infinity,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: colorScheme.card,
+          color: colorScheme.muted.withOpacity(0.08),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: colorScheme.border, width: 1),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: colorScheme.card,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: colorScheme.border, width: 0.5),
-              ),
-              child: Icon(Icons.notes_outlined,
-                  size: 20, color: colorScheme.foreground),
-            ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 4),
             Expanded(
               child: Text(
                 notes,
@@ -708,9 +919,6 @@ class _UnifiedTransactionSheetState
                 ),
               ),
             ),
-            const SizedBox(width: 8),
-            Icon(Icons.chevron_right,
-                color: colorScheme.mutedForeground, size: 20),
           ],
         ),
       ),
@@ -725,7 +933,6 @@ class _UnifiedTransactionSheetState
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colorScheme.border, width: 1),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
@@ -864,25 +1071,11 @@ class _UnifiedTransactionSheetState
         'income',
         'other'
       ];
-      final result = await showDialog<String>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Select Category'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView(
-              shrinkWrap: true,
-              children: categories
-                  .map((cat) => ListTile(
-                        title: Text(cat),
-                        leading: Icon(getCategoryIcon(cat)),
-                        selected: cat == currentCategory,
-                        onTap: () => Navigator.pop(context, cat),
-                      ))
-                  .toList(),
-            ),
-          ),
-        ),
+      final initial = categories.contains(currentCategory) ? currentCategory : categories.first;
+      final result = await _showSelectionSheet<String>(
+        items: categories,
+        getLabel: (c) => c[0].toUpperCase() + c.substring(1),
+        initial: initial,
       );
       if (result != null) {
         final current = ref.read(pendingExpenseProvider);
@@ -1084,103 +1277,158 @@ class _UnifiedTransactionSheetState
         ),
       );
     } else {
-      // Use bottom sheet modal instead of dialog
       final colorScheme = shadcnui.Theme.of(context).colorScheme;
       final notePrefix = _generateNotePrefix();
-      final controller = TextEditingController(
-        text: currentDescription ?? notePrefix,
-      );
-      
-      final result = await showModalBottomSheet<String>(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (context) => Container(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-          ),
-          decoration: BoxDecoration(
-            color: colorScheme.card,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Drag handle
-              Container(
-                margin: const EdgeInsets.only(top: 10, bottom: 6),
-                width: 36,
-                height: 4,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: colorScheme.border,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              
-              // Header
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
-                child: Text(
-                  'Edit Notes',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.foreground,
-                  ),
-                ),
-              ),
-              
-              // Text field
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: TextField(
-                  controller: controller,
-                  decoration: InputDecoration(
-                    hintText: 'Add a note...',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    filled: true,
-                    fillColor: colorScheme.muted.withOpacity(0.3),
-                  ),
-                  maxLines: 4,
-                  autofocus: true,
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: colorScheme.foreground,
-                  ),
-                ),
-              ),
-              
-              const SizedBox(height: 24),
-              
-              // Actions
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
-                child: Row(
+      final initialDescription = () {
+        if (currentDescription == null) return notePrefix;
+        final trimmed = currentDescription.trimLeft();
+        final isReceipt = trimmed.toLowerCase().startsWith('receipt:');
+        return isReceipt ? notePrefix : currentDescription;
+      }();
+      final controller = TextEditingController(text: initialDescription);
+
+      String? result;
+      if (Platform.isIOS) {
+        result = await showCupertinoModalPopup<String>(
+          context: context,
+          builder: (context) {
+            return Container(
+              padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+              color: CupertinoColors.systemBackground.resolveFrom(context),
+              child: SafeArea(
+                top: false,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
-                      child: shadcnui.OutlineButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('Cancel'),
+                    Container(
+                      margin: const EdgeInsets.only(top: 10, bottom: 6),
+                      width: 32,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: CupertinoColors.separator.resolveFrom(context),
+                        borderRadius: BorderRadius.circular(2),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: shadcnui.PrimaryButton(
-                        onPressed: () => Navigator.pop(context, controller.text),
-                        child: const Text('Save'),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          CupertinoButton(
+                            padding: EdgeInsets.zero,
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Cancel'),
+                          ),
+                          const Text('Edit Notes', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+                          CupertinoButton(
+                            padding: EdgeInsets.zero,
+                            onPressed: () => Navigator.pop(context, controller.text),
+                            child: const Text('Save'),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      child: CupertinoTextField(
+                        controller: controller,
+                        placeholder: 'Add a note...',
+                        maxLines: 4,
+                        autofocus: true,
+                        padding: const EdgeInsets.all(12),
                       ),
                     ),
                   ],
                 ),
               ),
-            ],
+            );
+          },
+        );
+      } else {
+        result = await showModalBottomSheet<String>(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (context) => Container(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+            ),
+            decoration: BoxDecoration(
+              color: colorScheme.card,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(top: 10, bottom: 6),
+                  width: 32,
+                  height: 4,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: colorScheme.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+                  child: Text(
+                    'Edit Notes',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.foreground,
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: TextField(
+                    controller: controller,
+                    decoration: InputDecoration(
+                      hintText: 'Add a note...',
+                      filled: true,
+                      fillColor: colorScheme.muted.withOpacity(0.1),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    maxLines: 4,
+                    autofocus: true,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: colorScheme.foreground,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: shadcnui.OutlineButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Cancel'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: shadcnui.PrimaryButton(
+                          onPressed: () => Navigator.pop(context, controller.text),
+                          child: const Text('Save'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      );
+        );
+      }
       
       if (result != null) {
         final current = ref.read(pendingExpenseProvider);
@@ -1253,6 +1501,35 @@ class _UnifiedTransactionSheetState
             backgroundColor: shadcnui.Theme.of(context).colorScheme.destructive,
           ),
         );
+      }
+    }
+  }
+
+  Future<void> _loadMembers(String householdId) async {
+    setState(() {
+      _isLoadingMembers = true;
+      _membersError = null;
+      _householdMembers = null;
+    });
+    try {
+      final repository = ref.read(householdRepositoryProvider);
+      final members = await repository.getHouseholdMembers(householdId);
+      if (mounted) {
+        setState(() {
+          _householdMembers = members;
+        });
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _membersError = 'Error loading members: $error';
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingMembers = false;
+        });
       }
     }
   }

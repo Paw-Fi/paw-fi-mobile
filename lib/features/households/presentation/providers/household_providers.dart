@@ -64,11 +64,13 @@ class UserHouseholdsNotifier extends StateNotifier<AsyncValue<List<Household>>> 
 
   Future<void> createHousehold({
     required String name,
+    required String currency,
     String? coverImageUrl,
     String? themeColor,
   }) async {
     await _repository.createHousehold(
       name: name,
+      currency: currency,
       coverImageUrl: coverImageUrl,
       themeColor: themeColor,
     );
@@ -427,83 +429,63 @@ final householdExpensesProvider =
     FutureProvider.family<List<ExpenseEntry>, HouseholdExpensesParams>(
   (ref, params) async {
     final supabase = ref.watch(supabaseClientProvider);
+    try {
+      // Fetch expenses (RLS allows: own or any with same household membership)
+      final expenses = await supabase
+          .from('expenses')
+          .select('id, contact_id, user_id, household_id, date, amount_cents, currency, category, raw_text, receipt_image_url, created_at, split_group_id')
+          .eq('household_id', params.householdId)
+          .order('created_at', ascending: false)
+          .limit(params.limit);
 
-    // Fetch expenses with user_ids
-    final expenses = await supabase
-        .from('expenses')
-        .select('*')
-        .eq('household_id', params.householdId)
-        .eq('share_scope', 'household')
-        .order('created_at', ascending: false)
-        .limit(params.limit);
+      final expensesList = (expenses as List).cast<Map<String, dynamic>>();
+      if (expensesList.isEmpty) return [];
 
-    final expensesList = (expenses as List).cast<Map<String, dynamic>>();
-    
-    if (expensesList.isEmpty) {
-      return [];
-    }
+      // Collect userIds to enrich display (optional)
+      final userIds = expensesList
+          .map((e) => e['user_id'] as String?)
+          .where((id) => id != null)
+          .cast<String>()
+          .toSet()
+          .toList();
+      debugPrint('🔍 Found ${userIds.length} unique user IDs: $userIds');
 
-    // Get all unique user IDs
-    final userIds = expensesList
-        .map((e) => e['user_id'] as String?)
-        .where((id) => id != null)
-        .cast<String>()
-        .toSet()
-        .toList();
-
-    debugPrint('🔍 Found ${userIds.length} unique user IDs: $userIds');
-
-    // Batch fetch all user data in one query (efficient!)
-    Map<String, Map<String, dynamic>> usersMap = {};
-    if (userIds.isNotEmpty) {
-      try {
-        final usersData = await supabase
-            .from('users')
-            .select('id, full_name, email, avatar_url')
-            .inFilter('id', userIds);
-
-        debugPrint('✅ Fetched ${(usersData as List).length} users from database');
-
-        for (var user in (usersData as List).cast<Map<String, dynamic>>()) {
-          // Create display name with fallback chain: full_name -> email -> "User"
-          String? displayName = user['full_name'] as String?;
-          final email = user['email'] as String?;
-          
-          if (displayName == null || displayName.isEmpty) {
-            if (email != null && email.isNotEmpty) {
-              // Use email before @ as display name
-              displayName = email.split('@').first;
-            } else {
-              displayName = 'User';
+      Map<String, Map<String, dynamic>> usersMap = {};
+      if (userIds.isNotEmpty) {
+        try {
+          final usersData = await supabase
+              .from('users')
+              .select('id, full_name, email, avatar_url')
+              .inFilter('id', userIds);
+          for (var user in (usersData as List).cast<Map<String, dynamic>>()) {
+            String? displayName = user['full_name'] as String?;
+            final email = user['email'] as String?;
+            if (displayName == null || displayName.isEmpty) {
+              displayName = (email != null && email.isNotEmpty)
+                  ? email.split('@').first
+                  : 'User';
             }
+            user['full_name'] = displayName;
+            usersMap[user['id'] as String] = user;
           }
-          
-          debugPrint('👤 User: ${user['id']} -> full_name="${user['full_name']}", email="$email", display="$displayName"');
-          
-          // Override full_name with display name for UI
-          user['full_name'] = displayName;
-          
-          usersMap[user['id'] as String] = user;
+        } catch (e) {
+          debugPrint('❌ Error fetching users: $e');
         }
-      } catch (e) {
-        debugPrint('❌ Error fetching users: $e');
       }
-    }
 
-    // Attach user data to each expense
-    for (var expense in expensesList) {
-      final userId = expense['user_id'] as String?;
-      if (userId != null && usersMap.containsKey(userId)) {
-        expense['users'] = usersMap[userId];
-        debugPrint('✅ Attached user ${usersMap[userId]!['full_name']} to expense');
-      } else {
-        debugPrint('⚠️ No user data found for userId: $userId (in map: ${usersMap.containsKey(userId)})');
+      for (var expense in expensesList) {
+        final userId = expense['user_id'] as String?;
+        if (userId != null && usersMap.containsKey(userId)) {
+          expense['users'] = usersMap[userId];
+        }
       }
-    }
 
-    return expensesList
-        .map((json) => ExpenseEntry.fromJson(json))
-        .toList();
+      return expensesList.map(ExpenseEntry.fromJson).toList();
+    } catch (e, st) {
+      debugPrint('❌ Error loading household expenses: $e\n$st');
+      // Bubble up to UI to show consistent error state
+      throw e;
+    }
   },
 );
 

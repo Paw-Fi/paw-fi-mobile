@@ -63,7 +63,10 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
         'amount': expense.amount,
         'category': expense.category,
         'currency': expense.currency,
+        // Date is used by BE for the calendar day; includes time here but DB stores DATE
         'date': expense.date.toIso8601String(),
+        // Preserve client timezone by sending an explicit UTC timestamp for created_at
+        'clientCreatedAt': expense.date.toUtc().toIso8601String(),
         'description': expense.description,
         'receiptImageUrl': receiptImageUrl,
         'householdId': householdId, // null = personal, id = shared
@@ -143,13 +146,26 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       ref.invalidate(householdSummaryProvider);
       
       // Invalidate household expenses (to show in recent activity) - CRITICAL!
-      ref.invalidate(householdExpensesProvider);
+      try {
+        ref.invalidate(householdExpensesProvider(HouseholdExpensesParams(householdId: householdId)));
+      } catch (_) {
+        // Fallback to family-wide invalidation if needed
+        ref.invalidate(householdExpensesProvider);
+      }
       
       // Invalidate household splits (to show new splits if created)
-      ref.invalidate(householdSplitsProvider);
+      try {
+        ref.invalidate(householdSplitsProvider(HouseholdSplitsParams(householdId: householdId)));
+      } catch (_) {
+        ref.invalidate(householdSplitsProvider);
+      }
       
       // Invalidate household budgets (to update spent amounts in budget tracking)
-      ref.invalidate(householdBudgetsProvider);
+      try {
+        ref.invalidate(householdBudgetsProvider(householdId));
+      } catch (_) {
+        ref.invalidate(householdBudgetsProvider);
+      }
       
       debugPrint('✅ Invalidated: expenses, splits, budgets, summary');
     }

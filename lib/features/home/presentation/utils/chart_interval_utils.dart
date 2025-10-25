@@ -97,7 +97,7 @@ Map<DateTime, double> _groupByHourRanges(List<ExpenseEntry> expenses) {
     for (var range in hourRanges) {
       if (hour >= range.startHour && hour < range.endHour) {
         final key = DateTime(today.year, today.month, today.day, range.startHour);
-        buckets[key] = (buckets[key] ?? 0) + expense.amount;
+        buckets[key] = (buckets[key] ?? 0) + expense.amount.abs();
         break;
       }
     }
@@ -144,7 +144,7 @@ Map<DateTime, double> _groupBySevenDays(List<ExpenseEntry> expenses) {
     }
     
     if (targetBucket != null) {
-      buckets[targetBucket] = (buckets[targetBucket] ?? 0) + expense.amount;
+      buckets[targetBucket] = (buckets[targetBucket] ?? 0) + expense.amount.abs();
     }
   }
 
@@ -172,7 +172,7 @@ Map<DateTime, double> _groupByMonthPairs(List<ExpenseEntry> expenses) {
     final month = expense.date.month;
     final pairIndex = (month - 1) ~/ 2; // 0-1 -> 0, 2-3 -> 1, etc.
     final key = DateTime(expense.date.year, pairIndex * 2 + 1);
-    buckets[key] = (buckets[key] ?? 0) + expense.amount;
+    buckets[key] = (buckets[key] ?? 0) + expense.amount.abs();
   }
 
   return buckets;
@@ -200,7 +200,7 @@ Map<DateTime, double> _groupBySevenYears(List<ExpenseEntry> expenses) {
     final year = expense.date.year;
     final key = DateTime(year);
     if (buckets.containsKey(key)) {
-      buckets[key] = (buckets[key] ?? 0) + expense.amount;
+      buckets[key] = (buckets[key] ?? 0) + expense.amount.abs();
     }
   }
 

@@ -287,21 +287,23 @@ class SharingPreferences {
   });
 
   factory SharingPreferences.fromJson(Map<String, dynamic> json) {
+    final createdAtStr = json['created_at'] as String?;
+    final updatedAtStr = json['updated_at'] as String?;
     return SharingPreferences(
       id: json['id'] as String,
       userId: json['user_id'] as String,
       householdId: json['household_id'] as String,
-      defaultTransactionShareScope:
-          ShareScope.fromJson(json['default_transaction_share_scope'] as String),
-      defaultAccountShareScope:
-          ShareScope.fromJson(json['default_account_share_scope'] as String),
-      perCategoryOverrides:
-          Map<String, String>.from(json['per_category_overrides'] as Map),
-      enableNudges: json['enable_nudges'] as bool,
+      defaultTransactionShareScope: ShareScope.fromJson(
+          (json['default_transaction_share_scope'] as String?) ?? 'private'),
+      defaultAccountShareScope: ShareScope.fromJson(
+          (json['default_account_share_scope'] as String?) ?? 'private'),
+      perCategoryOverrides: Map<String, String>.from(
+          (json['per_category_overrides'] as Map?) ?? <String, String>{}),
+      enableNudges: (json['enable_nudges'] as bool?) ?? true,
       nudgeQuietHoursStart: json['nudge_quiet_hours_start'] as String?,
       nudgeQuietHoursEnd: json['nudge_quiet_hours_end'] as String?,
-      createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: DateTime.parse(json['updated_at'] as String),
+      createdAt: createdAtStr != null ? DateTime.parse(createdAtStr) : DateTime.fromMillisecondsSinceEpoch(0),
+      updatedAt: updatedAtStr != null ? DateTime.parse(updatedAtStr) : DateTime.fromMillisecondsSinceEpoch(0),
     );
   }
 

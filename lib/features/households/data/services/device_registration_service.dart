@@ -4,12 +4,18 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Service for managing push notification device registration
 class DeviceRegistrationService {
   final SupabaseClient _supabase;
   final FirebaseMessaging _messaging;
   final FlutterLocalNotificationsPlugin _localNotifications;
+  bool _initialized = false;
+
+  static const String _androidChannelId = 'high_importance_channel';
+  static const String _androidChannelName = 'High Importance Notifications';
+  static const String _androidChannelDescription = 'Used for important notifications.';
 
   DeviceRegistrationService(
     this._supabase,
@@ -19,14 +25,17 @@ class DeviceRegistrationService {
 
   /// Initialize push notifications
   Future<void> initialize() async {
+    if (_initialized) {
+      debugPrint('🔔 Device registration service already initialized');
+      return;
+    }
     debugPrint('🔔 Initializing device registration service...');
 
     // Android 13+: request notifications permission via permission_handler
     if (Platform.isAndroid) {
       final status = await Permission.notification.request();
       if (status.isDenied) {
-        debugPrint('⚠️ Notification permission denied on Android');
-        return;
+        debugPrint('⚠️ Notification permission denied on Android (continuing to obtain FCM token)');
       }
     }
 
@@ -38,24 +47,56 @@ class DeviceRegistrationService {
       provisional: false,
     );
 
-    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+    // iOS/macOS: ensure foreground notifications can be shown while app is open
+    if (Platform.isIOS) {
+      await _messaging.setForegroundNotificationPresentationOptions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+    }
+
+    final authorized = settings.authorizationStatus == AuthorizationStatus.authorized ||
+        settings.authorizationStatus == AuthorizationStatus.provisional;
+
+    if (authorized) {
       debugPrint('✅ Push notification permission granted');
 
       // Initialize local notifications
       await _initializeLocalNotifications();
 
-      // Get and register FCM token
-      final token = await _messaging.getToken();
-      if (token != null) {
-        debugPrint('📱 FCM Token: $token');
-        await registerDevice(token);
-      }
+      // iOS local notification presentation already enabled via FCM options above
 
-      // Listen for token refresh
+      // Listen for token refresh first so we don't miss an early emission
       _messaging.onTokenRefresh.listen((newToken) {
         debugPrint('🔄 FCM Token refreshed: $newToken');
         registerDevice(newToken);
       });
+
+      // iOS: wait briefly for APNs token to be assigned before requesting FCM token
+      if (Platform.isIOS) {
+        final apns = await _waitForApnsToken(timeoutMs: 10000);
+        debugPrint('🍎 APNs Token: ${apns ?? "<null>"}');
+      }
+
+      // Get and register FCM token (gracefully handle APNs-not-ready scenarios)
+      try {
+        String? token = await _messaging.getToken();
+        if (token == null && Platform.isIOS) {
+          // Retry once after APNs likely ready
+          token = await _messaging.getToken();
+        }
+
+        if (token != null) {
+          debugPrint('📱 FCM Token: $token');
+          await registerDevice(token);
+        } else {
+          debugPrint('⚠️ FCM token is null; waiting for onTokenRefresh');
+        }
+      } catch (e) {
+        debugPrint('⚠️ getToken failed: $e');
+        // Rely on onTokenRefresh later
+      }
 
       // Handle foreground messages
       FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
@@ -68,11 +109,28 @@ class DeviceRegistrationService {
       if (initialMessage != null) {
         _handleBackgroundMessage(initialMessage);
       }
+
+      _initialized = true;
     } else if (settings.authorizationStatus == AuthorizationStatus.denied) {
       debugPrint('❌ Push notification permission denied');
     } else {
       debugPrint('⚠️ Push notification permission not determined');
     }
+  }
+
+  /// Wait for APNs token to be set (iOS only). Returns null if not ready in time.
+  Future<String?> _waitForApnsToken({int timeoutMs = 10000}) async {
+    if (!Platform.isIOS) return null;
+    final start = DateTime.now().millisecondsSinceEpoch;
+    String? apns;
+    while (DateTime.now().millisecondsSinceEpoch - start < timeoutMs) {
+      try {
+        apns = await _messaging.getAPNSToken();
+      } catch (_) {}
+      if (apns != null && apns.isNotEmpty) return apns;
+      await Future.delayed(const Duration(milliseconds: 300));
+    }
+    return apns;
   }
 
   /// Initialize local notifications for Android
@@ -97,9 +155,9 @@ class DeviceRegistrationService {
     // Create notification channel for Android
     if (Platform.isAndroid) {
       const channel = AndroidNotificationChannel(
-        'household_budgets',
-        'Household Budgets',
-        description: 'Notifications for household budget alerts and nudges',
+        _androidChannelId,
+        _androidChannelName,
+        description: _androidChannelDescription,
         importance: Importance.high,
         playSound: true,
         enableVibration: true,
@@ -115,6 +173,21 @@ class DeviceRegistrationService {
   /// Register device with backend
   Future<void> registerDevice(String pushToken) async {
     try {
+      // Skip frequent re-registration: compare with last cached token and time
+      final userId = _supabase.auth.currentUser?.id;
+      final prefs = await SharedPreferences.getInstance();
+      final cachePrefix = 'device_reg:${userId ?? "anon"}:';
+      final lastToken = prefs.getString('${cachePrefix}token');
+      final lastAtIso = prefs.getString('${cachePrefix}registered_at');
+      final now = DateTime.now();
+      DateTime? lastAt = lastAtIso != null ? DateTime.tryParse(lastAtIso) : null;
+
+      // Re-register only if token changed or older than 24h
+      if (lastToken == pushToken && lastAt != null && now.difference(lastAt) < const Duration(hours: 24)) {
+        debugPrint('⏭️ Skipping device registration (cached, <24h, token unchanged)');
+        return;
+      }
+
       debugPrint('📤 Registering device with backend...');
 
       final response = await _supabase.functions.invoke(
@@ -129,6 +202,8 @@ class DeviceRegistrationService {
 
       if (response.status == 200) {
         debugPrint('✅ Device registered successfully');
+        await prefs.setString('${cachePrefix}token', pushToken);
+        await prefs.setString('${cachePrefix}registered_at', now.toIso8601String());
       } else {
         debugPrint('❌ Device registration failed: ${response.status}');
       }
@@ -171,9 +246,9 @@ class DeviceRegistrationService {
   /// Show local notification
   Future<void> _showLocalNotification(RemoteMessage message) async {
     const androidDetails = AndroidNotificationDetails(
-      'household_budgets',
-      'Household Budgets',
-      channelDescription: 'Notifications for household budget alerts and nudges',
+      _androidChannelId,
+      _androidChannelName,
+      channelDescription: _androidChannelDescription,
       importance: Importance.high,
       priority: Priority.high,
       playSound: true,
@@ -229,18 +304,16 @@ class DeviceRegistrationService {
             'is_active': false,
           },
         );
+
+        // Clear cache so next login triggers fresh registration
+        final userId = _supabase.auth.currentUser?.id;
+        final prefs = await SharedPreferences.getInstance();
+        final cachePrefix = 'device_reg:${userId ?? "anon"}:';
+        await prefs.remove('${cachePrefix}token');
+        await prefs.remove('${cachePrefix}registered_at');
       }
     } catch (e) {
       debugPrint('❌ Error unregistering device: $e');
     }
   }
-}
-
-/// Background message handler (must be top-level function)
-@pragma('vm:entry-point')
-Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  debugPrint('🔔 Background message received: ${message.messageId}');
-  debugPrint('🔔 Title: ${message.notification?.title}');
-  debugPrint('🔔 Body: ${message.notification?.body}');
-  debugPrint('🔔 Data: ${message.data}');
 }

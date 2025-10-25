@@ -17,6 +17,8 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
 import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
+import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 
 // ============================================================================
 // HOME PAGE
@@ -125,6 +127,8 @@ class _HomePageState extends ConsumerState<HomePage> {
   Future<void> _processExpense({String? text, String? imagePath}) async {
     final user = ref.read(authProvider);
     final contact = ref.read(analyticsProvider).contact;
+    final viewMode = ref.read(viewModeProvider);
+    final selectedHouseholdState = ref.read(selectedHouseholdProvider);
 
     // Show processing modal
     if (!mounted) return;
@@ -171,15 +175,18 @@ class _HomePageState extends ConsumerState<HomePage> {
         'date': DateTime.now().toIso8601String().split('T')[0],
       };
       
-      // Get the currently selected currency from the UI filter
+      // Determine currency based on view mode
       final filterState = ref.read(homeFilterProvider);
-      final selectedCurrency = filterState.selectedCurrency;
-
-      // Send currency with proper fallback chain
-      if (selectedCurrency != null && selectedCurrency.isNotEmpty) {
-        body['currency'] = selectedCurrency.toUpperCase();
-      } else if (contact?.preferredCurrency != null) {
-        body['currency'] = contact!.preferredCurrency!.toUpperCase();
+      if (viewMode.mode == ViewMode.household &&
+          selectedHouseholdState.household?.currency != null) {
+        body['currency'] = selectedHouseholdState.household!.currency.toUpperCase();
+      } else {
+        final selectedCurrency = filterState.selectedCurrency;
+        if (selectedCurrency != null && selectedCurrency.isNotEmpty) {
+          body['currency'] = selectedCurrency.toUpperCase();
+        } else if (contact?.preferredCurrency != null) {
+          body['currency'] = contact!.preferredCurrency!.toUpperCase();
+        }
       }
 
       // Add either text or image to the request
@@ -302,7 +309,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       currency: expenses.first.currency,
       currencySymbol: currencySymbol,
       date: expenses.first.date,
-      description: 'Receipt: $itemDescriptions',
+      description: itemDescriptions,
       localImagePath: imagePath,
     );
     
@@ -778,7 +785,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     ),
                   ),
 
-                  // Period Selector with Currency Button
+                  // Period Selector with Currency Button (shown in both modes; filters household content too)
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -788,7 +795,6 @@ class _HomePageState extends ConsumerState<HomePage> {
                           // Left side:  Currency Button
                           Row(
                             children: [
-                            
                               // Currency selector button
                               GestureDetector(
                                 onTap: _showCurrencySelector,
@@ -852,7 +858,6 @@ class _HomePageState extends ConsumerState<HomePage> {
 
                   // Switch between Personal and Household content
                   if (viewMode.mode == ViewMode.household)
-                    // Household mode - show household content (returns Sliver)
                     const HouseholdHomeContent()
                   else ...[
                     // Personal mode - show analytics content
@@ -954,6 +959,8 @@ class _HomePageState extends ConsumerState<HomePage> {
       floatingActionButton: _buildExpandableFAB(colorScheme), // Always show FAB
     );
   }
+
+  
 
   Widget _buildExpandableFAB(shadcnui.ColorScheme colorScheme) {
     return ExpandableFab(

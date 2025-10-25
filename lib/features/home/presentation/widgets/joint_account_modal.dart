@@ -4,6 +4,8 @@ import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../households/presentation/providers/household_providers.dart';
 import '../../../households/presentation/pages/household_overview_page.dart';
+import '../state/analytics_provider.dart';
+import '../../../utils/currency.dart';
 
 /// Navigate to household screen (either overview or onboarding)
 void navigateToHousehold(BuildContext context, WidgetRef ref) async {
@@ -224,11 +226,16 @@ void _showCreateHouseholdDialog(BuildContext context, WidgetRef ref, String user
                       }
 
                       try {
+                        // Determine currency: default to user's preferred or USD
+                        final analytics = ref.read(analyticsProvider);
+                        final preferred = analytics.preferredCurrency?.toUpperCase();
+                        final currency = isSupportedCurrencyCode(preferred) ? preferred! : 'USD';
                         // Create household
                         await ref
                             .read(userHouseholdsProvider(userId).notifier)
                             .createHousehold(
                               name: nameController.text,
+                              currency: currency,
                             );
 
                         // Get the created household from the state

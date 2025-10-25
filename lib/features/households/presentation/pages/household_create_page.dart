@@ -10,6 +10,8 @@ import '../../core/household_constants.dart';
 import '../providers/household_providers.dart';
 import '../widgets/invitation_share_sheet.dart';
 import '../widgets/household_image_picker.dart';
+import '../../../home/presentation/state/analytics_provider.dart';
+import '../../../utils/currency.dart';
 
 /// Modern page for creating a new household with image upload
 class HouseholdCreatePage extends ConsumerStatefulWidget {
@@ -22,6 +24,7 @@ class HouseholdCreatePage extends ConsumerStatefulWidget {
 class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
+  String? _selectedCurrency;
 
   String? _selectedImageUrl;
   File? _selectedImageFile;
@@ -43,6 +46,15 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
           });
         }
       });
+
+      // Default currency from user's preferred currency via analytics provider
+      final analytics = ref.read(analyticsProvider);
+      final preferred = analytics.preferredCurrency?.toUpperCase();
+      if (preferred != null && isSupportedCurrencyCode(preferred)) {
+        setState(() => _selectedCurrency = preferred);
+      } else {
+        setState(() => _selectedCurrency = 'USD');
+      }
     });
   }
 
@@ -83,6 +95,8 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
                         const SizedBox(height: 40),
                         _buildNameInput(colorScheme, isLoading),
                         const SizedBox(height: 24),
+                        _buildCurrencySelector(colorScheme, isLoading),
+                        const SizedBox(height: 24),
                         _buildExpirationSelector(colorScheme, isLoading),
                         const SizedBox(height: 32),
                         _buildInfoCard(colorScheme),
@@ -96,6 +110,72 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
             _buildBottomActions(colorScheme, isLoading),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildCurrencySelector(shadcnui.ColorScheme colorScheme, bool isLoading) {
+    final options = getAvailableCurrencyOptions();
+    return Semantics(
+      label: 'Household currency selector',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Household Currency',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: colorScheme.mutedForeground,
+            ),
+          ),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<String>(
+            value: _selectedCurrency,
+            isExpanded: true,
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: colorScheme.muted.withOpacity(0.3),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: colorScheme.border.withOpacity(0.12),
+                  width: 1,
+                ),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            ),
+            items: options.keys
+                .map((code) => DropdownMenuItem<String>(
+                      value: code,
+                      child: Row(
+                        children: [
+                          Text(options[code]!, style: TextStyle(color: colorScheme.foreground)),
+                          const SizedBox(width: 8),
+                          Text(code, style: TextStyle(color: colorScheme.mutedForeground)),
+                        ],
+                      ),
+                    ))
+                .toList(),
+            onChanged: isLoading
+                ? null
+                : (val) {
+                    if (!mounted) return;
+                    setState(() => _selectedCurrency = val);
+                  },
+            validator: (val) {
+              if (val == null || !isSupportedCurrencyCode(val)) {
+                return 'Please select a valid currency';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'This sets your household’s base currency and cannot be changed later.',
+            style: TextStyle(fontSize: 12, color: colorScheme.mutedForeground),
+          ),
+        ],
       ),
     );
   }
@@ -364,7 +444,7 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
             children: HouseholdConstants.inviteExpirationOptions.map((days) {
               final isSelected = days == _selectedExpirationDays;
               return Semantics(
-                label: '$days day${days == 1 ? "" : "s"} expiration',
+                label: days == 0 ? 'Unlimited expiration' : '$days day${days == 1 ? "" : "s"} expiration',
                 button: true,
                 selected: isSelected,
                 child: InkWell(
@@ -394,7 +474,7 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
                       ),
                     ),
                     child: Text(
-                      '$days day${days == 1 ? "" : "s"}',
+                      days == 0 ? 'Unlimited' : '$days day${days == 1 ? "" : "s"}',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -535,6 +615,10 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
 
   Future<void> _createHousehold() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_selectedCurrency == null || !isSupportedCurrencyCode(_selectedCurrency)) {
+      _showErrorSnackbar('Please select a valid household currency');
+      return;
+    }
 
     if (!mounted) return;
     setState(() => _isCreating = true);
@@ -559,6 +643,7 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
       final createdHousehold =
           await ref.read(householdRepositoryProvider).createHousehold(
                 name: name,
+                currency: _selectedCurrency!,
                 coverImageUrl: imageUrl,
               );
 

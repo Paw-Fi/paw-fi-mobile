@@ -3,6 +3,7 @@
 // Shows cover images as circular/rounded tiles
 
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
@@ -60,19 +61,17 @@ class _HouseholdSelectorContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Container(
-      height: 100,
-      margin: const EdgeInsets.only(top: 8, bottom: 16),
+      height: 120,
+      margin: const EdgeInsets.only(top: 4, bottom: 8),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: households.length + 1, // +1 for add button
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        itemCount: households.length + 1,
         itemBuilder: (context, index) {
-          // Add new household button
           if (index == households.length) {
             return _AddHouseholdTile(colorScheme: colorScheme);
           }
 
-          // Household tile
           final household = households[index];
           final isSelected = household.id == selectedHouseholdId;
 
@@ -81,9 +80,7 @@ class _HouseholdSelectorContent extends ConsumerWidget {
             isSelected: isSelected,
             colorScheme: colorScheme,
             onTap: () async {
-              // Trigger light haptic feedback
               HapticFeedback.lightImpact();
-              
               final user = ref.read(authProvider);
               await ref
                   .read(selectedHouseholdProvider.notifier)
@@ -112,48 +109,70 @@ class _HouseholdTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Selected household is larger (100x100), others are smaller (70x70)
-    final size = isSelected ? 95.0 : 65.0;
-    final borderRadius = isSelected ? 18.0 : 14.0;
-    final iconSize = isSelected ? 40.0 : 28.0;
-    
-    return Align(
-      alignment: Alignment.topLeft, // Top-align all tiles
+    final size = isSelected ? MediaQuery.sizeOf(context).width * 0.27 : MediaQuery.sizeOf(context).width * 0.2;
+    final radius = isSelected ? 24.0 : 20.0;
+    final iconSize = isSelected ? 42.0 : 36.0;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
       child: GestureDetector(
         onTap: onTap,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 350),
-          curve: Curves.easeInOutCubic,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
           width: size,
-          height: size,
-          margin: const EdgeInsets.only(right: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(borderRadius),
-           
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(borderRadius),
-            child: household.coverImageUrl != null
-                ? Image.network(
-                    household.coverImageUrl!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stack) => Container(
-                      color: colorScheme.muted,
-                      child: Icon(
-                        Icons.home_rounded,
-                        size: iconSize,
-                        color: colorScheme.mutedForeground,
-                      ),
-                    ),
-                  )
-                : Container(
-                    color: colorScheme.muted,
-                    child: Icon(
-                      Icons.home_rounded,
-                      size: iconSize,
-                      color: colorScheme.mutedForeground,
-                    ),
+          child: Column(
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOutCubic,
+                width: size,
+                height: size,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(radius),
+                  border: Border.all(
+                    color: isSelected
+                        ? colorScheme.primary.withValues(alpha: 0.6)
+                        : colorScheme.border.withValues(alpha: 0.4),
+                    width: isSelected ? 2.5 : 1.5,
                   ),
+                
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: household.coverImageUrl != null
+                    ? Image.network(
+                        household.coverImageUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stack) => Container(
+                          color: colorScheme.muted.withValues(alpha: 0.5),
+                          child: Icon(
+                            Icons.home_rounded,
+                            size: iconSize,
+                            color: colorScheme.mutedForeground.withValues(alpha: 0.7),
+                          ),
+                        ),
+                      )
+                    : Container(
+                        color: colorScheme.muted.withValues(alpha: 0.5),
+                        child: Icon(
+                          Icons.home_rounded,
+                          size: iconSize,
+                          color: colorScheme.mutedForeground.withValues(alpha: 0.7),
+                        ),
+                      ),
+              ),
+              if (isSelected) ...[
+                const SizedBox(height: 6),
+                Container(
+                  width: 4,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: colorScheme.primary,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       ),
@@ -169,8 +188,12 @@ class _AddHouseholdTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.topLeft, // Top-align with other tiles
+    const radius = 20.0;
+
+    // Match inactive tile layout: fixed width 'size' and inner square of size x size
+    final size = MediaQuery.sizeOf(context).width * 0.2;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
       child: GestureDetector(
         onTap: () {
           HapticFeedback.lightImpact();
@@ -181,24 +204,28 @@ class _AddHouseholdTile extends StatelessWidget {
             ),
           );
         },
-        child: Container(
-          width: 70,
-          height: 70,
-          decoration: BoxDecoration(
-            color: colorScheme.primary.withOpacity(0.06),
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.08),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
+        child: SizedBox(
+          width: size,
+          child: Column(
+            children: [
+              Container(
+                width: size,
+                height: size,
+                decoration: BoxDecoration(
+                  color: colorScheme.muted.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(radius),
+                  border: Border.all(
+                    color: colorScheme.border.withValues(alpha: 0.4),
+                    width: 1.5,
+                  ),
+                ),
+                child: Icon(
+                  Icons.add_rounded,
+                  size: 25,
+                  color: colorScheme.mutedForeground.withValues(alpha: 0.6),
+                ),
               ),
             ],
-          ),
-          child: Icon(
-            Icons.add_rounded,
-            size: 32,
-            color: colorScheme.primary,
           ),
         ),
       ),
@@ -215,22 +242,21 @@ class _LoadingSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 100,
-      margin: const EdgeInsets.only(top: 8, bottom: 16),
+      height: 120,
+      margin: const EdgeInsets.only(top: 4, bottom: 8),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 4),
         itemCount: 3,
         itemBuilder: (context, index) {
-          return Align(
-            alignment: Alignment.topLeft,
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
             child: Container(
-              width: 70,
-              height: 70,
-              margin: const EdgeInsets.only(right: 12),
+              width: 92,
+              height: 92,
               decoration: BoxDecoration(
-                color: colorScheme.muted.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(14),
+                color: colorScheme.muted.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(20),
               ),
             ),
           );
@@ -250,14 +276,15 @@ class _ErrorState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 100,
-      margin: const EdgeInsets.only(top: 8, bottom: 16, left: 16, right: 16),
-      padding: const EdgeInsets.all(16),
+      height: 120,
+      margin: const EdgeInsets.only(top: 8, bottom: 8, left: 4, right: 4),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: colorScheme.destructive.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
+        color: colorScheme.destructive.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: colorScheme.destructive.withOpacity(0.3),
+          color: colorScheme.destructive.withValues(alpha: 0.2),
+          width: 1.5,
         ),
       ),
       child: Row(
@@ -266,12 +293,16 @@ class _ErrorState extends StatelessWidget {
           Icon(Icons.error_outline,
               color: colorScheme.destructive, size: 24),
           const SizedBox(width: 12),
-          Text(
-            'Error loading households',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: colorScheme.destructive,
+          Flexible(
+            child: Text(
+              'Error loading households',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: colorScheme.destructive,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],

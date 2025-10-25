@@ -5,6 +5,7 @@ class Household {
   final String ownerId;
   final String? coverImageUrl; // Changed from emoji - stores full URL to uploaded image
   final String? themeColor;
+  final String currency; // ISO 4217 (e.g., USD)
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -14,6 +15,7 @@ class Household {
     required this.ownerId,
     this.coverImageUrl,
     this.themeColor,
+    required this.currency,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -25,6 +27,7 @@ class Household {
       ownerId: json['owner_id'] as String,
       coverImageUrl: json['cover_image_url'] as String?,
       themeColor: json['theme_color'] as String?,
+      currency: (json['currency'] as String).toUpperCase(),
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );
@@ -37,6 +40,7 @@ class Household {
       'owner_id': ownerId,
       'cover_image_url': coverImageUrl,
       'theme_color': themeColor,
+      'currency': currency,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -48,6 +52,7 @@ class Household {
     String? ownerId,
     String? coverImageUrl,
     String? themeColor,
+    String? currency,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -57,6 +62,7 @@ class Household {
       ownerId: ownerId ?? this.ownerId,
       coverImageUrl: coverImageUrl ?? this.coverImageUrl,
       themeColor: themeColor ?? this.themeColor,
+      currency: currency ?? this.currency,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -72,6 +78,7 @@ class Household {
           ownerId == other.ownerId &&
           coverImageUrl == other.coverImageUrl &&
           themeColor == other.themeColor &&
+          currency == other.currency &&
           createdAt == other.createdAt &&
           updatedAt == other.updatedAt;
 
@@ -82,6 +89,7 @@ class Household {
       ownerId.hashCode ^
       coverImageUrl.hashCode ^
       themeColor.hashCode ^
+      currency.hashCode ^
       createdAt.hashCode ^
       updatedAt.hashCode;
 }
@@ -257,7 +265,7 @@ class HouseholdInvite {
   final String inviterId;
   final String? invitedUserId;
   final InviteStatus status;
-  final DateTime expiresAt;
+  final DateTime? expiresAt;
   final DateTime? acceptedAt;
   final String? invitedEmail;
   final String? personalMessage;
@@ -273,7 +281,7 @@ class HouseholdInvite {
     required this.inviterId,
     this.invitedUserId,
     required this.status,
-    required this.expiresAt,
+    this.expiresAt,
     this.acceptedAt,
     this.invitedEmail,
     this.personalMessage,
@@ -291,7 +299,9 @@ class HouseholdInvite {
       inviterId: json['inviter_id'] as String,
       invitedUserId: json['invited_user_id'] as String?,
       status: InviteStatus.fromJson(json['status'] as String),
-      expiresAt: DateTime.parse(json['expires_at'] as String),
+      expiresAt: json['expires_at'] != null
+          ? DateTime.parse(json['expires_at'] as String)
+          : null,
       acceptedAt: json['accepted_at'] != null
           ? DateTime.parse(json['accepted_at'] as String)
           : null,
@@ -312,7 +322,7 @@ class HouseholdInvite {
       'inviter_id': inviterId,
       'invited_user_id': invitedUserId,
       'status': status.toJson(),
-      'expires_at': expiresAt.toIso8601String(),
+      if (expiresAt != null) 'expires_at': expiresAt!.toIso8601String(),
       'accepted_at': acceptedAt?.toIso8601String(),
       'invited_email': invitedEmail,
       'personal_message': personalMessage,

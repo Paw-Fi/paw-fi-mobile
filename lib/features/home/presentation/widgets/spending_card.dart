@@ -7,16 +7,19 @@ import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dart';
 
 Widget buildSpendingCard(shadcnui.ColorScheme colorScheme, List<ExpenseEntry> expenses, UserContact? contact, DateRangeFilter dateFilter, {String? selectedCurrency}) {
-  final totalSpent = _getTotalSpent(expenses);
-  
-  // selectedCurrency is never null (defaults to USD)
-  final displayText = formatCurrency(totalSpent, selectedCurrency ?? 'USD');
-  
   final intervalType = getChartIntervalTypeFromFilter(dateFilter);
   
   // Group expenses by appropriate interval
   final periodTotals = groupExpensesByInterval(expenses, intervalType);
   final sortedDates = periodTotals.keys.toList()..sort();
+
+  // Compute total spent robustly: prefer bucket sum, fallback to direct sum
+  final bucketsTotal = periodTotals.values.fold(0.0, (a, b) => a + b);
+  final directTotal = _getTotalSpent(expenses);
+  final totalSpent = bucketsTotal > 0 ? bucketsTotal : directTotal;
+  
+  // selectedCurrency is never null (defaults to USD)
+  final displayText = formatCurrency(totalSpent, selectedCurrency ?? 'USD');
 
   if (sortedDates.isEmpty) {
     return Container(
@@ -140,5 +143,6 @@ Widget buildSpendingCard(shadcnui.ColorScheme colorScheme, List<ExpenseEntry> ex
   }
 
 double _getTotalSpent(List<ExpenseEntry> expenses) {
-  return expenses.where((e) => e.amountCents > 0).fold(0.0, (sum, e) => sum + e.amount);
+  // Treat all rows in expenses as spend; sum absolute to tolerate legacy signs
+  return expenses.fold(0.0, (sum, e) => sum + e.amount.abs());
 }

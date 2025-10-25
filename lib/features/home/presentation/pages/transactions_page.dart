@@ -11,13 +11,15 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dart';
 import '../widgets/unified_transaction_sheet.dart';
+import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 
 // ============================================================================
 // TRANSACTIONS PAGE
 // ============================================================================
 
 class TransactionsPage extends ConsumerStatefulWidget {
-  const TransactionsPage({super.key});
+  final String? householdId;
+  const TransactionsPage({super.key, this.householdId});
 
   @override
   ConsumerState<TransactionsPage> createState() => _TransactionsPageState();
@@ -39,10 +41,11 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     super.dispose();
   }
 
+  List<ExpenseEntry> _baseExpenses = const [];
+
   List<ExpenseEntry> get filteredExpenses {
-    final analyticsData = ref.watch(analyticsProvider);
     final filterState = ref.watch(homeFilterProvider);
-    var expenses = analyticsData.expenses;
+    var expenses = _baseExpenses;
 
     // Filter by currency if selected
     final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
@@ -106,8 +109,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   }
 
   List<String> get categories {
-    final analyticsData = ref.watch(analyticsProvider);
-    final cats = analyticsData.expenses
+    final cats = _baseExpenses
         .map((e) => (e.category ?? 'uncategorized').toLowerCase())
         .toSet()
         .toList()
@@ -140,12 +142,57 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     final analyticsData = ref.watch(analyticsProvider);
     final user = ref.watch(authProvider);
 
+    // Resolve base expenses source (household-specific or global analytics)
+    if (widget.householdId != null) {
+      final expensesAsync = ref.watch(householdExpensesProvider(
+        HouseholdExpensesParams(householdId: widget.householdId!, limit: 1000),
+      ));
+      return expensesAsync.when(
+        loading: () => Scaffold(
+          backgroundColor: colorScheme.background,
+          body: const Center(child: CircularProgressIndicator()),
+        ),
+        error: (e, st) => Scaffold(
+          backgroundColor: colorScheme.background,
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline, size: 48, color: colorScheme.destructive),
+                  const SizedBox(height: 12),
+                  Text('Failed to load household transactions', style: TextStyle(color: colorScheme.destructive)),
+                ],
+              ),
+            ),
+          ),
+        ),
+        data: (list) {
+          _baseExpenses = list;
+          return _buildMainScaffold(colorScheme, null);
+        },
+      );
+    } else {
+      _baseExpenses = analyticsData.expenses;
+    }
+
+    return _buildMainScaffold(colorScheme, analyticsData.contact);
+  }
+
+  Scaffold _buildMainScaffold(shadcnui.ColorScheme colorScheme, UserContact? contact) {
+    final user = ref.watch(authProvider);
+    final analyticsData = ref.watch(analyticsProvider);
     return Scaffold(
       backgroundColor: colorScheme.background,
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {
-            ref.read(analyticsProvider.notifier).refresh(user.uid);
+            if (widget.householdId != null) {
+              ref.invalidate(householdExpensesProvider);
+            } else {
+              ref.read(analyticsProvider.notifier).refresh(user.uid);
+            }
             await Future.delayed(const Duration(milliseconds: 500));
           },
           child: CustomScrollView(
@@ -287,7 +334,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: _buildChart(colorScheme, analyticsData.contact),
+                child: _buildChart(colorScheme, contact),
               ),
             ),
 
@@ -357,7 +404,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                         final expense = filteredExpenses[index];
                         return Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                          child: _buildTransactionItem(expense, colorScheme, analyticsData.contact),
+                        child: _buildTransactionItem(expense, colorScheme, contact),
                         );
                       },
                       childCount: filteredExpenses.length,
@@ -371,7 +418,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   }
 
   Widget _buildChart(shadcnui.ColorScheme colorScheme, UserContact? contact) {
-    final totalSpent = filteredExpenses.where((e) => e.amountCents > 0).fold(0.0, (sum, e) => sum + e.amount);
+    final totalSpent = filteredExpenses
+        .fold(0.0, (sum, e) => sum + e.amount.abs());
     final filterState = ref.watch(homeFilterProvider);
     
     // selectedCurrency is never null (defaults to USD)
@@ -674,9 +722,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     // Group expenses by category
     final Map<String, double> categoryTotals = {};
     for (final expense in filteredExpenses) {
-      if (expense.amountCents > 0) {
+      {
         final cat = (expense.category ?? 'uncategorized').toLowerCase();
-        categoryTotals[cat] = (categoryTotals[cat] ?? 0) + expense.amount;
+        categoryTotals[cat] = (categoryTotals[cat] ?? 0) + expense.amount.abs();
       }
     }
 
@@ -806,7 +854,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
           ),
           // Amount
           Text(
-            '-${formatCurrency(expense.amount, expense.currency)}',
+            '-${formatCurrency(expense.amount.abs(), expense.currency)}',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,

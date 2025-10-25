@@ -10,6 +10,7 @@ abstract class HouseholdRepository {
   Future<Household?> getHousehold(String householdId);
   Future<Household> createHousehold({
     required String name,
+    required String currency,
     String? coverImageUrl,
     String? themeColor,
   });

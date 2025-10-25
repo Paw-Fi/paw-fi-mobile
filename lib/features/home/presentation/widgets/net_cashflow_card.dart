@@ -78,7 +78,8 @@ double _getTotalBudget(List<DailyBudgetEntry> budgets) {
 }
 
 double _getTotalSpent(List<ExpenseEntry> expenses) {
-  return expenses.where((e) => e.amountCents > 0).fold(0.0, (sum, e) => sum + e.amount);
+  // Treat all rows as spending and sum absolute values for consistency
+  return expenses.fold(0.0, (sum, e) => sum + e.amount.abs());
 }
 
 String _netCashflowTitleForFilter(DateRangeFilter filter) {
