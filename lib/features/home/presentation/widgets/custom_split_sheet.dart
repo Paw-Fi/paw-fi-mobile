@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/utils/household_ui_utils.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 enum SplitType { equal, amount, percentage, shares }
 
@@ -276,7 +277,10 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
           (sum, split) => sum + (split.amount ?? 0),
         );
         if ((totalSplit - widget.totalAmount).abs() > 0.01) {
-          error = 'Split amounts must equal ${widget.currencySymbol}${widget.totalAmount.toStringAsFixed(2)}';
+          error = context.l10n.splitAmountsMustEqual(
+            widget.currencySymbol,
+            widget.totalAmount.toStringAsFixed(2),
+          );
         }
         break;
 
@@ -286,14 +290,14 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
           (sum, split) => sum + (split.percentage ?? 0),
         );
         if ((totalPercent - 100).abs() > 0.01) {
-          error = 'Percentages must total 100%';
+          error = context.l10n.percentagesMustTotal100;
         }
         break;
 
       case SplitType.shares:
         // Shares always valid as long as > 0
         if (_memberSplits.any((s) => (s.shares ?? 0) <= 0)) {
-          error = 'Each person must have at least 1 share';
+          error = context.l10n.eachPersonMustHaveAtLeast1Share;
         }
         break;
     }
@@ -319,11 +323,11 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
         // Split Type Selector
         Row(
           children: [
-            _buildTypeChip(colorScheme, 'Amount', SplitType.amount),
+            _buildTypeChip(colorScheme, context.l10n.amount, SplitType.amount),
             const SizedBox(width: 8),
-            _buildTypeChip(colorScheme, 'Percent', SplitType.percentage),
+            _buildTypeChip(colorScheme, context.l10n.percent, SplitType.percentage),
             const SizedBox(width: 8),
-            _buildTypeChip(colorScheme, 'Share', SplitType.shares),
+            _buildTypeChip(colorScheme, context.l10n.share, SplitType.shares),
           ],
         ),
 
@@ -445,7 +449,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  member.userName ?? member.userEmail ?? 'Member',
+                  member.userName ?? member.userEmail ?? context.l10n.member,
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
@@ -552,7 +556,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
         break;
     }
 
-    return 'Owes ${widget.currencySymbol}${amount.toStringAsFixed(2)}';
+    return '${context.l10n.owes} ${widget.currencySymbol}${amount.toStringAsFixed(2)}';
   }
 }
 
@@ -591,7 +595,7 @@ class _CustomSplitSheetState extends State<_CustomSplitSheet> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Split Expense',
+                    context.l10n.splitExpense,
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w700,

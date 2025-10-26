@@ -5,8 +5,9 @@ import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
-Widget buildSpendingCard(shadcnui.ColorScheme colorScheme, List<ExpenseEntry> expenses, UserContact? contact, DateRangeFilter dateFilter, {String? selectedCurrency}) {
+Widget buildSpendingCard(BuildContext context, shadcnui.ColorScheme colorScheme, List<ExpenseEntry> expenses, UserContact? contact, DateRangeFilter dateFilter, {String? selectedCurrency}) {
   final intervalType = getChartIntervalTypeFromFilter(dateFilter);
   
   // Group expenses by appropriate interval
@@ -29,7 +30,7 @@ Widget buildSpendingCard(shadcnui.ColorScheme colorScheme, List<ExpenseEntry> ex
         border: Border.all(color: colorScheme.border, width: 1),
       ),
       padding: const EdgeInsets.all(16.0),
-      child: Text('No spending data', style: TextStyle(color: colorScheme.mutedForeground)),
+      child: Text(context.l10n.noSpendingData, style: TextStyle(color: colorScheme.mutedForeground)),
     );
   }
 
@@ -54,7 +55,7 @@ Widget buildSpendingCard(shadcnui.ColorScheme colorScheme, List<ExpenseEntry> ex
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          dateFilter.spentLabel,
+          dateFilter.getSpentLabel(context),
           style: TextStyle(
             fontSize: 14,
             color: colorScheme.mutedForeground,

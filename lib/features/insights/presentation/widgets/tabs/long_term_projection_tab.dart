@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/insights/presentation/widgets/charts/charts.dart';
 import 'package:moneko/features/insights/presentation/widgets/chart_legend.dart';
 
-Widget buildLongTermProjectionTab(shadcnui.ColorScheme colorScheme, AnalyticsData analyticsData, {String? selectedCurrency}) {
+Widget buildLongTermProjectionTab(BuildContext context, shadcnui.ColorScheme colorScheme, AnalyticsData analyticsData, {String? selectedCurrency}) {
   // Filter data by currency if selected
   var expenses = analyticsData.expenses;
   var budgets = analyticsData.budgets;
@@ -33,7 +34,7 @@ Widget buildLongTermProjectionTab(shadcnui.ColorScheme colorScheme, AnalyticsDat
               Row(
                 children: [
                   Text(
-                    'Long-Term Projection',
+                    context.l10n.longTermProjection,
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -59,7 +60,7 @@ Widget buildLongTermProjectionTab(shadcnui.ColorScheme colorScheme, AnalyticsDat
               ),
               const SizedBox(height: 4),
               Text(
-                'Based on historical averages; updates automatically with your data.',
+                context.l10n.basedOnHistoricalAverages,
                 style: TextStyle(
                   fontSize: 12,
                   color: colorScheme.mutedForeground,
@@ -68,13 +69,13 @@ Widget buildLongTermProjectionTab(shadcnui.ColorScheme colorScheme, AnalyticsDat
               const SizedBox(height: 24),
               SizedBox(
                 height: 250,
-                child: buildLongTermProjectionChart(colorScheme, expenses, budgets),
+                child: buildLongTermProjectionChart(context, colorScheme, expenses, budgets),
               ),
               const SizedBox(height: 16),
               buildChartLegend(
                 colorScheme,
                 [
-                  {'label': '18-Month Projection', 'color': const Color(0xFF10B981)},
+                  {'label': context.l10n.month18ProjectionLegend, 'color': const Color(0xFF10B981)},
                 ],
               ),
             ],
@@ -86,7 +87,7 @@ Widget buildLongTermProjectionTab(shadcnui.ColorScheme colorScheme, AnalyticsDat
 }
 
 void _showLongTermGuide(BuildContext context, shadcnui.ColorScheme colorScheme) {
-  final slides = _longTermSlides();
+  final slides = _longTermSlides(context);
   final controller = PageController();
   int currentPage = 0;
 
@@ -110,7 +111,7 @@ void _showLongTermGuide(BuildContext context, shadcnui.ColorScheme colorScheme) 
                       children: [
                         Expanded(
                           child: Text(
-                            'Your 18-month horizon',
+                            context.l10n.your18MonthHorizon,
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.w600,
@@ -126,7 +127,7 @@ void _showLongTermGuide(BuildContext context, shadcnui.ColorScheme colorScheme) 
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      "This projection blends your steady habits with gentle growth assumptions so you can see where today's choices lead.",
+                      context.l10n.longTermIntro,
                       style: TextStyle(color: colorScheme.mutedForeground, fontSize: 14),
                     ),
                     const SizedBox(height: 24),
@@ -168,7 +169,7 @@ void _showLongTermGuide(BuildContext context, shadcnui.ColorScheme colorScheme) 
                       children: [
                         TextButton(
                           onPressed: () => Navigator.of(dialogContext).pop(),
-                          child: const Text('Close'),
+                          child: Text(context.l10n.close),
                         ),
                         const Spacer(),
                         shadcnui.PrimaryButton(
@@ -180,7 +181,7 @@ void _showLongTermGuide(BuildContext context, shadcnui.ColorScheme colorScheme) 
                               Navigator.of(dialogContext).pop();
                             }
                           },
-                          child: Text(currentPage < slides.length - 1 ? 'Next' : 'Done'),
+                          child: Text(currentPage < slides.length - 1 ? context.l10n.next : context.l10n.done),
                         ),
                       ],
                     ),
@@ -203,12 +204,11 @@ class _LongTermSlideData {
   final List<String> points;
 }
 
-List<_LongTermSlideData> _longTermSlides() {
-  return const [
+List<_LongTermSlideData> _longTermSlides(BuildContext context) {
+  return [
     _LongTermSlideData(
-      title: 'How the projection works',
-      summary:
-          'We roll forward your average income and spending, sprinkling in modest growth so you can see if your plan keeps cash comfortable months ahead.',
+      title: context.l10n.howTheProjectionWorks,
+      summary: context.l10n.longTermHowWorksDesc,
       points: [
         'Green line trends with your typical savings rate—upward momentum means your goals are funded.',
         'If the line dips, it signals future months where expenses tend to outrun income.',
@@ -216,8 +216,8 @@ List<_LongTermSlideData> _longTermSlides() {
       ],
     ),
     _LongTermSlideData(
-      title: 'Why it matters',
-      summary: 'Long horizons make big dreams real. See whether your emergency fund, investments, or big purchases stay on track.',
+      title: context.l10n.whyItMatters,
+      summary: context.l10n.longTermWhyMattersDesc,
       points: [
         'An upward slope? Celebrate and consider boosting retirement or travel savings.',
         'Flat or slipping? Time to tune budgets or boost income streams before it snowballs.',
@@ -226,7 +226,7 @@ List<_LongTermSlideData> _longTermSlides() {
     ),
     _LongTermSlideData(
       title: 'Moves to consider',
-      summary: 'Use the chart to rehearse future decisions. Small tweaks today compound into big wins later.',
+      summary: context.l10n.longTermMovesToConsiderDesc,
       points: [
         'Schedule gentle payment increases on loans when the curve is rising.',
         'Plan ahead for dips by earmarking sinking funds or trimming optional spends.',

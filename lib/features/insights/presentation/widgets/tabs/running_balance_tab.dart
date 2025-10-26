@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/insights/presentation/widgets/charts/charts.dart';
 import 'package:moneko/features/insights/presentation/widgets/chart_legend.dart';
 
-Widget buildRunningBalanceTab(shadcnui.ColorScheme colorScheme, AnalyticsData analyticsData, {String? selectedCurrency}) {
+Widget buildRunningBalanceTab(BuildContext context, shadcnui.ColorScheme colorScheme, AnalyticsData analyticsData, {String? selectedCurrency}) {
   // Filter data by currency if selected
   var expenses = analyticsData.expenses;
   var budgets = analyticsData.budgets;
@@ -33,7 +34,7 @@ Widget buildRunningBalanceTab(shadcnui.ColorScheme colorScheme, AnalyticsData an
               Row(
                 children: [
                   Text(
-                    'Running & Daily Balances',
+                    context.l10n.runningAndDailyBalances,
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -59,7 +60,7 @@ Widget buildRunningBalanceTab(shadcnui.ColorScheme colorScheme, AnalyticsData an
               ),
               const SizedBox(height: 4),
               Text(
-                'Budget vs Spent per day with cumulative running balance.',
+                context.l10n.budgetVsSpentDescription,
                 style: TextStyle(
                   fontSize: 12,
                   color: colorScheme.mutedForeground,
@@ -68,15 +69,15 @@ Widget buildRunningBalanceTab(shadcnui.ColorScheme colorScheme, AnalyticsData an
               const SizedBox(height: 24),
               SizedBox(
                 height: 250,
-                child: buildRunningBalanceChart(colorScheme, expenses, budgets),
+                child: buildRunningBalanceChart(context, colorScheme, expenses, budgets),
               ),
               const SizedBox(height: 16),
               buildChartLegend(
                 colorScheme,
                 [
-                  {'label': 'Running Balance', 'color': const Color(0xFF8B5CF6)},
-                  {'label': 'Budget', 'color': const Color(0xFF3B82F6)},
-                  {'label': 'Spent', 'color': const Color(0xFFEF4444)},
+                  {'label': context.l10n.runningBalanceLegend, 'color': const Color(0xFF8B5CF6)},
+                  {'label': context.l10n.budgetLegend, 'color': const Color(0xFF3B82F6)},
+                  {'label': context.l10n.spentLegend, 'color': const Color(0xFFEF4444)},
                 ],
               ),
             ],
@@ -88,7 +89,7 @@ Widget buildRunningBalanceTab(shadcnui.ColorScheme colorScheme, AnalyticsData an
 }
 
 void _showRunningBalanceInfoModal(BuildContext context, shadcnui.ColorScheme colorScheme) {
-  final slides = _runningBalanceSlides();
+  final slides = _runningBalanceSlides(context);
 
   showDialog(
     context: context,
@@ -114,7 +115,7 @@ void _showRunningBalanceInfoModal(BuildContext context, shadcnui.ColorScheme col
                       children: [
                         Expanded(
                           child: Text(
-                            'Running balance guide',
+                            context.l10n.runningBalanceGuide,
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.w600,
@@ -130,7 +131,7 @@ void _showRunningBalanceInfoModal(BuildContext context, shadcnui.ColorScheme col
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      "Think of this chart as your personal money coach. Let's walk through what it shows and how to use it.",
+                      context.l10n.runningBalanceIntro,
                       style: TextStyle(color: colorScheme.mutedForeground, fontSize: 14),
                     ),
                     const SizedBox(height: 24),
@@ -174,7 +175,7 @@ void _showRunningBalanceInfoModal(BuildContext context, shadcnui.ColorScheme col
                       children: [
                         TextButton(
                           onPressed: () => Navigator.of(dialogContext).pop(),
-                          child: const Text('Close'),
+                          child: Text(context.l10n.close),
                         ),
                         const Spacer(),
                         shadcnui.PrimaryButton(
@@ -189,7 +190,7 @@ void _showRunningBalanceInfoModal(BuildContext context, shadcnui.ColorScheme col
                               Navigator.of(dialogContext).pop();
                             }
                           },
-                          child: Text(currentPage < slides.length - 1 ? 'Next' : 'Done'),
+                          child: Text(currentPage < slides.length - 1 ? context.l10n.next : context.l10n.done),
                         ),
                       ],
                     ),
@@ -212,12 +213,11 @@ class _RunningBalanceSlideData {
   final List<String> points;
 }
 
-List<_RunningBalanceSlideData> _runningBalanceSlides() {
-  return const [
+List<_RunningBalanceSlideData> _runningBalanceSlides(BuildContext context) {
+  return [
     _RunningBalanceSlideData(
-      title: 'What you are seeing',
-      summary:
-          'Your running balance tracks how much breathing room you have after each day of spending. The daily bars show what you planned versus what you actually spent.',
+      title: context.l10n.whatYouAreSeeing,
+      summary: context.l10n.runningBalanceWhatYouSeeDesc,
       points: [
         'Purple line: the cushion left after each day. Rising lines mean you are building momentum.',
         'Blue bars: the budget you set for that day.',
@@ -225,9 +225,8 @@ List<_RunningBalanceSlideData> _runningBalanceSlides() {
       ],
     ),
     _RunningBalanceSlideData(
-      title: 'Why it matters',
-      summary:
-          'Treat this as a friendly pulse check. It helps you notice when you are ahead of plan so you can keep investing, or when a course correction will keep you on track.',
+      title: context.l10n.whyItMatters,
+      summary: context.l10n.runningBalanceWhyMattersDesc,
       points: [
         'Line trending upward = extra cash you can redirect toward savings goals.',
         'Flat or dipping line = time to pause and review big-ticket items.',
@@ -235,9 +234,8 @@ List<_RunningBalanceSlideData> _runningBalanceSlides() {
       ],
     ),
     _RunningBalanceSlideData(
-      title: 'How to respond',
-      summary:
-          'Use the chart like a coach. Celebrate gains, reset expectations when needed, and give yourself grace—it is about steady progress, not perfection.',
+      title: context.l10n.howToRespond,
+      summary: context.l10n.runningBalanceHowToRespondDesc,
       points: [
         'Line rising for several days? Consider moving a little extra into savings or debt payoff.',
         'Line dipping after a busy weekend? Rebalance upcoming days by trimming small discretionary spends.',

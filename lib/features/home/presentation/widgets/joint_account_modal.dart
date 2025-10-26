@@ -6,6 +6,7 @@ import '../../../households/presentation/providers/household_providers.dart';
 import '../../../households/presentation/pages/household_overview_page.dart';
 import '../state/analytics_provider.dart';
 import '../../../utils/currency.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 /// Navigate to household screen (either overview or onboarding)
 void navigateToHousehold(BuildContext context, WidgetRef ref) async {
@@ -14,7 +15,7 @@ void navigateToHousehold(BuildContext context, WidgetRef ref) async {
 
   if (userId == null) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('User not logged in')),
+      SnackBar(content: Text(context.l10n.userNotLoggedIn)),
     );
     return;
   }
@@ -52,7 +53,7 @@ void navigateToHousehold(BuildContext context, WidgetRef ref) async {
     error: (error, stack) {
       // Show error message
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading households: $error')),
+        SnackBar(content: Text(context.l10n.errorLoadingHouseholds)),
       );
     },
   );
@@ -88,7 +89,7 @@ void showHouseholdOnboardingModal(BuildContext context, WidgetRef ref, String us
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Welcome to Households!',
+                    context.l10n.welcomeToHouseholds,
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
@@ -102,7 +103,7 @@ void showHouseholdOnboardingModal(BuildContext context, WidgetRef ref, String us
 
             // Content
             Text(
-              'Manage shared finances with your family, partner, or roommates. Track budgets, split expenses, and collaborate on money decisions.',
+              context.l10n.householdsDescription,
               style: TextStyle(
                 fontSize: 15,
                 height: 1.6,
@@ -121,9 +122,9 @@ void showHouseholdOnboardingModal(BuildContext context, WidgetRef ref, String us
                   Navigator.of(context).pop();
                   _showCreateHouseholdDialog(context, ref, userId);
                 },
-                child: const Text(
-                  'Create Household',
-                  style: TextStyle(
+                child: Text(
+                  context.l10n.createHousehold,
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
@@ -141,12 +142,12 @@ void showHouseholdOnboardingModal(BuildContext context, WidgetRef ref, String us
                 onPressed: () {
                   Navigator.of(context).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please use an invitation link to join a household')),
+                    SnackBar(content: Text(context.l10n.pleaseUseInvitationLink)),
                   );
                 },
-                child: const Text(
-                  'Join with Invite',
-                  style: TextStyle(
+                child: Text(
+                  context.l10n.joinWithInvite,
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
@@ -185,7 +186,7 @@ void _showCreateHouseholdDialog(BuildContext context, WidgetRef ref, String user
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Create Household',
+              context.l10n.createHousehold,
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
@@ -197,9 +198,9 @@ void _showCreateHouseholdDialog(BuildContext context, WidgetRef ref, String user
             // Name field
             TextField(
               controller: nameController,
-              decoration: const InputDecoration(
-                labelText: 'Household Name',
-                hintText: 'e.g., The Smiths',
+              decoration: InputDecoration(
+                labelText: context.l10n.householdName,
+                hintText: context.l10n.householdNameHint,
               ),
             ),
 
@@ -220,7 +221,7 @@ void _showCreateHouseholdDialog(BuildContext context, WidgetRef ref, String user
                     onPressed: () async {
                       if (nameController.text.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Please enter a household name')),
+                          SnackBar(content: Text(context.l10n.pleaseEnterHouseholdName)),
                         );
                         return;
                       }
@@ -257,7 +258,7 @@ void _showCreateHouseholdDialog(BuildContext context, WidgetRef ref, String user
                       } catch (e) {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error creating household: $e')),
+                            SnackBar(content: Text(context.l10n.errorCreatingHousehold)),
                           );
                         }
                       }
@@ -303,7 +304,7 @@ void showJointAccountModal(BuildContext context, shadcnui.ColorScheme colorSchem
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Households Feature',
+                    context.l10n.householdsFeature,
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
@@ -315,7 +316,7 @@ void showJointAccountModal(BuildContext context, shadcnui.ColorScheme colorSchem
             ),
             const SizedBox(height: 20),
             Text(
-              'The Households feature is now available! Manage shared finances with family, partners, or roommates.',
+              context.l10n.householdsFeatureDescription,
               style: TextStyle(
                 fontSize: 15,
                 height: 1.6,
@@ -328,9 +329,9 @@ void showJointAccountModal(BuildContext context, shadcnui.ColorScheme colorSchem
               height: 44,
               child: shadcnui.PrimaryButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text(
-                  'Got it!',
-                  style: TextStyle(
+                child: Text(
+                  context.l10n.gotIt,
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),

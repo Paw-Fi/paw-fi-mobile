@@ -3,6 +3,7 @@ import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import '../widgets/onboarding_card.dart';
 import 'household_create_page.dart';
 import 'household_join_page.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 /// Full-page household onboarding with flashcard carousel
 class HouseholdOnboardingPage extends StatefulWidget {
@@ -43,26 +44,26 @@ class _HouseholdOnboardingPageState extends State<HouseholdOnboardingPage> {
                     _currentPage = index;
                   });
                 },
-                children: const [
+                children: [
                   OnboardingCard(
                     emoji: '🏠',
-                    title: 'Welcome to Households',
-                    body: 'Manage money together with your partner, family, or roommates in one shared space.',
+                    title: context.l10n.welcomeToHouseholds,
+                    body: context.l10n.manageMoneyTogether,
                   ),
                   OnboardingCard(
                     emoji: '💰',
-                    title: 'Shared Budgets & Expenses',
-                    body: 'Set budgets, track spending, and see where your household money goes in real-time.',
+                    title: context.l10n.sharedBudgetsExpenses,
+                    body: context.l10n.sharedBudgetsExpensesDesc,
                   ),
                   OnboardingCard(
                     emoji: '⚖️',
-                    title: 'Smart Expense Splitting',
-                    body: 'Automatically calculate who owes what with flexible split options: equal, percentage, or custom amounts.',
+                    title: context.l10n.smartExpenseSplitting,
+                    body: context.l10n.smartExpenseSplittingDesc,
                   ),
                   OnboardingCard(
                     emoji: '🔔',
-                    title: 'Stay in Sync',
-                    body: 'Get notified when expenses are added, budgets are reached, or splits need settling.',
+                    title: context.l10n.stayInSync,
+                    body: context.l10n.stayInSyncDesc,
                   ),
                 ],
               ),
@@ -94,7 +95,7 @@ class _HouseholdOnboardingPageState extends State<HouseholdOnboardingPage> {
                           const Icon(Icons.add_circle_outline, size: 24),
                           const SizedBox(width: 12),
                           Text(
-                            'Create Household',
+                            context.l10n.createHousehold,
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w600,
@@ -120,7 +121,7 @@ class _HouseholdOnboardingPageState extends State<HouseholdOnboardingPage> {
                           const Icon(Icons.link, size: 24),
                           const SizedBox(width: 12),
                           Text(
-                            'Join with Invite',
+                            context.l10n.joinWithInvite,
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w600,

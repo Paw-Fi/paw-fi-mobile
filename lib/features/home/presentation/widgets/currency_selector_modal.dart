@@ -8,6 +8,7 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/currency_flags.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 /// Shows a full-screen currency selector modal
 Future<void> showCurrencySelectorModal(BuildContext context, WidgetRef ref) async {
@@ -165,7 +166,7 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          'Select Currency',
+          context.l10n.selectCurrency,
           style: TextStyle(
             color: colorScheme.foreground,
             fontSize: 18,
@@ -335,8 +336,8 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
                        
                         Text(
                           _showAllCurrencies 
-                            ? 'Show less currencies' 
-                            : 'Show all currencies (${inactiveCurrencies.length} more)',
+                            ? context.l10n.showLessCurrencies
+                            : context.l10n.showAllCurrencies(inactiveCurrencies.length),
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w400,
@@ -487,7 +488,7 @@ class _CurrencyCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Budget: ${formatCurrency(summary.totalBudget, summary.currencyCode)}',
+                            '${context.l10n.budget}: ${formatCurrency(summary.totalBudget, summary.currencyCode)}',
                             style: TextStyle(
                               fontSize: 12,
                               color: colorScheme.mutedForeground,
@@ -495,7 +496,7 @@ class _CurrencyCard extends StatelessWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Spent: ${formatCurrency(summary.totalExpenses, summary.currencyCode)}',
+                            '${context.l10n.spentLabel}: ${formatCurrency(summary.totalExpenses, summary.currencyCode)}',
                             style: TextStyle(
                               fontSize: 12,
                               color: colorScheme.mutedForeground,
@@ -520,7 +521,7 @@ class _CurrencyCard extends StatelessWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            '${summary.transactionCount} txn${summary.transactionCount != 1 ? 's' : ''}',
+                            '${summary.transactionCount} ${summary.transactionCount != 1 ? context.l10n.txns : context.l10n.txn}',
                             style: TextStyle(
                               fontSize: 11,
                               color: colorScheme.mutedForeground,

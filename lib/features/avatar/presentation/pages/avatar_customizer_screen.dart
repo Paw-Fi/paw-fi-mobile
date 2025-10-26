@@ -9,6 +9,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 class AvatarCustomizerScreen extends ConsumerStatefulWidget {
   const AvatarCustomizerScreen({super.key});
@@ -85,6 +86,35 @@ class _AvatarCustomizerScreenState extends ConsumerState<AvatarCustomizerScreen>
   }
 
   // Helpers
+  String _getLocalizedCategory(String category) {
+    switch (category) {
+      case 'face':
+        return context.l10n.face;
+      case 'ears':
+        return context.l10n.ears;
+      case 'shirts':
+        return context.l10n.shirts;
+      case 'hair':
+        return context.l10n.hair;
+      case 'brow':
+        return context.l10n.brow;
+      case 'eyes':
+        return context.l10n.eyes;
+      case 'nose':
+        return context.l10n.nose;
+      case 'mouth':
+        return context.l10n.mouth;
+      case 'blush':
+        return context.l10n.blush;
+      case 'accessories':
+        return context.l10n.accessories;
+      case 'stars':
+        return context.l10n.stars;
+      default:
+        return category[0].toUpperCase() + category.substring(1);
+    }
+  }
+
   Color _hexToColor(String hex) {
     var h = hex.replaceAll('#', '');
     if (h.length == 6) h = 'FF$h';
@@ -236,7 +266,7 @@ class _AvatarCustomizerScreenState extends ConsumerState<AvatarCustomizerScreen>
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to save avatar: $e')),
+        SnackBar(content: Text('${context.l10n.failedToSaveAvatar}: $e')),
       );
     } finally {
       if (mounted) {
@@ -265,7 +295,7 @@ class _AvatarCustomizerScreenState extends ConsumerState<AvatarCustomizerScreen>
               }
             },
           ),
-          title: Text('Avatar Studio', style: TextStyle(color: scheme.foreground, fontWeight: FontWeight.w600)),
+          title: Text(context.l10n.avatarStudio, style: TextStyle(color: scheme.foreground, fontWeight: FontWeight.w600)),
         ),
         body: SafeArea(
           child: SingleChildScrollView(
@@ -283,7 +313,7 @@ class _AvatarCustomizerScreenState extends ConsumerState<AvatarCustomizerScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Preview', style: TextStyle(fontWeight: FontWeight.w600, color: scheme.mutedForeground)),
+                    Text(context.l10n.preview, style: TextStyle(fontWeight: FontWeight.w600, color: scheme.mutedForeground)),
                     const SizedBox(height: 8),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -350,16 +380,16 @@ class _AvatarCustomizerScreenState extends ConsumerState<AvatarCustomizerScreen>
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Colors', style: TextStyle(fontWeight: FontWeight.w600, color: scheme.mutedForeground)),
+                              Text(context.l10n.colors, style: TextStyle(fontWeight: FontWeight.w600, color: scheme.mutedForeground)),
                               const SizedBox(height: 8),
                               Wrap(
                                 spacing: 10,
                                 runSpacing: 10,
                                 children: [
-                                  _colorControl(context, 'Hair', 'hair'),
-                                  _colorControl(context, 'Eyes', 'eyes'),
-                                  _colorControl(context, 'Mouth', 'mouth'),
-                                  _colorControl(context, 'Bg', 'background'),
+                                  _colorControl(context, context.l10n.hair, 'hair'),
+                                  _colorControl(context, context.l10n.eyes, 'eyes'),
+                                  _colorControl(context, context.l10n.mouth, 'mouth'),
+                                  _colorControl(context, context.l10n.background, 'background'),
                                 ],
                               ),
                             ],
@@ -383,7 +413,7 @@ class _AvatarCustomizerScreenState extends ConsumerState<AvatarCustomizerScreen>
                       padding: const EdgeInsets.only(right: 8.0),
                       child: ChoiceChip(
                         selected: active,
-                        label: Text(c[0].toUpperCase() + c.substring(1)),
+                        label: Text(_getLocalizedCategory(c)),
                         onSelected: (_) => setState(() => _activeCategory = c),
                       ),
                     );
@@ -455,14 +485,14 @@ class _AvatarCustomizerScreenState extends ConsumerState<AvatarCustomizerScreen>
                   Expanded(
                     child: shadcnui.OutlineButton(
                       onPressed: _isUploading ? null : _randomize,
-                      child: const Text('Randomize'),
+                      child: Text(context.l10n.randomize),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: shadcnui.PrimaryButton(
                       onPressed: _isUploading ? null : _saveAvatar,
-                      child: Text(_isUploading ? 'Saving... ${_uploadProgress}%' : 'Save Avatar'),
+                      child: Text(_isUploading ? '${context.l10n.saving} ${_uploadProgress}%' : context.l10n.saveAvatar),
                     ),
                   ),
                 ],
@@ -473,7 +503,7 @@ class _AvatarCustomizerScreenState extends ConsumerState<AvatarCustomizerScreen>
                   width: double.infinity,
                   child: shadcnui.OutlineButton(
                     onPressed: _isUploading ? null : _skipForNow,
-                    child: const Text('Skip for now'),
+                    child: Text(context.l10n.skipForNow),
                   ),
                 ),
             ],
@@ -535,7 +565,7 @@ class _AvatarCustomizerScreenState extends ConsumerState<AvatarCustomizerScreen>
     } catch (_) {
       shadcnui.showColorPickerDialog(
         context: context,
-        title: const Text('Select Color'),
+        title: Text(context.l10n.selectColor),
         color: derivative,
         onColorChanged: apply,
       );

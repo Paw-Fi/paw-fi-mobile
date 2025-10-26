@@ -12,6 +12,7 @@ import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import '../../../../core/utils/error_handler.dart';
 import '../../../../core/config/storage_config.dart';
 import '../providers/household_providers.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 class HouseholdImagePicker {
 
@@ -47,7 +48,7 @@ class HouseholdImagePicker {
                   children: [
                     Expanded(
                       child: Text(
-                        'Select Cover Image',
+                        context.l10n.selectCoverImage,
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -75,7 +76,7 @@ class HouseholdImagePicker {
                       print('❌ Stack trace: $stack');
                       return Center(
                         child: Text(
-                          'Failed to load images: $error',
+                          '${context.l10n.failedToLoadImages}: $error',
                           style: TextStyle(color: colorScheme.destructive),
                         ),
                       );
@@ -101,7 +102,7 @@ class HouseholdImagePicker {
                             return _buildActionTile(
                               colorScheme: colorScheme,
                               icon: Icons.camera_alt_rounded,
-                              label: 'Take Photo',
+                              label: context.l10n.takePhoto,
                               gradientColors: [
                                 colorScheme.primary.withOpacity(0.8),
                                 colorScheme.primary,
@@ -126,7 +127,7 @@ class HouseholdImagePicker {
                             return _buildActionTile(
                               colorScheme: colorScheme,
                               icon: Icons.photo_library_rounded,
-                              label: 'Choose from Gallery',
+                              label: context.l10n.chooseFromGallery,
                               gradientColors: [
                                 colorScheme.primary.withOpacity(0.6),
                                 colorScheme.primary.withOpacity(0.8),
@@ -292,7 +293,7 @@ class HouseholdImagePicker {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Failed to load',
+                          context.l10n.failedToLoad,
                           style: TextStyle(
                             fontSize: 10,
                             color: colorScheme.mutedForeground,
@@ -346,7 +347,7 @@ class HouseholdImagePicker {
         if (context.mounted) {
           _showError(
             context,
-            'Image too large (${StorageConfig.getFileSizeString(fileSize)}). Max is ${StorageConfig.getFileSizeString(StorageConfig.maxFileSizeBytes)}.',
+            '${context.l10n.imageTooLarge} (${StorageConfig.getFileSizeString(fileSize)}). ${context.l10n.maxIs} ${StorageConfig.getFileSizeString(StorageConfig.maxFileSizeBytes)}.',
           );
         }
         return null;
@@ -356,7 +357,7 @@ class HouseholdImagePicker {
         if (context.mounted) {
           _showError(
             context,
-            'Unsupported file format. Please use JPG, PNG, or WebP.',
+            context.l10n.unsupportedFileFormat,
           );
         }
         return null;
@@ -388,14 +389,14 @@ class HouseholdImagePicker {
         compressFormat: ImageCompressFormat.jpg,
         uiSettings: [
           AndroidUiSettings(
-            toolbarTitle: 'Crop Cover Image',
+            toolbarTitle: context.l10n.cropCoverImage,
             toolbarColor: Colors.black,
             toolbarWidgetColor: Colors.white,
             initAspectRatio: CropAspectRatioPreset.square,
             lockAspectRatio: true,
           ),
           IOSUiSettings(
-            title: 'Crop Cover Image',
+            title: context.l10n.cropCoverImage,
             aspectRatioLockEnabled: true,
             resetAspectRatioEnabled: false,
           ),

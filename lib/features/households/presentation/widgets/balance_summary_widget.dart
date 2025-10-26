@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import '../../../../../core/l10n/l10n.dart';
 
 /// Widget to display balance summary ("You owe X" / "You are owed Y")
 class BalanceSummaryWidget extends ConsumerWidget {
@@ -29,7 +30,7 @@ class BalanceSummaryWidget extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Balance Summary',
+              context.l10n.balanceSummary,
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -54,7 +55,7 @@ class BalanceSummaryWidget extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        netBalance >= 0 ? 'You are owed' : 'You owe',
+                        netBalance >= 0 ? context.l10n.youAreOwed : context.l10n.youOwe,
                         style: TextStyle(
                           fontSize: 14,
                           color: colorScheme.mutedForeground,
@@ -90,7 +91,7 @@ class BalanceSummaryWidget extends ConsumerWidget {
 
             // Breakdown
             _BalanceRow(
-              label: 'You owe others',
+              label: context.l10n.youOweOthers,
               amount: youOwe,
               icon: Icons.call_made,
               colorScheme: colorScheme,
@@ -98,7 +99,7 @@ class BalanceSummaryWidget extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
             _BalanceRow(
-              label: 'Others owe you',
+              label: context.l10n.othersOweYou,
               amount: youAreOwed,
               icon: Icons.call_received,
               colorScheme: colorScheme,
@@ -115,7 +116,7 @@ class BalanceSummaryWidget extends ConsumerWidget {
                     onPressed: () {
                       // View detailed breakdown
                     },
-                    child: const Text('View Details'),
+                    child: Text(context.l10n.viewDetails),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -124,7 +125,7 @@ class BalanceSummaryWidget extends ConsumerWidget {
                     onPressed: () {
                       // Settle up flow
                     },
-                    child: const Text('Settle Up'),
+                    child: Text(context.l10n.settleUp),
                   ),
                 ),
               ],

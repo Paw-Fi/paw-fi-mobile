@@ -7,6 +7,7 @@ import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
 import 'package:intl/intl.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 /// Full expense list page with filtering and search for a household
 class HouseholdExpensesPage extends ConsumerStatefulWidget {
@@ -123,7 +124,7 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Expenses',
+              context.l10n.expenses,
               style: TextStyle(
                 color: colorScheme.foreground,
                 fontSize: 18,
@@ -148,7 +149,7 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Search expenses...',
+                hintText: context.l10n.searchExpenses,
                 hintStyle: TextStyle(color: colorScheme.mutedForeground),
                 prefixIcon: Icon(Icons.search, color: colorScheme.mutedForeground),
                 suffixIcon: _searchQuery.isNotEmpty
@@ -190,7 +191,7 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
                   _FilterChip(
                     label: _selectedDateRange != null
                         ? '${DateFormat('MMM d').format(_selectedDateRange!.start)} - ${DateFormat('MMM d').format(_selectedDateRange!.end)}'
-                        : 'Date Range',
+                        : context.l10n.dateRange,
                     icon: Icons.calendar_today,
                     isSelected: _selectedDateRange != null,
                     onTap: _selectDateRange,
@@ -212,7 +213,7 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
                       _selectedDateRange != null || 
                       _searchQuery.isNotEmpty)
                     _FilterChip(
-                      label: 'Clear All',
+                      label: context.l10n.clearAll,
                       icon: Icons.clear_all,
                       isSelected: false,
                       onTap: _clearFilters,
@@ -242,7 +243,7 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'Error Loading Expenses',
+                        context.l10n.errorLoadingExpenses,
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
@@ -279,7 +280,7 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            expenses.isEmpty ? 'No Expenses Yet' : 'No Matching Expenses',
+                            expenses.isEmpty ? context.l10n.noExpensesYet : context.l10n.noMatchingExpenses,
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w600,
@@ -289,8 +290,8 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
                           const SizedBox(height: 8),
                           Text(
                             expenses.isEmpty
-                                ? 'Start logging expenses to see them here'
-                                : 'Try adjusting your filters',
+                                ? context.l10n.startLoggingExpenses
+                                : context.l10n.tryAdjustingFilters,
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 14,
@@ -348,9 +349,9 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
           },
           itemBuilder: (context) => [
             if (_selectedCategory != null)
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: null,
-                child: Text('All Categories'),
+                child: Text(context.l10n.allCategories),
               ),
             ...categories.map((category) => PopupMenuItem(
                   value: category,
@@ -358,7 +359,7 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
                 )),
           ],
           child: _FilterChip(
-            label: _selectedCategory ?? 'Category',
+            label: _selectedCategory ?? context.l10n.category,
             icon: Icons.category_outlined,
             isSelected: _selectedCategory != null,
             onTap: null, // Handled by PopupMenuButton
@@ -395,9 +396,9 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
           },
           itemBuilder: (context) => [
             if (_selectedMemberId != null)
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: null,
-                child: Text('All Members'),
+                child: Text(context.l10n.allMembers),
               ),
             ...sortedMembers.map((entry) => PopupMenuItem(
                   value: entry.key,
@@ -407,7 +408,7 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
           child: _FilterChip(
             label: _selectedMemberId != null
                 ? members[_selectedMemberId]!
-                : 'Member',
+                : context.l10n.member,
             icon: Icons.person_outline,
             isSelected: _selectedMemberId != null,
             onTap: null, // Handled by PopupMenuButton
@@ -576,7 +577,7 @@ class _ExpenseListItem extends StatelessWidget {
                       border: Border.all(color: colorScheme.border),
                     ),
                     child: Text(
-                      'SPLIT',
+                      context.l10n.split,
                       style: TextStyle(
                         fontSize: 10,
                         letterSpacing: 0.4,

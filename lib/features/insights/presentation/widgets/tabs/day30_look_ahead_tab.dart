@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/insights/presentation/widgets/charts/charts.dart';
 import 'package:moneko/features/insights/presentation/widgets/chart_legend.dart';
 
-Widget build30DayLookAheadTab(shadcnui.ColorScheme colorScheme, AnalyticsData analyticsData, {String? selectedCurrency}) {
+Widget build30DayLookAheadTab(BuildContext context, shadcnui.ColorScheme colorScheme, AnalyticsData analyticsData, {String? selectedCurrency}) {
   // Filter data by currency if selected
   var expenses = analyticsData.expenses;
   var budgets = analyticsData.budgets;
@@ -33,7 +34,7 @@ Widget build30DayLookAheadTab(shadcnui.ColorScheme colorScheme, AnalyticsData an
               Row(
                 children: [
                   Text(
-                    '30-Day Look-Ahead',
+                    context.l10n.day30LookAhead,
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -59,7 +60,7 @@ Widget build30DayLookAheadTab(shadcnui.ColorScheme colorScheme, AnalyticsData an
               ),
               const SizedBox(height: 4),
               Text(
-                'Projected from trailing 30-day averages.',
+                context.l10n.projectedFromTrailing30Days,
                 style: TextStyle(
                   fontSize: 12,
                   color: colorScheme.mutedForeground,
@@ -68,13 +69,13 @@ Widget build30DayLookAheadTab(shadcnui.ColorScheme colorScheme, AnalyticsData an
               const SizedBox(height: 24),
               SizedBox(
                 height: 250,
-                child: build30DayProjectionChart(colorScheme, expenses, budgets),
+                child: build30DayProjectionChart(context, colorScheme, expenses, budgets),
               ),
               const SizedBox(height: 16),
               buildChartLegend(
                 colorScheme,
                 [
-                  {'label': 'Projected Spending', 'color': const Color(0xFF10B981)},
+                  {'label': context.l10n.projectedSpendingLegend, 'color': const Color(0xFF10B981)},
                 ],
               ),
             ],

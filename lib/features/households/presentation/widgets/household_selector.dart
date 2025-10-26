@@ -12,6 +12,7 @@ import '../providers/household_providers.dart';
 import '../providers/selected_household_provider.dart';
 import '../pages/household_create_page.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 /// Household selector component
 /// Horizontal scrollable list displaying all households
@@ -295,7 +296,7 @@ class _ErrorState extends StatelessWidget {
           const SizedBox(width: 12),
           Flexible(
             child: Text(
-              'Error loading households',
+              context.l10n.errorLoadingHouseholds,
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,

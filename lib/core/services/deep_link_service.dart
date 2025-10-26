@@ -8,6 +8,7 @@ import 'package:moneko/features/subscription/presentation/providers/subscription
 import 'package:moneko/features/settings/presentation/widgets/whatsapp_verification_modal.dart';
 import 'package:moneko/features/profile/data/providers/whatsapp_binding_provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 /// Deep link service that handles app links
 class DeepLinkService {
@@ -83,9 +84,9 @@ class DeepLinkService {
       if (context.mounted) {
         if (status == 'success') {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('✅ Payment successful! Checking subscription...'),
-              duration: Duration(seconds: 3),
+            SnackBar(
+              content: Text(context.l10n.paymentSuccessfulCheckingSubscription),
+              duration: const Duration(seconds: 3),
             ),
           );
           // Navigate to dashboard after a short delay to let subscription load
@@ -95,7 +96,7 @@ class DeepLinkService {
             }
           });
         } else if (status == 'failed') {
-          final error = uri.queryParameters['error'] ?? 'Payment failed';
+          final error = uri.queryParameters['error'] ?? context.l10n.paymentFailed;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('❌ $error'),
@@ -105,9 +106,9 @@ class DeepLinkService {
           );
         } else if (status == 'canceled') {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('ℹ️ Payment canceled'),
-              duration: Duration(seconds: 3),
+            SnackBar(
+              content: Text(context.l10n.paymentCanceled),
+              duration: const Duration(seconds: 3),
             ),
           );
         }
@@ -188,9 +189,9 @@ class DeepLinkService {
         
         // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ WhatsApp verified successfully!'),
-            duration: Duration(seconds: 3),
+          SnackBar(
+            content: Text(context.l10n.whatsappVerifiedSuccessfully),
+            duration: const Duration(seconds: 3),
           ),
         );
       },

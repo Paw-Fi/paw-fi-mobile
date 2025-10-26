@@ -3,8 +3,10 @@ import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 Widget buildNetCashflowCard(
+  BuildContext context,
   shadcnui.ColorScheme colorScheme,
   List<DailyBudgetEntry> budgets,
   List<ExpenseEntry> expenses,
@@ -22,7 +24,7 @@ Widget buildNetCashflowCard(
   final formattedAmount = formatCurrency(absAmount, selectedCurrency ?? 'USD');
   final displayText = isNegative ? '-$formattedAmount' : formattedAmount;
   
-  final title = _netCashflowTitleForFilter(filter);
+  final title = _netCashflowTitleForFilter(context, filter);
 
   return Container(
     decoration: BoxDecoration(
@@ -60,7 +62,7 @@ Widget buildNetCashflowCard(
               ),
               const SizedBox(width: 4),
               Text(
-                isNegative ? 'Negative' : 'Positive',
+                isNegative ? context.l10n.negative : context.l10n.positive,
                 style: TextStyle(
                   fontSize: 12,
                   color: isNegative ? const Color(0xFFEF4444) : const Color(0xFF10B981),
@@ -82,22 +84,23 @@ double _getTotalSpent(List<ExpenseEntry> expenses) {
   return expenses.fold(0.0, (sum, e) => sum + e.amount.abs());
 }
 
-String _netCashflowTitleForFilter(DateRangeFilter filter) {
+String _netCashflowTitleForFilter(BuildContext context, DateRangeFilter filter) {
+  final l10n = context.l10n;
   switch (filter) {
     case DateRangeFilter.today:
-      return "Net cashflow today";
+      return l10n.netCashflowToday;
     case DateRangeFilter.yesterday:
-      return "Net cashflow yesterday";
+      return l10n.netCashflowYesterday;
     case DateRangeFilter.thisWeek:
-      return 'Net cashflow this week';
+      return l10n.netCashflowThisWeek;
     case DateRangeFilter.lastWeek:
-      return 'Net cashflow last week';
+      return l10n.netCashflowLastWeek;
     case DateRangeFilter.thisMonth:
-      return 'Net cashflow this month';
+      return l10n.netCashflowThisMonth;
     case DateRangeFilter.last30Days:
-      return 'Net cashflow (last 30 days)';
+      return l10n.netCashflowLast30Days;
     case DateRangeFilter.custom:
-      return 'Net cashflow (custom)';
+      return l10n.netCashflowCustom;
   }
 }
 

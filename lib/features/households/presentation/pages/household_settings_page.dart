@@ -10,6 +10,7 @@ import '../providers/selected_household_provider.dart';
 import '../widgets/household_image_picker.dart';
 import '../../../../core/config/storage_config.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:path/path.dart' as path;
 
 /// Household Settings Page
@@ -38,7 +39,7 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
         backgroundColor: colorScheme.background,
         elevation: 0,
         title: Text(
-          'Household Settings',
+          context.l10n.householdSettings,
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
@@ -83,7 +84,7 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
         if (household == null) {
           return Center(
             child: Text(
-              'Household not found',
+              context.l10n.householdNotFound,
               style: TextStyle(color: colorScheme.destructive),
             ),
           );
@@ -102,7 +103,7 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
           children: [
             // Household Name
             Text(
-              'Household Name',
+              context.l10n.householdName,
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -113,7 +114,7 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
             TextField(
               controller: _nameController,
               decoration: InputDecoration(
-                hintText: 'Enter household name',
+                hintText: context.l10n.pleaseEnterHouseholdName,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -126,7 +127,7 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
 
             // Cover Photo
             Text(
-              'Cover Photo',
+              context.l10n.coverPhoto,
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -216,7 +217,7 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                'Change Cover Photo',
+                                context.l10n.changeCoverPhoto,
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
@@ -246,7 +247,7 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
                         valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                       ),
                     )
-                  : const Text('Save Changes'),
+                  : Text(context.l10n.saveChanges),
             ),
           ],
         );
@@ -254,7 +255,7 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stack) => Center(
         child: Text(
-          'Error loading household: $error',
+          '${context.l10n.errorLoadingHousehold}: $error',
           style: TextStyle(color: colorScheme.destructive),
         ),
       ),
@@ -277,7 +278,7 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
 
   Future<void> _saveChanges(Household household) async {
     if (_nameController.text.trim().isEmpty) {
-      _showError('Please enter a household name');
+      _showError(context.l10n.pleaseEnterHouseholdName);
       return;
     }
 
@@ -315,14 +316,14 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Household updated successfully'),
+            content: Text(context.l10n.householdUpdatedSuccessfully),
             backgroundColor: colorScheme.primary,
             behavior: SnackBarBehavior.floating,
           ),
         );
       }
     } catch (e) {
-      _showError('Failed to update household: $e');
+      _showError('${context.l10n.failedToUpdateHousehold}: $e');
     } finally {
       if (mounted) {
         setState(() {

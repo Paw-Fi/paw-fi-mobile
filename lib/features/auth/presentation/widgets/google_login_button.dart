@@ -4,6 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 /// Google Sign-In button matching web implementation
 /// Uses Supabase OAuth with Google provider
@@ -62,8 +63,8 @@ class GoogleLoginButton extends HookConsumerWidget {
           onPressed: (isLoading.value || disabled) ? null : handleGoogleLogin,
           leading: const shadcnui.Icon(Icons.g_mobiledata, size: 24),
           child: isLoading.value
-              ? const shadcnui.Text('Signing in with Google...')
-              : const shadcnui.Text('Continue with Google'),
+              ? shadcnui.Text(context.l10n.signingInWithGoogle)
+              : shadcnui.Text(context.l10n.continueWithGoogle),
         ),
         if (error.value != null) ...[
           const SizedBox(height: 12),

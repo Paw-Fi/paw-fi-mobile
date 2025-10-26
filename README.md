@@ -14,3 +14,7 @@ A flutter supabase auth starter build with riverpod
 ### Release to Production
 `flutter build ios  --dart-define=ENV=prod`
 
+### Localization
+`flutter gen-l10n`
+
+

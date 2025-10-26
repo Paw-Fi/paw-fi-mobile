@@ -3,17 +3,18 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/insights/presentation/widgets/charts/charts.dart';
 import 'package:moneko/features/insights/presentation/widgets/scenario_result_sheet.dart';
 
-Widget buildScenarioPlanningTab(shadcnui.ColorScheme colorScheme, AnalyticsData analyticsData, {String? selectedCurrency}) {
-  return ScenarioPlanningTabContent(colorScheme: colorScheme, analyticsData: analyticsData, selectedCurrency: selectedCurrency);
+Widget buildScenarioPlanningTab(BuildContext context, shadcnui.ColorScheme colorScheme, AnalyticsData analyticsData, {String? selectedCurrency}) {
+  return ScenarioPlanningTabContent(context: context, colorScheme: colorScheme, analyticsData: analyticsData, selectedCurrency: selectedCurrency);
 }
 
 void _showCategoryGuide(BuildContext context, shadcnui.ColorScheme colorScheme) {
-  final slides = _scenarioCategorySlides();
+  final slides = _scenarioCategorySlides(context);
   final controller = PageController();
   int currentPage = 0;
 
@@ -37,7 +38,7 @@ void _showCategoryGuide(BuildContext context, shadcnui.ColorScheme colorScheme) 
                       children: [
                         Expanded(
                           child: Text(
-                            'Make sense of categories',
+                            context.l10n.scenarioCategoriesGuide,
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.w600,
@@ -53,7 +54,7 @@ void _showCategoryGuide(BuildContext context, shadcnui.ColorScheme colorScheme) 
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      "Think of this chart as a bird's-eye view of where each dollar flew. Here's how to read it without needing a calculator.",
+                      context.l10n.categoryGuideIntro,
                       style: TextStyle(color: colorScheme.mutedForeground, fontSize: 14),
                     ),
                     const SizedBox(height: 24),
@@ -95,7 +96,7 @@ void _showCategoryGuide(BuildContext context, shadcnui.ColorScheme colorScheme) 
                       children: [
                         TextButton(
                           onPressed: () => Navigator.of(dialogContext).pop(),
-                          child: const Text('Close'),
+                          child: Text(context.l10n.close),
                         ),
                         const Spacer(),
                         shadcnui.PrimaryButton(
@@ -107,7 +108,7 @@ void _showCategoryGuide(BuildContext context, shadcnui.ColorScheme colorScheme) 
                               Navigator.of(dialogContext).pop();
                             }
                           },
-                          child: Text(currentPage < slides.length - 1 ? 'Next' : 'Done'),
+                          child: Text(currentPage < slides.length - 1 ? context.l10n.next : context.l10n.done),
                         ),
                       ],
                     ),
@@ -130,11 +131,11 @@ class _ScenarioSlideData {
   final List<String> points;
 }
 
-List<_ScenarioSlideData> _scenarioCategorySlides() {
-  return const [
+List<_ScenarioSlideData> _scenarioCategorySlides(BuildContext context) {
+  return [
     _ScenarioSlideData(
-      title: 'Read the bar chart like a pro',
-      summary: 'Each bar shows how much a category grabbed in the selected window. Taller bar, bigger bite of your budget.',
+      title: context.l10n.readTheBarChartLikeAPro,
+      summary: context.l10n.categoryChartDesc,
       points: [
         'The left-hand champs are your heavy hitters—perfect candidates for a quick review.',
         'Small but frequent categories hint at habits that may sneak up over time.',
@@ -142,8 +143,8 @@ List<_ScenarioSlideData> _scenarioCategorySlides() {
       ],
     ),
     _ScenarioSlideData(
-      title: 'Why this view is helpful',
-      summary: 'Scenario planning works best when you know your baseline. These totals guide where to dial things up or down.',
+      title: context.l10n.whyThisViewIsHelpful,
+      summary: context.l10n.categoryWhyHelpfulDesc,
       points: [
         'Planning a new goal? Spot categories to trim without touching the fun stuff.',
         'Eyeing a treat-yourself month? See which areas can flex safely.',
@@ -151,8 +152,8 @@ List<_ScenarioSlideData> _scenarioCategorySlides() {
       ],
     ),
     _ScenarioSlideData(
-      title: 'What to do with the insight',
-      summary: 'Take one friendly step at a time. Tiny tweaks across big categories move the needle fast.',
+      title: context.l10n.whatToDoWithTheInsight,
+      summary: context.l10n.categoryWhatToDoDesc,
       points: [
         'Slide a high bar down a notch by setting a mini limit or switching to lower-cost swaps.',
         'If a bar is non-negotiable (hello, rent), plan around it instead of fighting it.',
@@ -217,12 +218,14 @@ class _ScenarioHelpSlide extends StatelessWidget {
 }
 
 class ScenarioPlanningTabContent extends ConsumerStatefulWidget {
+  final BuildContext context;
   final shadcnui.ColorScheme colorScheme;
   final AnalyticsData analyticsData;
   final String? selectedCurrency;
 
   const ScenarioPlanningTabContent({
     super.key,
+    required this.context,
     required this.colorScheme,
     required this.analyticsData,
     this.selectedCurrency,
@@ -281,7 +284,7 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'AI Scenario Planning',
+                  context.l10n.aiScenarioPlanning,
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -290,7 +293,7 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Ask your AI financial advisor if you can afford a future expense',
+                  context.l10n.askAiFinancialAdvisor,
                   style: TextStyle(
                     fontSize: 12,
                     color: widget.colorScheme.mutedForeground,
@@ -305,7 +308,7 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
                       children: [
                         Padding(
                           padding: const EdgeInsets.only(right: 8.0),
-                          child: Text('Can I', style: TextStyle(color: widget.colorScheme.foreground, fontWeight: FontWeight.w600)),
+                          child: Text(context.l10n.canI, style: TextStyle(color: widget.colorScheme.foreground, fontWeight: FontWeight.w600)),
                         ),
                         Expanded(
                           child: TextField(
@@ -337,7 +340,7 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
                       children: [
                         Padding(
                           padding: const EdgeInsets.only(right: 8.0),
-                          child: Text('before', style: TextStyle(color: widget.colorScheme.foreground, fontWeight: FontWeight.w600)),
+                          child: Text(context.l10n.before, style: TextStyle(color: widget.colorScheme.foreground, fontWeight: FontWeight.w600)),
                         ),
                         shadcnui.OutlineButton(
                           onPressed: () async {
@@ -357,7 +360,7 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
                           },
                           child: Text(
                             _scenarioDate == null
-                                ? 'Pick date'
+                                ? context.l10n.pickDate
                                 : '${_scenarioDate!.year}-${_scenarioDate!.month.toString().padLeft(2, '0')}-${_scenarioDate!.day.toString().padLeft(2, '0')}',
                           ),
                         ),
@@ -372,7 +375,7 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
                                     ? ''
                                     : '${_scenarioDate!.year}-${_scenarioDate!.month.toString().padLeft(2, '0')}-${_scenarioDate!.day.toString().padLeft(2, '0')}';
                                 if (q.isEmpty || d.isEmpty) {
-                                  _showToast('Please enter a question and pick a date');
+                                  _showToast(context.l10n.enterQuestionAndPickDate);
                                   return;
                                 }
 
@@ -401,7 +404,7 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
                                             ),
                                             const SizedBox(height: 16),
                                             Text(
-                                              'Analyzing scenario...',
+                                              context.l10n.analyzingScenario,
                                               style: TextStyle(
                                                 color: colorScheme.foreground,
                                                 fontSize: 16,
@@ -410,7 +413,7 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
                                             ),
                                             const SizedBox(height: 8),
                                             Text(
-                                              'This might take a while',
+                                              context.l10n.thisMightTakeAWhile,
                                               style: TextStyle(
                                                 color: colorScheme.mutedForeground,
                                                 fontSize: 14,
@@ -460,7 +463,7 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
                                   _showToast('Analysis failed: ${e.toString()}');
                                 }
                               },
-                              child: Text('Check', style: TextStyle(color: colorScheme.buttonText, fontWeight: FontWeight.bold)),
+                              child: Text(context.l10n.check, style: TextStyle(color: colorScheme.buttonText, fontWeight: FontWeight.bold)),
                             ),
                           ),
                         ),
@@ -488,7 +491,7 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
                 Row(
                   children: [
                     Text(
-                      'Where the Money Went',
+                      context.l10n.whereTheMoneyWent,
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -514,7 +517,7 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Category totals for the selected range.',
+                  context.l10n.categoryTotalsForSelectedRange,
                   style: TextStyle(
                     fontSize: 12,
                     color: widget.colorScheme.mutedForeground,
@@ -531,7 +534,7 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
                         final currency = widget.selectedCurrency!.toUpperCase();
                         expenses = expenses.where((e) => e.currency?.toUpperCase() == currency).toList();
                       }
-                      return buildCategoryBarChart(widget.colorScheme, expenses);
+                      return buildCategoryBarChart(context, widget.colorScheme, expenses);
                     },
                   ),
                 ),

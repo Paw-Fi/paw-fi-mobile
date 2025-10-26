@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../domain/entities/household.dart';
 import '../providers/household_providers.dart';
 import '../utils/household_ui_utils.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 /// Household Members Management Page
 /// View members, update roles, remove members
@@ -27,7 +28,7 @@ class HouseholdMembersPage extends ConsumerWidget {
         backgroundColor: colorScheme.background,
         elevation: 0,
         title: Text(
-          'Members',
+          context.l10n.members,
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
@@ -41,7 +42,7 @@ class HouseholdMembersPage extends ConsumerWidget {
               // Navigate to invites page
               context.push('/households/$householdId/invites');
             },
-            tooltip: 'Invite Member',
+            tooltip: context.l10n.inviteMember,
           ),
         ],
       ),
@@ -70,13 +71,13 @@ class HouseholdMembersPage extends ConsumerWidget {
               Icon(Icons.error_outline, size: 48, color: colorScheme.destructive),
               const SizedBox(height: 16),
               Text(
-                'Error loading members',
+                context.l10n.errorLoadingMembers,
                 style: TextStyle(color: colorScheme.destructive),
               ),
               const SizedBox(height: 8),
               shadcnui.OutlineButton(
                 onPressed: () => ref.read(householdMembersProvider(householdId).notifier).load(),
-                child: const Text('Retry'),
+                child: Text(context.l10n.retry),
               ),
             ],
           ),
@@ -89,12 +90,12 @@ class HouseholdMembersPage extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Remove Member'),
-        content: Text('Are you sure you want to remove ${member.userName ?? member.userEmail}?'),
+        title: Text(context.l10n.removeMember),
+        content: Text('${context.l10n.confirmRemoveMember} ${member.userName ?? member.userEmail}?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(context.l10n.cancel),
           ),
           TextButton(
             onPressed: () async {
@@ -102,7 +103,7 @@ class HouseholdMembersPage extends ConsumerWidget {
               if (context.mounted) Navigator.pop(context);
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Remove'),
+            child: Text(context.l10n.remove),
           ),
         ],
       ),
@@ -113,7 +114,7 @@ class HouseholdMembersPage extends ConsumerWidget {
     await ref.read(householdMembersProvider(householdId).notifier).updateRole(member.id, role);
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Updated ${member.userName ?? member.userEmail} to ${role.toJson()}')),
+        SnackBar(content: Text('${context.l10n.updatedMemberRole} ${member.userName ?? member.userEmail} to ${role.toJson()}')),
       );
     }
   }
@@ -160,7 +161,7 @@ class _MemberCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    member.userName ?? member.userEmail ?? 'Unknown',
+                    member.userName ?? member.userEmail ?? context.l10n.unknown,
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -200,34 +201,34 @@ class _MemberCard extends StatelessWidget {
                 },
                 itemBuilder: (context) => [
                   if (member.role != HouseholdRole.admin)
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'make_admin',
                       child: Row(
                         children: [
                           Icon(Icons.admin_panel_settings),
                           SizedBox(width: 8),
-                          Text('Make Admin'),
+                          Text(context.l10n.makeAdmin),
                         ],
                       ),
                     ),
                   if (member.role != HouseholdRole.member)
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'make_member',
                       child: Row(
                         children: [
                           Icon(Icons.person),
                           SizedBox(width: 8),
-                          Text('Make Member'),
+                          Text(context.l10n.makeMember),
                         ],
                       ),
                     ),
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'remove',
                     child: Row(
                       children: [
                         Icon(Icons.remove_circle_outline, color: Colors.red),
                         SizedBox(width: 8),
-                        Text('Remove', style: TextStyle(color: Colors.red)),
+                        Text(context.l10n.remove, style: TextStyle(color: Colors.red)),
                       ],
                     ),
                   ),

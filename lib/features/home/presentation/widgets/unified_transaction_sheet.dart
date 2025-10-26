@@ -26,9 +26,10 @@ import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 /// Format date with relative terms
-String _formatRelativeDate(DateTime date) {
+String _formatRelativeDate(DateTime date, BuildContext context) {
   final now = DateTime.now();
   final localDate = toLocalTime(date);
   final today = DateTime(now.year, now.month, now.day);
@@ -36,9 +37,9 @@ String _formatRelativeDate(DateTime date) {
   final dateOnly = DateTime(localDate.year, localDate.month, localDate.day);
 
   if (dateOnly == today) {
-    return 'Today';
+    return context.l10n.today;
   } else if (dateOnly == yesterday) {
-    return 'Yesterday';
+    return context.l10n.yesterday;
   } else if (dateOnly.isAfter(today.subtract(const Duration(days: 7)))) {
     return DateFormat('EEEE').format(localDate);
   } else {
@@ -116,35 +117,6 @@ class _UnifiedTransactionSheetState
       // Initialize share state from existing expense (shared if linked to a household or has a split group)
       _isSharedWithHousehold = widget.existingExpense!.householdId != null ||
                                widget.existingExpense!.splitGroupId != null;
-
-      // Listen for optimistic/final updates of this expense and refresh UI
-      ref.listen(transactionEditProvider, (prev, next) {
-        final edited = next.optimisticUpdate;
-        if (edited != null && widget.existingExpense != null && edited.id == widget.existingExpense!.id) {
-          if (!mounted) return;
-          setState(() {
-            _currentExpense = edited;
-            final local = toLocalTime(edited.createdAt);
-            _selectedTime = TimeOfDay(hour: local.hour, minute: local.minute);
-          });
-        }
-      });
-
-      // Also listen to analyticsProvider reload to sync from backend
-      ref.listen(analyticsProvider, (prev, next) {
-        if (widget.existingExpense == null) return;
-        final id = widget.existingExpense!.id;
-        final updated = next.allExpenses.firstWhere(
-          (e) => e.id == id,
-          orElse: () => _currentExpense ?? widget.existingExpense!,
-        );
-        if (!mounted) return;
-        setState(() {
-          _currentExpense = updated;
-          final local = toLocalTime(updated.createdAt);
-          _selectedTime = TimeOfDay(hour: local.hour, minute: local.minute);
-        });
-      });
     } else if (widget.newExpense != null) {
       // For new expenses, default to current local time (BE usually returns date-only)
       _selectedTime = TimeOfDay.now();
@@ -218,6 +190,43 @@ class _UnifiedTransactionSheetState
     final displayDate = pendingExpense?.date ?? date;
     final displayDescription = pendingExpense?.description ?? description;
 
+    // Update expense from providers if it's an existing expense
+    if (isExistingExpense) {
+      // Listen for optimistic/final updates of this expense and refresh UI
+      final transactionEdit = ref.watch(transactionEditProvider);
+      final edited = transactionEdit.optimisticUpdate;
+      if (edited != null && edited.id == widget.existingExpense!.id) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {
+              _currentExpense = edited;
+              final local = toLocalTime(edited.createdAt);
+              _selectedTime = TimeOfDay(hour: local.hour, minute: local.minute);
+            });
+          }
+        });
+      }
+
+      // Also listen to analyticsProvider reload to sync from backend
+      final analytics = ref.watch(analyticsProvider);
+      if (widget.existingExpense != null) {
+        final id = widget.existingExpense!.id;
+        final updated = analytics.allExpenses.firstWhere(
+          (e) => e.id == id,
+          orElse: () => _currentExpense ?? widget.existingExpense!,
+        );
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {
+              _currentExpense = updated;
+              final local = toLocalTime(updated.createdAt);
+              _selectedTime = TimeOfDay(hour: local.hour, minute: local.minute);
+            });
+          }
+        });
+      }
+    }
+
     return Container(
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.92,
@@ -254,7 +263,7 @@ class _UnifiedTransactionSheetState
                 ),
                 Expanded(
                   child: Text(
-                    isNewExpense ? 'Confirm Expense' : 'Expense Details',
+                    isNewExpense ? context.l10n.confirmExpense : context.l10n.expenseDetails,
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
@@ -297,7 +306,7 @@ class _UnifiedTransactionSheetState
 
                   // Date and Time
                   Text(
-                    '${_formatRelativeDate(displayDate)}, ${_selectedTime.format(context)}',
+                    '${_formatRelativeDate(displayDate, context)}, ${_selectedTime.format(context)}',
                     style: TextStyle(
                       fontSize: 14,
                       color: colorScheme.mutedForeground,
@@ -332,7 +341,7 @@ class _UnifiedTransactionSheetState
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      'Details',
+                      context.l10n.details,
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w600,
@@ -346,7 +355,7 @@ class _UnifiedTransactionSheetState
                   // Category Card
                   _buildDetailCard(
                     colorScheme: colorScheme,
-                    label: 'Category',
+                    label: context.l10n.category,
                     value: displayCategory.substring(0, 1).toUpperCase() +
                         displayCategory.substring(1),
                     onTap: () => _handleEditCategory(displayCategory),
@@ -357,7 +366,7 @@ class _UnifiedTransactionSheetState
                   // Currency Card
                   _buildDetailCard(
                     colorScheme: colorScheme,
-                    label: 'Currency',
+                    label: context.l10n.currency,
                     value: currency.toUpperCase(),
                     onTap: () => _handleEditCurrency(currency),
                     disabled: _isSharedWithHousehold,
@@ -368,8 +377,8 @@ class _UnifiedTransactionSheetState
                   // Date Card
                   _buildDetailCard(
                     colorScheme: colorScheme,
-                    label: 'Date',
-                    value: _formatRelativeDate(displayDate),
+                    label: context.l10n.date,
+                    value: _formatRelativeDate(displayDate, context),
                     onTap: () => _handleEditDate(displayDate),
                   ),
 
@@ -378,7 +387,7 @@ class _UnifiedTransactionSheetState
                   // Time Card
                   _buildDetailCard(
                     colorScheme: colorScheme,
-                    label: 'Time',
+                    label: context.l10n.time,
                     value: _selectedTime.format(context),
                     onTap: () => _handleEditTime(),
                   ),
@@ -390,7 +399,7 @@ class _UnifiedTransactionSheetState
                     Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        'Notes',
+                        context.l10n.notes,
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w600,
@@ -420,7 +429,7 @@ class _UnifiedTransactionSheetState
                     Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        'Receipt',
+                        context.l10n.receipt,
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w600,
@@ -453,7 +462,7 @@ class _UnifiedTransactionSheetState
                                       Colors.white),
                                 ),
                               )
-                            : const Text('Save Expense'),
+                            : Text(context.l10n.saveExpense),
                       ),
                     ),
 
@@ -495,7 +504,7 @@ class _UnifiedTransactionSheetState
             children: [
               Expanded(
                 child: Text(
-                  'Share with household',
+                  context.l10n.shareWithHousehold,
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
@@ -635,7 +644,7 @@ class _UnifiedTransactionSheetState
                           ),
                         ),
                         const SizedBox(width: 10),
-                        Text('Loading household members...',
+                        Text(context.l10n.loadingHouseholdMembers,
                             style: TextStyle(color: colorScheme.mutedForeground)),
                       ],
                     ),
@@ -670,7 +679,7 @@ class _UnifiedTransactionSheetState
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      'Select a household to configure split',
+                      context.l10n.selectHouseholdToConfigureSplit,
                       style: TextStyle(color: colorScheme.mutedForeground),
                     ),
                   );
@@ -716,7 +725,7 @@ class _UnifiedTransactionSheetState
           ? () {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: const Text('Currency is managed by the household and cannot be changed'),
+                  content: Text(context.l10n.currencyIsManagedByHousehold),
                   backgroundColor: colorScheme.muted,
                   behavior: SnackBarBehavior.floating,
                   duration: const Duration(seconds: 2),
@@ -794,12 +803,12 @@ class _UnifiedTransactionSheetState
                       CupertinoButton(
                         padding: EdgeInsets.zero,
                         onPressed: () => Navigator.pop<T>(context),
-                        child: const Text('Cancel'),
+                        child: Text(context.l10n.cancel),
                       ),
                       CupertinoButton(
                         padding: EdgeInsets.zero,
                         onPressed: () => Navigator.pop<T>(context, tempValue),
-                        child: const Text('Done'),
+                        child: Text(context.l10n.done),
                       ),
                     ],
                   ),
@@ -891,7 +900,7 @@ class _UnifiedTransactionSheetState
       final scheme = shadcnui.Theme.of(context).colorScheme;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Currency cannot be changed when sharing with a household'),
+          content: Text(context.l10n.currencyCannotBeChangedWhenSharing),
           backgroundColor: scheme.muted,
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 2),
@@ -1005,7 +1014,7 @@ class _UnifiedTransactionSheetState
                                   size: 40,
                                   color: colorScheme.mutedForeground),
                               const SizedBox(height: 12),
-                              Text('Failed to load image',
+                              Text(context.l10n.failedToLoadImage,
                                   style: TextStyle(
                                       color: colorScheme.mutedForeground,
                                       fontSize: 14)),
@@ -1042,17 +1051,17 @@ class _UnifiedTransactionSheetState
       final result = await showDialog<double>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Edit Amount'),
+          title: Text(context.l10n.editAmount),
           content: TextField(
             controller: controller,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(labelText: 'Amount'),
+            decoration: InputDecoration(labelText: context.l10n.amount),
             autofocus: true,
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+              child: Text(context.l10n.cancel),
             ),
             TextButton(
               onPressed: () {
@@ -1061,7 +1070,7 @@ class _UnifiedTransactionSheetState
                   Navigator.pop(context, value);
                 }
               },
-              child: const Text('Save'),
+              child: Text(context.l10n.save),
             ),
           ],
         ),
@@ -1164,12 +1173,12 @@ class _UnifiedTransactionSheetState
                         CupertinoButton(
                           padding: EdgeInsets.zero,
                           onPressed: () => Navigator.pop(context),
-                          child: const Text('Cancel'),
+                          child: Text(context.l10n.cancel),
                         ),
                         CupertinoButton(
                           padding: EdgeInsets.zero,
                           onPressed: () => Navigator.pop(context, tempDate),
-                          child: const Text('Done'),
+                          child: Text(context.l10n.done),
                         ),
                       ],
                     ),
@@ -1251,12 +1260,12 @@ class _UnifiedTransactionSheetState
                       CupertinoButton(
                         padding: EdgeInsets.zero,
                         onPressed: () => Navigator.pop(context),
-                        child: const Text('Cancel'),
+                        child: Text(context.l10n.cancel),
                       ),
                       CupertinoButton(
                         padding: EdgeInsets.zero,
                         onPressed: () => Navigator.pop(context, tempTime),
-                        child: const Text('Done'),
+                        child: Text(context.l10n.done),
                       ),
                     ],
                   ),
@@ -1350,13 +1359,13 @@ class _UnifiedTransactionSheetState
                           CupertinoButton(
                             padding: EdgeInsets.zero,
                             onPressed: () => Navigator.pop(context),
-                            child: const Text('Cancel'),
+                            child: Text(context.l10n.cancel),
                           ),
-                          const Text('Edit Notes', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+                          Text(context.l10n.editNotes, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
                           CupertinoButton(
                             padding: EdgeInsets.zero,
                             onPressed: () => Navigator.pop(context, controller.text),
-                            child: const Text('Save'),
+                            child: Text(context.l10n.save),
                           ),
                         ],
                       ),
@@ -1365,7 +1374,7 @@ class _UnifiedTransactionSheetState
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                       child: CupertinoTextField(
                         controller: controller,
-                        placeholder: 'Add a note...',
+                        placeholder: context.l10n.addANote,
                         maxLines: 4,
                         autofocus: true,
                         padding: const EdgeInsets.all(12),
@@ -1407,7 +1416,7 @@ class _UnifiedTransactionSheetState
                 Padding(
                   padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
                   child: Text(
-                    'Edit Notes',
+                    context.l10n.editNotes,
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
@@ -1420,7 +1429,7 @@ class _UnifiedTransactionSheetState
                   child: TextField(
                     controller: controller,
                     decoration: InputDecoration(
-                      hintText: 'Add a note...',
+                      hintText: context.l10n.addANote,
                       filled: true,
                       fillColor: colorScheme.muted.withOpacity(0.1),
                       border: OutlineInputBorder(
@@ -1444,14 +1453,14 @@ class _UnifiedTransactionSheetState
                       Expanded(
                         child: shadcnui.OutlineButton(
                           onPressed: () => Navigator.pop(context),
-                          child: const Text('Cancel'),
+                          child: Text(context.l10n.cancel),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: shadcnui.PrimaryButton(
                           onPressed: () => Navigator.pop(context, controller.text),
-                          child: const Text('Save'),
+                          child: Text(context.l10n.save),
                         ),
                       ),
                     ],
@@ -1473,70 +1482,7 @@ class _UnifiedTransactionSheetState
     }
   }
 
-  Future<void> _showCustomizeSplit(List households, String? selectedHouseholdId) async {
-    if (selectedHouseholdId == null) return;
-    
-    // Show loading indicator
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(
-        child: CircularProgressIndicator(),
-      ),
-    );
-    
-    try {
-      // Fetch members directly from repository
-      final repository = ref.read(householdRepositoryProvider);
-      final members = await repository.getHouseholdMembers(selectedHouseholdId);
-      
-      // Close loading dialog
-      if (mounted) Navigator.pop(context);
-      
-      // Validate members
-      if (members.isEmpty) {
-        throw Exception('No members found in household');
-      }
-      
-      debugPrint('✅ Loaded ${members.length} members for custom split');
-      
-      // Use pending expense if available, otherwise use initial amount
-      final pendingExpense = ref.read(pendingExpenseProvider);
-      final currentAmount = pendingExpense?.amount ?? amount;
-      
-      // Show custom split sheet
-      if (mounted) {
-        showCustomSplitSheet(
-          context: context,
-          members: members,
-          totalAmount: currentAmount,
-          currencySymbol: currencySymbol,
-          onSave: (splitType, splits) {
-            setState(() {
-              _customSplitType = splitType;
-              _customSplits = splits;
-            });
-          },
-        );
-      }
-    } catch (error, stackTrace) {
-      // Close loading dialog if still open
-      if (mounted) Navigator.pop(context);
-      
-      debugPrint('❌ Error loading members: $error');
-      debugPrint('Stack trace: $stackTrace');
-      
-      // Show error
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error loading members: $error'),
-            backgroundColor: shadcnui.Theme.of(context).colorScheme.destructive,
-          ),
-        );
-      }
-    }
-  }
+  
 
   Future<void> _loadMembers(String householdId) async {
     setState(() {
@@ -1555,7 +1501,7 @@ class _UnifiedTransactionSheetState
     } catch (error) {
       if (mounted) {
         setState(() {
-          _membersError = 'Error loading members: $error';
+          _membersError = '${context.l10n.errorLoadingMembers}: $error';
         });
       }
     } finally {
@@ -1625,8 +1571,8 @@ class _UnifiedTransactionSheetState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(selectedHousehold != null
-              ? 'Expense saved and shared$splitInfo!'
-              : 'Expense saved!'),
+              ? context.l10n.expenseSavedAndShared(splitInfo)
+              : context.l10n.expenseSaved),
           backgroundColor: shadcnui.Theme.of(context).colorScheme.primary,
           duration: const Duration(seconds: 2),
           behavior: SnackBarBehavior.floating,
@@ -1638,7 +1584,7 @@ class _UnifiedTransactionSheetState
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to save: ${error.toString()}'),
+          content: Text(context.l10n.failedToSave(error.toString())),
           backgroundColor: shadcnui.Theme.of(context).colorScheme.destructive,
           duration: const Duration(seconds: 3),
           behavior: SnackBarBehavior.floating,

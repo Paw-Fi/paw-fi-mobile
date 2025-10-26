@@ -16,6 +16,7 @@ import '../pages/household_expenses_page.dart';
 import '../pages/household_settings_page.dart';
 import '../pages/household_members_page.dart';
 import '../pages/household_invites_page.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 /// Household home content that handles loading, empty, and data states
 /// Returns Sliver widgets for use in CustomScrollView
@@ -40,8 +41,8 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
         hasScrollBody: false,
         child: _buildErrorState(
           colorScheme,
-          'User not authenticated',
-          'Please sign in to access household features',
+          context.l10n.userNotLoggedIn,
+          context.l10n.pleaseSignInToAccessHouseholdFeatures,
         ),
       );
     }
@@ -57,7 +58,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
         hasScrollBody: false,
         child: _buildErrorState(
           colorScheme,
-          'Error Loading Households',
+          context.l10n.errorLoadingHouseholds,
           error.toString(),
         ),
       ),
@@ -233,7 +234,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            'Quick Actions',
+                                            context.l10n.quickActions,
                                             style: TextStyle(
                                               fontSize: 13,
                                               fontWeight: FontWeight.w600,
@@ -249,7 +250,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                                                   context,
                                                   colorScheme,
                                                   icon: Icons.group_outlined,
-                                                  label: 'Members',
+                                                  label: context.l10n.members,
                                                   onTap: () {
                                                     Navigator.of(context).push(
                                                       MaterialPageRoute(
@@ -265,7 +266,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                                                   context,
                                                   colorScheme,
                                                   icon: Icons.mail_outline,
-                                                  label: 'Invites',
+                                                  label: context.l10n.invites,
                                                   onTap: () {
                                                     Navigator.of(context).push(
                                                       MaterialPageRoute(
@@ -281,7 +282,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                                                   context,
                                                   colorScheme,
                                                   icon: Icons.settings_outlined,
-                                                  label: 'Settings',
+                                                  label: context.l10n.settings,
                                                   onTap: () {
                                                     Navigator.of(context).push(
                                                       MaterialPageRoute(
@@ -314,7 +315,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                 ),
                 error: (e, st) => Padding(
                   padding: const EdgeInsets.all(16.0),
-                  child: Text('Error loading expenses', style: TextStyle(color: colorScheme.destructive)),
+                  child: Text(context.l10n.errorLoadingExpenses, style: TextStyle(color: colorScheme.destructive)),
                 ),
                 data: (allExpenses) {
                   final filteredExpenses = allExpenses.where((e) {
@@ -336,6 +337,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                         );
                       },
                       child: buildSpendingCard(
+                        context,
                         colorScheme,
                         filteredExpenses,
                         null,
@@ -378,6 +380,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                           child: Text('Error', style: TextStyle(color: colorScheme.destructive)),
                         ),
                         data: (budgets) => buildHouseholdBudgetCard(
+                          context,
                           colorScheme,
                           budgets,
                           currencyCode: selectedCurrency,
@@ -409,7 +412,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                                         child: Row(
                                           children: [
                                             Text(
-                                              'Budgets',
+                                              context.l10n.budgets,
                                               style: TextStyle(
                                                 fontSize: 16,
                                                 fontWeight: FontWeight.w600,
@@ -481,6 +484,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                           child: Text('Error', style: TextStyle(color: colorScheme.destructive)),
                         ),
                         data: (summary) => buildHouseholdNetPositionCard(
+                          context,
                           colorScheme,
                           summary,
                           onTap: () {
@@ -551,6 +555,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                         );
                       },
                       child: buildSpendingBreakdownChart(
+                        context,
                         colorScheme,
                         filteredExpenses,
                         const <DailyBudgetEntry>[],
@@ -638,7 +643,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
             ),
             const SizedBox(height: 24),
             Text(
-              'Loading household...',
+              context.l10n.loadingHousehold,
               style: TextStyle(
                 fontSize: 16,
                 color: colorScheme.mutedForeground,

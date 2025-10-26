@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import '../widgets/tabs/tabs.dart';
 
@@ -51,7 +52,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> with SingleTicker
               Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Text(
-                  'Insights',
+                  context.l10n.insights,
                   style: TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
@@ -81,11 +82,11 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> with SingleTicker
                   labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                   unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
                   labelPadding: EdgeInsets.zero,
-                  tabs: const [
-                    Tab(text: 'Running'),
-                    Tab(text: '30-Day'),
-                    Tab(text: 'Long-Term'),
-                    Tab(text: 'Scenario'),
+                  tabs: [
+                    Tab(text: context.l10n.runningTab),
+                    Tab(text: context.l10n.day30Tab),
+                    Tab(text: context.l10n.longTermTab),
+                    Tab(text: context.l10n.scenarioTab),
                   ],
                 ),
               ),
@@ -97,9 +98,9 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> with SingleTicker
                 child: TabBarView(
                   controller: _tabController,
                   children: [
-                    buildRunningBalanceTab(colorScheme, analyticsData, selectedCurrency: filterState.selectedCurrency),
-                    build30DayLookAheadTab(colorScheme, analyticsData, selectedCurrency: filterState.selectedCurrency),
-                    buildLongTermProjectionTab(colorScheme, analyticsData, selectedCurrency: filterState.selectedCurrency),
+                    buildRunningBalanceTab(context, colorScheme, analyticsData, selectedCurrency: filterState.selectedCurrency),
+                    build30DayLookAheadTab(context, colorScheme, analyticsData, selectedCurrency: filterState.selectedCurrency),
+                    buildLongTermProjectionTab(context, colorScheme, analyticsData, selectedCurrency: filterState.selectedCurrency),
                     _buildScenarioPlanningTabWithProvider(colorScheme, analyticsData, filterState.selectedCurrency),
                   ],
                 ),
@@ -116,7 +117,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> with SingleTicker
       overrides: [
         // Override any providers if needed
       ],
-      child: buildScenarioPlanningTab(colorScheme, analyticsData, selectedCurrency: selectedCurrency),
+      child: buildScenarioPlanningTab(context, colorScheme, analyticsData, selectedCurrency: selectedCurrency),
     );
   }
 }

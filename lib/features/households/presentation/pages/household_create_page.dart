@@ -13,6 +13,7 @@ import '../widgets/household_image_picker.dart';
 import '../../../home/presentation/state/analytics_provider.dart';
 import '../../../home/presentation/state/home_filter_provider.dart';
 import '../../../utils/currency.dart';
+import '../../../../core/l10n/l10n.dart';
 
 /// Modern page for creating a new household with image upload
 class HouseholdCreatePage extends ConsumerStatefulWidget {
@@ -126,13 +127,13 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
 
   Widget _buildInviteMessageInput(shadcnui.ColorScheme colorScheme, bool isLoading) {
     return Semantics(
-      label: 'Invitation personal message input',
+      label: context.l10n.invitationPersonalMessageInput,
       textField: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Personal Message (optional)',
+            context.l10n.personalMessageOptional,
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
@@ -150,7 +151,7 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
               color: colorScheme.foreground,
             ),
             decoration: InputDecoration(
-              hintText: 'Say something to your invitees (e.g., "Join our household budget!")',
+              hintText: context.l10n.personalMessageHint,
               hintStyle: TextStyle(
                 color: colorScheme.mutedForeground.withOpacity(0.5),
               ),
@@ -179,7 +180,7 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
 
   Widget _buildHeader(shadcnui.ColorScheme colorScheme) {
     return Semantics(
-      label: 'Create household page',
+      label: context.l10n.createHouseholdPage,
       header: true,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -199,7 +200,7 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
             ),
             Expanded(
               child: Text(
-                'Create Household',
+                context.l10n.createHousehold,
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -318,7 +319,7 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
           ),
           const SizedBox(height: 12),
           Text(
-            'Tap to change cover',
+            context.l10n.tapToChangeCover,
             style: TextStyle(
               fontSize: 13,
               color: colorScheme.mutedForeground,
@@ -332,13 +333,13 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
 
   Widget _buildNameInput(shadcnui.ColorScheme colorScheme, bool isLoading) {
     return Semantics(
-      label: 'Household name input',
+      label: context.l10n.householdNameInput,
       textField: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Household Name',
+            context.l10n.householdName,
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
@@ -355,7 +356,7 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
               fontWeight: FontWeight.w500,
             ),
             decoration: InputDecoration(
-              hintText: 'e.g., The Smiths, Apartment 5B',
+              hintText: context.l10n.householdNameHint,
               hintStyle: TextStyle(
                 color: colorScheme.mutedForeground.withOpacity(0.4),
                 fontWeight: FontWeight.normal,
@@ -404,13 +405,13 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
             ),
             validator: (value) {
               if (value == null || value.trim().isEmpty) {
-                return 'Please enter a household name';
+                return context.l10n.pleaseEnterHouseholdName;
               }
               if (value.trim().length < HouseholdConstants.minNameLength) {
-                return 'Name must be at least ${HouseholdConstants.minNameLength} characters';
+                return context.l10n.nameMinLength(HouseholdConstants.minNameLength);
               }
               if (value.trim().length > HouseholdConstants.maxNameLength) {
-                return 'Name must be less than ${HouseholdConstants.maxNameLength} characters';
+                return context.l10n.nameMaxLength(HouseholdConstants.maxNameLength);
               }
               return null;
             },
@@ -422,12 +423,12 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
 
   Widget _buildExpirationSelector(shadcnui.ColorScheme colorScheme, bool isLoading) {
     return Semantics(
-      label: 'Invitation expiration selector',
+      label: context.l10n.invitationExpirationSelector,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Invitation Expires In',
+            context.l10n.invitationExpiresIn,
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
@@ -441,7 +442,7 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
             children: HouseholdConstants.inviteExpirationOptions.map((days) {
               final isSelected = days == _selectedExpirationDays;
               return Semantics(
-                label: days == 0 ? 'Unlimited expiration' : '$days day${days == 1 ? "" : "s"} expiration',
+                label: days == 0 ? context.l10n.unlimitedExpiration : context.l10n.daysExpiration(days),
                 button: true,
                 selected: isSelected,
                 child: InkWell(
@@ -471,7 +472,7 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
                       ),
                     ),
                     child: Text(
-                      days == 0 ? 'Unlimited' : '$days day${days == 1 ? "" : "s"}',
+                      days == 0 ? context.l10n.unlimited : context.l10n.daysCount(days),
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -492,7 +493,7 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
 
   Widget _buildInfoCard(shadcnui.ColorScheme colorScheme) {
     return Semantics(
-      label: 'Household information',
+      label: context.l10n.householdInformation,
       readOnly: true,
       child: Container(
         padding: const EdgeInsets.all(16),
@@ -514,7 +515,7 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                'Create a shared space for tracking budgets and expenses with family or roommates.',
+                context.l10n.createHouseholdDescription,
                 style: TextStyle(
                   fontSize: 13,
                   color: colorScheme.foreground.withOpacity(0.65),
@@ -541,7 +542,7 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
         ),
       ),
       child: Semantics(
-        label: isLoading ? 'Creating household' : 'Create household button',
+        label: isLoading ? context.l10n.creatingHousehold : context.l10n.createHouseholdButton,
         button: true,
         enabled: !isLoading,
         child: SizedBox(
@@ -566,10 +567,10 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
                       const SizedBox(width: 12),
                       Text(
                         _isUploadingImage
-                            ? 'Uploading Image...'
+                            ? context.l10n.uploadingImage
                             : _isCreating
-                                ? 'Creating...'
-                                : 'Generating Invite...',
+                                ? context.l10n.creating
+                                : context.l10n.generatingInvite,
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -581,8 +582,8 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
                 )
               : shadcnui.PrimaryButton(
                   onPressed: _createHousehold,
-                  child: const Text(
-                    'Create Household',
+                  child: Text(
+                    context.l10n.createHousehold,
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -613,7 +614,7 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
   Future<void> _createHousehold() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedCurrency == null || !isSupportedCurrencyCode(_selectedCurrency)) {
-      _showErrorSnackbar('Please select a valid household currency');
+      _showErrorSnackbar(context.l10n.pleaseSelectValidCurrency);
       return;
     }
 

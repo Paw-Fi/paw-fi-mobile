@@ -7,6 +7,7 @@ import 'package:moneko/features/insights/presentation/pages/insights_page.dart';
 import 'package:moneko/features/profile/presentation/pages/profile_page.dart';
 import 'package:moneko/features/reminders/presentation/pages/reminder_page.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/l10n/l10n.dart';
 
 /// Main navigation shell with bottom navigation bar
 class MainShell extends HookConsumerWidget {
@@ -43,25 +44,25 @@ class MainShell extends HookConsumerWidget {
             children: [
               _NavButton(
                 icon: currentIndex.value == 0 ? Icons.home : Icons.home_outlined,
-                label: 'Home',
+                label: context.l10n.home,
                 isSelected: currentIndex.value == 0,
                 onTap: () => currentIndex.value = 0,
               ),
               _NavButton(
                 icon: currentIndex.value == 1 ? Icons.calendar_today : Icons.calendar_today_outlined,
-                label: 'Reminder',
+                label: context.l10n.reminder,
                 isSelected: currentIndex.value == 1,
                 onTap: () => currentIndex.value = 1,
               ),
               _NavButton(
                 icon: currentIndex.value == 2 ? Icons.insights : Icons.insights_outlined,
-                label: 'Insights',
+                label: context.l10n.insights,
                 isSelected: currentIndex.value == 2,
                 onTap: () => currentIndex.value = 2,
               ),
               _NavButton(
                 icon: currentIndex.value == 3 ? Icons.person : Icons.person_outline,
-                label: 'Profile',
+                label: context.l10n.profile,
                 isSelected: currentIndex.value == 3,
                 onTap: () => currentIndex.value = 3,
               ),

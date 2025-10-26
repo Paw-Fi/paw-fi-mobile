@@ -4,6 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import '../../domain/entities/household.dart';
 import '../providers/household_providers.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 /// Household Invites Management Page
 /// Create, view, copy, and revoke invitations
@@ -42,7 +43,7 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading invites: $e')),
+          SnackBar(content: Text('${context.l10n.errorLoadingInvites}: $e')),
         );
       }
     }
@@ -58,7 +59,7 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
         backgroundColor: colorScheme.background,
         elevation: 0,
         title: Text(
-          'Invitations',
+          context.l10n.invitations,
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
@@ -76,12 +77,12 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
                   // Create Invite Button
                   shadcnui.PrimaryButton(
                     onPressed: () => _showCreateInviteDialog(context),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.add),
                         SizedBox(width: 8),
-                        Text('Create Invitation'),
+                        Text(context.l10n.createInvitation),
                       ],
                     ),
                   ),
@@ -89,7 +90,7 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
 
                   // Invites List
                   Text(
-                    'Pending Invitations',
+                    context.l10n.pendingInvitations,
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -103,7 +104,7 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
                       child: Padding(
                         padding: const EdgeInsets.all(32),
                         child: Text(
-                          'No pending invitations',
+                          context.l10n.noPendingInvitations,
                           style: TextStyle(color: colorScheme.mutedForeground),
                         ),
                       ),
@@ -119,7 +120,7 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
 
                   const SizedBox(height: 24),
                   Text(
-                    'Invitation History',
+                    context.l10n.invitationHistory,
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -133,7 +134,7 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
                       child: Padding(
                         padding: const EdgeInsets.all(32),
                         child: Text(
-                          'No invitation history',
+                          context.l10n.noInvitationHistory,
                           style: TextStyle(color: colorScheme.mutedForeground),
                         ),
                       ),
@@ -160,39 +161,39 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Create Invitation'),
+        title: Text(context.l10n.createInvitation),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: emailController,
-                decoration: const InputDecoration(
-                  labelText: 'Email (optional)',
-                  hintText: 'friend@example.com',
+                decoration: InputDecoration(
+                  labelText: context.l10n.emailOptional,
+                  hintText: context.l10n.friendEmailExample,
                 ),
                 keyboardType: TextInputType.emailAddress,
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: messageController,
-                decoration: const InputDecoration(
-                  labelText: 'Personal Message (optional)',
-                  hintText: 'Join our household budget!',
+                decoration: InputDecoration(
+                  labelText: context.l10n.personalMessageOptional,
+                  hintText: context.l10n.joinHouseholdBudget,
                 ),
                 maxLines: 3,
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<int>(
                 value: expiresInDays,
-                decoration: const InputDecoration(labelText: 'Expires In'),
-                items: const [
-                  DropdownMenuItem(value: 1, child: Text('1 day')),
-                  DropdownMenuItem(value: 3, child: Text('3 days')),
-                  DropdownMenuItem(value: 7, child: Text('7 days')),
-                  DropdownMenuItem(value: 14, child: Text('14 days')),
-                  DropdownMenuItem(value: 30, child: Text('30 days')),
-                  DropdownMenuItem(value: 0, child: Text('Unlimited')),
+                decoration: InputDecoration(labelText: context.l10n.expiresIn),
+                items: [
+                  DropdownMenuItem(value: 1, child: Text(context.l10n.oneDay)),
+                  DropdownMenuItem(value: 3, child: Text(context.l10n.threeDays)),
+                  DropdownMenuItem(value: 7, child: Text(context.l10n.sevenDays)),
+                  DropdownMenuItem(value: 14, child: Text(context.l10n.fourteenDays)),
+                  DropdownMenuItem(value: 30, child: Text(context.l10n.thirtyDays)),
+                  DropdownMenuItem(value: 0, child: Text(context.l10n.unlimited)),
                 ],
                 onChanged: (value) {
                   if (value != null) expiresInDays = value;
@@ -204,7 +205,7 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(context.l10n.cancel),
           ),
           TextButton(
             onPressed: () async {
@@ -215,7 +216,7 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
               );
               Navigator.pop(context);
             },
-            child: const Text('Create'),
+            child: Text(context.l10n.create),
           ),
         ],
       ),
@@ -240,7 +241,7 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invitation created successfully!')),
+          SnackBar(content: Text(context.l10n.invitationCreatedSuccessfully)),
         );
 
         // Automatically copy the invite link
@@ -248,8 +249,8 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
         Clipboard.setData(ClipboardData(text: inviteUrl));
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Invite link copied to clipboard!'),
+          SnackBar(
+            content: Text(context.l10n.inviteLinkCopiedToClipboard),
             duration: Duration(seconds: 2),
           ),
         );
@@ -257,7 +258,7 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error creating invite: $e')),
+          SnackBar(content: Text('${context.l10n.errorCreatingInvite}: $e')),
         );
       }
     }
@@ -268,8 +269,8 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
     Clipboard.setData(ClipboardData(text: inviteUrl));
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Invite link copied to clipboard!'),
+      SnackBar(
+        content: Text(context.l10n.inviteLinkCopiedToClipboard),
         duration: Duration(seconds: 2),
       ),
     );
@@ -279,17 +280,17 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Revoke Invitation'),
-        content: const Text('Are you sure you want to revoke this invitation?'),
+        title: Text(context.l10n.revokeInvitation),
+        content: Text(context.l10n.confirmRevokeInvitation),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(context.l10n.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Revoke'),
+            child: Text(context.l10n.revoke),
           ),
         ],
       ),
@@ -303,13 +304,13 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Invitation revoked')),
+            SnackBar(content: Text(context.l10n.invitationRevoked)),
           );
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error revoking invite: $e')),
+            SnackBar(content: Text('${context.l10n.errorRevokingInvite}: $e')),
           );
         }
       }
@@ -347,7 +348,7 @@ class _InviteCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    invite.invitedEmail ?? 'Anyone with link',
+                    invite.invitedEmail ?? context.l10n.anyoneWithLink,
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -375,10 +376,10 @@ class _InviteCard extends StatelessWidget {
                 const SizedBox(width: 4),
                 Text(
                   invite.expiresAt == null
-                      ? 'No expiry'
+                      ? context.l10n.noExpiry
                       : (isExpired
-                          ? 'Expired ${_formatDate(invite.expiresAt!)}'
-                          : 'Expires ${_formatDate(invite.expiresAt!)}'),
+                          ? '${context.l10n.expired} ${_formatDate(invite.expiresAt!)}'
+                          : '${context.l10n.expires} ${_formatDate(invite.expiresAt!)}'),
                   style: TextStyle(
                     fontSize: 12,
                     color: isExpired ? Colors.red : colorScheme.mutedForeground,
@@ -394,12 +395,12 @@ class _InviteCard extends StatelessWidget {
                     Expanded(
                       child: shadcnui.OutlineButton(
                         onPressed: onCopy,
-                        child: const Row(
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.copy, size: 16),
                             SizedBox(width: 8),
-                            Text('Copy Link'),
+                            Text(context.l10n.copyLink),
                           ],
                         ),
                       ),
@@ -409,12 +410,12 @@ class _InviteCard extends StatelessWidget {
                     Expanded(
                       child: shadcnui.DestructiveButton(
                         onPressed: onRevoke,
-                        child: const Row(
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.cancel, size: 16),
                             SizedBox(width: 8),
-                            Text('Revoke'),
+                            Text(context.l10n.revoke),
                           ],
                         ),
                       ),
@@ -456,7 +457,7 @@ class _StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = _getStatusColor();
-    final text = isExpired ? 'EXPIRED' : status.toJson().toUpperCase();
+    final text = _getLocalizedStatus(context, isExpired, status);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -485,5 +486,20 @@ class _StatusBadge extends StatelessWidget {
       InviteStatus.revoked => Colors.red,
       InviteStatus.expired => Colors.grey,
     };
+  }
+
+  String _getLocalizedStatus(BuildContext context, bool isExpired, InviteStatus status) {
+    if (isExpired) return context.l10n.expired.toUpperCase();
+    
+    switch (status) {
+      case InviteStatus.pending:
+        return context.l10n.pending.toUpperCase();
+      case InviteStatus.accepted:
+        return context.l10n.accepted.toUpperCase();
+      case InviteStatus.revoked:
+        return context.l10n.revoked.toUpperCase();
+      case InviteStatus.expired:
+        return context.l10n.expired.toUpperCase();
+    }
   }
 }

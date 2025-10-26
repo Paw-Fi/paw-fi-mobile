@@ -3,8 +3,10 @@ import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/features/households/domain/entities/shared_budget.dart';
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 Widget buildHouseholdBudgetCard(
+  BuildContext context,
   shadcnui.ColorScheme colorScheme,
   List<SharedBudget> budgets, {
   required String currencyCode,
@@ -47,7 +49,7 @@ Widget buildHouseholdBudgetCard(
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
-            remainingAmount != null ? 'Remaining' : 'Shared budgets',
+            remainingAmount != null ? context.l10n.remaining : context.l10n.sharedBudgets,
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
@@ -80,7 +82,7 @@ Widget buildHouseholdBudgetCard(
             ),
             const SizedBox(width: 6),
             Text(
-              '${filtered.length} budget${filtered.length == 1 ? '' : 's'}',
+              '${filtered.length} ${context.l10n.budget}${filtered.length == 1 ? '' : 's'}',
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
@@ -106,6 +108,7 @@ Widget buildHouseholdBudgetCard(
 }
 
 Widget buildHouseholdNetPositionCard(
+  BuildContext context,
   shadcnui.ColorScheme colorScheme,
   HouseholdSummary? summary, {
   VoidCallback? onTap,
@@ -146,7 +149,7 @@ Widget buildHouseholdNetPositionCard(
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
-            'Net position',
+            context.l10n.netPosition,
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
@@ -186,7 +189,7 @@ Widget buildHouseholdNetPositionCard(
               ),
               const SizedBox(width: 6),
               Text(
-                isNegative ? 'Negative' : 'Positive',
+                isNegative ? context.l10n.negative : context.l10n.positive,
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,

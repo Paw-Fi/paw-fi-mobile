@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/profile/presentation/pages/settings_page.dart';
 
 Widget buildProfileHeader(BuildContext context, WidgetRef ref) {
@@ -9,7 +10,7 @@ Widget buildProfileHeader(BuildContext context, WidgetRef ref) {
     mainAxisAlignment: MainAxisAlignment.spaceBetween,
     children: [
       Text(
-        'Profile',
+        context.l10n.profile,
         style: TextStyle(
           fontSize: 32,
           fontWeight: FontWeight.w700,

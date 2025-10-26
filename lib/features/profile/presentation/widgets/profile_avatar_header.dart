@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:go_router/go_router.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
 
 Widget buildProfileAvatarHeader(BuildContext context, WidgetRef ref, user) {
@@ -10,14 +11,14 @@ Widget buildProfileAvatarHeader(BuildContext context, WidgetRef ref, user) {
 
   return profileAsync.when(
     loading: () => const Center(child: CircularProgressIndicator()),
-    error: (error, stack) => Center(child: Text('Error loading profile')),
+    error: (error, stack) => Center(child: Text(context.l10n.errorLoadingProfile)),
     data: (profile) {
       final dbName = profile?.fullName;
       final dbAvatarUrl = profile?.avatarUrl;
 
       final displayName = (dbName?.trim().isNotEmpty == true)
           ? dbName!.trim()
-          : (user.displayName?.trim().isNotEmpty == true ? user.displayName!.trim() : 'User');
+          : (user.displayName?.trim().isNotEmpty == true ? user.displayName!.trim() : context.l10n.user);
 
       final initials = displayName.isNotEmpty
           ? displayName.substring(0, 1).toUpperCase()
@@ -91,9 +92,9 @@ Widget buildProfileAvatarHeader(BuildContext context, WidgetRef ref, user) {
                 ),
               ),
               const shadcnui.Gap(8),
-              const shadcnui.PrimaryBadge(
+              shadcnui.PrimaryBadge(
                 child: Text(
-                  'PRO',
+                  context.l10n.proBadge,
                   style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
                 ),
               ),

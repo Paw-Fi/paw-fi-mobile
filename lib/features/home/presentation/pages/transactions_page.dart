@@ -12,6 +12,7 @@ import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dart';
 import '../widgets/unified_transaction_sheet.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 // ============================================================================
 // TRANSACTIONS PAGE
@@ -120,17 +121,34 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   String get periodLabel {
     switch (selectedPeriod) {
       case '1W':
-        return 'This week';
+        return context.l10n.thisWeek;
       case '1M':
-        return 'This month';
+        return context.l10n.thisMonth;
       case '6M':
-        return 'Last 6 months';
+        return context.l10n.last6Months;
       case '1Y':
-        return 'This year';
+        return context.l10n.thisYear;
       case 'All':
-        return 'All time';
+        return context.l10n.allTime;
       default:
-        return 'This month';
+        return context.l10n.thisMonth;
+    }
+  }
+
+  String getPeriodLabel(String period) {
+    switch (period) {
+      case '1W':
+        return context.l10n.thisWeek;
+      case '1M':
+        return context.l10n.thisMonth;
+      case '6M':
+        return context.l10n.last6Months;
+      case '1Y':
+        return context.l10n.thisYear;
+      case 'All':
+        return context.l10n.allTime;
+      default:
+        return period;
     }
   }
 
@@ -162,7 +180,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                 children: [
                   Icon(Icons.error_outline, size: 48, color: colorScheme.destructive),
                   const SizedBox(height: 12),
-                  Text('Failed to load household transactions', style: TextStyle(color: colorScheme.destructive)),
+                  Text(context.l10n.failedToLoadHouseholdTransactions, style: TextStyle(color: colorScheme.destructive)),
                 ],
               ),
             ),
@@ -219,7 +237,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Transactions',
+                            context.l10n.transactions,
                             style: TextStyle(
                               fontSize: 32,
                               fontWeight: FontWeight.bold,
@@ -227,7 +245,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                             ),
                           ),
                           Text(
-                            '${filteredExpenses.length} transactions',
+                            '${filteredExpenses.length} ${context.l10n.transactions.toLowerCase()}',
                             style: TextStyle(
                               fontSize: 14,
                               color: colorScheme.mutedForeground,
@@ -262,7 +280,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                           },
                           style: TextStyle(color: colorScheme.foreground),
                           decoration: InputDecoration(
-                            hintText: 'Search',
+                            hintText: context.l10n.search,
                             hintStyle: TextStyle(color: colorScheme.mutedForeground),
                             prefixIcon: Icon(Icons.search, color: colorScheme.mutedForeground),
                             border: InputBorder.none,
@@ -313,7 +331,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
-                              period,
+                              getPeriodLabel(period),
                               style: TextStyle(
                                 color: isSelected ? Colors.white : colorScheme.foreground,
                                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
@@ -352,7 +370,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                       child: Row(
                         children: [
                           Text(
-                            'By Category',
+                            context.l10n.byCategory,
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
@@ -387,7 +405,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              'No transactions found',
+                              context.l10n.noTransactionsFound,
                               style: TextStyle(
                                 fontSize: 16,
                                 color: colorScheme.mutedForeground,
@@ -437,7 +455,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            'Spent',
+            context.l10n.spent,
             style: TextStyle(
               fontSize: 14,
               color: colorScheme.mutedForeground,
@@ -521,7 +539,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     final sortedDates = periodTotals.keys.toList()..sort();
     if (sortedDates.isEmpty) {
       return Center(
-        child: Text('No data', style: TextStyle(color: colorScheme.mutedForeground)),
+        child: Text(context.l10n.noData, style: TextStyle(color: colorScheme.mutedForeground)),
       );
     }
 
@@ -637,7 +655,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
     if (barData.periodTotals.isEmpty) {
       return Center(
-        child: Text('No data', style: TextStyle(color: colorScheme.mutedForeground)),
+        child: Text(context.l10n.noData, style: TextStyle(color: colorScheme.mutedForeground)),
       );
     }
 
@@ -730,7 +748,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
     if (categoryTotals.isEmpty) {
       return Center(
-        child: Text('No data', style: TextStyle(color: colorScheme.mutedForeground)),
+        child: Text(context.l10n.noData, style: TextStyle(color: colorScheme.mutedForeground)),
       );
     }
 
@@ -762,7 +780,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                'Spent',
+                context.l10n.spent,
                 style: TextStyle(
                   fontSize: 12,
                   color: colorScheme.mutedForeground,
@@ -833,7 +851,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  category.substring(0, 1).toUpperCase() + category.substring(1),
+                  getCategoryTranslation(context, category),
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -888,7 +906,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Filter Transactions',
+                        context.l10n.filterTransactions,
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -903,7 +921,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    'Category',
+                    context.l10n.category,
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -933,7 +951,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                             ),
                           ),
                           child: Text(
-                            category.substring(0, 1).toUpperCase() + category.substring(1),
+                            getCategoryTranslation(context, category),
                             style: TextStyle(
                               color: isSelected ? Colors.white : colorScheme.foreground,
                               fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
@@ -956,14 +974,14 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                             });
                             Navigator.pop(context);
                           },
-                          child: const Text('Reset'),
+                          child: Text(context.l10n.reset),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: shadcnui.PrimaryButton(
                           onPressed: () => Navigator.pop(context),
-                          child: const Text('Apply'),
+                          child: Text(context.l10n.apply),
                         ),
                       ),
                     ],

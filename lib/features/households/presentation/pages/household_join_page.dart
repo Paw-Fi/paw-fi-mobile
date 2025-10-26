@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/utils/error_handler.dart';
 import '../../core/household_constants.dart';
 import '../providers/household_providers.dart';
+import '../../../../core/l10n/l10n.dart';
 
 /// Modern page for joining a household via invitation URL
 ///

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart' hide ThemeMode;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:moneko/core/app/router.dart';
+import 'package:moneko/core/app/locale_provider.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/services/deep_link_service.dart';
 import 'package:moneko/features/app_version/presentation/widgets/version_check_wrapper.dart';
@@ -50,9 +52,13 @@ class _AppState extends ConsumerState<App> {
   Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
     final themeMode = ref.watch(themeModeProvider);
+    final locale = ref.watch(localeProvider);
 
     return shadcnui.ShadcnApp.router(
       title: 'Moneko',
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      locale: locale,
       themeMode: themeMode,
       theme: AppTheme.lightTheme(),
       darkTheme: AppTheme.darkTheme(),

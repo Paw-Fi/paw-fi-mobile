@@ -6,6 +6,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import '../../domain/entities/shared_budget.dart';
 import '../providers/household_providers.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 /// Budget Detail Page
 /// Shows complete budget information and allows editing
@@ -69,7 +70,7 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
         backgroundColor: colorScheme.background,
         elevation: 0,
         title: Text(
-          _isEditing ? 'Edit Budget' : 'Budget Details',
+          _isEditing ? context.l10n.editBudget : context.l10n.budgetDetails,
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
@@ -81,13 +82,13 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
             IconButton(
               icon: Icon(Icons.edit, color: colorScheme.primary),
               onPressed: () => setState(() => _isEditing = true),
-              tooltip: 'Edit Budget',
+              tooltip: context.l10n.editBudget,
             ),
           if (!_isEditing)
             IconButton(
               icon: Icon(Icons.delete, color: colorScheme.destructive),
               onPressed: _confirmDelete,
-              tooltip: 'Delete Budget',
+              tooltip: context.l10n.deleteBudget,
             ),
         ],
       ),
@@ -99,7 +100,7 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
                   const CircularProgressIndicator(),
                   const SizedBox(height: 16),
                   Text(
-                    _isDeleting ? 'Deleting budget...' : 'Saving changes...',
+                    _isDeleting ? context.l10n.deletingBudget : context.l10n.savingChanges,
                     style: TextStyle(color: colorScheme.mutedForeground),
                   ),
                 ],
@@ -112,7 +113,7 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
                 children: [
                   // Budget Name
                   _buildField(
-                    label: 'Budget Name',
+                    label: context.l10n.budgetName,
                     controller: _nameController,
                     enabled: _isEditing,
                     colorScheme: colorScheme,
@@ -122,7 +123,7 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
 
                   // Amount
                   _buildField(
-                    label: 'Amount (${widget.budget.currency})',
+                    label: '${context.l10n.amount} (${widget.budget.currency})',
                     controller: _amountController,
                     enabled: _isEditing,
                     keyboardType: TextInputType.number,
@@ -134,7 +135,7 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
 
                   // Period (Read-only)
                   _buildReadOnlyField(
-                    label: 'Period',
+                    label: context.l10n.period,
                     value: widget.budget.period.toJson().toUpperCase(),
                     colorScheme: colorScheme,
                   ),
@@ -143,7 +144,7 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
 
                   // Currency (Read-only)
                   _buildReadOnlyField(
-                    label: 'Currency',
+                    label: context.l10n.currency,
                     value: widget.budget.currency,
                     colorScheme: colorScheme,
                   ),
@@ -152,7 +153,7 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
 
                   // Thresholds Section
                   Text(
-                    'Alert Thresholds',
+                    context.l10n.alertThresholds,
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
@@ -163,26 +164,26 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
 
                   // Warn Threshold
                   _buildField(
-                    label: 'Warning Threshold (%)',
+                    label: context.l10n.warningThreshold,
                     controller: _warnThresholdController,
                     enabled: _isEditing,
                     keyboardType: TextInputType.number,
                     colorScheme: colorScheme,
                     suffix: '%',
-                    helperText: 'Alert when budget usage reaches this percentage',
+                    helperText: context.l10n.warningThresholdHelper,
                   ),
 
                   const SizedBox(height: 16),
 
                   // Alert Threshold
                   _buildField(
-                    label: 'Alert Threshold (%)',
+                    label: context.l10n.alertThreshold,
                     controller: _alertThresholdController,
                     enabled: _isEditing,
                     keyboardType: TextInputType.number,
                     colorScheme: colorScheme,
                     suffix: '%',
-                    helperText: 'Critical alert at this percentage',
+                    helperText: context.l10n.alertThresholdHelper,
                   ),
 
                   const SizedBox(height: 24),
@@ -199,7 +200,7 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Budget Status',
+                                    context.l10n.budgetStatus,
                                     style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600,
@@ -208,7 +209,7 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    _isActive ? 'Active' : 'Inactive',
+                                    _isActive ? context.l10n.active : context.l10n.inactive,
                                     style: TextStyle(
                                       fontSize: 14,
                                       color: colorScheme.mutedForeground,
@@ -235,14 +236,14 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
                         Expanded(
                           child: shadcnui.OutlineButton(
                             onPressed: _cancelEditing,
-                            child: const Text('Cancel'),
+                            child: Text(context.l10n.cancel),
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: shadcnui.PrimaryButton(
                             onPressed: _saveChanges,
-                            child: const Text('Save Changes'),
+                            child: Text(context.l10n.saveChanges),
                           ),
                         ),
                       ],
@@ -348,30 +349,30 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
     // Validate inputs
     final name = _nameController.text.trim();
     if (name.isEmpty) {
-      _showError('Budget name cannot be empty');
+      _showError(context.l10n.budgetNameCannotBeEmpty);
       return;
     }
 
     final amount = double.tryParse(_amountController.text);
     if (amount == null || amount <= 0) {
-      _showError('Please enter a valid amount');
+      _showError(context.l10n.pleaseEnterValidAmount);
       return;
     }
 
     final warnThreshold = double.tryParse(_warnThresholdController.text);
     if (warnThreshold == null || warnThreshold < 0 || warnThreshold > 100) {
-      _showError('Warning threshold must be between 0 and 100');
+      _showError(context.l10n.warningThresholdRange);
       return;
     }
 
     final alertThreshold = double.tryParse(_alertThresholdController.text);
     if (alertThreshold == null || alertThreshold < 0 || alertThreshold > 100) {
-      _showError('Alert threshold must be between 0 and 100');
+      _showError(context.l10n.alertThresholdRange);
       return;
     }
 
     if (warnThreshold > alertThreshold) {
-      _showError('Warning threshold must be less than or equal to alert threshold');
+      _showError(context.l10n.warningThresholdLessThanAlert);
       return;
     }
 
@@ -400,15 +401,15 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
       if (mounted) {
         Navigator.pop(context, true); // Return true to indicate success
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Budget updated successfully'),
+          SnackBar(
+            content: Text(context.l10n.budgetUpdatedSuccessfully),
             backgroundColor: Colors.green,
           ),
         );
       }
     } catch (error) {
       if (mounted) {
-        _showError('Failed to update budget: $error');
+        _showError('${context.l10n.failedToUpdateBudget}: $error');
       }
     } finally {
       if (mounted) {
@@ -423,19 +424,19 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Budget'),
+        title: Text(context.l10n.deleteBudget),
         content: Text(
-          'Are you sure you want to delete "${widget.budget.name}"? This action cannot be undone.',
+          '${context.l10n.confirmDeleteBudget} "${widget.budget.name}"? ${context.l10n.deleteBudgetCannotBeUndone}',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(context.l10n.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: colorScheme.destructive),
-            child: const Text('Delete'),
+            child: Text(context.l10n.delete),
           ),
         ],
       ),
@@ -459,15 +460,15 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
       if (mounted) {
         Navigator.pop(context, true); // Return true to indicate success
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Budget deleted successfully'),
+          SnackBar(
+            content: Text(context.l10n.budgetDeletedSuccessfully),
             backgroundColor: Colors.orange,
           ),
         );
       }
     } catch (error) {
       if (mounted) {
-        _showError('Failed to delete budget: $error');
+        _showError('${context.l10n.failedToDeleteBudget}: $error');
         setState(() => _isDeleting = false);
       }
     }

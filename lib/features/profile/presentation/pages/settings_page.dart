@@ -14,6 +14,9 @@ import 'package:moneko/features/subscription/data/models/subscription_details.da
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
+import 'package:moneko/core/l10n/l10n.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:moneko/core/app/locale_provider.dart';
 
 class SettingsPage extends HookConsumerWidget {
   const SettingsPage({super.key});
@@ -71,7 +74,7 @@ class SettingsPage extends HookConsumerWidget {
                 context: context,
                 builder: (context, overlay) => shadcnui.Alert(
                   leading: const Icon(Icons.info_outline),
-                  title: const shadcnui.Text('Enable notifications for Moneko in your device settings'),
+                  title: shadcnui.Text(context.l10n.enableNotificationsInSettings),
                 ),
               );
             }
@@ -113,6 +116,9 @@ class SettingsPage extends HookConsumerWidget {
     }
 
     final currencies = getAvailableCurrencyOptions();
+    final selectedLocale = ref.watch(localeProvider);
+    final supportedLocales = AppLocalizations.supportedLocales;
+    final dropdownValue = _coerceToSupported(selectedLocale, supportedLocales);
 
     return Scaffold(
       backgroundColor: colorScheme.background,
@@ -125,7 +131,7 @@ class SettingsPage extends HookConsumerWidget {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
-          'Settings',
+          context.l10n.settings,
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w600,
@@ -225,8 +231,89 @@ class SettingsPage extends HookConsumerWidget {
               ),
             ),
             const shadcnui.Gap(24),
+            // Language
             Text(
-              'Appearance',
+              context.l10n.language,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.foreground,
+                letterSpacing: -0.2,
+              ),
+            ),
+            const shadcnui.Gap(16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              decoration: BoxDecoration(
+                color: colorScheme.card,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: colorScheme.border, width: 1),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.language_outlined,
+                    size: 20,
+                    color: colorScheme.mutedForeground,
+                  ),
+                  const shadcnui.Gap(16),
+                  Expanded(
+                    child: Text(
+                      context.l10n.language,
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: colorScheme.foreground,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  DropdownButtonHideUnderline(
+                    child: DropdownButton<Locale?>(
+                      value: dropdownValue,
+                      alignment: Alignment.centerRight,
+                      dropdownColor: colorScheme.card,
+                      icon: Icon(Icons.keyboard_arrow_down_rounded, color: colorScheme.mutedForeground),
+                      items: [
+                        DropdownMenuItem<Locale?>(
+                          value: null,
+                          child: Text(
+                            context.l10n.systemDefault,
+                            style: TextStyle(color: colorScheme.foreground),
+                          ),
+                        ),
+                        ...AppLocalizations.supportedLocales.map((locale) {
+                          return DropdownMenuItem<Locale?>(
+                            value: locale,
+                            child: Text(
+                              _displayLocaleName(locale),
+                              style: TextStyle(color: colorScheme.foreground),
+                            ),
+                          );
+                        }).toList(),
+                      ],
+                      onChanged: (value) async {
+                        if (value == null) {
+                          await ref.read(localeProvider.notifier).setSystem();
+                        } else {
+                          // Normalize legacy 'cn' to zh
+                          final lc = value.languageCode.toLowerCase();
+                          final cc = (value.countryCode ?? '').toUpperCase();
+                          final normalized = lc == 'cn'
+                              ? const Locale('zh')
+                              : (lc == 'zh' && cc.isEmpty)
+                                  ? const Locale('zh')
+                                  : value;
+                          await ref.read(localeProvider.notifier).setLocale(normalized);
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const shadcnui.Gap(24),
+            Text(
+              context.l10n.appearance,
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -252,7 +339,7 @@ class SettingsPage extends HookConsumerWidget {
                   const shadcnui.Gap(16),
                   Expanded(
                     child: Text(
-                      'Dark Mode',
+                      context.l10n.darkMode,
                       style: TextStyle(
                         fontSize: 15,
                         color: colorScheme.foreground,
@@ -273,7 +360,7 @@ class SettingsPage extends HookConsumerWidget {
             ),
             const shadcnui.Gap(24),
             Text(
-              'Notifications',
+              context.l10n.notifications,
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -302,7 +389,7 @@ class SettingsPage extends HookConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Push Notifications',
+                          context.l10n.pushNotifications,
                           style: TextStyle(
                             fontSize: 15,
                             color: colorScheme.foreground,
@@ -311,7 +398,7 @@ class SettingsPage extends HookConsumerWidget {
                         ),
                         const shadcnui.Gap(2),
                         Text(
-                          'Receive alerts and updates',
+                          context.l10n.receiveAlertsAndUpdates,
                           style: TextStyle(
                             fontSize: 12,
                             color: colorScheme.mutedForeground,
@@ -339,7 +426,7 @@ class SettingsPage extends HookConsumerWidget {
             ),
             const shadcnui.Gap(24),
             Text(
-              'Membership',
+              context.l10n.membership,
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -415,7 +502,7 @@ class _MembershipCard extends ConsumerWidget {
             const shadcnui.Gap(16),
             Expanded(
               child: Text(
-                'Loading...',
+                context.l10n.loading,
                 style: TextStyle(
                   fontSize: 15,
                   color: colorScheme.foreground,
@@ -443,7 +530,7 @@ class _MembershipCard extends ConsumerWidget {
             const shadcnui.Gap(16),
             Expanded(
               child: Text(
-                'Failed to load membership',
+                context.l10n.failedToLoadMembership,
                 style: TextStyle(
                   fontSize: 15,
                   color: colorScheme.foreground,
@@ -461,10 +548,11 @@ class _MembershipCard extends ConsumerWidget {
           ],
         ),
         data: (subscriptionDetails) {
-          final plan = subscriptionDetails?.planDisplayName ?? 'Free';
-          final status = subscriptionDetails?.statusDisplayName ?? 'Free plan';
+          // Get localized display names
+          final plan = _getLocalizedPlanName(subscriptionDetails, context);
+          final status = _getLocalizedStatusName(subscriptionDetails, context);
+          final renewalInfo = _getLocalizedRenewalInfo(subscriptionDetails, context);
           final isActive = subscriptionDetails?.hasActiveSubscription ?? false;
-          final renewalInfo = subscriptionDetails?.renewalInfo;
           final isTrialing = subscriptionDetails?.isTrialing ?? false;
           final isCanceled = subscriptionDetails?.isCanceled ?? false;
           final isPastDue = subscriptionDetails?.isPastDue ?? false;
@@ -539,7 +627,7 @@ class _MembershipCard extends ConsumerWidget {
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: const Text('Could not open membership page'),
+                            content: Text(context.l10n.couldNotOpenMembershipPage),
                             backgroundColor: colorScheme.destructive,
                           ),
                         );
@@ -588,6 +676,87 @@ class _MembershipCard extends ConsumerWidget {
         },
       ),
     );
+  }
+
+  String _getLocalizedPlanName(SubscriptionDetails? details, BuildContext context) {
+    if (details == null || details.subscription?.plan == null) {
+      return context.l10n.freePlan;
+    }
+
+    switch (details.subscription!.plan!.toLowerCase()) {
+      case 'lifetime':
+        return context.l10n.lifetimePlan;
+      case 'plus':
+        return context.l10n.plusPlan;
+      case 'monthly':
+        return context.l10n.plusMonthlyPlan;
+      case 'yearly':
+        return context.l10n.plusYearlyPlan;
+      default:
+        return details.subscription!.plan!.toUpperCase();
+    }
+  }
+
+  String _getLocalizedStatusName(SubscriptionDetails? details, BuildContext context) {
+    if (details == null || details.subscription?.plan == null) {
+      return context.l10n.freePlanStatus;
+    }
+
+    if (details.subscription!.plan!.toLowerCase() == 'free') {
+      return context.l10n.freePlanStatus;
+    }
+
+    switch (details.subscription!.status?.toLowerCase()) {
+      case 'active':
+        return details.isLifetime ? context.l10n.activeLifetimeStatus : context.l10n.activeStatus;
+      case 'canceled':
+        return context.l10n.canceledStatus;
+      case 'past_due':
+        return context.l10n.pastDueStatus;
+      case 'trialing':
+        return context.l10n.trialStatus;
+      default:
+        return details.subscription!.status ?? context.l10n.freePlanStatus;
+    }
+  }
+
+  String? _getLocalizedRenewalInfo(SubscriptionDetails? details, BuildContext context) {
+    if (details == null || details.subscription == null || details.isLifetime) {
+      return null;
+    }
+
+    final subscription = details.subscription!;
+    final status = subscription.status?.toLowerCase();
+
+    if (status == 'trialing' && subscription.currentPeriodEnd != null) {
+      final trialEnd = subscription.currentPeriodEnd!;
+      final now = DateTime.now();
+      final daysLeft = trialEnd.difference(now).inDays;
+
+      if (daysLeft > 0) {
+        return context.l10n.trialEndsInDays(daysLeft);
+      } else {
+        return context.l10n.trialEnded;
+      }
+    }
+
+    if (status == 'active' && details.daysUntilNextPayment != null && details.daysUntilNextPayment! > 0) {
+      return context.l10n.renewsInDays(details.daysUntilNextPayment!);
+    }
+
+    if (status == 'canceled' && subscription.currentPeriodEnd != null) {
+      final endDate = subscription.currentPeriodEnd!;
+      final now = DateTime.now();
+      final daysLeft = endDate.difference(now).inDays;
+
+      if (daysLeft > 0) {
+        return context.l10n.accessEndsInDays(daysLeft);
+      } else {
+        return context.l10n.subscriptionEnded;
+      }
+    }
+
+    return null;
   }
 
   Color _getRenewalInfoBackgroundColor(SubscriptionDetails? details, shadcnui.ColorScheme colorScheme) {
@@ -647,4 +816,45 @@ class _MembershipCard extends ConsumerWidget {
 
     return Icons.info_outlined;
   }
+}
+
+String _displayLocaleName(Locale locale) {
+  final lc = locale.languageCode.toLowerCase();
+  final cc = (locale.countryCode ?? '').toUpperCase();
+
+  // English
+  if (lc == 'en') return 'English';
+
+  // Chinese (handle various tags and legacy 'cn')
+  if (lc == 'zh' || lc == 'cn') {
+    // Simplified for CN or script Hans (if present via other configs)
+    if (cc == 'CN' || cc.isEmpty) return '简体中文';
+    if (cc == 'TW' || cc == 'HK' || cc == 'MO') return '繁體中文';
+    return '中文';
+  }
+
+  // zh_Hans / zh_Hant variants (when provided via Locale with script is uncommon, but guard anyway via country codes above)
+  // Fallback: show native name if easy mapping is known; otherwise show BCP-47-ish label
+  if (locale.countryCode != null && locale.countryCode!.isNotEmpty) {
+    return '${locale.languageCode}_${locale.countryCode}';
+  }
+  return locale.languageCode;
+}
+
+Locale? _coerceToSupported(Locale? selected, List<Locale> supported) {
+  if (selected == null) return null;
+  // exact match
+  for (final l in supported) {
+    if (l.languageCode.toLowerCase() == selected.languageCode.toLowerCase() &&
+        (l.countryCode ?? '').toUpperCase() == (selected.countryCode ?? '').toUpperCase()) {
+      return l;
+    }
+  }
+  // language-only match
+  for (final l in supported) {
+    if (l.languageCode.toLowerCase() == selected.languageCode.toLowerCase()) {
+      return l;
+    }
+  }
+  return null;
 }

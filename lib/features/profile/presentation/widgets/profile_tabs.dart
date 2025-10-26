@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/profile/presentation/widgets/profile_tab_content.dart';
 
 Widget buildNavigationTabs(BuildContext context, ValueNotifier<int> selectedTab) {
   return Row(
     children: [
-      Expanded(child: _buildTab(context, 'Overview', 0, selectedTab)),
+      Expanded(child: _buildTab(context, context.l10n.overview, 0, selectedTab)),
       const shadcnui.Gap(12),
-      Expanded(child: _buildTab(context, 'Activity', 1, selectedTab)),
+      Expanded(child: _buildTab(context, context.l10n.activity, 1, selectedTab)),
     ],
   );
 }

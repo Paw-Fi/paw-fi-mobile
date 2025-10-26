@@ -5,6 +5,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import '../../domain/entities/shared_budget.dart';
 import '../providers/household_providers.dart';
+import '../../../../core/l10n/l10n.dart';
 
 /// Page for creating a new household budget
 class CreateBudgetPage extends HookConsumerWidget {
@@ -34,29 +35,29 @@ class CreateBudgetPage extends HookConsumerWidget {
     Future<void> createBudget() async {
       // Validation
       if (nameController.text.trim().isEmpty) {
-        _showError(context, 'Please enter a budget name');
+        _showError(context, context.l10n.pleaseEnterABudgetName);
         return;
       }
 
       final amount = double.tryParse(amountController.text);
       if (amount == null || amount <= 0) {
-        _showError(context, 'Please enter a valid amount greater than 0');
+        _showError(context, context.l10n.pleaseEnterAValidAmountGreaterThan0);
         return;
       }
 
       // Validate thresholds
       if (warnThreshold.value < 0 || warnThreshold.value > 1) {
-        _showError(context, 'Warning threshold must be between 0 and 100%');
+        _showError(context, context.l10n.warningThresholdMustBeBetween0And100);
         return;
       }
 
       if (alertThreshold.value < 0 || alertThreshold.value > 1) {
-        _showError(context, 'Alert threshold must be between 0 and 100%');
+        _showError(context, context.l10n.alertThresholdMustBeBetween0And100);
         return;
       }
 
       if (warnThreshold.value > alertThreshold.value) {
-        _showError(context, 'Warning threshold must be less than or equal to alert threshold');
+        _showError(context, context.l10n.warningThresholdMustBeLessThanOrEqualToAlert);
         return;
       }
 
@@ -79,7 +80,7 @@ class CreateBudgetPage extends HookConsumerWidget {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text('Budget created successfully!'),
+              content: Text(context.l10n.budgetCreatedSuccessfully),
               backgroundColor: colorScheme.primary,
               behavior: SnackBarBehavior.floating,
             ),
@@ -87,7 +88,7 @@ class CreateBudgetPage extends HookConsumerWidget {
           Navigator.pop(context);
         }
       } catch (e) {
-        _showError(context, 'Failed to create budget: $e');
+        _showError(context, '${context.l10n.failedToCreateBudget}: $e');
       } finally {
         isCreating.value = false;
       }
@@ -99,7 +100,7 @@ class CreateBudgetPage extends HookConsumerWidget {
         backgroundColor: colorScheme.background,
         elevation: 0,
         title: Text(
-          'Create Budget',
+          context.l10n.createBudget,
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
@@ -114,7 +115,7 @@ class CreateBudgetPage extends HookConsumerWidget {
           children: [
             // Budget Name
             Text(
-              'Budget Name',
+              context.l10n.budgetName,
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -125,7 +126,7 @@ class CreateBudgetPage extends HookConsumerWidget {
             TextField(
               controller: nameController,
               decoration: InputDecoration(
-                hintText: 'e.g., Groceries, Rent, Entertainment',
+                hintText: context.l10n.groceriesRentEntertainment,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -138,7 +139,7 @@ class CreateBudgetPage extends HookConsumerWidget {
 
             // Budget Amount
             Text(
-              'Amount',
+              context.l10n.amount,
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -203,7 +204,7 @@ class CreateBudgetPage extends HookConsumerWidget {
 
             // Budget Period
             Text(
-              'Period',
+              context.l10n.period,
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -242,7 +243,7 @@ class CreateBudgetPage extends HookConsumerWidget {
 
             // Budget Type
             Text(
-              'Budget Type',
+              context.l10n.budgetType,
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -277,8 +278,8 @@ class CreateBudgetPage extends HookConsumerWidget {
                         ),
                         Text(
                           type == BudgetType.household
-                              ? 'Shared with all household members'
-                              : 'Personal budget for your expenses only',
+                              ? context.l10n.sharedWithAllHouseholdMembers
+                              : context.l10n.personalBudgetForYourExpensesOnly,
                           style: TextStyle(
                             fontSize: 12,
                             color: colorScheme.mutedForeground,
@@ -310,7 +311,7 @@ class CreateBudgetPage extends HookConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Count Split Portion Only',
+                              context.l10n.countSplitPortionOnly,
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
@@ -319,7 +320,7 @@ class CreateBudgetPage extends HookConsumerWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Only count your portion of split expenses towards this budget',
+                              context.l10n.onlyCountYourPortionOfSplitExpenses,
                               style: TextStyle(
                                 fontSize: 12,
                                 color: colorScheme.mutedForeground,

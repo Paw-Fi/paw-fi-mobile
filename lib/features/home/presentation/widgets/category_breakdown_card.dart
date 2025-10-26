@@ -4,6 +4,7 @@ import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 Widget buildCategoryBreakdownCard(
   BuildContext context,
   shadcnui.ColorScheme colorScheme,
@@ -37,7 +38,7 @@ Widget buildCategoryBreakdownCard(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'By Category',
+            context.l10n.byCategory,
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -58,7 +59,7 @@ Widget buildCategoryBreakdownCard(
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'No expenses yet',
+                      context.l10n.noExpensesYet,
                       style: TextStyle(
                         fontSize: 14,
                         color: colorScheme.mutedForeground,
@@ -66,7 +67,7 @@ Widget buildCategoryBreakdownCard(
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Start logging expenses to see categories',
+                      context.l10n.startLoggingExpensesToSeeCategories,
                       style: TextStyle(
                         fontSize: 12,
                         color: colorScheme.mutedForeground.withValues(alpha: 0.7),
@@ -101,8 +102,7 @@ Widget buildCategoryBreakdownCard(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          category.category.substring(0, 1).toUpperCase() + 
-                              category.category.substring(1),
+                          getCategoryTranslation(context, category.category),
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
@@ -110,7 +110,7 @@ Widget buildCategoryBreakdownCard(
                           ),
                         ),
                         Text(
-                          '${category.transactionCount} transaction${category.transactionCount != 1 ? 's' : ''}',
+                          '${category.transactionCount} ${category.transactionCount != 1 ? context.l10n.transactions : context.l10n.transactions}',
                           style: TextStyle(
                             fontSize: 12,
                             color: colorScheme.mutedForeground,

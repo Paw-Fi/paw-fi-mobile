@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import '../../domain/entities/household.dart';
+import '../../../../core/l10n/l10n.dart';
 
 /// Gets the color associated with a household role
 Color getRoleColor(HouseholdRole role) {
@@ -55,7 +56,7 @@ class RoleBadge extends StatelessWidget {
         border: Border.all(color: color, width: 1),
       ),
       child: Text(
-        role.toJson().toUpperCase(),
+        _getLocalizedRole(context, role),
         style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.bold,
@@ -63,6 +64,17 @@ class RoleBadge extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _getLocalizedRole(BuildContext context, HouseholdRole role) {
+    switch (role) {
+      case HouseholdRole.owner:
+        return context.l10n.owner;
+      case HouseholdRole.admin:
+        return context.l10n.admin;
+      case HouseholdRole.member:
+        return context.l10n.member;
+    }
   }
 }
 

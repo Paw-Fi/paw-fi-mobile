@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/profile/presentation/widgets/profile_helpers.dart';
 import 'package:moneko/features/profile/presentation/widgets/profile_action_buttons.dart';
 
@@ -8,11 +9,11 @@ Widget buildOverviewTab(BuildContext context, user, WidgetRef ref) {
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      buildSectionTitle(context, 'Account Information'),
+      buildSectionTitle(context, context.l10n.accountInformation),
       const shadcnui.Gap(16),
       buildInfoCard(context, user),
       const shadcnui.Gap(32),
-      buildProfileActionButtons(ref),
+      buildProfileActionButtons(context, ref),
     ],
   );
 }
@@ -28,9 +29,9 @@ Widget buildInfoCard(BuildContext context, user) {
     ),
     child: Column(
       children: [
-        buildInfoRow(context, 'User ID', user.uid.substring(0, 16) + '...'),
+        buildInfoRow(context, context.l10n.userId, user.uid.substring(0, 16) + '...'),
         const shadcnui.Gap(20),
-        buildInfoRow(context, 'Email', user.email),
+        buildInfoRow(context, context.l10n.email, user.email),
       ],
     ),
   );
@@ -67,13 +68,13 @@ Widget buildActivityTab(BuildContext context) {
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      buildSectionTitle(context, 'Recent Activity'),
+      buildSectionTitle(context, context.l10n.recentActivity),
       const shadcnui.Gap(16),
       Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
           child: Text(
-            'No activity yet',
+            context.l10n.noActivityYet,
             style: TextStyle(
               fontSize: 14,
               color: colorScheme.mutedForeground,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import '../../../../../core/l10n/l10n.dart';
 
 /// Bottom sheet for settling up balances
 class SettleUpSheet extends ConsumerStatefulWidget {
@@ -58,7 +59,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
 
           // Title
           Text(
-            'Settle Up',
+            context.l10n.settleUp,
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
@@ -67,7 +68,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Mark expenses as settled to update balances',
+            context.l10n.markExpensesAsSettled,
             style: TextStyle(
               fontSize: 14,
               color: colorScheme.mutedForeground,
@@ -78,7 +79,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
           // Member selector (if not specified)
           if (widget.specificMemberId == null) ...[
             Text(
-              'Who are you settling with?',
+              context.l10n.whoAreYouSettlingWith,
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -89,8 +90,8 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
             // In real app, fetch household members and show selector
             DropdownButtonFormField<String>(
               value: _selectedMemberId,
-              decoration: const InputDecoration(
-                labelText: 'Select Member',
+              decoration: InputDecoration(
+                labelText: context.l10n.selectMember,
                 border: OutlineInputBorder(),
               ),
               items: const [
@@ -118,7 +119,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Amount to settle',
+                    context.l10n.amountToSettle,
                     style: TextStyle(
                       fontSize: 14,
                       color: colorScheme.mutedForeground,
@@ -140,7 +141,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
 
           // Settlement options
           Text(
-            'How did you settle?',
+            context.l10n.howDidYouSettle,
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
@@ -150,22 +151,22 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
           const SizedBox(height: 12),
           _SettlementOption(
             icon: Icons.payments,
-            title: 'Cash',
-            subtitle: 'Paid in cash',
+            title: context.l10n.cash,
+            subtitle: context.l10n.paidInCash,
             onTap: () => _handleSettle('cash'),
           ),
           const SizedBox(height: 8),
           _SettlementOption(
             icon: Icons.account_balance,
-            title: 'Bank Transfer',
-            subtitle: 'Transferred via bank',
+            title: context.l10n.bankTransfer,
+            subtitle: context.l10n.transferredViaBank,
             onTap: () => _handleSettle('bank_transfer'),
           ),
           const SizedBox(height: 8),
           _SettlementOption(
             icon: Icons.phone_android,
-            title: 'Mobile Payment',
-            subtitle: 'Venmo, PayPal, etc.',
+            title: context.l10n.mobilePayment,
+            subtitle: context.l10n.venmoPaypalEtc,
             onTap: () => _handleSettle('mobile_payment'),
           ),
           const SizedBox(height: 8),

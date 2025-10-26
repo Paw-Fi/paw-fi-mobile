@@ -19,6 +19,7 @@ import 'package:moneko/features/home/presentation/state/expense_save_providers.d
 import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 // ============================================================================
 // HOME PAGE
@@ -156,7 +157,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  imagePath != null ? 'Analyzing receipt...' : 'Analyzing expense...',
+                  imagePath != null ? context.l10n.analyzingReceipt : context.l10n.analyzingExpense,
                   style: TextStyle(
                     color: colorScheme.foreground,
                     fontSize: 16,
@@ -263,14 +264,14 @@ class _HomePageState extends ConsumerState<HomePage> {
               _showMultiExpenseConfirmation(parsedExpenses, imagePath);
             }
           } else {
-            _showToast('No expense information extracted');
+            _showToast(context.l10n.noExpenseInformationExtracted);
           }
         } else {
-          _showToast('Failed to analyze: No data returned');
+          _showToast(context.l10n.failedToAnalyzeNoData);
         }
       } else {
-        final error = response.data?['error'] ?? 'Failed to analyze';
-        _showToast('Failed to analyze: $error');
+        final error = response.data?['error'] ?? context.l10n.failedToAnalyze;
+        _showToast('${context.l10n.failedToAnalyze}: $error');
       }
     } catch (e) {
       debugPrint('=== ERROR IN ANALYSIS: $e ===');
@@ -279,7 +280,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       // Close processing modal
       Navigator.of(context, rootNavigator: true).pop();
 
-      _showToast('Failed to analyze: ${e.toString()}');
+      _showToast('${context.l10n.failedToAnalyze}: ${e.toString()}');
     }
   }
 
@@ -397,7 +398,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Update budget',
+                    context.l10n.updateBudget,
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w600,
@@ -406,7 +407,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Enter the new total daily budget.',
+                    context.l10n.enterNewTotalDailyBudget,
                     style: TextStyle(
                       fontSize: 14,
                       color: sheetColorScheme.mutedForeground,
@@ -418,7 +419,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     decoration: InputDecoration(
                       prefixText: currencySymbol,
-                      labelText: 'Budget amount',
+                      labelText: context.l10n.budgetAmount,
                       errorText: validationError,
                     ),
                     autofocus: true,
@@ -431,7 +432,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     children: [
                       TextButton(
                         onPressed: () => Navigator.of(sheetContext).pop(),
-                        child: const Text('Cancel'),
+                        child: Text(context.l10n.cancel),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -442,7 +443,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
                             if (parsed == null || parsed <= 0) {
                               setModalState(() {
-                                validationError = 'Enter a valid amount greater than 0';
+                                validationError = context.l10n.enterValidAmountGreaterThan0;
                               });
                               return;
                             }
@@ -450,7 +451,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                             FocusScope.of(sheetContext).unfocus();
                             Navigator.of(sheetContext).pop(parsed);
                           },
-                          child: const Text('Save'),
+                          child: Text(context.l10n.save),
                         ),
                       ),
                     ],
@@ -491,7 +492,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                   const CircularProgressIndicator(),
                   const SizedBox(height: 16),
                   Text(
-                    'Updating budget...',
+                    context.l10n.updatingBudget,
                     style: TextStyle(color: dialogScheme.foreground, fontSize: 16),
                   ),
                 ],
@@ -554,12 +555,12 @@ class _HomePageState extends ConsumerState<HomePage> {
       if (mounted) {
         Navigator.of(context, rootNavigator: true).pop();
         final replyMessage = (data['reply'] as String?)?.trim();
-        _showToast(replyMessage?.isNotEmpty == true ? replyMessage! : 'Budget updated');
+        _showToast(replyMessage?.isNotEmpty == true ? replyMessage! : context.l10n.budgetUpdated);
       }
     } catch (e) {
       if (mounted) {
         Navigator.of(context, rootNavigator: true).pop();
-        _showToast('Failed to update budget: ${e.toString()}');
+        _showToast('${context.l10n.failedToUpdateBudget}: ${e.toString()}');
       }
     }
   }
@@ -593,7 +594,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           children: [
             Expanded(
               child: Text(
-                'Logged successfully',
+                context.l10n.loggedSuccessfully,
                 style: TextStyle(color: colorScheme.buttonText),
               ),
             ),
@@ -608,7 +609,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 );
               },
               child: Text(
-                'View',
+                context.l10n.view,
                 style: TextStyle(
                   color: colorScheme.buttonText,
                   decoration: TextDecoration.underline,
@@ -664,7 +665,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 const SizedBox(height: 24),
                 shadcnui.PrimaryButton(
                   onPressed: () => ref.read(analyticsProvider.notifier).refresh(user.uid),
-                  child: const Text('Retry'),
+                  child: Text(context.l10n.retry),
                 ),
               ],
             ),
@@ -706,7 +707,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            'Overview',
+                            context.l10n.overview,
                             style: TextStyle(
                               fontSize: 32,
                               fontWeight: FontWeight.bold,
@@ -737,7 +738,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                       borderRadius: BorderRadius.circular(16),
                                     ),
                                     child: Text(
-                                      'For me',
+                                      context.l10n.forMe,
                                       style: TextStyle(
                                         fontSize: 13,
                                         fontWeight: viewMode.mode == ViewMode.personal
@@ -764,7 +765,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                       borderRadius: BorderRadius.circular(16),
                                     ),
                                     child: Text(
-                                      'For us',
+                                      context.l10n.forUs,
                                       style: TextStyle(
                                         fontSize: 13,
                                         fontWeight: viewMode.mode == ViewMode.household
@@ -833,7 +834,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                             child: Row(
                               children: [
                                 Text(
-                                  filterState.dateRangeFilter.label,
+                                  filterState.dateRangeFilter.getLabel(context),
                                   style: TextStyle(
                                     fontSize: 16,
                                     color: colorScheme.primary,
@@ -866,6 +867,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
                       child: buildSpendingCard(
+                        context,
                         colorScheme, 
                         filteredExpenses, 
                         analyticsData.contact, 
@@ -888,6 +890,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                           SizedBox(
                             width: 200,
                             child: buildBudgetCard(
+                              context,
                               colorScheme,
                               filteredBudgets,
                               filteredExpenses,
@@ -901,6 +904,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                           SizedBox(
                             width: 200,
                             child: buildNetCashflowCard(
+                              context,
                               colorScheme, 
                               filteredBudgets, 
                               filteredExpenses, 
@@ -936,6 +940,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
                       child: buildSpendingBreakdownChart(
+                        context,
                         colorScheme, 
                         filteredExpenses,
                         filteredBudgets,
@@ -973,7 +978,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             _showTextInputDrawer();
           },
           icon: const Icon(Icons.text_fields),
-          label: 'Free form text',
+          label: context.l10n.freeFormText,
         ),
         ActionButton(
           onPressed: () {
@@ -981,7 +986,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             _handleCameraCapture();
           },
           icon: const Icon(Icons.camera_alt),
-          label: 'Take photo',
+          label: context.l10n.takePhoto,
         ),
       ],
     );

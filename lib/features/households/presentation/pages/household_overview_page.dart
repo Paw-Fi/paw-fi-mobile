@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import '../../../../core/l10n/l10n.dart';
 import '../providers/household_providers.dart';
 import '../widgets/household_header.dart';
 import '../widgets/budget_progress_card.dart';
@@ -59,7 +60,7 @@ class HouseholdOverviewPage extends ConsumerWidget {
               ],
               Expanded(
                 child: Text(
-                  household?.name ?? 'Household',
+                  household?.name ?? context.l10n.household,
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -69,8 +70,8 @@ class HouseholdOverviewPage extends ConsumerWidget {
               ),
             ],
           ),
-          loading: () => Text('Loading...', style: TextStyle(color: colorScheme.mutedForeground)),
-          error: (_, __) => Text('Error', style: TextStyle(color: colorScheme.destructive)),
+          loading: () => Text(context.l10n.loading, style: TextStyle(color: colorScheme.mutedForeground)),
+          error: (_, __) => Text(context.l10n.error, style: TextStyle(color: colorScheme.destructive)),
         ),
         actions: [
           IconButton(
@@ -109,7 +110,7 @@ class HouseholdOverviewPage extends ConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Members',
+                    context.l10n.members,
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -120,7 +121,7 @@ class HouseholdOverviewPage extends ConsumerWidget {
                     onPressed: () {
                       Navigator.pushNamed(context, '/households/$householdId/members');
                     },
-                    child: const Text('View All'),
+                    child: Text(context.l10n.viewAll),
                   ),
                 ],
               ),
@@ -128,7 +129,7 @@ class HouseholdOverviewPage extends ConsumerWidget {
               membersAsync.when(
                 data: (members) => MemberAvatars(members: members.take(5).toList()),
                 loading: () => const CircularProgressIndicator(),
-                error: (_, __) => Text('Error loading members', style: TextStyle(color: colorScheme.destructive)),
+                error: (_, __) => Text(context.l10n.errorLoadingMembers, style: TextStyle(color: colorScheme.destructive)),
               ),
               const SizedBox(height: 24),
 
@@ -137,7 +138,7 @@ class HouseholdOverviewPage extends ConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Budgets',
+                    context.l10n.budgets,
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -148,7 +149,7 @@ class HouseholdOverviewPage extends ConsumerWidget {
                     onPressed: () {
                       Navigator.pushNamed(context, '/households/$householdId/budgets');
                     },
-                    child: const Text('Manage'),
+                    child: Text(context.l10n.manage),
                   ),
                 ],
               ),
@@ -164,7 +165,7 @@ class HouseholdOverviewPage extends ConsumerWidget {
                             Icon(Icons.add_chart, size: 48, color: colorScheme.muted),
                             const SizedBox(height: 12),
                             Text(
-                              'No budgets yet',
+                              context.l10n.noBudgetsYet,
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
@@ -173,7 +174,7 @@ class HouseholdOverviewPage extends ConsumerWidget {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              'Create a shared budget to track spending together',
+                              context.l10n.createSharedBudgetDescription,
                               textAlign: TextAlign.center,
                               style: TextStyle(color: colorScheme.mutedForeground),
                             ),
@@ -182,7 +183,7 @@ class HouseholdOverviewPage extends ConsumerWidget {
                               onPressed: () {
                                 Navigator.pushNamed(context, '/households/$householdId/budgets/create');
                               },
-                              child: const Text('Create Budget'),
+                              child: Text(context.l10n.createBudget),
                             ),
                           ],
                         ),
@@ -203,7 +204,7 @@ class HouseholdOverviewPage extends ConsumerWidget {
                   );
                 },
                 loading: () => const CircularProgressIndicator(),
-                error: (_, __) => Text('Error loading budgets', style: TextStyle(color: colorScheme.destructive)),
+                error: (_, __) => Text(context.l10n.errorLoadingBudgets, style: TextStyle(color: colorScheme.destructive)),
               ),
               const SizedBox(height: 24),
 
@@ -212,7 +213,7 @@ class HouseholdOverviewPage extends ConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Recent Splits',
+                    context.l10n.recentSplits,
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -223,7 +224,7 @@ class HouseholdOverviewPage extends ConsumerWidget {
                     onPressed: () {
                       Navigator.pushNamed(context, '/households/$householdId/splits');
                     },
-                    child: const Text('View All'),
+                    child: Text(context.l10n.viewAll),
                   ),
                 ],
               ),
@@ -239,12 +240,12 @@ class HouseholdOverviewPage extends ConsumerWidget {
                       onPressed: () {
                         Navigator.pushNamed(context, '/households/$householdId/invites');
                       },
-                      child: const Row(
+                      child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(Icons.person_add, size: 18),
                           SizedBox(width: 8),
-                          Text('Invite'),
+                          Text(context.l10n.invite),
                         ],
                       ),
                     ),
@@ -255,12 +256,12 @@ class HouseholdOverviewPage extends ConsumerWidget {
                       onPressed: () {
                         Navigator.pushNamed(context, '/households/$householdId/split/create');
                       },
-                      child: const Row(
+                      child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(Icons.call_split, size: 18),
                           SizedBox(width: 8),
-                          Text('Split'),
+                          Text(context.l10n.split),
                         ],
                       ),
                     ),

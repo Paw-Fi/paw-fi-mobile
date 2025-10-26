@@ -3,6 +3,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 void showDateRangeFilter(BuildContext context, shadcnui.ColorScheme colorScheme) {
   showModalBottomSheet(
@@ -22,7 +23,7 @@ void showDateRangeFilter(BuildContext context, shadcnui.ColorScheme colorScheme)
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Select Date Range',
+                  context.l10n.selectDateRange,
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -39,7 +40,7 @@ void showDateRangeFilter(BuildContext context, shadcnui.ColorScheme colorScheme)
             ...DateRangeFilter.values.where((f) => f != DateRangeFilter.custom).map((filter) {
               return ListTile(
                 title: Text(
-                  filter.label,
+                  filter.getLabel(context),
                   style: TextStyle(color: colorScheme.foreground),
                 ),
                 onTap: () {
