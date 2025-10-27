@@ -95,7 +95,7 @@ class _CustomSplitSheet extends StatefulWidget {
 }
 
 class _CustomSplitEditorState extends State<CustomSplitEditor> {
-  SplitType _selectedType = SplitType.equal;
+  SplitType _selectedType = SplitType.amount;
   late List<MemberSplit> _memberSplits;
   late List<TextEditingController> _controllers;
   String? _validationError;

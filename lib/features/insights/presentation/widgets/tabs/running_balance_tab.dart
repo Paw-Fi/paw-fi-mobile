@@ -219,27 +219,27 @@ List<_RunningBalanceSlideData> _runningBalanceSlides(BuildContext context) {
       title: context.l10n.whatYouAreSeeing,
       summary: context.l10n.runningBalanceWhatYouSeeDesc,
       points: [
-        'Purple line: the cushion left after each day. Rising lines mean you are building momentum.',
-        'Blue bars: the budget you set for that day.',
-        'Red bars: what actually left your account.',
+        context.l10n.purpleLineCushion,
+        context.l10n.blueBarsBudget,
+        context.l10n.redBarsSpent,
       ],
     ),
     _RunningBalanceSlideData(
       title: context.l10n.whyItMatters,
       summary: context.l10n.runningBalanceWhyMattersDesc,
       points: [
-        'Line trending upward = extra cash you can redirect toward savings goals.',
-        'Flat or dipping line = time to pause and review big-ticket items.',
-        'Sharp drops often match unplanned purchases—tap them to inspect the details.',
+        context.l10n.lineTrendingUpward,
+        context.l10n.flatDippingLine,
+        context.l10n.sharpDrops,
       ],
     ),
     _RunningBalanceSlideData(
       title: context.l10n.howToRespond,
       summary: context.l10n.runningBalanceHowToRespondDesc,
       points: [
-        'Line rising for several days? Consider moving a little extra into savings or debt payoff.',
-        'Line dipping after a busy weekend? Rebalance upcoming days by trimming small discretionary spends.',
-        'Feel stuck in the red? Revisit your budget in the Home tab—small adjustments add up quickly.',
+        context.l10n.lineRisingDays,
+        context.l10n.lineDippingWeekend,
+        context.l10n.feelStuckRed,
       ],
     ),
   ];

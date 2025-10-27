@@ -41,11 +41,14 @@ class SettingsPage extends HookConsumerWidget {
       return null;
     }, [contact?.preferredCurrency]);
 
-    // Check notification permission status on mount
+    // Check notification permission status AND backend registration on mount
     useEffect(() {
       Future<void> checkNotificationPermission() async {
         final status = await Permission.notification.status;
-        notificationsEnabled.value = status.isGranted;
+        final isRegistered = await ref.read(deviceRegistrationServiceProvider).isRegistered();
+        // Switch is enabled only if BOTH permission is granted AND device is registered
+        notificationsEnabled.value = status.isGranted && isRegistered;
+        debugPrint('🔔 Notification check: permission=${status.isGranted}, registered=$isRegistered');
       }
       checkNotificationPermission();
       return null;
@@ -109,9 +112,10 @@ class SettingsPage extends HookConsumerWidget {
       } finally {
         isCheckingPermission.value = false;
         
-        // Re-check permission status after settings return
+        // Re-check both permission status AND registration after settings return
         final finalStatus = await Permission.notification.status;
-        notificationsEnabled.value = finalStatus.isGranted;
+        final isRegistered = await ref.read(deviceRegistrationServiceProvider).isRegistered();
+        notificationsEnabled.value = finalStatus.isGranted && isRegistered;
       }
     }
 
@@ -139,8 +143,8 @@ class SettingsPage extends HookConsumerWidget {
           ),
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -438,7 +442,16 @@ class SettingsPage extends HookConsumerWidget {
             _MembershipCard(
               colorScheme: colorScheme,
               subscriptionAsync: subscriptionAsync,
-            ),                     
+            ),
+            const shadcnui.Gap(32),
+            // Logout Button
+            SizedBox(
+              width: double.infinity,
+              child: shadcnui.DestructiveButton(
+                onPressed: () => ref.read(authProvider.notifier).signOut(),
+                child: Text(context.l10n.signOut),
+              ),
+            ),
           ],
         ),
       ),

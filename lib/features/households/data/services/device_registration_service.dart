@@ -5,6 +5,15 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:moneko/core/services/deep_link_service.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/app/router.dart';
+
+/// Global container for deep link handling from FCM
+class DeepLinkContainer {
+  static DeepLinkService? deepLinkService;
+  static WidgetRef? ref;
+}
 
 /// Service for managing push notification device registration
 class DeviceRegistrationService {
@@ -228,18 +237,36 @@ class DeviceRegistrationService {
     debugPrint('🔔 Background message opened: ${message.messageId}');
     debugPrint('🔔 Data: ${message.data}');
 
-    // Handle navigation based on notification data
-    final type = message.data['type'];
-    final householdId = message.data['household_id'];
+    // Handle navigation using deep link if provided
+    final deepLink = message.data['deep_link'];
+    if (deepLink != null && deepLink.isNotEmpty) {
+      debugPrint('🔗 Deep link found: $deepLink');
+      
+      // Wait a bit for app to be ready, then trigger deep link directly
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (DeepLinkContainer.deepLinkService != null && DeepLinkContainer.ref != null) {
+          final context = rootNavigatorKey.currentContext;
+          if (context != null) {
+            final uri = Uri.parse(deepLink);
+            debugPrint('🚀 Triggering deep link directly: $deepLink');
+            DeepLinkContainer.deepLinkService!.handleDeepLinkUri(uri, DeepLinkContainer.ref!, context);
+          }
+        }
+      });
+    } else {
+      // Fallback to legacy navigation
+      final type = message.data['type'];
+      final householdId = message.data['household_id'];
 
-    if (type == 'budget_warn' || type == 'budget_alert') {
-      // Navigate to household overview
-      debugPrint('📊 Navigating to household: $householdId');
-      // TODO: Implement navigation to household overview
-    } else if (type == 'invite_accepted') {
-      // Navigate to household members
-      debugPrint('👥 Navigating to household members: $householdId');
-      // TODO: Implement navigation to members page
+      if (type == 'budget_warn' || type == 'budget_alert') {
+        // Navigate to household overview
+        debugPrint('📊 Navigating to household: $householdId');
+        // TODO: Implement navigation to household overview
+      } else if (type == 'invite_accepted') {
+        // Navigate to household members
+        debugPrint('👥 Navigating to household members: $householdId');
+        // TODO: Implement navigation to members page
+      }
     }
   }
 
@@ -275,10 +302,52 @@ class DeviceRegistrationService {
     );
   }
 
-  /// Handle notification tap
+  /// Handle notification tap (for local notifications shown in foreground)
   void _onNotificationTapped(NotificationResponse response) {
     debugPrint('🔔 Notification tapped: ${response.payload}');
-    // TODO: Parse payload and navigate to appropriate screen
+    
+    // The payload contains the deep_link if available
+    if (response.payload != null && response.payload!.isNotEmpty) {
+      try {
+        // The payload is the message.data.toString(), we need to parse it
+        // For now, we'll just log it - in production, you'd parse the map
+        // and extract the deep_link field
+        debugPrint('📦 Payload: ${response.payload}');
+        // TODO: Parse payload map and extract deep_link, then call _triggerDeepLink
+      } catch (e) {
+        debugPrint('⚠️ Failed to parse notification payload: $e');
+      }
+    }
+  }
+
+  /// Check if device is registered with backend (checks cache and token existence)
+  Future<bool> isRegistered() async {
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) return false;
+      
+      final prefs = await SharedPreferences.getInstance();
+      final cachePrefix = 'device_reg:$userId:';
+      final cachedToken = prefs.getString('${cachePrefix}token');
+      
+      // Check if we have a cached token and it's recent
+      if (cachedToken != null && cachedToken.isNotEmpty) {
+        final lastAtIso = prefs.getString('${cachePrefix}registered_at');
+        if (lastAtIso != null) {
+          final lastAt = DateTime.tryParse(lastAtIso);
+          if (lastAt != null && DateTime.now().difference(lastAt) < const Duration(days: 7)) {
+            debugPrint('✅ Device registration found in cache (token: ${cachedToken.substring(0, 10)}...)');
+            return true;
+          }
+        }
+      }
+      
+      debugPrint('⚠️ No valid device registration found in cache');
+      return false;
+    } catch (e) {
+      debugPrint('❌ Error checking registration status: $e');
+      return false;
+    }
   }
 
   /// Get device model

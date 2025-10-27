@@ -158,6 +158,8 @@
   "askAiFinancialAdvisor": "询问您的 AI 财务顾问，您是否能负担得起未来的某项开销",
   "canI": "我能",
   "before": "在...之前",
+  "beforePrefix": "在",
+  "beforeSuffix": "之前",
   "pickDate": "选择日期",
   "check": "查询",
   "enterQuestionAndPickDate": "请输入问题并选择一个日期",
@@ -827,5 +829,100 @@
         "type": "String"
       }
     }
-  }
+  },
+
+  "@scenarioPlanning": {},
+  "buyALaptop": "买一台$1,200的笔记本电脑",
+  "selectTargetDate": "选择目标日期",
+  "scenarioQuestionTemplate": "我可以在{date}前{action}吗",
+  "@scenarioQuestionTemplate": {
+    "description": "场景规划问题的模板。关键：根据您语言的语法结构调整词序。\n\n语言结构示例：\n• 英语 (SVO): Can I {action} before {date}?\n• 中文 (STV): 我可以在{date}前{action}吗？\n• 日语 (SOV): {date}前に{action}できますか？\n• 韩语 (SOV): {date} 전에 {action}할 수 있나요?\n• 西班牙语 (VSO): ¿Puedo {action} antes del {date}?\n• 法语 (VSO): Puis-je {action} avant le {date}?\n• 德语 (V2): Kann ich {action} vor dem {date}?\n• 俄语 (SVO): Могу ли я {action} до {date}?\n• 阿拉伯语 (VSO): هل يمكنني {action} قبل {date}؟\n• 印地语 (SOV): क्या मैं {date} से पहले {action} कर सकता हूँ?\n• 乌尔都语 (SOV): کیا میں {date} سے پہلے {action} کر سکتا ہوں؟\n• 土耳其语 (SOV): {date} öncesi {action} yapabilir miyim?\n• 荷兰语 (SVO): Kan ik {action} voor {date}?\n• 瑞典语 (SVO): Kan jag {action} före {date}?\n• 波兰语 (SVO): Czy mogę {action} przed {date}?\n• 泰语 (SVO): ฉันสามารถ {action} ก่อน {date} ได้ไหม?\n• 越南语 (SVO): Tôi có thể {action} trước {date} không?\n• 印尼语 (SVO): Bisakah saya {action} sebelum {date}?\n\n重要：考虑您语言的独特特征：\n- 性别一致（罗曼语族）\n- 格系统（日耳曼语族、斯拉夫语族）\n- 敬语级别（亚洲语言）\n- 从右到左文字（阿拉伯语、希伯来语）\n- 后置词（印度语族）\n- 动词位置变化",
+    "placeholders": {
+      "action": {
+        "type": "String",
+        "description": "动作短语（例如：'买笔记本电脑'，'去度假'）"
+      },
+      "date": {
+        "type": "String",
+        "description": "根据地区惯例格式化的日期字符串"
+      }
+    }
+  },
+  "scenarioDateFormat": "yyyy/MM/dd",
+  "@scenarioDateFormat": {
+    "description": "场景规划的日期格式。请使用标准ICU DateFormat模式。\n\n地区日期格式示例：\n• 美国：MM/dd/yyyy (01/25/2025)\n• 英国：dd/MM/yyyy (25/01/2025)\n• 中国/日本/韩国：yyyy/MM/dd (2025/01/25)\n• 德国：dd.MM.yyyy (25.01.2025)\n• 法国：dd/MM/yyyy (25/01/2025)\n• 西班牙：dd/MM/yyyy (25/01/2025)\n• 意大利：dd/MM/yyyy (25/01/2025)\n• 俄罗斯：dd.MM.yyyy (25.01.2025)\n• 阿拉伯（埃及）：dd/MM/yyyy (25/01/2025)\n• 印地语：dd-MM-yyyy (25-01-2025)\n• 乌尔都语：dd/MM/yyyy (25/01/2025)\n• 泰语：dd/MM/yyyy (25/01/2565) [注意：佛历]\n• 越南语：dd/MM/yyyy (25/01/2025)\n• 印尼语：dd/MM/yyyy (25/01/2025)\n• 土耳其语：dd.MM.yyyy (25.01.2025)\n• 荷兰语：dd-MM-yyyy (25-01-2025)\n• 瑞典语：yyyy-MM-dd (2025-01-25)\n• 波兰语：dd.MM.yyyy (25.01.2025)\n\n特殊考虑：\n- 佛历（泰国）：年份 + 543\n- 伊斯兰历（阿拉伯国家）：不同年份系统\n- 希伯来历（以色列）：不同年份系统\n- 年号命名（日语）：令和、平成等\n- 农历（中文、韩语、越南语）\n- 一周开始日（周日 vs 周一）\n- 分隔符使用：/、-、. 或空格",
+    "example": "2025/01/25"
+  },
+  "analysisFailed": "分析失败：{error}",
+  "@analysisFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "leftHandChamps": "左侧的冠军是你的重头戏——是快速审查的完美候选。",
+  "smallButFrequent": "小而频繁的类别暗示着可能会随时间累积的习惯。",
+  "colorMatches": "颜色与主页标签保持一致，让你的大脑保持舒适。",
+  "planningNewGoal": "计划新目标？找出可以削减的类别，而不影响有趣的东西。",
+  "eyeingTreatYourself": "想要犒赏自己的月份？看看哪些区域可以安全地调整。",
+  "doubleCheckTagging": "用它来仔细检查新支出是否正确标记——不允许有幽灵。",
+  "slideHighBar": "通过设置迷你限制或切换到更低成本的替代品来降低高条。",
+  "nonNegotiable": "如果某个条目不可协商（比如房租），围绕它进行计划而不是与之对抗。",
+  "revisitAfterScenario": "运行场景后重新访问，看看你的调整是否有效。",
+
+  "@runningBalanceTab": {},
+  "purpleLineCushion": "紫线：每天剩余的缓冲。上升线条意味着你正在建立势头。",
+  "blueBarsBudget": "蓝条：你为那天设定的预算。",
+  "redBarsSpent": "红条：实际离开你账户的金额。",
+  "lineTrendingUpward": "线条趋势向上=可以重新导向储蓄目标的额外现金。",
+  "flatDippingLine": "平坦或下降的线条=是时候暂停并审查大额项目了。",
+  "sharpDrops": "急剧下降通常与计划外购买相匹配——点击它们查看详情。",
+  "lineRisingDays": "线条连续几天上升？考虑将额外一点转入储蓄或债务偿还。",
+  "lineDippingWeekend": "忙碌周末后线条下降？通过削减小额可自由支配支出来重新平衡即将到来的日子。",
+  "feelStuckRed": "感觉陷入赤字？重新访问主页标签中的预算——小调整会迅速累积。",
+
+  "@day30LookAheadTab": {},
+  "peek30DaysAhead": "展望30天",
+  "thirtyDayForecastDesc": "此预测使用过去一个月的活动来猜测下个月可能会有多活跃。把它想象成你钱包的天气预报。",
+  "greenLineExpected": "绿线=如果下个月与上个月行为相同，预期的每日支出。",
+  "spikesHighlight": "峰值突出显示你的习惯通常变得更昂贵的周（你好，周五外卖）。",
+  "forecastUpdates": "当你记录新交易时，预测会温和更新——无需刷新。",
+  "spotExpensivePatterns": "及早发现昂贵的模式并在它们到来之前储存迷你缓冲。",
+  "catchQuieterWeeks": "抓住较安静的周，你可以将额外现金扫入储蓄或债务偿还。",
+  "timeRecurringPayments": "利用这个洞察来安排定期付款、订阅或充值。",
+  "bigSpikeComing": "大峰值即将到来？预订更便宜的选项或将灵活支出转移到更平静的日子。",
+  "forecastDipping": "预测下降？通过安排额外的储蓄转移来奖励自己。",
+  "forecastLooksOff": "如果预测看起来不对，请检查主页标签中的类别以整理任何错误标记。",
+
+  "@longTermProjectionTab": {},
+  "greenLineTrends": "绿线跟随你的典型储蓄率趋势——上升势头意味着你的目标得到了资助。",
+  "lineDipsSignals": "如果线条下降，它预示着未来几个月支出可能超过收入。",
+  "largeGoalsDebts": "当你在主页标签中标记它们时，包含大目标或债务。",
+  "upwardSlope": "向上倾斜？庆祝并考虑增加退休或旅行储蓄。",
+  "flatSlipping": "平坦或下滑？是时候调整预算或增加收入流，以免雪球越滚越大。",
+  "watchSeasonalTrends": "关注季节性趋势——节假日、学期或年度续费通常首先在这里显示。",
+  "schedulePaymentIncreases": "当曲线上升时，安排贷款的温和付款增加。",
+  "planAheadDips": "通过指定偿债基金或削减可选支出来为下降做计划。",
+  "checkProjectionMonthly": "每月检查预测，让你的长期游戏有趣而灵活。",
+
+  "@categories": {},
+  "categoryGroceries": "食品杂货",
+  "categoryFood": "餐饮",
+  "categoryTransport": "交通",
+  "categoryHousing": "住房",
+  "categoryUtilities": "水电费",
+  "categoryEntertainment": "娱乐",
+  "categoryHealthcare": "医疗保健",
+  "categoryEducation": "教育",
+  "categoryShopping": "购物",
+  "categoryTravel": "旅行",
+  "categoryIncome": "收入",
+  "categoryOther": "其他",
+
+  "deleteExpense": "删除支出",
+  "confirmDeleteExpense": "您确定要删除这笔支出吗？此操作无法撤销。",
+  "expenseDeletedSuccessfully": "支出删除成功",
+  "failedToDeleteExpense": "删除支出失败",
+  "expenseNotFoundOrDeleted": "支出未找到或已被删除"
 }

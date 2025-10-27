@@ -96,6 +96,44 @@ class DeepLinks {
            uri.path == '/join';
   }
 
+  /// Check if a URI is an expense deep link
+  /// Format: moneko://expense/{expense_id}
+  static bool isExpenseLink(Uri uri) {
+    return uri.scheme == appScheme &&
+           uri.host == 'expense' &&
+           uri.pathSegments.isNotEmpty;
+  }
+
+  /// Check if a URI is a household deep link
+  /// Format: moneko://household/{household_id}
+  static bool isHouseholdLink(Uri uri) {
+    return uri.scheme == appScheme &&
+           uri.host == 'household' &&
+           uri.pathSegments.isNotEmpty;
+  }
+
+  /// Check if a URI is a budget deep link
+  /// Format: moneko://budget/{budget_id}
+  static bool isBudgetLink(Uri uri) {
+    return uri.scheme == appScheme &&
+           uri.host == 'budget' &&
+           uri.pathSegments.isNotEmpty;
+  }
+
+  /// Check if a URI is a split deep link
+  /// Format: moneko://split/{split_id}
+  static bool isSplitLink(Uri uri) {
+    return uri.scheme == appScheme &&
+           uri.host == 'split' &&
+           uri.pathSegments.isNotEmpty;
+  }
+
+  /// Check if a URI is a home deep link
+  /// Format: moneko://home
+  static bool isHomeLink(Uri uri) {
+    return uri.scheme == appScheme && uri.host == 'home';
+  }
+
   /// Legacy OAuth callback (kept for backward compatibility)
   /// Format: moneko://auth/callback
   @Deprecated('Use oauthCallback instead. This is kept for backward compatibility.')

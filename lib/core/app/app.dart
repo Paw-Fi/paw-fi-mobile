@@ -5,6 +5,7 @@ import 'package:moneko/core/app/router.dart';
 import 'package:moneko/core/app/locale_provider.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/services/deep_link_service.dart';
+import 'package:moneko/features/households/data/services/device_registration_service.dart';
 import 'package:moneko/features/app_version/presentation/widgets/version_check_wrapper.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
@@ -28,6 +29,10 @@ class _AppState extends ConsumerState<App> {
       if (!_deepLinkInitialized && mounted) {
         _deepLinkService.initialize(ref, context);
         _deepLinkInitialized = true;
+        
+        // Store in global container for FCM integration
+        DeepLinkContainer.deepLinkService = _deepLinkService;
+        DeepLinkContainer.ref = ref;
       }
     });
   }

@@ -210,27 +210,27 @@ List<_LongTermSlideData> _longTermSlides(BuildContext context) {
       title: context.l10n.howTheProjectionWorks,
       summary: context.l10n.longTermHowWorksDesc,
       points: [
-        'Green line trends with your typical savings rate—upward momentum means your goals are funded.',
-        'If the line dips, it signals future months where expenses tend to outrun income.',
-        'Large goals or debts are included when you tag them in the Home tab.',
+        context.l10n.greenLineTrends,
+        context.l10n.lineDipsSignals,
+        context.l10n.largeGoalsDebts,
       ],
     ),
     _LongTermSlideData(
       title: context.l10n.whyItMatters,
       summary: context.l10n.longTermWhyMattersDesc,
       points: [
-        'An upward slope? Celebrate and consider boosting retirement or travel savings.',
-        'Flat or slipping? Time to tune budgets or boost income streams before it snowballs.',
-        'Watch for seasonal trends—holidays, school terms, or annual renewals often show here first.',
+        context.l10n.upwardSlope,
+        context.l10n.flatSlipping,
+        context.l10n.watchSeasonalTrends,
       ],
     ),
     _LongTermSlideData(
       title: 'Moves to consider',
       summary: context.l10n.longTermMovesToConsiderDesc,
       points: [
-        'Schedule gentle payment increases on loans when the curve is rising.',
-        'Plan ahead for dips by earmarking sinking funds or trimming optional spends.',
-        'Check the projection monthly to keep your long game fun and flexible.',
+        context.l10n.schedulePaymentIncreases,
+        context.l10n.planAheadDips,
+        context.l10n.checkProjectionMonthly,
       ],
     ),
   ];

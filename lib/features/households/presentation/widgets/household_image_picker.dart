@@ -108,12 +108,14 @@ class HouseholdImagePicker {
                                 colorScheme.primary,
                               ],
                               onTap: () async {
-                                Navigator.pop(context);
                                 final result = await _pickImage(
                                   context,
                                   imagePicker,
                                   ImageSource.camera,
                                 );
+                                if (context.mounted) {
+                                  Navigator.pop(context);
+                                }
                                 if (result != null) {
                                   onImageSelected(null, result);
                                 }
@@ -133,12 +135,14 @@ class HouseholdImagePicker {
                                 colorScheme.primary.withOpacity(0.8),
                               ],
                               onTap: () async {
-                                Navigator.pop(context);
                                 final result = await _pickImage(
                                   context,
                                   imagePicker,
                                   ImageSource.gallery,
                                 );
+                                if (context.mounted) {
+                                  Navigator.pop(context);
+                                }
                                 if (result != null) {
                                   onImageSelected(null, result);
                                 }

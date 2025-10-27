@@ -7,16 +7,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:moneko/core/core.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
 import 'package:moneko/features/home/presentation/models/user_contact.dart';
-import 'package:moneko/features/home/presentation/state/transaction_edit_state.dart';
 import 'package:moneko/features/home/presentation/state/transaction_edit_notifier.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
-import 'package:moneko/features/home/presentation/widgets/edit_transaction_bottom_sheet.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/datetime.dart';
@@ -41,9 +39,11 @@ String _formatRelativeDate(DateTime date, BuildContext context) {
   } else if (dateOnly == yesterday) {
     return context.l10n.yesterday;
   } else if (dateOnly.isAfter(today.subtract(const Duration(days: 7)))) {
-    return DateFormat('EEEE').format(localDate);
+    // Use localized date formatter for day names
+    return DateFormat.EEEE(Localizations.localeOf(context).toString()).format(localDate);
   } else {
-    return DateFormat('EEEE, d MMMM yyyy').format(localDate);
+    // Use localized date formatter for full date
+    return DateFormat.yMMMMd(Localizations.localeOf(context).toString()).format(localDate);
   }
 }
 
@@ -95,6 +95,7 @@ class _UnifiedTransactionSheet extends ConsumerStatefulWidget {
 class _UnifiedTransactionSheetState
     extends ConsumerState<_UnifiedTransactionSheet> {
   bool _isSaving = false;
+  bool _isDeleting = false;
   final timeFormat = DateFormat('HH:mm');
   bool _isSharedWithHousehold = false;
   TimeOfDay _selectedTime = TimeOfDay.now();
@@ -103,20 +104,83 @@ class _UnifiedTransactionSheetState
   bool _isLoadingMembers = false;
   String? _membersError;
   List<HouseholdMember>? _householdMembers;
-  ExpenseEntry? _currentExpense; // keeps live-updated expense for existing entries
+  
+  // Local edits (accumulated until save)
+  double? _editedAmount;
+  String? _editedCategory;
+  String? _editedCurrency;
+  DateTime? _editedDate;
+  String? _editedDescription;
+
+  /// Get localized category name
+  String _getLocalizedCategory(String category) {
+    switch (category.toLowerCase()) {
+      case 'groceries':
+        return context.l10n.categoryGroceries;
+      case 'food':
+        return context.l10n.categoryFood;
+      case 'transport':
+        return context.l10n.categoryTransport;
+      case 'housing':
+        return context.l10n.categoryHousing;
+      case 'utilities':
+        return context.l10n.categoryUtilities;
+      case 'entertainment':
+        return context.l10n.categoryEntertainment;
+      case 'healthcare':
+        return context.l10n.categoryHealthcare;
+      case 'education':
+        return context.l10n.categoryEducation;
+      case 'shopping':
+        return context.l10n.categoryShopping;
+      case 'travel':
+        return context.l10n.categoryTravel;
+      case 'income':
+        return context.l10n.categoryIncome;
+      case 'other':
+        return context.l10n.categoryOther;
+      default:
+        // Fallback to capitalized first letter + lowercase
+        return category[0].toUpperCase() + category.substring(1);
+    }
+  }
 
   @override
   void initState() {
     super.initState();
+    
+    // DEBUG: Log expense ID for deep link testing
+    if (widget.existingExpense != null) {
+      debugPrint('💸 [DEEP LINK TEST] Expense sheet opened for: ${widget.existingExpense!.id}');
+      debugPrint('🔗 [DEEP LINK TEST] Test with: moneko://expense/${widget.existingExpense!.id}');
+    }
+    
     // Initialize time from existing expense or now
     if (widget.existingExpense != null) {
-      _currentExpense = widget.existingExpense; // seed with initial
       final dateTime = toLocalTime(widget.existingExpense!.createdAt);
       _selectedTime = TimeOfDay(hour: dateTime.hour, minute: dateTime.minute);
+      
+      // DEBUG: Log expense details for household sharing
+      debugPrint('🏠 [HOUSEHOLD SHARE] Expense ID: ${widget.existingExpense!.id}');
+      debugPrint('🏠 [HOUSEHOLD SHARE] householdId: ${widget.existingExpense!.householdId}');
+      debugPrint('🏠 [HOUSEHOLD SHARE] splitGroupId: ${widget.existingExpense!.splitGroupId}');
       
       // Initialize share state from existing expense (shared if linked to a household or has a split group)
       _isSharedWithHousehold = widget.existingExpense!.householdId != null ||
                                widget.existingExpense!.splitGroupId != null;
+      
+      debugPrint('🏠 [HOUSEHOLD SHARE] _isSharedWithHousehold set to: $_isSharedWithHousehold');
+      
+      // If expense is shared with a household, initialize the household selection and load members
+      if (_isSharedWithHousehold && widget.existingExpense!.householdId != null) {
+        debugPrint('🏠 [HOUSEHOLD SHARE] Initializing household selection: ${widget.existingExpense!.householdId}');
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            ref.read(selectedHouseholdForSharingProvider.notifier).state = widget.existingExpense!.householdId;
+            _loadMembers(widget.existingExpense!.householdId!);
+          }
+        });
+      }
     } else if (widget.newExpense != null) {
       // For new expenses, default to current local time (BE usually returns date-only)
       _selectedTime = TimeOfDay.now();
@@ -139,32 +203,42 @@ class _UnifiedTransactionSheetState
   bool get isNewExpense => widget.newExpense != null;
   bool get isExistingExpense => widget.existingExpense != null;
 
-  // Unified getters that work for both cases
-  double get amount => isNewExpense
-      ? widget.newExpense!.amount
-      : (_currentExpense?.amount ?? widget.existingExpense!.amount);
+  // Unified getters that work for both cases - always check local edits first
+  double get amount {
+    if (_editedAmount != null) return _editedAmount!;
+    if (isNewExpense) return widget.newExpense!.amount;
+    return widget.existingExpense!.amount;
+  }
 
-  String get currency => isNewExpense
-      ? widget.newExpense!.currency
-      : ((_currentExpense?.currency ?? widget.existingExpense!.currency) ?? 'USD');
+  String get currency {
+    if (_editedCurrency != null) return _editedCurrency!;
+    if (isNewExpense) return widget.newExpense!.currency;
+    return widget.existingExpense!.currency ?? 'USD';
+  }
 
   String get currencySymbol => isNewExpense
       ? widget.newExpense!.currencySymbol
       : resolveCurrencySymbol(currency);
 
-  String get category => isNewExpense
-      ? widget.newExpense!.category
-      : ((_currentExpense?.category ?? widget.existingExpense!.category) ?? 'other');
+  String get category {
+    if (_editedCategory != null) return _editedCategory!;
+    if (isNewExpense) return widget.newExpense!.category;
+    return widget.existingExpense!.category ?? 'other';
+  }
 
-  DateTime get date => isNewExpense
-      ? widget.newExpense!.date
-      : (_currentExpense?.date ?? widget.existingExpense!.date);
+  DateTime get date {
+    if (_editedDate != null) return _editedDate!;
+    if (isNewExpense) return widget.newExpense!.date;
+    return widget.existingExpense!.date;
+  }
 
-  String? get description => isNewExpense
-      ? widget.newExpense!.description
-      : (_currentExpense?.rawText ?? widget.existingExpense!.rawText);
+  String? get description {
+    if (_editedDescription != null) return _editedDescription;
+    if (isNewExpense) return widget.newExpense!.description;
+    return widget.existingExpense!.rawText;
+  }
 
-  String? get receiptImageUrl => _currentExpense?.receiptImageUrl ?? widget.existingExpense?.receiptImageUrl;
+  String? get receiptImageUrl => widget.existingExpense?.receiptImageUrl;
 
   // Generate note prefix like "I spent $XX on category"
   String _generateNotePrefix() {
@@ -184,48 +258,11 @@ class _UnifiedTransactionSheetState
     // For new expenses, use pending expense provider
     final pendingExpense = isNewExpense ? ref.watch(pendingExpenseProvider) : null;
     
-    // Use pending expense if available (for live editing), otherwise use initial
-    final displayAmount = pendingExpense?.amount ?? amount;
-    final displayCategory = pendingExpense?.category ?? category;
-    final displayDate = pendingExpense?.date ?? date;
-    final displayDescription = pendingExpense?.description ?? description;
-
-    // Update expense from providers if it's an existing expense
-    if (isExistingExpense) {
-      // Listen for optimistic/final updates of this expense and refresh UI
-      final transactionEdit = ref.watch(transactionEditProvider);
-      final edited = transactionEdit.optimisticUpdate;
-      if (edited != null && edited.id == widget.existingExpense!.id) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            setState(() {
-              _currentExpense = edited;
-              final local = toLocalTime(edited.createdAt);
-              _selectedTime = TimeOfDay(hour: local.hour, minute: local.minute);
-            });
-          }
-        });
-      }
-
-      // Also listen to analyticsProvider reload to sync from backend
-      final analytics = ref.watch(analyticsProvider);
-      if (widget.existingExpense != null) {
-        final id = widget.existingExpense!.id;
-        final updated = analytics.allExpenses.firstWhere(
-          (e) => e.id == id,
-          orElse: () => _currentExpense ?? widget.existingExpense!,
-        );
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            setState(() {
-              _currentExpense = updated;
-              final local = toLocalTime(updated.createdAt);
-              _selectedTime = TimeOfDay(hour: local.hour, minute: local.minute);
-            });
-          }
-        });
-      }
-    }
+    // Use pending expense if available (for new expenses only), otherwise use local/initial
+    final displayAmount = isNewExpense && pendingExpense != null ? pendingExpense.amount : amount;
+    final displayCategory = isNewExpense && pendingExpense != null ? pendingExpense.category : category;
+    final displayDate = isNewExpense && pendingExpense != null ? pendingExpense.date : date;
+    final displayDescription = isNewExpense && pendingExpense != null ? pendingExpense.description : description;
 
     return Container(
       constraints: BoxConstraints(
@@ -356,8 +393,7 @@ class _UnifiedTransactionSheetState
                   _buildDetailCard(
                     colorScheme: colorScheme,
                     label: context.l10n.category,
-                    value: displayCategory.substring(0, 1).toUpperCase() +
-                        displayCategory.substring(1),
+                    value: _getLocalizedCategory(displayCategory),
                     onTap: () => _handleEditCategory(displayCategory),
                   ),
 
@@ -446,25 +482,52 @@ class _UnifiedTransactionSheetState
                     const SizedBox(height: 32),
                   ],
 
-                  // Save Button (only for new expenses)
-                  if (isNewExpense)
+                  // Save Button (for both new and existing expenses)
+                  SizedBox(
+                    width: double.infinity,
+                    child: shadcnui.PrimaryButton(
+                      onPressed: _isSaving ? null : _handleSave,
+                      child: _isSaving
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white),
+                              ),
+                            )
+                          : Text(context.l10n.saveExpense),
+                    ),
+                  ),
+
+                  // Delete Button (only for existing expenses)
+                  if (isExistingExpense) ...[
+                    const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,
-                      child: shadcnui.PrimaryButton(
-                        onPressed: _isSaving ? null : _handleSave,
-                        child: _isSaving
-                            ? const SizedBox(
+                      child: shadcnui.OutlineButton(
+                        onPressed: _isDeleting ? null : _handleDelete,
+                        child: _isDeleting
+                            ? SizedBox(
                                 width: 20,
                                 height: 20,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
                                   valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.white),
+                                      colorScheme.destructive),
                                 ),
                               )
-                            : Text(context.l10n.saveExpense),
+                            : Text(
+                                context.l10n.deleteExpense,
+                                style: TextStyle(
+                                  color: colorScheme.destructive,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                       ),
                     ),
+                  ],
 
                   const SizedBox(height: 32),
                 ],
@@ -881,21 +944,6 @@ class _UnifiedTransactionSheetState
   }
 
   Future<void> _handleEditCurrency(String currentCurrency) async {
-    if (isExistingExpense) {
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (context) => EditTransactionBottomSheet(
-          expenseId: widget.existingExpense!.id,
-          expense: widget.existingExpense!,
-          field: EditField.currency,
-          currentValue: currentCurrency,
-        ),
-      );
-      return;
-    }
-
     if (_isSharedWithHousehold) {
       final scheme = shadcnui.Theme.of(context).colorScheme;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -911,8 +959,7 @@ class _UnifiedTransactionSheetState
 
     final options = getAvailableCurrencyOptions();
     final codes = options.keys.toList()..sort();
-    final currentPending = ref.read(pendingExpenseProvider);
-    final current = (currentPending?.currency ?? currentCurrency).toUpperCase();
+    final current = currentCurrency.toUpperCase();
     final initial = codes.contains(current) ? current : codes.first;
 
     final selected = await _showSelectionSheet<String>(
@@ -922,12 +969,18 @@ class _UnifiedTransactionSheetState
     );
 
     if (selected != null) {
-      final current = ref.read(pendingExpenseProvider);
-      if (current != null) {
-        ref.read(pendingExpenseProvider.notifier).state = current.copyWith(
-          currency: selected,
-          currencySymbol: resolveCurrencySymbol(selected),
-        );
+      if (isNewExpense) {
+        final current = ref.read(pendingExpenseProvider);
+        if (current != null) {
+          ref.read(pendingExpenseProvider.notifier).state = current.copyWith(
+            currency: selected,
+            currencySymbol: resolveCurrencySymbol(selected),
+          );
+        }
+      } else {
+        setState(() {
+          _editedCurrency = selected;
+        });
       }
     }
   }
@@ -1029,120 +1082,89 @@ class _UnifiedTransactionSheetState
     );
   }
 
-  // Edit handlers
+  // Edit handlers - update local state for both new and existing
   void _handleEditAmount(double currentAmount) async {
-    if (isExistingExpense) {
-      // For existing expenses, use the edit bottom sheet
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (context) => EditTransactionBottomSheet(
-          expenseId: widget.existingExpense!.id,
-          expense: widget.existingExpense!,
-          field: EditField.amount,
-          currentValue: widget.existingExpense!.amount,
+    final controller =
+        TextEditingController(text: currentAmount.toStringAsFixed(2));
+    final result = await showDialog<double>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(context.l10n.editAmount),
+        content: TextField(
+          controller: controller,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: InputDecoration(labelText: context.l10n.amount),
+          autofocus: true,
         ),
-      );
-    } else {
-      // For new expenses, simple dialog
-      final controller =
-          TextEditingController(text: currentAmount.toStringAsFixed(2));
-      final result = await showDialog<double>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text(context.l10n.editAmount),
-          content: TextField(
-            controller: controller,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(labelText: context.l10n.amount),
-            autofocus: true,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(context.l10n.cancel),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(context.l10n.cancel),
-            ),
-            TextButton(
-              onPressed: () {
-                final value = double.tryParse(controller.text);
-                if (value != null && value > 0) {
-                  Navigator.pop(context, value);
-                }
-              },
-              child: Text(context.l10n.save),
-            ),
-          ],
-        ),
-      );
-      if (result != null) {
+          TextButton(
+            onPressed: () {
+              final value = double.tryParse(controller.text);
+              if (value != null && value > 0) {
+                Navigator.pop(context, value);
+              }
+            },
+            child: Text(context.l10n.save),
+          ),
+        ],
+      ),
+    );
+    if (result != null) {
+      if (isNewExpense) {
         final current = ref.read(pendingExpenseProvider);
         if (current != null) {
           ref.read(pendingExpenseProvider.notifier).state =
               current.copyWith(amount: result);
         }
+      } else {
+        setState(() {
+          _editedAmount = result;
+        });
       }
     }
   }
 
   void _handleEditCategory(String currentCategory) async {
-    if (isExistingExpense) {
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (context) => EditTransactionBottomSheet(
-          expenseId: widget.existingExpense!.id,
-          expense: widget.existingExpense!,
-          field: EditField.category,
-          currentValue: currentCategory,
-        ),
-      );
-    } else {
-      final categories = [
-        'groceries',
-        'food',
-        'transport',
-        'housing',
-        'utilities',
-        'entertainment',
-        'healthcare',
-        'education',
-        'shopping',
-        'travel',
-        'income',
-        'other'
-      ];
-      final initial = categories.contains(currentCategory) ? currentCategory : categories.first;
-      final result = await _showSelectionSheet<String>(
-        items: categories,
-        getLabel: (c) => c[0].toUpperCase() + c.substring(1),
-        initial: initial,
-      );
-      if (result != null) {
+    final categories = [
+      'groceries',
+      'food',
+      'transport',
+      'housing',
+      'utilities',
+      'entertainment',
+      'healthcare',
+      'education',
+      'shopping',
+      'travel',
+      'income',
+      'other'
+    ];
+    final initial = categories.contains(currentCategory) ? currentCategory : categories.first;
+    final result = await _showSelectionSheet<String>(
+      items: categories,
+      getLabel: (c) => _getLocalizedCategory(c),
+      initial: initial,
+    );
+    if (result != null) {
+      if (isNewExpense) {
         final current = ref.read(pendingExpenseProvider);
         if (current != null) {
           ref.read(pendingExpenseProvider.notifier).state =
               current.copyWith(category: result);
         }
+      } else {
+        setState(() {
+          _editedCategory = result;
+        });
       }
     }
   }
 
   void _handleEditDate(DateTime currentDate) async {
-    if (isExistingExpense) {
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (context) => EditTransactionBottomSheet(
-          expenseId: widget.existingExpense!.id,
-          expense: widget.existingExpense!,
-          field: EditField.date,
-          currentValue: currentDate,
-        ),
-      );
-    } else {
       DateTime? result;
       
       if (Platform.isIOS) {
@@ -1211,13 +1233,18 @@ class _UnifiedTransactionSheetState
       }
       
       if (result != null) {
-        final current = ref.read(pendingExpenseProvider);
-        if (current != null) {
-          ref.read(pendingExpenseProvider.notifier).state =
-              current.copyWith(date: result);
+        if (isNewExpense) {
+          final current = ref.read(pendingExpenseProvider);
+          if (current != null) {
+            ref.read(pendingExpenseProvider.notifier).state =
+                current.copyWith(date: result);
+          }
+        } else {
+          setState(() {
+            _editedDate = result;
+          });
         }
       }
-    }
   }
 
   void _handleEditTime() async {
@@ -1306,19 +1333,6 @@ class _UnifiedTransactionSheetState
   }
 
   void _handleEditDescription(String? currentDescription) async {
-    if (isExistingExpense) {
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (context) => EditTransactionBottomSheet(
-          expenseId: widget.existingExpense!.id,
-          expense: widget.existingExpense!,
-          field: EditField.description,
-          currentValue: currentDescription,
-        ),
-      );
-    } else {
       final colorScheme = shadcnui.Theme.of(context).colorScheme;
       final notePrefix = _generateNotePrefix();
       final initialDescription = () {
@@ -1473,16 +1487,19 @@ class _UnifiedTransactionSheetState
       }
       
       if (result != null) {
-        final current = ref.read(pendingExpenseProvider);
-        if (current != null) {
-          ref.read(pendingExpenseProvider.notifier).state =
-              current.copyWith(description: result);
+        if (isNewExpense) {
+          final current = ref.read(pendingExpenseProvider);
+          if (current != null) {
+            ref.read(pendingExpenseProvider.notifier).state =
+                current.copyWith(description: result);
+          }
+        } else {
+          setState(() {
+            _editedDescription = result;
+          });
         }
       }
-    }
   }
-
-  
 
   Future<void> _loadMembers(String householdId) async {
     setState(() {
@@ -1517,74 +1534,143 @@ class _UnifiedTransactionSheetState
     setState(() => _isSaving = true);
 
     try {
-      final expense = ref.read(pendingExpenseProvider);
-      final selectedHousehold = ref.read(selectedHouseholdForSharingProvider);
+      final user = ref.read(authProvider);
 
-      if (expense == null) {
-        throw Exception('No expense to save');
-      }
+      if (isNewExpense) {
+        // NEW EXPENSE: Use existing save logic
+        final expense = ref.read(pendingExpenseProvider);
+        final selectedHousehold = ref.read(selectedHouseholdForSharingProvider);
 
-      // Combine date with time
-      final expenseDateTime = DateTime(
-        expense.date.year,
-        expense.date.month,
-        expense.date.day,
-        _selectedTime.hour,
-        _selectedTime.minute,
-      );
+        if (expense == null) {
+          throw Exception('No expense to save');
+        }
 
-      // Create updated expense with time
-      final expenseWithTime = expense.copyWith(date: expenseDateTime);
+        // Combine date with time
+        final expenseDateTime = DateTime(
+          expense.date.year,
+          expense.date.month,
+          expense.date.day,
+          _selectedTime.hour,
+          _selectedTime.minute,
+        );
 
-      // Upload receipt image if available
-      String? receiptUrl;
-      if (widget.localImagePath != null) {
-        final user = ref.read(authProvider);
-        receiptUrl = await ref
-            .read(expenseSaveNotifierProvider.notifier)
-            .uploadReceiptImage(File(widget.localImagePath!), user.uid);
-      }
+        // Create updated expense with time
+        final expenseWithTime = expense.copyWith(date: expenseDateTime);
 
-      // Save expense with time and custom splits (if configured)
-      await ref.read(expenseSaveNotifierProvider.notifier).saveExpense(
-            expense: expenseWithTime,
-            householdId: selectedHousehold,
-            receiptImageUrl: receiptUrl,
-            customSplitType: _customSplitType,
-            customSplits: _customSplits,
+        // Upload receipt image if available
+        String? receiptUrl;
+        if (widget.localImagePath != null) {
+          receiptUrl = await ref
+              .read(expenseSaveNotifierProvider.notifier)
+              .uploadReceiptImage(File(widget.localImagePath!), user.uid);
+        }
+
+        // Save expense with time and custom splits (if configured)
+        await ref.read(expenseSaveNotifierProvider.notifier).saveExpense(
+              expense: expenseWithTime,
+              householdId: selectedHousehold,
+              receiptImageUrl: receiptUrl,
+              customSplitType: _customSplitType,
+              customSplits: _customSplits,
+            );
+
+        // Clear pending expense, selection, and custom splits
+        ref.read(pendingExpenseProvider.notifier).state = null;
+        ref.read(selectedHouseholdForSharingProvider.notifier).state = null;
+        
+        if (!mounted) return;
+
+        // Close modal
+        Navigator.of(context).pop();
+
+        // Show success toast with split info
+        final splitInfo = _customSplitType != null 
+            ? ' (${_customSplitType.toString().split('.').last} split)'
+            : '';
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(selectedHousehold != null
+                ? context.l10n.expenseSavedAndShared(splitInfo)
+                : context.l10n.expenseSaved),
+            backgroundColor: shadcnui.Theme.of(context).colorScheme.primary,
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } else {
+        // EXISTING EXPENSE: Build updates map from local edits
+        final Map<String, dynamic> updates = {};
+
+        if (_editedAmount != null) {
+          updates['amount_cents'] = (_editedAmount! * 100).round();
+        }
+        
+        if (_editedCategory != null) {
+          updates['category'] = _editedCategory;
+        }
+        
+        if (_editedCurrency != null) {
+          updates['currency'] = _editedCurrency;
+        }
+        
+        if (_editedDescription != null) {
+          updates['raw_text'] = _editedDescription;
+        }
+        
+        // Handle date and time updates separately
+        final finalDate = _editedDate ?? widget.existingExpense!.date;
+        final expenseDateTime = DateTime(
+          finalDate.year,
+          finalDate.month,
+          finalDate.day,
+          _selectedTime.hour,
+          _selectedTime.minute,
+        );
+        
+        // Backend expects date in YYYY-MM-DD format (local date)
+        updates['date'] = DateFormat('yyyy-MM-dd').format(finalDate);
+        
+        // Send full datetime as created_at in UTC to preserve timezone consistency
+        updates['created_at'] = expenseDateTime.toUtc().toIso8601String();
+
+        // Only update if there are actual changes
+        if (updates.isEmpty) {
+          if (!mounted) return;
+          Navigator.of(context).pop();
+          return;
+        }
+
+        debugPrint('💾 Updating expense with: $updates');
+
+        // Call update API
+        final success = await ref
+            .read(transactionEditProvider.notifier)
+            .updateExpense(widget.existingExpense!.id, updates);
+
+        if (!mounted) return;
+
+        if (success) {
+          Navigator.of(context).pop();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Expense updated successfully'),
+              backgroundColor: shadcnui.Theme.of(context).colorScheme.primary,
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+            ),
           );
-
-      // Clear pending expense, selection, and custom splits
-      ref.read(pendingExpenseProvider.notifier).state = null;
-      ref.read(selectedHouseholdForSharingProvider.notifier).state = null;
-      
-      if (!mounted) return;
-
-      // Close modal
-      Navigator.of(context).pop();
-
-      // Show success toast with split info
-      final splitInfo = _customSplitType != null 
-          ? ' (${_customSplitType.toString().split('.').last} split)'
-          : '';
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(selectedHousehold != null
-              ? context.l10n.expenseSavedAndShared(splitInfo)
-              : context.l10n.expenseSaved),
-          backgroundColor: shadcnui.Theme.of(context).colorScheme.primary,
-          duration: const Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+        } else {
+          throw Exception('Failed to update expense');
+        }
+      }
     } catch (error) {
       debugPrint('❌ Error saving expense: $error');
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(context.l10n.failedToSave(error.toString())),
+          content: Text('Failed to save: ${error.toString()}'),
           backgroundColor: shadcnui.Theme.of(context).colorScheme.destructive,
           duration: const Duration(seconds: 3),
           behavior: SnackBarBehavior.floating,
@@ -1593,6 +1679,132 @@ class _UnifiedTransactionSheetState
     } finally {
       if (mounted) {
         setState(() => _isSaving = false);
+      }
+    }
+  }
+
+  Future<void> _handleDelete() async {
+    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    
+    // Show platform-specific confirmation dialog
+    bool? confirmed;
+    
+    if (Platform.isIOS) {
+      // iOS-style dialog
+      confirmed = await showCupertinoDialog<bool>(
+        context: context,
+        builder: (context) => CupertinoAlertDialog(
+          title: Text(context.l10n.deleteExpense),
+          content: Text(
+            context.l10n.confirmDeleteExpense,
+          ),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(context.l10n.cancel),
+            ),
+            CupertinoDialogAction(
+              onPressed: () => Navigator.pop(context, true),
+              isDestructiveAction: true,
+              child: Text(context.l10n.delete),
+            ),
+          ],
+        ),
+      );
+    } else {
+      // Android-style dialog
+      confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.warning_rounded, color: colorScheme.destructive, size: 24),
+              const SizedBox(width: 12),
+              Text(context.l10n.deleteExpense),
+            ],
+          ),
+          content: Text(
+            context.l10n.confirmDeleteExpense,
+            style: TextStyle(fontSize: 15),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              style: TextButton.styleFrom(
+                foregroundColor: colorScheme.mutedForeground,
+              ),
+              child: Text(context.l10n.cancel),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: TextButton.styleFrom(
+                foregroundColor: colorScheme.destructive,
+                backgroundColor: colorScheme.destructive.withOpacity(0.1),
+              ),
+              child: Text(context.l10n.delete, style: TextStyle(fontWeight: FontWeight.w600)),
+            ),
+          ],
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      );
+    }
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isDeleting = true);
+
+    try {
+      final user = ref.read(authProvider);
+      
+      debugPrint('🗑️ Deleting expense: ${widget.existingExpense!.id}');
+
+      // Call delete API
+      final response = await supabase.functions.invoke(
+        'delete-expense',
+        body: {
+          'userId': user.uid,
+          'expenseId': widget.existingExpense!.id,
+        },
+      );
+
+      if (response.data == null || response.data['success'] != true) {
+        throw Exception(response.data?['error'] ?? 'Failed to delete expense');
+      }
+
+      debugPrint('✅ Expense deleted successfully');
+
+      // Refresh analytics data
+      await ref.read(analyticsProvider.notifier).loadData(user.uid);
+      
+      if (!mounted) return;
+
+      Navigator.of(context).pop();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.l10n.expenseDeletedSuccessfully),
+          backgroundColor: shadcnui.Theme.of(context).colorScheme.primary,
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (error) {
+      debugPrint('❌ Error deleting expense: $error');
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${context.l10n.failedToDeleteExpense}: ${error.toString()}'),
+          backgroundColor: shadcnui.Theme.of(context).colorScheme.destructive,
+          duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isDeleting = false);
       }
     }
   }

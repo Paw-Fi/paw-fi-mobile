@@ -3,7 +3,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/profile/presentation/widgets/profile_helpers.dart';
-import 'package:moneko/features/profile/presentation/widgets/profile_action_buttons.dart';
 
 Widget buildOverviewTab(BuildContext context, user, WidgetRef ref) {
   return Column(
@@ -12,8 +11,6 @@ Widget buildOverviewTab(BuildContext context, user, WidgetRef ref) {
       buildSectionTitle(context, context.l10n.accountInformation),
       const shadcnui.Gap(16),
       buildInfoCard(context, user),
-      const shadcnui.Gap(32),
-      buildProfileActionButtons(context, ref),
     ],
   );
 }

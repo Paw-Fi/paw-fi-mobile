@@ -14,8 +14,6 @@ import '../pages/create_budget_page.dart';
 import '../pages/budget_detail_page.dart';
 import '../pages/household_expenses_page.dart';
 import '../pages/household_settings_page.dart';
-import '../pages/household_members_page.dart';
-import '../pages/household_invites_page.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 
 /// Household home content that handles loading, empty, and data states
@@ -201,6 +199,34 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                                 ),
                               ),
                               const SizedBox(width: 8),
+                              // Settings icon button
+                              Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: colorScheme.muted.withValues(alpha: 0.4),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(10),
+                                    onTap: () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) => HouseholdSettingsPage(householdId: household.id),
+                                        ),
+                                      );
+                                    },
+                                    child: Icon(
+                                      Icons.settings_outlined,
+                                      size: 20,
+                                      color: colorScheme.foreground.withValues(alpha: 0.7),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
                               AnimatedRotation(
                                 turns: _isExpanded ? 0.5 : 0,
                                 duration: const Duration(milliseconds: 300),
@@ -218,85 +244,11 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                           duration: const Duration(milliseconds: 350),
                           curve: Curves.easeInOutCubic,
                           child: _isExpanded
-                              ? Column(
+                              ? const Column(
                                   crossAxisAlignment: CrossAxisAlignment.stretch,
                                   children: [
-                                    const SizedBox(height: 8),
-                                    const HouseholdSelector(),
-                                    const SizedBox(height: 20),
-                                    Container(
-                                      padding: const EdgeInsets.all(16),
-                                      decoration: BoxDecoration(
-                                        color: colorScheme.muted.withValues(alpha: 0.3),
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            context.l10n.quickActions,
-                                            style: TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w600,
-                                              color: colorScheme.mutedForeground,
-                                              letterSpacing: 0.2,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 12),
-                                          Row(
-                                            children: [
-                                              Expanded(
-                                                child: _buildActionButton(
-                                                  context,
-                                                  colorScheme,
-                                                  icon: Icons.group_outlined,
-                                                  label: context.l10n.members,
-                                                  onTap: () {
-                                                    Navigator.of(context).push(
-                                                      MaterialPageRoute(
-                                                        builder: (_) => HouseholdMembersPage(householdId: household.id),
-                                                      ),
-                                                    );
-                                                  },
-                                                ),
-                                              ),
-                                              const SizedBox(width: 12),
-                                              Expanded(
-                                                child: _buildActionButton(
-                                                  context,
-                                                  colorScheme,
-                                                  icon: Icons.mail_outline,
-                                                  label: context.l10n.invites,
-                                                  onTap: () {
-                                                    Navigator.of(context).push(
-                                                      MaterialPageRoute(
-                                                        builder: (_) => HouseholdInvitesPage(householdId: household.id),
-                                                      ),
-                                                    );
-                                                  },
-                                                ),
-                                              ),
-                                              const SizedBox(width: 12),
-                                              Expanded(
-                                                child: _buildActionButton(
-                                                  context,
-                                                  colorScheme,
-                                                  icon: Icons.settings_outlined,
-                                                  label: context.l10n.settings,
-                                                  onTap: () {
-                                                    Navigator.of(context).push(
-                                                      MaterialPageRoute(
-                                                        builder: (_) => HouseholdSettingsPage(householdId: household.id),
-                                                      ),
-                                                    );
-                                                  },
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
+                                    SizedBox(height: 8),
+                                    HouseholdSelector(),
                                   ],
                                 )
                               : const SizedBox.shrink(),
@@ -573,55 +525,6 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
           );
         }
       },
-    );
-  }
-
-  /// Build modern action button
-  Widget _buildActionButton(
-    BuildContext context,
-    shadcnui.ColorScheme colorScheme, {
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-          decoration: BoxDecoration(
-            color: colorScheme.card,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: colorScheme.border.withValues(alpha: 0.5),
-              width: 1,
-            ),
-          ),
-          child: Column(
-            children: [
-              Icon(
-                icon,
-                size: 24,
-                color: colorScheme.foreground.withValues(alpha: 0.8),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: colorScheme.foreground.withValues(alpha: 0.7),
-                  letterSpacing: 0.1,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 

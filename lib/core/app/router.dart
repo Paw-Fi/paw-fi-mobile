@@ -82,6 +82,31 @@ GoRouter router(RouterRef ref) {
         builder: (context, state) => const PaywallScreen(),
       ),
 
+      // Deep link routes - show dashboard so sheet appears on a valid page
+      GoRoute(
+        path: '/expense/:id',
+        redirect: (context, state) {
+          debugPrint('🔗 Expense deep link, showing dashboard');
+          return '/dashboard';
+        },
+      ),
+      GoRoute(
+        path: '/budget/:id',
+        redirect: (context, state) {
+          debugPrint('🔗 Budget deep link, showing dashboard');
+          return '/dashboard';
+        },
+      ),
+      GoRoute(
+        path: '/split/:id',
+        redirect: (context, state) {
+          debugPrint('🔗 Split deep link, showing dashboard');
+          return '/dashboard';
+        },
+      ),
+
+
+
       // Household invitation deep link handler
       GoRoute(
         path: '/households/invitation/:token',
@@ -140,6 +165,17 @@ GoRouter router(RouterRef ref) {
       GoRoute(
         path: '/onboarding',
         builder: (context, state) => const OnboardingScreen(),
+      ),
+
+      // Catch-all route for deep links with UUID patterns (expense, budget, split IDs)
+      // This handles paths like /{uuid} that come from moneko://expense/{uuid}
+      GoRoute(
+        path: '/:id',
+        redirect: (context, state) {
+          final id = state.pathParameters['id'] ?? '';
+          debugPrint('🔗 Catch-all route matched for ID: $id, redirecting to dashboard');
+          return '/dashboard';
+        },
       ),
     ],
     redirect: (context, state) {
