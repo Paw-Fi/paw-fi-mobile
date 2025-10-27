@@ -12,8 +12,14 @@ export 'view_mode_provider.dart';
 // Data services
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/data/services/currency_preference_service.dart';
+import 'package:moneko/features/home/data/services/date_range_preference_service.dart';
 
 /// Provider for currency preference service
 final currencyPreferenceServiceProvider = Provider<CurrencyPreferenceService>(
   (ref) => CurrencyPreferenceService(),
+);
+
+/// Provider for date range preference service
+final dateRangePreferenceServiceProvider = Provider<DateRangePreferenceService>(
+  (ref) => DateRangePreferenceService(),
 );

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/theme/theme.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
@@ -16,10 +17,9 @@ import 'package:moneko/features/households/presentation/widgets/household_home_c
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
-import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
-import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
 
 // ============================================================================
 // HOME PAGE
@@ -58,6 +58,9 @@ class _HomePageState extends ConsumerState<HomePage> {
       if (currentCurrency == null) {
         await _initializeCurrencyFilter();
       }
+
+      // Initialize date range filter from local storage
+      await _initializeDateRangeFilter();
     });
   }
   
@@ -91,6 +94,26 @@ class _HomePageState extends ConsumerState<HomePage> {
     // Always set the currency (never null, always defaults to USD)
     if (mounted) {
       ref.read(homeFilterProvider.notifier).setSelectedCurrency(selectedCurrency);
+    }
+  }
+  
+  Future<void> _initializeDateRangeFilter() async {
+    try {
+      final service = ref.read(dateRangePreferenceServiceProvider);
+      final stored = await service.getSelectedDateRange();
+      if (stored != null && stored.isNotEmpty) {
+        final matched = DateRangeFilter.values.firstWhere(
+          (e) => e.name == stored,
+          orElse: () => DateRangeFilter.last30Days,
+        );
+        if (!mounted) return;
+        final current = ref.read(homeFilterProvider).dateRangeFilter;
+        if (current != matched) {
+          ref.read(homeFilterProvider.notifier).setFilter(matched);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading date range filter from storage: $e');
     }
   }
 
@@ -441,7 +464,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                             final normalizedInput = rawAmountInput.replaceAll(',', '').trim();
                             final parsed = double.tryParse(normalizedInput);
 
-                            if (parsed == null || parsed <= 0) {
+                            if (parsed == null || parsed < 0) {
                               setModalState(() {
                                 validationError = context.l10n.enterValidAmountGreaterThan0;
                               });
@@ -586,46 +609,6 @@ class _HomePageState extends ConsumerState<HomePage> {
         .fold(0.0, (sum, entry) => sum + entry.amount);
   }
 
-  void _showSuccessToast(ExpenseEntry expense, UserContact? contact, {String? localImagePath}) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Expanded(
-              child: Text(
-                context.l10n.loggedSuccessfully,
-                style: TextStyle(color: colorScheme.buttonText),
-              ),
-            ),
-            GestureDetector(
-              onTap: () {
-                ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                showUnifiedTransactionSheet(
-                  context,
-                  existingExpense: expense,
-                  contact: contact,
-                  localImagePath: localImagePath,
-                );
-              },
-              child: Text(
-                context.l10n.view,
-                style: TextStyle(
-                  color: colorScheme.buttonText,
-                  decoration: TextDecoration.underline,
-                  decorationColor: colorScheme.buttonText,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: colorScheme.primary,
-        duration: const Duration(seconds: 4),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -728,7 +711,11 @@ class _HomePageState extends ConsumerState<HomePage> {
                                 GestureDetector(
                                   onTap: viewMode.mode == ViewMode.personal
                                       ? null
-                                      : () => ref.read(viewModeProvider.notifier).setPersonalMode(),
+                                      : () {
+                                          HapticFeedback.lightImpact();
+                                          SystemSound.play(SystemSoundType.click);
+                                          ref.read(viewModeProvider.notifier).setPersonalMode();
+                                        },
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                     decoration: BoxDecoration(
@@ -755,7 +742,11 @@ class _HomePageState extends ConsumerState<HomePage> {
                                 GestureDetector(
                                   onTap: viewMode.mode == ViewMode.household
                                       ? null
-                                      : _showJointAccountModal,
+                                      : () {
+                                          HapticFeedback.lightImpact();
+                                          SystemSound.play(SystemSoundType.click);
+                                          _showJointAccountModal();
+                                        },
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                     decoration: BoxDecoration(
@@ -800,10 +791,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                               GestureDetector(
                                 onTap: _showCurrencySelector,
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                   decoration: BoxDecoration(
                                     color: colorScheme.muted,
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(16),
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
@@ -842,11 +833,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                   ),
                                 ),
                                 const SizedBox(width: 4),
-                                Icon(
-                                  Icons.keyboard_arrow_down,
-                                  color: colorScheme.primary,
-                                  size: 20,
-                                ),
+                               
                               ],
                             ),
                           ),
@@ -925,12 +912,21 @@ class _HomePageState extends ConsumerState<HomePage> {
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: buildCategoryBreakdownCard(
-                        context, 
-                        colorScheme, 
-                        filteredExpenses, 
-                        analyticsData.contact,
-                        selectedCurrency: filterState.selectedCurrency,
+                      child: GestureDetector(
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const TransactionsPage(),
+                            ),
+                          );
+                        },
+                        child: buildCategoryBreakdownCard(
+                          context, 
+                          colorScheme, 
+                          filteredExpenses, 
+                          analyticsData.contact,
+                          selectedCurrency: filterState.selectedCurrency,
+                        ),
                       ),
                     ),
                   ),

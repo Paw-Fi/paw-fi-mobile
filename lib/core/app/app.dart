@@ -3,6 +3,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:moneko/core/app/router.dart';
 import 'package:moneko/core/app/locale_provider.dart';
+import 'package:moneko/core/app/fallback_localizations.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/services/deep_link_service.dart';
 import 'package:moneko/features/households/data/services/device_registration_service.dart';
@@ -61,9 +62,14 @@ class _AppState extends ConsumerState<App> {
 
     return shadcnui.ShadcnApp.router(
       title: 'Moneko',
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: [
+        ...AppLocalizations.localizationsDelegates,
+        const FallbackMaterialLocalizationDelegate(),
+        const FallbackCupertinoLocalizationDelegate(),
+      ],
       supportedLocales: AppLocalizations.supportedLocales,
       locale: locale,
+      localeResolutionCallback: localeResolutionCallback,
       themeMode: themeMode,
       theme: AppTheme.lightTheme(),
       darkTheme: AppTheme.darkTheme(),

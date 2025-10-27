@@ -979,5 +979,8 @@
   "confirmDeleteExpense": "您確定要刪除這筆支出嗎？此動作無法復原。",
   "expenseDeletedSuccessfully": "支出已成功刪除",
   "failedToDeleteExpense": "刪除支出失敗",
-  "expenseNotFoundOrDeleted": "找不到支出或支出已被刪除"
+  "expenseNotFoundOrDeleted": "找不到支出或支出已被刪除",
+
+  "onlyAdminsAndOwnersCanEditHouseholdSettings": "只有管理員和擁有者可以編輯家庭設定",
+  "onlyAdminsAndOwnersCanCreateInvitations": "只有管理員和擁有者可以建立邀請"
 }

@@ -1,6 +1,7 @@
 // Custom split configuration sheet
 // Allows users to split expenses by amount, percentage, or shares
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/features/households/domain/entities/household.dart';
@@ -200,7 +201,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
       case SplitType.shares:
         parsedInt = int.tryParse(text);
         setState(() {
-          _memberSplits[index].shares = parsedInt ?? 1;
+          _memberSplits[index].shares = parsedInt ?? 0;
         });
         _validate();
         _queueNotify();
@@ -295,9 +296,9 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
         break;
 
       case SplitType.shares:
-        // Shares always valid as long as > 0
-        if (_memberSplits.any((s) => (s.shares ?? 0) <= 0)) {
-          error = context.l10n.eachPersonMustHaveAtLeast1Share;
+        final totalShares = _memberSplits.fold<int>(0, (sum, s) => sum + (s.shares ?? 0));
+        if (totalShares <= 0) {
+          error = 'At least one member must have a share greater than 0';
         }
         break;
     }
@@ -317,7 +318,17 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-     
+        if (Platform.isIOS && MediaQuery.of(context).viewInsets.bottom > 0)
+          Align(
+            alignment: Alignment.centerRight,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: TextButton(
+                onPressed: () => FocusManager.instance.primaryFocus?.unfocus(),
+                child: Text(context.l10n.done),
+              ),
+            ),
+          ),
 
 
         // Split Type Selector
@@ -423,6 +434,8 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
   Widget _buildMemberRow(shadcnui.ColorScheme colorScheme, int index) {
     final memberSplit = _memberSplits[index];
     final member = memberSplit.member;
+    final isSharesMode = _selectedType == SplitType.shares;
+    final isIncluded = (memberSplit.shares ?? 0) > 0;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -433,6 +446,24 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
       ),
       child: Row(
         children: [
+          if (isSharesMode)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Checkbox.adaptive(
+                value: isIncluded,
+                onChanged: (val) {
+                  setState(() {
+                    final nextIncluded = val ?? false;
+                    _memberSplits[index].shares = nextIncluded
+                        ? ((memberSplit.shares ?? 0) == 0 ? 1 : memberSplit.shares)
+                        : 0;
+                    _updateControllerText(index, (_memberSplits[index].shares ?? 0).toString());
+                  });
+                  _validate();
+                  _queueNotify();
+                },
+              ),
+            ),
           // Avatar
           MemberAvatar(
             role: member.role,
@@ -482,14 +513,14 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
           else
             SizedBox(
               width: 110,
-              child: _buildSplitInput(colorScheme, index),
+              child: _buildSplitInput(colorScheme, index, enabled: !isSharesMode || isIncluded),
             ),
         ],
       ),
     );
   }
 
-  Widget _buildSplitInput(shadcnui.ColorScheme colorScheme, int index) {
+  Widget _buildSplitInput(shadcnui.ColorScheme colorScheme, int index, {bool enabled = true}) {
     String suffix = '';
 
     switch (_selectedType) {
@@ -508,18 +539,22 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
 
     return TextField(
       controller: _controllers[index],
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      keyboardType: _selectedType == SplitType.shares
+          ? TextInputType.number
+          : const TextInputType.numberWithOptions(decimal: true),
+      textInputAction: TextInputAction.done,
       textAlign: TextAlign.right,
+      enabled: enabled,
       style: TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.w600,
-        color: colorScheme.foreground,
+        color: enabled ? colorScheme.foreground : colorScheme.mutedForeground,
       ),
       decoration: InputDecoration(
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         filled: true,
-        fillColor: colorScheme.muted.withOpacity(0.08),
+        fillColor: enabled ? colorScheme.muted.withOpacity(0.08) : colorScheme.muted.withOpacity(0.04),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: BorderSide.none,
@@ -530,6 +565,8 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
           color: colorScheme.mutedForeground,
         ),
       ),
+      onSubmitted: (_) => FocusScope.of(context).unfocus(),
+      onTapOutside: (_) => FocusScope.of(context).unfocus(),
       onChanged: (text) => _handleValueChange(index, text),
     );
   }
@@ -617,6 +654,7 @@ class _CustomSplitSheetState extends State<_CustomSplitSheet> {
           ),
           Flexible(
             child: SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
               child: CustomSplitEditor(
                 members: widget.members,

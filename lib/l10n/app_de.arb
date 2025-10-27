@@ -920,5 +920,8 @@
   "confirmDeleteExpense": "Möchtest du diese Ausgabe wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
   "expenseDeletedSuccessfully": "Ausgabe erfolgreich gelöscht",
   "failedToDeleteExpense": "Ausgabe konnte nicht gelöscht werden",
-  "expenseNotFoundOrDeleted": "Ausgabe nicht gefunden oder bereits gelöscht"
+  "expenseNotFoundOrDeleted": "Ausgabe nicht gefunden oder bereits gelöscht",
+
+  "onlyAdminsAndOwnersCanEditHouseholdSettings": "Nur Admins und Besitzer können Haushaltseinstellungen bearbeiten",
+  "onlyAdminsAndOwnersCanCreateInvitations": "Nur Admins und Besitzer können Einladungen erstellen"
 }

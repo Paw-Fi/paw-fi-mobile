@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
@@ -19,15 +18,7 @@ Widget buildCategoryBreakdownCard(
   // selectedCurrency is never null (defaults to USD)
   String formatCategoryAmount(double amount) => '-${formatCurrency(amount, selectedCurrency ?? 'USD')}';
 
-  return GestureDetector(
-    onTap: () {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => TransactionsPage(householdId: householdId),
-        ),
-      );
-    },
-    child: Container(
+  return Container(
       decoration: BoxDecoration(
         color: colorScheme.card,
         borderRadius: BorderRadius.circular(12),
@@ -145,8 +136,7 @@ Widget buildCategoryBreakdownCard(
           }).toList(),
         ],
       ),
-    ),
-  );
+    );
 }
 
 List<CategorySummary> _getCategorySummaries(List<ExpenseEntry> expenses) {

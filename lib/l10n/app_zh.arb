@@ -920,5 +920,8 @@
   "confirmDeleteExpense": "您确定要删除这笔支出吗？此操作无法撤销。",
   "expenseDeletedSuccessfully": "支出删除成功",
   "failedToDeleteExpense": "支出删除失败",
-  "expenseNotFoundOrDeleted": "支出未找到或已被删除"
+  "expenseNotFoundOrDeleted": "支出未找到或已被删除",
+
+  "onlyAdminsAndOwnersCanEditHouseholdSettings": "只有管理员和所有者可以编辑家庭设置",
+  "onlyAdminsAndOwnersCanCreateInvitations": "只有管理员和所有者可以创建邀请"
 }

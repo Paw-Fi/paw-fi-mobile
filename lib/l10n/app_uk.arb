@@ -920,5 +920,8 @@
   "confirmDeleteExpense": "Ви впевнені, що хочете видалити цю витрату? Цю дію неможливо скасувати.",
   "expenseDeletedSuccessfully": "Витрату успішно видалено",
   "failedToDeleteExpense": "Не вдалося видалити витрату",
-  "expenseNotFoundOrDeleted": "Витрату не знайдено або її було видалено"
+  "expenseNotFoundOrDeleted": "Витрату не знайдено або її було видалено",
+
+  "onlyAdminsAndOwnersCanEditHouseholdSettings": "Лише адміністратори та власники можуть редагувати налаштування домогосподарства",
+  "onlyAdminsAndOwnersCanCreateInvitations": "Лише адміністратори та власники можуть створювати запрошення"
 }

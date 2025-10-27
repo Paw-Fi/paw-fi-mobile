@@ -316,6 +316,7 @@ class _UnifiedTransactionSheetState
 
           Flexible(
             child: SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -1093,8 +1094,11 @@ class _UnifiedTransactionSheetState
         content: TextField(
           controller: controller,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          textInputAction: TextInputAction.done,
           decoration: InputDecoration(labelText: context.l10n.amount),
           autofocus: true,
+          onSubmitted: (_) => FocusScope.of(context).unfocus(),
+          onTapOutside: (_) => FocusScope.of(context).unfocus(),
         ),
         actions: [
           TextButton(
@@ -1453,6 +1457,9 @@ class _UnifiedTransactionSheetState
                     ),
                     maxLines: 4,
                     autofocus: true,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => FocusScope.of(context).unfocus(),
+                    onTapOutside: (_) => FocusScope.of(context).unfocus(),
                     style: TextStyle(
                       fontSize: 15,
                       color: colorScheme.foreground,

@@ -923,5 +923,8 @@
   "confirmDeleteExpense": "Удалить этот расход? Отменить действие будет нельзя.",
   "expenseDeletedSuccessfully": "Расход удалён",
   "failedToDeleteExpense": "Не удалось удалить расход",
-  "expenseNotFoundOrDeleted": "Расход не найден или уже удалён"
+  "expenseNotFoundOrDeleted": "Расход не найден или уже удалён",
+
+  "onlyAdminsAndOwnersCanEditHouseholdSettings": "Только администраторы и владельцы могут редактировать настройки домохозяйства",
+  "onlyAdminsAndOwnersCanCreateInvitations": "Только администраторы и владельцы могут создавать приглашения"
 }

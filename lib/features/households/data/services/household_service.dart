@@ -100,38 +100,44 @@ class HouseholdService {
 
   Future<List<Map<String, dynamic>>> getHouseholdMembers(
       String householdId) async {
-    // Fetch household members with their user_ids
-    // Note: household_members table has no status column - if they're in the table, they're active
+    // Fetch household members rows
     final members = await _supabase
         .from('household_members')
         .select('*')
         .eq('household_id', householdId);
 
     final membersList = (members as List).cast<Map<String, dynamic>>();
-    
-    if (membersList.isEmpty) {
-      return membersList;
-    }
+    if (membersList.isEmpty) return membersList;
 
-    // Get all user IDs
+    // Collect user IDs then fetch users separately (avoids relationship/permission pitfalls)
     final userIds = membersList.map((m) => m['user_id'] as String).toList();
-    
-    // Fetch all user data in one query
     final usersData = await _supabase
         .from('users')
         .select('id, email, full_name, avatar_url')
         .inFilter('id', userIds);
-    
+
     final usersMap = <String, Map<String, dynamic>>{};
     for (var user in (usersData as List).cast<Map<String, dynamic>>()) {
+      // Normalize like Profile page: prefer full_name, fallback to email local-part
+      String? displayName = (user['full_name'] as String?)?.trim();
+      final email = user['email'] as String?;
+      if (displayName == null || displayName.isEmpty) {
+        if (email != null && email.isNotEmpty) {
+          displayName = email.split('@').first;
+        }
+      }
+      if (displayName != null && displayName.isNotEmpty) {
+        user['full_name'] = displayName;
+      }
       usersMap[user['id'] as String] = user;
     }
-    
-    // Attach user data to each member
+
+    // Attach user obj under key 'users' for entity parser
     for (var member in membersList) {
       final userId = member['user_id'] as String;
-      if (usersMap.containsKey(userId)) {
-        member['users'] = usersMap[userId];
+      final user = usersMap[userId];
+      if (user != null) {
+        member['users'] = user;
       }
     }
 

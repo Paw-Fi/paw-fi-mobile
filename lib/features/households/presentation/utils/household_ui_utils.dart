@@ -38,30 +38,25 @@ String getInitials(String? name, {String fallback = 'U'}) {
   return name[0].toUpperCase();
 }
 
-/// Role Badge Widget - Reusable role indicator
+/// Role Badge Widget - Clean, minimal design
 class RoleBadge extends StatelessWidget {
   final HouseholdRole role;
 
-  const RoleBadge({super.key, required this.role});
+  const RoleBadge({
+    super.key, 
+    required this.role,
+  });
 
   @override
   Widget build(BuildContext context) {
     final color = getRoleColor(role);
     
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color, width: 1),
-      ),
-      child: Text(
-        _getLocalizedRole(context, role),
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
-          color: color,
-        ),
+    return Text(
+      _getLocalizedRole(context, role),
+      style: TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w500,
+        color: color,
       ),
     );
   }
@@ -78,7 +73,7 @@ class RoleBadge extends StatelessWidget {
   }
 }
 
-/// Member Avatar Widget - Reusable avatar with fallback to initials
+/// Member Avatar Widget - Clean, simple avatar
 class MemberAvatar extends StatelessWidget {
   final HouseholdRole role;
   final String? avatarUrl;
@@ -92,7 +87,7 @@ class MemberAvatar extends StatelessWidget {
     this.avatarUrl,
     this.name,
     this.email,
-    this.radius = 24,
+    this.radius = 20,
   });
 
   @override
@@ -100,20 +95,15 @@ class MemberAvatar extends StatelessWidget {
     final color = getRoleColor(role);
     final initials = getInitials(name ?? email);
     
-    // Use network image if available
     if (avatarUrl != null && avatarUrl!.isNotEmpty) {
       return CircleAvatar(
         radius: radius,
         backgroundColor: color,
         backgroundImage: NetworkImage(avatarUrl!),
-        onBackgroundImageError: (_, __) {
-          // Fallback to initials on error
-        },
-        child: null,
+        onBackgroundImageError: (_, __) {},
       );
     }
     
-    // Fallback to initials
     return CircleAvatar(
       radius: radius,
       backgroundColor: color,
@@ -121,8 +111,8 @@ class MemberAvatar extends StatelessWidget {
         initials,
         style: TextStyle(
           color: Colors.white,
-          fontWeight: FontWeight.bold,
-          fontSize: radius * 0.8,
+          fontWeight: FontWeight.w600,
+          fontSize: radius * 0.7,
         ),
       ),
     );

@@ -13,6 +13,7 @@ import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dar
 import '../widgets/unified_transaction_sheet.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 // ============================================================================
 // TRANSACTIONS PAGE
@@ -31,6 +32,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   String selectedCategory = 'all';
   String selectedPeriod = '1M';
   int currentChartIndex = 0;
+  DateTime? _customStartDate;
+  DateTime? _customEndDate;
   
   final TextEditingController _searchController = TextEditingController();
   final PageController _chartPageController = PageController();
@@ -57,7 +60,14 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     }
 
     // Filter by period
-    if (selectedPeriod != 'All') {
+    if (selectedPeriod == 'Custom' && _customStartDate != null && _customEndDate != null) {
+      final start = DateTime(_customStartDate!.year, _customStartDate!.month, _customStartDate!.day);
+      final end = DateTime(_customEndDate!.year, _customEndDate!.month, _customEndDate!.day);
+      expenses = expenses.where((ex) {
+        final d = DateTime(ex.date.year, ex.date.month, ex.date.day);
+        return !d.isBefore(start) && !d.isAfter(end);
+      }).toList();
+    } else if (selectedPeriod != 'All') {
       final now = DateTime.now();
       DateTime startDate;
       switch (selectedPeriod) {
@@ -76,8 +86,6 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         default:
           startDate = DateTime(now.year, now.month - 1, now.day);
       }
-      
-      // Filter expenses that are on or after the start date
       expenses = expenses.where((e) => !e.date.isBefore(startDate)).toList();
     }
 
@@ -123,15 +131,22 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       case '1W':
         return context.l10n.thisWeek;
       case '1M':
-        return context.l10n.thisMonth;
+        return context.l10n.last30Days;
       case '6M':
         return context.l10n.last6Months;
       case '1Y':
         return context.l10n.thisYear;
       case 'All':
         return context.l10n.allTime;
+      case 'Custom':
+        if (_customStartDate != null && _customEndDate != null) {
+          final sameYear = _customStartDate!.year == _customEndDate!.year;
+          final fmt = sameYear ? DateFormat('MMM d') : DateFormat('MMM d, yyyy');
+          return '${fmt.format(_customStartDate!)} – ${fmt.format(_customEndDate!)}';
+        }
+        return context.l10n.customRange;
       default:
-        return context.l10n.thisMonth;
+        return context.l10n.last30Days;
     }
   }
 
@@ -140,7 +155,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       case '1W':
         return context.l10n.thisWeek;
       case '1M':
-        return context.l10n.thisMonth;
+        return context.l10n.last30Days;
       case '6M':
         return context.l10n.last6Months;
       case '1Y':
@@ -610,17 +625,17 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
             LineChartBarData(
               spots: cumulativeData,
               isCurved: true,
-              color: const Color(0xFF10B981),
+              color: AppTheme.monekoPrimary,
               barWidth: 3,
               dotData: FlDotData(
                 show: true,
                 getDotPainter: (spot, percent, barData, index) {
                   if (index == cumulativeData.length - 1) {
                     return FlDotCirclePainter(
-                      radius: 6,
-                      color: const Color(0xFF10B981),
-                      strokeWidth: 2,
-                      strokeColor: colorScheme.background,
+                      radius: 7,
+                      color: AppTheme.danger,
+                      strokeWidth: 3,
+                      strokeColor: Colors.white,
                     );
                   }
                   return FlDotCirclePainter(
@@ -633,8 +648,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                 show: true,
                 gradient: LinearGradient(
                   colors: [
-                    const Color(0xFF10B981).withValues(alpha: 0.3),
-                    const Color(0xFF10B981).withValues(alpha: 0.0),
+                    AppTheme.monekoPrimary.withValues(alpha: 0.28),
+                    AppTheme.monekoPrimary.withValues(alpha: 0.0),
                   ],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
@@ -964,6 +979,72 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                     }).toList(),
                   ),
                   const SizedBox(height: 24),
+                  // Date range controls
+                  Text(
+                    context.l10n.selectDateRange,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.foreground,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: shadcnui.OutlineButton(
+                          onPressed: () {
+                            final now = DateTime.now();
+                            final start = DateTime(now.year, now.month, 1);
+                            final end = DateTime(now.year, now.month + 1, 0);
+                            setState(() {
+                              selectedPeriod = 'Custom';
+                              _customStartDate = start;
+                              _customEndDate = end;
+                            });
+                            setModalState(() {});
+                          },
+                          child: Text(context.l10n.thisMonth),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: shadcnui.OutlineButton(
+                          onPressed: () async {
+                            final initialRange = _customStartDate != null && _customEndDate != null
+                                ? DateTimeRange(start: _customStartDate!, end: _customEndDate!)
+                                : DateTimeRange(
+                                    start: DateTime(DateTime.now().year, DateTime.now().month, 1),
+                                    end: DateTime(DateTime.now().year, DateTime.now().month + 1, 0),
+                                  );
+                            final picked = await showDateRangePicker(
+                              context: context,
+                              firstDate: DateTime(2000),
+                              lastDate: DateTime(2100),
+                              initialDateRange: initialRange,
+                            );
+                            if (picked != null) {
+                              setState(() {
+                                selectedPeriod = 'Custom';
+                                _customStartDate = picked.start;
+                                _customEndDate = picked.end;
+                              });
+                              setModalState(() {});
+                            }
+                          },
+                          child: Text(context.l10n.customRange),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (selectedPeriod == 'Custom' && _customStartDate != null && _customEndDate != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      '${DateFormat('MMM d, yyyy').format(_customStartDate!)} – ${DateFormat('MMM d, yyyy').format(_customEndDate!)}',
+                      style: TextStyle(fontSize: 12, color: colorScheme.mutedForeground),
+                    ),
+                  ],
+                  const SizedBox(height: 24),
                   Row(
                     children: [
                       Expanded(
@@ -973,6 +1054,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                               selectedCategory = 'all';
                               searchQuery = '';
                               _searchController.clear();
+                              // Keep period selection as user-configured
                             });
                             Navigator.pop(context);
                           },

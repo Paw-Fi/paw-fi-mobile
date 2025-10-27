@@ -779,5 +779,8 @@
   "confirmDeleteExpense": "이 지출 내역을 정말 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
   "expenseDeletedSuccessfully": "지출 내역이 삭제되었습니다.",
   "failedToDeleteExpense": "지출 내역 삭제에 실패했습니다.",
-  "expenseNotFoundOrDeleted": "지출 내역을 찾을 수 없거나 이미 삭제되었습니다."
+  "expenseNotFoundOrDeleted": "지출 내역을 찾을 수 없거나 이미 삭제되었습니다.",
+
+  "onlyAdminsAndOwnersCanEditHouseholdSettings": "관리자와 소유자만 가계 설정을 편집할 수 있습니다",
+  "onlyAdminsAndOwnersCanCreateInvitations": "관리자와 소유자만 초대를 생성할 수 있습니다"
 }

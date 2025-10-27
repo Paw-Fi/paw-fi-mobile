@@ -920,5 +920,8 @@
   "confirmDeleteExpense": "¿Seguro que quieres eliminar este gasto? Esta acción no se puede deshacer.",
   "expenseDeletedSuccessfully": "Gasto eliminado correctamente",
   "failedToDeleteExpense": "Error al eliminar el gasto",
-  "expenseNotFoundOrDeleted": "Gasto no encontrado o ya eliminado"
+  "expenseNotFoundOrDeleted": "Gasto no encontrado o ya eliminado",
+
+  "onlyAdminsAndOwnersCanEditHouseholdSettings": "Solo administradores y propietarios pueden editar la configuración del hogar",
+  "onlyAdminsAndOwnersCanCreateInvitations": "Solo administradores y propietarios pueden crear invitaciones"
 }

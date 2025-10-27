@@ -292,20 +292,13 @@ class SettingsPage extends HookConsumerWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                          
                               Text(
-                                context.l10n.fullName,
-                                style: TextStyle(
+                                currentName.isNotEmpty ? currentName : '—',
+                                 style: TextStyle(
                                   fontSize: 15,
                                   color: colorScheme.foreground,
                                   fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const shadcnui.Gap(2),
-                              Text(
-                                currentName.isNotEmpty ? currentName : '—',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: colorScheme.mutedForeground,
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -336,7 +329,7 @@ class SettingsPage extends HookConsumerWidget {
             ),
             const shadcnui.Gap(16),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical:4),
               decoration: BoxDecoration(
                 color: colorScheme.card,
                 borderRadius: BorderRadius.circular(16),
@@ -1185,6 +1178,9 @@ String _displayLocaleName(Locale locale) {
 
   // Pakistani
   if ( lc == 'pks') return 'پکستانی';
+
+  // Italian
+  if (lc == 'it') return 'Italiano';
 
   // Chinese (handle various tags and legacy 'cn')
   if (lc == 'zh' || lc == 'cn') {

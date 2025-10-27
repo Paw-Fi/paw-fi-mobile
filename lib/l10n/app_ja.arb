@@ -920,5 +920,8 @@
   "confirmDeleteExpense": "この支出を本当に削除しますか？この操作は元に戻せません。",
   "expenseDeletedSuccessfully": "支出を削除しました",
   "failedToDeleteExpense": "支出の削除に失敗しました",
-  "expenseNotFoundOrDeleted": "支出が見つからないか、すでに削除されています"
+  "expenseNotFoundOrDeleted": "支出が見つからないか、すでに削除されています",
+
+  "onlyAdminsAndOwnersCanEditHouseholdSettings": "管理者とオーナーのみが世帯設定を編集できます",
+  "onlyAdminsAndOwnersCanCreateInvitations": "管理者とオーナーのみが招待を作成できます"
 }

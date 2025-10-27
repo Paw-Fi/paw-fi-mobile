@@ -8,6 +8,10 @@ import 'package:moneko/features/home/presentation/widgets/unified_transaction_sh
 import 'package:intl/intl.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 /// Full expense list page with filtering and search for a household
 class HouseholdExpensesPage extends ConsumerStatefulWidget {
@@ -28,6 +32,8 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
   String? _selectedCategory;
   String? _selectedMemberId;
   DateTimeRange? _selectedDateRange;
+  final PageController _chartPageController = PageController();
+  int _currentChartIndex = 0;
   
   // Pagination (for future enhancement)
   // final int _pageSize = 50;
@@ -36,6 +42,7 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
   @override
   void dispose() {
     _searchController.dispose();
+    _chartPageController.dispose();
     super.dispose();
   }
 
@@ -310,10 +317,17 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
                   },
                   child: ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: filteredExpenses.length,
+                    itemCount: filteredExpenses.length + 1,
                     itemBuilder: (context, index) {
+                      if (index == 0) {
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 4, bottom: 16),
+                          child: _buildChart(colorScheme, filteredExpenses),
+                        );
+                      }
+                      final expense = filteredExpenses[index - 1];
                       return _ExpenseListItem(
-                        expense: filteredExpenses[index],
+                        expense: expense,
                         colorScheme: colorScheme,
                       );
                     },
@@ -324,6 +338,327 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildChart(shadcnui.ColorScheme colorScheme, List<ExpenseEntry> expenses) {
+    // Handle multi-currency by picking the dominant currency for aggregation
+    String baseCurrency = 'USD';
+    if (expenses.isNotEmpty) {
+      final counts = <String, int>{};
+      for (final e in expenses) {
+        final code = (e.currency ?? 'USD').toUpperCase();
+        counts[code] = (counts[code] ?? 0) + 1;
+      }
+      baseCurrency = counts.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
+    }
+    final chartExpenses = expenses.where((e) => (e.currency ?? 'USD').toUpperCase() == baseCurrency).toList();
+    final totalSpent = chartExpenses.fold(0.0, (sum, e) => sum + e.amount.abs());
+    final displayText = formatCurrency(totalSpent, baseCurrency);
+    final periodLabel = _selectedDateRange != null
+        ? '${DateFormat('MMM d').format(_selectedDateRange!.start)} – ${DateFormat('MMM d').format(_selectedDateRange!.end)}'
+        : context.l10n.allTime;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colorScheme.border, width: 1),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            context.l10n.spent,
+            style: TextStyle(fontSize: 14, color: colorScheme.mutedForeground),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            displayText,
+            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: colorScheme.foreground),
+          ),
+          Text(
+            periodLabel,
+            style: TextStyle(fontSize: 12, color: colorScheme.mutedForeground),
+          ),
+          const SizedBox(height: 16),
+          AspectRatio(
+            aspectRatio: 1.1,
+            child: PageView(
+              controller: _chartPageController,
+              onPageChanged: (index) {
+                setState(() => _currentChartIndex = index);
+              },
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: _buildLineChart(colorScheme, chartExpenses),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: _buildBarChart(colorScheme, chartExpenses),
+                ),
+                _buildPieChart(colorScheme, chartExpenses, totalSpent, displayText, periodLabel),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(3, (index) {
+              final isActive = _currentChartIndex == index;
+              return GestureDetector(
+                onTap: () {
+                  _chartPageController.animateToPage(
+                    index,
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                  );
+                },
+                child: Container(
+                  width: isActive ? 24 : 8,
+                  height: 8,
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: BoxDecoration(
+                    color: isActive ? colorScheme.primary : colorScheme.muted,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              );
+            }),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLineChart(shadcnui.ColorScheme colorScheme, List<ExpenseEntry> expenses) {
+    final interval = 'daily';
+    final periodTotals = groupExpensesByInterval(expenses, interval);
+    final sortedDates = periodTotals.keys.toList()..sort();
+
+    if (sortedDates.isEmpty) {
+      return Center(child: Text(context.l10n.noData, style: TextStyle(color: colorScheme.mutedForeground)));
+    }
+
+    double cumulative = 0;
+    final cumulativeData = sortedDates.map((date) {
+      cumulative += periodTotals[date] ?? 0;
+      return FlSpot(sortedDates.indexOf(date).toDouble(), cumulative);
+    }).toList();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 16, bottom: 8),
+      child: LineChart(
+        LineChartData(
+          gridData: FlGridData(
+            show: true,
+            drawVerticalLine: false,
+            horizontalInterval: cumulative > 0 ? cumulative / 4 : 100,
+            getDrawingHorizontalLine: (value) => FlLine(
+              color: colorScheme.border.withValues(alpha: 0.3),
+              strokeWidth: 1,
+              dashArray: [5, 5],
+            ),
+          ),
+          titlesData: FlTitlesData(
+            leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            rightTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 40,
+                getTitlesWidget: (value, meta) => Text(
+                  '${(value / 1000).toStringAsFixed(1)}k',
+                  style: TextStyle(fontSize: 10, color: colorScheme.mutedForeground),
+                ),
+              ),
+            ),
+            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                interval: 1,
+                getTitlesWidget: (value, meta) {
+                  if (value.toInt() >= sortedDates.length) return const SizedBox();
+                  final date = sortedDates[value.toInt()];
+                  return Text(
+                    formatDateForInterval(date, interval),
+                    style: TextStyle(fontSize: 10, color: colorScheme.mutedForeground),
+                  );
+                },
+              ),
+            ),
+          ),
+          borderData: FlBorderData(show: false),
+          lineBarsData: [
+            LineChartBarData(
+              spots: cumulativeData,
+              isCurved: true,
+              color: AppTheme.monekoPrimary,
+              barWidth: 3,
+              dotData: FlDotData(
+                show: true,
+                getDotPainter: (spot, percent, barData, index) {
+                  if (index == cumulativeData.length - 1) {
+                    return FlDotCirclePainter(
+                      radius: 7,
+                      color: AppTheme.danger,
+                      strokeWidth: 3,
+                      strokeColor: Colors.white,
+                    );
+                  }
+                  return FlDotCirclePainter(radius: 0, color: Colors.transparent);
+                },
+              ),
+              belowBarData: BarAreaData(
+                show: true,
+                gradient: LinearGradient(
+                  colors: [
+                    AppTheme.monekoPrimary.withValues(alpha: 0.28),
+                    AppTheme.monekoPrimary.withValues(alpha: 0.0),
+                  ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+              ),
+            ),
+          ],
+          minY: 0,
+          maxY: cumulative > 0 ? (cumulative * 1.25).ceilToDouble() : 100,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBarChart(shadcnui.ColorScheme colorScheme, List<ExpenseEntry> expenses) {
+    final interval = 'daily';
+    final barData = groupExpensesForBarChart(expenses, interval);
+
+    if (barData.periodTotals.isEmpty) {
+      return Center(child: Text(context.l10n.noData, style: TextStyle(color: colorScheme.mutedForeground)));
+    }
+
+    final maxValue = barData.periodTotals.values.reduce((a, b) => a > b ? a : b);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 16, bottom: 8),
+      child: BarChart(
+        BarChartData(
+          alignment: BarChartAlignment.spaceAround,
+          maxY: maxValue * 1.2,
+          barGroups: barData.sortedPeriods.asMap().entries.map((entry) {
+            final index = entry.key;
+            final period = entry.value;
+            final value = barData.periodTotals[period] ?? 0;
+            return BarChartGroupData(
+              x: index,
+              barRods: [
+                BarChartRodData(
+                  toY: value,
+                  color: const Color(0xFF10B981),
+                  width: 40,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                ),
+              ],
+            );
+          }).toList(),
+          titlesData: FlTitlesData(
+            leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            rightTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 40,
+                getTitlesWidget: (value, meta) => Text(
+                  formatAmount(value / 100),
+                  style: TextStyle(fontSize: 10, color: colorScheme.mutedForeground),
+                ),
+              ),
+            ),
+            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                getTitlesWidget: (value, meta) {
+                  if (value.toInt() >= barData.sortedPeriods.length) return const SizedBox();
+                  return Text(
+                    barData.sortedPeriods[value.toInt()],
+                    style: TextStyle(fontSize: 10, color: colorScheme.mutedForeground),
+                  );
+                },
+              ),
+            ),
+          ),
+          gridData: FlGridData(
+            show: true,
+            drawVerticalLine: false,
+            horizontalInterval: maxValue / 4,
+            getDrawingHorizontalLine: (value) => FlLine(
+              color: colorScheme.border.withValues(alpha: 0.3),
+              strokeWidth: 1,
+              dashArray: [5, 5],
+            ),
+          ),
+          borderData: FlBorderData(show: false),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPieChart(
+    shadcnui.ColorScheme colorScheme,
+    List<ExpenseEntry> expenses,
+    double totalSpent,
+    String displayText,
+    String periodLabel,
+  ) {
+    final Map<String, double> categoryTotals = {};
+    for (final expense in expenses) {
+      final cat = (expense.category ?? 'uncategorized').toLowerCase();
+      categoryTotals[cat] = (categoryTotals[cat] ?? 0) + expense.amount.abs();
+    }
+
+    if (categoryTotals.isEmpty) {
+      return Center(child: Text(context.l10n.noData, style: TextStyle(color: colorScheme.mutedForeground)));
+    }
+
+    final sortedCategories = categoryTotals.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    return Stack(
+      children: [
+        PieChart(
+          PieChartData(
+            sectionsSpace: 2,
+            centerSpaceRadius: 70,
+            sections: sortedCategories.map((entry) {
+              final category = entry.key;
+              final amount = entry.value;
+              final color = getCategoryColor(category);
+              return PieChartSectionData(
+                color: color,
+                value: amount,
+                title: '',
+                radius: 40,
+              );
+            }).toList(),
+          ),
+        ),
+        Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(context.l10n.spent, style: TextStyle(fontSize: 12, color: colorScheme.mutedForeground)),
+              Text(
+                displayText,
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: colorScheme.foreground),
+              ),
+              Text(periodLabel, style: TextStyle(fontSize: 10, color: colorScheme.mutedForeground)),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -341,7 +676,7 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
           return const SizedBox.shrink();
         }
 
-        return PopupMenuButton<String>(
+        return PopupMenuButton<String?>(
           onSelected: (category) {
             setState(() {
               _selectedCategory = category;
@@ -349,11 +684,11 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
           },
           itemBuilder: (context) => [
             if (_selectedCategory != null)
-              PopupMenuItem(
+              PopupMenuItem<String?>(
                 value: null,
                 child: Text(context.l10n.allCategories),
               ),
-            ...categories.map((category) => PopupMenuItem(
+            ...categories.map((category) => PopupMenuItem<String?>(
                   value: category,
                   child: Text(category),
                 )),
@@ -388,7 +723,7 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
         final sortedMembers = members.entries.toList()
           ..sort((a, b) => a.value.compareTo(b.value));
 
-        return PopupMenuButton<String>(
+        return PopupMenuButton<String?>(
           onSelected: (memberId) {
             setState(() {
               _selectedMemberId = memberId;
@@ -396,11 +731,11 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
           },
           itemBuilder: (context) => [
             if (_selectedMemberId != null)
-              PopupMenuItem(
+              PopupMenuItem<String?>(
                 value: null,
                 child: Text(context.l10n.allMembers),
               ),
-            ...sortedMembers.map((entry) => PopupMenuItem(
+            ...sortedMembers.map((entry) => PopupMenuItem<String?>(
                   value: entry.key,
                   child: Text(entry.value),
                 )),
@@ -503,6 +838,9 @@ class _ExpenseListItem extends StatelessWidget {
         ? '${expense.userName} • '
         : '';
     final metaText = '$userPrefix$dateLabel • $timeLabel';
+    final category = expense.category ?? 'uncategorized';
+    final categoryColor = getCategoryColor(category);
+    final categoryIcon = getCategoryIcon(category);
     
     return GestureDetector(
       onTap: () {
@@ -523,14 +861,23 @@ class _ExpenseListItem extends StatelessWidget {
             width: 1,
           ),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: categoryColor.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(categoryIcon, color: categoryColor, size: 24),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
                     title,
                     style: TextStyle(
                       fontSize: 15,
@@ -540,54 +887,51 @@ class _ExpenseListItem extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  amountText,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: colorScheme.foreground,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    metaText,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: colorScheme.mutedForeground,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                if (expense.splitGroupId != null) ...[
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: colorScheme.border),
-                    ),
-                    child: Text(
-                      context.l10n.split,
-                      style: TextStyle(
-                        fontSize: 10,
-                        letterSpacing: 0.4,
-                        color: colorScheme.mutedForeground,
-                        fontWeight: FontWeight.w600,
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          metaText,
+                          style: TextStyle(fontSize: 12, color: colorScheme.mutedForeground),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                    ),
+                      if (expense.splitGroupId != null) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: colorScheme.border),
+                          ),
+                          child: Text(
+                            context.l10n.split,
+                            style: TextStyle(
+                              fontSize: 10,
+                              letterSpacing: 0.4,
+                              color: colorScheme.mutedForeground,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ],
-              ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              amountText,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: colorScheme.foreground,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),

@@ -920,5 +920,8 @@
   "confirmDeleteExpense": "Weet je zeker dat je deze uitgave wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt.",
   "expenseDeletedSuccessfully": "Uitgave succesvol verwijderd",
   "failedToDeleteExpense": "Verwijderen van uitgave mislukt",
-  "expenseNotFoundOrDeleted": "Uitgave niet gevonden of al verwijderd"
+  "expenseNotFoundOrDeleted": "Uitgave niet gevonden of al verwijderd",
+
+  "onlyAdminsAndOwnersCanEditHouseholdSettings": "Alleen beheerders en eigenaren kunnen huishoudinstellingen bewerken",
+  "onlyAdminsAndOwnersCanCreateInvitations": "Alleen beheerders en eigenaren kunnen uitnodigingen maken"
 }

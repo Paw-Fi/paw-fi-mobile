@@ -246,7 +246,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                           child: _isExpanded
                               ? const Column(
                                   crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
+                                  children: const [
                                     SizedBox(height: 8),
                                     HouseholdSelector(),
                                   ],
@@ -470,13 +470,22 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                   }).toList();
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: buildCategoryBreakdownCard(
-                      context,
-                      colorScheme,
-                      filteredExpenses,
-                      null,
-                      selectedCurrency: selectedCurrency,
-                      householdId: household.id,
+                    child: GestureDetector(
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => HouseholdExpensesPage(household: household),
+                          ),
+                        );
+                      },
+                      child: buildCategoryBreakdownCard(
+                        context,
+                        colorScheme,
+                        filteredExpenses,
+                        null,
+                        selectedCurrency: selectedCurrency,
+                        householdId: household.id,
+                      ),
                     ),
                   );
                 },

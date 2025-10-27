@@ -920,5 +920,8 @@
   "confirmDeleteExpense": "کیا آپ واقعی اس خرچ کو حذف کرنا چاہتے ہیں؟ یہ عمل واپس نہیں کیا جا سکتا۔",
   "expenseDeletedSuccessfully": "خرچ کامیابی سے حذف ہو گیا",
   "failedToDeleteExpense": "خرچ حذف کرنے میں ناکامی",
-  "expenseNotFoundOrDeleted": "خرچ نہیں ملا یا حذف ہو چکا ہے"
+  "expenseNotFoundOrDeleted": "خرچ نہیں ملا یا حذف ہو چکا ہے",
+
+  "onlyAdminsAndOwnersCanEditHouseholdSettings": "صرف ایڈمنز اور مالک ہی گھر کی ترتیبات میں ترمیم کر سکتے ہیں",
+  "onlyAdminsAndOwnersCanCreateInvitations": "صرف ایڈمنز اور مالک ہی دعوت نامے بنا سکتے ہیں"
 }

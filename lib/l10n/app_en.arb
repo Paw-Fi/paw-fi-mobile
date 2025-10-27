@@ -979,5 +979,8 @@
   "confirmDeleteExpense": "Are you sure you want to delete this expense? This action cannot be undone.",
   "expenseDeletedSuccessfully": "Expense deleted successfully",
   "failedToDeleteExpense": "Failed to delete expense",
-  "expenseNotFoundOrDeleted": "Expense not found or has been deleted"
+  "expenseNotFoundOrDeleted": "Expense not found or has been deleted",
+
+  "onlyAdminsAndOwnersCanEditHouseholdSettings": "Only admins and owners can edit household settings",
+  "onlyAdminsAndOwnersCanCreateInvitations": "Only admins and owners can create invitations"
 }

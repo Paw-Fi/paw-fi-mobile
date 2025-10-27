@@ -1,4 +1,5 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// View mode for home page
 enum ViewMode {
@@ -49,10 +50,39 @@ class ViewModeState {
 
 /// View mode notifier
 class ViewModeNotifier extends StateNotifier<ViewModeState> {
-  ViewModeNotifier() : super(const ViewModeState(mode: ViewMode.personal));
+  static const _storageKey = 'moneko_view_mode';
+
+  ViewModeNotifier() : super(const ViewModeState(mode: ViewMode.personal)) {
+    _loadPersistedMode();
+  }
+
+  Future<void> _loadPersistedMode() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final stored = prefs.getString(_storageKey);
+      if (stored == 'household') {
+        // Keep selectedHouseholdId as-is (handled by its own provider)
+        state = state.copyWith(mode: ViewMode.household);
+      } else if (stored == 'personal') {
+        state = state.copyWith(mode: ViewMode.personal);
+      }
+    } catch (_) {
+      // Non-fatal: default remains personal
+    }
+  }
+
+  Future<void> _persist(ViewMode mode) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_storageKey, mode == ViewMode.household ? 'household' : 'personal');
+    } catch (_) {
+      // ignore persistence errors
+    }
+  }
 
   void setMode(ViewMode mode) {
     state = state.copyWith(mode: mode);
+    _persist(mode);
   }
 
   void setHouseholdMode(String householdId) {
@@ -60,10 +90,12 @@ class ViewModeNotifier extends StateNotifier<ViewModeState> {
       mode: ViewMode.household,
       selectedHouseholdId: householdId,
     );
+    _persist(ViewMode.household);
   }
 
   void setPersonalMode() {
     state = const ViewModeState(mode: ViewMode.personal);
+    _persist(ViewMode.personal);
   }
 
   void toggleMode() {
@@ -71,6 +103,7 @@ class ViewModeNotifier extends StateNotifier<ViewModeState> {
       // When switching to household mode, we need a household ID
       // This should be set by the UI when a household is selected
       state = state.copyWith(mode: ViewMode.household);
+      _persist(ViewMode.household);
     } else {
       setPersonalMode();
     }

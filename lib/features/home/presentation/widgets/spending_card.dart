@@ -6,6 +6,7 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 Widget buildSpendingCard(BuildContext context, shadcnui.ColorScheme colorScheme, List<ExpenseEntry> expenses, UserContact? contact, DateRangeFilter dateFilter, {String? selectedCurrency}) {
   final intervalType = getChartIntervalTypeFromFilter(dateFilter);
@@ -116,15 +117,15 @@ Widget buildSpendingCard(BuildContext context, shadcnui.ColorScheme colorScheme,
                     LineChartBarData(
                       spots: cumulativeData,
                       isCurved: true,
-                      color: const Color(0xFF10B981),
+                      color: AppTheme.monekoPrimary,
                       barWidth: 3,
                       dotData: const FlDotData(show: false),
                       belowBarData: BarAreaData(
                         show: true,
                         gradient: LinearGradient(
                           colors: [
-                            const Color(0xFF10B981).withValues(alpha: 0.3),
-                            const Color(0xFF10B981).withValues(alpha: 0.0),
+                            AppTheme.monekoPrimary.withValues(alpha: 0.28),
+                            AppTheme.monekoPrimary.withValues(alpha: 0.0),
                           ],
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,

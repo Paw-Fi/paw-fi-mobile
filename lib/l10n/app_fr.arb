@@ -920,5 +920,8 @@
   "confirmDeleteExpense": "Êtes-vous sûr de vouloir supprimer cette dépense ? Cette action est irréversible.",
   "expenseDeletedSuccessfully": "Dépense supprimée avec succès",
   "failedToDeleteExpense": "Échec de la suppression de la dépense",
-  "expenseNotFoundOrDeleted": "Dépense introuvable ou déjà supprimée"
+  "expenseNotFoundOrDeleted": "Dépense introuvable ou déjà supprimée",
+
+  "onlyAdminsAndOwnersCanEditHouseholdSettings": "Seuls les administrateurs et propriétaires peuvent modifier les paramètres du foyer",
+  "onlyAdminsAndOwnersCanCreateInvitations": "Seuls les administrateurs et propriétaires peuvent créer des invitations"
 }
