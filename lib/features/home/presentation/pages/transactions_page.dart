@@ -951,7 +951,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                             ),
                           ),
                           child: Text(
-                            getCategoryTranslation(context, category),
+                            category.toLowerCase() == 'all'
+                                ? context.l10n.allCategories
+                                : getCategoryTranslation(context, category),
                             style: TextStyle(
                               color: isSelected ? Colors.white : colorScheme.foreground,
                               fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,

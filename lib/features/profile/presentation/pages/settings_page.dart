@@ -17,6 +17,7 @@ import 'package:go_router/go_router.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:moneko/core/app/locale_provider.dart';
+import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
 
 class SettingsPage extends HookConsumerWidget {
   const SettingsPage({super.key});
@@ -35,6 +36,7 @@ class SettingsPage extends HookConsumerWidget {
     final isSaving = useState(false);
     final notificationsEnabled = useState<bool?>(null);
     final isCheckingPermission = useState(false);
+    final nameReloadKey = useState(0);
 
     useEffect(() {
       selectedCurrency.value = contact?.preferredCurrency?.toUpperCase();
@@ -151,6 +153,7 @@ class SettingsPage extends HookConsumerWidget {
             // Profile Avatar with edit (pencil) overlay
             Center(
               child: FutureBuilder<Map<String, dynamic>?>(
+                key: ValueKey('avatar-${nameReloadKey.value}'),
                 future: Supabase.instance.client
                     .from('users')
                     .select('full_name, avatar_url')
@@ -233,6 +236,92 @@ class SettingsPage extends HookConsumerWidget {
                   );
                 },
               ),
+            ),
+            const shadcnui.Gap(24),
+            // Full name (tap to edit)
+            Text(
+              context.l10n.fullName,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.foreground,
+                letterSpacing: -0.2,
+              ),
+            ),
+            const shadcnui.Gap(16),
+            FutureBuilder<Map<String, dynamic>?>(
+              key: ValueKey('name-${nameReloadKey.value}'),
+              future: Supabase.instance.client
+                  .from('users')
+                  .select('full_name')
+                  .eq('id', authState.uid)
+                  .maybeSingle(),
+              builder: (context, snapshot) {
+                final dbName = snapshot.data != null ? snapshot.data!['full_name'] as String? : null;
+                final currentName = (dbName?.trim().isNotEmpty == true)
+                    ? dbName!.trim()
+                    : (authState.displayName?.trim().isNotEmpty == true ? authState.displayName!.trim() : '');
+
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  decoration: BoxDecoration(
+                    color: colorScheme.card,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: colorScheme.border, width: 1),
+                  ),
+                  child: InkWell(
+                    onTap: () => _showEditNameSheet(
+                      context: context,
+                      ref: ref,
+                      initialName: currentName,
+                      onUpdated: () {
+                        // Force refetch and invalidate user profile provider for consumers
+                        nameReloadKey.value++;
+                        ref.invalidate(userProfileProvider(authState.uid));
+                      },
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.person_outline,
+                          size: 20,
+                          color: colorScheme.mutedForeground,
+                        ),
+                        const shadcnui.Gap(16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                context.l10n.fullName,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  color: colorScheme.foreground,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const shadcnui.Gap(2),
+                              Text(
+                                currentName.isNotEmpty ? currentName : '—',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: colorScheme.mutedForeground,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          Icons.edit,
+                          size: 16,
+                          color: colorScheme.mutedForeground,
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
             const shadcnui.Gap(24),
             // Language
@@ -455,6 +544,171 @@ class SettingsPage extends HookConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+Future<void> _showEditNameSheet({
+  required BuildContext context,
+  required WidgetRef ref,
+  required String initialName,
+  required VoidCallback onUpdated,
+}) async {
+  final colorScheme = shadcnui.Theme.of(context).colorScheme;
+  final controller = TextEditingController(text: initialName);
+  final authState = ref.read(authProvider);
+
+  await showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: colorScheme.card,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+    ),
+    builder: (ctx) {
+      bool isSaving = false;
+      String? errorText;
+      return StatefulBuilder(
+        builder: (ctx, setState) {
+          return Padding(
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 16,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        AppLocalizations.of(ctx)!.fullName,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.foreground,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.close, color: colorScheme.mutedForeground),
+                      onPressed: () => Navigator.of(ctx).pop(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: controller,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    hintText: AppLocalizations.of(ctx)!.fullName,
+                    errorText: errorText,
+                    filled: true,
+                    fillColor: colorScheme.background,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: colorScheme.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: colorScheme.border),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: colorScheme.primary),
+                    ),
+                  ),
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) async => await _saveName(ctx, ref, controller, authState.uid, setState, onUpdated),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: shadcnui.OutlineButton(
+                        onPressed: isSaving ? null : () => Navigator.of(ctx).pop(),
+                        child: Text(AppLocalizations.of(ctx)!.cancel),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: shadcnui.PrimaryButton(
+                        onPressed: isSaving
+                            ? null
+                            : () async {
+                                await _saveName(ctx, ref, controller, authState.uid, setState, onUpdated);
+                              },
+                        child: isSaving
+                            ? SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(colorScheme.primaryForeground)),
+                              )
+                            : Text(AppLocalizations.of(ctx)!.save),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    },
+  );
+}
+
+Future<void> _saveName(
+  BuildContext ctx,
+  WidgetRef ref,
+  TextEditingController controller,
+  String userId,
+  void Function(void Function()) setState,
+  VoidCallback onUpdated,
+) async {
+  final colorScheme = shadcnui.Theme.of(ctx).colorScheme;
+  final newName = controller.text.trim();
+  if (newName.isEmpty || newName.length < 2) {
+    setState(() {}); // keep UI responsive; validation shown via snackbar below
+    ScaffoldMessenger.of(ctx).showSnackBar(
+      SnackBar(content: Text('Please enter a valid name')), // concise default copy
+    );
+    return;
+  }
+
+  try {
+    setState(() {});
+    // Update Supabase Auth metadata (both keys for cross-platform consistency)
+    await Supabase.instance.client.auth.updateUser(
+      UserAttributes(data: {
+        'full_name': newName,
+        'name': newName,
+      }),
+    );
+
+    // Update public users table
+    await Supabase.instance.client
+        .from('users')
+        .update({'full_name': newName, 'updated_at': DateTime.now().toIso8601String()})
+        .eq('id', userId);
+
+    // Invalidate Riverpod-derived profile data and notify
+    onUpdated();
+
+    Navigator.of(ctx).pop();
+    ScaffoldMessenger.of(ctx).showSnackBar(
+      SnackBar(
+        content: const Text('Profile updated'),
+        backgroundColor: colorScheme.primary,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  } catch (e) {
+    ScaffoldMessenger.of(ctx).showSnackBar(
+      SnackBar(content: Text('Failed to update: $e')),
     );
   }
 }
