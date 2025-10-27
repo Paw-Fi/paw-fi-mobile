@@ -1,4 +1,5 @@
 {
+  "@@locale": "zh",
   "appTitle": "Moneko",
   "loginWelcomeBack": "欢迎回来",
   "orContinueWithEmail": "或使用邮箱继续",
@@ -179,7 +180,7 @@
   "aiScenarioPlanning": "AI 情景规划",
   "askAiFinancialAdvisor": "询问您的 AI 财务顾问，您是否能负担某项未来支出",
   "canI": "我能否",
-  "before": "之前",
+  "before": "在...之前",
   "beforePrefix": "在",
   "beforeSuffix": "之前",
   "pickDate": "选择日期",

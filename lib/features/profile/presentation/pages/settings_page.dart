@@ -385,19 +385,83 @@ class SettingsPage extends HookConsumerWidget {
                         }).toList(),
                       ],
                       onChanged: (value) async {
-                        if (value == null) {
-                          await ref.read(localeProvider.notifier).setSystem();
-                        } else {
-                          // Normalize legacy 'cn' to zh
-                          final lc = value.languageCode.toLowerCase();
-                          final cc = (value.countryCode ?? '').toUpperCase();
-                          final normalized = lc == 'cn'
-                              ? const Locale('zh')
-                              : (lc == 'zh' && cc.isEmpty)
-                                  ? const Locale('zh')
-                                  : value;
-                          await ref.read(localeProvider.notifier).setLocale(normalized);
-                        }
+                        final previous = ref.read(localeProvider);
+                        final auth = ref.read(authProvider);
+                        try {
+                          if (value == null) {
+                            await ref.read(localeProvider.notifier).setSystem();
+                          } else {
+                            final lc = value.languageCode.toLowerCase();
+                            final cc = (value.countryCode ?? '').toUpperCase();
+                            final normalized = lc == 'cn'
+                                ? const Locale('zh')
+                                : (lc == 'zh' && cc.isEmpty)
+                                    ? const Locale('zh')
+                                    : value;
+                            await ref.read(localeProvider.notifier).setLocale(normalized);
+                          }
+
+                          // Persist preference to backend (same flow as currency)
+                          if (auth.uid.isNotEmpty) {
+                            final selected = ref.read(localeProvider);
+                            final langCode = selected == null
+                                ? null
+                                : selected.languageCode.toLowerCase();
+
+                            try {
+                              final resp = await Supabase.instance.client.functions.invoke(
+                                'update-preferred-language',
+                                body: {
+                                  'userId': auth.uid,
+                                  'language': langCode,
+                                },
+                              );
+                              if (resp.status >= 400) {
+                                throw Exception('Request failed (${resp.status})');
+                              }
+                              final payload = resp.data as Map<String, dynamic>?;
+                              if (payload == null || payload['ok'] != true) {
+                                throw Exception(payload?['error'] ?? 'Unable to update language');
+                              }
+                            } catch (e) {
+                              // Rollback locale on failure
+                              if (previous == null) {
+                                await ref.read(localeProvider.notifier).setSystem();
+                              } else {
+                                await ref.read(localeProvider.notifier).setLocale(previous);
+                              }
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Failed to sync language preference: $e'),
+                                    action: SnackBarAction(
+                                      label: 'Retry',
+                                      onPressed: () async {
+                                        try {
+                                          final sel = ref.read(localeProvider);
+                                          final code = sel == null ? null : sel.languageCode.toLowerCase();
+                                          final retry = await Supabase.instance.client.functions.invoke(
+                                            'update-preferred-language',
+                                            body: {
+                                              'userId': auth.uid,
+                                              'language': code,
+                                            },
+                                          );
+                                          if (retry.status >= 400) throw Exception('Retry failed');
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(content: const Text('Language updated successfully')),
+                                            );
+                                          }
+                                        } catch (_) {}
+                                      },
+                                    ),
+                                  ),
+                                );
+                              }
+                            }
+                          }
+                        } catch (_) {}
                       },
                     ),
                   ),
@@ -1089,8 +1153,38 @@ String _displayLocaleName(Locale locale) {
   final lc = locale.languageCode.toLowerCase();
   final cc = (locale.countryCode ?? '').toUpperCase();
 
+  // German
+  if (lc == 'de') return 'Deutsch';
+  
   // English
   if (lc == 'en') return 'English';
+  
+  // Spanish
+  if (lc == 'es') return 'Español';
+  
+  // French
+  if (lc == 'fr') return 'Français';
+  
+  // Japanese
+  if (lc == 'ja' || lc == 'jp') return '日本語';
+  
+  // Korean
+  if (lc == 'ko' || lc == 'kr') return '한국어';
+  
+  // Dutch
+  if (lc == 'nl') return 'Nederlands';
+  
+  // Urdu (Pakistan)
+  if (lc == 'ur' || lc == 'pk') return 'اردو';
+  
+  // Russian
+  if (lc == 'ru') return 'Русский';
+  
+  // Ukrainian
+  if (lc == 'uk' || lc == 'ua') return 'Українська';
+
+  // Pakistani
+  if ( lc == 'pks') return 'پکستانی';
 
   // Chinese (handle various tags and legacy 'cn')
   if (lc == 'zh' || lc == 'cn') {
@@ -1100,7 +1194,6 @@ String _displayLocaleName(Locale locale) {
     return '中文';
   }
 
-  // zh_Hans / zh_Hant variants (when provided via Locale with script is uncommon, but guard anyway via country codes above)
   // Fallback: show native name if easy mapping is known; otherwise show BCP-47-ish label
   if (locale.countryCode != null && locale.countryCode!.isNotEmpty) {
     return '${locale.languageCode}_${locale.countryCode}';

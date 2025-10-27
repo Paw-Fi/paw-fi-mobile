@@ -54,7 +54,7 @@ Widget buildCategoryBarChart(BuildContext context, shadcnui.ColorScheme colorSch
             getTitlesWidget: (value, meta) {
               if (value.toInt() >= categories.length) return const SizedBox();
               return Text(
-                categories[value.toInt()],
+                getCategoryTranslation(context, categories[value.toInt()]),
                 style: TextStyle(fontSize: 10, color: colorScheme.mutedForeground),
               );
             },

@@ -82,7 +82,7 @@ Widget buildHouseholdBudgetCard(
             ),
             const SizedBox(width: 6),
             Text(
-              '${filtered.length} ${context.l10n.budget}${filtered.length == 1 ? '' : 's'}',
+              '${filtered.length} ${filtered.length == 1 ? context.l10n.budget : context.l10n.budgets}',
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
