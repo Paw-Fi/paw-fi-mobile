@@ -594,7 +594,13 @@ class SettingsPage extends HookConsumerWidget {
             SizedBox(
               width: double.infinity,
               child: shadcnui.DestructiveButton(
-                onPressed: () => ref.read(authProvider.notifier).signOut(),
+                onPressed: () async {
+                  // Best-effort: unregister device and clear local token before auth is cleared
+                  try {
+                    await ref.read(deviceRegistrationServiceProvider).unregisterDevice();
+                  } catch (_) {}
+                  await ref.read(authProvider.notifier).signOut();
+                },
                 child: Text(context.l10n.signOut),
               ),
             ),

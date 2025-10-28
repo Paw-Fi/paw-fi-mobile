@@ -398,9 +398,31 @@ class DeviceRegistrationService {
       }
 
       // Always clear local cache, even if backend deletion fails
-      await prefs.remove('${cachePrefix}token');
-      await prefs.remove('${cachePrefix}registered_at');
-      debugPrint('✅ Local device cache cleared');
+      try {
+        // Remove cached entries for current (or anon) prefix
+        await prefs.remove('${cachePrefix}token');
+        await prefs.remove('${cachePrefix}registered_at');
+        
+        // Additionally, purge ALL device_reg caches to avoid cross-account residue
+        final keys = prefs.getKeys();
+        for (final k in keys.where((k) => k.startsWith('device_reg:'))) {
+          await prefs.remove(k);
+        }
+        debugPrint('✅ Local device cache cleared (all prefixes)');
+      } catch (e) {
+        debugPrint('⚠️ Failed to clear local device cache: $e');
+      }
+
+      // Force FCM to drop the current token so next login fetches a fresh one
+      try {
+        await _messaging.deleteToken();
+        debugPrint('🗑️ FCM token deleted locally');
+      } catch (e) {
+        debugPrint('⚠️ Failed to delete FCM token locally: $e');
+      }
+
+      // Ensure service can re-initialize cleanly on next login
+      _initialized = false;
       
     } catch (e) {
       debugPrint('❌ Error unregistering device: $e');
@@ -412,6 +434,10 @@ class DeviceRegistrationService {
         final cachePrefix = 'device_reg:${userId ?? "anon"}:';
         await prefs.remove('${cachePrefix}token');
         await prefs.remove('${cachePrefix}registered_at');
+        final keys = prefs.getKeys();
+        for (final k in keys.where((k) => k.startsWith('device_reg:'))) {
+          await prefs.remove(k);
+        }
       } catch (_) {
         // Ignore cache clearing errors
       }
