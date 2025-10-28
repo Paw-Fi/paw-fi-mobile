@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/features/households/domain/entities/household.dart';
@@ -83,18 +84,224 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
   }
 
   Future<void> _selectDateRange() async {
-    final picked = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-      initialDateRange: _selectedDateRange,
-    );
+    DateTimeRange? picked;
+    
+    if (Theme.of(context).platform == TargetPlatform.iOS) {
+      picked = await _showCupertinoDateRangePicker();
+    } else {
+      picked = await showDateRangePicker(
+        context: context,
+        firstDate: DateTime(2020),
+        lastDate: DateTime.now(),
+        initialDateRange: _selectedDateRange,
+      );
+    }
 
     if (picked != null) {
       setState(() {
         _selectedDateRange = picked;
       });
     }
+  }
+
+  Future<DateTimeRange?> _showCupertinoDateRangePicker() async {
+    DateTimeRange? result;
+    
+    await showCupertinoModalPopup(
+      context: context,
+      builder: (BuildContext context) {
+        DateTime startDate = _selectedDateRange?.start ?? DateTime.now().subtract(const Duration(days: 30));
+        DateTime endDate = _selectedDateRange?.end ?? DateTime.now();
+        
+        return Container(
+          height: 400,
+          padding: const EdgeInsets.only(top: 20.0),
+          margin: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          color: CupertinoColors.systemBackground.resolveFrom(context),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    CupertinoButton(
+                      child: const Text('Cancel'),
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                    CupertinoButton(
+                      child: const Text('Done'),
+                      onPressed: () {
+                        result = DateTimeRange(start: startDate, end: endDate);
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: CupertinoTheme(
+                          data: CupertinoThemeData(
+                            brightness: MediaQuery.of(context).platformBrightness,
+                          ),
+                          child: CupertinoDatePicker(
+                            mode: CupertinoDatePickerMode.date,
+                            initialDateTime: startDate,
+                            onDateTimeChanged: (DateTime newDate) {
+                              startDate = newDate;
+                              if (startDate.isAfter(endDate)) {
+                                endDate = startDate;
+                              }
+                            },
+                            minimumDate: DateTime(2020),
+                            maximumDate: DateTime.now(),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: CupertinoTheme(
+                          data: CupertinoThemeData(
+                            brightness: MediaQuery.of(context).platformBrightness,
+                          ),
+                          child: CupertinoDatePicker(
+                            mode: CupertinoDatePickerMode.date,
+                            initialDateTime: endDate,
+                            onDateTimeChanged: (DateTime newDate) {
+                              endDate = newDate;
+                              if (endDate.isBefore(startDate)) {
+                                startDate = endDate;
+                              }
+                            },
+                            minimumDate: DateTime(2020),
+                            maximumDate: DateTime.now(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    
+    return result;
+  }
+
+  Widget _buildPlatformDropdown<T>({
+    required T? value,
+    required List<DropdownMenuItem<T?>> items,
+    required ValueChanged<T?> onChanged,
+    required Widget child,
+  }) {
+    if (Theme.of(context).platform == TargetPlatform.iOS) {
+      return GestureDetector(
+        onTap: () {
+          _showCupertinoDropdown<T>(
+            value: value,
+            items: items,
+            onChanged: onChanged,
+          );
+        },
+        child: child,
+      );
+    } else {
+      // Material dropdown for Android and other platforms
+      return DropdownButtonHideUnderline(
+        child: DropdownButton<T?>(
+          value: value,
+          items: items,
+          onChanged: onChanged,
+          icon: const SizedBox.shrink(), // Hide default arrow
+          selectedItemBuilder: (context) {
+            // Return the child widget for selected item
+            return items.map((item) {
+              return child;
+            }).toList();
+          },
+          isDense: true,
+          style: const TextStyle(color: Colors.transparent), // Hide text
+          dropdownColor: Colors.transparent,
+          elevation: 0,
+          underline: const SizedBox.shrink(),
+        ),
+      );
+    }
+  }
+
+  void _showCupertinoDropdown<T>({
+    required T? value,
+    required List<DropdownMenuItem<T?>> items,
+    required ValueChanged<T?> onChanged,
+  }) {
+    showCupertinoModalPopup(
+      context: context,
+      builder: (BuildContext context) {
+        return Container(
+          height: 250,
+          padding: const EdgeInsets.only(top: 20.0),
+          margin: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          color: CupertinoColors.systemBackground.resolveFrom(context),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    CupertinoButton(
+                      child: const Text('Cancel'),
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                    CupertinoButton(
+                      child: const Text('Done'),
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Expanded(
+                  child: CupertinoTheme(
+                    data: CupertinoThemeData(
+                      brightness: MediaQuery.of(context).platformBrightness,
+                    ),
+                    child: CupertinoPicker(
+                      itemExtent: 40,
+                      scrollController: FixedExtentScrollController(
+                        initialItem: items.indexWhere((item) => item.value == value),
+                      ),
+                      onSelectedItemChanged: (int index) {
+                        onChanged(items[index].value);
+                      },
+                      children: items.map((item) {
+                        return Center(
+                          child: item.child,
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _clearFilters() {
@@ -171,7 +378,7 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
                       )
                     : null,
                 filled: true,
-                fillColor: colorScheme.muted.withOpacity(0.3),
+                fillColor: colorScheme.muted.withValues(alpha: 0.3),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -283,7 +490,7 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
                           Icon(
                             Icons.receipt_long_outlined,
                             size: 64,
-                            color: colorScheme.mutedForeground.withOpacity(0.5),
+                            color: colorScheme.mutedForeground.withValues(alpha: 0.5),
                           ),
                           const SizedBox(height: 16),
                           Text(
@@ -435,7 +642,7 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
   }
 
   Widget _buildLineChart(shadcnui.ColorScheme colorScheme, List<ExpenseEntry> expenses) {
-    final interval = 'daily';
+    const interval = 'daily';
     final periodTotals = groupExpensesByInterval(expenses, interval);
     final sortedDates = periodTotals.keys.toList()..sort();
 
@@ -533,7 +740,7 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
   }
 
   Widget _buildBarChart(shadcnui.ColorScheme colorScheme, List<ExpenseEntry> expenses) {
-    final interval = 'daily';
+    const interval = 'daily';
     final barData = groupExpensesForBarChart(expenses, interval);
 
     if (barData.periodTotals.isEmpty) {
@@ -676,28 +883,29 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
           return const SizedBox.shrink();
         }
 
-        return PopupMenuButton<String?>(
-          onSelected: (category) {
-            setState(() {
-              _selectedCategory = category;
-            });
-          },
-          itemBuilder: (context) => [
+        return _buildPlatformDropdown<String?>(
+          value: _selectedCategory,
+          items: [
             if (_selectedCategory != null)
-              PopupMenuItem<String?>(
+              DropdownMenuItem<String?>(
                 value: null,
                 child: Text(context.l10n.allCategories),
               ),
-            ...categories.map((category) => PopupMenuItem<String?>(
+            ...categories.map((category) => DropdownMenuItem<String?>(
                   value: category,
                   child: Text(category),
                 )),
           ],
+          onChanged: (category) {
+            setState(() {
+              _selectedCategory = category;
+            });
+          },
           child: _FilterChip(
             label: _selectedCategory ?? context.l10n.category,
             icon: Icons.category_outlined,
             isSelected: _selectedCategory != null,
-            onTap: null, // Handled by PopupMenuButton
+            onTap: null, // Handled by platform dropdown
             colorScheme: colorScheme,
           ),
         );
@@ -723,30 +931,31 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
         final sortedMembers = members.entries.toList()
           ..sort((a, b) => a.value.compareTo(b.value));
 
-        return PopupMenuButton<String?>(
-          onSelected: (memberId) {
-            setState(() {
-              _selectedMemberId = memberId;
-            });
-          },
-          itemBuilder: (context) => [
+        return _buildPlatformDropdown<String?>(
+          value: _selectedMemberId,
+          items: [
             if (_selectedMemberId != null)
-              PopupMenuItem<String?>(
+              DropdownMenuItem<String?>(
                 value: null,
                 child: Text(context.l10n.allMembers),
               ),
-            ...sortedMembers.map((entry) => PopupMenuItem<String?>(
+            ...sortedMembers.map((entry) => DropdownMenuItem<String?>(
                   value: entry.key,
                   child: Text(entry.value),
                 )),
           ],
+          onChanged: (memberId) {
+            setState(() {
+              _selectedMemberId = memberId;
+            });
+          },
           child: _FilterChip(
             label: _selectedMemberId != null
                 ? members[_selectedMemberId]!
                 : context.l10n.member,
             icon: Icons.person_outline,
             isSelected: _selectedMemberId != null,
-            onTap: null, // Handled by PopupMenuButton
+            onTap: null, // Handled by platform dropdown
             colorScheme: colorScheme,
           ),
         );
@@ -780,8 +989,8 @@ class _FilterChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected
-              ? colorScheme.primary.withOpacity(0.1)
-              : colorScheme.muted.withOpacity(0.3),
+              ? colorScheme.primary.withValues(alpha: 0.1)
+              : colorScheme.muted.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected
@@ -857,7 +1066,7 @@ class _ExpenseListItem extends StatelessWidget {
           color: colorScheme.card,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: colorScheme.border.withOpacity(0.5),
+            color: colorScheme.border.withValues(alpha: 0.5),
             width: 1,
           ),
         ),

@@ -926,5 +926,75 @@
   "expenseNotFoundOrDeleted": "Расход не найден или уже удалён",
 
   "onlyAdminsAndOwnersCanEditHouseholdSettings": "Только администраторы и владельцы могут редактировать настройки домохозяйства",
-  "onlyAdminsAndOwnersCanCreateInvitations": "Только администраторы и владельцы могут создавать приглашения"
+  "onlyAdminsAndOwnersCanCreateInvitations": "Только администраторы и владельцы могут создавать приглашения",
+
+  "shareInvitationForHousehold": "Поделиться приглашением в группу {householdName}",
+  "@shareInvitationForHousehold": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "shareInvitation": "Поделиться приглашением",
+  "householdCreatedSuccessfully": "Группа {householdName} успешно создана",
+  "@householdCreatedSuccessfully": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "householdCreatedSuccessfullyWithQuotes": "Группа \"{householdName}\" успешно создана!",
+  "@householdCreatedSuccessfullyWithQuotes": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "invitationLink": "Пригласительная ссылка",
+  "invitationLinkWithUrl": "Пригласительная ссылка: {inviteUrl}",
+  "@invitationLinkWithUrl": {
+    "placeholders": {
+      "inviteUrl": {
+        "type": "String"
+      }
+    }
+  },
+  "copyInvitationLink": "Копировать пригласительную ссылку",
+  "copyInvitationLinkToClipboard": "Копировать пригласительную ссылку в буфер обмена",
+  "copyLink": "Копировать ссылку",
+  "shareInvitationLink": "Поделиться пригласительной ссылкой",
+  "share": "Поделиться",
+  "closeShareSheet": "Закрыть меню 'Поделиться'",
+  "done": "Готово",
+  "invitationLinkCopiedToClipboard": "Пригласительная ссылка скопирована в буфер обмена!",
+  "joinMyHouseholdMessage": "Присоединяйтесь к моей группе \"{householdName}\" в Moneko!\n\n{inviteUrl}",
+  "@joinMyHouseholdMessage": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      },
+      "inviteUrl": {
+        "type": "String"
+      }
+    }
+  },
+  "joinMyHouseholdSubject": "Присоединяйтесь к моей группе в Moneko",
+
+  "zeroAmount": "0,00",
+  "dollarPrefix": "$ ",
+  "notificationSettings": "Настройки уведомлений",
+  "budgetBoop": "Легкое напоминание",
+  "getGentleReminder": "Получайте мягкое напоминание при достижении этого порога",
+  "purrSuasiveNudge": "Мурчащее напоминание",
+  "getStrongerNudge": "Получайте более сильное подталкивание при достижении этого порога",
+  "createBudgetButton": "Создать бюджет",
+  "daily": "Ежедневно",
+  "weekly": "Еженедельно",
+  "monthly": "Ежемесячно",
+  "yearly": "Ежегодно",
+  "householdBudgetType": "Бюджет группы",
+  "personalBudgetType": "Личный бюджет"
 }

@@ -923,5 +923,75 @@
   "expenseNotFoundOrDeleted": "Spesa non trovata o già eliminata",
 
   "onlyAdminsAndOwnersCanEditHouseholdSettings": "Solo amministratori e proprietari possono modificare le impostazioni del nucleo familiare",
-  "onlyAdminsAndOwnersCanCreateInvitations": "Solo amministratori e proprietari possono creare inviti"
+  "onlyAdminsAndOwnersCanCreateInvitations": "Solo amministratori e proprietari possono creare inviti",
+
+  "shareInvitationForHousehold": "Condividi l'invito per il gruppo {householdName}",
+  "@shareInvitationForHousehold": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "shareInvitation": "Condividi invito",
+  "householdCreatedSuccessfully": "Gruppo {householdName} creato con successo",
+  "@householdCreatedSuccessfully": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "householdCreatedSuccessfullyWithQuotes": "Gruppo \"{householdName}\" creato con successo!",
+  "@householdCreatedSuccessfullyWithQuotes": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "invitationLink": "Link di invito",
+  "invitationLinkWithUrl": "Link di invito: {inviteUrl}",
+  "@invitationLinkWithUrl": {
+    "placeholders": {
+      "inviteUrl": {
+        "type": "String"
+      }
+    }
+  },
+  "copyInvitationLink": "Copia link di invito",
+  "copyInvitationLinkToClipboard": "Copia link di invito negli appunti",
+  "copyLink": "Copia link",
+  "shareInvitationLink": "Condividi link di invito",
+  "share": "Condividi",
+  "closeShareSheet": "Chiudi pannello di condivisione",
+  "done": "Fatto",
+  "invitationLinkCopiedToClipboard": "Link di invito copiato negli appunti!",
+  "joinMyHouseholdMessage": "Unisciti al mio gruppo \"{householdName}\" su Moneko!\n\n{inviteUrl}",
+  "@joinMyHouseholdMessage": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      },
+      "inviteUrl": {
+        "type": "String"
+      }
+    }
+  },
+  "joinMyHouseholdSubject": "Unisciti al mio gruppo su Moneko",
+
+  "zeroAmount": "0,00",
+  "dollarPrefix": "$ ",
+  "notificationSettings": "Impostazioni di notifica",
+  "budgetBoop": "Bussatina budget",
+  "getGentleReminder": "Ricevi un promemoria gentile quando raggiungi questa soglia",
+  "purrSuasiveNudge": "Spintarella con fusa",
+  "getStrongerNudge": "Ricevi una spinta più forte quando raggiungi questa soglia",
+  "createBudgetButton": "Crea budget",
+  "daily": "Giornaliero",
+  "weekly": "Settimanale",
+  "monthly": "Mensile",
+  "yearly": "Annuale",
+  "householdBudgetType": "Budget di gruppo",
+  "personalBudgetType": "Budget personale"
 }

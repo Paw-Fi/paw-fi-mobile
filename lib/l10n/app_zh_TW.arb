@@ -982,5 +982,75 @@
   "expenseNotFoundOrDeleted": "找不到支出或支出已被刪除",
 
   "onlyAdminsAndOwnersCanEditHouseholdSettings": "只有管理員和擁有者可以編輯家庭設定",
-  "onlyAdminsAndOwnersCanCreateInvitations": "只有管理員和擁有者可以建立邀請"
+  "onlyAdminsAndOwnersCanCreateInvitations": "只有管理員和擁有者可以建立邀請",
+
+  "shareInvitationForHousehold": "分享家庭 {householdName} 的邀請",
+  "@shareInvitationForHousehold": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "shareInvitation": "分享邀請",
+  "householdCreatedSuccessfully": "家庭 {householdName} 建立成功",
+  "@householdCreatedSuccessfully": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "householdCreatedSuccessfullyWithQuotes": "家庭 \"{householdName}\" 建立成功！",
+  "@householdCreatedSuccessfullyWithQuotes": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "invitationLink": "邀請連結",
+  "invitationLinkWithUrl": "邀請連結：{inviteUrl}",
+  "@invitationLinkWithUrl": {
+    "placeholders": {
+      "inviteUrl": {
+        "type": "String"
+      }
+    }
+  },
+  "copyInvitationLink": "複製邀請連結",
+  "copyInvitationLinkToClipboard": "複製邀請連結到剪貼簿",
+  "copyLink": "複製連結",
+  "shareInvitationLink": "分享邀請連結",
+  "share": "分享",
+  "closeShareSheet": "關閉分享面板",
+  "done": "完成",
+  "invitationLinkCopiedToClipboard": "邀請連結已複製到剪貼簿！",
+  "joinMyHouseholdMessage": "來 Moneko 加入我的家庭 \"{householdName}\" 吧！\n\n{inviteUrl}",
+  "@joinMyHouseholdMessage": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      },
+      "inviteUrl": {
+        "type": "String"
+      }
+    }
+  },
+  "joinMyHouseholdSubject": "來 Moneko 加入我的家庭吧",
+
+  "zeroAmount": "0.00",
+  "dollarPrefix": "$ ",
+  "notificationSettings": "通知設定",
+  "budgetBoop": "預算戳一下",
+  "getGentleReminder": "達到此閾值時收到溫和提醒",
+  "purrSuasiveNudge": "咕嚕式提醒",
+  "getStrongerNudge": "達到此閾值時收到更強推動",
+  "createBudgetButton": "建立預算",
+  "daily": "每日",
+  "weekly": "每週",
+  "monthly": "每月",
+  "yearly": "每年",
+  "householdBudgetType": "家庭預算",
+  "personalBudgetType": "個人預算"
 }

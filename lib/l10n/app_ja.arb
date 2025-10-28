@@ -923,5 +923,75 @@
   "expenseNotFoundOrDeleted": "支出が見つからないか、すでに削除されています",
 
   "onlyAdminsAndOwnersCanEditHouseholdSettings": "管理者とオーナーのみが世帯設定を編集できます",
-  "onlyAdminsAndOwnersCanCreateInvitations": "管理者とオーナーのみが招待を作成できます"
+  "onlyAdminsAndOwnersCanCreateInvitations": "管理者とオーナーのみが招待を作成できます",
+
+  "shareInvitationForHousehold": "グループ「{householdName}」の招待を共有",
+  "@shareInvitationForHousehold": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "shareInvitation": "招待を共有",
+  "householdCreatedSuccessfully": "グループ「{householdName}」が作成されました",
+  "@householdCreatedSuccessfully": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "householdCreatedSuccessfullyWithQuotes": "グループ「{householdName}」が作成されました！",
+  "@householdCreatedSuccessfullyWithQuotes": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "invitationLink": "招待リンク",
+  "invitationLinkWithUrl": "招待リンク：{inviteUrl}",
+  "@invitationLinkWithUrl": {
+    "placeholders": {
+      "inviteUrl": {
+        "type": "String"
+      }
+    }
+  },
+  "copyInvitationLink": "招待リンクをコピー",
+  "copyInvitationLinkToClipboard": "招待リンクをクリップボードにコピー",
+  "copyLink": "リンクをコピー",
+  "shareInvitationLink": "招待リンクを共有",
+  "share": "共有",
+  "closeShareSheet": "共有シートを閉じる",
+  "done": "完了",
+  "invitationLinkCopiedToClipboard": "招待リンクをクリップボードにコピーしました！",
+  "joinMyHouseholdMessage": "Monekoで私のグループ「{householdName}」に参加してください！\n\n{inviteUrl}",
+  "@joinMyHouseholdMessage": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      },
+      "inviteUrl": {
+        "type": "String"
+      }
+    }
+  },
+  "joinMyHouseholdSubject": "Monekoで私のグループに参加してください",
+
+  "zeroAmount": "0.00",
+  "dollarPrefix": "$ ",
+  "notificationSettings": "通知設定",
+  "budgetBoop": "予算ツンツン",
+  "getGentleReminder": "このしきい値に達したときに優しいリマインダーを受け取る",
+  "purrSuasiveNudge": "ゴロゴロ・アラート",
+  "getStrongerNudge": "このしきい値に達したときにより強いナッジを受け取る",
+  "createBudgetButton": "予算を作成",
+  "daily": "毎日",
+  "weekly": "毎週",
+  "monthly": "毎月",
+  "yearly": "毎年",
+  "householdBudgetType": "グループ予算",
+  "personalBudgetType": "個人予算"
 }

@@ -923,5 +923,75 @@
   "expenseNotFoundOrDeleted": "支出未找到或已被删除",
 
   "onlyAdminsAndOwnersCanEditHouseholdSettings": "只有管理员和所有者可以编辑家庭设置",
-  "onlyAdminsAndOwnersCanCreateInvitations": "只有管理员和所有者可以创建邀请"
+  "onlyAdminsAndOwnersCanCreateInvitations": "只有管理员和所有者可以创建邀请",
+
+  "shareInvitationForHousehold": "分享家庭 {householdName} 的邀请",
+  "@shareInvitationForHousehold": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "shareInvitation": "分享邀请",
+  "householdCreatedSuccessfully": "家庭 {householdName} 创建成功",
+  "@householdCreatedSuccessfully": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "householdCreatedSuccessfullyWithQuotes": "家庭 \"{householdName}\" 创建成功！",
+  "@householdCreatedSuccessfullyWithQuotes": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "invitationLink": "邀请链接",
+  "invitationLinkWithUrl": "邀请链接：{inviteUrl}",
+  "@invitationLinkWithUrl": {
+    "placeholders": {
+      "inviteUrl": {
+        "type": "String"
+      }
+    }
+  },
+  "copyInvitationLink": "复制邀请链接",
+  "copyInvitationLinkToClipboard": "复制邀请链接到剪贴板",
+  "copyLink": "复制链接",
+  "shareInvitationLink": "分享邀请链接",
+  "share": "分享",
+  "closeShareSheet": "关闭分享面板",
+  "done": "完成",
+  "invitationLinkCopiedToClipboard": "邀请链接已复制到剪贴板！",
+  "joinMyHouseholdMessage": "来 Moneko 加入我的家庭 \"{householdName}\" 吧！\n\n{inviteUrl}",
+  "@joinMyHouseholdMessage": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      },
+      "inviteUrl": {
+        "type": "String"
+      }
+    }
+  },
+  "joinMyHouseholdSubject": "来 Moneko 加入我的家庭吧",
+
+  "zeroAmount": "0.00",
+  "dollarPrefix": "$ ",
+  "notificationSettings": "通知设置",
+  "budgetBoop": "预算戳一下",
+  "getGentleReminder": "达到此阈值时收到温和提醒",
+  "purrSuasiveNudge": "咕噜式提醒",
+  "getStrongerNudge": "达到此阈值时收到更强推动",
+  "createBudgetButton": "创建预算",
+  "daily": "每日",
+  "weekly": "每周",
+  "monthly": "每月",
+  "yearly": "每年",
+  "householdBudgetType": "家庭预算",
+  "personalBudgetType": "个人预算"
 }

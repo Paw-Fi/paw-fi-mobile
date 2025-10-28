@@ -923,5 +923,75 @@
   "expenseNotFoundOrDeleted": "خرچ نہیں ملا یا حذف ہو چکا ہے",
 
   "onlyAdminsAndOwnersCanEditHouseholdSettings": "صرف ایڈمنز اور مالک ہی گھر کی ترتیبات میں ترمیم کر سکتے ہیں",
-  "onlyAdminsAndOwnersCanCreateInvitations": "صرف ایڈمنز اور مالک ہی دعوت نامے بنا سکتے ہیں"
+  "onlyAdminsAndOwnersCanCreateInvitations": "صرف ایڈمنز اور مالک ہی دعوت نامے بنا سکتے ہیں",
+
+  "shareInvitationForHousehold": "گھر {householdName} کی دعوت شیئر کریں",
+  "@shareInvitationForHousehold": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "shareInvitation": "دعوت شیئر کریں",
+  "householdCreatedSuccessfully": "گھر {householdName} کامیابی سے بنایا گیا",
+  "@householdCreatedSuccessfully": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "householdCreatedSuccessfullyWithQuotes": "گھر \"{householdName}\" کامیابی سے بنایا گیا!",
+  "@householdCreatedSuccessfullyWithQuotes": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "invitationLink": "دعوت لنک",
+  "invitationLinkWithUrl": "دعوت لنک: {inviteUrl}",
+  "@invitationLinkWithUrl": {
+    "placeholders": {
+      "inviteUrl": {
+        "type": "String"
+      }
+    }
+  },
+  "copyInvitationLink": "دعوت لنک کاپی کریں",
+  "copyInvitationLinkToClipboard": "دعوت لنک کلپ بورڈ میں کاپی کریں",
+  "copyLink": "لنک کاپی کریں",
+  "shareInvitationLink": "دعوت لنک شیئر کریں",
+  "share": "شیئر کریں",
+  "closeShareSheet": "شیئر شیٹ بند کریں",
+  "done": "ہو گیا",
+  "invitationLinkCopiedToClipboard": "دعوت لنک کلپ بورڈ میں کاپی ہو گیا!",
+  "joinMyHouseholdMessage": "میرے گھر \"{householdName}\" میں مونیکو پر شامل ہوں!\n\n{inviteUrl}",
+  "@joinMyHouseholdMessage": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      },
+      "inviteUrl": {
+        "type": "String"
+      }
+    }
+  },
+  "joinMyHouseholdSubject": "میرے گھر میں مونیکو پر شامل ہوں",
+
+  "zeroAmount": "0.00",
+  "dollarPrefix": "$ ",
+  "notificationSettings": "نوٹیفیکیشن ترتیبات",
+  "budgetBoop": "بجٹ الرٹ",
+  "getGentleReminder": "جب آپ اس حد تک پہنچ جائیں تو نرم یاد دہانی حاصل کریں",
+  "purrSuasiveNudge": "پیار سے تاکید",
+  "getStrongerNudge": "جب آپ اس حد تک پہنچ جائیں تو زوردار یاد دہانی حاصل کریں",
+  "createBudgetButton": "بجٹ بنائیں",
+  "daily": "روزانہ",
+  "weekly": "ہفتہ وار",
+  "monthly": "ماہانہ",
+  "yearly": "سالانہ",
+  "householdBudgetType": "گھریلو بجٹ",
+  "personalBudgetType": "ذاتی بجٹ"
 }

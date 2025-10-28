@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:share_plus/share_plus.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import '../../core/household_constants.dart';
 
 /// Invitation share sheet for sharing household invitation URLs
@@ -28,7 +29,7 @@ class InvitationShareSheet extends StatelessWidget {
     final colorScheme = shadcnui.Theme.of(context).colorScheme;
 
     return Semantics(
-      label: 'Share invitation for $householdName household',
+      label: AppLocalizations.of(context)!.shareInvitationForHousehold(householdName),
       container: true,
       child: Container(
         padding: const EdgeInsets.all(24),
@@ -47,7 +48,7 @@ class InvitationShareSheet extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      'Share Invitation',
+                      AppLocalizations.of(context)!.shareInvitation,
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
@@ -75,7 +76,7 @@ class InvitationShareSheet extends StatelessWidget {
 
             // Success message
             Semantics(
-              label: 'Household $householdName created successfully',
+              label: AppLocalizations.of(context)!.householdCreatedSuccessfully(householdName),
               readOnly: true,
               child: Container(
                 padding: const EdgeInsets.all(16),
@@ -93,7 +94,7 @@ class InvitationShareSheet extends StatelessWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'Household "$householdName" created successfully!',
+                        AppLocalizations.of(context)!.householdCreatedSuccessfullyWithQuotes(householdName),
                         style: const TextStyle(
                           fontSize: 15,
                           color: Colors.green,
@@ -113,7 +114,7 @@ class InvitationShareSheet extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Invitation Link',
+                  AppLocalizations.of(context)!.invitationLink,
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -123,7 +124,7 @@ class InvitationShareSheet extends StatelessWidget {
                 const SizedBox(height: 8),
 
                 Semantics(
-                  label: 'Invitation link: $inviteUrl',
+                  label: AppLocalizations.of(context)!.invitationLinkWithUrl(inviteUrl),
                   textField: true,
                   readOnly: true,
                   child: Container(
@@ -153,7 +154,7 @@ class InvitationShareSheet extends StatelessWidget {
                         ),
                         const SizedBox(width: 12),
                         Semantics(
-                          label: 'Copy invitation link',
+                          label: AppLocalizations.of(context)!.copyInvitationLink,
                           button: true,
                           child: InkWell(
                             onTap: () => _copyToClipboard(context, inviteUrl),
@@ -186,17 +187,17 @@ class InvitationShareSheet extends StatelessWidget {
               children: [
                 Expanded(
                   child: Semantics(
-                    label: 'Copy invitation link to clipboard',
+                    label: AppLocalizations.of(context)!.copyInvitationLinkToClipboard,
                     button: true,
                     child: shadcnui.OutlineButton(
                       onPressed: () => _copyToClipboard(context, inviteUrl),
-                      child: const Row(
+                      child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.copy, size: 20),
-                          SizedBox(width: 8),
+                          const Icon(Icons.copy, size: 20),
+                          const SizedBox(width: 8),
                           Text(
-                            'Copy Link',
+                            AppLocalizations.of(context)!.copyLink,
                             style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
@@ -211,17 +212,17 @@ class InvitationShareSheet extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Semantics(
-                    label: 'Share invitation link',
+                    label: AppLocalizations.of(context)!.shareInvitationLink,
                     button: true,
                     child: shadcnui.PrimaryButton(
                       onPressed: () => _shareInvite(context),
-                      child: const Row(
+                      child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.share, size: 20),
-                          SizedBox(width: 8),
+                          const Icon(Icons.share, size: 20),
+                          const SizedBox(width: 8),
                           Text(
-                            'Share',
+                            AppLocalizations.of(context)!.share,
                             style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
@@ -240,14 +241,14 @@ class InvitationShareSheet extends StatelessWidget {
 
             // Done button
             Semantics(
-              label: 'Close share sheet',
+              label: AppLocalizations.of(context)!.closeShareSheet,
               button: true,
               child: SizedBox(
                 width: double.infinity,
                 child: shadcnui.TextButton(
                   onPressed: onClose ?? () => Navigator.pop(context),
-                  child: const Text(
-                    'Done',
+                  child: Text(
+                    AppLocalizations.of(context)!.done,
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
@@ -271,9 +272,9 @@ class InvitationShareSheet extends StatelessWidget {
     if (!context.mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Invitation link copied to clipboard!'),
-        duration: Duration(seconds: 2),
+      SnackBar(
+        content: Text(AppLocalizations.of(context)!.invitationLinkCopiedToClipboard),
+        duration: const Duration(seconds: 2),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -281,8 +282,8 @@ class InvitationShareSheet extends StatelessWidget {
 
   void _shareInvite(BuildContext context) {
     Share.share(
-      'Join my household "$householdName" on Moneko!\n\n$inviteUrl',
-      subject: 'Join my household on Moneko',
+      AppLocalizations.of(context)!.joinMyHouseholdMessage(householdName, inviteUrl),
+      subject: AppLocalizations.of(context)!.joinMyHouseholdSubject,
     );
   }
 

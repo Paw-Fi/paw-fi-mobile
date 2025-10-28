@@ -15,24 +15,32 @@ class MemberSplit {
   double? amount;
   double? percentage;
   int? shares;
+  bool includedInAmount;
+  bool includedInPercentage;
 
   MemberSplit({
     required this.member,
     this.amount,
     this.percentage,
     this.shares,
+    this.includedInAmount = true,
+    this.includedInPercentage = true,
   });
 
   MemberSplit copyWith({
     double? amount,
     double? percentage,
     int? shares,
+    bool? includedInAmount,
+    bool? includedInPercentage,
   }) {
     return MemberSplit(
       member: member,
       amount: amount ?? this.amount,
       percentage: percentage ?? this.percentage,
       shares: shares ?? this.shares,
+      includedInAmount: includedInAmount ?? this.includedInAmount,
+      includedInPercentage: includedInPercentage ?? this.includedInPercentage,
     );
   }
 }
@@ -170,6 +178,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
     switch (_selectedType) {
       case SplitType.amount:
         parsedDouble = double.tryParse(text);
+        if (parsedDouble != null && parsedDouble < 0) parsedDouble = 0; // clamp negatives
         if (parsedDouble != null && parsedDouble > widget.totalAmount) {
           // Exceeds total - show error, don't auto-adjust
           setState(() {
@@ -185,6 +194,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
 
       case SplitType.percentage:
         parsedDouble = double.tryParse(text);
+        if (parsedDouble != null && parsedDouble < 0) parsedDouble = 0; // clamp negatives
         if (parsedDouble != null && parsedDouble > 100) {
           // Exceeds 100% - show error, don't auto-adjust
           setState(() {
@@ -213,24 +223,30 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
   }
 
   void _autoAdjustOthers(int editedIndex, SplitType type) {
-    if (widget.members.length <= 1) {
-      // Can't auto-adjust with only one member
-      setState(() {});
-      _validate();
-      _queueNotify();
-      return;
-    }
-
-    final otherIndices = List.generate(widget.members.length, (i) => i)
-        .where((i) => i != editedIndex)
-        .toList();
+    final allIndices = List.generate(widget.members.length, (i) => i);
 
     switch (type) {
       case SplitType.amount:
+        if (!_memberSplits[editedIndex].includedInAmount) {
+          _validate();
+          _queueNotify();
+          return;
+        }
+        final otherIndices = allIndices
+            .where((i) => i != editedIndex && _memberSplits[i].includedInAmount)
+            .toList();
         final editedAmount = _memberSplits[editedIndex].amount ?? 0;
+        if (otherIndices.isEmpty) {
+          setState(() {
+            _memberSplits[editedIndex].amount = widget.totalAmount;
+            _updateControllerText(editedIndex, widget.totalAmount.toStringAsFixed(2));
+          });
+          _validate();
+          _queueNotify();
+          return;
+        }
         final remaining = widget.totalAmount - editedAmount;
         final perOther = remaining / otherIndices.length;
-
         setState(() {
           for (var i in otherIndices) {
             _memberSplits[i].amount = perOther;
@@ -240,12 +256,28 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
         break;
 
       case SplitType.percentage:
+        if (!_memberSplits[editedIndex].includedInPercentage) {
+          _validate();
+          _queueNotify();
+          return;
+        }
+        final otherIndicesPct = allIndices
+            .where((i) => i != editedIndex && _memberSplits[i].includedInPercentage)
+            .toList();
         final editedPercentage = _memberSplits[editedIndex].percentage ?? 0;
+        if (otherIndicesPct.isEmpty) {
+          setState(() {
+            _memberSplits[editedIndex].percentage = 100;
+            _updateControllerText(editedIndex, 100.toStringAsFixed(1));
+          });
+          _validate();
+          _queueNotify();
+          return;
+        }
         final remaining = 100 - editedPercentage;
-        final perOther = remaining / otherIndices.length;
-
+        final perOther = remaining / otherIndicesPct.length;
         setState(() {
-          for (var i in otherIndices) {
+          for (var i in otherIndicesPct) {
             _memberSplits[i].percentage = perOther;
             _updateControllerText(i, perOther.toStringAsFixed(1));
           }
@@ -263,6 +295,169 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
     _queueNotify();
   }
 
+  List<int> _includedIndicesForType(SplitType type) {
+    switch (type) {
+      case SplitType.amount:
+        return List.generate(widget.members.length, (i) => i)
+            .where((i) => _memberSplits[i].includedInAmount)
+            .toList();
+      case SplitType.percentage:
+        return List.generate(widget.members.length, (i) => i)
+            .where((i) => _memberSplits[i].includedInPercentage)
+            .toList();
+      case SplitType.shares:
+        return List.generate(widget.members.length, (i) => i)
+            .where((i) => (_memberSplits[i].shares ?? 0) > 0)
+            .toList();
+      case SplitType.equal:
+        return List.generate(widget.members.length, (i) => i);
+    }
+  }
+
+  void _redistributeAmongIncluded(SplitType type) {
+    final included = _includedIndicesForType(type);
+    if (type == SplitType.amount) {
+      if (included.isEmpty) {
+        setState(() {
+          for (var i = 0; i < _memberSplits.length; i++) {
+            _memberSplits[i].amount = 0;
+            _updateControllerText(i, 0.toStringAsFixed(2));
+          }
+        });
+        _validate();
+        _queueNotify();
+        return;
+      }
+      if (included.length == 1) {
+        final only = included.first;
+        setState(() {
+          for (var i = 0; i < _memberSplits.length; i++) {
+            _memberSplits[i].amount = i == only ? widget.totalAmount : 0;
+            _updateControllerText(i, (_memberSplits[i].amount ?? 0).toStringAsFixed(2));
+          }
+        });
+        _validate();
+        _queueNotify();
+        return;
+      }
+      final per = widget.totalAmount / included.length;
+      double sumOthers = 0;
+      setState(() {
+        for (int k = 0; k < included.length; k++) {
+          final idx = included[k];
+          if (k < included.length - 1) {
+            _memberSplits[idx].amount = per;
+            sumOthers += per;
+          } else {
+            _memberSplits[idx].amount = widget.totalAmount - sumOthers;
+          }
+        }
+        for (int i = 0; i < _memberSplits.length; i++) {
+          if (!included.contains(i)) {
+            _memberSplits[i].amount = 0;
+          }
+          _updateControllerText(i, (_memberSplits[i].amount ?? 0).toStringAsFixed(2));
+        }
+      });
+    } else if (type == SplitType.percentage) {
+      if (included.isEmpty) {
+        setState(() {
+          for (var i = 0; i < _memberSplits.length; i++) {
+            _memberSplits[i].percentage = 0;
+            _updateControllerText(i, 0.toStringAsFixed(1));
+          }
+        });
+        _validate();
+        _queueNotify();
+        return;
+      }
+      if (included.length == 1) {
+        final only = included.first;
+        setState(() {
+          for (var i = 0; i < _memberSplits.length; i++) {
+            _memberSplits[i].percentage = i == only ? 100.0 : 0.0;
+            _updateControllerText(i, (_memberSplits[i].percentage ?? 0).toStringAsFixed(1));
+          }
+        });
+        _validate();
+        _queueNotify();
+        return;
+      }
+      final per = 100.0 / included.length;
+      double sumOthers = 0;
+      setState(() {
+        for (int k = 0; k < included.length; k++) {
+          final idx = included[k];
+          if (k < included.length - 1) {
+            _memberSplits[idx].percentage = per;
+            sumOthers += per;
+          } else {
+            _memberSplits[idx].percentage = 100.0 - sumOthers;
+          }
+        }
+        for (int i = 0; i < _memberSplits.length; i++) {
+          if (!included.contains(i)) {
+            _memberSplits[i].percentage = 0;
+          }
+          _updateControllerText(i, (_memberSplits[i].percentage ?? 0).toStringAsFixed(1));
+        }
+      });
+    }
+    _validate();
+    _queueNotify();
+  }
+
+  bool _isMemberIncludedAt(int index) {
+    switch (_selectedType) {
+      case SplitType.amount:
+        return _memberSplits[index].includedInAmount;
+      case SplitType.percentage:
+        return _memberSplits[index].includedInPercentage;
+      case SplitType.shares:
+        return (_memberSplits[index].shares ?? 0) > 0;
+      case SplitType.equal:
+        return true;
+    }
+  }
+
+  void _setMemberIncludedAt(int index, bool included) {
+    switch (_selectedType) {
+      case SplitType.amount:
+        setState(() {
+          _memberSplits[index].includedInAmount = included;
+          if (!included) {
+            _memberSplits[index].amount = 0;
+            _updateControllerText(index, 0.toStringAsFixed(2));
+          }
+        });
+        _redistributeAmongIncluded(SplitType.amount);
+        break;
+      case SplitType.percentage:
+        setState(() {
+          _memberSplits[index].includedInPercentage = included;
+          if (!included) {
+            _memberSplits[index].percentage = 0;
+            _updateControllerText(index, 0.toStringAsFixed(1));
+          }
+        });
+        _redistributeAmongIncluded(SplitType.percentage);
+        break;
+      case SplitType.shares:
+        setState(() {
+          final nextIncluded = included;
+          _memberSplits[index].shares = nextIncluded
+              ? ((_memberSplits[index].shares ?? 0) == 0 ? 1 : _memberSplits[index].shares)
+              : 0;
+          _updateControllerText(index, (_memberSplits[index].shares ?? 0).toString());
+        });
+        _validate();
+        _queueNotify();
+        break;
+      case SplitType.equal:
+        break;
+    }
+  }
+
   void _validate() {
     String? error;
 
@@ -273,6 +468,11 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
         break;
 
       case SplitType.amount:
+        final includedCountAmt = _memberSplits.where((s) => s.includedInAmount).length;
+        if (includedCountAmt == 0) {
+          error = 'At least one member must be included';
+          break;
+        }
         final totalSplit = _memberSplits.fold<double>(
           0,
           (sum, split) => sum + (split.amount ?? 0),
@@ -286,6 +486,11 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
         break;
 
       case SplitType.percentage:
+        final includedCountPct = _memberSplits.where((s) => s.includedInPercentage).length;
+        if (includedCountPct == 0) {
+          error = 'At least one member must be included';
+          break;
+        }
         final totalPercent = _memberSplits.fold<double>(
           0,
           (sum, split) => sum + (split.percentage ?? 0),
@@ -317,22 +522,13 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
     final colorScheme = shadcnui.Theme.of(context).colorScheme;
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (Platform.isIOS && MediaQuery.of(context).viewInsets.bottom > 0)
-          Align(
-            alignment: Alignment.centerRight,
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: TextButton(
-                onPressed: () => FocusManager.instance.primaryFocus?.unfocus(),
-                child: Text(context.l10n.done),
-              ),
-            ),
-          ),
-
-
         // Split Type Selector
-        Row(
+        Wrap(
+         direction: Axis.horizontal,
+         alignment: WrapAlignment.start,
+         spacing: 10,
           children: [
             _buildTypeChip(colorScheme, context.l10n.amount, SplitType.amount),
             const SizedBox(width: 8),
@@ -393,8 +589,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
 
   Widget _buildTypeChip(shadcnui.ColorScheme colorScheme, String label, SplitType type) {
     final isSelected = _selectedType == type;
-    return Expanded(
-      child: GestureDetector(
+    return GestureDetector(
         onTap: () {
           setState(() {
             _selectedType = type;
@@ -408,26 +603,18 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: isSelected ? colorScheme.primary : colorScheme.muted.withOpacity(0.08),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: isSelected ? colorScheme.primary : Colors.transparent,
-              width: isSelected ? 2 : 0,
-            ),
-          ),
+         
           child: Text(
             label,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: isSelected ? colorScheme.primaryForeground : colorScheme.foreground,
+              color: isSelected ? colorScheme.primary : colorScheme.mutedForeground,
             ),
           ),
         ),
-      ),
+      
     );
   }
 
@@ -435,33 +622,26 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
     final memberSplit = _memberSplits[index];
     final member = memberSplit.member;
     final isSharesMode = _selectedType == SplitType.shares;
-    final isIncluded = (memberSplit.shares ?? 0) > 0;
+    final showCheckbox = _selectedType == SplitType.shares ||
+        _selectedType == SplitType.amount ||
+        _selectedType == SplitType.percentage;
+    final isIncluded = _isMemberIncludedAt(index);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
       decoration: BoxDecoration(
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: [
-          if (isSharesMode)
+          if (showCheckbox)
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: Checkbox.adaptive(
                 value: isIncluded,
-                onChanged: (val) {
-                  setState(() {
-                    final nextIncluded = val ?? false;
-                    _memberSplits[index].shares = nextIncluded
-                        ? ((memberSplit.shares ?? 0) == 0 ? 1 : memberSplit.shares)
-                        : 0;
-                    _updateControllerText(index, (_memberSplits[index].shares ?? 0).toString());
-                  });
-                  _validate();
-                  _queueNotify();
-                },
+                onChanged: (val) => _setMemberIncludedAt(index, val ?? false),
               ),
             ),
           // Avatar
@@ -513,7 +693,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
           else
             SizedBox(
               width: 110,
-              child: _buildSplitInput(colorScheme, index, enabled: !isSharesMode || isIncluded),
+              child: _buildSplitInput(colorScheme, index, enabled: isIncluded),
             ),
         ],
       ),

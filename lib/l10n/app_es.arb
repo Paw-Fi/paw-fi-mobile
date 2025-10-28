@@ -923,5 +923,75 @@
   "expenseNotFoundOrDeleted": "Gasto no encontrado o ya eliminado",
 
   "onlyAdminsAndOwnersCanEditHouseholdSettings": "Solo administradores y propietarios pueden editar la configuración del hogar",
-  "onlyAdminsAndOwnersCanCreateInvitations": "Solo administradores y propietarios pueden crear invitaciones"
+  "onlyAdminsAndOwnersCanCreateInvitations": "Solo administradores y propietarios pueden crear invitaciones",
+
+  "shareInvitationForHousehold": "Compartir invitación para el hogar {householdName}",
+  "@shareInvitationForHousehold": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "shareInvitation": "Compartir invitación",
+  "householdCreatedSuccessfully": "Hogar {householdName} creado correctamente",
+  "@householdCreatedSuccessfully": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "householdCreatedSuccessfullyWithQuotes": "¡Hogar \"{householdName}\" creado correctamente!",
+  "@householdCreatedSuccessfullyWithQuotes": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "invitationLink": "Enlace de invitación",
+  "invitationLinkWithUrl": "Enlace de invitación: {inviteUrl}",
+  "@invitationLinkWithUrl": {
+    "placeholders": {
+      "inviteUrl": {
+        "type": "String"
+      }
+    }
+  },
+  "copyInvitationLink": "Copiar enlace de invitación",
+  "copyInvitationLinkToClipboard": "Copiar enlace de invitación al portapapeles",
+  "copyLink": "Copiar enlace",
+  "shareInvitationLink": "Compartir enlace de invitación",
+  "share": "Compartir",
+  "closeShareSheet": "Cerrar panel de compartir",
+  "done": "Listo",
+  "invitationLinkCopiedToClipboard": "¡Enlace de invitación copiado al portapapeles!",
+  "joinMyHouseholdMessage": "¡Únete a mi hogar \"{householdName}\" en Moneko!\n\n{inviteUrl}",
+  "@joinMyHouseholdMessage": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      },
+      "inviteUrl": {
+        "type": "String"
+      }
+    }
+  },
+  "joinMyHouseholdSubject": "Únete a mi hogar en Moneko",
+
+  "zeroAmount": "0,00",
+  "dollarPrefix": "$ ",
+  "notificationSettings": "Configuración de notificaciones",
+  "budgetBoop": "Toque de presupuesto",
+  "getGentleReminder": "Recibe un recordatorio amable cuando alcances este umbral",
+  "purrSuasiveNudge": "Ron-cordatorio",
+  "getStrongerNudge": "Recibe un empujón más fuerte cuando alcances este umbral",
+  "createBudgetButton": "Crear presupuesto",
+  "daily": "Diario",
+  "weekly": "Semanal",
+  "monthly": "Mensual",
+  "yearly": "Anual",
+  "householdBudgetType": "Presupuesto del hogar",
+  "personalBudgetType": "Presupuesto personal"
 }

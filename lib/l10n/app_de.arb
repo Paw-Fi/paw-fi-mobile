@@ -923,5 +923,75 @@
   "expenseNotFoundOrDeleted": "Ausgabe nicht gefunden oder bereits gelöscht",
 
   "onlyAdminsAndOwnersCanEditHouseholdSettings": "Nur Admins und Besitzer können Haushaltseinstellungen bearbeiten",
-  "onlyAdminsAndOwnersCanCreateInvitations": "Nur Admins und Besitzer können Einladungen erstellen"
+  "onlyAdminsAndOwnersCanCreateInvitations": "Nur Admins und Besitzer können Einladungen erstellen",
+
+  "shareInvitationForHousehold": "Einladung für Haushalt {householdName} teilen",
+  "@shareInvitationForHousehold": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "shareInvitation": "Einladung teilen",
+  "householdCreatedSuccessfully": "Haushalt {householdName} erfolgreich erstellt",
+  "@householdCreatedSuccessfully": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "householdCreatedSuccessfullyWithQuotes": "Haushalt \"{householdName}\" erfolgreich erstellt!",
+  "@householdCreatedSuccessfullyWithQuotes": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "invitationLink": "Einladungslink",
+  "invitationLinkWithUrl": "Einladungslink: {inviteUrl}",
+  "@invitationLinkWithUrl": {
+    "placeholders": {
+      "inviteUrl": {
+        "type": "String"
+      }
+    }
+  },
+  "copyInvitationLink": "Einladungslink kopieren",
+  "copyInvitationLinkToClipboard": "Einladungslink in die Zwischenablage kopieren",
+  "copyLink": "Link kopieren",
+  "shareInvitationLink": "Einladungslink teilen",
+  "share": "Teilen",
+  "closeShareSheet": "Teilen-Fenster schließen",
+  "done": "Fertig",
+  "invitationLinkCopiedToClipboard": "Einladungslink in die Zwischenablage kopiert!",
+  "joinMyHouseholdMessage": "Trete meinem Haushalt \"{householdName}\" auf Moneko bei!\n\n{inviteUrl}",
+  "@joinMyHouseholdMessage": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      },
+      "inviteUrl": {
+        "type": "String"
+      }
+    }
+  },
+  "joinMyHouseholdSubject": "Trete meinem Haushalt auf Moneko bei",
+
+  "zeroAmount": "0,00",
+  "dollarPrefix": "$ ",
+  "notificationSettings": "Benachrichtigungseinstellungen",
+  "budgetBoop": "Budget-Stupser",
+  "getGentleReminder": "Erhalte eine sanfte Erinnerung, wenn du diesen Schwellenwert erreichst",
+  "purrSuasiveNudge": "Schnurr-Schubser",
+  "getStrongerNudge": "Erhalte einen stärkeren Anstoß, wenn du diesen Schwellenwert erreichst",
+  "createBudgetButton": "Budget erstellen",
+  "daily": "Täglich",
+  "weekly": "Wöchentlich",
+  "monthly": "Monatlich",
+  "yearly": "Jährlich",
+  "householdBudgetType": "Haushaltsbudget",
+  "personalBudgetType": "Persönliches Budget"
 }

@@ -138,36 +138,17 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     if (householdId != null) {
       // Shared expense: refresh household data
       debugPrint('🔄 Invalidating household providers for household: $householdId');
-      
+
       // Invalidate household list (to update counts)
       ref.invalidate(userHouseholdsProvider(userId));
-      
-      // Invalidate household summary (to update totals)
+
+      // Invalidate family providers so all parameterized instances refresh
       ref.invalidate(householdSummaryProvider);
-      
-      // Invalidate household expenses (to show in recent activity) - CRITICAL!
-      try {
-        ref.invalidate(householdExpensesProvider(HouseholdExpensesParams(householdId: householdId)));
-      } catch (_) {
-        // Fallback to family-wide invalidation if needed
-        ref.invalidate(householdExpensesProvider);
-      }
-      
-      // Invalidate household splits (to show new splits if created)
-      try {
-        ref.invalidate(householdSplitsProvider(HouseholdSplitsParams(householdId: householdId)));
-      } catch (_) {
-        ref.invalidate(householdSplitsProvider);
-      }
-      
-      // Invalidate household budgets (to update spent amounts in budget tracking)
-      try {
-        ref.invalidate(householdBudgetsProvider(householdId));
-      } catch (_) {
-        ref.invalidate(householdBudgetsProvider);
-      }
-      
-      debugPrint('✅ Invalidated: expenses, splits, budgets, summary');
+      ref.invalidate(householdExpensesProvider); // fix: refresh all limits (e.g., 500)
+      ref.invalidate(householdSplitsProvider);
+      ref.invalidate(householdBudgetsProvider);
+
+      debugPrint('✅ Invalidated families: expenses, splits, budgets, summary');
     }
     
     // Small delay to ensure backend has propagated changes

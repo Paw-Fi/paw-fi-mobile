@@ -923,5 +923,75 @@
   "expenseNotFoundOrDeleted": "Uitgave niet gevonden of al verwijderd",
 
   "onlyAdminsAndOwnersCanEditHouseholdSettings": "Alleen beheerders en eigenaren kunnen huishoudinstellingen bewerken",
-  "onlyAdminsAndOwnersCanCreateInvitations": "Alleen beheerders en eigenaren kunnen uitnodigingen maken"
+  "onlyAdminsAndOwnersCanCreateInvitations": "Alleen beheerders en eigenaren kunnen uitnodigingen maken",
+
+  "shareInvitationForHousehold": "Uitnodiging voor huishouden {householdName} delen",
+  "@shareInvitationForHousehold": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "shareInvitation": "Uitnodiging delen",
+  "householdCreatedSuccessfully": "Huishouden {householdName} succesvol aangemaakt",
+  "@householdCreatedSuccessfully": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "householdCreatedSuccessfullyWithQuotes": "Huishouden \"{householdName}\" succesvol aangemaakt!",
+  "@householdCreatedSuccessfullyWithQuotes": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "invitationLink": "Uitnodigingslink",
+  "invitationLinkWithUrl": "Uitnodigingslink: {inviteUrl}",
+  "@invitationLinkWithUrl": {
+    "placeholders": {
+      "inviteUrl": {
+        "type": "String"
+      }
+    }
+  },
+  "copyInvitationLink": "Uitnodigingslink kopiëren",
+  "copyInvitationLinkToClipboard": "Uitnodigingslink naar klembord kopiëren",
+  "copyLink": "Link kopiëren",
+  "shareInvitationLink": "Uitnodigingslink delen",
+  "share": "Delen",
+  "closeShareSheet": "Deelvenster sluiten",
+  "done": "Klaar",
+  "invitationLinkCopiedToClipboard": "Uitnodigingslink gekopieerd naar klembord!",
+  "joinMyHouseholdMessage": "Word lid van mijn huishouden \"{householdName}\" op Moneko!\n\n{inviteUrl}",
+  "@joinMyHouseholdMessage": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      },
+      "inviteUrl": {
+        "type": "String"
+      }
+    }
+  },
+  "joinMyHouseholdSubject": "Word lid van mijn huishouden op Moneko",
+
+  "zeroAmount": "0,00",
+  "dollarPrefix": "$ ",
+  "notificationSettings": "Notificatie-instellingen",
+  "budgetBoop": "Budget-tikje",
+  "getGentleReminder": "Krijg een zachte herinnering wanneer je deze drempel bereikt",
+  "purrSuasiveNudge": "Een snorrend duwtje",
+  "getStrongerNudge": "Krijg een sterkere duw wanneer je deze drempel bereikt",
+  "createBudgetButton": "Budget maken",
+  "daily": "Dagelijks",
+  "weekly": "Wekelijks",
+  "monthly": "Maandelijks",
+  "yearly": "Jaarlijks",
+  "householdBudgetType": "Huishoudbudget",
+  "personalBudgetType": "Persoonlijk budget"
 }

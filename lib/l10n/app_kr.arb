@@ -782,5 +782,75 @@
   "expenseNotFoundOrDeleted": "지출 내역을 찾을 수 없거나 이미 삭제되었습니다.",
 
   "onlyAdminsAndOwnersCanEditHouseholdSettings": "관리자와 소유자만 가계 설정을 편집할 수 있습니다",
-  "onlyAdminsAndOwnersCanCreateInvitations": "관리자와 소유자만 초대를 생성할 수 있습니다"
+  "onlyAdminsAndOwnersCanCreateInvitations": "관리자와 소유자만 초대를 생성할 수 있습니다",
+
+  "shareInvitationForHousehold": "가계 {householdName} 초대 공유",
+  "@shareInvitationForHousehold": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "shareInvitation": "초대 공유",
+  "householdCreatedSuccessfully": "가계 {householdName}이 성공적으로 생성되었습니다",
+  "@householdCreatedSuccessfully": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "householdCreatedSuccessfullyWithQuotes": "가계 \"{householdName}\"이 성공적으로 생성되었습니다!",
+  "@householdCreatedSuccessfullyWithQuotes": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "invitationLink": "초대 링크",
+  "invitationLinkWithUrl": "초대 링크: {inviteUrl}",
+  "@invitationLinkWithUrl": {
+    "placeholders": {
+      "inviteUrl": {
+        "type": "String"
+      }
+    }
+  },
+  "copyInvitationLink": "초대 링크 복사",
+  "copyInvitationLinkToClipboard": "초대 링크를 클립보드에 복사",
+  "copyLink": "링크 복사",
+  "shareInvitationLink": "초대 링크 공유",
+  "share": "공유",
+  "closeShareSheet": "공유 시트 닫기",
+  "done": "완료",
+  "invitationLinkCopiedToClipboard": "초대 링크가 클립보드에 복사되었습니다!",
+  "joinMyHouseholdMessage": "Moneko에서 제 가계 \"{householdName}\"에 참여하세요!\n\n{inviteUrl}",
+  "@joinMyHouseholdMessage": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      },
+      "inviteUrl": {
+        "type": "String"
+      }
+    }
+  },
+  "joinMyHouseholdSubject": "Moneko에서 제 가계에 참여하세요",
+
+  "zeroAmount": "0.00",
+  "dollarPrefix": "$ ",
+  "notificationSettings": "알림 설정",
+  "budgetBoop": "예산 콕!",
+  "getGentleReminder": "이 임계값에 도달했을 때 부드러운 알림 받기",
+  "purrSuasiveNudge": "가르랑 알림",
+  "getStrongerNudge": "이 임계값에 도달했을 때 더 강한 넛지 받기",
+  "createBudgetButton": "예산 생성",
+  "daily": "일일",
+  "weekly": "주간",
+  "monthly": "월간",
+  "yearly": "연간",
+  "householdBudgetType": "가계 예산",
+  "personalBudgetType": "개인 예산"
 }

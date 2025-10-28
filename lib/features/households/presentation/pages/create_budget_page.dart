@@ -153,13 +153,13 @@ class CreateBudgetPage extends HookConsumerWidget {
                   child: TextField(
                     controller: amountController,
                     decoration: InputDecoration(
-                      hintText: '0.00',
+                      hintText: context.l10n.zeroAmount,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                       filled: true,
                       fillColor: colorScheme.card,
-                      prefixText: '\$ ',
+                      prefixText: context.l10n.dollarPrefix,
                     ),
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     inputFormatters: [
@@ -227,7 +227,7 @@ class CreateBudgetPage extends HookConsumerWidget {
                   return DropdownMenuItem(
                     value: period,
                     child: Text(
-                      _formatPeriod(period),
+                      _formatPeriod(context, period),
                       style: TextStyle(color: colorScheme.foreground),
                     ),
                   );
@@ -270,7 +270,7 @@ class CreateBudgetPage extends HookConsumerWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          _formatBudgetType(type),
+                          _formatBudgetType(context, type),
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
                             color: colorScheme.foreground,
@@ -344,7 +344,7 @@ class CreateBudgetPage extends HookConsumerWidget {
 
             // Notification Thresholds
             Text(
-              'Notification Settings',
+              context.l10n.notificationSettings,
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -372,7 +372,7 @@ class CreateBudgetPage extends HookConsumerWidget {
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              'Budget Boop',
+                              context.l10n.budgetBoop,
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
@@ -393,7 +393,7 @@ class CreateBudgetPage extends HookConsumerWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Get a gentle reminder when you reach this threshold',
+                      context.l10n.getGentleReminder,
                       style: TextStyle(
                         fontSize: 12,
                         color: colorScheme.mutedForeground,
@@ -439,7 +439,7 @@ class CreateBudgetPage extends HookConsumerWidget {
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              'Purr-suasive Nudge',
+                              context.l10n.purrSuasiveNudge,
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
@@ -460,7 +460,7 @@ class CreateBudgetPage extends HookConsumerWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Get a stronger nudge when you reach this threshold',
+                      context.l10n.getStrongerNudge,
                       style: TextStyle(
                         fontSize: 12,
                         color: colorScheme.mutedForeground,
@@ -495,7 +495,7 @@ class CreateBudgetPage extends HookConsumerWidget {
                         valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                       ),
                     )
-                  : const Text('Create Budget'),
+                  : Text(context.l10n.createBudgetButton),
             ),
           ],
         ),
@@ -503,25 +503,25 @@ class CreateBudgetPage extends HookConsumerWidget {
     );
   }
 
-  String _formatPeriod(BudgetPeriod period) {
+  String _formatPeriod(BuildContext context, BudgetPeriod period) {
     switch (period) {
       case BudgetPeriod.daily:
-        return 'Daily';
+        return context.l10n.daily;
       case BudgetPeriod.weekly:
-        return 'Weekly';
+        return context.l10n.weekly;
       case BudgetPeriod.monthly:
-        return 'Monthly';
+        return context.l10n.monthly;
       case BudgetPeriod.yearly:
-        return 'Yearly';
+        return context.l10n.yearly;
     }
   }
 
-  String _formatBudgetType(BudgetType type) {
+  String _formatBudgetType(BuildContext context, BudgetType type) {
     switch (type) {
       case BudgetType.household:
-        return 'Household Budget';
+        return context.l10n.householdBudgetType;
       case BudgetType.personal:
-        return 'Personal Budget';
+        return context.l10n.personalBudgetType;
     }
   }
 

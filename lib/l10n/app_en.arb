@@ -982,5 +982,75 @@
   "expenseNotFoundOrDeleted": "Expense not found or has been deleted",
 
   "onlyAdminsAndOwnersCanEditHouseholdSettings": "Only admins and owners can edit household settings",
-  "onlyAdminsAndOwnersCanCreateInvitations": "Only admins and owners can create invitations"
+  "onlyAdminsAndOwnersCanCreateInvitations": "Only admins and owners can create invitations",
+
+  "shareInvitationForHousehold": "Share invitation for {householdName} household",
+  "@shareInvitationForHousehold": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "shareInvitation": "Share Invitation",
+  "householdCreatedSuccessfully": "Household {householdName} created successfully",
+  "@householdCreatedSuccessfully": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "householdCreatedSuccessfullyWithQuotes": "Household \"{householdName}\" created successfully!",
+  "@householdCreatedSuccessfullyWithQuotes": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "invitationLink": "Invitation Link",
+  "invitationLinkWithUrl": "Invitation link: {inviteUrl}",
+  "@invitationLinkWithUrl": {
+    "placeholders": {
+      "inviteUrl": {
+        "type": "String"
+      }
+    }
+  },
+  "copyInvitationLink": "Copy invitation link",
+  "copyInvitationLinkToClipboard": "Copy invitation link to clipboard",
+  "copyLink": "Copy Link",
+  "shareInvitationLink": "Share invitation link",
+  "share": "Share",
+  "closeShareSheet": "Close share sheet",
+  "done": "Done",
+  "invitationLinkCopiedToClipboard": "Invitation link copied to clipboard!",
+  "joinMyHouseholdMessage": "Join my household \"{householdName}\" on Moneko!\n\n{inviteUrl}",
+  "@joinMyHouseholdMessage": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      },
+      "inviteUrl": {
+        "type": "String"
+      }
+    }
+  },
+  "joinMyHouseholdSubject": "Join my household on Moneko",
+
+  "zeroAmount": "0.00",
+  "dollarPrefix": "$ ",
+  "notificationSettings": "Notification Settings",
+  "budgetBoop": "Budget Boop",
+  "getGentleReminder": "Get a gentle reminder when you reach this threshold",
+  "purrSuasiveNudge": "Purr-suasive Nudge",
+  "getStrongerNudge": "Get a stronger nudge when you reach this threshold",
+  "createBudgetButton": "Create Budget",
+  "daily": "Daily",
+  "weekly": "Weekly",
+  "monthly": "Monthly",
+  "yearly": "Yearly",
+  "householdBudgetType": "Household Budget",
+  "personalBudgetType": "Personal Budget"
 }

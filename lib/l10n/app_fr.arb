@@ -923,5 +923,75 @@
   "expenseNotFoundOrDeleted": "Dépense introuvable ou déjà supprimée",
 
   "onlyAdminsAndOwnersCanEditHouseholdSettings": "Seuls les administrateurs et propriétaires peuvent modifier les paramètres du foyer",
-  "onlyAdminsAndOwnersCanCreateInvitations": "Seuls les administrateurs et propriétaires peuvent créer des invitations"
+  "onlyAdminsAndOwnersCanCreateInvitations": "Seuls les administrateurs et propriétaires peuvent créer des invitations",
+
+  "shareInvitationForHousehold": "Partager l'invitation pour le foyer {householdName}",
+  "@shareInvitationForHousehold": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "shareInvitation": "Partager l'invitation",
+  "householdCreatedSuccessfully": "Foyer {householdName} créé avec succès",
+  "@householdCreatedSuccessfully": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "householdCreatedSuccessfullyWithQuotes": "Foyer \"{householdName}\" créé avec succès !",
+  "@householdCreatedSuccessfullyWithQuotes": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "invitationLink": "Lien d'invitation",
+  "invitationLinkWithUrl": "Lien d'invitation : {inviteUrl}",
+  "@invitationLinkWithUrl": {
+    "placeholders": {
+      "inviteUrl": {
+        "type": "String"
+      }
+    }
+  },
+  "copyInvitationLink": "Copier le lien d'invitation",
+  "copyInvitationLinkToClipboard": "Copier le lien d'invitation dans le presse-papiers",
+  "copyLink": "Copier le lien",
+  "shareInvitationLink": "Partager le lien d'invitation",
+  "share": "Partager",
+  "closeShareSheet": "Fermer le panneau de partage",
+  "done": "Terminé",
+  "invitationLinkCopiedToClipboard": "Lien d'invitation copié dans le presse-papiers !",
+  "joinMyHouseholdMessage": "Rejoins mon foyer \"{householdName}\" sur Moneko !\n\n{inviteUrl}",
+  "@joinMyHouseholdMessage": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      },
+      "inviteUrl": {
+        "type": "String"
+      }
+    }
+  },
+  "joinMyHouseholdSubject": "Rejoins mon foyer sur Moneko",
+
+  "zeroAmount": "0,00",
+  "dollarPrefix": "$ ",
+  "notificationSettings": "Paramètres de notification",
+  "budgetBoop": "Miau-rappel",
+  "getGentleReminder": "Reçois un rappel doux lorsque tu atteins ce seuil",
+  "purrSuasiveNudge": "Poussée ronronnante",
+  "getStrongerNudge": "Reçois une incitation plus forte lorsque tu atteins ce seuil",
+  "createBudgetButton": "Créer un budget",
+  "daily": "Quotidien",
+  "weekly": "Hebdomadaire",
+  "monthly": "Mensuel",
+  "yearly": "Annuel",
+  "householdBudgetType": "Budget du foyer",
+  "personalBudgetType": "Budget personnel"
 }
