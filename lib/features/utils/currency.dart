@@ -18,6 +18,7 @@ const Map<String, String> currencyOptions = {
   'GHS': '₵',
   'GTQ': 'Q',
   'HKD': 'HK\$',
+  'HUF': 'Ft',
   'IDR': 'Rp',
   'INR': '₹',
   'JPY': '¥',

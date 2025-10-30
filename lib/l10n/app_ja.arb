@@ -993,5 +993,105 @@
   "monthly": "毎月",
   "yearly": "毎年",
   "householdBudgetType": "グループ予算",
-  "personalBudgetType": "個人予算"
+  "personalBudgetType": "個人予算",
+
+  "@householdJoin": {},
+  "joinHousehold": "グループに参加",
+  "joinAHousehold": "グループに参加する",
+  "enterYourInvitationLinkToJoin": "共有の財務スペースに参加するため\n招待リンクを入力してください",
+  "pasteTheInvitationLinkYouReceived": "グループメンバーから受け取った招待リンクを貼り付けてください",
+  "pasteInvitationLink": "招待リンクを貼り付け",
+  "pleaseEnterAnInvitationLink": "招待リンクを入力してください",
+  "pleaseEnterAValidInvitationLink": "有効な招待リンクを入力してください",
+  "validating": "検証中...",
+  "joinHouseholdName": "「{householdName}」に参加する",
+  "@joinHouseholdName": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "householdPreview": "グループプレビュー：{householdName}、招待者：{inviterEmail}",
+  "@householdPreview": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      },
+      "inviterEmail": {
+        "type": "String"
+      }
+    }
+  },
+  "invitedBy": "{inviterEmail}からの招待",
+  "@invitedBy": {
+    "placeholders": {
+      "inviterEmail": {
+        "type": "String"
+      }
+    }
+  },
+  "invitationExpiresSoon": "この招待は{formattedDate}に期限切れとなります",
+  "@invitationExpiresSoon": {
+    "placeholders": {
+      "formattedDate": {
+        "type": "String"
+      }
+    }
+  },
+  "invitationValidUntil": "招待は{formattedDate}まで有効です",
+  "@invitationValidUntil": {
+    "placeholders": {
+      "formattedDate": {
+        "type": "String"
+      }
+    }
+  },
+  "expiresSoon": "間もなく期限切れ",
+  "invitationValidUntilLabel": "有効期限",
+  "viewSharedBudgetsAndExpenses": "共有の予算と支出を表示",
+  "trackHouseholdFinancialHealth": "グループの財務健全性を追跡",
+  "collaborateOnFinancialDecisions": "財務判断を共同で行う",
+  "whatYoullGet": "得られるもの",
+  "personalMessageFromInviter": "招待者からの個人メッセージ",
+  "messageFromInviter": "招待者からのメッセージ",
+  "joiningHousehold": "グループに参加中...",
+  "thisWillOnlyTakeAMoment": "すぐに完了します",
+  "welcomeAboard": "ようこそ！",
+  "youreNowPartOfTheHousehold": "あなたは今グループのメンバーです。\nさっそく家計の管理を始めましょう！",
+  "goToHousehold": "グループへ",
+  "errorWithMessage": "エラー：{errorMessage}",
+  "@errorWithMessage": {
+    "placeholders": {
+      "errorMessage": {
+        "type": "String"
+      }
+    }
+  },
+  "unableToJoin": "参加できません",
+  "anUnexpectedErrorOccurred": "予期しないエラーが発生しました",
+  "invalidInvitationLinkFormat": "無効な招待リンク形式です",
+  "invalidOrExpiredInvitation": "無効または期限切れの招待です",
+  "today": "今日",
+  "tomorrow": "明日",
+  "inDays": "{days}日後",
+  "@inDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "january": "1月",
+  "february": "2月",
+  "march": "3月",
+  "april": "4月",
+  "may": "5月",
+  "june": "6月",
+  "july": "7月",
+  "august": "8月",
+  "september": "9月",
+  "october": "10月",
+  "november": "11月",
+  "december": "12月"
 }

@@ -54,39 +54,59 @@ class _SpendingCardState extends State<SpendingCard> {
     // selectedCurrency is never null (defaults to USD)
     final displayText = formatCurrency(totalSpent, widget.selectedCurrency ?? 'USD');
 
+    // If no data, synthesize a flat 0-line chart with sensible x-axis labels
+    List<DateTime> effectiveDates = sortedDates;
+    List<FlSpot> effectiveAllCumulativeData = const [];
+    bool isFallback = false;
     if (sortedDates.isEmpty) {
-      return Container(
-        decoration: BoxDecoration(
-          color: widget.colorScheme.card,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: widget.colorScheme.border, width: 1),
-        ),
-        padding: const EdgeInsets.all(16.0),
-        child: Text(
-          context.l10n.noSpendingData,
-          style: TextStyle(color: widget.colorScheme.mutedForeground),
-        ),
-      );
+      isFallback = true;
+      final now = DateTime.now();
+      switch (intervalType) {
+        case 'hourly':
+          effectiveDates = [0, 4, 8, 12, 16, 20]
+              .map((h) => DateTime(now.year, now.month, now.day, h))
+              .toList();
+          break;
+        case 'monthly':
+          effectiveDates = [1, 3, 5, 7, 9, 11]
+              .map((m) => DateTime(now.year, m))
+              .toList();
+          break;
+        case 'yearly':
+          effectiveDates = List.generate(7, (i) => DateTime(now.year - (6 - i)));
+          break;
+        case 'daily':
+        default:
+          effectiveDates = List.generate(7, (i) {
+            final d = now.subtract(Duration(days: 6 - i));
+            return DateTime(d.year, d.month, d.day);
+          });
+          break;
+      }
+      effectiveAllCumulativeData = List.generate(effectiveDates.length, (i) => FlSpot(i.toDouble(), 0));
     }
 
     // Calculate cumulative spending for all data points
     double cumulative = 0;
-    final allCumulativeData = sortedDates.map((date) {
-      cumulative += periodTotals[date] ?? 0;
-      return FlSpot(
-        sortedDates.indexOf(date).toDouble(),
-        cumulative,
-      );
-    }).toList();
+    final allCumulativeData = isFallback
+        ? effectiveAllCumulativeData
+        : sortedDates.map((date) {
+            cumulative += periodTotals[date] ?? 0;
+            return FlSpot(
+              sortedDates.indexOf(date).toDouble(),
+              cumulative,
+            );
+          }).toList();
 
     // Ensure window doesn't exceed data bounds
-    final maxWindowStart = (sortedDates.length - _windowSize).clamp(0, sortedDates.length - 1);
+    final sourceLength = isFallback ? effectiveDates.length : sortedDates.length;
+    final maxWindowStart = (sourceLength - _windowSize).clamp(0, sourceLength - 1);
     _currentWindowStart = _currentWindowStart.clamp(0, maxWindowStart);
 
     // Get visible window of data
-    final windowEnd = (_currentWindowStart + _windowSize).clamp(0, sortedDates.length);
+    final windowEnd = (_currentWindowStart + _windowSize).clamp(0, sourceLength);
     final visibleData = allCumulativeData.sublist(_currentWindowStart, windowEnd);
-    final visibleDates = sortedDates.sublist(_currentWindowStart, windowEnd);
+    final visibleDates = (isFallback ? effectiveDates : sortedDates).sublist(_currentWindowStart, windowEnd);
 
     // Adjust spot x-values for visible window
     final adjustedVisibleData = visibleData.asMap().entries.map((entry) {

@@ -221,16 +221,41 @@ class HouseholdService {
   }
 
   Future<Map<String, dynamic>> validateInvite(String token) async {
-    final response = await _supabase.functions.invoke(
-      'households-validate-invite',
-      body: {'token': token},
-    );
+    try {
+      final response = await _supabase.functions.invoke(
+        'households-validate-invite',
+        body: {'token': token},
+      );
 
-    if (response.status != 200) {
-      throw Exception('Failed to validate invite: ${response.data}');
+      final data = (response.data ?? {}) as Map<String, dynamic>;
+      data['http_status'] = response.status;
+      return data;
+    } catch (e) {
+      // Gracefully convert Functions errors to a structured map for UI handling
+      try {
+        final dyn = e as dynamic;
+        final status = (dyn.status as int?) ?? 500;
+        final details = dyn.details;
+        if (details is Map<String, dynamic>) {
+          return {
+            ...details,
+            'http_status': status,
+            'valid': details['valid'] == true ? true : false,
+          };
+        }
+        return {
+          'valid': false,
+          'error': dyn.reasonPhrase?.toString() ?? e.toString(),
+          'http_status': status,
+        };
+      } catch (_) {
+        return {
+          'valid': false,
+          'error': e.toString(),
+          'http_status': 500,
+        };
+      }
     }
-
-    return response.data as Map<String, dynamic>;
   }
 
   Future<Map<String, dynamic>> acceptInvite(String token) async {

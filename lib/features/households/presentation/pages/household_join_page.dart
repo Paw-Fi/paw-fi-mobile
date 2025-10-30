@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
@@ -7,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/utils/error_handler.dart';
 import '../../core/household_constants.dart';
 import '../providers/household_providers.dart';
+import '../providers/selected_household_provider.dart';
 import '../../../../core/l10n/l10n.dart';
 
 /// Modern page for joining a household via invitation URL
@@ -92,7 +94,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
 
     // If initialToken provided (from deep link), pre-fill and auto-validate
     if (widget.initialToken != null && widget.initialToken!.isNotEmpty) {
-      _urlController.text = 'https://moneko.app/invites/${widget.initialToken}';
+      _urlController.text = 'https://moneko.io/invites/${widget.initialToken}';
       // Auto-validate after a short delay to allow UI to settle
       Future.delayed(const Duration(milliseconds: 500), () {
         if (mounted) {
@@ -162,7 +164,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
             ),
             Expanded(
               child: Text(
-                'Join Household',
+                context.l10n.joinHousehold,
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -257,7 +259,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
             ),
             const SizedBox(height: 24),
             Text(
-              'Join a Household',
+              context.l10n.joinAHousehold,
               style: TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
@@ -267,7 +269,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
             ),
             const SizedBox(height: 12),
             Text(
-              'Enter your invitation link to join\na shared financial space',
+              context.l10n.enterYourInvitationLinkToJoin,
               style: TextStyle(
                 fontSize: 16,
                 color: colorScheme.foreground.withOpacity(0.6),
@@ -306,7 +308,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                'Paste the invitation link you received from a household member',
+                context.l10n.pasteTheInvitationLinkYouReceived,
                 style: TextStyle(
                   fontSize: 13,
                   color: colorScheme.foreground.withOpacity(0.65),
@@ -362,7 +364,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
                 textInputAction: TextInputAction.go,
                 onFieldSubmitted: (_) => isValidating ? null : _validateInvite(),
                 decoration: InputDecoration(
-                  hintText: 'Paste invitation link',
+                  hintText: context.l10n.pasteInvitationLink,
                   hintStyle: TextStyle(
                     color: colorScheme.mutedForeground.withOpacity(0.4),
                     fontWeight: FontWeight.normal,
@@ -387,10 +389,10 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'Please enter an invitation link';
+                    return context.l10n.pleaseEnterAnInvitationLink;
                   }
                   if (_extractTokenFromUrl(value.trim()) == null) {
-                    return 'Please enter a valid invitation link';
+                    return context.l10n.pleaseEnterAValidInvitationLink;
                   }
                   return null;
                 },
@@ -470,7 +472,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
                                       ),
                                       const SizedBox(width: 4),
                                       Text(
-                                        'Paste',
+                                        context.l10n.pasteInvitationLink,
                                         style: TextStyle(
                                           fontSize: 13,
                                           fontWeight: FontWeight.w600,
@@ -517,9 +519,9 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
                       ),
                     ),
                     const SizedBox(width: 12),
-                    const Text(
-                      'Validating...',
-                      style: TextStyle(
+                    Text(
+                      context.l10n.validating,
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                         letterSpacing: -0.3,
@@ -530,9 +532,9 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
               )
             : shadcnui.PrimaryButton(
                 onPressed: _validateInvite,
-                child: const Text(
-                  'Continue',
-                  style: TextStyle(
+                child: Text(
+                  context.l10n.continueAction,
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                     letterSpacing: -0.3,
@@ -544,10 +546,12 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
   }
 
   Widget _buildPreview(shadcnui.ColorScheme colorScheme) {
-    final householdName = _invitePreview?['household_name'] ?? 'Household';
-    final inviterEmail = _invitePreview?['inviter_email'] ?? 'Unknown';
+    final householdName = _invitePreview?['household']?['name'] ?? context.l10n.household;
+    final inviterEmail = _invitePreview?['inviter']?['email'] ??
+        _invitePreview?['inviter']?['full_name'] ?? context.l10n.unknown;
     final expiresAt = _invitePreview?['expires_at'];
     final coverImageUrl = _invitePreview?['household']?['cover_image_url'] as String?;
+    final personalMessage = _invitePreview?['invite']?['personal_message'] as String?;
 
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
@@ -573,6 +577,12 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
             const SizedBox(height: 16),
           ],
 
+          // Personal message from inviter (if any)
+          if (personalMessage != null && personalMessage.trim().isNotEmpty) ...[
+            _buildPersonalMessageCard(colorScheme, personalMessage.trim()),
+            const SizedBox(height: 16),
+          ],
+
           // Benefits card
           _buildBenefitsCard(colorScheme),
 
@@ -580,7 +590,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
 
           // Join button
           Semantics(
-            label: 'Join $householdName household',
+            label: context.l10n.joinHouseholdName(householdName),
             button: true,
             child: SizedBox(
               height: 56,
@@ -593,7 +603,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
                     const SizedBox(width: 8),
                     Flexible(
                       child: Text(
-                        'Join "$householdName"',
+                        context.l10n.joinHouseholdName(householdName),
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -627,9 +637,9 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
                   _animationController.reset();
                   _animationController.forward();
                 },
-                child: const Text(
-                  'Cancel',
-                  style: TextStyle(
+                child: Text(
+                  context.l10n.cancel,
+                  style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
                   ),
@@ -649,7 +659,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
     String? coverImageUrl,
   ) {
     return Semantics(
-      label: 'Household preview: $householdName, invited by $inviterEmail',
+      label: context.l10n.householdPreview(householdName, inviterEmail),
       readOnly: true,
       child: Container(
         padding: const EdgeInsets.all(32),
@@ -763,7 +773,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
                   const SizedBox(width: 6),
                   Flexible(
                     child: Text(
-                      'Invited by $inviterEmail',
+                      context.l10n.invitedBy(inviterEmail),
                       style: TextStyle(
                         fontSize: 14,
                         color: colorScheme.foreground.withOpacity(0.7),
@@ -790,8 +800,8 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
 
     return Semantics(
       label: isExpiringSoon
-          ? 'Invitation expires soon on ${_formatDate(expiresAt)}'
-          : 'Invitation valid until ${_formatDate(expiresAt)}',
+          ? context.l10n.invitationExpiresSoon(_formatDate(expiresAt))
+          : context.l10n.invitationValidUntil(_formatDate(expiresAt)),
       readOnly: true,
       child: Container(
         padding: const EdgeInsets.all(16),
@@ -820,7 +830,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    isExpiringSoon ? 'Expires soon' : 'Invitation valid until',
+                    isExpiringSoon ? context.l10n.expiresSoon : context.l10n.invitationValidUntilLabel,
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -846,9 +856,9 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
 
   Widget _buildBenefitsCard(shadcnui.ColorScheme colorScheme) {
     final benefits = [
-      {'icon': Icons.account_balance_wallet_rounded, 'text': 'View shared budgets and expenses'},
-      {'icon': Icons.insights_rounded, 'text': 'Track household financial health'},
-      {'icon': Icons.people_rounded, 'text': 'Collaborate on financial decisions'},
+      {'icon': Icons.account_balance_wallet_rounded, 'text': context.l10n.viewSharedBudgetsAndExpenses},
+      {'icon': Icons.insights_rounded, 'text': context.l10n.trackHouseholdFinancialHealth},
+      {'icon': Icons.people_rounded, 'text': context.l10n.collaborateOnFinancialDecisions},
     ];
 
     return Semantics(
@@ -884,7 +894,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
                 ),
                 const SizedBox(width: 12),
                 Text(
-                  'What you\'ll get',
+                  context.l10n.whatYoullGet,
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
@@ -925,6 +935,52 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
     );
   }
 
+  Widget _buildPersonalMessageCard(shadcnui.ColorScheme colorScheme, String message) {
+    return Semantics(
+      label: context.l10n.personalMessageFromInviter,
+      readOnly: true,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: colorScheme.card,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: colorScheme.border, width: 1),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.chat_bubble_outline_rounded, color: colorScheme.mutedForeground, size: 18),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    context.l10n.messageFromInviter,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.foreground,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '"$message"',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: colorScheme.foreground.withOpacity(0.8),
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildJoining(shadcnui.ColorScheme colorScheme) {
     return Semantics(
       label: HouseholdConstants.joiningHouseholdLabel,
@@ -943,7 +999,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
             ),
             const SizedBox(height: 32),
             Text(
-              'Joining household...',
+              context.l10n.joiningHousehold,
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -952,7 +1008,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
             ),
             const SizedBox(height: 8),
             Text(
-              'This will only take a moment',
+              context.l10n.thisWillOnlyTakeAMoment,
               style: TextStyle(
                 fontSize: 14,
                 color: colorScheme.foreground.withOpacity(0.6),
@@ -991,7 +1047,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
             ),
             const SizedBox(height: 32),
             Text(
-              'Welcome Aboard!',
+              context.l10n.welcomeAboard,
               style: TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
@@ -1001,7 +1057,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
             ),
             const SizedBox(height: 12),
             Text(
-              'You\'re now part of the household.\nStart collaborating on your finances!',
+              context.l10n.youreNowPartOfTheHousehold,
               style: TextStyle(
                 fontSize: 16,
                 color: colorScheme.foreground.withOpacity(0.6),
@@ -1020,9 +1076,9 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
                   onPressed: () {
                     Navigator.of(context).popUntil((route) => route.isFirst);
                   },
-                  child: const Text(
-                    'Go to Household',
-                    style: TextStyle(
+                  child: Text(
+                    context.l10n.goToHousehold,
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                       letterSpacing: -0.3,
@@ -1039,7 +1095,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
 
   Widget _buildError(shadcnui.ColorScheme colorScheme) {
     return Semantics(
-      label: 'Error: ${_errorMessage ?? "An unexpected error occurred"}',
+      label: context.l10n.errorWithMessage(_errorMessage ?? context.l10n.anUnexpectedErrorOccurred),
       liveRegion: true,
       child: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
@@ -1076,7 +1132,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    'Unable to Join',
+                    context.l10n.unableToJoin,
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -1086,7 +1142,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    _errorMessage ?? 'An unexpected error occurred',
+                    _errorMessage ?? context.l10n.anUnexpectedErrorOccurred,
                     style: TextStyle(
                       fontSize: 15,
                       color: colorScheme.foreground.withOpacity(0.7),
@@ -1117,9 +1173,9 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
                     _animationController.reset();
                     _animationController.forward();
                   },
-                  child: const Text(
-                    'Try Again',
-                    style: TextStyle(
+                  child: Text(
+                    context.l10n.tryAgain,
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                       letterSpacing: -0.3,
@@ -1139,9 +1195,9 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
                 height: 48,
                 child: shadcnui.OutlineButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text(
-                    'Cancel',
-                    style: TextStyle(
+                  child: Text(
+                    context.l10n.cancel,
+                    style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
                     ),
@@ -1186,7 +1242,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
     final token = _extractTokenFromUrl(url);
 
     if (token == null) {
-      _showError(ErrorHandler.getUserFriendlyMessage('Invalid invitation link format'));
+      _showError(ErrorHandler.getUserFriendlyMessage(context.l10n.invalidInvitationLinkFormat));
       return;
     }
 
@@ -1218,7 +1274,28 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
           _animationController.forward();
           return;
         } else {
-          final errorMsg = result['error'] ?? 'Invalid or expired invitation';
+          final errorCode = (result['error_code'] ?? '').toString();
+          final errorMsg = result['error'] ?? context.l10n.invalidOrExpiredInvitation;
+
+          // If already a member, treat as success to avoid dead-end UX
+          if (errorCode.toUpperCase() == 'ALREADY_MEMBER') {
+            final userId = Supabase.instance.client.auth.currentUser?.id;
+            final householdId = result['household']?['id'] as String?;
+            if (userId != null && householdId != null) {
+              // refresh list and set selection
+              await ref.read(userHouseholdsProvider(userId).notifier).load();
+              await ref.read(selectedHouseholdProvider.notifier).selectHousehold(householdId, userId);
+            }
+            if (!mounted) return;
+            setState(() {
+              _invitePreview = result;
+              _state = JoinPageState.success;
+            });
+            _animationController.reset();
+            _animationController.forward();
+            return;
+          }
+
           _showError(ErrorHandler.getUserFriendlyMessage(errorMsg));
           return;
         }
@@ -1259,14 +1336,18 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
     while (attempts < HouseholdConstants.maxRetryAttempts) {
       try {
         final service = ref.read(householdServiceProvider);
-        await service.acceptInvite(token);
+        final result = await service.acceptInvite(token);
 
         if (!mounted) return;
 
         // Refresh households list
         final userId = Supabase.instance.client.auth.currentUser?.id;
+        final acceptedHouseholdId = (result['household_id'] as String?) ?? _invitePreview?['household']?['id'] as String?;
         if (userId != null) {
           await ref.read(userHouseholdsProvider(userId).notifier).load();
+          if (acceptedHouseholdId != null) {
+            await ref.read(selectedHouseholdProvider.notifier).selectHousehold(acceptedHouseholdId, userId);
+          }
         }
 
         if (!mounted) return;
@@ -1279,6 +1360,24 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
         return;
       } catch (e) {
         attempts++;
+        final errStr = e.toString().toLowerCase();
+
+        // Treat already-member conflicts as success
+        if (errStr.contains('already') || errStr.contains('409')) {
+          final userId = Supabase.instance.client.auth.currentUser?.id;
+          final householdId = _invitePreview?['household']?['id'] as String?;
+          if (userId != null && householdId != null) {
+            await ref.read(userHouseholdsProvider(userId).notifier).load();
+            await ref.read(selectedHouseholdProvider.notifier).selectHousehold(householdId, userId);
+          }
+          if (!mounted) return;
+          setState(() {
+            _state = JoinPageState.success;
+          });
+          _animationController.reset();
+          _animationController.forward();
+          return;
+        }
 
         if (!ErrorHandler.isRetryable(e) || attempts >= HouseholdConstants.maxRetryAttempts) {
           if (mounted) {
@@ -1313,8 +1412,8 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
     // - /invites/TOKEN
     // - TOKEN (raw token)
 
-    // Use improved token pattern from HouseholdConstants
-    final invitePattern = RegExp(r'invites/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|[A-Za-z0-9_-]{32,})');
+    // Capture full path segment after /invites/ until a delimiter (end, slash, ?, or #)
+    final invitePattern = RegExp(r'invites/([^/?#]+)');
     final match = invitePattern.firstMatch(url);
     if (match != null) {
       final token = match.group(1);
@@ -1338,26 +1437,26 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
       final difference = date.difference(now);
 
       if (difference.inDays == 0) {
-        return 'Today';
+        return context.l10n.today;
       } else if (difference.inDays == 1) {
-        return 'Tomorrow';
+        return context.l10n.tomorrow;
       } else if (difference.inDays < 7) {
-        return 'in ${difference.inDays} days';
+        return context.l10n.inDays(difference.inDays);
       }
 
       final months = [
-        'Jan',
-        'Feb',
-        'Mar',
-        'Apr',
-        'May',
-        'Jun',
-        'Jul',
-        'Aug',
-        'Sep',
-        'Oct',
-        'Nov',
-        'Dec'
+        context.l10n.january,
+        context.l10n.february,
+        context.l10n.march,
+        context.l10n.april,
+        context.l10n.may,
+        context.l10n.june,
+        context.l10n.july,
+        context.l10n.august,
+        context.l10n.september,
+        context.l10n.october,
+        context.l10n.november,
+        context.l10n.december
       ];
       return '${months[date.month - 1]} ${date.day}, ${date.year}';
     } catch (e) {

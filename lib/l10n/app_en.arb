@@ -1052,5 +1052,105 @@
   "monthly": "Monthly",
   "yearly": "Yearly",
   "householdBudgetType": "Household Budget",
-  "personalBudgetType": "Personal Budget"
+  "personalBudgetType": "Personal Budget",
+
+  "@householdJoin": {},
+  "joinHousehold": "Join Household",
+  "joinAHousehold": "Join a Household",
+  "enterYourInvitationLinkToJoin": "Enter your invitation link to join\na shared financial space",
+  "pasteTheInvitationLinkYouReceived": "Paste the invitation link you received from a household member",
+  "pasteInvitationLink": "Paste invitation link",
+  "pleaseEnterAnInvitationLink": "Please enter an invitation link",
+  "pleaseEnterAValidInvitationLink": "Please enter a valid invitation link",
+  "validating": "Validating...",
+  "joinHouseholdName": "Join \"{householdName}\"",
+  "@joinHouseholdName": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "householdPreview": "Household preview: {householdName}, invited by {inviterEmail}",
+  "@householdPreview": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      },
+      "inviterEmail": {
+        "type": "String"
+      }
+    }
+  },
+  "invitedBy": "Invited by {inviterEmail}",
+  "@invitedBy": {
+    "placeholders": {
+      "inviterEmail": {
+        "type": "String"
+      }
+    }
+  },
+  "invitationExpiresSoon": "Invitation expires soon on {formattedDate}",
+  "@invitationExpiresSoon": {
+    "placeholders": {
+      "formattedDate": {
+        "type": "String"
+      }
+    }
+  },
+  "invitationValidUntil": "Invitation valid until {formattedDate}",
+  "@invitationValidUntil": {
+    "placeholders": {
+      "formattedDate": {
+        "type": "String"
+      }
+    }
+  },
+  "expiresSoon": "Expires soon",
+  "invitationValidUntilLabel": "Invitation valid until",
+  "viewSharedBudgetsAndExpenses": "View shared budgets and expenses",
+  "trackHouseholdFinancialHealth": "Track household financial health",
+  "collaborateOnFinancialDecisions": "Collaborate on financial decisions",
+  "whatYoullGet": "What you'll get",
+  "personalMessageFromInviter": "Personal message from inviter",
+  "messageFromInviter": "Message from inviter",
+  "joiningHousehold": "Joining household...",
+  "thisWillOnlyTakeAMoment": "This will only take a moment",
+  "welcomeAboard": "Welcome Aboard!",
+  "youreNowPartOfTheHousehold": "You're now part of the household.\nStart collaborating on your finances!",
+  "goToHousehold": "Go to Household",
+  "errorWithMessage": "Error: {errorMessage}",
+  "@errorWithMessage": {
+    "placeholders": {
+      "errorMessage": {
+        "type": "String"
+      }
+    }
+  },
+  "unableToJoin": "Unable to Join",
+  "anUnexpectedErrorOccurred": "An unexpected error occurred",
+  "invalidInvitationLinkFormat": "Invalid invitation link format",
+  "invalidOrExpiredInvitation": "Invalid or expired invitation",
+  "today": "Today",
+  "tomorrow": "Tomorrow",
+  "inDays": "in {days} days",
+  "@inDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "january": "Jan",
+  "february": "Feb",
+  "march": "Mar",
+  "april": "Apr",
+  "may": "May",
+  "june": "Jun",
+  "july": "Jul",
+  "august": "Aug",
+  "september": "Sep",
+  "october": "Oct",
+  "november": "Nov",
+  "december": "Dec"
 }

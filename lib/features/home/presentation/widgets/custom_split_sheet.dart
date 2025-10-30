@@ -639,9 +639,19 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
           if (showCheckbox)
             Padding(
               padding: const EdgeInsets.only(right: 8),
-              child: Checkbox.adaptive(
-                value: isIncluded,
-                onChanged: (val) => _setMemberIncludedAt(index, val ?? false),
+              child: shadcnui.Theme(
+                data: shadcnui.Theme.of(context).copyWith(
+                  radius: 0.5,
+                ),
+                child: shadcnui.Checkbox(
+                  state: isIncluded
+                      ? shadcnui.CheckboxState.checked
+                      : shadcnui.CheckboxState.unchecked,
+                  onChanged: (state) => _setMemberIncludedAt(
+                    index,
+                    state == shadcnui.CheckboxState.checked
+                  ),
+                ),
               ),
             ),
           // Avatar

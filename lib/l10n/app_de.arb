@@ -993,5 +993,105 @@
   "monthly": "Monatlich",
   "yearly": "Jährlich",
   "householdBudgetType": "Haushaltsbudget",
-  "personalBudgetType": "Persönliches Budget"
+  "personalBudgetType": "Persönliches Budget",
+
+  "@householdJoin": {},
+  "joinHousehold": "Haushalt beitreten",
+  "joinAHousehold": "Einem Haushalt beitreten",
+  "enterYourInvitationLinkToJoin": "Gib deinen Einladungslink ein, um einem\ngeteilten Finanzraum beizutreten",
+  "pasteTheInvitationLinkYouReceived": "Füge den Einladungslink ein, den du von einem Haushaltsmitglied erhalten hast",
+  "pasteInvitationLink": "Einladungslink einfügen",
+  "pleaseEnterAnInvitationLink": "Bitte gib einen Einladungslink ein",
+  "pleaseEnterAValidInvitationLink": "Bitte gib einen gültigen Einladungslink ein",
+  "validating": "Wird überprüft...",
+  "joinHouseholdName": "\"{householdName}\" beitreten",
+  "@joinHouseholdName": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "householdPreview": "Haushaltsvorschau: {householdName}, eingeladen von {inviterEmail}",
+  "@householdPreview": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      },
+      "inviterEmail": {
+        "type": "String"
+      }
+    }
+  },
+  "invitedBy": "Eingeladen von {inviterEmail}",
+  "@invitedBy": {
+    "placeholders": {
+      "inviterEmail": {
+        "type": "String"
+      }
+    }
+  },
+  "invitationExpiresSoon": "Einladung läuft bald ab am {formattedDate}",
+  "@invitationExpiresSoon": {
+    "placeholders": {
+      "formattedDate": {
+        "type": "String"
+      }
+    }
+  },
+  "invitationValidUntil": "Einladung gültig bis {formattedDate}",
+  "@invitationValidUntil": {
+    "placeholders": {
+      "formattedDate": {
+        "type": "String"
+      }
+    }
+  },
+  "expiresSoon": "Läuft bald ab",
+  "invitationValidUntilLabel": "Einladung gültig bis",
+  "viewSharedBudgetsAndExpenses": "Geteilte Budgets und Ausgaben anzeigen",
+  "trackHouseholdFinancialHealth": "Finanzlage des Haushalts überwachen",
+  "collaborateOnFinancialDecisions": "Finanzentscheidungen gemeinsam treffen",
+  "whatYoullGet": "Was du bekommst",
+  "personalMessageFromInviter": "Persönliche Nachricht von {inviterEmail}",
+  "messageFromInviter": "Nachricht von {inviterEmail}",
+  "joiningHousehold": "Haushalt beitreten...",
+  "thisWillOnlyTakeAMoment": "Dies dauert nur einen Moment",
+  "welcomeAboard": "Willkommen an Bord!",
+  "youreNowPartOfTheHousehold": "Du bist jetzt Teil des Haushalts.\nVerwaltet jetzt gemeinsam eure Finanzen!",
+  "goToHousehold": "Zum Haushalt",
+  "errorWithMessage": "Fehler: {errorMessage}",
+  "@errorWithMessage": {
+    "placeholders": {
+      "errorMessage": {
+        "type": "String"
+      }
+    }
+  },
+  "unableToJoin": "Beitreten nicht möglich",
+  "anUnexpectedErrorOccurred": "Ein unerwarteter Fehler ist aufgetreten",
+  "invalidInvitationLinkFormat": "Ungültiges Einladungslink-Format",
+  "invalidOrExpiredInvitation": "Ungültige oder abgelaufene Einladung",
+  "today": "Heute",
+  "tomorrow": "Morgen",
+  "inDays": "in {days} Tagen",
+  "@inDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "january": "Jan",
+  "february": "Feb",
+  "march": "Mär",
+  "april": "Apr",
+  "may": "Mai",
+  "june": "Jun",
+  "july": "Jul",
+  "august": "Aug",
+  "september": "Sep",
+  "october": "Okt",
+  "november": "Nov",
+  "december": "Dez"
 }

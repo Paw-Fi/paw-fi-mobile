@@ -151,83 +151,83 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
 
                   const SizedBox(height: 24),
 
-                  // Thresholds Section
-                  Text(
-                    context.l10n.alertThresholds,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: colorScheme.foreground,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
+                  // // Thresholds Section
+                  // Text(
+                  //   context.l10n.alertThresholds,
+                  //   style: TextStyle(
+                  //     fontSize: 18,
+                  //     fontWeight: FontWeight.w600,
+                  //     color: colorScheme.foreground,
+                  //   ),
+                  // ),
+                  // const SizedBox(height: 12),
 
-                  // Warn Threshold
-                  _buildField(
-                    label: context.l10n.warningThreshold,
-                    controller: _warnThresholdController,
-                    enabled: _isEditing,
-                    keyboardType: TextInputType.number,
-                    colorScheme: colorScheme,
-                    suffix: '%',
-                    helperText: context.l10n.warningThresholdHelper,
-                  ),
+                  // // Warn Threshold
+                  // _buildField(
+                  //   label: context.l10n.warningThreshold,
+                  //   controller: _warnThresholdController,
+                  //   enabled: _isEditing,
+                  //   keyboardType: TextInputType.number,
+                  //   colorScheme: colorScheme,
+                  //   suffix: '%',
+                  //   helperText: context.l10n.warningThresholdHelper,
+                  // ),
 
-                  const SizedBox(height: 16),
+                  // const SizedBox(height: 16),
 
-                  // Alert Threshold
-                  _buildField(
-                    label: context.l10n.alertThreshold,
-                    controller: _alertThresholdController,
-                    enabled: _isEditing,
-                    keyboardType: TextInputType.number,
-                    colorScheme: colorScheme,
-                    suffix: '%',
-                    helperText: context.l10n.alertThresholdHelper,
-                  ),
+                  // // Alert Threshold
+                  // _buildField(
+                  //   label: context.l10n.alertThreshold,
+                  //   controller: _alertThresholdController,
+                  //   enabled: _isEditing,
+                  //   keyboardType: TextInputType.number,
+                  //   colorScheme: colorScheme,
+                  //   suffix: '%',
+                  //   helperText: context.l10n.alertThresholdHelper,
+                  // ),
 
-                  const SizedBox(height: 24),
+                  // const SizedBox(height: 24),
 
-                  // Status Toggle
-                  if (_isEditing)
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    context.l10n.budgetStatus,
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                      color: colorScheme.foreground,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    _isActive ? context.l10n.active : context.l10n.inactive,
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: colorScheme.mutedForeground,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Switch(
-                              value: _isActive,
-                              onChanged: (value) => setState(() => _isActive = value),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                  // // Status Toggle
+                  // if (_isEditing)
+                  //   Card(
+                  //     child: Padding(
+                  //       padding: const EdgeInsets.all(16),
+                  //       child: Row(
+                  //         children: [
+                  //           Expanded(
+                  //             child: Column(
+                  //               crossAxisAlignment: CrossAxisAlignment.start,
+                  //               children: [
+                  //                 Text(
+                  //                   context.l10n.budgetStatus,
+                  //                   style: TextStyle(
+                  //                     fontSize: 16,
+                  //                     fontWeight: FontWeight.w600,
+                  //                     color: colorScheme.foreground,
+                  //                   ),
+                  //                 ),
+                  //                 const SizedBox(height: 4),
+                  //                 Text(
+                  //                   _isActive ? context.l10n.active : context.l10n.inactive,
+                  //                   style: TextStyle(
+                  //                     fontSize: 14,
+                  //                     color: colorScheme.mutedForeground,
+                  //                   ),
+                  //                 ),
+                  //               ],
+                  //             ),
+                  //           ),
+                  //           Switch(
+                  //             value: _isActive,
+                  //             onChanged: (value) => setState(() => _isActive = value),
+                  //           ),
+                  //         ],
+                  //       ),
+                  //     ),
+                  //   ),
 
-                  const SizedBox(height: 24),
+                  // const SizedBox(height: 24),
 
                   // Save/Cancel Buttons
                   if (_isEditing)

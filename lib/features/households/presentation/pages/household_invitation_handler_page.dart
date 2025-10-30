@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import '../../domain/repositories/household_repository.dart';
@@ -32,21 +33,21 @@ class _HouseholdInvitationHandlerPageState extends ConsumerState<HouseholdInvita
       // This avoids trying to re-accept an already accepted invite
       final validateResponse = await repo.validateInvite(widget.token);
 
+      final householdId = validateResponse['household']?['id'] as String?;
+      final errorCode = (validateResponse['error_code'] ?? '').toString().toUpperCase();
+
+      // Treat ALREADY_MEMBER as success even if valid=false
+      if (errorCode == 'ALREADY_MEMBER' && householdId != null) {
+        setState(() {
+          _accepted = true;
+          _householdId = householdId;
+        });
+        return;
+      }
+
       if (validateResponse != null && validateResponse['valid'] == true) {
-        final householdId = validateResponse['household']?['id'] as String?;
 
         if (householdId != null) {
-          // Check error code for already-member case
-          final errorCode = validateResponse['error_code'] as String?;
-
-          if (errorCode == 'ALREADY_MEMBER') {
-            // User is already a member, just navigate to the household
-            setState(() {
-              _accepted = true;
-              _householdId = householdId;
-            });
-            return;
-          }
 
           // Invite is valid and not already accepted, proceed to accept
           try {

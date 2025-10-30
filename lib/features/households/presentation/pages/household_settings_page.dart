@@ -1544,22 +1544,54 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
 
     if (confirmed == true) {
       try {
+        // Show blocking loader while revoking
+        _showBlockingLoader(context, message: context.l10n.loading);
         final repository = ref.read(householdRepositoryProvider);
         await repository.revokeInvite(inviteId: invite.id);
         await _loadInvites();
 
         if (mounted) {
+          _hideBlockingLoader(context);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(context.l10n.invitationRevoked)),
           );
         }
       } catch (e) {
         if (mounted) {
+          _hideBlockingLoader(context);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('${context.l10n.errorRevokingInvite}: $e')),
           );
         }
       }
+    }
+  }
+
+  void _showBlockingLoader(BuildContext context, {String? message}) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => WillPopScope(
+        onWillPop: () async => false,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              if (message != null) ...[
+                const SizedBox(height: 12),
+                Text(message),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _hideBlockingLoader(BuildContext context) {
+    if (Navigator.of(context, rootNavigator: true).canPop()) {
+      Navigator.of(context, rootNavigator: true).pop();
     }
   }
 }

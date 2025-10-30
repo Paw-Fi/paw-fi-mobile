@@ -15,6 +15,7 @@ import '../pages/budget_detail_page.dart';
 import '../pages/household_expenses_page.dart';
 import '../pages/household_settings_page.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/features/households/domain/entities/household_summary.dart';
 
 /// Household home content that handles loading, empty, and data states
 /// Returns Sliver widgets for use in CustomScrollView
@@ -426,15 +427,40 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                           padding: const EdgeInsets.all(16),
                           child: const Center(child: CircularProgressIndicator()),
                         ),
-                        error: (e, st) => Container(
-                          decoration: BoxDecoration(
-                            color: colorScheme.card,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: colorScheme.border, width: 1),
-                          ),
-                          padding: const EdgeInsets.all(16),
-                          child: Text('Error', style: TextStyle(color: colorScheme.destructive)),
-                        ),
+                        error: (e, st) {
+                          // Fallback to zero-valued net position card instead of showing an error
+                          final zeroSummary = HouseholdSummary(
+                            householdId: household.id,
+                            currency: selectedCurrency,
+                            period: DatePeriod(
+                              startDate: from.toIso8601String(),
+                              endDate: to.toIso8601String(),
+                            ),
+                            totals: Totals(
+                              totalExpensesCents: 0,
+                              totalIncomeCents: 0,
+                              netCents: 0,
+                              transactionCount: 0,
+                              splitCount: 0,
+                            ),
+                            memberContributions: const [],
+                            categoryBreakdown: const [],
+                            budgets: const [],
+                            balances: const {},
+                          );
+                          return buildHouseholdNetPositionCard(
+                            context,
+                            colorScheme,
+                            zeroSummary,
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => HouseholdExpensesPage(household: household),
+                                ),
+                              );
+                            },
+                          );
+                        },
                         data: (summary) => buildHouseholdNetPositionCard(
                           context,
                           colorScheme,

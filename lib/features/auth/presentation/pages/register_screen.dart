@@ -3,6 +3,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'dart:async';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -543,8 +544,7 @@ class _OTPVerificationView extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme =   shadcnui.Theme.of(context);
-    final otpControllers = List.generate(6, (_) => useTextEditingController());
-    final focusNodes = List.generate(6, (_) => useFocusNode());
+    final otpValue = useState<String>('');
     final error = useState<String?>(null);
     final isVerifying = useState(false);
     final resendCooldown = useState(0);
@@ -561,10 +561,8 @@ class _OTPVerificationView extends HookConsumerWidget {
       return () => timer?.cancel();
     }, [resendCooldown.value]);
 
-    String getOtpValue() => otpControllers.map((c) => c.text).join();
-
     Future<void> handleVerifyOtp() async {
-      final otp = getOtpValue();
+      final otp = otpValue.value;
       if (otp.length != 6) {
         error.value = context.l10n.enterCompleteCode;
         return;
@@ -578,6 +576,10 @@ class _OTPVerificationView extends HookConsumerWidget {
               email: email,
               token: otp,
             );
+        // After the account is verified (user authenticated), register device for push notifications
+        try {
+          await ref.read(deviceRegistrationServiceProvider).initialize();
+        } catch (_) {}
 
         if (context.mounted) {
           // After successful registration, redirect to avatar customizer
@@ -606,10 +608,8 @@ class _OTPVerificationView extends HookConsumerWidget {
       try {
         await ref.read(authProvider.notifier).resendVerification(email);
 
-        // Clear OTP fields
-        for (var controller in otpControllers) {
-          controller.clear();
-        }
+        // Clear OTP field
+        otpValue.value = '';
 
         // Start cooldown
         resendCooldown.value = 60;
@@ -684,33 +684,27 @@ class _OTPVerificationView extends HookConsumerWidget {
                   const SizedBox(height: 32),
 
                   // OTP Input Fields
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: List.generate(6, (index) {
-                      return SizedBox(
-                        width: 50,
-                        child: shadcnui.TextField(
-                          controller: otpControllers[index],
-                          focusNode: focusNodes[index],
-                          keyboardType: TextInputType.number,
-                          textAlign: TextAlign.center,
-                          maxLength: 1,
-                          style: theme.typography.h3,
-                          onChanged: (value) {
-                            if (value.isNotEmpty && index < 5) {
-                              focusNodes[index + 1].requestFocus();
-                            }
-                            if (value.isEmpty && index > 0) {
-                              focusNodes[index - 1].requestFocus();
-                            }
-                            if (index == 5 && value.isNotEmpty) {
-                              handleVerifyOtp();
-                            }
-                          },
-                          enabled: !isVerifying.value,
-                        ),
-                      );
-                    }),
+                  Center(
+                    child: shadcnui.InputOTP(
+                      onChanged: (value) {
+                        otpValue.value = value.otpToString();
+                      },
+                      onSubmitted: (value) {
+                        otpValue.value = value.otpToString();
+                        if (value.otpToString().length == 6) {
+                          handleVerifyOtp();
+                        }
+                      },
+                      children: [
+                        shadcnui.InputOTPChild.character(allowDigit: true, readOnly: isVerifying.value),
+                        shadcnui.InputOTPChild.character(allowDigit: true, readOnly: isVerifying.value),
+                        shadcnui.InputOTPChild.character(allowDigit: true, readOnly: isVerifying.value),
+                        shadcnui.InputOTPChild.separator,
+                        shadcnui.InputOTPChild.character(allowDigit: true, readOnly: isVerifying.value),
+                        shadcnui.InputOTPChild.character(allowDigit: true, readOnly: isVerifying.value),
+                        shadcnui.InputOTPChild.character(allowDigit: true, readOnly: isVerifying.value),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 24),
 
@@ -724,7 +718,7 @@ class _OTPVerificationView extends HookConsumerWidget {
 
                   // Verify Button
                   shadcnui.PrimaryButton(
-                    onPressed: (isVerifying.value || getOtpValue().length != 6)
+                    onPressed: (isVerifying.value || otpValue.value.length != 6)
                         ? null
                         : handleVerifyOtp,
                     child: isVerifying.value

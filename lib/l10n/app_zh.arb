@@ -993,5 +993,105 @@
   "monthly": "每月",
   "yearly": "每年",
   "householdBudgetType": "家庭预算",
-  "personalBudgetType": "个人预算"
+  "personalBudgetType": "个人预算",
+
+  "@householdJoin": {},
+  "joinHousehold": "加入家庭",
+  "joinAHousehold": "加入一个家庭",
+  "enterYourInvitationLinkToJoin": "输入您的邀请链接以加入\n共享的财务空间",
+  "pasteTheInvitationLinkYouReceived": "粘贴您从家庭成员收到的邀请链接",
+  "pasteInvitationLink": "粘贴邀请链接",
+  "pleaseEnterAnInvitationLink": "请输入邀请链接",
+  "pleaseEnterAValidInvitationLink": "请输入有效的邀请链接",
+  "validating": "验证中...",
+  "joinHouseholdName": "加入 \"{householdName}\"",
+  "@joinHouseholdName": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "householdPreview": "家庭预览：{householdName}，邀请者：{inviterEmail}",
+  "@householdPreview": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      },
+      "inviterEmail": {
+        "type": "String"
+      }
+    }
+  },
+  "invitedBy": "邀请者：{inviterEmail}",
+  "@invitedBy": {
+    "placeholders": {
+      "inviterEmail": {
+        "type": "String"
+      }
+    }
+  },
+  "invitationExpiresSoon": "邀请即将于 {formattedDate} 过期",
+  "@invitationExpiresSoon": {
+    "placeholders": {
+      "formattedDate": {
+        "type": "String"
+      }
+    }
+  },
+  "invitationValidUntil": "邀请有效期至 {formattedDate}",
+  "@invitationValidUntil": {
+    "placeholders": {
+      "formattedDate": {
+        "type": "String"
+      }
+    }
+  },
+  "expiresSoon": "即将过期",
+  "invitationValidUntilLabel": "邀请有效期至",
+  "viewSharedBudgetsAndExpenses": "查看共享预算和支出",
+  "trackHouseholdFinancialHealth": "跟踪家庭财务健康状况",
+  "collaborateOnFinancialDecisions": "共同制定财务决策",
+  "whatYoullGet": "您将获得",
+  "personalMessageFromInviter": "邀请者的个人消息",
+  "messageFromInviter": "来自邀请者的消息",
+  "joiningHousehold": "正在加入家庭...",
+  "thisWillOnlyTakeAMoment": "只需片刻",
+  "welcomeAboard": "欢迎加入！",
+  "youreNowPartOfTheHousehold": "您现在是家庭的一员了。\n开始共同管理您的财务吧！",
+  "goToHousehold": "前往家庭",
+  "errorWithMessage": "错误：{errorMessage}",
+  "@errorWithMessage": {
+    "placeholders": {
+      "errorMessage": {
+        "type": "String"
+      }
+    }
+  },
+  "unableToJoin": "无法加入",
+  "anUnexpectedErrorOccurred": "发生了意外错误",
+  "invalidInvitationLinkFormat": "无效的邀请链接格式",
+  "invalidOrExpiredInvitation": "无效或已过期的邀请",
+  "today": "今天",
+  "tomorrow": "明天",
+  "inDays": "{days} 天后",
+  "@inDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "january": "1月",
+  "february": "2月",
+  "march": "3月",
+  "april": "4月",
+  "may": "5月",
+  "june": "6月",
+  "july": "7月",
+  "august": "8月",
+  "september": "9月",
+  "october": "10月",
+  "november": "11月",
+  "december": "12月"
 }

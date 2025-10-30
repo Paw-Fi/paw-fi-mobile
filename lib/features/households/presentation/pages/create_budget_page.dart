@@ -241,62 +241,62 @@ class CreateBudgetPage extends HookConsumerWidget {
             ),
             const SizedBox(height: 24),
 
-            // Budget Type
-            Text(
-              context.l10n.budgetType,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: colorScheme.foreground,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                color: colorScheme.card,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: colorScheme.border),
-              ),
-              child: DropdownButton<BudgetType>(
-                value: selectedType.value,
-                isExpanded: true,
-                underline: const SizedBox.shrink(),
-                items: BudgetType.values.map((type) {
-                  return DropdownMenuItem(
-                    value: type,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          _formatBudgetType(context, type),
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: colorScheme.foreground,
-                          ),
-                        ),
-                        Text(
-                          type == BudgetType.household
-                              ? context.l10n.sharedWithAllHouseholdMembers
-                              : context.l10n.personalBudgetForYourExpensesOnly,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: colorScheme.mutedForeground,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    selectedType.value = value;
-                  }
-                },
-              ),
-            ),
-            const SizedBox(height: 24),
+            // Budget Type (not used for now)
+            // Text(
+            //   context.l10n.budgetType,
+            //   style: TextStyle(
+            //     fontSize: 16,
+            //     fontWeight: FontWeight.w600,
+            //     color: colorScheme.foreground,
+            //   ),
+            // ),
+            // const SizedBox(height: 8),
+            // Container(
+            //   padding: const EdgeInsets.symmetric(horizontal: 12),
+            //   decoration: BoxDecoration(
+            //     color: colorScheme.card,
+            //     borderRadius: BorderRadius.circular(8),
+            //     border: Border.all(color: colorScheme.border),
+            //   ),
+            //   child: DropdownButton<BudgetType>(
+            //     value: selectedType.value,
+            //     isExpanded: true,
+            //     underline: const SizedBox.shrink(),
+            //     items: BudgetType.values.map((type) {
+            //       return DropdownMenuItem(
+            //         value: type,
+            //         child: Column(
+            //           crossAxisAlignment: CrossAxisAlignment.start,
+            //           mainAxisSize: MainAxisSize.min,
+            //           children: [
+            //             Text(
+            //               _formatBudgetType(context, type),
+            //               style: TextStyle(
+            //                 fontWeight: FontWeight.w600,
+            //                 color: colorScheme.foreground,
+            //               ),
+            //             ),
+            //             Text(
+            //               type == BudgetType.household
+            //                   ? context.l10n.sharedWithAllHouseholdMembers
+            //                   : context.l10n.personalBudgetForYourExpensesOnly,
+            //               style: TextStyle(
+            //                 fontSize: 12,
+            //                 color: colorScheme.mutedForeground,
+            //               ),
+            //             ),
+            //           ],
+            //         ),
+            //       );
+            //     }).toList(),
+            //     onChanged: (value) {
+            //       if (value != null) {
+            //         selectedType.value = value;
+            //       }
+            //     },
+            //   ),
+            // ),
+            // const SizedBox(height: 24),
 
             // Personal Budget Options
             if (selectedType.value == BudgetType.personal) ...[
@@ -342,146 +342,146 @@ class CreateBudgetPage extends HookConsumerWidget {
               const SizedBox(height: 24),
             ],
 
-            // Notification Thresholds
-            Text(
-              context.l10n.notificationSettings,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: colorScheme.foreground,
-              ),
-            ),
-            const SizedBox(height: 16),
+            // Notification Thresholds (TODO: Re-enable when implemented)
+            // Text(
+            //   context.l10n.notificationSettings,
+            //   style: TextStyle(
+            //     fontSize: 18,
+            //     fontWeight: FontWeight.bold,
+            //     color: colorScheme.foreground,
+            //   ),
+            // ),
+            // const SizedBox(height: 16),
 
-            // Warning Threshold
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.notifications,
-                              size: 20,
-                              color: colorScheme.primary,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              context.l10n.budgetBoop,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: colorScheme.foreground,
-                              ),
-                            ),
-                          ],
-                        ),
-                        Text(
-                          '${(warnThreshold.value * 100).toInt()}%',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: colorScheme.primary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      context.l10n.getGentleReminder,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: colorScheme.mutedForeground,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Slider(
-                      value: warnThreshold.value,
-                      min: 0.0,
-                      max: 1.0,
-                      divisions: 20,
-                      label: '${(warnThreshold.value * 100).toInt()}%',
-                      onChanged: (value) {
-                        warnThreshold.value = value;
-                        // Ensure alert threshold is not less than warning
-                        if (alertThreshold.value < value) {
-                          alertThreshold.value = value;
-                        }
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
+            // // Warning Threshold (TODO: Re-enable when implemented)
+            // Card(
+            //   child: Padding(
+            //     padding: const EdgeInsets.all(16),
+            //     child: Column(
+            //       crossAxisAlignment: CrossAxisAlignment.start,
+            //       children: [
+            //         Row(
+            //           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            //           children: [
+            //             Row(
+            //               children: [
+            //                 Icon(
+            //                   Icons.notifications,
+            //                   size: 20,
+            //                   color: colorScheme.primary,
+            //                 ),
+            //                 const SizedBox(width: 8),
+            //                 Text(
+            //                   context.l10n.budgetBoop,
+            //                   style: TextStyle(
+            //                     fontSize: 14,
+            //                     fontWeight: FontWeight.w600,
+            //                     color: colorScheme.foreground,
+            //                   ),
+            //                 ),
+            //               ],
+            //             ),
+            //             Text(
+            //               '${(warnThreshold.value * 100).toInt()}%',
+            //               style: TextStyle(
+            //                 fontSize: 16,
+            //                 fontWeight: FontWeight.bold,
+            //                 color: colorScheme.primary,
+            //               ),
+            //             ),
+            //           ],
+            //         ),
+            //         const SizedBox(height: 8),
+            //         Text(
+            //           context.l10n.getGentleReminder,
+            //           style: TextStyle(
+            //             fontSize: 12,
+            //             color: colorScheme.mutedForeground,
+            //           ),
+            //         ),
+            //         const SizedBox(height: 12),
+            //         Slider(
+            //           value: warnThreshold.value,
+            //           min: 0.0,
+            //           max: 1.0,
+            //           divisions: 20,
+            //           label: '${(warnThreshold.value * 100).toInt()}%',
+            //           onChanged: (value) {
+            //             warnThreshold.value = value;
+            //             // Ensure alert threshold is not less than warning
+            //             if (alertThreshold.value < value) {
+            //               alertThreshold.value = value;
+            //             }
+            //           },
+            //         ),
+            //       ],
+            //     ),
+            //   ),
+            // ),
+            // const SizedBox(height: 12),
 
-            // Alert Threshold
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.warning,
-                              size: 20,
-                              color: colorScheme.destructive,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              context.l10n.purrSuasiveNudge,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: colorScheme.foreground,
-                              ),
-                            ),
-                          ],
-                        ),
-                        Text(
-                          '${(alertThreshold.value * 100).toInt()}%',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: colorScheme.destructive,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      context.l10n.getStrongerNudge,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: colorScheme.mutedForeground,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Slider(
-                      value: alertThreshold.value,
-                      min: warnThreshold.value, // Must be >= warning threshold
-                      max: 1.5, // Allow over-budget alerts
-                      divisions: 30,
-                      label: '${(alertThreshold.value * 100).toInt()}%',
-                      onChanged: (value) {
-                        alertThreshold.value = value;
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 32),
+            // // Alert Threshold (TODO: Re-enable when implemented)
+            // Card(
+            //   child: Padding(
+            //     padding: const EdgeInsets.all(16),
+            //     child: Column(
+            //       crossAxisAlignment: CrossAxisAlignment.start,
+            //       children: [
+            //         Row(
+            //           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            //           children: [
+            //             Row(
+            //               children: [
+            //                 Icon(
+            //                   Icons.warning,
+            //                   size: 20,
+            //                   color: colorScheme.destructive,
+            //                 ),
+            //                 const SizedBox(width: 8),
+            //                 Text(
+            //                   context.l10n.purrSuasiveNudge,
+            //                   style: TextStyle(
+            //                     fontSize: 14,
+            //                     fontWeight: FontWeight.w600,
+            //                     color: colorScheme.foreground,
+            //                   ),
+            //                 ),
+            //               ],
+            //             ),
+            //             Text(
+            //               '${(alertThreshold.value * 100).toInt()}%',
+            //               style: TextStyle(
+            //                 fontSize: 16,
+            //                 fontWeight: FontWeight.bold,
+            //                 color: colorScheme.destructive,
+            //               ),
+            //             ),
+            //           ],
+            //         ),
+            //         const SizedBox(height: 8),
+            //         Text(
+            //           context.l10n.getStrongerNudge,
+            //           style: TextStyle(
+            //             fontSize: 12,
+            //             color: colorScheme.mutedForeground,
+            //           ),
+            //         ),
+            //         const SizedBox(height: 12),
+            //         Slider(
+            //           value: alertThreshold.value,
+            //           min: warnThreshold.value, // Must be >= warning threshold
+            //           max: 1.5, // Allow over-budget alerts
+            //           divisions: 30,
+            //           label: '${(alertThreshold.value * 100).toInt()}%',
+            //           onChanged: (value) {
+            //             alertThreshold.value = value;
+            //           },
+            //         ),
+            //       ],
+            //     ),
+            //   ),
+            // ),
+            // const SizedBox(height: 32),
 
             // Create Button
             shadcnui.PrimaryButton(
