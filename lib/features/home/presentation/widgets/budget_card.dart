@@ -3,8 +3,10 @@ import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 Widget buildBudgetCard(
+  BuildContext context,
   shadcnui.ColorScheme colorScheme,
   List<DailyBudgetEntry> budgets,
   List<ExpenseEntry> expenses,
@@ -18,7 +20,7 @@ Widget buildBudgetCard(
   // selectedCurrency is never null (defaults to USD)
   final displayText = formatCurrency(totalBudget, selectedCurrency ?? 'USD');
   
-  final title = _budgetTitleForFilter(filter);
+  final title = _budgetTitleForFilter(context, filter);
 
   return Material(
     color: Colors.transparent,
@@ -53,7 +55,7 @@ Widget buildBudgetCard(
             ),
             const Spacer(),
             Text(
-              '${expenses.length} transactions',
+              '${expenses.length} ${context.l10n.transactions}',
               style: TextStyle(
                 fontSize: 12,
                 color: colorScheme.mutedForeground,
@@ -70,22 +72,23 @@ double _getTotalBudget(List<DailyBudgetEntry> budgets) {
   return budgets.fold(0.0, (sum, b) => sum + b.amount);
 }
 
-String _budgetTitleForFilter(DateRangeFilter filter) {
+String _budgetTitleForFilter(BuildContext context, DateRangeFilter filter) {
+  final l10n = context.l10n;
   switch (filter) {
     case DateRangeFilter.today:
-      return "Today's budget";
+      return l10n.todaysBudget;
     case DateRangeFilter.yesterday:
-      return "Yesterday's budget";
+      return l10n.yesterdaysBudget;
     case DateRangeFilter.thisWeek:
-      return 'Sum of daily budgets this week';
+      return l10n.sumOfDailyBudgetsThisWeek;
     case DateRangeFilter.lastWeek:
-      return 'Sum of daily budgets last week';
+      return l10n.sumOfDailyBudgetsLastWeek;
     case DateRangeFilter.thisMonth:
-      return 'Sum of daily budgets this month';
+      return l10n.sumOfDailyBudgetsThisMonth;
     case DateRangeFilter.last30Days:
-      return 'Sum of daily budgets over the last 30 days';
+      return l10n.sumOfDailyBudgetsLast30Days;
     case DateRangeFilter.custom:
-      return 'Sum of daily budgets for the selected range';
+      return l10n.sumOfDailyBudgetsForSelectedRange;
   }
 }
 

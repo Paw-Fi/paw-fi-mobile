@@ -37,10 +37,19 @@ class DeepLinks {
 
   /// WhatsApp verification callback URL
   /// Format: moneko://verify-whatsapp?otp=123456
-  /// 
+  ///
   /// Users receive this link via WhatsApp when they start verification.
   /// The OTP parameter contains the 6-digit verification code.
   static const String whatsappVerification = '$appScheme://verify-whatsapp';
+
+  // ==================== Household Invitation Deep Links ====================
+
+  /// Household invitation callback URL
+  /// Format: moneko://households/join?token=abc123
+  ///
+  /// Users receive this link via web after accepting an invitation.
+  /// The token parameter is used to complete the invitation process.
+  static const String householdInvitation = '$appScheme://households/join';
 
   /// Payment success callback with status parameter
   static String paymentSuccess({String? sessionId}) {
@@ -78,6 +87,51 @@ class DeepLinks {
   /// Check if a URI is a WhatsApp verification callback
   static bool isWhatsAppVerification(Uri uri) {
     return uri.scheme == appScheme && uri.host == 'verify-whatsapp';
+  }
+
+  /// Check if a URI is a household invitation callback
+  static bool isHouseholdInvitation(Uri uri) {
+    return uri.scheme == appScheme &&
+           uri.host == 'households' &&
+           uri.path == '/join';
+  }
+
+  /// Check if a URI is an expense deep link
+  /// Format: moneko://expense/{expense_id}
+  static bool isExpenseLink(Uri uri) {
+    return uri.scheme == appScheme &&
+           uri.host == 'expense' &&
+           uri.pathSegments.isNotEmpty;
+  }
+
+  /// Check if a URI is a household deep link
+  /// Format: moneko://household/{household_id}
+  static bool isHouseholdLink(Uri uri) {
+    return uri.scheme == appScheme &&
+           uri.host == 'household' &&
+           uri.pathSegments.isNotEmpty;
+  }
+
+  /// Check if a URI is a budget deep link
+  /// Format: moneko://budget/{budget_id}
+  static bool isBudgetLink(Uri uri) {
+    return uri.scheme == appScheme &&
+           uri.host == 'budget' &&
+           uri.pathSegments.isNotEmpty;
+  }
+
+  /// Check if a URI is a split deep link
+  /// Format: moneko://split/{split_id}
+  static bool isSplitLink(Uri uri) {
+    return uri.scheme == appScheme &&
+           uri.host == 'split' &&
+           uri.pathSegments.isNotEmpty;
+  }
+
+  /// Check if a URI is a home deep link
+  /// Format: moneko://home
+  static bool isHomeLink(Uri uri) {
+    return uri.scheme == appScheme && uri.host == 'home';
   }
 
   /// Legacy OAuth callback (kept for backward compatibility)

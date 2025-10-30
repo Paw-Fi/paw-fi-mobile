@@ -22,7 +22,7 @@ class SubscriptionNotifier extends _$SubscriptionNotifier {
       
       final response = await supabase
           .from('subscriptions')
-          .select('id, user_id, stripe_subscription_id, plan, status, created_at, updated_at')
+          .select('id, user_id, stripe_subscription_id, stripe_customer_id, plan, status, bound_to_user_id, bound_to_household_id, created_at, updated_at')
           .eq('user_id', userId)
           .order('updated_at', ascending: false)
           .limit(1);
@@ -36,7 +36,7 @@ class SubscriptionNotifier extends _$SubscriptionNotifier {
       }
       
       final subData = responseList[0] as Map<String, dynamic>;
-      print('📦 [SubscriptionProvider] Subscription data: plan=${subData['plan']}, stripe_sub_id=${subData['stripe_subscription_id']}');
+      print('📦 [SubscriptionProvider] Subscription data: plan=${subData['plan']}, status=${subData['status']}, bound_to=${subData['bound_to_user_id']}');
       
       final subscription = Subscription.fromJson(subData);
       print('✅ [SubscriptionProvider] Created Subscription object, isSubscribed=${subscription.isSubscribed}');

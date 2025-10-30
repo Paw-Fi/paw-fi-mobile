@@ -21,11 +21,9 @@ class ProfilePage extends ConsumerWidget {
               children: [
                 buildProfileHeader(context, ref),
                 const shadcnui.Gap(40),
-                buildProfileAvatarHeader(context, user),
+                buildProfileAvatarHeader(context, ref, user),
                 const shadcnui.Gap(32),
                 buildWhatsAppBindingCard(context, ref),
-                const shadcnui.Gap(24),
-                buildProfileActionButtons(ref),
               ],
             ),
           ),

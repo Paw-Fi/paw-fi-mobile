@@ -7,7 +7,13 @@ import 'package:moneko/core/app/router.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/features/settings/presentation/widgets/whatsapp_verification_modal.dart';
 import 'package:moneko/features/profile/data/providers/whatsapp_binding_provider.dart';
+import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
+import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
+import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/features/auth/auth.dart';
 import 'package:go_router/go_router.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 /// Deep link service that handles app links
 class DeepLinkService {
@@ -39,6 +45,11 @@ class DeepLinkService {
         debugPrint('❌ Deep link error: $err');
       },
     );
+  }
+
+  /// Handle deep link navigation (public for FCM integration)
+  void handleDeepLinkUri(Uri uri, WidgetRef ref, BuildContext context) {
+    _handleDeepLink(uri, ref, context);
   }
 
   /// Handle deep link navigation
@@ -83,9 +94,9 @@ class DeepLinkService {
       if (context.mounted) {
         if (status == 'success') {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('✅ Payment successful! Checking subscription...'),
-              duration: Duration(seconds: 3),
+            SnackBar(
+              content: Text(context.l10n.paymentSuccessfulCheckingSubscription),
+              duration: const Duration(seconds: 3),
             ),
           );
           // Navigate to dashboard after a short delay to let subscription load
@@ -95,7 +106,7 @@ class DeepLinkService {
             }
           });
         } else if (status == 'failed') {
-          final error = uri.queryParameters['error'] ?? 'Payment failed';
+          final error = uri.queryParameters['error'] ?? context.l10n.paymentFailed;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('❌ $error'),
@@ -105,9 +116,9 @@ class DeepLinkService {
           );
         } else if (status == 'canceled') {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('ℹ️ Payment canceled'),
-              duration: Duration(seconds: 3),
+            SnackBar(
+              content: Text(context.l10n.paymentCanceled),
+              duration: const Duration(seconds: 3),
             ),
           );
         }
@@ -153,6 +164,162 @@ class DeepLinkService {
       });
       return;
     }
+
+    // Handle household invitation: moneko://households/join?token=abc123
+    if (DeepLinks.isHouseholdInvitation(uri)) {
+      final token = uri.queryParameters['token'];
+      debugPrint('🏠 Household invitation callback received!');
+      debugPrint('🏠 Token: $token');
+
+      if (token == null || token.isEmpty) {
+        debugPrint('❌ No invitation token provided');
+        return;
+      }
+
+      // Navigate to household invitation acceptance page
+      if (context.mounted) {
+        // Navigate to a page that will handle the invitation acceptance
+        // This could be the household overview or a dedicated invitation page
+        context.go('/households/invitation/$token');
+      }
+      return;
+    }
+
+    // Handle expense deep link: moneko://expense/{expense_id}
+    if (DeepLinks.isExpenseLink(uri)) {
+      final expenseId = uri.pathSegments.first;
+      debugPrint('💸 Expense deep link received: $expenseId');
+      
+      _handleExpenseDeepLink(expenseId, ref, context);
+      return;
+    }
+
+    // Handle household deep link: moneko://household/{household_id}
+    if (DeepLinks.isHouseholdLink(uri)) {
+      final householdId = uri.pathSegments.first;
+      final subRoute = uri.pathSegments.length > 1 ? uri.pathSegments[1] : null;
+      debugPrint('🏠 Household deep link received: $householdId (sub: $subRoute)');
+      
+      _handleHouseholdDeepLink(householdId, ref, context, subRoute: subRoute);
+      return;
+    }
+
+    // Handle budget deep link: moneko://budget/{budget_id}
+    if (DeepLinks.isBudgetLink(uri)) {
+      final budgetId = uri.pathSegments.first;
+      debugPrint('💰 Budget deep link received: $budgetId');
+      // TODO: Implement budget navigation when budget detail page is ready
+      return;
+    }
+
+    // Handle split deep link: moneko://split/{split_id}
+    if (DeepLinks.isSplitLink(uri)) {
+      final splitId = uri.pathSegments.first;
+      debugPrint('🧮 Split deep link received: $splitId');
+      // TODO: Implement split navigation when split detail page is ready
+      return;
+    }
+
+    // Handle home deep link: moneko://home
+    if (DeepLinks.isHomeLink(uri)) {
+      debugPrint('🏠 Home deep link received');
+      if (context.mounted) {
+        context.go('/dashboard');
+      }
+      return;
+    }
+  }
+
+  /// Handle expense deep link - show expense detail sheet
+  void _handleExpenseDeepLink(String expenseId, WidgetRef ref, BuildContext context) async {
+    // Wait a bit to ensure app is fully loaded
+    await Future.delayed(const Duration(milliseconds: 300));
+    
+    final navigatorContext = rootNavigatorKey.currentContext;
+    if (navigatorContext == null) {
+      debugPrint('⚠️ Navigator context is null for expense deep link');
+      return;
+    }
+
+    try {
+      // Fetch the expense from analytics provider
+      final user = ref.read(authProvider);
+      await ref.read(analyticsProvider.notifier).loadData(user.uid);
+      
+      final analytics = ref.read(analyticsProvider);
+      final expense = analytics.allExpenses.cast<dynamic>().firstWhere(
+        (e) => e.id == expenseId,
+        orElse: () => null,
+      );
+      
+      if (expense == null) {
+        debugPrint('⚠️ Expense not found: $expenseId');
+        if (navigatorContext.mounted) {
+          ScaffoldMessenger.of(navigatorContext).showSnackBar(
+            SnackBar(
+              content: Text(navigatorContext.l10n.expenseNotFoundOrDeleted),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+        return;
+      }
+      
+      debugPrint('✅ Found expense, showing detail sheet');
+      
+      // Show expense detail sheet
+      if (navigatorContext.mounted) {
+        showUnifiedTransactionSheet(
+          navigatorContext,
+          existingExpense: expense,
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Error handling expense deep link: $e');
+    }
+  }
+
+  /// Handle household deep link - switch to household mode and select household
+  void _handleHouseholdDeepLink(
+    String householdId,
+    WidgetRef ref,
+    BuildContext context,
+    {String? subRoute}
+  ) async {
+    debugPrint('🏠 Switching to household mode for: $householdId');
+    
+    // Wait a bit to ensure app is fully loaded
+    await Future.delayed(const Duration(milliseconds: 300));
+    
+    final navigatorContext = rootNavigatorKey.currentContext;
+    if (navigatorContext == null) {
+      debugPrint('⚠️ Navigator context is null for household deep link');
+      return;
+    }
+
+    try {
+      // Switch to household view mode and set the household ID
+      ref.read(viewModeProvider.notifier).setHouseholdMode(householdId);
+      
+      // Also update the selected household provider (needs user ID)
+      final user = ref.read(authProvider);
+      await ref.read(selectedHouseholdProvider.notifier).selectHousehold(householdId, user.uid);
+      
+      // Navigate to dashboard (which will show household content)
+      if (navigatorContext.mounted) {
+        navigatorContext.go('/dashboard');
+      }
+      
+      debugPrint('✅ Switched to household: $householdId');
+      
+      // Handle sub-routes if any
+      if (subRoute != null) {
+        debugPrint('📍 Sub-route requested: $subRoute');
+        // TODO: Handle sub-routes like /splits when implemented
+      }
+    } catch (e) {
+      debugPrint('❌ Error handling household deep link: $e');
+    }
   }
 
   /// Show WhatsApp verification modal
@@ -168,9 +335,9 @@ class DeepLinkService {
         
         // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ WhatsApp verified successfully!'),
-            duration: Duration(seconds: 3),
+          SnackBar(
+            content: Text(context.l10n.whatsappVerifiedSuccessfully),
+            duration: const Duration(seconds: 3),
           ),
         );
       },

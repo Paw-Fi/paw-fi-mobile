@@ -42,6 +42,13 @@ String? getCurrencyFlagPath(String currencyCode) {
     'GHS': 'ghana',
     'VND': 'vietnam',
     'DOP': 'dominican',
+    'PYG': 'paraguay',
+    'UAH': 'ukraine',
+    'LKR': 'sri_lanka',
+    'GTQ': 'guatemala',
+    'CLP': 'chile',
+    'RSD': 'serbia',
+    'HUF': 'hungary',
   };
   
   final flagName = flagMap[code];

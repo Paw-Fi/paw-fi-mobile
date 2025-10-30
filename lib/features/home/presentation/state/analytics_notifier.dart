@@ -93,7 +93,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
       try {
         final expensesResponse = await supabase
             .from('expenses')
-            .select('id,contact_id,date,amount_cents,currency,category,created_at,raw_text,receipt_image_url')
+            .select('id,contact_id,date,amount_cents,currency,category,created_at,raw_text,receipt_image_url,household_id,split_group_id')
             .eq('contact_id', fetchedContact.id)
             .gte('date', fromStr)
             .lte('date', toStr)

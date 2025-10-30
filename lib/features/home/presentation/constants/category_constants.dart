@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 // Central palette derived from the Moneko brand plus accessible accent colors
 const List<Color> _fallbackPalette = [
@@ -126,4 +127,106 @@ Color getCategoryColor(String? category) {
 IconData getCategoryIcon(String? category) {
   final key = (category ?? 'uncategorized').toLowerCase();
   return categoryIcons[key] ?? Icons.category;
+}
+
+/// Translates category names to localized strings
+String getCategoryTranslation(BuildContext context, String? category) {
+  final l10n = context.l10n;
+  final key = (category ?? 'uncategorized').toLowerCase();
+  
+  // Map category names to their corresponding localization keys
+  switch (key) {
+    case 'transfers':
+      return l10n.categoryTransfers;
+    case 'shopping':
+      return l10n.categoryShopping;
+    case 'utilities':
+      return l10n.categoryUtilities;
+    case 'entertainment':
+      return l10n.categoryEntertainment;
+    case 'entertainment_subscriptions':
+      return l10n.categoryEntertainmentSubscriptions;
+    case 'restaurants':
+      return l10n.categoryRestaurants;
+    case 'food':
+      return l10n.categoryFood;
+    case 'groceries':
+      return l10n.categoryGroceries;
+    case 'transport':
+      return l10n.categoryTransport;
+    case 'transportation':
+      return l10n.categoryTransportation;
+    case 'travel':
+      return l10n.categoryTravel;
+    case 'flights':
+      return l10n.categoryFlights;
+    case 'vacation':
+      return l10n.categoryVacation;
+    case 'health':
+      return l10n.categoryHealth;
+    case 'medical':
+      return l10n.categoryMedical;
+    case 'text':
+      return l10n.categoryText;
+    case 'education':
+      return l10n.categoryEducation;
+    case 'tuition':
+      return l10n.categoryTuition;
+    case 'subscriptions':
+      return l10n.categorySubscriptions;
+    case 'services':
+      return l10n.categoryServices;
+    case 'housing':
+      return l10n.categoryHousing;
+    case 'rent':
+      return l10n.categoryRent;
+    case 'mortgage':
+      return l10n.categoryMortgage;
+    case 'bills':
+      return l10n.categoryBills;
+    case 'insurance':
+      return l10n.categoryInsurance;
+    case 'savings':
+      return l10n.categorySavings;
+    case 'investment':
+      return l10n.categoryInvestment;
+    case 'investments':
+      return l10n.categoryInvestments;
+    case 'income':
+      return l10n.categoryIncome;
+    case 'salary':
+      return l10n.categorySalary;
+    case 'bonus':
+      return l10n.categoryBonus;
+    case 'pets':
+      return l10n.categoryPets;
+    case 'kids':
+      return l10n.categoryKids;
+    case 'family':
+      return l10n.categoryFamily;
+    case 'gifts':
+      return l10n.categoryGifts;
+    case 'charity':
+      return l10n.categoryCharity;
+    case 'fees':
+      return l10n.categoryFees;
+    case 'loan':
+      return l10n.categoryLoan;
+    case 'loans':
+      return l10n.categoryLoans;
+    case 'debt':
+      return l10n.categoryDebt;
+    case 'personal care':
+      return l10n.categoryPersonalCare;
+    case 'beauty':
+      return l10n.categoryBeauty;
+    case 'misc':
+      return l10n.categoryMisc;
+    case 'uncategorized':
+      return l10n.categoryUncategorized;
+    default:
+      // Fallback: capitalize first letter and return the rest as-is
+      final fallbackCategory = category ?? 'uncategorized';
+      return fallbackCategory.substring(0, 1).toUpperCase() + fallbackCategory.substring(1);
+  }
 }

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/theme/theme.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
@@ -8,11 +9,17 @@ import 'package:moneko/core/core.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
-import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/households/presentation/widgets/household_home_content.dart';
+import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
+import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
 
 // ============================================================================
 // HOME PAGE
@@ -51,6 +58,9 @@ class _HomePageState extends ConsumerState<HomePage> {
       if (currentCurrency == null) {
         await _initializeCurrencyFilter();
       }
+
+      // Initialize date range filter from local storage
+      await _initializeDateRangeFilter();
     });
   }
   
@@ -84,6 +94,26 @@ class _HomePageState extends ConsumerState<HomePage> {
     // Always set the currency (never null, always defaults to USD)
     if (mounted) {
       ref.read(homeFilterProvider.notifier).setSelectedCurrency(selectedCurrency);
+    }
+  }
+  
+  Future<void> _initializeDateRangeFilter() async {
+    try {
+      final service = ref.read(dateRangePreferenceServiceProvider);
+      final stored = await service.getSelectedDateRange();
+      if (stored != null && stored.isNotEmpty) {
+        final matched = DateRangeFilter.values.firstWhere(
+          (e) => e.name == stored,
+          orElse: () => DateRangeFilter.last30Days,
+        );
+        if (!mounted) return;
+        final current = ref.read(homeFilterProvider).dateRangeFilter;
+        if (current != matched) {
+          ref.read(homeFilterProvider.notifier).setFilter(matched);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading date range filter from storage: $e');
     }
   }
 
@@ -121,6 +151,8 @@ class _HomePageState extends ConsumerState<HomePage> {
   Future<void> _processExpense({String? text, String? imagePath}) async {
     final user = ref.read(authProvider);
     final contact = ref.read(analyticsProvider).contact;
+    final viewMode = ref.read(viewModeProvider);
+    final selectedHouseholdState = ref.read(selectedHouseholdProvider);
 
     // Show processing modal
     if (!mounted) return;
@@ -148,7 +180,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  imagePath != null ? 'Processing receipt...' : 'Processing expense...',
+                  imagePath != null ? context.l10n.analyzingReceipt : context.l10n.analyzingExpense,
                   style: TextStyle(
                     color: colorScheme.foreground,
                     fontSize: 16,
@@ -167,23 +199,19 @@ class _HomePageState extends ConsumerState<HomePage> {
         'date': DateTime.now().toIso8601String().split('T')[0],
       };
       
-      // Add phone if WhatsApp is connected (optional)
-      if (contact?.phoneE164 != null) {
-        body['phone'] = contact!.phoneE164;
-      }
-      
-      // Get the currently selected currency from the UI filter
+      // Determine currency based on view mode
       final filterState = ref.read(homeFilterProvider);
-      final selectedCurrency = filterState.selectedCurrency;
-
-      // Send currency with proper fallback chain:
-      // Priority: UI selection → Account preference → USD (BE default)
-      if (selectedCurrency != null && selectedCurrency.isNotEmpty) {
-        body['currency'] = selectedCurrency.toUpperCase();
-      } else if (contact?.preferredCurrency != null) {
-        body['currency'] = contact!.preferredCurrency!.toUpperCase();
+      if (viewMode.mode == ViewMode.household &&
+          selectedHouseholdState.household?.currency != null) {
+        body['currency'] = selectedHouseholdState.household!.currency.toUpperCase();
+      } else {
+        final selectedCurrency = filterState.selectedCurrency;
+        if (selectedCurrency != null && selectedCurrency.isNotEmpty) {
+          body['currency'] = selectedCurrency.toUpperCase();
+        } else if (contact?.preferredCurrency != null) {
+          body['currency'] = contact!.preferredCurrency!.toUpperCase();
+        }
       }
-      // Note: If both are null, backend validateCurrency() defaults to USD
 
       // Add either text or image to the request
       if (text != null) {
@@ -211,9 +239,9 @@ class _HomePageState extends ConsumerState<HomePage> {
         };
       }
 
-      // Call the backend
+      // Call analyze-expense endpoint (NEW: doesn't save yet)
       final response = await supabase.functions.invoke(
-        'process-expenses',
+        'analyze-expense',
         body: body,
       );
 
@@ -222,78 +250,100 @@ class _HomePageState extends ConsumerState<HomePage> {
       // Close processing modal
       Navigator.of(context, rootNavigator: true).pop();
 
-      // Log the response
-      debugPrint('=== PROCESSING RESPONSE ===');
+      debugPrint('=== ANALYSIS RESPONSE ===');
       debugPrint('response.data: ${response.data}');
-      debugPrint('=========================');
+      debugPrint('========================');
 
       if (response.data != null && response.data['success'] == true) {
         final responseData = response.data['data'];
-        ExpenseEntry? createdExpense;
-
-        // Parse expense from response - check both 'expenses' and 'items' arrays
-        if (responseData != null) {
-          List? expensesArray = responseData['expenses'];
-          List? itemsArray = responseData['items'];
+        
+        if (responseData != null && responseData['items'] != null) {
+          final items = responseData['items'] as List;
           
-          Map<String, dynamic>? expenseData;
-          
-          // Try 'expenses' array first (for full expense objects from DB)
-          if (expensesArray != null && expensesArray.isNotEmpty) {
-            expenseData = expensesArray[0];
-          } 
-          // Fall back to 'items' array (for parsed items from BE)
-          else if (itemsArray != null && itemsArray.isNotEmpty) {
-            expenseData = itemsArray[0];
-          }
+          if (items.isNotEmpty) {
+            // Parse ALL items from the response
+            final parsedExpenses = items.map((item) {
+              return ParsedExpense(
+                amount: (item['amount'] as num).toDouble(),
+                category: item['category'] as String,
+                currency: item['currency'] as String,
+                currencySymbol: item['currencySymbol'] as String? ?? '\$',
+                date: DateTime.parse(item['date'] as String),
+                description: item['description'] as String?,
+                localImagePath: imagePath,
+              );
+            }).toList();
 
-          if (expenseData != null) {
-            // Create expense entry from data
-            // If 'id' exists, it's from DB, otherwise it's a newly created item
-            createdExpense = ExpenseEntry(
-              id: expenseData['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
-              contactId: expenseData['contact_id'] ?? contact?.id,
-              amountCents: expenseData['amount_cents'] ?? 
-                          (expenseData['amount'] != null ? (expenseData['amount'] * 100).toInt() : 0),
-              category: expenseData['category'] ?? 'other',
-              date: DateTime.parse(expenseData['date'] ?? DateTime.now().toIso8601String()),
-              createdAt: DateTime.parse(expenseData['created_at'] ?? DateTime.now().toIso8601String()),
-              rawText: expenseData['raw_text'] ?? text ?? 'Receipt image',
-              currency: expenseData['currency'] ?? 'USD',
-              receiptImageUrl: expenseData['receipt_image_url'],
-            );
-          }
-        }
-
-        if (createdExpense != null) {
-          // Show success toast with View link
-          _showSuccessToast(
-            createdExpense,
-            contact,
-            localImagePath: imagePath,
-          );
-
-          // Refresh analytics data
-          final user = ref.read(authProvider);
-          if (user.uid.isNotEmpty) {
-            ref.read(analyticsProvider.notifier).loadData(user.uid);
+            // If only one expense, show single confirmation
+            if (parsedExpenses.length == 1) {
+              ref.read(pendingExpenseProvider.notifier).state = parsedExpenses[0];
+              showUnifiedTransactionSheet(
+                context,
+                newExpense: parsedExpenses[0],
+                localImagePath: imagePath,
+              );
+            } else {
+              // Multiple expenses - show list confirmation
+              _showMultiExpenseConfirmation(parsedExpenses, imagePath);
+            }
+          } else {
+            _showToast(context.l10n.noExpenseInformationExtracted);
           }
         } else {
-          _showToast('Failed to process: No expense data returned');
+          _showToast(context.l10n.failedToAnalyzeNoData);
         }
       } else {
-        final error = response.data?['error'] ?? 'Failed to process';
-        _showToast('Failed to process: $error');
+        final error = response.data?['error'] ?? context.l10n.failedToAnalyze;
+        _showToast('${context.l10n.failedToAnalyze}: $error');
       }
     } catch (e) {
-      debugPrint('=== ERROR IN PROCESSING: $e ===');
+      debugPrint('=== ERROR IN ANALYSIS: $e ===');
       if (!mounted) return;
 
       // Close processing modal
       Navigator.of(context, rootNavigator: true).pop();
 
-      _showToast('Failed to process: ${e.toString()}');
+      _showToast('${context.l10n.failedToAnalyze}: ${e.toString()}');
     }
+  }
+
+  void _showMultiExpenseConfirmation(List<ParsedExpense> expenses, String? imagePath) {
+    // Calculate total amount
+    final totalAmount = expenses.fold<double>(0, (sum, expense) => sum + expense.amount);
+    
+    // Get most common category or use 'other'
+    final categoryCount = <String, int>{};
+    for (final expense in expenses) {
+      categoryCount[expense.category] = (categoryCount[expense.category] ?? 0) + 1;
+    }
+    final mostCommonCategory = categoryCount.entries
+        .reduce((a, b) => a.value > b.value ? a : b)
+        .key;
+    
+    // Build combined description with all items
+    final currencySymbol = expenses.first.currencySymbol;
+    final itemDescriptions = expenses.map((e) => 
+      '${e.description ?? e.category} $currencySymbol${e.amount.toStringAsFixed(2)}'
+    ).join(', ');
+    
+    // Create single combined expense
+    final combinedExpense = ParsedExpense(
+      amount: totalAmount,
+      category: mostCommonCategory,
+      currency: expenses.first.currency,
+      currencySymbol: currencySymbol,
+      date: expenses.first.date,
+      description: itemDescriptions,
+      localImagePath: imagePath,
+    );
+    
+    // Store in provider and show unified sheet
+    ref.read(pendingExpenseProvider.notifier).state = combinedExpense;
+    showUnifiedTransactionSheet(
+      context,
+      newExpense: combinedExpense,
+      localImagePath: imagePath,
+    );
   }
 
   void _showTextInputDrawer() {
@@ -308,8 +358,15 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   void _showJointAccountModal() {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
-    showJointAccountModal(context, colorScheme);
+    // Simply switch to household mode
+    // The HouseholdHomeContent widget will handle loading, empty, and error states
+    final user = ref.read(authProvider);
+    
+    // ✅ CRITICAL: Invalidate households provider to force refresh when switching modes
+    debugPrint('🔄 Switching to household mode - invalidating userHouseholdsProvider');
+    ref.invalidate(userHouseholdsProvider(user.uid));
+    
+    ref.read(viewModeProvider.notifier).setMode(ViewMode.household);
   }
 
   void _showDateRangeFilter() {
@@ -364,7 +421,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Update budget',
+                    context.l10n.updateBudget,
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w600,
@@ -373,7 +430,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Enter the new total daily budget.',
+                    context.l10n.enterNewTotalDailyBudget,
                     style: TextStyle(
                       fontSize: 14,
                       color: sheetColorScheme.mutedForeground,
@@ -385,7 +442,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     decoration: InputDecoration(
                       prefixText: currencySymbol,
-                      labelText: 'Budget amount',
+                      labelText: context.l10n.budgetAmount,
                       errorText: validationError,
                     ),
                     autofocus: true,
@@ -398,7 +455,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     children: [
                       TextButton(
                         onPressed: () => Navigator.of(sheetContext).pop(),
-                        child: const Text('Cancel'),
+                        child: Text(context.l10n.cancel),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -407,9 +464,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                             final normalizedInput = rawAmountInput.replaceAll(',', '').trim();
                             final parsed = double.tryParse(normalizedInput);
 
-                            if (parsed == null || parsed <= 0) {
+                            if (parsed == null || parsed < 0) {
                               setModalState(() {
-                                validationError = 'Enter a valid amount greater than 0';
+                                validationError = context.l10n.enterValidAmountGreaterThan0;
                               });
                               return;
                             }
@@ -417,7 +474,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                             FocusScope.of(sheetContext).unfocus();
                             Navigator.of(sheetContext).pop(parsed);
                           },
-                          child: const Text('Save'),
+                          child: Text(context.l10n.save),
                         ),
                       ),
                     ],
@@ -458,7 +515,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                   const CircularProgressIndicator(),
                   const SizedBox(height: 16),
                   Text(
-                    'Updating budget...',
+                    context.l10n.updatingBudget,
                     style: TextStyle(color: dialogScheme.foreground, fontSize: 16),
                   ),
                 ],
@@ -521,12 +578,12 @@ class _HomePageState extends ConsumerState<HomePage> {
       if (mounted) {
         Navigator.of(context, rootNavigator: true).pop();
         final replyMessage = (data['reply'] as String?)?.trim();
-        _showToast(replyMessage?.isNotEmpty == true ? replyMessage! : 'Budget updated');
+        _showToast(replyMessage?.isNotEmpty == true ? replyMessage! : context.l10n.budgetUpdated);
       }
     } catch (e) {
       if (mounted) {
         Navigator.of(context, rootNavigator: true).pop();
-        _showToast('Failed to update budget: ${e.toString()}');
+        _showToast('${context.l10n.failedToUpdateBudget}: ${e.toString()}');
       }
     }
   }
@@ -552,41 +609,6 @@ class _HomePageState extends ConsumerState<HomePage> {
         .fold(0.0, (sum, entry) => sum + entry.amount);
   }
 
-  void _showSuccessToast(ExpenseEntry expense, UserContact? contact, {String? localImagePath}) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Logged successfully',
-                style: TextStyle(color: colorScheme.buttonText),
-              ),
-            ),
-            GestureDetector(
-              onTap: () {
-                ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                showTransactionDetailSheet(context, expense, contact: contact, localImagePath: localImagePath);
-              },
-              child: Text(
-                'View',
-                style: TextStyle(
-                  color: colorScheme.buttonText,
-                  decoration: TextDecoration.underline,
-                  decorationColor: colorScheme.buttonText,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: colorScheme.primary,
-        duration: const Duration(seconds: 4),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -596,6 +618,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     final filteredExpenses = ref.watch(homeFilteredExpensesProvider);
     final filteredBudgets = ref.watch(homeFilteredBudgetsProvider);
     final user = ref.watch(authProvider);
+    final viewMode = ref.watch(viewModeProvider);
 
     // Only show loading indicator if we've never loaded before
     // If we have data already, show it even if a refresh is in progress
@@ -625,7 +648,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 const SizedBox(height: 24),
                 shadcnui.PrimaryButton(
                   onPressed: () => ref.read(analyticsProvider.notifier).refresh(user.uid),
-                  child: const Text('Retry'),
+                  child: Text(context.l10n.retry),
                 ),
               ],
             ),
@@ -641,7 +664,20 @@ class _HomePageState extends ConsumerState<HomePage> {
           SafeArea(
             child: RefreshIndicator(
               onRefresh: () async {
-                ref.read(analyticsProvider.notifier).refresh(user.uid);
+                // Refresh based on current view mode
+                if (viewMode.mode == ViewMode.household) {
+                  // In household mode: invalidate ALL household-related providers
+                  debugPrint('🔄 Pull-to-refresh: Refreshing household data');
+                  ref.invalidate(userHouseholdsProvider(user.uid));
+                  ref.invalidate(householdExpensesProvider);
+                  ref.invalidate(householdSplitsProvider);
+                  ref.invalidate(householdBudgetsProvider);
+                  ref.invalidate(householdSummaryProvider);
+                  debugPrint('✅ Invalidated: households, expenses, splits, budgets, summary');
+                } else {
+                  // In personal mode: refresh analytics
+                  ref.read(analyticsProvider.notifier).refresh(user.uid);
+                }
                 await Future.delayed(const Duration(milliseconds: 500));
               },
               child: CustomScrollView(
@@ -654,14 +690,14 @@ class _HomePageState extends ConsumerState<HomePage> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            'Overview',
+                            context.l10n.overview,
                             style: TextStyle(
                               fontSize: 32,
                               fontWeight: FontWeight.bold,
                               color: colorScheme.foreground,
                             ),
                           ),
-                          // Account Type Switch
+                          // Account Type Switch (always visible)
                           Container(
                             padding: const EdgeInsets.all(4),
                             decoration: BoxDecoration(
@@ -671,33 +707,64 @@ class _HomePageState extends ConsumerState<HomePage> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                // Single (Active)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: colorScheme.primary,
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: Text(
-                                    'Single',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                     color: colorScheme.buttonText,
+                                // Single
+                                GestureDetector(
+                                  onTap: viewMode.mode == ViewMode.personal
+                                      ? null
+                                      : () {
+                                          HapticFeedback.lightImpact();
+                                          SystemSound.play(SystemSoundType.click);
+                                          ref.read(viewModeProvider.notifier).setPersonalMode();
+                                        },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: viewMode.mode == ViewMode.personal
+                                          ? colorScheme.primary
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    child: Text(
+                                      context.l10n.forMe,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: viewMode.mode == ViewMode.personal
+                                            ? FontWeight.w600
+                                            : FontWeight.w500,
+                                        color: viewMode.mode == ViewMode.personal
+                                            ? colorScheme.buttonText
+                                            : colorScheme.mutedForeground,
+                                      ),
                                     ),
                                   ),
                                 ),
-                                // Joint (Inactive - clickable)
+                                // Joint
                                 GestureDetector(
-                                  onTap: _showJointAccountModal,
+                                  onTap: viewMode.mode == ViewMode.household
+                                      ? null
+                                      : () {
+                                          HapticFeedback.lightImpact();
+                                          SystemSound.play(SystemSoundType.click);
+                                          _showJointAccountModal();
+                                        },
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: viewMode.mode == ViewMode.household
+                                          ? colorScheme.primary
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
                                     child: Text(
-                                      'Joint',
+                                      context.l10n.forUs,
                                       style: TextStyle(
                                         fontSize: 13,
-                                        fontWeight: FontWeight.w500,
-                                        color: colorScheme.mutedForeground,
+                                        fontWeight: viewMode.mode == ViewMode.household
+                                            ? FontWeight.w600
+                                            : FontWeight.w500,
+                                        color: viewMode.mode == ViewMode.household
+                                            ? colorScheme.buttonText
+                                            : colorScheme.mutedForeground,
                                       ),
                                     ),
                                   ),
@@ -710,7 +777,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     ),
                   ),
 
-                  // Period Selector with Currency Button
+                  // Period Selector with Currency Button (shown in both modes; filters household content too)
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -720,15 +787,14 @@ class _HomePageState extends ConsumerState<HomePage> {
                           // Left side:  Currency Button
                           Row(
                             children: [
-                            
                               // Currency selector button
                               GestureDetector(
                                 onTap: _showCurrencySelector,
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                   decoration: BoxDecoration(
                                     color: colorScheme.muted,
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(16),
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
@@ -759,7 +825,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                             child: Row(
                               children: [
                                 Text(
-                                  filterState.dateRangeFilter.label,
+                                  filterState.dateRangeFilter.getLabel(context),
                                   style: TextStyle(
                                     fontSize: 16,
                                     color: colorScheme.primary,
@@ -767,11 +833,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                   ),
                                 ),
                                 const SizedBox(width: 4),
-                                Icon(
-                                  Icons.keyboard_arrow_down,
-                                  color: colorScheme.primary,
-                                  size: 20,
-                                ),
+                               
                               ],
                             ),
                           ),
@@ -782,11 +844,17 @@ class _HomePageState extends ConsumerState<HomePage> {
 
                   const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
-                  // Spending Card with Line Chart
-                  SliverToBoxAdapter(
+                  // Switch between Personal and Household content
+                  if (viewMode.mode == ViewMode.household)
+                    const HouseholdHomeContent()
+                  else ...[
+                    // Personal mode - show analytics content
+                    // Spending Card with Line Chart
+                    SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
                       child: buildSpendingCard(
+                        context,
                         colorScheme, 
                         filteredExpenses, 
                         analyticsData.contact, 
@@ -809,6 +877,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                           SizedBox(
                             width: 200,
                             child: buildBudgetCard(
+                              context,
                               colorScheme,
                               filteredBudgets,
                               filteredExpenses,
@@ -822,6 +891,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                           SizedBox(
                             width: 200,
                             child: buildNetCashflowCard(
+                              context,
                               colorScheme, 
                               filteredBudgets, 
                               filteredExpenses, 
@@ -842,12 +912,21 @@ class _HomePageState extends ConsumerState<HomePage> {
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: buildCategoryBreakdownCard(
-                        context, 
-                        colorScheme, 
-                        filteredExpenses, 
-                        analyticsData.contact,
-                        selectedCurrency: filterState.selectedCurrency,
+                      child: GestureDetector(
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const TransactionsPage(),
+                            ),
+                          );
+                        },
+                        child: buildCategoryBreakdownCard(
+                          context, 
+                          colorScheme, 
+                          filteredExpenses, 
+                          analyticsData.contact,
+                          selectedCurrency: filterState.selectedCurrency,
+                        ),
                       ),
                     ),
                   ),
@@ -857,6 +936,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
                       child: buildSpendingBreakdownChart(
+                        context,
                         colorScheme, 
                         filteredExpenses,
                         filteredBudgets,
@@ -867,18 +947,21 @@ class _HomePageState extends ConsumerState<HomePage> {
                     ),
                   ),
 
-                 
+
 
                   const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                  ], // end of else block for Personal mode
                 ],
               ),
             ),
           ),
         ],
       ),
-      floatingActionButton: _buildExpandableFAB(colorScheme),
+      floatingActionButton: _buildExpandableFAB(colorScheme), // Always show FAB
     );
   }
+
+  
 
   Widget _buildExpandableFAB(shadcnui.ColorScheme colorScheme) {
     return ExpandableFab(
@@ -891,7 +974,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             _showTextInputDrawer();
           },
           icon: const Icon(Icons.text_fields),
-          label: 'Free form text',
+          label: context.l10n.freeFormText,
         ),
         ActionButton(
           onPressed: () {
@@ -899,7 +982,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             _handleCameraCapture();
           },
           icon: const Icon(Icons.camera_alt),
-          label: 'Take photo',
+          label: context.l10n.takePhoto,
         ),
       ],
     );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/core/core.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 class WhatsAppVerificationModal extends StatefulWidget {
   final String? otpFromUrl;
@@ -39,7 +40,7 @@ class _WhatsAppVerificationModalState extends State<WhatsAppVerificationModal> {
   Future<void> _verifyCode() async {
     if (_code.trim().isEmpty || _code.length != 6) {
       setState(() {
-        _errorMessage = 'Please enter the 6-digit verification code';
+        _errorMessage = context.l10n.pleaseEnterThe6DigitVerificationCode;
       });
       return;
     }
@@ -60,7 +61,7 @@ class _WhatsAppVerificationModalState extends State<WhatsAppVerificationModal> {
       final data = response.data as Map<String, dynamic>?;
 
       if (response.status >= 400 || data == null) {
-        final errorMessage = data?['error'] as String? ?? 'Failed to verify code';
+        final errorMessage = data?['error'] as String? ?? context.l10n.failedToVerifyCode;
         setState(() {
           _errorMessage = errorMessage;
           _isLoading = false;
@@ -79,7 +80,7 @@ class _WhatsAppVerificationModalState extends State<WhatsAppVerificationModal> {
         widget.onVerificationSuccess?.call();
       } else {
         setState(() {
-          _errorMessage = data['error'] as String? ?? 'Invalid verification code';
+          _errorMessage = data['error'] as String? ?? context.l10n.invalidVerificationCode;
           _isLoading = false;
         });
       }
@@ -88,7 +89,7 @@ class _WhatsAppVerificationModalState extends State<WhatsAppVerificationModal> {
       if (!mounted) return;
       
       setState(() {
-        _errorMessage = 'Failed to verify code. Please try again.';
+        _errorMessage = context.l10n.failedToVerifyCodePleaseTryAgain;
         _isLoading = false;
       });
     }
@@ -114,7 +115,7 @@ class _WhatsAppVerificationModalState extends State<WhatsAppVerificationModal> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                _isVerified ? 'WhatsApp Verified' : 'WhatsApp Verification',
+                _isVerified ? context.l10n.whatsappVerified : context.l10n.whatsappVerification,
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
@@ -144,7 +145,7 @@ class _WhatsAppVerificationModalState extends State<WhatsAppVerificationModal> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Your WhatsApp number is successfully linked to your account',
+                      context.l10n.yourWhatsAppNumberIsSuccessfullyLinked,
                       style: TextStyle(
                         fontSize: 14,
                         color: colorScheme.foreground,
@@ -157,8 +158,8 @@ class _WhatsAppVerificationModalState extends State<WhatsAppVerificationModal> {
           else
             Text(
               widget.otpFromUrl != null
-                  ? 'Verifying your WhatsApp number...'
-                  : 'Enter the 6-digit code from WhatsApp',
+                  ? context.l10n.verifyingYourWhatsAppNumber
+                  : context.l10n.enterThe6DigitCodeFromWhatsApp,
               style: TextStyle(
                 fontSize: 14,
                 color: colorScheme.mutedForeground,
@@ -221,7 +222,7 @@ class _WhatsAppVerificationModalState extends State<WhatsAppVerificationModal> {
             else if (widget.otpFromUrl != null)
               Center(
                 child: Text(
-                  'Code auto-filled from verification link',
+                  context.l10n.codeAutoFilledFromVerificationLink,
                   style: TextStyle(
                     fontSize: 13,
                     color: colorScheme.primary,
@@ -232,7 +233,7 @@ class _WhatsAppVerificationModalState extends State<WhatsAppVerificationModal> {
             else
               Center(
                 child: Text(
-                  'Enter the 6-digit code from WhatsApp',
+                  context.l10n.enterThe6DigitCodeFromWhatsApp,
                   style: TextStyle(
                     fontSize: 13,
                     color: colorScheme.mutedForeground,
@@ -246,7 +247,7 @@ class _WhatsAppVerificationModalState extends State<WhatsAppVerificationModal> {
             if (!_isLoading)
               shadcnui.PrimaryButton(
                 onPressed: _code.length == 6 ? _verifyCode : null,
-                child: const Text('Verify'),
+                child: Text(context.l10n.verify),
               )
             else
               shadcnui.PrimaryButton(
@@ -263,7 +264,7 @@ class _WhatsAppVerificationModalState extends State<WhatsAppVerificationModal> {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    const Text('Verifying...'),
+                    Text(context.l10n.verifying),
                   ],
                 ),
               ),
@@ -276,7 +277,7 @@ class _WhatsAppVerificationModalState extends State<WhatsAppVerificationModal> {
               onPressed: () {
                 Navigator.of(context).pop();
               },
-              child: const Text('Done'),
+              child: Text(context.l10n.done),
             ),
           ],
         ],

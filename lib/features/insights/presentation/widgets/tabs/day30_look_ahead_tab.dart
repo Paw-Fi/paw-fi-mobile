@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/insights/presentation/widgets/charts/charts.dart';
 import 'package:moneko/features/insights/presentation/widgets/chart_legend.dart';
 
-Widget build30DayLookAheadTab(shadcnui.ColorScheme colorScheme, AnalyticsData analyticsData, {String? selectedCurrency}) {
+Widget build30DayLookAheadTab(BuildContext context, shadcnui.ColorScheme colorScheme, AnalyticsData analyticsData, {String? selectedCurrency}) {
   // Filter data by currency if selected
   var expenses = analyticsData.expenses;
   var budgets = analyticsData.budgets;
@@ -33,7 +34,7 @@ Widget build30DayLookAheadTab(shadcnui.ColorScheme colorScheme, AnalyticsData an
               Row(
                 children: [
                   Text(
-                    '30-Day Look-Ahead',
+                    context.l10n.day30LookAhead,
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -59,7 +60,7 @@ Widget build30DayLookAheadTab(shadcnui.ColorScheme colorScheme, AnalyticsData an
               ),
               const SizedBox(height: 4),
               Text(
-                'Projected from trailing 30-day averages.',
+                context.l10n.projectedFromTrailing30Days,
                 style: TextStyle(
                   fontSize: 12,
                   color: colorScheme.mutedForeground,
@@ -68,13 +69,13 @@ Widget build30DayLookAheadTab(shadcnui.ColorScheme colorScheme, AnalyticsData an
               const SizedBox(height: 24),
               SizedBox(
                 height: 250,
-                child: build30DayProjectionChart(colorScheme, expenses, budgets),
+                child: build30DayProjectionChart(context, colorScheme, expenses, budgets),
               ),
               const SizedBox(height: 16),
               buildChartLegend(
                 colorScheme,
                 [
-                  {'label': 'Projected Spending', 'color': const Color(0xFF10B981)},
+                  {'label': context.l10n.projectedSpendingLegend, 'color': const Color(0xFF10B981)},
                 ],
               ),
             ],
@@ -86,7 +87,7 @@ Widget build30DayLookAheadTab(shadcnui.ColorScheme colorScheme, AnalyticsData an
 }
 
 void _showThirtyDayGuide(BuildContext context, shadcnui.ColorScheme colorScheme) {
-  final slides = _thirtyDaySlides();
+  final slides = _thirtyDaySlides(context);
   final controller = PageController();
   int currentPage = 0;
 
@@ -110,7 +111,7 @@ void _showThirtyDayGuide(BuildContext context, shadcnui.ColorScheme colorScheme)
                       children: [
                         Expanded(
                           child: Text(
-                            'Peek 30 days ahead',
+                            context.l10n.peek30DaysAhead,
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.w600,
@@ -126,7 +127,7 @@ void _showThirtyDayGuide(BuildContext context, shadcnui.ColorScheme colorScheme)
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'This forecast uses the last month of activity to guess how lively the next month might be. Think of it as a weather report for your wallet.',
+                      context.l10n.thirtyDayForecastDesc,
                       style: TextStyle(color: colorScheme.mutedForeground, fontSize: 14),
                     ),
                     const SizedBox(height: 24),
@@ -168,7 +169,7 @@ void _showThirtyDayGuide(BuildContext context, shadcnui.ColorScheme colorScheme)
                       children: [
                         TextButton(
                           onPressed: () => Navigator.of(dialogContext).pop(),
-                          child: const Text('Close'),
+                          child: Text(context.l10n.close),
                         ),
                         const Spacer(),
                         shadcnui.PrimaryButton(
@@ -180,7 +181,7 @@ void _showThirtyDayGuide(BuildContext context, shadcnui.ColorScheme colorScheme)
                               Navigator.of(dialogContext).pop();
                             }
                           },
-                          child: Text(currentPage < slides.length - 1 ? 'Next' : 'Done'),
+                          child: Text(currentPage < slides.length - 1 ? context.l10n.next : context.l10n.done),
                         ),
                       ],
                     ),
@@ -203,33 +204,33 @@ class _InsightsHelpSlideData {
   final List<String> points;
 }
 
-List<_InsightsHelpSlideData> _thirtyDaySlides() {
-  return const [
+List<_InsightsHelpSlideData> _thirtyDaySlides(BuildContext context) {
+  return [
     _InsightsHelpSlideData(
       title: 'What the forecast shows',
       summary: 'We blend the past 30 days of spending and income to sketch an average week ahead. It smooths out one-off splurges so you can see the usual rhythm.',
       points: [
-        'Green line = expected daily spend if the coming month behaves like the last one.',
-        'Spikes highlight weeks where your habits usually get pricier (hello, Friday takeaway).',
-        'When you log fresh transactions, the forecast gently updates—no need to refresh.',
+        context.l10n.greenLineExpected,
+        context.l10n.spikesHighlight,
+        context.l10n.forecastUpdates,
       ],
     ),
     _InsightsHelpSlideData(
       title: 'Why it matters',
       summary: 'Forward-looking budgets help you stay proactive. Seeing big days ahead lets you set aside cash instead of scrambling later.',
       points: [
-        'Spot expensive patterns early and stash a mini-buffer before they arrive.',
-        'Catch quieter weeks where you can sweep extra cash into savings or debt payoff.',
-        'Use the insight to time recurring payments, subscriptions, or top-ups.',
+        context.l10n.spotExpensivePatterns,
+        context.l10n.catchQuieterWeeks,
+        context.l10n.timeRecurringPayments,
       ],
     ),
     _InsightsHelpSlideData(
       title: 'How to play it smart',
       summary: 'Treat it like a friendly nudge, not a strict rulebook. Adjust your plan with tiny moves that feel doable.',
       points: [
-        'Big spike coming? Pre-book cheaper options or shuffle flexible spends to calmer days.',
-        'Forecast dipping? Reward yourself by scheduling an extra savings transfer.',
-        'If the forecast looks off, review categories in the Home tab to tidy up any mislabels.',
+        context.l10n.bigSpikeComing,
+        context.l10n.forecastDipping,
+        context.l10n.forecastLooksOff,
       ],
     ),
   ];

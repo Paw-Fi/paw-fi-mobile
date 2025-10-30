@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 
-Widget build30DayProjectionChart(shadcnui.ColorScheme colorScheme, List<ExpenseEntry> expenses, List<DailyBudgetEntry> budgets) {
+Widget build30DayProjectionChart(BuildContext context, shadcnui.ColorScheme colorScheme, List<ExpenseEntry> expenses, List<DailyBudgetEntry> budgets) {
   // Calculate trailing 30-day average
   final now = DateTime.now();
   final thirtyDaysAgo = now.subtract(const Duration(days: 30));
@@ -35,7 +36,7 @@ Widget build30DayProjectionChart(shadcnui.ColorScheme colorScheme, List<ExpenseE
             interval: 5,
             getTitlesWidget: (value, meta) {
               return Text(
-                'Day ${value.toInt() + 1}',
+                '${context.l10n.day} ${value.toInt() + 1}',
                 style: TextStyle(fontSize: 10, color: colorScheme.mutedForeground),
               );
             },

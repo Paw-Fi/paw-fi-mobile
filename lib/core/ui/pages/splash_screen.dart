@@ -1,15 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
-class SplashScreen extends StatelessWidget {
+/// Splash screen with device registration for push notifications
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
+
+  @override
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends ConsumerState<SplashScreen> {
+  // No per-page initialization; all app init is centralized in AppInitialization provider
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = shadcnui.Theme.of(context).colorScheme;
     final brightness = shadcnui.Theme.of(context).brightness;
     final isDark = brightness == Brightness.dark;
-    
+
     return Scaffold(
       backgroundColor: colorScheme.background,
       body: Center(
@@ -23,7 +32,7 @@ class SplashScreen extends StatelessWidget {
               decoration: BoxDecoration(
                 color: isDark ? colorScheme.card : Colors.white,
                 borderRadius: BorderRadius.circular(24),
-              
+
               ),
               child: Image.asset(
                 'lib/assets/images/logo192.png',

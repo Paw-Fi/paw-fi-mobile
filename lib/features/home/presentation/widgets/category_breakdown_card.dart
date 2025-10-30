@@ -1,25 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/utils/currency.dart';
-Widget buildCategoryBreakdownCard(BuildContext context, shadcnui.ColorScheme colorScheme, List<ExpenseEntry> expenses, UserContact? contact, {String? selectedCurrency}) {
+import 'package:moneko/core/l10n/l10n.dart';
+Widget buildCategoryBreakdownCard(
+  BuildContext context,
+  shadcnui.ColorScheme colorScheme,
+  List<ExpenseEntry> expenses,
+  UserContact? contact, {
+  String? selectedCurrency,
+  String? householdId,
+}) {
   final categorySummaries = _getCategorySummaries(expenses);
   final totalSpent = _getTotalSpent(expenses);
   
   // selectedCurrency is never null (defaults to USD)
   String formatCategoryAmount(double amount) => '-${formatCurrency(amount, selectedCurrency ?? 'USD')}';
 
-  return GestureDetector(
-    onTap: () {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => const TransactionsPage(),
-        ),
-      );
-    },
-    child: Container(
+  return Container(
       decoration: BoxDecoration(
         color: colorScheme.card,
         borderRadius: BorderRadius.circular(12),
@@ -30,7 +29,7 @@ Widget buildCategoryBreakdownCard(BuildContext context, shadcnui.ColorScheme col
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'By Category',
+            context.l10n.byCategory,
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -51,7 +50,7 @@ Widget buildCategoryBreakdownCard(BuildContext context, shadcnui.ColorScheme col
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'No expenses yet',
+                      context.l10n.noExpensesYet,
                       style: TextStyle(
                         fontSize: 14,
                         color: colorScheme.mutedForeground,
@@ -59,7 +58,7 @@ Widget buildCategoryBreakdownCard(BuildContext context, shadcnui.ColorScheme col
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Start logging expenses to see categories',
+                      context.l10n.startLoggingExpensesToSeeCategories,
                       style: TextStyle(
                         fontSize: 12,
                         color: colorScheme.mutedForeground.withValues(alpha: 0.7),
@@ -94,8 +93,7 @@ Widget buildCategoryBreakdownCard(BuildContext context, shadcnui.ColorScheme col
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          category.category.substring(0, 1).toUpperCase() + 
-                              category.category.substring(1),
+                          getCategoryTranslation(context, category.category),
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
@@ -103,7 +101,7 @@ Widget buildCategoryBreakdownCard(BuildContext context, shadcnui.ColorScheme col
                           ),
                         ),
                         Text(
-                          '${category.transactionCount} transaction${category.transactionCount != 1 ? 's' : ''}',
+                          '${category.transactionCount} ${category.transactionCount != 1 ? context.l10n.transactions : context.l10n.transactions}',
                           style: TextStyle(
                             fontSize: 12,
                             color: colorScheme.mutedForeground,
@@ -138,8 +136,7 @@ Widget buildCategoryBreakdownCard(BuildContext context, shadcnui.ColorScheme col
           }).toList(),
         ],
       ),
-    ),
-  );
+    );
 }
 
 List<CategorySummary> _getCategorySummaries(List<ExpenseEntry> expenses) {
@@ -147,11 +144,10 @@ List<CategorySummary> _getCategorySummaries(List<ExpenseEntry> expenses) {
   final Map<String, int> categoryCounts = {};
 
   for (final expense in expenses) {
-    if (expense.amountCents > 0) {
-      final cat = (expense.category ?? 'uncategorized').toLowerCase();
-      categoryTotals[cat] = (categoryTotals[cat] ?? 0) + expense.amount;
-      categoryCounts[cat] = (categoryCounts[cat] ?? 0) + 1;
-    }
+    // Treat all rows in expenses as spend; use absolute for robustness
+    final cat = (expense.category ?? 'uncategorized').toLowerCase();
+    categoryTotals[cat] = (categoryTotals[cat] ?? 0) + expense.amount.abs();
+    categoryCounts[cat] = (categoryCounts[cat] ?? 0) + 1;
   }
 
   return categoryTotals.entries.map((e) {
@@ -166,5 +162,6 @@ List<CategorySummary> _getCategorySummaries(List<ExpenseEntry> expenses) {
 }
 
 double _getTotalSpent(List<ExpenseEntry> expenses) {
-  return expenses.where((e) => e.amountCents > 0).fold(0.0, (sum, e) => sum + e.amount);
+  // Sum absolute amounts to align with backend summary (expense-only model)
+  return expenses.fold(0.0, (sum, e) => sum + e.amount.abs());
 }

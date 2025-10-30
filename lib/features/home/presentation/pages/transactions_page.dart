@@ -10,14 +10,18 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dart';
-import '../widgets/transaction_detail_sheet.dart';
+import '../widgets/unified_transaction_sheet.dart';
+import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 // ============================================================================
 // TRANSACTIONS PAGE
 // ============================================================================
 
 class TransactionsPage extends ConsumerStatefulWidget {
-  const TransactionsPage({super.key});
+  final String? householdId;
+  const TransactionsPage({super.key, this.householdId});
 
   @override
   ConsumerState<TransactionsPage> createState() => _TransactionsPageState();
@@ -28,6 +32,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   String selectedCategory = 'all';
   String selectedPeriod = '1M';
   int currentChartIndex = 0;
+  DateTime? _customStartDate;
+  DateTime? _customEndDate;
   
   final TextEditingController _searchController = TextEditingController();
   final PageController _chartPageController = PageController();
@@ -39,10 +45,11 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     super.dispose();
   }
 
+  List<ExpenseEntry> _baseExpenses = const [];
+
   List<ExpenseEntry> get filteredExpenses {
-    final analyticsData = ref.watch(analyticsProvider);
     final filterState = ref.watch(homeFilterProvider);
-    var expenses = analyticsData.expenses;
+    var expenses = _baseExpenses;
 
     // Filter by currency if selected
     final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
@@ -53,7 +60,14 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     }
 
     // Filter by period
-    if (selectedPeriod != 'All') {
+    if (selectedPeriod == 'Custom' && _customStartDate != null && _customEndDate != null) {
+      final start = DateTime(_customStartDate!.year, _customStartDate!.month, _customStartDate!.day);
+      final end = DateTime(_customEndDate!.year, _customEndDate!.month, _customEndDate!.day);
+      expenses = expenses.where((ex) {
+        final d = DateTime(ex.date.year, ex.date.month, ex.date.day);
+        return !d.isBefore(start) && !d.isAfter(end);
+      }).toList();
+    } else if (selectedPeriod != 'All') {
       final now = DateTime.now();
       DateTime startDate;
       switch (selectedPeriod) {
@@ -72,8 +86,6 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         default:
           startDate = DateTime(now.year, now.month - 1, now.day);
       }
-      
-      // Filter expenses that are on or after the start date
       expenses = expenses.where((e) => !e.date.isBefore(startDate)).toList();
     }
 
@@ -106,8 +118,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   }
 
   List<String> get categories {
-    final analyticsData = ref.watch(analyticsProvider);
-    final cats = analyticsData.expenses
+    final cats = _baseExpenses
         .map((e) => (e.category ?? 'uncategorized').toLowerCase())
         .toSet()
         .toList()
@@ -118,17 +129,41 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   String get periodLabel {
     switch (selectedPeriod) {
       case '1W':
-        return 'This week';
+        return context.l10n.thisWeek;
       case '1M':
-        return 'This month';
+        return context.l10n.last30Days;
       case '6M':
-        return 'Last 6 months';
+        return context.l10n.last6Months;
       case '1Y':
-        return 'This year';
+        return context.l10n.thisYear;
       case 'All':
-        return 'All time';
+        return context.l10n.allTime;
+      case 'Custom':
+        if (_customStartDate != null && _customEndDate != null) {
+          final sameYear = _customStartDate!.year == _customEndDate!.year;
+          final fmt = sameYear ? DateFormat('MMM d') : DateFormat('MMM d, yyyy');
+          return '${fmt.format(_customStartDate!)} – ${fmt.format(_customEndDate!)}';
+        }
+        return context.l10n.customRange;
       default:
-        return 'This month';
+        return context.l10n.last30Days;
+    }
+  }
+
+  String getPeriodLabel(String period) {
+    switch (period) {
+      case '1W':
+        return context.l10n.thisWeek;
+      case '1M':
+        return context.l10n.last30Days;
+      case '6M':
+        return context.l10n.last6Months;
+      case '1Y':
+        return context.l10n.thisYear;
+      case 'All':
+        return context.l10n.allTime;
+      default:
+        return period;
     }
   }
 
@@ -140,12 +175,57 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     final analyticsData = ref.watch(analyticsProvider);
     final user = ref.watch(authProvider);
 
+    // Resolve base expenses source (household-specific or global analytics)
+    if (widget.householdId != null) {
+      final expensesAsync = ref.watch(householdExpensesProvider(
+        HouseholdExpensesParams(householdId: widget.householdId!, limit: 1000),
+      ));
+      return expensesAsync.when(
+        loading: () => Scaffold(
+          backgroundColor: colorScheme.background,
+          body: const Center(child: CircularProgressIndicator()),
+        ),
+        error: (e, st) => Scaffold(
+          backgroundColor: colorScheme.background,
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline, size: 48, color: colorScheme.destructive),
+                  const SizedBox(height: 12),
+                  Text(context.l10n.failedToLoadHouseholdTransactions, style: TextStyle(color: colorScheme.destructive)),
+                ],
+              ),
+            ),
+          ),
+        ),
+        data: (list) {
+          _baseExpenses = list;
+          return _buildMainScaffold(colorScheme, null);
+        },
+      );
+    } else {
+      _baseExpenses = analyticsData.expenses;
+    }
+
+    return _buildMainScaffold(colorScheme, analyticsData.contact);
+  }
+
+  Scaffold _buildMainScaffold(shadcnui.ColorScheme colorScheme, UserContact? contact) {
+    final user = ref.watch(authProvider);
+    final analyticsData = ref.watch(analyticsProvider);
     return Scaffold(
       backgroundColor: colorScheme.background,
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {
-            ref.read(analyticsProvider.notifier).refresh(user.uid);
+            if (widget.householdId != null) {
+              ref.invalidate(householdExpensesProvider);
+            } else {
+              ref.read(analyticsProvider.notifier).refresh(user.uid);
+            }
             await Future.delayed(const Duration(milliseconds: 500));
           },
           child: CustomScrollView(
@@ -172,7 +252,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Transactions',
+                            context.l10n.transactions,
                             style: TextStyle(
                               fontSize: 32,
                               fontWeight: FontWeight.bold,
@@ -180,7 +260,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                             ),
                           ),
                           Text(
-                            '${filteredExpenses.length} transactions',
+                            '${filteredExpenses.length} ${context.l10n.transactions.toLowerCase()}',
                             style: TextStyle(
                               fontSize: 14,
                               color: colorScheme.mutedForeground,
@@ -215,7 +295,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                           },
                           style: TextStyle(color: colorScheme.foreground),
                           decoration: InputDecoration(
-                            hintText: 'Search',
+                            hintText: context.l10n.search,
                             hintStyle: TextStyle(color: colorScheme.mutedForeground),
                             prefixIcon: Icon(Icons.search, color: colorScheme.mutedForeground),
                             border: InputBorder.none,
@@ -266,7 +346,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
-                              period,
+                              getPeriodLabel(period),
                               style: TextStyle(
                                 color: isSelected ? Colors.white : colorScheme.foreground,
                                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
@@ -287,7 +367,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: _buildChart(colorScheme, analyticsData.contact),
+                child: _buildChart(colorScheme, contact),
               ),
             ),
 
@@ -305,7 +385,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                       child: Row(
                         children: [
                           Text(
-                            'By Category',
+                            context.l10n.byCategory,
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
@@ -340,7 +420,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              'No transactions found',
+                              context.l10n.noTransactionsFound,
                               style: TextStyle(
                                 fontSize: 16,
                                 color: colorScheme.mutedForeground,
@@ -357,7 +437,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                         final expense = filteredExpenses[index];
                         return Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                          child: _buildTransactionItem(expense, colorScheme, analyticsData.contact),
+                        child: _buildTransactionItem(expense, colorScheme, contact),
                         );
                       },
                       childCount: filteredExpenses.length,
@@ -371,7 +451,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   }
 
   Widget _buildChart(shadcnui.ColorScheme colorScheme, UserContact? contact) {
-    final totalSpent = filteredExpenses.where((e) => e.amountCents > 0).fold(0.0, (sum, e) => sum + e.amount);
+    final totalSpent = filteredExpenses
+        .fold(0.0, (sum, e) => sum + e.amount.abs());
     final filterState = ref.watch(homeFilterProvider);
     
     // selectedCurrency is never null (defaults to USD)
@@ -389,7 +470,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            'Spent',
+            context.l10n.spent,
             style: TextStyle(
               fontSize: 14,
               color: colorScheme.mutedForeground,
@@ -473,7 +554,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     final sortedDates = periodTotals.keys.toList()..sort();
     if (sortedDates.isEmpty) {
       return Center(
-        child: Text('No data', style: TextStyle(color: colorScheme.mutedForeground)),
+        child: Text(context.l10n.noData, style: TextStyle(color: colorScheme.mutedForeground)),
       );
     }
 
@@ -544,17 +625,17 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
             LineChartBarData(
               spots: cumulativeData,
               isCurved: true,
-              color: const Color(0xFF10B981),
+              color: AppTheme.monekoPrimary,
               barWidth: 3,
               dotData: FlDotData(
                 show: true,
                 getDotPainter: (spot, percent, barData, index) {
                   if (index == cumulativeData.length - 1) {
                     return FlDotCirclePainter(
-                      radius: 6,
-                      color: const Color(0xFF10B981),
-                      strokeWidth: 2,
-                      strokeColor: colorScheme.background,
+                      radius: 7,
+                      color: AppTheme.danger,
+                      strokeWidth: 3,
+                      strokeColor: Colors.white,
                     );
                   }
                   return FlDotCirclePainter(
@@ -567,8 +648,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                 show: true,
                 gradient: LinearGradient(
                   colors: [
-                    const Color(0xFF10B981).withValues(alpha: 0.3),
-                    const Color(0xFF10B981).withValues(alpha: 0.0),
+                    AppTheme.monekoPrimary.withValues(alpha: 0.28),
+                    AppTheme.monekoPrimary.withValues(alpha: 0.0),
                   ],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
@@ -589,7 +670,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
     if (barData.periodTotals.isEmpty) {
       return Center(
-        child: Text('No data', style: TextStyle(color: colorScheme.mutedForeground)),
+        child: Text(context.l10n.noData, style: TextStyle(color: colorScheme.mutedForeground)),
       );
     }
 
@@ -674,15 +755,15 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     // Group expenses by category
     final Map<String, double> categoryTotals = {};
     for (final expense in filteredExpenses) {
-      if (expense.amountCents > 0) {
+      {
         final cat = (expense.category ?? 'uncategorized').toLowerCase();
-        categoryTotals[cat] = (categoryTotals[cat] ?? 0) + expense.amount;
+        categoryTotals[cat] = (categoryTotals[cat] ?? 0) + expense.amount.abs();
       }
     }
 
     if (categoryTotals.isEmpty) {
       return Center(
-        child: Text('No data', style: TextStyle(color: colorScheme.mutedForeground)),
+        child: Text(context.l10n.noData, style: TextStyle(color: colorScheme.mutedForeground)),
       );
     }
 
@@ -714,7 +795,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                'Spent',
+                context.l10n.spent,
                 style: TextStyle(
                   fontSize: 12,
                   color: colorScheme.mutedForeground,
@@ -749,7 +830,11 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     final dateFormat = DateFormat('MMM d, yyyy');
 
     return GestureDetector(
-      onTap: () => showTransactionDetailSheet(context, expense, contact: contact),
+      onTap: () => showUnifiedTransactionSheet(
+        context,
+        existingExpense: expense,
+        contact: contact,
+      ),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
@@ -781,7 +866,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  category.substring(0, 1).toUpperCase() + category.substring(1),
+                  getCategoryTranslation(context, category),
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -802,7 +887,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
           ),
           // Amount
           Text(
-            '-${formatCurrency(expense.amount, expense.currency)}',
+            '-${formatCurrency(expense.amount.abs(), expense.currency)}',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -836,7 +921,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Filter Transactions',
+                        context.l10n.filterTransactions,
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -851,7 +936,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    'Category',
+                    context.l10n.category,
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -881,7 +966,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                             ),
                           ),
                           child: Text(
-                            category.substring(0, 1).toUpperCase() + category.substring(1),
+                            category.toLowerCase() == 'all'
+                                ? context.l10n.allCategories
+                                : getCategoryTranslation(context, category),
                             style: TextStyle(
                               color: isSelected ? Colors.white : colorScheme.foreground,
                               fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
@@ -892,6 +979,72 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                     }).toList(),
                   ),
                   const SizedBox(height: 24),
+                  // Date range controls
+                  Text(
+                    context.l10n.selectDateRange,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.foreground,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: shadcnui.OutlineButton(
+                          onPressed: () {
+                            final now = DateTime.now();
+                            final start = DateTime(now.year, now.month, 1);
+                            final end = DateTime(now.year, now.month + 1, 0);
+                            setState(() {
+                              selectedPeriod = 'Custom';
+                              _customStartDate = start;
+                              _customEndDate = end;
+                            });
+                            setModalState(() {});
+                          },
+                          child: Text(context.l10n.thisMonth),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: shadcnui.OutlineButton(
+                          onPressed: () async {
+                            final initialRange = _customStartDate != null && _customEndDate != null
+                                ? DateTimeRange(start: _customStartDate!, end: _customEndDate!)
+                                : DateTimeRange(
+                                    start: DateTime(DateTime.now().year, DateTime.now().month, 1),
+                                    end: DateTime(DateTime.now().year, DateTime.now().month + 1, 0),
+                                  );
+                            final picked = await showDateRangePicker(
+                              context: context,
+                              firstDate: DateTime(2000),
+                              lastDate: DateTime(2100),
+                              initialDateRange: initialRange,
+                            );
+                            if (picked != null) {
+                              setState(() {
+                                selectedPeriod = 'Custom';
+                                _customStartDate = picked.start;
+                                _customEndDate = picked.end;
+                              });
+                              setModalState(() {});
+                            }
+                          },
+                          child: Text(context.l10n.customRange),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (selectedPeriod == 'Custom' && _customStartDate != null && _customEndDate != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      '${DateFormat('MMM d, yyyy').format(_customStartDate!)} – ${DateFormat('MMM d, yyyy').format(_customEndDate!)}',
+                      style: TextStyle(fontSize: 12, color: colorScheme.mutedForeground),
+                    ),
+                  ],
+                  const SizedBox(height: 24),
                   Row(
                     children: [
                       Expanded(
@@ -901,17 +1054,18 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                               selectedCategory = 'all';
                               searchQuery = '';
                               _searchController.clear();
+                              // Keep period selection as user-configured
                             });
                             Navigator.pop(context);
                           },
-                          child: const Text('Reset'),
+                          child: Text(context.l10n.reset),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: shadcnui.PrimaryButton(
                           onPressed: () => Navigator.pop(context),
-                          child: const Text('Apply'),
+                          child: Text(context.l10n.apply),
                         ),
                       ),
                     ],

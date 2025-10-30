@@ -1,7 +1,68 @@
 import 'package:flutter/material.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../households/presentation/providers/household_providers.dart';
+import '../../../households/presentation/pages/household_overview_page.dart';
+import '../state/analytics_provider.dart';
+import '../../../utils/currency.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
-void showJointAccountModal(BuildContext context, shadcnui.ColorScheme colorScheme) {
+/// Navigate to household screen (either overview or onboarding)
+void navigateToHousehold(BuildContext context, WidgetRef ref) async {
+  // Get current user ID
+  final userId = Supabase.instance.client.auth.currentUser?.id;
+
+  if (userId == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.l10n.userNotLoggedIn)),
+    );
+    return;
+  }
+
+  // Get user's households
+  final householdsAsync = ref.read(userHouseholdsProvider(userId));
+
+  householdsAsync.when(
+    data: (households) {
+      if (households.isNotEmpty) {
+        // User has household(s), navigate to first one
+        final household = households.first;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => HouseholdOverviewPage(
+              householdId: household.id,
+            ),
+          ),
+        );
+      } else {
+        // No household, show onboarding modal
+        showHouseholdOnboardingModal(context, ref, userId);
+      }
+    },
+    loading: () {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    },
+    error: (error, stack) {
+      // Show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.errorLoadingHouseholds)),
+      );
+    },
+  );
+}
+
+/// Show household onboarding modal (create or join)
+void showHouseholdOnboardingModal(BuildContext context, WidgetRef ref, String userId) {
+  final colorScheme = shadcnui.Theme.of(context).colorScheme;
+
   showDialog(
     context: context,
     builder: (context) => Dialog(
@@ -9,7 +70,7 @@ void showJointAccountModal(BuildContext context, shadcnui.ColorScheme colorSchem
         borderRadius: BorderRadius.circular(20),
       ),
       child: Container(
-        constraints: BoxConstraints(
+        constraints: const BoxConstraints(
           maxWidth: 400,
         ),
         decoration: BoxDecoration(
@@ -24,11 +85,11 @@ void showJointAccountModal(BuildContext context, shadcnui.ColorScheme colorSchem
             // Title with emoji
             Row(
               children: [
-                Text('💡', style: TextStyle(fontSize: 28)),
+                const Text('🏠', style: TextStyle(fontSize: 28)),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Joint Accounts Coming Soon!',
+                    context.l10n.welcomeToHouseholds,
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
@@ -42,35 +103,235 @@ void showJointAccountModal(BuildContext context, shadcnui.ColorScheme colorSchem
 
             // Content
             Text(
-              'In the next phase, you\'ll be able to invite your family, partner, or friends to create a shared budget and manage money together — all in one place.',
+              context.l10n.householdsDescription,
               style: TextStyle(
                 fontSize: 15,
                 height: 1.6,
                 color: colorScheme.mutedForeground,
               ),
             ),
-            const SizedBox(height: 16),
+
+            const SizedBox(height: 24),
+
+            // Create button
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: shadcnui.PrimaryButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  _showCreateHouseholdDialog(context, ref, userId);
+                },
+                child: Text(
+                  context.l10n.createHousehold,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // Join button
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: shadcnui.OutlineButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(context.l10n.pleaseUseInvitationLink)),
+                  );
+                },
+                child: Text(
+                  context.l10n.joinWithInvite,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+/// Show create household dialog
+void _showCreateHouseholdDialog(BuildContext context, WidgetRef ref, String userId) {
+  final colorScheme = shadcnui.Theme.of(context).colorScheme;
+  final nameController = TextEditingController();
+
+  showDialog(
+    context: context,
+    builder: (context) => Dialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Container(
+        constraints: const BoxConstraints(
+          maxWidth: 400,
+        ),
+        decoration: BoxDecoration(
+          color: colorScheme.background,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Text(
-              'Stay tuned, it\'s going to make teamwork with finances effortless!',
+              context.l10n.createHousehold,
               style: TextStyle(
-                fontSize: 15,
-                height: 1.6,
-                fontWeight: FontWeight.w600,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
                 color: colorScheme.foreground,
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Name field
+            TextField(
+              controller: nameController,
+              decoration: InputDecoration(
+                labelText: context.l10n.householdName,
+                hintText: context.l10n.householdNameHint,
               ),
             ),
 
             const SizedBox(height: 24),
 
-            // Button
+            // Buttons
+            Row(
+              children: [
+                Expanded(
+                  child: shadcnui.OutlineButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: shadcnui.PrimaryButton(
+                    onPressed: () async {
+                      if (nameController.text.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(context.l10n.pleaseEnterHouseholdName)),
+                        );
+                        return;
+                      }
+
+                      try {
+                        // Determine currency: default to user's preferred or USD
+                        final analytics = ref.read(analyticsProvider);
+                        final preferred = analytics.preferredCurrency?.toUpperCase();
+                        final currency = isSupportedCurrencyCode(preferred) ? preferred! : 'USD';
+                        // Create household
+                        await ref
+                            .read(userHouseholdsProvider(userId).notifier)
+                            .createHousehold(
+                              name: nameController.text,
+                              currency: currency,
+                            );
+
+                        // Get the created household from the state
+                        final householdsAsync = ref.read(userHouseholdsProvider(userId));
+                        final households = householdsAsync.value ?? [];
+
+                        if (context.mounted && households.isNotEmpty) {
+                          final household = households.first;
+                          Navigator.of(context).pop();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => HouseholdOverviewPage(
+                                householdId: household.id,
+                              ),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(context.l10n.errorCreatingHousehold)),
+                          );
+                        }
+                      }
+                    },
+                    child: const Text('Create'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+// Legacy function for backwards compatibility
+void showJointAccountModal(BuildContext context, shadcnui.ColorScheme colorScheme) {
+  // This is deprecated, but kept for backwards compatibility
+  // It will be removed once all references are updated
+  showDialog(
+    context: context,
+    builder: (context) => Dialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Container(
+        constraints: const BoxConstraints(
+          maxWidth: 400,
+        ),
+        decoration: BoxDecoration(
+          color: colorScheme.background,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Text('🏠', style: TextStyle(fontSize: 28)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    context.l10n.householdsFeature,
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.foreground,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Text(
+              context.l10n.householdsFeatureDescription,
+              style: TextStyle(
+                fontSize: 15,
+                height: 1.6,
+                color: colorScheme.mutedForeground,
+              ),
+            ),
+            const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
               height: 44,
               child: shadcnui.PrimaryButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text(
-                  'Got it!',
-                  style: TextStyle(
+                child: Text(
+                  context.l10n.gotIt,
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),

@@ -1,3 +1,6 @@
+import 'package:flutter/widgets.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+
 /// Date range filter options
 enum DateRangeFilter {
   today,
@@ -10,41 +13,43 @@ enum DateRangeFilter {
 }
 
 extension DateRangeFilterExtension on DateRangeFilter {
-  String get label {
+  String getLabel(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     switch (this) {
       case DateRangeFilter.today:
-        return 'Today';
+        return l10n.today;
       case DateRangeFilter.yesterday:
-        return 'Yesterday';
+        return l10n.yesterday;
       case DateRangeFilter.thisWeek:
-        return 'This week';
+        return l10n.thisWeek;
       case DateRangeFilter.lastWeek:
-        return 'Last week';
+        return l10n.lastWeek;
       case DateRangeFilter.thisMonth:
-        return 'This month';
+        return l10n.thisMonth;
       case DateRangeFilter.last30Days:
-        return 'Last 30 days';
+        return l10n.last30Days;
       case DateRangeFilter.custom:
-        return 'Custom range';
+        return l10n.customRange;
     }
   }
 
-  String get spentLabel {
+  String getSpentLabel(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     switch (this) {
       case DateRangeFilter.today:
-        return 'Spent today';
+        return l10n.spentToday;
       case DateRangeFilter.yesterday:
-        return 'Spent yesterday';
+        return l10n.spentYesterday;
       case DateRangeFilter.thisWeek:
-        return 'Spent this week';
+        return l10n.spentThisWeek;
       case DateRangeFilter.lastWeek:
-        return 'Spent last week';
+        return l10n.spentLastWeek;
       case DateRangeFilter.thisMonth:
-        return 'Spent this month';
+        return l10n.spentThisMonth;
       case DateRangeFilter.last30Days:
-        return 'Spent (last 30 days)';
+        return l10n.spentLast30Days;
       case DateRangeFilter.custom:
-        return 'Spent (custom)';
+        return l10n.spentCustom;
     }
   }
-}
+  }

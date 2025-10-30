@@ -4,6 +4,7 @@ import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/features/profile/data/providers/whatsapp_binding_provider.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 
 part 'app_initialization_provider.g.dart';
 
@@ -39,6 +40,16 @@ class AppInitialization extends _$AppInitialization {
         // User is authenticated - load all user-specific data in parallel
         debugPrint('👤 Loading user data...');
         
+        // Initialize device registration (push notifications)
+        // Keep all app init calls centralized here for consistency
+        try {
+          debugPrint('🔔 Initializing device registration...');
+          await ref.read(deviceRegistrationServiceProvider).initialize();
+          debugPrint('✅ Device registration initialized');
+        } catch (e) {
+          debugPrint('⚠️ Device registration init failed (non-critical): $e');
+        }
+
         await Future.wait([
           // Load subscription
           _loadSubscription(),
@@ -140,6 +151,12 @@ class AppInitialization extends _$AppInitialization {
   /// Clear all cached data (on logout)
   void clearCache() {
     debugPrint('🗑️ Clearing all cached user data...');
+    // Unregister device on logout
+    try {
+      ref.read(deviceRegistrationServiceProvider).unregisterDevice();
+    } catch (e) {
+      debugPrint('⚠️ Failed to unregister device (non-critical): $e');
+    }
     
     // Clear WhatsApp binding (keepAlive provider)
     ref.read(whatsAppBindingProvider.notifier).clear();

@@ -4,6 +4,7 @@ import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 void showTextInputDrawer(
   BuildContext parentContext,
@@ -49,9 +50,9 @@ class _TextInputContentState extends ConsumerState<_TextInputContent> {
     final text = widget.textController.text.trim();
     if (text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter expense details'),
-          duration: Duration(seconds: 2),
+        SnackBar(
+          content: Text(context.l10n.pleaseEnterExpenseDetails),
+          duration: const Duration(seconds: 2),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -91,7 +92,7 @@ class _TextInputContentState extends ConsumerState<_TextInputContent> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Add Expense',
+                  context.l10n.addExpense,
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -106,7 +107,7 @@ class _TextInputContentState extends ConsumerState<_TextInputContent> {
             ),
             const SizedBox(height: 16),
             Text(
-              'Describe your expense (eg: "Spent 25 on lunch")',
+              context.l10n.describeYourExpense,
               style: TextStyle(
                 fontSize: 14,
                 color: widget.colorScheme.mutedForeground,
@@ -118,7 +119,7 @@ class _TextInputContentState extends ConsumerState<_TextInputContent> {
               autofocus: true,
               maxLines: 4,
               decoration: InputDecoration(
-                hintText: 'Enter expense details...',
+                hintText: context.l10n.enterExpenseDetails,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide(color: widget.colorScheme.border),
@@ -144,7 +145,7 @@ class _TextInputContentState extends ConsumerState<_TextInputContent> {
                           valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                         ),
                       )
-                    : const Text('Add Expense'),
+                    : Text(context.l10n.addExpense),
               ),
             ),
             const SizedBox(height: 16),

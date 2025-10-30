@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class WhatsAppTutorialModal extends HookWidget {
@@ -14,14 +15,14 @@ class WhatsAppTutorialModal extends HookWidget {
 
     final tutorialSteps = [
       _TutorialStep(
-        title: 'Natural Language',
-        description: 'Describe your expense. We’ll log it automatically.',
+        title: context.l10n.naturalLanguage,
+        description: context.l10n.describeExpenseAutomatically,
         icon: null,
         imagePath: 'lib/assets/images/whatsapp/text.png',
       ),
       _TutorialStep(
-        title: 'Snap Receipt',
-        description: 'Snap your receipt. AI extracts and logs it.',
+        title: context.l10n.snapReceipt,
+        description: context.l10n.snapReceiptDescription,
         icon: null,
         imagePath: 'lib/assets/images/whatsapp/receipt.png',
       ),
@@ -74,7 +75,7 @@ class WhatsAppTutorialModal extends HookWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Connect WhatsApp',
+                    context.l10n.connectWhatsApp,
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -131,15 +132,15 @@ class WhatsAppTutorialModal extends HookWidget {
                 children: [
                   if (currentPage.value > 0)
                     Expanded(
-                      child: shadcnui.OutlineButton(
-                        onPressed: () {
-                          pageController.previousPage(
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeInOut,
-                          );
-                        },
-                        child: const Text('Previous'),
-                      ),
+                        child: shadcnui.OutlineButton(
+                          onPressed: () {
+                            pageController.previousPage(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                            );
+                          },
+                          child: Text(context.l10n.previous),
+                        ),
                     ),
                   if (currentPage.value > 0) const SizedBox(width: 12),
                   Expanded(
@@ -152,7 +153,7 @@ class WhatsAppTutorialModal extends HookWidget {
                                 curve: Curves.easeInOut,
                               );
                             },
-                            child: const Text('Next'),
+                            child: Text(context.l10n.next),
                           )
                         : Container(
                             height: 54,
@@ -176,9 +177,9 @@ class WhatsAppTutorialModal extends HookWidget {
                               child: InkWell(
                                 onTap: handleBindWhatsApp,
                                 borderRadius: BorderRadius.circular(12),
-                                child: const Center(
+                                child: Center(
                                   child: Text(
-                                    'Connect',
+                                    context.l10n.connectWhatsApp,
                                     style: TextStyle(
                                       color: Colors.white,
                                       fontSize: 16,

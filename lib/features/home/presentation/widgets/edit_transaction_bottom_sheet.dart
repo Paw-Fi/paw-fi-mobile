@@ -10,6 +10,7 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/currency_flags.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 /// Generic bottom sheet for editing transaction fields
 class EditTransactionBottomSheet extends ConsumerStatefulWidget {
@@ -176,12 +177,23 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
         inputFormatters: widget.field == EditField.amount
             ? [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))]
             : null,
+        style: TextStyle(
+          fontSize: 16,
+          color: colorScheme.foreground,
+          fontWeight: FontWeight.w400,
+        ),
         decoration: InputDecoration(
           labelText: _getLabel(),
+          labelStyle: TextStyle(color: colorScheme.foreground),
           errorText: _error,
           prefixText: widget.field == EditField.amount 
               ? resolveCurrencySymbol(widget.expense.currency) 
               : null,
+          prefixStyle: TextStyle(
+            fontSize: 16,
+            color: colorScheme.foreground,
+            fontWeight: FontWeight.w400,
+          ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
           ),
@@ -248,7 +260,7 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      category.substring(0, 1).toUpperCase() + category.substring(1),
+                      getCategoryTranslation(context, category),
                       style: TextStyle(
                         color: isSelected ? categoryColor : colorScheme.foreground,
                         fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,

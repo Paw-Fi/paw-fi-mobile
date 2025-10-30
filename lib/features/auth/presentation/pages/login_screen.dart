@@ -3,7 +3,9 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/l10n/l10n.dart';
 
 class LoginScreen extends HookConsumerWidget {
   const LoginScreen({super.key});
@@ -53,13 +55,13 @@ class LoginScreen extends HookConsumerWidget {
       final password = passwordController.text;
 
       if (email.isEmpty || !email.contains('@')) {
-        error.value = 'Please enter a valid email address';
+        error.value = context.l10n.enterValidEmail;
         errorShake.value = true;
         return;
       }
 
       if (password.isEmpty || password.length < 6) {
-        error.value = 'Password must be at least 6 characters long';
+        error.value = context.l10n.passwordMinLength(6);
         errorShake.value = true;
         return;
       }
@@ -69,6 +71,11 @@ class LoginScreen extends HookConsumerWidget {
 
       try {
         await ref.read(authProvider.notifier).signIn(email, password);
+
+        // After successful authentication, ensure device is registered for push notifications
+        try {
+          await ref.read(deviceRegistrationServiceProvider).initialize();
+        } catch (_) {}
 
         if (context.mounted) {
           context.go('/dashboard');
@@ -96,7 +103,7 @@ class LoginScreen extends HookConsumerWidget {
             context: context,
             builder: (context, overlay) => shadcnui.Alert(
               leading: const shadcnui.Icon(Icons.check_circle),
-              title: const shadcnui.Text('Password reset email sent. Check your inbox.'),
+              title: shadcnui.Text(context.l10n.passwordResetEmailSent),
             ),
           );
         }
@@ -142,7 +149,7 @@ class LoginScreen extends HookConsumerWidget {
                     child: Column(
                       children: [
                         Text(
-                          'Moneko',
+                          context.l10n.appTitle,
                           style: theme.typography.h1.copyWith(
                             fontSize: 48,
                             fontWeight: FontWeight.bold,
@@ -153,7 +160,7 @@ class LoginScreen extends HookConsumerWidget {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Welcome back',
+                          context.l10n.loginWelcomeBack,
                           style: theme.typography.large.copyWith(
                             color: theme.colorScheme.mutedForeground,
                             fontSize: 16,
@@ -215,7 +222,7 @@ class LoginScreen extends HookConsumerWidget {
                               Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 16),
                                 child: Text(
-                                  'Or continue with email',
+                                  context.l10n.orContinueWithEmail,
                                   style: theme.typography.small.copyWith(
                                     color: theme.colorScheme.mutedForeground,
                                     fontSize: 13,
@@ -246,7 +253,7 @@ class LoginScreen extends HookConsumerWidget {
                             keyboardType: TextInputType.emailAddress,
                             textInputAction: TextInputAction.next,
                             placeholder: shadcnui.Text(
-                              'Email address',
+                              context.l10n.emailAddress,
                               style: TextStyle(
                                 color: theme.colorScheme.mutedForeground.withOpacity(0.6),
                               ),
@@ -274,7 +281,7 @@ class LoginScreen extends HookConsumerWidget {
                             textInputAction: TextInputAction.done,
                             onSubmitted: (_) => handleSignIn(),
                             placeholder: shadcnui.Text(
-                              'Password',
+                              context.l10n.password,
                               style: TextStyle(
                                 color: theme.colorScheme.mutedForeground.withOpacity(0.6),
                               ),
@@ -315,7 +322,7 @@ class LoginScreen extends HookConsumerWidget {
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
                                 child: Text(
-                                  'Forgot password?',
+                                  context.l10n.forgotPassword,
                                   style: theme.typography.small.copyWith(
                                     color: theme.colorScheme.primary,
                                     fontSize: 14,
@@ -415,7 +422,7 @@ class LoginScreen extends HookConsumerWidget {
                                             ),
                                           )
                                         : Text(
-                                            'Sign In',
+                                            context.l10n.signIn,
                                             style: theme.typography.base.copyWith(
                                               color: theme.colorScheme.primaryForeground,
                                               fontSize: 16,
@@ -438,7 +445,7 @@ class LoginScreen extends HookConsumerWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        'New to Moneko? ',
+                        '${context.l10n.newToMoneko} ',
                         style: theme.typography.base.copyWith(
                           color: theme.colorScheme.mutedForeground,
                           fontSize: 15,
@@ -447,7 +454,7 @@ class LoginScreen extends HookConsumerWidget {
                       GestureDetector(
                         onTap: isLoading.value ? null : () => context.go('/register'),
                         child: Text(
-                          'Create account',
+                          context.l10n.createAccount,
                           style: theme.typography.base.copyWith(
                             color: theme.colorScheme.primary,
                             fontSize: 15,
@@ -474,7 +481,7 @@ class _ResetPasswordDialog extends HookWidget {
     final emailController = useTextEditingController();
 
     return shadcnui.AlertDialog(
-      title: const shadcnui.Text('Reset your password'),
+      title: shadcnui.Text(context.l10n.resetYourPassword),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -486,11 +493,11 @@ class _ResetPasswordDialog extends HookWidget {
           const SizedBox(height: 16),
           shadcnui.FormField(
             key: const shadcnui.FormKey('reset-email'),
-            label: const shadcnui.Text('Email'),
+            label: shadcnui.Text(context.l10n.email),
             child: shadcnui.TextField(
               controller: emailController,
               keyboardType: TextInputType.emailAddress,
-              placeholder: const shadcnui.Text('you@example.com'),
+              placeholder: shadcnui.Text(context.l10n.exampleEmail),
             ),
           ),
         ],
@@ -498,11 +505,11 @@ class _ResetPasswordDialog extends HookWidget {
       actions: [
         shadcnui.OutlineButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const shadcnui.Text('Cancel'),
+          child: shadcnui.Text(context.l10n.cancel),
         ),
         shadcnui.PrimaryButton(
           onPressed: () => Navigator.of(context).pop(emailController.text.trim()),
-          child: const shadcnui.Text('Send reset link'),
+          child: shadcnui.Text(context.l10n.sendResetLink),
         ),
       ],
     );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/profile/data/providers/whatsapp_binding_provider.dart';
 import 'package:moneko/features/profile/presentation/widgets/profile_helpers.dart';
 import 'package:moneko/features/profile/presentation/widgets/whatsapp_tutorial_modal.dart';
@@ -54,7 +55,7 @@ Widget buildWhatsAppBindingCard(BuildContext context, WidgetRef ref) {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'WhatsApp Connected',
+                      context.l10n.whatsAppConnected,
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -63,7 +64,7 @@ Widget buildWhatsAppBindingCard(BuildContext context, WidgetRef ref) {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Log expenses via WhatsApp messages',
+                      context.l10n.logExpensesViaWhatsApp,
                       style: TextStyle(
                         fontSize: 14,
                         color: colorScheme.mutedForeground,
@@ -120,7 +121,7 @@ Widget buildWhatsAppBindingCard(BuildContext context, WidgetRef ref) {
                         Row(
                           children: [
                             Text(
-                              'Connect WhatsApp',
+                              context.l10n.connectWhatsApp,
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -137,9 +138,9 @@ Widget buildWhatsAppBindingCard(BuildContext context, WidgetRef ref) {
                                 color: const Color(0xFF25D366),
                                 borderRadius: BorderRadius.circular(6),
                               ),
-                              child: const Text(
-                                'NEW',
-                                style: TextStyle(
+                              child: Text(
+                                context.l10n.newBadge,
+                                style: const TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
@@ -150,7 +151,7 @@ Widget buildWhatsAppBindingCard(BuildContext context, WidgetRef ref) {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Log expenses instantly via chat',
+                          context.l10n.logExpensesInstantly,
                           style: TextStyle(
                             fontSize: 14,
                             color: colorScheme.mutedForeground,
@@ -169,9 +170,9 @@ Widget buildWhatsAppBindingCard(BuildContext context, WidgetRef ref) {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  buildBenefitIcon(context, Icons.flash_on, 'Fast'),
-                  buildBenefitIcon(context, Icons.receipt, 'Photo'),
-                  buildBenefitIcon(context, Icons.sync, 'Auto-sync'),
+                  buildBenefitIcon(context, Icons.flash_on, context.l10n.fast),
+                  buildBenefitIcon(context, Icons.receipt, context.l10n.photo),
+                  buildBenefitIcon(context, Icons.sync, context.l10n.autoSync),
                 ],
               ),
             ],

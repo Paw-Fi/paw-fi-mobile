@@ -57,7 +57,7 @@
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>CFBundleURLName</key>
-			<string>io.moneko.app</string>
+			<string>com.moneko.mobile</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>moneko</string>
@@ -67,5 +67,10 @@
 	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+    <!-- Enable background remote notifications -->
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>remote-notification</string>
+    </array>
 </dict>
 </plist>

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:markdown_widget/markdown_widget.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/utils/currency.dart';
 
 /// Helper to safely convert dynamic value to double
@@ -69,7 +70,7 @@ void showScenarioResultSheet(
                 children: [
                   Expanded(
                     child: Text(
-                      'Scenario Analysis',
+                      context.l10n.scenarioAnalysis,
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
@@ -103,7 +104,7 @@ void showScenarioResultSheet(
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          'Target: ${meta['targetDate']}',
+                          '${context.l10n.target}: ${meta['targetDate']}',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -163,7 +164,7 @@ void showScenarioResultSheet(
                     // Stats Section
                     if (meta['stats'] != null) ...[
                       Text(
-                        'Quick Stats',
+                        context.l10n.quickStats,
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -171,9 +172,9 @@ void showScenarioResultSheet(
                         ),
                       ),
                       const SizedBox(height: 12),
-                      _buildStatRow(colorScheme, 'Current Balance', '$currencySymbol${curr.toStringAsFixed(2)}'),
-                      _buildStatRow(colorScheme, 'Projected (No Change)', '$currencySymbol${proj.toStringAsFixed(2)}'),
-                      _buildStatRow(colorScheme, 'Avg Daily Net', '$currencySymbol${avg.toStringAsFixed(2)}'),
+                      _buildStatRow(context, colorScheme, context.l10n.currentBalance, '$currencySymbol${curr.toStringAsFixed(2)}'),
+                      _buildStatRow(context, colorScheme, context.l10n.projectedNoChange, '$currencySymbol${proj.toStringAsFixed(2)}'),
+                      _buildStatRow(context, colorScheme, context.l10n.avgDailyNet, '$currencySymbol${avg.toStringAsFixed(2)}'),
                     ],
 
                     const SizedBox(height: 32),
@@ -188,7 +189,7 @@ void showScenarioResultSheet(
   );
 }
 
-Widget _buildStatRow(shadcnui.ColorScheme colorScheme, String label, String value) {
+Widget _buildStatRow(BuildContext context, shadcnui.ColorScheme colorScheme, String label, String value) {
   return Padding(
     padding: const EdgeInsets.symmetric(vertical: 6.0),
     child: Row(

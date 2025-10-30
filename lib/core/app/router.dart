@@ -14,6 +14,12 @@ import 'package:moneko/features/subscription/presentation/providers/subscription
 import 'package:moneko/core/navigation/main_shell.dart';
 import 'package:moneko/core/app/app_initialization_provider.dart';
 import 'package:moneko/core/ui/pages/splash_screen.dart';
+import 'package:moneko/features/households/presentation/pages/household_invitation_handler_page.dart';
+import 'package:moneko/features/households/presentation/pages/household_invites_page.dart';
+import 'package:moneko/features/households/presentation/pages/household_join_page.dart';
+import 'package:moneko/features/households/presentation/pages/household_overview_page.dart';
+import 'package:moneko/features/households/presentation/pages/household_members_page.dart';
+import 'package:moneko/features/households/presentation/pages/household_settings_page.dart';
 
 import '../ui/pages/error_page.dart';
 
@@ -76,6 +82,81 @@ GoRouter router(RouterRef ref) {
         builder: (context, state) => const PaywallScreen(),
       ),
 
+      // Deep link routes - show dashboard so sheet appears on a valid page
+      GoRoute(
+        path: '/expense/:id',
+        redirect: (context, state) {
+          debugPrint('🔗 Expense deep link, showing dashboard');
+          return '/dashboard';
+        },
+      ),
+      GoRoute(
+        path: '/budget/:id',
+        redirect: (context, state) {
+          debugPrint('🔗 Budget deep link, showing dashboard');
+          return '/dashboard';
+        },
+      ),
+      GoRoute(
+        path: '/split/:id',
+        redirect: (context, state) {
+          debugPrint('🔗 Split deep link, showing dashboard');
+          return '/dashboard';
+        },
+      ),
+
+
+
+      // Household invitation deep link handler
+      GoRoute(
+        path: '/households/invitation/:token',
+        builder: (context, state) {
+          final token = state.pathParameters['token'] ?? '';
+          return HouseholdInvitationHandlerPage(token: token);
+        },
+      ),
+
+      // Household join page (with optional token query param)
+      GoRoute(
+        path: '/households/join',
+        builder: (context, state) {
+          final token = state.uri.queryParameters['token'];
+          return HouseholdJoinPage(initialToken: token);
+        },
+      ),
+
+      // Household routes
+      GoRoute(
+        path: '/households/:householdId',
+        builder: (context, state) {
+          final householdId = state.pathParameters['householdId'] ?? '';
+          return HouseholdOverviewPage(householdId: householdId);
+        },
+        routes: [
+          GoRoute(
+            path: 'invites',
+            builder: (context, state) {
+              final householdId = state.pathParameters['householdId'] ?? '';
+              return HouseholdInvitesPage(householdId: householdId);
+            },
+          ),
+          GoRoute(
+            path: 'members',
+            builder: (context, state) {
+              final householdId = state.pathParameters['householdId'] ?? '';
+              return HouseholdMembersPage(householdId: householdId);
+            },
+          ),
+          GoRoute(
+            path: 'settings',
+            builder: (context, state) {
+              final householdId = state.pathParameters['householdId'] ?? '';
+              return HouseholdSettingsPage(householdId: householdId);
+            },
+          ),
+        ],
+      ),
+
       // Onboarding Routes
       GoRoute(
         path: '/avatar',
@@ -84,6 +165,17 @@ GoRouter router(RouterRef ref) {
       GoRoute(
         path: '/onboarding',
         builder: (context, state) => const OnboardingScreen(),
+      ),
+
+      // Catch-all route for deep links with UUID patterns (expense, budget, split IDs)
+      // This handles paths like /{uuid} that come from moneko://expense/{uuid}
+      GoRoute(
+        path: '/:id',
+        redirect: (context, state) {
+          final id = state.pathParameters['id'] ?? '';
+          debugPrint('🔗 Catch-all route matched for ID: $id, redirecting to dashboard');
+          return '/dashboard';
+        },
       ),
     ],
     redirect: (context, state) {

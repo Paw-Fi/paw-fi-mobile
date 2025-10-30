@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "1075784863194",
+    "project_id": "paw-fi-3c4f7",
+    "storage_bucket": "paw-fi-3c4f7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1075784863194:android:bcb22b4dc8b0e8962ec4e3",
+        "android_client_info": {
+          "package_name": "com.moneko.mobile"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1075784863194-p530784s5hi7nmd7b7mthipkshhjhe6h.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBdj_ndP9X4onSi-TPEamAuONLhxC94IaQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1075784863194-p530784s5hi7nmd7b7mthipkshhjhe6h.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

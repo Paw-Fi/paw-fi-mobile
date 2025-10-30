@@ -5,8 +5,10 @@ import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 Widget buildSpendingBreakdownChart(
+  BuildContext context,
   shadcnui.ColorScheme colorScheme,
   List<ExpenseEntry> expenses,
   List<DailyBudgetEntry> budgets,
@@ -30,7 +32,7 @@ Widget buildSpendingBreakdownChart(
     child: Column(
       children: [
         Text(
-          'Spending Breakdown',
+          context.l10n.spendingBreakdown,
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -39,7 +41,7 @@ Widget buildSpendingBreakdownChart(
         ),
         const SizedBox(height: 8),
         Text(
-          dateRangeFilter.label,
+          dateRangeFilter.getLabel(context),
           style: TextStyle(
             fontSize: 14,
             color: colorScheme.mutedForeground,
@@ -77,7 +79,7 @@ Widget buildSpendingBreakdownChart(
                       ),
                     ),
                     Text(
-                      'Spent',
+                      context.l10n.spent,
                       style: TextStyle(
                         fontSize: 14,
                         color: colorScheme.mutedForeground,
@@ -108,7 +110,7 @@ Widget buildSpendingBreakdownChart(
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  category.category.substring(0, 1).toUpperCase() + category.category.substring(1),
+                  getCategoryTranslation(context, category.category),
                   style: TextStyle(
                     fontSize: 12,
                     color: colorScheme.foreground,
@@ -129,11 +131,9 @@ List<CategorySummary> _getCategorySummaries(List<ExpenseEntry> expenses) {
   final Map<String, int> categoryCounts = {};
 
   for (final expense in expenses) {
-    if (expense.amountCents > 0) {
-      final cat = (expense.category ?? 'uncategorized').toLowerCase();
-      categoryTotals[cat] = (categoryTotals[cat] ?? 0) + expense.amount;
-      categoryCounts[cat] = (categoryCounts[cat] ?? 0) + 1;
-    }
+    final cat = (expense.category ?? 'uncategorized').toLowerCase();
+    categoryTotals[cat] = (categoryTotals[cat] ?? 0) + expense.amount.abs();
+    categoryCounts[cat] = (categoryCounts[cat] ?? 0) + 1;
   }
 
   return categoryTotals.entries.map((e) {
@@ -148,5 +148,5 @@ List<CategorySummary> _getCategorySummaries(List<ExpenseEntry> expenses) {
 }
 
 double _getTotalSpent(List<ExpenseEntry> expenses) {
-  return expenses.where((e) => e.amountCents > 0).fold(0.0, (sum, e) => sum + e.amount);
+  return expenses.fold(0.0, (sum, e) => sum + e.amount.abs());
 }

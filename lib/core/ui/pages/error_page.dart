@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 /// A generic error page that displays error information and provides
 /// a way to navigate back to the home page.
@@ -14,7 +15,7 @@ class ErrorPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Error'),
+        title: Text(context.l10n.error),
         backgroundColor: Colors.red.shade800,
       ),
       body: Padding(
@@ -29,16 +30,16 @@ class ErrorPage extends StatelessWidget {
               size: 80,
             ),
             const SizedBox(height: 16),
-            const Text(
-              'An error occurred',
-              style: TextStyle(
+            Text(
+              context.l10n.anErrorOccurred,
+              style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              error?.toString() ?? 'Unknown error',
+              error?.toString() ?? context.l10n.unknownError,
               style: const TextStyle(fontSize: 16),
               textAlign: TextAlign.center,
             ),
@@ -49,9 +50,9 @@ class ErrorPage extends StatelessWidget {
                 backgroundColor: Colors.blue,
                 padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
               ),
-              child: const Text(
-                'Go to Home',
-                style: TextStyle(fontSize: 16),
+              child: Text(
+                context.l10n.goToHome,
+                style: const TextStyle(fontSize: 16),
               ),
             ),
           ],
