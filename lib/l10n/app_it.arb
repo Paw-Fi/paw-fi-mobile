@@ -1017,5 +1017,8 @@
   "monthly": "Mensile",
   "yearly": "Annuale",
   "householdBudgetType": "Budget di gruppo",
-  "personalBudgetType": "Budget personale"
+  "personalBudgetType": "Budget personale",
+  "paste": "Incolla",
+  "continueAction": "Continua",
+  "tryAgain": "Riprova"
 }

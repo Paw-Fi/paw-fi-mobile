@@ -712,8 +712,8 @@
   "trackHouseholdFinancialHealth": "Отслеживайте финансовое состояние домохозяйства",
   "collaborateOnFinancialDecisions": "Совместно принимайте финансовые решения",
   "whatYoullGet": "Что вы получите",
-  "personalMessageFromInviter": "Личное сообщение от {inviterEmail}",
-  "messageFromInviter": "Сообщение от {inviterEmail}",
+  "personalMessageFromInviter": "Личное сообщение от отправителя",
+  "messageFromInviter": "Сообщение от отправителя",
   "joiningHousehold": "Присоединяемся к домохозяйству...",
   "thisWillOnlyTakeAMoment": "Это займёт всего секунду",
   "welcomeAboard": "Добро пожаловать!",
@@ -1020,5 +1020,8 @@
   "monthly": "Ежемесячно",
   "yearly": "Ежегодно",
   "householdBudgetType": "Бюджет домохозяйства",
-  "personalBudgetType": "Личный бюджет"
+  "personalBudgetType": "Личный бюджет",
+  "paste": "Вставить",
+  "continueAction": "Продолжить",
+  "tryAgain": "Попробовать снова"
 }

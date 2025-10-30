@@ -993,5 +993,79 @@
   "monthly": "Щомісячно",
   "yearly": "Щорічно",
   "householdBudgetType": "Бюджет домогосподарства",
-  "personalBudgetType": "Особистий бюджет"
+  "personalBudgetType": "Особистий бюджет",
+  "joinHouseholdName": "Приєднатися до \"{householdName}\"",
+  "@joinHouseholdName": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "householdPreview": "Попередній перегляд домогосподарства: {householdName}, запрошено {inviterEmail}",
+  "@householdPreview": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      },
+      "inviterEmail": {
+        "type": "String"
+      }
+    }
+  },
+  "invitedBy": "Запрошено {inviterEmail}",
+  "@invitedBy": {
+    "placeholders": {
+      "inviterEmail": {
+        "type": "String"
+      }
+    }
+  },
+  "invitationExpiresSoon": "Термін дії спливає {formattedDate}",
+  "@invitationExpiresSoon": {
+    "placeholders": {
+      "formattedDate": {
+        "type": "String"
+      }
+    }
+  },
+  "invitationValidUntilLabel": "Запрошення дійсне до",
+  "personalMessageFromInviter": "Особисте повідомлення від відправника",
+  "messageFromInviter": "Повідомлення від відправника",
+  "joiningHousehold": "Приєднання до домогосподарства...",
+  "errorWithMessage": "Помилка: {errorMessage}",
+  "@errorWithMessage": {
+    "placeholders": {
+      "errorMessage": {
+        "type": "String"
+      }
+    }
+  },
+  "anUnexpectedErrorOccurred": "Сталася неочікувана помилка",
+  "invalidInvitationLinkFormat": "Недійсний формат посилання-запрошення",
+  "invalidOrExpiredInvitation": "Недійсне або прострочене запрошення",
+  "tomorrow": "Завтра",
+  "inDays": "{days, plural, one{через 1 день} few{через {days} дні} other{через {days} днів}}",
+  "@inDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "january": "Січ",
+  "february": "Лют",
+  "march": "Бер",
+  "april": "Квіт",
+  "may": "Трав",
+  "june": "Черв",
+  "july": "Лип",
+  "august": "Серп",
+  "september": "Вер",
+  "october": "Жовт",
+  "november": "Лист",
+  "december": "Груд",
+  "paste": "Вставити",
+  "continueAction": "Продовжити",
+  "tryAgain": "Спробувати знову"
 }

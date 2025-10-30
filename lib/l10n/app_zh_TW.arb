@@ -1079,5 +1079,6 @@
   "monthly": "每月",
   "yearly": "每年",
   "householdBudgetType": "家庭預算",
-  "personalBudgetType": "個人預算"
+  "personalBudgetType": "個人預算",
+  "anUnexpectedErrorOccurred": "發生意外錯誤"
 }

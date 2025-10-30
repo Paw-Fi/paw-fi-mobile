@@ -1017,5 +1017,8 @@
   "monthly": "ماہانہ",
   "yearly": "سالانہ",
   "householdBudgetType": "گھریلو بجٹ",
-  "personalBudgetType": "ذاتی بجٹ"
+  "personalBudgetType": "ذاتی بجٹ",
+  "paste": "پیسٹ کریں",
+  "continueAction": "جاری رکھیں",
+  "tryAgain": "دوبارہ کوشش کریں"
 }

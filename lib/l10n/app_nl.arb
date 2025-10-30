@@ -1017,5 +1017,8 @@
   "monthly": "Maandelijks",
   "yearly": "Jaarlijks",
   "householdBudgetType": "Huishoudbudget",
-  "personalBudgetType": "Persoonlijk budget"
+  "personalBudgetType": "Persoonlijk budget",
+  "paste": "Plakken",
+  "continueAction": "Doorgaan",
+  "tryAgain": "Probeer opnieuw"
 }
