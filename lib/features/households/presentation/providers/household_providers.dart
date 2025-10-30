@@ -431,10 +431,12 @@ final householdExpensesProvider =
     final supabase = ref.watch(supabaseClientProvider);
     try {
       // Fetch expenses (RLS allows: own or any with same household membership)
+      // CRITICAL: Only fetch household expenses (split_group_id NOT NULL)
       final expenses = await supabase
           .from('expenses')
           .select('id, contact_id, user_id, household_id, date, amount_cents, currency, category, raw_text, receipt_image_url, created_at, split_group_id')
           .eq('household_id', params.householdId)
+          .not('split_group_id', 'is', null) // Explicit filter for household expenses
           .order('created_at', ascending: false)
           .limit(params.limit);
 

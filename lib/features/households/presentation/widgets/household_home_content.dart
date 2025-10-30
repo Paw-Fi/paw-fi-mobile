@@ -304,13 +304,86 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
 
               const SizedBox(height: 16),
 
-              // Horizontal metric cards: Shared Budgets + Net Position
+              // Horizontal metric cards: Total Spent + Member Spending + Budgets + Net Position
               SizedBox(
                 height: 180,
                 child: ListView(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
                   children: [
+                    // Total Spent Card
+                    summaryAsync.when(
+                      loading: () => Container(
+                        width: 200,
+                        decoration: BoxDecoration(
+                          color: colorScheme.card,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: colorScheme.border, width: 1),
+                        ),
+                        padding: const EdgeInsets.all(16),
+                        child: const Center(child: CircularProgressIndicator()),
+                      ),
+                      error: (e, st) => Container(
+                        width: 200,
+                        decoration: BoxDecoration(
+                          color: colorScheme.card,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: colorScheme.border, width: 1),
+                        ),
+                        padding: const EdgeInsets.all(16),
+                        child: Text('Error', style: TextStyle(color: colorScheme.destructive)),
+                      ),
+                      data: (summary) => buildHouseholdTotalSpentCard(
+                        context,
+                        colorScheme,
+                        summary,
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => HouseholdExpensesPage(household: household),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // Member Spending Card
+                    summaryAsync.when(
+                      loading: () => Container(
+                        width: 280,
+                        decoration: BoxDecoration(
+                          color: colorScheme.card,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: colorScheme.border, width: 1),
+                        ),
+                        padding: const EdgeInsets.all(16),
+                        child: const Center(child: CircularProgressIndicator()),
+                      ),
+                      error: (e, st) => Container(
+                        width: 280,
+                        decoration: BoxDecoration(
+                          color: colorScheme.card,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: colorScheme.border, width: 1),
+                        ),
+                        padding: const EdgeInsets.all(16),
+                        child: Text('Error', style: TextStyle(color: colorScheme.destructive)),
+                      ),
+                      data: (summary) => buildMemberSpendingCard(
+                        context,
+                        colorScheme,
+                        summary,
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => HouseholdExpensesPage(household: household),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // Budgets Card
                     SizedBox(
                       width: 200,
                       child: budgetsAsync.when(

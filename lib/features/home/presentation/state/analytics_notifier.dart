@@ -88,13 +88,14 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
       final fromStr = '${oneYearAgo.year}-${oneYearAgo.month.toString().padLeft(2, '0')}-${oneYearAgo.day.toString().padLeft(2, '0')}';
       final toStr = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
 
-      // Fetch ALL expenses (unfiltered) with error handling
+      // Fetch ALL PERSONAL expenses (exclude household expenses where split_group_id IS NOT NULL)
       List<ExpenseEntry> allExpenses = [];
       try {
         final expensesResponse = await supabase
             .from('expenses')
             .select('id,contact_id,date,amount_cents,currency,category,created_at,raw_text,receipt_image_url,household_id,split_group_id')
             .eq('contact_id', fetchedContact.id)
+            .isFilter('split_group_id', null) // CRITICAL: Only personal expenses (no household sharing)
             .gte('date', fromStr)
             .lte('date', toStr)
             .order('date', ascending: true);
