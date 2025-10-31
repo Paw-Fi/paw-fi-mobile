@@ -263,26 +263,45 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
               ),
               const SizedBox(height: 16),
 
-              // Spending Card with Line Chart - Shows ONLY current user's personal spending
-              expensesAsync.when(
+              // Spending Card - Use SUMMARY DATA (backend calculates splits correctly)
+              // CRITICAL: The backend households-summary already calculates split-aware totals
+              summaryAsync.when(
                 loading: () => const Padding(
                   padding: EdgeInsets.all(16.0),
                   child: Center(child: CircularProgressIndicator()),
                 ),
                 error: (e, st) => Padding(
                   padding: const EdgeInsets.all(16.0),
-                  child: Text(context.l10n.errorLoadingExpenses, style: TextStyle(color: colorScheme.destructive)),
+                  child: Text(
+                    'Error loading spending data',
+                    style: TextStyle(color: colorScheme.destructive),
+                  ),
                 ),
-                data: (allExpenses) {
-                  // Filter for current user's expenses only
-                  final myExpenses = allExpenses.where((e) {
-                    final d = DateTime(e.date.year, e.date.month, e.date.day);
-                    final dateOk = !d.isBefore(from) && !d.isAfter(to);
-                    final rawCurrency = (e.currency ?? '').trim().toUpperCase();
-                    final currencyOk = rawCurrency.isEmpty || rawCurrency == selectedCurrency;
-                    final isMyExpense = e.userId == userId; // Only show current user's expenses
-                    return dateOk && currencyOk && isMyExpense;
-                  }).toList();
+                data: (summary) {
+                  // Get user's total from summary (this is CORRECT - includes split portions)
+                  final myContribution = summary?.memberContributions.firstWhere(
+                    (m) => m.userId == userId,
+                    orElse: () => MemberContribution(
+                      userId: userId!,
+                      totalSpentCents: 0,
+                      transactionCount: 0,
+                      splitCount: 0,
+                      balanceCents: 0,
+                    ),
+                  );
+
+                  final myTotalCents = myContribution?.totalSpentCents ?? 0;
+
+                  // Create a synthetic expense representing the user's total
+                  // This is used ONLY for display - the amount is correct from backend
+                  final syntheticExpense = ExpenseEntry(
+                    id: 'user-summary-total',
+                    date: DateTime.now(),
+                    amountCents: myTotalCents,
+                    createdAt: DateTime.now(),
+                    userId: userId,
+                    currency: selectedCurrency,
+                  );
 
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -297,7 +316,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                       child: buildSpendingCard(
                         context,
                         colorScheme,
-                        myExpenses,
+                        [syntheticExpense], // Single entry with correct total from backend
                         null,
                         filterState.dateRangeFilter,
                         selectedCurrency: selectedCurrency,
@@ -412,7 +431,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                     padding: const EdgeInsets.all(24),
                     child: Center(
                       child: Text(
-                        'Error loading members',
+                        context.l10n.errorLoadingMembers,
                         style: TextStyle(color: colorScheme.destructive),
                       ),
                     ),

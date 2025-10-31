@@ -1025,5 +1025,29 @@
   "personalBudgetType": "ذاتی بجٹ",
   "paste": "پیسٹ کریں",
   "continueAction": "جاری رکھیں",
-  "tryAgain": "دوبارہ کوشش کریں"
+  "tryAgain": "دوبارہ کوشش کریں",
+
+  "remindUser": "{name} کو یاد دہانی بھیجیں",
+  "@remindUser": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "sendFriendlySpendingReminder": "اخراجات کی ایک دوستانہ یاددہانی بھیجیں",
+  "addMessageOptional": "پیغام شامل کریں (اختیاری)",
+  "messageHintExample": "مثلاً: \"آپ کے بٹوے کو آرام چاہیے!\"",
+  "sendReminder": "یاد دہانی بھیجیں",
+  "pleaseWait24HoursBeforeSendingAnotherReminder": "براہِ کرم {name} کو دوبارہ یاد دہانی بھیجنے سے پہلے 24 گھنٹے انتظار کریں",
+  "@pleaseWait24HoursBeforeSendingAnotherReminder": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "reminderSentToName": "{name} کو یاد دہانی بھیج دی گئی 🔔",
+  "@reminderSentToName": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "failedToSendReminderTryAgain": "یاد دہانی بھیجنے میں ناکامی۔ دوبارہ کوشش کریں۔"
 }

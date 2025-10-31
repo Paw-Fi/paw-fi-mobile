@@ -1025,5 +1025,29 @@
   "personalBudgetType": "Persoonlijk budget",
   "paste": "Plakken",
   "continueAction": "Doorgaan",
-  "tryAgain": "Probeer opnieuw"
+  "tryAgain": "Probeer opnieuw",
+
+  "remindUser": "{name} herinneren",
+  "@remindUser": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "sendFriendlySpendingReminder": "Een vriendelijke bestedingsherinnering sturen",
+  "addMessageOptional": "Bericht toevoegen (optioneel)",
+  "messageHintExample": "Bijv.: \"Je portemonnee heeft rust nodig!\"",
+  "sendReminder": "Herinnering sturen",
+  "pleaseWait24HoursBeforeSendingAnotherReminder": "Wacht 24 uur voordat je nog een herinnering naar {name} stuurt",
+  "@pleaseWait24HoursBeforeSendingAnotherReminder": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "reminderSentToName": "Herinnering verzonden naar {name} 🔔",
+  "@reminderSentToName": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "failedToSendReminderTryAgain": "Herinnering verzenden mislukt. Probeer het opnieuw."
 }

@@ -6,7 +6,7 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Member spending breakdown card with modern, Apple-inspired design
+/// Member spending breakdown card with progress bars
 Widget buildHouseholdMemberSpendingCard(
   BuildContext context,
   shadcnui.ColorScheme colorScheme,
@@ -47,277 +47,161 @@ Widget buildHouseholdMemberSpendingCard(
     width: double.infinity,
     decoration: BoxDecoration(
       color: colorScheme.card,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(24),
       border: Border.all(
-        color: colorScheme.border.withValues(alpha: 0.15),
-        width: 0.5,
+        color: colorScheme.border.withValues(alpha: 0.4),
+        width: 1,
       ),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withValues(alpha: 0.03),
-          blurRadius: 10,
-          offset: const Offset(0, 2),
+          color: Colors.black.withValues(alpha: 0.04),
+          blurRadius: 20,
+          offset: const Offset(0, 4),
         ),
       ],
     ),
-    child: ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-     
-          // Divider
-          Container(
-            height: 0.5,
-            color: colorScheme.border.withValues(alpha: 0.1),
-          ),
-
-          // Member list section
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
-            child: sortedMembers.isEmpty
-                ? _buildEmptyState(context, colorScheme)
-                : Column(
-                    children: sortedMembers.asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final member = entry.value;
-                      final isLast = index == sortedMembers.length - 1;
-                      return _buildMemberRow(
-                        context,
-                        colorScheme,
-                        member,
-                        members,
-                        currency,
-                        totalMemberSpent,
-                        currentUserId,
-                        householdId,
-                        isLast,
-                      );
-                    }).toList(),
-                  ),
-          ),
-        ],
-      ),
-    ),
-  );
-
-  if (onTap == null) return card;
-  return GestureDetector(
-    onTap: onTap,
-    behavior: HitTestBehavior.opaque,
-    child: card,
-  );
-}
-
-/// Build empty state when no members have spending
-Widget _buildEmptyState(BuildContext context, shadcnui.ColorScheme colorScheme) {
-  return Center(
-    child: Padding(
-      padding: const EdgeInsets.symmetric(vertical: 32),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 72,
-            height: 72,
-            decoration: BoxDecoration(
-              color: colorScheme.muted.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Icon(
-              Icons.receipt_long_outlined,
-              size: 36,
-              color: colorScheme.mutedForeground.withValues(alpha: 0.4),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            context.l10n.noSpendingYet,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-              color: colorScheme.mutedForeground.withValues(alpha: 0.7),
-              letterSpacing: -0.2,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Expenses will appear here',
-            style: TextStyle(
-              fontSize: 13,
-              color: colorScheme.mutedForeground.withValues(alpha: 0.5),
-              letterSpacing: -0.1,
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-/// Build individual member row with modern design
-Widget _buildMemberRow(
-  BuildContext context,
-  shadcnui.ColorScheme colorScheme,
-  MemberContribution member,
-  List<HouseholdMember>? members,
-  String currency,
-  int totalMemberSpent,
-  String? currentUserId,
-  String? householdId,
-  bool isLast,
-) {
-  final percentage = totalMemberSpent > 0
-      ? (member.totalSpentCents / totalMemberSpent) * 100
-      : 0.0;
-  final amount = member.totalSpentCents / 100.0;
-  final formatted = formatCurrency(amount, currency);
-
-  // Get member data from the members list to ensure we have the correct name
-  final memberData = members?.firstWhere(
-    (m) => m.userId == member.userId,
-    orElse: () => HouseholdMember(
-      id: '',
-      householdId: '',
-      userId: member.userId,
-      role: HouseholdRole.member,
-      joinedAt: DateTime.now(),
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-      userEmail: member.userEmail,
-      userName: member.userName,
-    ),
-  );
-
-  final name = memberData?.userName?.trim();
-  final displayName = (name != null && name.isNotEmpty)
-      ? name
-      : (memberData?.userEmail ?? member.userEmail ?? 'Unknown');
-
-  final isCurrentUser = currentUserId != null && member.userId == currentUserId;
-  final canRemind = currentUserId != null &&
-                    member.userId != currentUserId &&
-                    householdId != null;
-
-  return Padding(
-    padding: EdgeInsets.only(bottom: isLast ? 0 : 20),
+    padding: const EdgeInsets.all(24.0),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Member info row
-        Row(
-          children: [
-            // Avatar with online indicator style
-            Stack(
-              children: [
-                FutureBuilder<String?>(
-                  future: _getUserAvatarUrl(member.userId),
-                  builder: (context, snapshot) {
-                    final avatarUrl = snapshot.data;
-                    return Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: colorScheme.muted.withValues(alpha: 0.5),
-                        border: Border.all(
-                          color: isCurrentUser
-                              ? colorScheme.primary.withValues(alpha: 0.3)
-                              : colorScheme.border.withValues(alpha: 0.15),
-                          width: 2,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: isCurrentUser
-                                ? colorScheme.primary.withValues(alpha: 0.1)
-                                : Colors.black.withValues(alpha: 0.02),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: avatarUrl != null
-                          ? Image.network(
-                              avatarUrl,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stack) => Icon(
-                                Icons.person_rounded,
-                                size: 22,
-                                color: colorScheme.mutedForeground.withValues(alpha: 0.6),
-                              ),
-                            )
-                          : Icon(
-                              Icons.person_rounded,
-                              size: 22,
-                              color: colorScheme.mutedForeground.withValues(alpha: 0.6),
-                            ),
-                    );
-                  },
-                ),
-                // Current user badge
-                if (isCurrentUser)
-                  Positioned(
-                    right: 0,
-                    bottom: 0,
-                    child: Container(
-                      width: 14,
-                      height: 14,
-                      decoration: BoxDecoration(
-                        color: colorScheme.primary,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: colorScheme.card,
-                          width: 2,
-                        ),
-                      ),
+        // Member Spending Section
+        Text(
+          context.l10n.memberSpending,
+          style: TextStyle(
+            fontSize: 14,
+            color: colorScheme.mutedForeground,
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        if (sortedMembers.isEmpty)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.people_outline,
+                    size: 48,
+                    color: colorScheme.mutedForeground.withValues(alpha: 0.3),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    context.l10n.noSpendingYet,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: colorScheme.mutedForeground.withValues(alpha: 0.6),
                     ),
                   ),
-              ],
+                ],
+              ),
             ),
-            const SizedBox(width: 14),
+          )
+        else
+          ...sortedMembers.asMap().entries.map((entry) {
+            final index = entry.key;
+            final member = entry.value;
+            final percentage = totalMemberSpent > 0
+                ? (member.totalSpentCents / totalMemberSpent) * 100
+                : (100.0 / sortedMembers.length); // Equal distribution when total is 0
+            final amount = member.totalSpentCents / 100.0;
+            final formatted = formatCurrency(amount, currency);
 
-            // Name and stats
-            Expanded(
+            // Get member data from the members list to ensure we have the correct name
+            final memberData = members?.firstWhere(
+              (m) => m.userId == member.userId,
+              orElse: () => HouseholdMember(
+                id: '',
+                householdId: '',
+                userId: member.userId,
+                role: HouseholdRole.member,
+                joinedAt: DateTime.now(),
+                createdAt: DateTime.now(),
+                updatedAt: DateTime.now(),
+                userEmail: member.userEmail,
+                userName: member.userName,
+              ),
+            );
+
+            // Use same name logic as in settings page (household_settings_page.dart:634-638)
+            final name = memberData?.userName?.trim();
+            final displayName = (name != null && name.isNotEmpty)
+                ? name
+                : (memberData?.userEmail ?? member.userEmail ?? 'Unknown');
+
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: index < sortedMembers.length - 1 ? 16 : 0,
+              ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Flexible(
+                      // Avatar
+                      FutureBuilder<String?>(
+                        future: _getUserAvatarUrl(member.userId),
+                        builder: (context, snapshot) {
+                          final avatarUrl = snapshot.data;
+                          return Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: colorScheme.muted,
+                              border: Border.all(
+                                color: colorScheme.border.withValues(alpha: 0.2),
+                                width: 1.5,
+                              ),
+                            ),
+                            clipBehavior: Clip.antiAlias,
+                            child: avatarUrl != null
+                                ? Image.network(
+                                    avatarUrl,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stack) => Icon(
+                                      Icons.person,
+                                      size: 18,
+                                      color: colorScheme.mutedForeground,
+                                    ),
+                                  )
+                                : Icon(
+                                    Icons.person,
+                                    size: 18,
+                                    color: colorScheme.mutedForeground,
+                                  ),
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 12),
+
+                      // Name
+                      Expanded(
                         child: Text(
                           displayName,
                           style: TextStyle(
-                            fontSize: 15,
+                            fontSize: 14,
                             fontWeight: FontWeight.w600,
                             color: colorScheme.foreground,
-                            letterSpacing: -0.3,
-                            height: 1.3,
+                            letterSpacing: -0.1,
                           ),
                           overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
                         ),
                       ),
-                      if (isCurrentUser) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: colorScheme.primary.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            'You',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: colorScheme.primary,
-                              letterSpacing: 0.2,
-                            ),
-                          ),
+
+                      // Amount
+                      Text(
+                        formatted,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.foreground,
+                          letterSpacing: -0.2,
                         ),
-                      ],
-                      if (canRemind) ...[
+                      ),
+
+                      // Reminder bell icon (only for other members)
+                      if (currentUserId != null && member.userId != currentUserId && householdId != null) ...[
                         const SizedBox(width: 8),
                         GestureDetector(
                           onTap: () => _showReminderModal(
@@ -328,14 +212,14 @@ Widget _buildMemberRow(
                             householdId,
                           ),
                           child: Container(
-                            padding: const EdgeInsets.all(5),
+                            padding: const EdgeInsets.all(6),
                             decoration: BoxDecoration(
-                              color: colorScheme.primary.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(7),
+                              color: colorScheme.muted.withValues(alpha: 0.3),
+                              borderRadius: BorderRadius.circular(8),
                             ),
                             child: Icon(
-                              Icons.notifications_none_rounded,
-                              size: 14,
+                              Icons.notifications_outlined,
+                              size: 16,
                               color: colorScheme.primary,
                             ),
                           ),
@@ -343,99 +227,50 @@ Widget _buildMemberRow(
                       ],
                     ],
                   ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Text(
-                        '${member.transactionCount} ${context.l10n.transactions}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: colorScheme.mutedForeground.withValues(alpha: 0.6),
-                          letterSpacing: -0.1,
+                  const SizedBox(height: 10),
+
+                  // Progress Bar
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Stack(
+                      children: [
+                        Container(
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: colorScheme.muted.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
-                      ),
-                  
-                    ],
+                        FractionallySizedBox(
+                          widthFactor: percentage / 100,
+                          child: Container(
+                            height: 10,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  colorScheme.primary,
+                                  colorScheme.primary.withValues(alpha: 0.7),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
-            ),
-
-            const SizedBox(width: 12),
-
-            // Amount with percentage
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  formatted,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: colorScheme.foreground,
-                    letterSpacing: -0.4,
-                    height: 1.3,
-                  ),
-                ),
-                if (totalMemberSpent > 0) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    '${percentage.toStringAsFixed(0)}%',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: colorScheme.mutedForeground.withValues(alpha: 0.5),
-                      letterSpacing: -0.1,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ],
-        ),
-
-        const SizedBox(height: 12),
-
-        // Modern progress bar
-        Container(
-          height: 6,
-          decoration: BoxDecoration(
-            color: colorScheme.muted.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(3),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(3),
-            child: Stack(
-              children: [
-                if (percentage > 0)
-                  FractionallySizedBox(
-                    widthFactor: percentage / 100,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                          colors: isCurrentUser
-                              ? [
-                                  colorScheme.primary,
-                                  colorScheme.primary.withValues(alpha: 0.8),
-                                ]
-                              : [
-                                  colorScheme.primary.withValues(alpha: 0.7),
-                                  colorScheme.primary.withValues(alpha: 0.5),
-                                ],
-                        ),
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
+            );
+          }).toList(),
       ],
     ),
+  );
+
+  if (onTap == null) return card;
+  return GestureDetector(
+    onTap: onTap,
+    child: card,
   );
 }
 
@@ -557,7 +392,7 @@ class _ReminderModalContentState extends State<_ReminderModalContent> {
           Navigator.of(context).pop();
           ScaffoldMessenger.of(widget.parentContext).showSnackBar(
             SnackBar(
-              content: Text(widget.parentContext.l10n.pleaseWait24HoursBeforeSendingAnotherReminder(widget.targetUserName)),
+              content: Text('Please wait 24 hours before sending another reminder to ${widget.targetUserName}'),
               backgroundColor: widget.colorScheme.destructive,
             ),
           );
@@ -581,7 +416,7 @@ class _ReminderModalContentState extends State<_ReminderModalContent> {
         if (response.status == 200) {
           ScaffoldMessenger.of(widget.parentContext).showSnackBar(
             SnackBar(
-              content: Text(widget.parentContext.l10n.reminderSentToName(widget.targetUserName)),
+              content: Text('Reminder sent to ${widget.targetUserName}! 🔔'),
               backgroundColor: Colors.green,
             ),
           );
@@ -595,7 +430,7 @@ class _ReminderModalContentState extends State<_ReminderModalContent> {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(widget.parentContext).showSnackBar(
           SnackBar(
-            content: Text(widget.parentContext.l10n.failedToSendReminderTryAgain),
+            content: const Text('Failed to send reminder. Please try again.'),
             backgroundColor: widget.colorScheme.destructive,
           ),
         );
@@ -647,7 +482,7 @@ class _ReminderModalContentState extends State<_ReminderModalContent> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            context.l10n.remindUser(widget.targetUserName),
+                            'Remind ${widget.targetUserName}',
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
@@ -656,7 +491,7 @@ class _ReminderModalContentState extends State<_ReminderModalContent> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            context.l10n.sendFriendlySpendingReminder,
+                            'Send a friendly spending reminder',
                             style: TextStyle(
                               fontSize: 14,
                               color: widget.colorScheme.mutedForeground,
@@ -669,7 +504,7 @@ class _ReminderModalContentState extends State<_ReminderModalContent> {
                 ),
 
                 const SizedBox(height: 14),
-                Text(context.l10n.addMessageOptional, style: TextStyle(fontSize: 14, color: widget.colorScheme.mutedForeground)),
+                Text("Add a message (optional)", style: TextStyle(fontSize: 14, color: widget.colorScheme.mutedForeground)),
                 const SizedBox(height: 6),
 
                 // Message input
@@ -679,7 +514,7 @@ class _ReminderModalContentState extends State<_ReminderModalContent> {
                   maxLines: 3,
                   maxLength: 100,
                   decoration: InputDecoration(
-                    hintText: context.l10n.messageHintExample,
+                    hintText: 'e.g. "Your wallet needs a rest!"',
                     hintStyle: TextStyle(
                       color: widget.colorScheme.mutedForeground.withValues(alpha: 0.5),
                     ),
@@ -713,7 +548,7 @@ class _ReminderModalContentState extends State<_ReminderModalContent> {
                           ),
                         ),
                         child: Text(
-                          context.l10n.cancel,
+                          'Cancel',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -744,7 +579,7 @@ class _ReminderModalContentState extends State<_ReminderModalContent> {
                                 ),
                               )
                             : Text(
-                                context.l10n.sendReminder,
+                                'Send Reminder',
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,

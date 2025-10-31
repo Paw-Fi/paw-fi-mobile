@@ -357,84 +357,50 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
       ),
       body: Column(
         children: [
-          // Search bar
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: context.l10n.searchExpenses,
-                hintStyle: TextStyle(color: colorScheme.mutedForeground),
-                prefixIcon: Icon(Icons.search, color: colorScheme.mutedForeground),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: Icon(Icons.clear, color: colorScheme.mutedForeground),
-                        onPressed: () {
-                          setState(() {
-                            _searchController.clear();
-                            _searchQuery = '';
-                          });
-                        },
-                      )
-                    : null,
-                filled: true,
-                fillColor: colorScheme.muted.withValues(alpha: 0.3),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              ),
-              style: TextStyle(color: colorScheme.foreground),
-              onChanged: (value) {
-                setState(() {
-                  _searchQuery = value;
-                });
-              },
-            ),
-          ),
-
-          // Filters bar
+          // Search bar and filter on same row
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  // Date range filter
-                  _FilterChip(
-                    label: _selectedDateRange != null
-                        ? '${DateFormat('MMM d').format(_selectedDateRange!.start)} - ${DateFormat('MMM d').format(_selectedDateRange!.end)}'
-                        : context.l10n.dateRange,
-                    icon: Icons.calendar_today,
-                    isSelected: _selectedDateRange != null,
-                    onTap: _selectDateRange,
-                    colorScheme: colorScheme,
-                  ),
-                  const SizedBox(width: 8),
-
-                  // Category filter
-                  _buildCategoryFilter(colorScheme, expensesAsync),
-                  const SizedBox(width: 8),
-
-                  // Member filter
-                  _buildMemberFilter(colorScheme, expensesAsync),
-                  const SizedBox(width: 8),
-
-                  // Clear filters
-                  if (_selectedCategory != null || 
-                      _selectedMemberId != null || 
-                      _selectedDateRange != null || 
-                      _searchQuery.isNotEmpty)
-                    _FilterChip(
-                      label: context.l10n.clearAll,
-                      icon: Icons.clear_all,
-                      isSelected: false,
-                      onTap: _clearFilters,
-                      colorScheme: colorScheme,
+            child: Row(
+              children: [
+                // Search bar takes available space
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: context.l10n.searchExpenses,
+                      hintStyle: TextStyle(color: colorScheme.mutedForeground),
+                      prefixIcon: Icon(Icons.search, color: colorScheme.mutedForeground),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: Icon(Icons.clear, color: colorScheme.mutedForeground),
+                              onPressed: () {
+                                setState(() {
+                                  _searchController.clear();
+                                  _searchQuery = '';
+                                });
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: colorScheme.muted.withValues(alpha: 0.3),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     ),
-                ],
-              ),
+                    style: TextStyle(color: colorScheme.foreground),
+                    onChanged: (value) {
+                      setState(() {
+                        _searchQuery = value;
+                      });
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Filter icon button
+                _buildFiltersTrigger(colorScheme, expensesAsync),
+              ],
             ),
           ),
 
@@ -547,6 +513,346 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
       ),
     );
   }
+
+  // Modern filter trigger using a bottom sheet with shadcn_flutter buttons
+  Widget _buildFiltersTrigger(
+    shadcnui.ColorScheme colorScheme,
+    AsyncValue<List<ExpenseEntry>> expensesAsync,
+  ) {
+    final active = _activeFiltersCount();
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        shadcnui.OutlineButton(
+          onPressed: () {
+            final expenses = expensesAsync.asData?.value ?? const <ExpenseEntry>[];
+            _showFiltersSheet(expenses, colorScheme);
+          },
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.tune, color: colorScheme.foreground, size: 18),
+              if (active > 0) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primary,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '$active',
+                    style: TextStyle(
+                      color: colorScheme.primaryForeground,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  int _activeFiltersCount() {
+    int c = 0;
+    if (_selectedDateRange != null) c++;
+    if (_selectedCategory != null) c++;
+    if (_selectedMemberId != null) c++;
+    return c;
+  }
+
+  void _showFiltersSheet(List<ExpenseEntry> expenses, shadcnui.ColorScheme colorScheme) {
+    // Prepare options
+    final categories = expenses
+        .where((e) => (e.category != null && e.category!.isNotEmpty))
+        .map((e) => e.category!.trim())
+        .toSet()
+        .toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+    final membersMap = <String, String>{};
+    for (final e in expenses) {
+      if (e.userId != null && e.userName != null && e.userName!.trim().isNotEmpty) {
+        membersMap[e.userId!] = e.userName!.trim();
+      }
+    }
+    final members = membersMap.entries.toList()
+      ..sort((a, b) => a.value.toLowerCase().compareTo(b.value.toLowerCase()));
+
+    // Local working copies
+    String? localCategory = _selectedCategory;
+    String? localMemberId = _selectedMemberId;
+    DateTimeRange? localRange = _selectedDateRange;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: colorScheme.background,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      isScrollControlled: true,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 24,
+                right: 24,
+                top: 20,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          context.l10n.filterTransactions,
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.foreground,
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.close, color: colorScheme.foreground),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Date range
+                    Text(
+                      context.l10n.selectDateRange,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.foreground,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: shadcnui.OutlineButton(
+                            onPressed: () {
+                              final now = DateTime.now();
+                              final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+                              final endOfWeek = startOfWeek.add(const Duration(days: 6));
+                              setModalState(() => localRange = DateTimeRange(start: _atStartOfDay(startOfWeek), end: _atEndOfDay(endOfWeek)));
+                            },
+                            child: Text(context.l10n.thisWeek),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: shadcnui.OutlineButton(
+                            onPressed: () {
+                              final now = DateTime.now();
+                              final start = DateTime(now.year, now.month, 1);
+                              final end = DateTime(now.year, now.month + 1, 0);
+                              setModalState(() => localRange = DateTimeRange(start: _atStartOfDay(start), end: _atEndOfDay(end)));
+                            },
+                            child: Text(context.l10n.thisMonth),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: shadcnui.OutlineButton(
+                            onPressed: () async {
+                              DateTimeRange? picked;
+                              if (Theme.of(context).platform == TargetPlatform.iOS) {
+                                picked = await _showCupertinoDateRangePicker();
+                              } else {
+                                picked = await showDateRangePicker(
+                                  context: context,
+                                  firstDate: DateTime(2020),
+                                  lastDate: DateTime.now(),
+                                  initialDateRange: localRange,
+                                );
+                              }
+                              if (picked != null) {
+                                setModalState(() => localRange = DateTimeRange(
+                                      start: _atStartOfDay(picked!.start),
+                                      end: _atEndOfDay(picked.end),
+                                    ));
+                              }
+                            },
+                            child: Text(context.l10n.customRange),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: shadcnui.OutlineButton(
+                            onPressed: () => setModalState(() => localRange = null),
+                            child: Text(context.l10n.allTime),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (localRange != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        '${DateFormat('MMM d, yyyy').format(localRange!.start)} – ${DateFormat('MMM d, yyyy').format(localRange!.end)}',
+                        style: TextStyle(fontSize: 12, color: colorScheme.mutedForeground),
+                      ),
+                    ],
+
+                    const SizedBox(height: 24),
+
+                    // Category
+                    if (categories.isNotEmpty) ...[
+                      Text(
+                        context.l10n.category,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.foreground,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          _buildSelectableChip(
+                            label: context.l10n.allCategories,
+                            selected: localCategory == null,
+                            onTap: () => setModalState(() => localCategory = null),
+                            colorScheme: colorScheme,
+                          ),
+                          ...categories.map((cat) {
+                            final sel = localCategory == cat;
+                            return _buildSelectableChip(
+                              label: getCategoryTranslation(context, cat),
+                              selected: sel,
+                              onTap: () => setModalState(() => localCategory = cat),
+                              colorScheme: colorScheme,
+                            );
+                          }),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+
+                    // Member
+                    if (members.isNotEmpty) ...[
+                      Text(
+                        context.l10n.member,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.foreground,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          _buildSelectableChip(
+                            label: context.l10n.allMembers,
+                            selected: localMemberId == null,
+                            onTap: () => setModalState(() => localMemberId = null),
+                            colorScheme: colorScheme,
+                          ),
+                          ...members.map((entry) {
+                            final sel = localMemberId == entry.key;
+                            return _buildSelectableChip(
+                              label: entry.value,
+                              selected: sel,
+                              onTap: () => setModalState(() => localMemberId = entry.key),
+                              colorScheme: colorScheme,
+                            );
+                          }),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+
+                    Row(
+                      children: [
+                        Expanded(
+                          child: shadcnui.OutlineButton(
+                            onPressed: () {
+                              setModalState(() {
+                                localCategory = null;
+                                localMemberId = null;
+                                localRange = null;
+                              });
+                            },
+                            child: Text(context.l10n.reset),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: shadcnui.PrimaryButton(
+                            onPressed: () {
+                              setState(() {
+                                _selectedCategory = localCategory;
+                                _selectedMemberId = localMemberId;
+                                _selectedDateRange = localRange;
+                              });
+                              Navigator.pop(context);
+                            },
+                            child: Text(context.l10n.apply),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // Styled selectable chip used in the filter sheet
+  Widget _buildSelectableChip({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+    required shadcnui.ColorScheme colorScheme,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? colorScheme.primary : colorScheme.muted,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: selected ? colorScheme.primary : colorScheme.border),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? colorScheme.primaryForeground : colorScheme.foreground,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
+  DateTime _atStartOfDay(DateTime d) => DateTime(d.year, d.month, d.day);
+  DateTime _atEndOfDay(DateTime d) => DateTime(d.year, d.month, d.day, 23, 59, 59, 999);
 
   Widget _buildChart(shadcnui.ColorScheme colorScheme, List<ExpenseEntry> expenses) {
     // Handle multi-currency by picking the dominant currency for aggregation
@@ -675,24 +981,34 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
             rightTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
-                reservedSize: 40,
-                getTitlesWidget: (value, meta) => Text(
-                  '${(value / 1000).toStringAsFixed(1)}k',
-                  style: TextStyle(fontSize: 10, color: colorScheme.mutedForeground),
-                ),
+                reservedSize: 45,
+                interval: cumulative > 0 ? cumulative / 4 : 100,
+                getTitlesWidget: (value, meta) {
+                  if (value == 0) return const SizedBox();
+                  return Padding(
+                    padding: const EdgeInsets.only(left: 4),
+                    child: Text(
+                      value >= 1000 ? '${(value / 1000).toStringAsFixed(1)}k' : value.toStringAsFixed(0),
+                      style: TextStyle(fontSize: 10, color: colorScheme.mutedForeground),
+                    ),
+                  );
+                },
               ),
             ),
             topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
-                interval: 1,
+                interval: sortedDates.length > 7 ? 2 : 1,
                 getTitlesWidget: (value, meta) {
                   if (value.toInt() >= sortedDates.length) return const SizedBox();
                   final date = sortedDates[value.toInt()];
-                  return Text(
-                    formatDateForInterval(date, interval),
-                    style: TextStyle(fontSize: 10, color: colorScheme.mutedForeground),
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      DateFormat('MMM d').format(date),
+                      style: TextStyle(fontSize: 9, color: colorScheme.mutedForeground),
+                    ),
                   );
                 },
               ),
@@ -776,22 +1092,36 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
             rightTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
-                reservedSize: 40,
-                getTitlesWidget: (value, meta) => Text(
-                  formatAmount(value / 100),
-                  style: TextStyle(fontSize: 10, color: colorScheme.mutedForeground),
-                ),
+                reservedSize: 45,
+                interval: maxValue / 4,
+                getTitlesWidget: (value, meta) {
+                  if (value == 0) return const SizedBox();
+                  return Padding(
+                    padding: const EdgeInsets.only(left: 4),
+                    child: Text(
+                      value >= 1000 ? '${(value / 1000).toStringAsFixed(1)}k' : value.toStringAsFixed(0),
+                      style: TextStyle(fontSize: 10, color: colorScheme.mutedForeground),
+                    ),
+                  );
+                },
               ),
             ),
             topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
+                interval: barData.sortedPeriods.length > 7 ? 2 : 1,
                 getTitlesWidget: (value, meta) {
                   if (value.toInt() >= barData.sortedPeriods.length) return const SizedBox();
-                  return Text(
-                    barData.sortedPeriods[value.toInt()],
-                    style: TextStyle(fontSize: 10, color: colorScheme.mutedForeground),
+                  final periodLabel = barData.sortedPeriods[value.toInt()];
+                  final periodDate = barData.periodDates[periodLabel];
+                  if (periodDate == null) return const SizedBox();
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      DateFormat('MMM d').format(periodDate),
+                      style: TextStyle(fontSize: 9, color: colorScheme.mutedForeground),
+                    ),
                   );
                 },
               ),

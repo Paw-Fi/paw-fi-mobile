@@ -673,7 +673,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                   ref.invalidate(householdSplitsProvider);
                   ref.invalidate(householdBudgetsProvider);
                   ref.invalidate(householdSummaryProvider);
-                  debugPrint('✅ Invalidated: households, expenses, splits, budgets, summary');
+                  ref.invalidate(householdMembersProvider); // FIXED: Added member info refresh
+                  debugPrint('✅ Invalidated: households, expenses, splits, budgets, summary, members');
                 } else {
                   // In personal mode: refresh analytics
                   ref.read(analyticsProvider.notifier).refresh(user.uid);

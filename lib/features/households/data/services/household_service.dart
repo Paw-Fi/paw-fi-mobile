@@ -294,17 +294,18 @@ class HouseholdService {
     String? startDate,
     String? endDate,
   }) async {
+    // CRITICAL: Do NOT filter splits by date!
+    // Splits are matched to expenses by expense_id, and expenses are already date-filtered
+    // If we filter splits by created_at, we'll miss splits created after the date range
+    // even though the expense itself is within the range
     var query = _supabase
         .from('expense_split_groups')
         .select('*, expense_split_lines(*)')
         .eq('household_id', householdId);
 
-    if (startDate != null) {
-      query = query.gte('created_at', startDate);
-    }
-    if (endDate != null) {
-      query = query.lte('created_at', endDate);
-    }
+    // Date filtering REMOVED - splits are filtered via expense matching, not date
+    // This ensures all splits for household expenses are available regardless of when
+    // the split was created
 
     final response = await query.order('created_at', ascending: false);
 

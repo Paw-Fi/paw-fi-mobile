@@ -1025,5 +1025,29 @@
   "personalBudgetType": "Budget personale",
   "paste": "Incolla",
   "continueAction": "Continua",
-  "tryAgain": "Riprova"
+  "tryAgain": "Riprova",
+
+  "remindUser": "Ricorda a {name}",
+  "@remindUser": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "sendFriendlySpendingReminder": "Invia un promemoria gentile sulle spese",
+  "addMessageOptional": "Aggiungi un messaggio (opzionale)",
+  "messageHintExample": "es.: «Il tuo portafoglio ha bisogno di riposo!»",
+  "sendReminder": "Invia promemoria",
+  "pleaseWait24HoursBeforeSendingAnotherReminder": "Attendi 24 ore prima di inviare un altro promemoria a {name}",
+  "@pleaseWait24HoursBeforeSendingAnotherReminder": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "reminderSentToName": "Promemoria inviato a {name} 🔔",
+  "@reminderSentToName": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "failedToSendReminderTryAgain": "Invio del promemoria non riuscito. Riprova."
 }

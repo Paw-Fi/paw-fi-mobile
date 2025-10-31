@@ -1157,5 +1157,29 @@
   "september": "Sep",
   "october": "Oct",
   "november": "Nov",
-  "december": "Dec"
+  "december": "Dec",
+
+  "remindUser": "Remind {name}",
+  "@remindUser": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "sendFriendlySpendingReminder": "Send a friendly spending reminder",
+  "addMessageOptional": "Add a message (optional)",
+  "messageHintExample": "e.g. \"Your wallet needs a rest!\"",
+  "sendReminder": "Send Reminder",
+  "pleaseWait24HoursBeforeSendingAnotherReminder": "Please wait 24 hours before sending another reminder to {name}",
+  "@pleaseWait24HoursBeforeSendingAnotherReminder": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "reminderSentToName": "Reminder sent to {name}! 🔔",
+  "@reminderSentToName": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "failedToSendReminderTryAgain": "Failed to send reminder. Please try again."
 }

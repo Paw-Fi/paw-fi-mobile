@@ -1098,5 +1098,29 @@
   "september": "9月",
   "october": "10月",
   "november": "11月",
-  "december": "12月"
+  "december": "12月",
+
+  "remindUser": "提醒 {name}",
+  "@remindUser": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "sendFriendlySpendingReminder": "发送一条友好的消费提醒",
+  "addMessageOptional": "添加留言（可选）",
+  "messageHintExample": "例如：“你的钱包也需要休息！”",
+  "sendReminder": "发送提醒",
+  "pleaseWait24HoursBeforeSendingAnotherReminder": "请等待 24 小时后再向 {name} 发送提醒",
+  "@pleaseWait24HoursBeforeSendingAnotherReminder": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "reminderSentToName": "已向 {name} 发送提醒 🔔",
+  "@reminderSentToName": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "failedToSendReminderTryAgain": "提醒发送失败，请重试。"
 }

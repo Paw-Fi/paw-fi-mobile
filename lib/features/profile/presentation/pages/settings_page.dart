@@ -34,8 +34,6 @@ class SettingsPage extends HookConsumerWidget {
 
     final selectedCurrency = useState<String?>(contact?.preferredCurrency?.toUpperCase());
     final isSaving = useState(false);
-    final notificationsEnabled = useState<bool?>(null);
-    final isCheckingPermission = useState(false);
     final nameReloadKey = useState(0);
 
     useEffect(() {
@@ -43,81 +41,50 @@ class SettingsPage extends HookConsumerWidget {
       return null;
     }, [contact?.preferredCurrency]);
 
-    // Check notification permission status AND backend registration on mount
-    useEffect(() {
-      Future<void> checkNotificationPermission() async {
-        final status = await Permission.notification.status;
-        final isRegistered = await ref.read(deviceRegistrationServiceProvider).isRegistered();
-        // Switch is enabled only if BOTH permission is granted AND device is registered
-        notificationsEnabled.value = status.isGranted && isRegistered;
-        debugPrint('🔔 Notification check: permission=${status.isGranted}, registered=$isRegistered');
-      }
-      checkNotificationPermission();
-      return null;
-    }, []);
 
-    Future<void> handleNotificationToggle(bool value) async {
-      if (isCheckingPermission.value) return;
-      
-      isCheckingPermission.value = true;
-      
+    Future<void> handleNotificationToggle() async {
       try {
-        if (value) {
-          // User wants to enable notifications
-          final status = await Permission.notification.status;
+        // User wants to enable notifications
+        final status = await Permission.notification.status;
+        
+        if (status.isDenied || status.isPermanentlyDenied) {
+          // Permission was denied, open Moneko's notification settings page specifically
+          await AppSettings.openAppSettings(
+            type: AppSettingsType.notification,
+            asAnotherTask: true,
+          );
           
-          if (status.isDenied || status.isPermanentlyDenied) {
-            // Permission was denied, open Moneko's notification settings page specifically
-            await AppSettings.openAppSettings(
-              type: AppSettingsType.notification,
-              asAnotherTask: true,
+          // Show info dialog
+          if (context.mounted) {
+            shadcnui.showToast(
+              context: context,
+              builder: (context, overlay) => shadcnui.Alert(
+                leading: const Icon(Icons.info_outline),
+                title: shadcnui.Text(context.l10n.enableNotificationsInSettings),
+              ),
             );
-            
-            // Show info dialog
-            if (context.mounted) {
-              shadcnui.showToast(
-                context: context,
-                builder: (context, overlay) => shadcnui.Alert(
-                  leading: const Icon(Icons.info_outline),
-                  title: shadcnui.Text(context.l10n.enableNotificationsInSettings),
-                ),
-              );
-            }
-          } else if (status.isGranted) {
-            // Already granted, re-initialize device registration
+          }
+        } else if (status.isGranted) {
+          // Already granted, re-initialize device registration
+          try {
+            await ref.read(deviceRegistrationServiceProvider).initialize();
+          } catch (e) {
+            debugPrint('Error initializing notifications: $e');
+          }
+        } else {
+          // Request permission
+          final newStatus = await Permission.notification.request();
+          if (newStatus.isGranted) {
+            // Initialize device registration
             try {
               await ref.read(deviceRegistrationServiceProvider).initialize();
-              notificationsEnabled.value = true;
             } catch (e) {
               debugPrint('Error initializing notifications: $e');
             }
-          } else {
-            // Request permission
-            final newStatus = await Permission.notification.request();
-            if (newStatus.isGranted) {
-              // Initialize device registration
-              try {
-                await ref.read(deviceRegistrationServiceProvider).initialize();
-                notificationsEnabled.value = true;
-              } catch (e) {
-                debugPrint('Error initializing notifications: $e');
-              }
-            } else {
-              notificationsEnabled.value = false;
-            }
           }
-        } else {
-          // User wants to disable notifications
-          // Just update the local state, actual unregistration happens on logout
-          notificationsEnabled.value = false;
         }
-      } finally {
-        isCheckingPermission.value = false;
-        
-        // Re-check both permission status AND registration after settings return
-        final finalStatus = await Permission.notification.status;
-        final isRegistered = await ref.read(deviceRegistrationServiceProvider).isRegistered();
-        notificationsEnabled.value = finalStatus.isGranted && isRegistered;
+      } catch (e) {
+        debugPrint('Error handling notification toggle: $e');
       }
     }
 
@@ -519,59 +486,54 @@ class SettingsPage extends HookConsumerWidget {
               ),
             ),
             const shadcnui.Gap(16),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              decoration: BoxDecoration(
-                color: colorScheme.card,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: colorScheme.border, width: 1),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.notifications_outlined,
-                    size: 20,
-                    color: colorScheme.mutedForeground,
-                  ),
-                  const shadcnui.Gap(16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          context.l10n.pushNotifications,
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: colorScheme.foreground,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const shadcnui.Gap(2),
-                        Text(
-                          context.l10n.receiveAlertsAndUpdates,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: colorScheme.mutedForeground,
-                          ),
-                        ),
-                      ],
+            InkWell(
+              onTap: () => handleNotificationToggle(),
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                decoration: BoxDecoration(
+                  color: colorScheme.card,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: colorScheme.border, width: 1),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.notifications_outlined,
+                      size: 20,
+                      color: colorScheme.mutedForeground,
                     ),
-                  ),
-                  if (notificationsEnabled.value == null)
-                    SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation(colorScheme.primary),
+                    const shadcnui.Gap(16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            context.l10n.pushNotifications,
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: colorScheme.foreground,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const shadcnui.Gap(2),
+                          Text(
+                            context.l10n.receiveAlertsAndUpdates,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: colorScheme.mutedForeground,
+                            ),
+                          ),
+                        ],
                       ),
-                    )
-                  else
-                    shadcnui.Switch(
-                      value: notificationsEnabled.value!,
-                      onChanged: isCheckingPermission.value ? null : handleNotificationToggle,
                     ),
-                ],
+                    Icon(
+                      Icons.card_membership_outlined,
+                      size: 20,
+                      color: colorScheme.mutedForeground,
+                    ),
+                  ],
+                ),
               ),
             ),
             const shadcnui.Gap(24),

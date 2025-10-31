@@ -884,5 +884,29 @@
   "personalBudgetType": "개인 예산",
   "paste": "붙여넣기",
   "continueAction": "계속하기",
-  "tryAgain": "다시 시도"
+  "tryAgain": "다시 시도",
+
+  "remindUser": "{name}에게 알림 보내기",
+  "@remindUser": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "sendFriendlySpendingReminder": "친절한 지출 알림 보내기",
+  "addMessageOptional": "메시지 추가(선택 사항)",
+  "messageHintExample": "예: “지갑도 좀 쉬어야 해요!”",
+  "sendReminder": "알림 보내기",
+  "pleaseWait24HoursBeforeSendingAnotherReminder": "{name}에게 다른 알림을 보내려면 24시간 기다려 주세요",
+  "@pleaseWait24HoursBeforeSendingAnotherReminder": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "reminderSentToName": "{name}에게 알림을 보냈어요 🔔",
+  "@reminderSentToName": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "failedToSendReminderTryAgain": "알림을 보내지 못했습니다. 다시 시도해 주세요."
 }

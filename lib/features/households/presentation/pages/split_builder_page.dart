@@ -9,13 +9,13 @@ import '../providers/household_providers.dart';
 /// Interactive expense splitting tool
 class SplitBuilderPage extends ConsumerStatefulWidget {
   final String householdId;
-  final String? transactionId;
+  final String? expenseId; // FIXED: Changed from transactionId to match database schema
   final int? totalAmountCents;
 
   const SplitBuilderPage({
     super.key,
     required this.householdId,
-    this.transactionId,
+    this.expenseId,
     this.totalAmountCents,
   });
 
@@ -228,7 +228,7 @@ class _SplitBuilderPageState extends ConsumerState<SplitBuilderPage> {
       }).toList();
 
       final request = SplitRequest(
-        transactionId: widget.transactionId ?? 'temp_${DateTime.now().millisecondsSinceEpoch}',
+        expenseId: widget.expenseId ?? 'temp_${DateTime.now().millisecondsSinceEpoch}',
         householdId: widget.householdId,
         payerUserId: _selectedPayer!,
         splitType: _selectedType,

@@ -1085,5 +1085,29 @@
   "yearly": "每年",
   "householdBudgetType": "家庭預算",
   "personalBudgetType": "個人預算",
-  "anUnexpectedErrorOccurred": "發生意外錯誤"
+  "anUnexpectedErrorOccurred": "發生意外錯誤",
+
+  "remindUser": "提醒 {name}",
+  "@remindUser": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "sendFriendlySpendingReminder": "傳送一則親切的消費提醒",
+  "addMessageOptional": "新增訊息（選填）",
+  "messageHintExample": "例如：「你的錢包也需要休息！」",
+  "sendReminder": "傳送提醒",
+  "pleaseWait24HoursBeforeSendingAnotherReminder": "請等候 24 小時後再向 {name} 傳送另一則提醒",
+  "@pleaseWait24HoursBeforeSendingAnotherReminder": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "reminderSentToName": "已傳送提醒給 {name} 🔔",
+  "@reminderSentToName": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "failedToSendReminderTryAgain": "無法傳送提醒，請再試一次。"
 }

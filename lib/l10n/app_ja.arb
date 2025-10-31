@@ -1098,5 +1098,29 @@
   "september": "9月",
   "october": "10月",
   "november": "11月",
-  "december": "12月"
+  "december": "12月",
+
+  "remindUser": "{name} にリマインド",
+  "@remindUser": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "sendFriendlySpendingReminder": "やさしい支出リマインドを送信",
+  "addMessageOptional": "メッセージを追加（任意）",
+  "messageHintExample": "例：『お財布を休ませてあげよう！』",
+  "sendReminder": "リマインドを送信",
+  "pleaseWait24HoursBeforeSendingAnotherReminder": "{name} に再度リマインドを送信するには、24時間お待ちください",
+  "@pleaseWait24HoursBeforeSendingAnotherReminder": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "reminderSentToName": "{name} にリマインドを送信しました 🔔",
+  "@reminderSentToName": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "failedToSendReminderTryAgain": "リマインドの送信に失敗しました。もう一度お試しください。"
 }

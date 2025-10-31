@@ -1098,5 +1098,29 @@
   "september": "Sep",
   "october": "Oct",
   "november": "Nov",
-  "december": "Déc"
+  "december": "Déc",
+
+  "remindUser": "Rappeler {name}",
+  "@remindUser": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "sendFriendlySpendingReminder": "Envoyer un rappel amical de dépenses",
+  "addMessageOptional": "Ajouter un message (facultatif)",
+  "messageHintExample": "p. ex. « Votre portefeuille a besoin de souffler ! »",
+  "sendReminder": "Envoyer le rappel",
+  "pleaseWait24HoursBeforeSendingAnotherReminder": "Veuillez attendre 24 heures avant d’envoyer un nouveau rappel à {name}",
+  "@pleaseWait24HoursBeforeSendingAnotherReminder": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "reminderSentToName": "Rappel envoyé à {name} 🔔",
+  "@reminderSentToName": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "failedToSendReminderTryAgain": "Échec de l’envoi du rappel. Veuillez réessayer."
 }

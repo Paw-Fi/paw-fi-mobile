@@ -38,7 +38,7 @@ enum SplitType {
 class ExpenseSplitGroup {
   final String id;
   final String householdId;
-  final String transactionId;
+  final String expenseId; // FIXED: Changed from transactionId to match database schema
   final String payerUserId;
   final SplitType splitType;
   final String currency;
@@ -52,7 +52,7 @@ class ExpenseSplitGroup {
   const ExpenseSplitGroup({
     required this.id,
     required this.householdId,
-    required this.transactionId,
+    required this.expenseId,
     required this.payerUserId,
     required this.splitType,
     required this.currency,
@@ -68,7 +68,7 @@ class ExpenseSplitGroup {
     return ExpenseSplitGroup(
       id: json['id'] as String,
       householdId: json['household_id'] as String,
-      transactionId: json['transaction_id'] as String,
+      expenseId: json['expense_id'] as String,
       payerUserId: json['payer_user_id'] as String,
       splitType: SplitType.fromJson(json['split_type'] as String),
       currency: json['currency'] as String,
@@ -89,7 +89,7 @@ class ExpenseSplitGroup {
     return {
       'id': id,
       'household_id': householdId,
-      'transaction_id': transactionId,
+      'expense_id': expenseId,
       'payer_user_id': payerUserId,
       'split_type': splitType.toJson(),
       'currency': currency,
@@ -174,7 +174,7 @@ class ExpenseSplitLine {
 
 /// Split creation request
 class SplitRequest {
-  final String transactionId;
+  final String expenseId; // FIXED: Changed from transactionId to match database schema
   final String householdId;
   final String payerUserId;
   final SplitType splitType;
@@ -184,7 +184,7 @@ class SplitRequest {
   final List<SplitLineRequest> splits;
 
   const SplitRequest({
-    required this.transactionId,
+    required this.expenseId,
     required this.householdId,
     required this.payerUserId,
     required this.splitType,
@@ -196,7 +196,7 @@ class SplitRequest {
 
   factory SplitRequest.fromJson(Map<String, dynamic> json) {
     return SplitRequest(
-      transactionId: json['transaction_id'] as String,
+      expenseId: json['expense_id'] as String,
       householdId: json['household_id'] as String,
       payerUserId: json['payer_user_id'] as String,
       splitType: SplitType.fromJson(json['split_type'] as String),
@@ -211,7 +211,7 @@ class SplitRequest {
 
   Map<String, dynamic> toJson() {
     return {
-      'transaction_id': transactionId,
+      'expense_id': expenseId,
       'household_id': householdId,
       'payer_user_id': payerUserId,
       'split_type': splitType.toJson(),

@@ -1028,5 +1028,29 @@
   "personalBudgetType": "Личный бюджет",
   "paste": "Вставить",
   "continueAction": "Продолжить",
-  "tryAgain": "Попробовать снова"
+  "tryAgain": "Попробовать снова",
+
+  "remindUser": "Напомнить {name}",
+  "@remindUser": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "sendFriendlySpendingReminder": "Отправить дружеское напоминание о расходах",
+  "addMessageOptional": "Добавить сообщение (необязательно)",
+  "messageHintExample": "Например: «Кошельку нужен отдых!»",
+  "sendReminder": "Отправить напоминание",
+  "pleaseWait24HoursBeforeSendingAnotherReminder": "Пожалуйста, подождите 24 часа, прежде чем отправлять {name} ещё одно напоминание",
+  "@pleaseWait24HoursBeforeSendingAnotherReminder": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "reminderSentToName": "Напоминание отправлено {name} 🔔",
+  "@reminderSentToName": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "failedToSendReminderTryAgain": "Не удалось отправить напоминание. Попробуйте ещё раз."
 }
