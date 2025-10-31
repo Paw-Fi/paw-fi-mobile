@@ -62,50 +62,54 @@ Widget buildHouseholdBudgetOverviewCard(
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Header Row: Total Spent + Info Icon
+        // Header Row: Title and Transaction Count
         Row(
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        context.l10n.spentByHousehold,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: colorScheme.mutedForeground,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Builder(
-                        builder: (context) {
-                          return GestureDetector(
-                            onTap: () => _showTotalSpentInfoDialog(context, colorScheme),
-                            child: Icon(
-                              Icons.help_outline,
-                              size: 16,
-                              color: colorScheme.mutedForeground.withValues(alpha: 0.7),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
+            Text(
+              context.l10n.spentByHousehold,
+              style: TextStyle(
+                fontSize: 14,
+                color: colorScheme.mutedForeground,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Builder(
+              builder: (context) {
+                return GestureDetector(
+                  onTap: () => _showTotalSpentInfoDialog(context, colorScheme),
+                  child: Icon(
+                    Icons.help_outline,
+                    size: 16,
+                    color: colorScheme.mutedForeground.withValues(alpha: 0.7),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    formattedTotalSpent,
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: colorScheme.foreground,
-                    ),
-                  ),
-                ],
+                );
+              },
+            ),
+            const Spacer(),
+            // Transaction count with icon
+            Icon(
+              Icons.receipt_outlined,
+              size: 14,
+              color: colorScheme.mutedForeground,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '$transactionCount',
+              style: TextStyle(
+                fontSize: 12,
+                color: colorScheme.mutedForeground,
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          formattedTotalSpent,
+          style: TextStyle(
+            fontSize: 32,
+            fontWeight: FontWeight.bold,
+            color: colorScheme.foreground,
+          ),
         ),
 
         // Budget Section (only if budget exists)
@@ -191,7 +195,7 @@ Widget buildHouseholdBudgetOverviewCard(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Spent',
+                      context.l10n.spent,
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w500,
@@ -219,7 +223,7 @@ Widget buildHouseholdBudgetOverviewCard(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      budgetRemainingAmount >= 0 ? 'Remaining' : 'Over Budget',
+                      budgetRemainingAmount >= 0 ? context.l10n.remaining : context.l10n.overBudget,
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w500,

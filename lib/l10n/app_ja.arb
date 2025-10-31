@@ -1,6 +1,7 @@
 {
   "@@locale": "ja",
   "appTitle": "Moneko",
+  "noSpendingYet": "支出はまだありません",
   "loginWelcomeBack": "おかえりなさい",
   "orContinueWithEmail": "またはメールアドレスで続ける",
   "emailAddress": "メールアドレス",
@@ -368,6 +369,7 @@
   "budgets": "予算",
   "loadingHousehold": "グループを読み込み中...",
   "remaining": "残り",
+  "overBudget": "予算オーバー",
   "sharedBudgets": "共有予算",
   "netPosition": "収支状況",
   "spentByHousehold": "グループの支出",

@@ -1,6 +1,7 @@
 {
   "@@locale": "pks",
   "appTitle": "Moneko",
+  "noSpendingYet": "ابھی تک کوئی خرچ نہیں",
   "loginWelcomeBack": "دوبارہ خوش آمدید",
   "orContinueWithEmail": "یا ای میل کے ساتھ جاری رکھیں",
   "emailAddress": "ای میل ایڈریس",
@@ -368,6 +369,7 @@
   "budgets": "بجٹس",
   "loadingHousehold": "گروپ لوڈ ہو رہا ہے۔۔۔",
   "remaining": "باقی",
+  "overBudget": "بجٹ سے زیادہ",
   "sharedBudgets": "مشترکہ بجٹس",
   "netPosition": "حتمی حساب",
   "spentByHousehold": "گروپ کے خرچے",

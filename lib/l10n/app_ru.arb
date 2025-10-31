@@ -1,6 +1,7 @@
 {
   "@@locale": "ru",
   "appTitle": "Moneko",
+  "noSpendingYet": "Пока нет расходов",
   "loginWelcomeBack": "С возвращением!",
   "orContinueWithEmail": "Или войдите по почте",
   "emailAddress": "Email",
@@ -371,6 +372,7 @@
   "budgets": "Бюджеты",
   "loadingHousehold": "Загрузка домохозяйства...",
   "remaining": "Остаток",
+  "overBudget": "Сверх бюджета",
   "sharedBudgets": "Общие бюджеты",
   "netPosition": "Баланс",
   "spentByHousehold": "Расходы группы",

@@ -1,6 +1,7 @@
 {
   "@@locale": "uk",
   "appTitle": "Moneko",
+  "noSpendingYet": "Ще немає витрат",
   "loginWelcomeBack": "З поверненням!",
   "orContinueWithEmail": "Або увійдіть через email",
   "emailAddress": "Адреса email",
@@ -368,6 +369,7 @@
   "budgets": "Бюджети",
   "loadingHousehold": "Завантаження домогосподарства...",
   "remaining": "Залишок",
+  "overBudget": "Понад бюджет",
   "sharedBudgets": "Спільні бюджети",
   "netPosition": "Чиста позиція",
   "spentByHousehold": "Витрати групи",

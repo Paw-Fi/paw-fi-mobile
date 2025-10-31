@@ -422,6 +422,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                     colorScheme,
                     summary,
                     members: membersAsync.asData?.value,
+                    householdId: household.id,
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(

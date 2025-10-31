@@ -1,6 +1,7 @@
 {
   "@@locale": "zh_TW",
   "appTitle": "Moneko",
+  "noSpendingYet": "尚無支出",
 
   "loginWelcomeBack": "歡迎回來",
   "orContinueWithEmail": "或使用 Email 繼續",
@@ -388,6 +389,7 @@
   "budgets": "預算",
   "loadingHousehold": "正在載入家庭...",
   "remaining": "剩餘",
+  "overBudget": "超出预算",
   "sharedBudgets": "共享預算",
   "netPosition": "淨額",
   "spentByHousehold": "家庭支出",

@@ -1,6 +1,7 @@
 {
   "@@locale": "en",
   "appTitle": "Moneko",
+  "noSpendingYet": "No spending yet",
 
   "loginWelcomeBack": "Welcome back",
   "orContinueWithEmail": "Or continue with email",
@@ -388,6 +389,7 @@
   "budgets": "Budgets",
   "loadingHousehold": "Loading household...",
   "remaining": "Remaining",
+  "overBudget": "Over Budget",
   "sharedBudgets": "Shared Budgets",
   "netPosition": "Net position",
   "spentByHousehold": "Spent by Household",

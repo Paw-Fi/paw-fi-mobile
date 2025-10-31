@@ -380,7 +380,7 @@ Widget buildMemberSpendingCard(
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 20),
               child: Text(
-                'No spending yet',
+                context.l10n.noSpendingYet,
                 style: TextStyle(
                   fontSize: 14,
                   color: colorScheme.mutedForeground,

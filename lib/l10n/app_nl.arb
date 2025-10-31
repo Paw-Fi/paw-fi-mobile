@@ -1,6 +1,7 @@
 {
   "@@locale": "nl",
   "appTitle": "Moneko",
+  "noSpendingYet": "Nog geen uitgaven",
   "loginWelcomeBack": "Welkom terug",
   "orContinueWithEmail": "Of ga verder met e-mail",
   "emailAddress": "E-mailadres",
@@ -368,6 +369,7 @@
   "budgets": "Budgetten",
   "loadingHousehold": "Huishouden laden...",
   "remaining": "Resterend",
+  "overBudget": "Boven budget",
   "sharedBudgets": "Gedeelde budgetten",
   "netPosition": "Nettopositie",
   "spentByHousehold": "Uitgaven van Huishouden",

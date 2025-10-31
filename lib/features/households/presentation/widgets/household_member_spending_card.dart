@@ -12,15 +12,36 @@ Widget buildHouseholdMemberSpendingCard(
   shadcnui.ColorScheme colorScheme,
   HouseholdSummary? summary, {
   List<HouseholdMember>? members,
+  String? householdId,
   VoidCallback? onTap,
 }) {
   final currency = (summary?.currency ?? 'USD').toUpperCase();
+  final currentUserId = Supabase.instance.client.auth.currentUser?.id;
 
-  // Member data
+  // Member data - use all household members, not just those with contributions
   final memberContributions = summary?.memberContributions ?? [];
-  final sortedMembers = List<MemberContribution>.from(memberContributions)
-    ..sort((a, b) => b.totalSpentCents.compareTo(a.totalSpentCents));
   final totalMemberSpent = memberContributions.fold<int>(0, (sum, m) => sum + m.totalSpentCents);
+
+  // Create a list of all members with their spending (0 if not in contributions)
+  final allMembers = (members ?? []).map((member) {
+    final contribution = memberContributions.firstWhere(
+      (c) => c.userId == member.userId,
+      orElse: () => MemberContribution(
+        userId: member.userId,
+        userName: member.userName,
+        userEmail: member.userEmail,
+        totalSpentCents: 0,
+        transactionCount: 0,
+        splitCount: 0,
+        balanceCents: 0,
+      ),
+    );
+    return contribution;
+  }).toList();
+
+  // Sort by spending amount (highest first)
+  final sortedMembers = List<MemberContribution>.from(allMembers)
+    ..sort((a, b) => b.totalSpentCents.compareTo(a.totalSpentCents));
 
   final card = Container(
     width: double.infinity,
@@ -66,7 +87,7 @@ Widget buildHouseholdMemberSpendingCard(
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'No spending yet',
+                    context.l10n.noSpendingYet,
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
@@ -83,7 +104,7 @@ Widget buildHouseholdMemberSpendingCard(
             final member = entry.value;
             final percentage = totalMemberSpent > 0
                 ? (member.totalSpentCents / totalMemberSpent) * 100
-                : 0.0;
+                : (100.0 / sortedMembers.length); // Equal distribution when total is 0
             final amount = member.totalSpentCents / 100.0;
             final formatted = formatCurrency(amount, currency);
 
@@ -178,6 +199,32 @@ Widget buildHouseholdMemberSpendingCard(
                           letterSpacing: -0.2,
                         ),
                       ),
+
+                      // Reminder bell icon (only for other members)
+                      if (currentUserId != null && member.userId != currentUserId && householdId != null) ...[
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () => _showReminderModal(
+                            context,
+                            colorScheme,
+                            member.userId,
+                            displayName,
+                            householdId,
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: colorScheme.muted.withValues(alpha: 0.3),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.notifications_outlined,
+                              size: 16,
+                              color: colorScheme.primary,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 10),
@@ -242,4 +289,311 @@ Future<String?> _getUserAvatarUrl(String userId) async {
     debugPrint('Error fetching user avatar: $e');
     return null;
   }
+}
+
+/// Check if user can send reminder (24-hour cooldown)
+Future<bool> _canSendReminder(String householdId, String targetUserId) async {
+  try {
+    final supabase = Supabase.instance.client;
+    final currentUserId = supabase.auth.currentUser?.id;
+
+    if (currentUserId == null) return false;
+
+    // Check for existing reminder in last 24 hours
+    final twentyFourHoursAgo = DateTime.now().subtract(const Duration(hours: 24));
+
+    final response = await supabase
+        .from('notification_events')
+        .select('created_at')
+        .eq('household_id', householdId)
+        .eq('user_id', targetUserId)
+        .eq('event_type', 'member_reminded')
+        .gte('created_at', twentyFourHoursAgo.toIso8601String())
+        .order('created_at', ascending: false)
+        .limit(1)
+        .maybeSingle();
+
+    return response == null; // Can send if no recent reminder found
+  } catch (e) {
+    debugPrint('Error in _canSendReminder: $e');
+    return true; // Allow on error
+  }
+}
+
+/// Show reminder modal to send a nudge to a household member
+void _showReminderModal(
+  BuildContext context,
+  shadcnui.ColorScheme colorScheme,
+  String targetUserId,
+  String targetUserName,
+  String householdId,
+) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (modalContext) {
+      return _ReminderModalContent(
+        colorScheme: colorScheme,
+        targetUserId: targetUserId,
+        targetUserName: targetUserName,
+        householdId: householdId,
+        parentContext: context,
+      );
+    },
+  );
+}
+
+/// Stateful widget for reminder modal content with loading state
+class _ReminderModalContent extends StatefulWidget {
+  final shadcnui.ColorScheme colorScheme;
+  final String targetUserId;
+  final String targetUserName;
+  final String householdId;
+  final BuildContext parentContext;
+
+  const _ReminderModalContent({
+    required this.colorScheme,
+    required this.targetUserId,
+    required this.targetUserName,
+    required this.householdId,
+    required this.parentContext,
+  });
+
+  @override
+  State<_ReminderModalContent> createState() => _ReminderModalContentState();
+}
+
+class _ReminderModalContentState extends State<_ReminderModalContent> {
+  final TextEditingController messageController = TextEditingController();
+  bool isLoading = false;
+
+  @override
+  void dispose() {
+    messageController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _sendReminder() async {
+    if (isLoading) return;
+
+    setState(() {
+      isLoading = true;
+    });
+
+    final supabase = Supabase.instance.client;
+
+    try {
+      // Check cooldown
+      final canSend = await _canSendReminder(widget.householdId, widget.targetUserId);
+
+      if (!canSend) {
+        if (mounted) {
+          Navigator.of(context).pop();
+          ScaffoldMessenger.of(widget.parentContext).showSnackBar(
+            SnackBar(
+              content: Text('Please wait 24 hours before sending another reminder to ${widget.targetUserName}'),
+              backgroundColor: widget.colorScheme.destructive,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Send reminder
+      final response = await supabase.functions.invoke(
+        'households-remind-member',
+        body: {
+          'household_id': widget.householdId,
+          'target_user_id': widget.targetUserId,
+          'message': messageController.text.trim(),
+        },
+      );
+
+      if (mounted) {
+        Navigator.of(context).pop();
+
+        if (response.status == 200) {
+          ScaffoldMessenger.of(widget.parentContext).showSnackBar(
+            SnackBar(
+              content: Text('Reminder sent to ${widget.targetUserName}! 🔔'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          throw Exception('Failed to send reminder');
+        }
+      }
+    } catch (e) {
+      debugPrint('Error sending reminder: $e');
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(widget.parentContext).showSnackBar(
+          SnackBar(
+            content: const Text('Failed to send reminder. Please try again.'),
+            backgroundColor: widget.colorScheme.destructive,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+        decoration: BoxDecoration(
+          color: widget.colorScheme.card,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: widget.colorScheme.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.notifications_active,
+                        color: widget.colorScheme.primary,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Remind ${widget.targetUserName}',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: widget.colorScheme.foreground,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Send a friendly spending reminder',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: widget.colorScheme.mutedForeground,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 14),
+                Text("Add a message (optional)", style: TextStyle(fontSize: 14, color: widget.colorScheme.mutedForeground)),
+                const SizedBox(height: 6),
+
+                // Message input
+                TextField(
+                  controller: messageController,
+                  enabled: !isLoading,
+                  maxLines: 3,
+                  maxLength: 100,
+                  decoration: InputDecoration(
+                    hintText: 'e.g. "Your wallet needs a rest!"',
+                    hintStyle: TextStyle(
+                      color: widget.colorScheme.mutedForeground.withValues(alpha: 0.5),
+                    ),
+                    filled: true,
+                    fillColor: widget.colorScheme.muted.withValues(alpha: 0.3),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.all(16),
+                  ),
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: widget.colorScheme.foreground,
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // Action buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: isLoading ? null : () => Navigator.of(context).pop(),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          side: BorderSide(color: widget.colorScheme.border),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(
+                          'Cancel',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: widget.colorScheme.foreground,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: isLoading ? null : _sendReminder,
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          backgroundColor: widget.colorScheme.primary,
+                          disabledBackgroundColor: widget.colorScheme.muted,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: isLoading
+                            ? SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                ),
+                              )
+                            : Text(
+                                'Send Reminder',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 }

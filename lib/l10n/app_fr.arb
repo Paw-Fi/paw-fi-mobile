@@ -1,6 +1,7 @@
 {
   "@@locale": "fr",
   "appTitle": "Moneko",
+  "noSpendingYet": "Aucune dépense",
   "loginWelcomeBack": "Ravi de vous revoir",
   "orContinueWithEmail": "Ou continuer par e-mail",
   "emailAddress": "Adresse e-mail",
@@ -368,6 +369,7 @@
   "budgets": "Budgets",
   "loadingHousehold": "Chargement du foyer...",
   "remaining": "Restant",
+  "overBudget": "Budget dépassé",
   "sharedBudgets": "Budgets partagés",
   "netPosition": "Solde de règlement",
   "spentByHousehold": "Dépenses du Foyer",

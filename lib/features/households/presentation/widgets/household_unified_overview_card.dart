@@ -313,7 +313,7 @@ Widget buildHouseholdUnifiedOverviewCard(
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'No spending yet',
+                    context.l10n.noSpendingYet,
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
