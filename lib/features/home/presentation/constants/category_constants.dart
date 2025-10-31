@@ -224,6 +224,8 @@ String getCategoryTranslation(BuildContext context, String? category) {
       return l10n.categoryMisc;
     case 'uncategorized':
       return l10n.categoryUncategorized;
+    case 'other':
+      return l10n.categoryOther;
     default:
       // Fallback: capitalize first letter and return the rest as-is
       final fallbackCategory = category ?? 'uncategorized';

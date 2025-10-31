@@ -1782,9 +1782,26 @@ class _UnifiedTransactionSheetState
 
       debugPrint('✅ Expense deleted successfully');
 
-      // Refresh analytics data
+      // Refresh analytics data (personal expenses)
       await ref.read(analyticsProvider.notifier).loadData(user.uid);
-      
+
+      // If this was a household expense, invalidate household providers
+      final householdId = widget.existingExpense!.householdId;
+      if (householdId != null) {
+        debugPrint('🔄 Invalidating household providers for household: $householdId');
+
+        // Invalidate household list to update counts
+        ref.invalidate(userHouseholdsProvider(user.uid));
+
+        // Invalidate family providers so all parameterized instances refresh
+        ref.invalidate(householdSummaryProvider);
+        ref.invalidate(householdExpensesProvider);
+        ref.invalidate(householdSplitsProvider);
+        ref.invalidate(householdBudgetsProvider);
+
+        debugPrint('✅ Invalidated household providers');
+      }
+
       if (!mounted) return;
 
       Navigator.of(context).pop();

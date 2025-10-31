@@ -5,6 +5,7 @@ import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/transaction_edit_state.dart';
+import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 
 /// Manages transaction editing with optimistic UI updates and automatic rollback on error
 class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
@@ -89,13 +90,31 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       // 5. Success: Reload data from backend to sync
       // This ensures we have the latest data including any backend-side transformations
       await ref.read(analyticsProvider.notifier).loadData(user.uid);
-      
+
+      // 6. If this was a household expense, invalidate household providers
+      // Check the optimistic update for household_id (since we just updated it)
+      final updatedExpense = state.optimisticUpdate;
+      if (updatedExpense != null && updatedExpense.householdId != null) {
+        debugPrint('🔄 Invalidating household providers for household: ${updatedExpense.householdId}');
+
+        // Invalidate household list to update counts
+        ref.invalidate(userHouseholdsProvider(user.uid));
+
+        // Invalidate family providers so all parameterized instances refresh
+        ref.invalidate(householdSummaryProvider);
+        ref.invalidate(householdExpensesProvider);
+        ref.invalidate(householdSplitsProvider);
+        ref.invalidate(householdBudgetsProvider);
+
+        debugPrint('✅ Invalidated household providers');
+      }
+
       state = state.copyWith(
         isLoading: false,
         clearOptimisticUpdate: true,
         clearError: true,
       );
-      
+
       return true;
       
     } catch (e) {

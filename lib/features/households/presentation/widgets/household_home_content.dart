@@ -10,6 +10,8 @@ import 'package:moneko/features/home/presentation/widgets/widgets.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'household_metric_cards.dart';
+import 'household_budget_overview_card.dart';
+import 'household_member_spending_card.dart';
 import '../pages/create_budget_page.dart';
 import '../pages/budget_detail_page.dart';
 import '../pages/household_expenses_page.dart';
@@ -112,6 +114,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
               HouseholdSummaryParams(householdId: household.id, currency: selectedCurrency),
             ),
           );
+          final membersAsync = ref.watch(householdMembersProvider(household.id));
 
           // UI
           return SliverList(
@@ -260,7 +263,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
               ),
               const SizedBox(height: 16),
 
-              // Spending Card with Line Chart (reuse home component)
+              // Spending Card with Line Chart - Shows ONLY current user's personal spending
               expensesAsync.when(
                 loading: () => const Padding(
                   padding: EdgeInsets.all(16.0),
@@ -271,12 +274,14 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                   child: Text(context.l10n.errorLoadingExpenses, style: TextStyle(color: colorScheme.destructive)),
                 ),
                 data: (allExpenses) {
-                  final filteredExpenses = allExpenses.where((e) {
+                  // Filter for current user's expenses only
+                  final myExpenses = allExpenses.where((e) {
                     final d = DateTime(e.date.year, e.date.month, e.date.day);
                     final dateOk = !d.isBefore(from) && !d.isAfter(to);
                     final rawCurrency = (e.currency ?? '').trim().toUpperCase();
                     final currencyOk = rawCurrency.isEmpty || rawCurrency == selectedCurrency;
-                    return dateOk && currencyOk;
+                    final isMyExpense = e.userId == userId; // Only show current user's expenses
+                    return dateOk && currencyOk && isMyExpense;
                   }).toList();
 
                   return Padding(
@@ -292,7 +297,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                       child: buildSpendingCard(
                         context,
                         colorScheme,
-                        filteredExpenses,
+                        myExpenses,
                         null,
                         filterState.dateRangeFilter,
                         selectedCurrency: selectedCurrency,
@@ -304,256 +309,206 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
 
               const SizedBox(height: 16),
 
-              // Horizontal metric cards: Total Spent + Member Spending + Budgets + Net Position
-              SizedBox(
-                height: 180,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  children: [
-                    // Total Spent Card
-                    summaryAsync.when(
-                      loading: () => Container(
-                        width: 200,
-                        decoration: BoxDecoration(
-                          color: colorScheme.card,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: colorScheme.border, width: 1),
-                        ),
-                        padding: const EdgeInsets.all(16),
-                        child: const Center(child: CircularProgressIndicator()),
-                      ),
-                      error: (e, st) => Container(
-                        width: 200,
-                        decoration: BoxDecoration(
-                          color: colorScheme.card,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: colorScheme.border, width: 1),
-                        ),
-                        padding: const EdgeInsets.all(16),
-                        child: Text('Error', style: TextStyle(color: colorScheme.destructive)),
-                      ),
-                      data: (summary) => buildHouseholdTotalSpentCard(
-                        context,
-                        colorScheme,
-                        summary,
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => HouseholdExpensesPage(household: household),
-                            ),
-                          );
-                        },
+              // Budget Overview Card: Total Spent + Budget Progress
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: summaryAsync.when(
+                  loading: () => Container(
+                    height: 200,
+                    decoration: BoxDecoration(
+                      color: colorScheme.card,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: colorScheme.border.withValues(alpha: 0.4),
+                        width: 1,
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    // Member Spending Card
-                    summaryAsync.when(
-                      loading: () => Container(
-                        width: 280,
-                        decoration: BoxDecoration(
-                          color: colorScheme.card,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: colorScheme.border, width: 1),
-                        ),
-                        padding: const EdgeInsets.all(16),
-                        child: const Center(child: CircularProgressIndicator()),
-                      ),
-                      error: (e, st) => Container(
-                        width: 280,
-                        decoration: BoxDecoration(
-                          color: colorScheme.card,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: colorScheme.border, width: 1),
-                        ),
-                        padding: const EdgeInsets.all(16),
-                        child: Text('Error', style: TextStyle(color: colorScheme.destructive)),
-                      ),
-                      data: (summary) => buildMemberSpendingCard(
-                        context,
-                        colorScheme,
-                        summary,
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => HouseholdExpensesPage(household: household),
-                            ),
-                          );
-                        },
+                    padding: const EdgeInsets.all(24),
+                    child: const Center(child: CircularProgressIndicator()),
+                  ),
+                  error: (e, st) => Container(
+                    height: 200,
+                    decoration: BoxDecoration(
+                      color: colorScheme.card,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: colorScheme.border.withValues(alpha: 0.4),
+                        width: 1,
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    // Budgets Card
-                    SizedBox(
-                      width: 200,
-                      child: budgetsAsync.when(
-                        loading: () => Container(
-                          decoration: BoxDecoration(
-                            color: colorScheme.card,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: colorScheme.border, width: 1),
-                          ),
-                          padding: const EdgeInsets.all(16),
-                          child: const Center(child: CircularProgressIndicator()),
-                        ),
-                        error: (e, st) => Container(
-                          decoration: BoxDecoration(
-                            color: colorScheme.card,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: colorScheme.border, width: 1),
-                          ),
-                          padding: const EdgeInsets.all(16),
-                          child: Text('Error', style: TextStyle(color: colorScheme.destructive)),
-                        ),
-                        data: (budgets) => buildHouseholdBudgetCard(
-                          context,
-                          colorScheme,
-                          budgets,
-                          currencyCode: selectedCurrency,
-                          budgetStatuses: summaryAsync.asData?.value?.budgets,
-                          onTap: () async {
-                            if (budgets.isEmpty) {
-                              // Navigate to create budget
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => CreateBudgetPage(householdId: household.id),
-                                ),
-                              );
-                              return;
-                            }
+                    padding: const EdgeInsets.all(24),
+                    child: Center(
+                      child: Text(
+                        'Error loading summary',
+                        style: TextStyle(color: colorScheme.destructive),
+                      ),
+                    ),
+                  ),
+                  data: (summary) {
+                    final hasBudget = (summary?.budgets ?? []).isNotEmpty;
+                    return buildHouseholdBudgetOverviewCard(
+                      context,
+                      colorScheme,
+                      summary,
+                      onTap: () {
+                        if (hasBudget) {
+                          // Navigate to budget detail page
+                          final budgetsData = budgetsAsync.asData?.value ?? [];
 
-                            await showModalBottomSheet(
-                              context: context,
-                              backgroundColor: colorScheme.card,
-                              shape: const RoundedRectangleBorder(
-                                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-                              ),
-                              builder: (ctx) {
-                                return SafeArea(
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                        child: Row(
-                                          children: [
-                                            Text(
-                                              context.l10n.budgets,
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w600,
-                                                color: colorScheme.foreground,
-                                              ),
-                                            ),
-                                            const Spacer(),
-                                            // '+' hidden: allow only one budget at a time for now
-                                          ],
-                                        ),
-                                      ),
-                                      Flexible(
-                                        child: ListView.builder(
-                                          shrinkWrap: true,
-                                          itemCount: budgets.length,
-                                          itemBuilder: (c, i) {
-                                            final b = budgets[i];
-                                            return ListTile(
-                                              title: Text(
-                                                b.name,
-                                                style: TextStyle(color: colorScheme.foreground),
-                                              ),
-                                              subtitle: Text(
-                                                '${b.period.toJson().toUpperCase()} • ${b.currency} ${(b.amountCents / 100).toStringAsFixed(2)}',
-                                                style: TextStyle(color: colorScheme.mutedForeground),
-                                              ),
-                                              trailing: Icon(Icons.chevron_right, color: colorScheme.mutedForeground),
-                                              onTap: () {
-                                                Navigator.pop(ctx);
-                                                Navigator.of(context).push(
-                                                  MaterialPageRoute(
-                                                    builder: (_) => BudgetDetailPage(budget: b, householdId: household.id),
-                                                  ),
-                                                );
-                                              },
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    SizedBox(
-                      width: 200,
-                      child: summaryAsync.when(
-                        loading: () => Container(
-                          decoration: BoxDecoration(
-                            color: colorScheme.card,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: colorScheme.border, width: 1),
-                          ),
-                          padding: const EdgeInsets.all(16),
-                          child: const Center(child: CircularProgressIndicator()),
-                        ),
-                        error: (e, st) {
-                          // Fallback to zero-valued net position card instead of showing an error
-                          final zeroSummary = HouseholdSummary(
-                            householdId: household.id,
-                            currency: selectedCurrency,
-                            period: DatePeriod(
-                              startDate: from.toIso8601String(),
-                              endDate: to.toIso8601String(),
-                            ),
-                            totals: Totals(
-                              totalExpensesCents: 0,
-                              totalIncomeCents: 0,
-                              netCents: 0,
-                              transactionCount: 0,
-                              splitCount: 0,
-                            ),
-                            memberContributions: const [],
-                            categoryBreakdown: const [],
-                            budgets: const [],
-                            balances: const {},
-                          );
-                          return buildHouseholdNetPositionCard(
-                            context,
-                            colorScheme,
-                            zeroSummary,
-                            onTap: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => HouseholdExpensesPage(household: household),
-                                ),
-                              );
-                            },
-                          );
-                        },
-                        data: (summary) => buildHouseholdNetPositionCard(
-                          context,
-                          colorScheme,
-                          summary,
-                          onTap: () {
+                          if (budgetsData.isNotEmpty) {
+                            final budget = budgetsData.first;
                             Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (_) => HouseholdExpensesPage(household: household),
+                                builder: (_) => BudgetDetailPage(
+                                  budget: budget,
+                                  householdId: household.id,
+                                ),
                               ),
                             );
-                          },
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                  ],
+                          }
+                        } else {
+                          // Navigate to create budget page
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => CreateBudgetPage(householdId: household.id),
+                            ),
+                          );
+                        }
+                      },
+                    );
+                  },
                 ),
               ),
 
               const SizedBox(height: 16),
+
+              // Member Spending Card
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: summaryAsync.when(
+                  loading: () => Container(
+                    height: 200,
+                    decoration: BoxDecoration(
+                      color: colorScheme.card,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: colorScheme.border.withValues(alpha: 0.4),
+                        width: 1,
+                      ),
+                    ),
+                    padding: const EdgeInsets.all(24),
+                    child: const Center(child: CircularProgressIndicator()),
+                  ),
+                  error: (e, st) => Container(
+                    height: 200,
+                    decoration: BoxDecoration(
+                      color: colorScheme.card,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: colorScheme.border.withValues(alpha: 0.4),
+                        width: 1,
+                      ),
+                    ),
+                    padding: const EdgeInsets.all(24),
+                    child: Center(
+                      child: Text(
+                        'Error loading members',
+                        style: TextStyle(color: colorScheme.destructive),
+                      ),
+                    ),
+                  ),
+                  data: (summary) => buildHouseholdMemberSpendingCard(
+                    context,
+                    colorScheme,
+                    summary,
+                    members: membersAsync.asData?.value,
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => HouseholdExpensesPage(household: household),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // TEMP REMOVE:Net Position Card (horizontal scrollable card - keep for additional info)
+              // SizedBox(
+              //   height: 180,
+              //   child: ListView(
+              //     scrollDirection: Axis.horizontal,
+              //     padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              //     children: [
+              //       SizedBox(
+              //         width: 240,
+              //         child: summaryAsync.when(
+              //           loading: () => Container(
+              //             decoration: BoxDecoration(
+              //               color: colorScheme.card,
+              //               borderRadius: BorderRadius.circular(20),
+              //               border: Border.all(
+              //                 color: colorScheme.border.withValues(alpha: 0.5),
+              //                 width: 1,
+              //               ),
+              //             ),
+              //             padding: const EdgeInsets.all(20),
+              //             child: const Center(child: CircularProgressIndicator()),
+              //           ),
+              //           error: (e, st) {
+              //             final zeroSummary = HouseholdSummary(
+              //               householdId: household.id,
+              //               currency: selectedCurrency,
+              //               period: DatePeriod(
+              //                 startDate: from.toIso8601String(),
+              //                 endDate: to.toIso8601String(),
+              //               ),
+              //               totals: Totals(
+              //                 totalExpensesCents: 0,
+              //                 totalIncomeCents: 0,
+              //                 netCents: 0,
+              //                 transactionCount: 0,
+              //                 splitCount: 0,
+              //               ),
+              //               memberContributions: const [],
+              //               categoryBreakdown: const [],
+              //               budgets: const [],
+              //               balances: const {},
+              //             );
+              //             return buildHouseholdNetPositionCard(
+              //               context,
+              //               colorScheme,
+              //               zeroSummary,
+              //               onTap: () {
+              //                 Navigator.of(context).push(
+              //                   MaterialPageRoute(
+              //                     builder: (_) => HouseholdExpensesPage(household: household),
+              //                   ),
+              //                 );
+              //               },
+              //             );
+              //           },
+              //           data: (summary) => buildHouseholdNetPositionCard(
+              //             context,
+              //             colorScheme,
+              //             summary,
+              //             onTap: () {
+              //               Navigator.of(context).push(
+              //                 MaterialPageRoute(
+              //                   builder: (_) => HouseholdExpensesPage(household: household),
+              //                 ),
+              //               );
+              //             },
+              //           ),
+              //         ),
+              //       ),
+              //     ],
+              //   ),
+              // ),
+
+              // const SizedBox(height: 16),
 
               // Category breakdown (reuse)
               expensesAsync.when(
