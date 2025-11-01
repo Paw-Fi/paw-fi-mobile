@@ -221,16 +221,12 @@ Widget _buildMemberRow(
                         shape: BoxShape.circle,
                         color: colorScheme.muted.withValues(alpha: 0.5),
                         border: Border.all(
-                          color: isCurrentUser
-                              ? colorScheme.primary.withValues(alpha: 0.3)
-                              : colorScheme.border.withValues(alpha: 0.15),
+                          color:colorScheme.border.withValues(alpha: 0.15),
                           width: 2,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: isCurrentUser
-                                ? colorScheme.primary.withValues(alpha: 0.1)
-                                : Colors.black.withValues(alpha: 0.02),
+                            color: Colors.black.withValues(alpha: 0.02),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -255,24 +251,7 @@ Widget _buildMemberRow(
                     );
                   },
                 ),
-                // Current user badge
-                if (isCurrentUser)
-                  Positioned(
-                    right: 0,
-                    bottom: 0,
-                    child: Container(
-                      width: 14,
-                      height: 14,
-                      decoration: BoxDecoration(
-                        color: colorScheme.primary,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: colorScheme.card,
-                          width: 2,
-                        ),
-                      ),
-                    ),
-                  ),
+               
               ],
             ),
             const SizedBox(width: 14),
@@ -416,14 +395,9 @@ Widget _buildMemberRow(
                         gradient: LinearGradient(
                           begin: Alignment.centerLeft,
                           end: Alignment.centerRight,
-                          colors: isCurrentUser
-                              ? [
+                          colors: [
                                   colorScheme.primary,
                                   colorScheme.primary.withValues(alpha: 0.8),
-                                ]
-                              : [
-                                  colorScheme.primary.withValues(alpha: 0.7),
-                                  colorScheme.primary.withValues(alpha: 0.5),
                                 ],
                         ),
                         borderRadius: BorderRadius.circular(3),

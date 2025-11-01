@@ -777,7 +777,7 @@
   "splitExpense": "Uitgave splitsen",
   "amount": "Bedrag",
   "percent": "Procent",
-  "share": "Deel",
+  "splitShare": "Deel",
   "owes": "Schuldig",
   "splitAmountsMustEqual": "Gesplitste bedragen moeten opgeteld {currency}{amount} zijn",
   "@splitAmountsMustEqual": {

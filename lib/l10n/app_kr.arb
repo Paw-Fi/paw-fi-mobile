@@ -684,7 +684,7 @@
   "splitExpense": "지출 나누기",
   "amount": "금액",
   "percent": "비율 (%)",
-  "share": "몫 (비율)",
+  "splitShare": "몫 (비율)",
   "owes": "낼 금액",
   "splitAmountsMustEqual": "분할 금액의 총합이 {currency}{amount}와(과) 일치해야 합니다.",
   "percentagesMustTotal100": "비율의 총합은 100%여야 합니다.",

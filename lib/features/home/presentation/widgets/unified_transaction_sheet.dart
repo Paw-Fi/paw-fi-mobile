@@ -555,7 +555,6 @@ class _UnifiedTransactionSheetState
       });
     }
     return Container(
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: colorScheme.muted.withOpacity(0.12),
         borderRadius: BorderRadius.circular(16),
@@ -604,7 +603,7 @@ class _UnifiedTransactionSheetState
           if (_isSharedWithHousehold && households.isNotEmpty) ...[
             const SizedBox(height: 16),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               decoration: BoxDecoration(
                 color: colorScheme.muted.withOpacity(0.08),
                 borderRadius: BorderRadius.circular(12),

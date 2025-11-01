@@ -18,6 +18,7 @@ import '../pages/household_expenses_page.dart';
 import '../pages/household_settings_page.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
+import 'package:moneko/features/households/domain/entities/expense_split.dart';
 
 /// Household home content that handles loading, empty, and data states
 /// Returns Sliver widgets for use in CustomScrollView
@@ -30,6 +31,37 @@ class HouseholdHomeContent extends ConsumerStatefulWidget {
 
 class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
   bool _isExpanded = false;
+
+  // Compute split-adjusted expenses for the current user
+  List<ExpenseEntry> _personalShareExpenses(
+    List<ExpenseEntry> expenses,
+    List<ExpenseSplitGroup> splits,
+    String currentUserId,
+  ) {
+    if (expenses.isEmpty || splits.isEmpty) return const <ExpenseEntry>[];
+    final byGroupId = {for (final g in splits) g.id: g};
+    final result = <ExpenseEntry>[];
+    for (final e in expenses) {
+      final gid = e.splitGroupId;
+      if (gid == null) continue;
+      final group = byGroupId[gid];
+      if (group == null) continue;
+      final line = (group.splitLines ?? const <ExpenseSplitLine>[])
+          .firstWhere((l) => l.userId == currentUserId, orElse: () => ExpenseSplitLine(
+                id: '',
+                splitGroupId: '',
+                userId: '',
+                isSettled: false,
+                createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+                updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
+              ));
+      if (line.userId != currentUserId) continue; // user not part of this split
+      final int share = (line.amountCents ?? 0);
+      final int shareClamped = share < 0 ? 0 : share;
+      result.add(e.copyWith(amountCents: shareClamped));
+    }
+    return result;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -106,6 +138,11 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
           final expensesAsync = ref.watch(
             householdExpensesProvider(
               HouseholdExpensesParams(householdId: household.id, limit: 500),
+            ),
+          );
+          final splitsAsync = ref.watch(
+            householdSplitsProvider(
+              HouseholdSplitsParams(householdId: household.id),
             ),
           );
           final budgetsAsync = ref.watch(householdBudgetsProvider(household.id));
@@ -542,6 +579,11 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                     final currencyOk = rawCurrency.isEmpty || rawCurrency == selectedCurrency;
                     return dateOk && currencyOk;
                   }).toList();
+                  // Use split-adjusted personal shares for breakdown
+                  final splits = splitsAsync.asData?.value ?? const <ExpenseSplitGroup>[];
+                  final personal = (userId != null)
+                      ? _personalShareExpenses(filteredExpenses, splits, userId)
+                      : const <ExpenseEntry>[];
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     child: GestureDetector(
@@ -555,7 +597,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                       child: buildCategoryBreakdownCard(
                         context,
                         colorScheme,
-                        filteredExpenses,
+                        personal,
                         null,
                         selectedCurrency: selectedCurrency,
                         householdId: household.id,
@@ -579,6 +621,10 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                     final currencyOk = rawCurrency.isEmpty || rawCurrency == selectedCurrency;
                     return dateOk && currencyOk;
                   }).toList();
+                  final splits = splitsAsync.asData?.value ?? const <ExpenseSplitGroup>[];
+                  final personal = (userId != null)
+                      ? _personalShareExpenses(filteredExpenses, splits, userId)
+                      : const <ExpenseEntry>[];
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     child: GestureDetector(
@@ -592,7 +638,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                       child: buildSpendingBreakdownChart(
                         context,
                         colorScheme,
-                        filteredExpenses,
+                        personal,
                         const <DailyBudgetEntry>[],
                         null,
                         filterState.dateRangeFilter,

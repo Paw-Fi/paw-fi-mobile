@@ -753,7 +753,7 @@
   "splitExpense": "Dividir gasto",
   "amount": "Importe",
   "percent": "Porcentaje",
-  "share": "Parte",
+  "splitShare": "Parte",
   "owes": "Debe",
   "splitAmountsMustEqual": "La suma de los importes debe ser {currency}{amount}",
   "@splitAmountsMustEqual": {

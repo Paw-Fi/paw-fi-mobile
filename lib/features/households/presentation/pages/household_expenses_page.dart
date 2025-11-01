@@ -13,6 +13,16 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:moneko/features/households/domain/entities/expense_split.dart';
+
+/// Date filter options for household expenses
+enum DateFilterOption {
+  allTime,
+  today,
+  yesterday,
+  thisMonth,
+}
 
 /// Full expense list page with filtering and search for a household
 class HouseholdExpensesPage extends ConsumerStatefulWidget {
@@ -32,7 +42,7 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
   String _searchQuery = '';
   String? _selectedCategory;
   String? _selectedMemberId;
-  DateTimeRange? _selectedDateRange;
+  DateFilterOption _selectedDateFilter = DateFilterOption.allTime;
   final PageController _chartPageController = PageController();
   int _currentChartIndex = 0;
   
@@ -45,6 +55,37 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
     _searchController.dispose();
     _chartPageController.dispose();
     super.dispose();
+  }
+
+  // Build personal-share list of expenses from split groups
+  List<ExpenseEntry> _personalShareExpenses(
+    List<ExpenseEntry> expenses,
+    List<ExpenseSplitGroup> splits,
+    String currentUserId,
+  ) {
+    if (expenses.isEmpty || splits.isEmpty) return const <ExpenseEntry>[];
+    final byGroupId = {for (final g in splits) g.id: g};
+    final result = <ExpenseEntry>[];
+    for (final e in expenses) {
+      final gid = e.splitGroupId;
+      if (gid == null) continue;
+      final group = byGroupId[gid];
+      if (group == null) continue;
+      final line = (group.splitLines ?? const <ExpenseSplitLine>[])
+          .firstWhere((l) => l.userId == currentUserId, orElse: () => ExpenseSplitLine(
+                id: '',
+                splitGroupId: '',
+                userId: '',
+                isSettled: false,
+                createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+                updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
+              ));
+      if (line.userId != currentUserId) continue;
+      final int share = (line.amountCents ?? 0);
+      final int shareClamped = share < 0 ? 0 : share;
+      result.add(e.copyWith(amountCents: shareClamped));
+    }
+    return result;
   }
 
   List<ExpenseEntry> _filterExpenses(List<ExpenseEntry> expenses) {
@@ -72,130 +113,31 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
       filtered = filtered.where((e) => e.userId == _selectedMemberId).toList();
     }
 
-    // Date range filter
-    if (_selectedDateRange != null) {
+    // Date filter
+    if (_selectedDateFilter != DateFilterOption.allTime) {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+
       filtered = filtered.where((expense) {
-        return expense.date.isAfter(_selectedDateRange!.start.subtract(const Duration(days: 1))) &&
-               expense.date.isBefore(_selectedDateRange!.end.add(const Duration(days: 1)));
+        final expenseDate = DateTime(expense.date.year, expense.date.month, expense.date.day);
+
+        switch (_selectedDateFilter) {
+          case DateFilterOption.today:
+            return expenseDate.isAtSameMomentAs(today);
+          case DateFilterOption.yesterday:
+            final yesterday = today.subtract(const Duration(days: 1));
+            return expenseDate.isAtSameMomentAs(yesterday);
+          case DateFilterOption.thisMonth:
+            return expenseDate.year == now.year && expenseDate.month == now.month;
+          case DateFilterOption.allTime:
+            return true;
+        }
       }).toList();
     }
 
     return filtered;
   }
 
-  Future<void> _selectDateRange() async {
-    DateTimeRange? picked;
-    
-    if (Theme.of(context).platform == TargetPlatform.iOS) {
-      picked = await _showCupertinoDateRangePicker();
-    } else {
-      picked = await showDateRangePicker(
-        context: context,
-        firstDate: DateTime(2020),
-        lastDate: DateTime.now(),
-        initialDateRange: _selectedDateRange,
-      );
-    }
-
-    if (picked != null) {
-      setState(() {
-        _selectedDateRange = picked;
-      });
-    }
-  }
-
-  Future<DateTimeRange?> _showCupertinoDateRangePicker() async {
-    DateTimeRange? result;
-    
-    await showCupertinoModalPopup(
-      context: context,
-      builder: (BuildContext context) {
-        DateTime startDate = _selectedDateRange?.start ?? DateTime.now().subtract(const Duration(days: 30));
-        DateTime endDate = _selectedDateRange?.end ?? DateTime.now();
-        
-        return Container(
-          height: 400,
-          padding: const EdgeInsets.only(top: 20.0),
-          margin: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-          ),
-          color: CupertinoColors.systemBackground.resolveFrom(context),
-          child: SafeArea(
-            top: false,
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    CupertinoButton(
-                      child: const Text('Cancel'),
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                      },
-                    ),
-                    CupertinoButton(
-                      child: const Text('Done'),
-                      onPressed: () {
-                        result = DateTimeRange(start: startDate, end: endDate);
-                        Navigator.of(context).pop();
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                Expanded(
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: CupertinoTheme(
-                          data: CupertinoThemeData(
-                            brightness: MediaQuery.of(context).platformBrightness,
-                          ),
-                          child: CupertinoDatePicker(
-                            mode: CupertinoDatePickerMode.date,
-                            initialDateTime: startDate,
-                            onDateTimeChanged: (DateTime newDate) {
-                              startDate = newDate;
-                              if (startDate.isAfter(endDate)) {
-                                endDate = startDate;
-                              }
-                            },
-                            minimumDate: DateTime(2020),
-                            maximumDate: DateTime.now(),
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: CupertinoTheme(
-                          data: CupertinoThemeData(
-                            brightness: MediaQuery.of(context).platformBrightness,
-                          ),
-                          child: CupertinoDatePicker(
-                            mode: CupertinoDatePickerMode.date,
-                            initialDateTime: endDate,
-                            onDateTimeChanged: (DateTime newDate) {
-                              endDate = newDate;
-                              if (endDate.isBefore(startDate)) {
-                                startDate = endDate;
-                              }
-                            },
-                            minimumDate: DateTime(2020),
-                            maximumDate: DateTime.now(),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-    
-    return result;
-  }
 
   Widget _buildPlatformDropdown<T>({
     required T? value,
@@ -310,7 +252,7 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
       _searchController.clear();
       _selectedCategory = null;
       _selectedMemberId = null;
-      _selectedDateRange = null;
+      _selectedDateFilter = DateFilterOption.allTime;
     });
   }
 
@@ -324,6 +266,11 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
       limit: 500, // Fetch more for filtering
     );
     final expensesAsync = ref.watch(householdExpensesProvider(expensesParams));
+    final splitsAsync = ref.watch(
+      householdSplitsProvider(
+        HouseholdSplitsParams(householdId: widget.household.id),
+      ),
+    );
 
     return Scaffold(
       backgroundColor: colorScheme.background,
@@ -445,6 +392,11 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
               ),
               data: (expenses) {
                 final filteredExpenses = _filterExpenses(expenses);
+                final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+                final splits = splitsAsync.asData?.value ?? const <ExpenseSplitGroup>[];
+                final personalExpenses = currentUserId != null
+                    ? _personalShareExpenses(filteredExpenses, splits, currentUserId)
+                    : const <ExpenseEntry>[];
 
                 if (filteredExpenses.isEmpty) {
                   return Center(
@@ -499,9 +451,42 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
                         );
                       }
                       final expense = filteredExpenses[index - 1];
+                      int? shareCents;
+                      if (currentUserId != null) {
+                        final group = splits.firstWhere(
+                          (g) => g.id == expense.splitGroupId,
+                          orElse: () => ExpenseSplitGroup(
+                            id: '',
+                            householdId: '',
+                            expenseId: '',
+                            payerUserId: '',
+                            splitType: SplitType.equal,
+                            currency: 'USD',
+                            totalAmountCents: 0,
+                            createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+                            updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
+                          ),
+                        );
+                        if (group.id.isNotEmpty) {
+                          final line = (group.splitLines ?? const <ExpenseSplitLine>[]) 
+                              .firstWhere((l) => l.userId == currentUserId, orElse: () => ExpenseSplitLine(
+                                    id: '',
+                                    splitGroupId: '',
+                                    userId: '',
+                                    isSettled: false,
+                                    createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+                                    updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
+                                  ));
+                          if (line.userId == currentUserId) {
+                            final val = line.amountCents ?? 0;
+                            shareCents = val < 0 ? 0 : val;
+                          }
+                        }
+                      }
                       return _ExpenseListItem(
                         expense: expense,
                         colorScheme: colorScheme,
+                        userShareCents: shareCents,
                       );
                     },
                   ),
@@ -561,7 +546,7 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
 
   int _activeFiltersCount() {
     int c = 0;
-    if (_selectedDateRange != null) c++;
+    if (_selectedDateFilter != DateFilterOption.allTime) c++;
     if (_selectedCategory != null) c++;
     if (_selectedMemberId != null) c++;
     return c;
@@ -588,7 +573,7 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
     // Local working copies
     String? localCategory = _selectedCategory;
     String? localMemberId = _selectedMemberId;
-    DateTimeRange? localRange = _selectedDateRange;
+    DateFilterOption localDateFilter = _selectedDateFilter;
 
     showModalBottomSheet(
       context: context,
@@ -631,9 +616,9 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
                     ),
                     const SizedBox(height: 20),
 
-                    // Date range
+                    // Date filter
                     Text(
-                      context.l10n.selectDateRange,
+                      context.l10n.dateRange,
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -641,76 +626,36 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Row(
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
                       children: [
-                        Expanded(
-                          child: shadcnui.OutlineButton(
-                            onPressed: () {
-                              final now = DateTime.now();
-                              final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-                              final endOfWeek = startOfWeek.add(const Duration(days: 6));
-                              setModalState(() => localRange = DateTimeRange(start: _atStartOfDay(startOfWeek), end: _atEndOfDay(endOfWeek)));
-                            },
-                            child: Text(context.l10n.thisWeek),
-                          ),
+                        _buildSelectableChip(
+                          label: context.l10n.allTime,
+                          selected: localDateFilter == DateFilterOption.allTime,
+                          onTap: () => setModalState(() => localDateFilter = DateFilterOption.allTime),
+                          colorScheme: colorScheme,
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: shadcnui.OutlineButton(
-                            onPressed: () {
-                              final now = DateTime.now();
-                              final start = DateTime(now.year, now.month, 1);
-                              final end = DateTime(now.year, now.month + 1, 0);
-                              setModalState(() => localRange = DateTimeRange(start: _atStartOfDay(start), end: _atEndOfDay(end)));
-                            },
-                            child: Text(context.l10n.thisMonth),
-                          ),
+                        _buildSelectableChip(
+                          label: context.l10n.today,
+                          selected: localDateFilter == DateFilterOption.today,
+                          onTap: () => setModalState(() => localDateFilter = DateFilterOption.today),
+                          colorScheme: colorScheme,
+                        ),
+                        _buildSelectableChip(
+                          label: context.l10n.yesterday,
+                          selected: localDateFilter == DateFilterOption.yesterday,
+                          onTap: () => setModalState(() => localDateFilter = DateFilterOption.yesterday),
+                          colorScheme: colorScheme,
+                        ),
+                        _buildSelectableChip(
+                          label: context.l10n.thisMonth,
+                          selected: localDateFilter == DateFilterOption.thisMonth,
+                          onTap: () => setModalState(() => localDateFilter = DateFilterOption.thisMonth),
+                          colorScheme: colorScheme,
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: shadcnui.OutlineButton(
-                            onPressed: () async {
-                              DateTimeRange? picked;
-                              if (Theme.of(context).platform == TargetPlatform.iOS) {
-                                picked = await _showCupertinoDateRangePicker();
-                              } else {
-                                picked = await showDateRangePicker(
-                                  context: context,
-                                  firstDate: DateTime(2020),
-                                  lastDate: DateTime.now(),
-                                  initialDateRange: localRange,
-                                );
-                              }
-                              if (picked != null) {
-                                setModalState(() => localRange = DateTimeRange(
-                                      start: _atStartOfDay(picked!.start),
-                                      end: _atEndOfDay(picked.end),
-                                    ));
-                              }
-                            },
-                            child: Text(context.l10n.customRange),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: shadcnui.OutlineButton(
-                            onPressed: () => setModalState(() => localRange = null),
-                            child: Text(context.l10n.allTime),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (localRange != null) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        '${DateFormat('MMM d, yyyy').format(localRange!.start)} – ${DateFormat('MMM d, yyyy').format(localRange!.end)}',
-                        style: TextStyle(fontSize: 12, color: colorScheme.mutedForeground),
-                      ),
-                    ],
 
                     const SizedBox(height: 24),
 
@@ -792,7 +737,7 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
                               setModalState(() {
                                 localCategory = null;
                                 localMemberId = null;
-                                localRange = null;
+                                localDateFilter = DateFilterOption.allTime;
                               });
                             },
                             child: Text(context.l10n.reset),
@@ -805,7 +750,7 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
                               setState(() {
                                 _selectedCategory = localCategory;
                                 _selectedMemberId = localMemberId;
-                                _selectedDateRange = localRange;
+                                _selectedDateFilter = localDateFilter;
                               });
                               Navigator.pop(context);
                             },
@@ -851,9 +796,6 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
     );
   }
 
-  DateTime _atStartOfDay(DateTime d) => DateTime(d.year, d.month, d.day);
-  DateTime _atEndOfDay(DateTime d) => DateTime(d.year, d.month, d.day, 23, 59, 59, 999);
-
   Widget _buildChart(shadcnui.ColorScheme colorScheme, List<ExpenseEntry> expenses) {
     // Handle multi-currency by picking the dominant currency for aggregation
     String baseCurrency = 'USD';
@@ -868,9 +810,14 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
     final chartExpenses = expenses.where((e) => (e.currency ?? 'USD').toUpperCase() == baseCurrency).toList();
     final totalSpent = chartExpenses.fold(0.0, (sum, e) => sum + e.amount.abs());
     final displayText = formatCurrency(totalSpent, baseCurrency);
-    final periodLabel = _selectedDateRange != null
-        ? '${DateFormat('MMM d').format(_selectedDateRange!.start)} – ${DateFormat('MMM d').format(_selectedDateRange!.end)}'
-        : context.l10n.allTime;
+
+    // Get period label based on selected date filter
+    final periodLabel = switch (_selectedDateFilter) {
+      DateFilterOption.today => context.l10n.today,
+      DateFilterOption.yesterday => context.l10n.yesterday,
+      DateFilterOption.thisMonth => context.l10n.thisMonth,
+      DateFilterOption.allTime => context.l10n.allTime,
+    };
 
     return Container(
       decoration: BoxDecoration(
@@ -1006,7 +953,7 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
                   return Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
-                      DateFormat('MMM d').format(date),
+                      '${date.day}/${date.month}',
                       style: TextStyle(fontSize: 9, color: colorScheme.mutedForeground),
                     ),
                   );
@@ -1119,7 +1066,7 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
                   return Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
-                      DateFormat('MMM d').format(periodDate),
+                      '${periodDate.day}/${periodDate.month}',
                       style: TextStyle(fontSize: 9, color: colorScheme.mutedForeground),
                     ),
                   );
@@ -1361,10 +1308,12 @@ class _FilterChip extends StatelessWidget {
 class _ExpenseListItem extends StatelessWidget {
   final ExpenseEntry expense;
   final shadcnui.ColorScheme colorScheme;
+  final int? userShareCents;
 
   const _ExpenseListItem({
     required this.expense,
     required this.colorScheme,
+    this.userShareCents,
   });
 
   @override
@@ -1372,7 +1321,10 @@ class _ExpenseListItem extends StatelessWidget {
     final dateLabel = DateFormat('MMM d').format(expense.date);
     final timeLabel = DateFormat('h:mm a').format(expense.createdAt);
     final title = (expense.rawText ?? expense.category ?? 'Expense').trim();
-    final amountText = formatCurrency(expense.amount.abs(), expense.currency ?? 'USD');
+    final totalAmountText = formatCurrency(expense.amount.abs(), expense.currency ?? 'USD');
+    final shareAmountText = userShareCents != null
+        ? formatCurrency((userShareCents!.abs()) / 100.0, expense.currency ?? 'USD')
+        : null;
     final userPrefix = (expense.userName != null && expense.userName!.isNotEmpty)
         ? '${expense.userName} • '
         : '';
@@ -1462,15 +1414,35 @@ class _ExpenseListItem extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            Text(
-              amountText,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: colorScheme.foreground,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  shareAmountText ?? totalAmountText,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.foreground,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (shareAmountText != null && expense.splitGroupId != null) ...[
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: colorScheme.muted.withValues(alpha: 0.25),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: colorScheme.border.withValues(alpha: 0.6)),
+                    ),
+                    child: Text(
+                      totalAmountText,
+                      style: TextStyle(fontSize: 10, color: colorScheme.mutedForeground, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ],
         ),

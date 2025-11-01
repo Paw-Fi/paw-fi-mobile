@@ -777,7 +777,7 @@
   "splitExpense": "خرچ تقسیم کریں",
   "amount": "رقم",
   "percent": "فیصد",
-  "share": "حصہ",
+  "splitShare": "حصہ",
   "owes": "ذمہ ہے",
   "splitAmountsMustEqual": "تقسیم شدہ رقمیں {currency}{amount} کے برابر ہونی چاہئیں",
   "@splitAmountsMustEqual": {

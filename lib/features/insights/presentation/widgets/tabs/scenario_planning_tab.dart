@@ -843,19 +843,16 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
                   ),
                 ),
                 const SizedBox(height: 24),
-                SizedBox(
-                  height: 250,
-                  child: Builder(
-                    builder: (context) {
-                      // Filter expenses by selected currency if applicable
-                      var expenses = widget.analyticsData.expenses;
-                      if (widget.selectedCurrency != null) {
-                        final currency = widget.selectedCurrency!.toUpperCase();
-                        expenses = expenses.where((e) => e.currency?.toUpperCase() == currency).toList();
-                      }
-                      return buildCategoryBarChart(context, widget.colorScheme, expenses);
-                    },
-                  ),
+                Builder(
+                  builder: (context) {
+                    // Filter expenses by selected currency if applicable
+                    var expenses = widget.analyticsData.expenses;
+                    if (widget.selectedCurrency != null) {
+                      final currency = widget.selectedCurrency!.toUpperCase();
+                      expenses = expenses.where((e) => e.currency?.toUpperCase() == currency).toList();
+                    }
+                    return buildCategoryBarChart(context, widget.colorScheme, expenses);
+                  },
                 ),
               ],
             ),

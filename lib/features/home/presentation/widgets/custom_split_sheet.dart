@@ -1,11 +1,9 @@
 // Custom split configuration sheet
 // Allows users to split expenses by amount, percentage, or shares
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/features/households/domain/entities/household.dart';
-import 'package:moneko/features/households/presentation/utils/household_ui_utils.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 
 enum SplitType { equal, amount, percentage, shares }
@@ -520,41 +518,74 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final isDark = shadcnui.Theme.of(context).brightness == Brightness.dark;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Split Type Selector
-        Wrap(
-         direction: Axis.horizontal,
-         alignment: WrapAlignment.start,
-         spacing: 10,
-          children: [
-            _buildTypeChip(colorScheme, context.l10n.amount, SplitType.amount),
-            const SizedBox(width: 8),
-            _buildTypeChip(colorScheme, context.l10n.percent, SplitType.percentage),
-            const SizedBox(width: 8),
-            _buildTypeChip(colorScheme, context.l10n.share, SplitType.shares),
-          ],
-        ),
+        // Entire split sheet with grey background
+        Container(
+          decoration: BoxDecoration(
+            color: isDark
+                ? const Color(0xFF1C1C1E)
+                : const Color(0xFFF4F4F4),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            children: [
+              // Split Type Selector - minimal with pipe separators
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildTypeChip(colorScheme, context.l10n.amount, SplitType.amount),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text(
+                      '|',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: colorScheme.mutedForeground.withOpacity(0.3),
+                      ),
+                    ),
+                  ),
+                  _buildTypeChip(colorScheme, context.l10n.percent, SplitType.percentage),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text(
+                      '|',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: colorScheme.mutedForeground.withOpacity(0.3),
+                      ),
+                    ),
+                  ),
+                  _buildTypeChip(colorScheme, context.l10n.splitShare, SplitType.shares),
+                ],
+              ),
 
-        const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-        // Member List
-        ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          padding: EdgeInsets.zero,
-          itemCount: _memberSplits.length,
-          itemBuilder: (context, index) {
-            return _buildMemberRow(colorScheme, index);
-          },
+              // Member List
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: EdgeInsets.zero,
+                itemCount: _memberSplits.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 8),
+                itemBuilder: (context, index) {
+                  return _buildMemberRow(colorScheme, index, isDark);
+                },
+              ),
+            ],
+          ),
         ),
 
         // Validation Error
         if (_validationError != null)
           Padding(
-            padding: const EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.only(top: 12),
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -564,7 +595,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.error_outline, 
+                  Icon(Icons.error_outline,
                       color: colorScheme.destructive, size: 20),
                   const SizedBox(width: 8),
                   Expanded(
@@ -581,8 +612,6 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
               ),
             ),
           ),
-
-        // No explicit Apply button; changes are propagated with debounce
       ],
     );
   }
@@ -590,58 +619,47 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
   Widget _buildTypeChip(shadcnui.ColorScheme colorScheme, String label, SplitType type) {
     final isSelected = _selectedType == type;
     return GestureDetector(
-        onTap: () {
-          setState(() {
-            _selectedType = type;
-            // Update all controllers with new formatted values when type changes
-            for (int i = 0; i < _controllers.length; i++) {
-              _updateControllerText(i, _getFormattedValue(i));
-            }
-          });
-          _validate();
-          _queueNotify();
-        },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-         
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: isSelected ? colorScheme.primary : colorScheme.mutedForeground,
-            ),
-          ),
+      onTap: () {
+        setState(() {
+          _selectedType = type;
+          // Update all controllers with new formatted values when type changes
+          for (int i = 0; i < _controllers.length; i++) {
+            _updateControllerText(i, _getFormattedValue(i));
+          }
+        });
+        _validate();
+        _queueNotify();
+      },
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          color: isSelected ? colorScheme.primary : colorScheme.mutedForeground,
         ),
-      
+      ),
     );
   }
 
-  Widget _buildMemberRow(shadcnui.ColorScheme colorScheme, int index) {
+  Widget _buildMemberRow(shadcnui.ColorScheme colorScheme, int index, bool isDark) {
     final memberSplit = _memberSplits[index];
     final member = memberSplit.member;
-    final isSharesMode = _selectedType == SplitType.shares;
     final showCheckbox = _selectedType == SplitType.shares ||
         _selectedType == SplitType.amount ||
         _selectedType == SplitType.percentage;
     final isIncluded = _isMemberIncludedAt(index);
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
-      decoration: BoxDecoration(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
       child: Row(
         children: [
+          // More rounded checkbox
           if (showCheckbox)
             Padding(
-              padding: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.only(right: 0),
               child: shadcnui.Theme(
                 data: shadcnui.Theme.of(context).copyWith(
-                  radius: 0.5,
+                  radius: 0.8,
                 ),
                 child: shadcnui.Checkbox(
                   state: isIncluded
@@ -654,17 +672,8 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
                 ),
               ),
             ),
-          // Avatar
-          MemberAvatar(
-            role: member.role,
-            avatarUrl: member.avatarUrl,
-            name: member.userName,
-            email: member.userEmail,
-            radius: 20,
-          ),
-          const SizedBox(width: 12),
 
-          // Member Info
+          // Member Info (no avatar per mockup)
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -682,7 +691,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
                   Text(
                     _getOweText(index),
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 13,
                       color: colorScheme.mutedForeground,
                     ),
                   ),
@@ -690,19 +699,21 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
             ),
           ),
 
+          const SizedBox(width: 12),
+
           // Split Input
           if (_selectedType == SplitType.equal)
             Text(
               '${widget.currencySymbol}${(widget.totalAmount / widget.members.length).toStringAsFixed(2)}',
               style: TextStyle(
-                fontSize: 16,
+                fontSize: 15,
                 fontWeight: FontWeight.w600,
                 color: colorScheme.foreground,
               ),
             )
           else
             SizedBox(
-              width: 110,
+              width: 100,
               child: _buildSplitInput(colorScheme, index, enabled: isIncluded),
             ),
         ],
@@ -715,7 +726,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
 
     switch (_selectedType) {
       case SplitType.amount:
-        suffix = widget.currencySymbol;
+        suffix = ' ${widget.currencySymbol}';
         break;
       case SplitType.percentage:
         suffix = '%';
@@ -736,23 +747,20 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
       textAlign: TextAlign.right,
       enabled: enabled,
       style: TextStyle(
-        fontSize: 16,
+        fontSize: 15,
         fontWeight: FontWeight.w600,
-        color: enabled ? colorScheme.foreground : colorScheme.mutedForeground,
+        color: enabled ? colorScheme.foreground : colorScheme.mutedForeground.withOpacity(0.4),
       ),
       decoration: InputDecoration(
         isDense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        filled: true,
-        fillColor: enabled ? colorScheme.muted.withOpacity(0.08) : colorScheme.muted.withOpacity(0.04),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide.none,
-        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        filled: false,
+        border: InputBorder.none,
         suffixText: suffix,
         suffixStyle: TextStyle(
-          fontSize: 14,
-          color: colorScheme.mutedForeground,
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          color: enabled ? colorScheme.foreground : colorScheme.mutedForeground.withOpacity(0.4),
         ),
       ),
       onSubmitted: (_) => FocusScope.of(context).unfocus(),
@@ -790,9 +798,11 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
 class _CustomSplitSheetState extends State<_CustomSplitSheet> {
   SplitType? _latestType;
   List<MemberSplit>? _latestSplits;
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final isDark = shadcnui.Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       constraints: BoxConstraints(
@@ -805,33 +815,35 @@ class _CustomSplitSheetState extends State<_CustomSplitSheet> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Drag Handle
           Container(
-            margin: const EdgeInsets.only(top: 10, bottom: 6),
-            width: 36,
+            margin: const EdgeInsets.only(top: 12, bottom: 8),
+            width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: colorScheme.border,
+              color: colorScheme.border.withOpacity(0.5),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
+
+          // Header
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             child: Row(
               children: [
-                Icon(Icons.people_outline, color: colorScheme.foreground),
-                const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     context.l10n.splitExpense,
                     style: TextStyle(
-                      fontSize: 20,
+                      fontSize: 18,
                       fontWeight: FontWeight.w700,
                       color: colorScheme.foreground,
                     ),
                   ),
                 ),
                 IconButton(
-                  icon: Icon(Icons.close, color: colorScheme.mutedForeground),
+                  icon: Icon(Icons.close_rounded, color: colorScheme.mutedForeground),
+                  iconSize: 24,
                   onPressed: () {
                     if (_latestType != null && _latestSplits != null) {
                       widget.onSave(_latestType!, _latestSplits!);
@@ -842,10 +854,12 @@ class _CustomSplitSheetState extends State<_CustomSplitSheet> {
               ],
             ),
           ),
+
+          // Content
           Flexible(
             child: SingleChildScrollView(
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
               child: CustomSplitEditor(
                 members: widget.members,
                 totalAmount: widget.totalAmount,

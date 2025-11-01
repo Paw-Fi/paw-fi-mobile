@@ -22,47 +22,59 @@ Widget buildCategoryBarChart(BuildContext context, shadcnui.ColorScheme colorSch
     );
   }
 
-  return BarChart(
-    BarChartData(
-      alignment: BarChartAlignment.spaceAround,
-      maxY: maxValue * 1.2,
-      barGroups: categories.asMap().entries.map((entry) {
-        final index = entry.key;
-        final category = entry.value;
-        final value = categoryTotals[category] ?? 0;
-        final color = getCategoryColor(category);
+  // Calculate required width: each bar needs ~60px (40px bar + 20px spacing)
+  final barWidth = 60.0;
+  final minWidth = categories.length * barWidth;
+  final screenWidth = MediaQuery.of(context).size.width - 32; // subtract padding
 
-        return BarChartGroupData(
-          x: index,
-          barRods: [
-            BarChartRodData(
-              toY: value,
-              color: color,
-              width: 40,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+  return SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    child: SizedBox(
+      width: minWidth > screenWidth ? minWidth : screenWidth,
+      height: 250,
+      child: BarChart(
+        BarChartData(
+          alignment: BarChartAlignment.spaceAround,
+          maxY: maxValue * 1.2,
+          barGroups: categories.asMap().entries.map((entry) {
+            final index = entry.key;
+            final category = entry.value;
+            final value = categoryTotals[category] ?? 0;
+            final color = getCategoryColor(category);
+
+            return BarChartGroupData(
+              x: index,
+              barRods: [
+                BarChartRodData(
+                  toY: value,
+                  color: color,
+                  width: 40,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                ),
+              ],
+            );
+          }).toList(),
+          titlesData: FlTitlesData(
+            leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                getTitlesWidget: (value, meta) {
+                  if (value.toInt() >= categories.length) return const SizedBox();
+                  return Text(
+                    getCategoryTranslation(context, categories[value.toInt()]),
+                    style: TextStyle(fontSize: 10, color: colorScheme.mutedForeground),
+                  );
+                },
+              ),
             ),
-          ],
-        );
-      }).toList(),
-      titlesData: FlTitlesData(
-        leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        bottomTitles: AxisTitles(
-          sideTitles: SideTitles(
-            showTitles: true,
-            getTitlesWidget: (value, meta) {
-              if (value.toInt() >= categories.length) return const SizedBox();
-              return Text(
-                getCategoryTranslation(context, categories[value.toInt()]),
-                style: TextStyle(fontSize: 10, color: colorScheme.mutedForeground),
-              );
-            },
           ),
+          gridData: FlGridData(show: false),
+          borderData: FlBorderData(show: false),
         ),
       ),
-      gridData: FlGridData(show: false),
-      borderData: FlBorderData(show: false),
     ),
   );
 }

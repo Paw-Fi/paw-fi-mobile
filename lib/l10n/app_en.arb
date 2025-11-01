@@ -802,7 +802,7 @@
   "splitExpense": "Split Expense",
   "amount": "Amount",
   "percent": "Percent",
-  "share": "Share",
+  "splitShare": "Share",
   "owes": "Owes",
   "splitAmountsMustEqual": "Split amounts must equal {currency}{amount}",
   "@splitAmountsMustEqual": {

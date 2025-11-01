@@ -528,8 +528,8 @@ class SettingsPage extends HookConsumerWidget {
                       ),
                     ),
                     Icon(
-                      Icons.card_membership_outlined,
-                      size: 20,
+                      Icons.open_in_new,
+                      size: 16,
                       color: colorScheme.mutedForeground,
                     ),
                   ],
@@ -909,10 +909,8 @@ class _MembershipCard extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  shadcnui.IconButton(
-                    variance: shadcnui.ButtonVariance.ghost,
-                    icon: Icon(Icons.open_in_new, size: 16, color: colorScheme.mutedForeground),
-                    onPressed: () async {
+                  InkWell(
+                    onTap: () async {
                       final url = Uri.parse('https://moneko.io/dashboard/user-settings/membership');
                       if (await canLaunchUrl(url)) {
                         await launchUrl(url, mode: LaunchMode.externalApplication);
@@ -925,7 +923,8 @@ class _MembershipCard extends ConsumerWidget {
                         );
                       }
                     },
-                  ),
+                    child:  Icon(Icons.open_in_new, size: 16, color: colorScheme.mutedForeground),)
+                
                 ],
               ),
               // Show renewal/expiry information

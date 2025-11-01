@@ -829,7 +829,7 @@
   "splitExpense": "分攤支出",
   "amount": "金額",
   "percent": "百分比",
-  "share": "份",
+  "splitShare": "份",
   "owes": "應付",
   "splitAmountsMustEqual": "分攤金額總和必須等於 {currency}{amount}",
   "@splitAmountsMustEqual": {

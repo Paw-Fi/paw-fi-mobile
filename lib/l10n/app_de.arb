@@ -753,7 +753,7 @@
   "splitExpense": "Ausgabe teilen",
   "amount": "Betrag",
   "percent": "Prozent",
-  "share": "Anteil",
+  "splitShare": "Anteil",
   "owes": "Schuldet",
   "splitAmountsMustEqual": "Aufgeteilte Beträge müssen {currency}{amount} ergeben",
   "@splitAmountsMustEqual": {

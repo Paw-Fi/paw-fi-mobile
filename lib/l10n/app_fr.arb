@@ -753,7 +753,7 @@
   "splitExpense": "Partager la dépense",
   "amount": "Montant",
   "percent": "Pourcentage",
-  "share": "Part",
+  "splitShare": "Part",
   "owes": "Doit",
   "splitAmountsMustEqual": "Le total doit être égal à {amount} {currency}",
   "@splitAmountsMustEqual": {

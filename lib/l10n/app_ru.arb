@@ -780,7 +780,7 @@
   "splitExpense": "Разделить расход",
   "amount": "Сумма",
   "percent": "Процент",
-  "share": "Доля",
+  "splitShare": "Доля",
   "owes": "Должен",
   "splitAmountsMustEqual": "Сумма должна быть равна {currency}{amount}",
   "@splitAmountsMustEqual": {

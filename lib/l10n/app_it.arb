@@ -777,7 +777,7 @@
   "splitExpense": "Dividi spesa",
   "amount": "Importo",
   "percent": "Percentuale",
-  "share": "Quota",
+  "splitShare": "Quota",
   "owes": "Deve",
   "splitAmountsMustEqual": "Il totale diviso deve essere {currency}{amount}",
   "@splitAmountsMustEqual": {

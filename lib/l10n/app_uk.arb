@@ -753,7 +753,7 @@
   "splitExpense": "Розділити витрату",
   "amount": "Сума",
   "percent": "Відсоток",
-  "share": "Частка",
+  "splitShare": "Частка",
   "owes": "Борг",
   "splitAmountsMustEqual": "Сума розділених частин має дорівнювати {amount} {currency}",
   "@splitAmountsMustEqual": {

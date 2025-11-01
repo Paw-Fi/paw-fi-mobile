@@ -753,7 +753,7 @@
   "splitExpense": "支出を割り勘",
   "amount": "金額",
   "percent": "割合 (%)",
-  "share": "比率",
+  "splitShare": "比率",
   "owes": "負担額",
   "splitAmountsMustEqual": "分割後の合計金額は {currency}{amount} になる必要があります",
   "@splitAmountsMustEqual": {
