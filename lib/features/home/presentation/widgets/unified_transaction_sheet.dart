@@ -1541,6 +1541,7 @@ class _UnifiedTransactionSheetState
 
     try {
       final user = ref.read(authProvider);
+      final viewMode = ref.read(viewModeProvider);
 
       if (isNewExpense) {
         // NEW EXPENSE: Use existing save logic
@@ -1649,7 +1650,7 @@ class _UnifiedTransactionSheetState
 
         debugPrint('💾 Updating expense with: $updates');
 
-        // Call update API
+        // Call update API (this already handles provider refresh internally)
         final success = await ref
             .read(transactionEditProvider.notifier)
             .updateExpense(widget.existingExpense!.id, updates);
@@ -1657,7 +1658,29 @@ class _UnifiedTransactionSheetState
         if (!mounted) return;
 
         if (success) {
+          // ✅ FIX: Ensure UI refresh for current view mode
+          // transactionEditNotifier already refreshes analyticsProvider (line 92)
+          // and household providers if expense has householdId (lines 94-110)
+          // We add explicit invalidation here to ensure immediate UI update in BOTH modes
+          
+          if (viewMode.mode == ViewMode.household) {
+            // In household mode: Ensure all household providers are invalidated
+            // This guarantees the UI updates immediately when viewing household expenses
+            debugPrint('🔄 [UI REFRESH] Invalidating household providers after expense update');
+            ref.invalidate(householdExpensesProvider);
+            ref.invalidate(householdSplitsProvider);
+            ref.invalidate(householdBudgetsProvider);
+            ref.invalidate(householdSummaryProvider);
+            ref.invalidate(householdMembersProvider);
+          } else {
+            // In personal mode: Force refresh of analytics data to ensure UI updates immediately
+            debugPrint('🔄 [UI REFRESH] Refreshing analytics data after expense update');
+            ref.read(analyticsProvider.notifier).refresh(user.uid);
+          }
+          
+          // Close the sheet so when user reopens it, they see fresh data
           Navigator.of(context).pop();
+          
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: const Text('Expense updated successfully'),
