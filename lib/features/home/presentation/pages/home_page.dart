@@ -15,6 +15,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/households/presentation/widgets/household_home_content.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
@@ -619,6 +620,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     final filteredBudgets = ref.watch(homeFilteredBudgetsProvider);
     final user = ref.watch(authProvider);
     final viewMode = ref.watch(viewModeProvider);
+    final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
 
     // Only show loading indicator if we've never loaded before
     // If we have data already, show it even if a refresh is in progress
@@ -958,11 +960,26 @@ class _HomePageState extends ConsumerState<HomePage> {
           ),
         ],
       ),
-      floatingActionButton: _buildExpandableFAB(colorScheme), // Always show FAB
+      floatingActionButton: _shouldShowFAB(viewMode, householdsAsync)
+          ? _buildExpandableFAB(colorScheme)
+          : null,
     );
   }
 
-  
+  /// Determine if FAB should be shown
+  /// Hide FAB when in household mode with no households (showing onboarding)
+  bool _shouldShowFAB(ViewModeState viewMode, AsyncValue<List<Household>> householdsAsync) {
+    // Always show FAB in personal mode
+    if (viewMode.mode == ViewMode.personal) {
+      return true;
+    }
+    
+    // In household mode, hide FAB if households are empty (showing onboarding)
+    return householdsAsync.maybeWhen(
+      data: (households) => households.isNotEmpty,
+      orElse: () => true, // Show FAB during loading or error states
+    );
+  }
 
   Widget _buildExpandableFAB(shadcnui.ColorScheme colorScheme) {
     return ExpandableFab(

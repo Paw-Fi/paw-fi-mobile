@@ -46,22 +46,22 @@ class _HouseholdOnboardingPageState extends State<HouseholdOnboardingPage> {
                 },
                 children: [
                   OnboardingCard(
-                    emoji: '🏠',
+                    imagePath: 'lib/assets/images/household/House.png',
                     title: context.l10n.welcomeToHouseholds,
                     body: context.l10n.manageMoneyTogether,
                   ),
                   OnboardingCard(
-                    emoji: '💰',
+                    imagePath: 'lib/assets/images/household/Money.png',
                     title: context.l10n.sharedBudgetsExpenses,
                     body: context.l10n.sharedBudgetsExpensesDesc,
                   ),
                   OnboardingCard(
-                    emoji: '⚖️',
+                    imagePath: 'lib/assets/images/household/Balance.png',
                     title: context.l10n.smartExpenseSplitting,
                     body: context.l10n.smartExpenseSplittingDesc,
                   ),
                   OnboardingCard(
-                    emoji: '🔔',
+                    imagePath: 'lib/assets/images/household/Bell-Sync.png',
                     title: context.l10n.stayInSync,
                     body: context.l10n.stayInSyncDesc,
                   ),

@@ -9,7 +9,6 @@ import '../widgets/household_selector.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
-import 'household_metric_cards.dart';
 import 'household_budget_overview_card.dart';
 import 'household_member_spending_card.dart';
 import '../pages/create_budget_page.dart';

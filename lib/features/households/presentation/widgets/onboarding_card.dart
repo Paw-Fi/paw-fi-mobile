@@ -3,14 +3,14 @@ import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
 /// Onboarding flashcard component for household feature education
 class OnboardingCard extends StatelessWidget {
-  final String emoji;
+  final String imagePath;
   final String title;
   final String body;
   final Widget? visual;
 
   const OnboardingCard({
     super.key,
-    required this.emoji,
+    required this.imagePath,
     required this.title,
     required this.body,
     this.visual,
@@ -26,7 +26,7 @@ class OnboardingCard extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Emoji icon with gradient background
+          // Image icon with gradient background
           Container(
             width: 100,
             height: 100,
@@ -49,12 +49,11 @@ class OnboardingCard extends StatelessWidget {
               ],
             ),
             child: Center(
-              child: Text(
-                emoji,
-                style: const TextStyle(
-                  fontSize: 48,
-                  height: 1,
-                ),
+              child: Image.asset(
+                imagePath,
+                width: 60,
+                height: 60,
+                fit: BoxFit.contain,
               ),
             ),
           ),

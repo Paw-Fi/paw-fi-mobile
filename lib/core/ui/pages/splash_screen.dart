@@ -20,42 +20,18 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     final isDark = brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: Colors.black,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // App logo with theme-aware styling
             Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                color: isDark ? colorScheme.card : Colors.white,
-                borderRadius: BorderRadius.circular(24),
-
-              ),
+              width: 150,
+              height: 150,
+            
               child: Image.asset(
-                'lib/assets/images/logo192.png',
+                'lib/assets/gifs/splashscreen-loading.gif',
                 fit: BoxFit.contain,
-              ),
-            ),
-            const SizedBox(height: 32),
-            // Loading indicator
-            SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.5,
-                valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Loading...',
-              style: TextStyle(
-                color: colorScheme.mutedForeground,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
               ),
             ),
           ],
