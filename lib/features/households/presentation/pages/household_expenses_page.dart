@@ -860,14 +860,13 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
                   padding: const EdgeInsets.only(right: 8),
                   child: _buildBarChart(colorScheme, chartExpenses),
                 ),
-                _buildPieChart(colorScheme, chartExpenses, totalSpent, displayText, periodLabel),
               ],
             ),
           ),
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(3, (index) {
+            children: List.generate(2, (index) {
               final isActive = _currentChartIndex == index;
               return GestureDetector(
                 onTap: () {
@@ -1087,62 +1086,6 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
           borderData: FlBorderData(show: false),
         ),
       ),
-    );
-  }
-
-  Widget _buildPieChart(
-    shadcnui.ColorScheme colorScheme,
-    List<ExpenseEntry> expenses,
-    double totalSpent,
-    String displayText,
-    String periodLabel,
-  ) {
-    final Map<String, double> categoryTotals = {};
-    for (final expense in expenses) {
-      final cat = (expense.category ?? 'uncategorized').toLowerCase();
-      categoryTotals[cat] = (categoryTotals[cat] ?? 0) + expense.amount.abs();
-    }
-
-    if (categoryTotals.isEmpty) {
-      return Center(child: Text(context.l10n.noData, style: TextStyle(color: colorScheme.mutedForeground)));
-    }
-
-    final sortedCategories = categoryTotals.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-
-    return Stack(
-      children: [
-        PieChart(
-          PieChartData(
-            sectionsSpace: 2,
-            centerSpaceRadius: 70,
-            sections: sortedCategories.map((entry) {
-              final category = entry.key;
-              final amount = entry.value;
-              final color = getCategoryColor(category);
-              return PieChartSectionData(
-                color: color,
-                value: amount,
-                title: '',
-                radius: 40,
-              );
-            }).toList(),
-          ),
-        ),
-        Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(context.l10n.spent, style: TextStyle(fontSize: 12, color: colorScheme.mutedForeground)),
-              Text(
-                displayText,
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: colorScheme.foreground),
-              ),
-              Text(periodLabel, style: TextStyle(fontSize: 10, color: colorScheme.mutedForeground)),
-            ],
-          ),
-        ),
-      ],
     );
   }
 

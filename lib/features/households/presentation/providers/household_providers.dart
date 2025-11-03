@@ -320,10 +320,14 @@ final sharingPrefsProvider = StateNotifierProvider.family<
 class HouseholdSummaryParams {
   final String householdId;
   final String currency;
+  final String startDate;
+  final String endDate;
 
   const HouseholdSummaryParams({
     required this.householdId,
     required this.currency,
+    required this.startDate,
+    required this.endDate,
   });
 
   @override
@@ -332,26 +336,29 @@ class HouseholdSummaryParams {
       other is HouseholdSummaryParams &&
           runtimeType == other.runtimeType &&
           householdId == other.householdId &&
-          currency == other.currency;
+          currency == other.currency &&
+          startDate == other.startDate &&
+          endDate == other.endDate;
 
   @override
-  int get hashCode => householdId.hashCode ^ currency.hashCode;
+  int get hashCode =>
+      householdId.hashCode ^
+      currency.hashCode ^
+      startDate.hashCode ^
+      endDate.hashCode;
 }
 
-/// Household summary provider with currency support
+/// Household summary provider with currency and date range support
 final householdSummaryProvider =
     FutureProvider.family<HouseholdSummary?, HouseholdSummaryParams>(
   (ref, params) async {
     final repository = ref.watch(householdRepositoryProvider);
-    final now = DateTime.now();
-    final startDate = DateTime(now.year, now.month, 1);
-    final endDate = DateTime(now.year, now.month + 1, 0);
 
     final summary = await repository.getHouseholdSummary(
       householdId: params.householdId,
       currency: params.currency,
-      startDate: startDate.toIso8601String(),
-      endDate: endDate.toIso8601String(),
+      startDate: params.startDate,
+      endDate: params.endDate,
     );
     return summary;
   },

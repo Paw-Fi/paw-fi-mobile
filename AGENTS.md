@@ -1,3 +1,39 @@
+# Repository Guidelines
+
+## Project Structure & Module Organization
+- Flutter app root: `lib/` (feature-first: `core/`, `features/`, `widgets/`), entry: `lib/main.dart`.
+- Tests in `test/` with `*_test.dart` naming. Assets in `assets/` (declare in `pubspec.yaml`).
+- Platform folders: `android/`, `ios/`, web configs: `web/`. Project config: `pubspec.yaml`, `analysis_options.yaml`.
+
+## Build, Test, and Development Commands
+- Install deps: `flutter pub get`
+- Analyze & format: `flutter analyze`, `dart format .`
+- Run tests: `flutter test` (coverage: `flutter test --coverage`)
+- Run app: `flutter run -d ios | android | chrome`
+- Build release: `flutter build apk`, `flutter build ios --release` (requires signing), `flutter build web`
+
+## Coding Style & Naming Conventions
+- Dart style with 2-space indent; keep methods small, prefer pure functions.
+- Filenames `lowercase_with_underscores.dart`; Widgets use `PascalCase`.
+- Providers suffixed with `Provider` (e.g., `authControllerProvider`).
+- Keep UI in widgets; move logic to providers/repositories. Avoid `setState` in favor of Riverpod.
+
+## Testing Guidelines
+- Use `flutter_test` for unit/widget tests; mock external services (e.g., Supabase) for isolation.
+- Place tests mirroring `lib/` paths: `test/<feature>/<file>_test.dart`.
+- Aim for critical path coverage; include tests for providers and repositories.
+
+## Commit & Pull Request Guidelines
+- Prefer Conventional Commits: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`.
+- PRs must include: clear description, linked issue, test updates, and screenshots for UI changes.
+- Ensure `flutter analyze` and `flutter test` pass before requesting review.
+
+## Security & Configuration Tips
+- Never commit secrets. Keep Supabase URL/anon key in environment files; provide `.env.example`.
+- Validate auth flows and input handling. Review third-party updates before bumping versions.
+
+---
+
 You are an expert in Flutter, Dart, Riverpod, Supabase, and shadcn_flutter, responsible for building elegant, reactive, and production-grade mobile and web apps that emphasize modularity, clean architecture, and consistent UI.
 
 Core MCP Responsibilities

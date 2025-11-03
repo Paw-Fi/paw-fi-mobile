@@ -99,8 +99,10 @@ String _netCashflowTitleForFilter(BuildContext context, DateRangeFilter filter) 
       return l10n.netCashflowThisMonth;
     case DateRangeFilter.last30Days:
       return l10n.netCashflowLast30Days;
+    case DateRangeFilter.allTime:
+      // Use generic label to avoid adding new l10n keys across locales
+      return l10n.netCashflowCustom;
     case DateRangeFilter.custom:
       return l10n.netCashflowCustom;
   }
 }
-

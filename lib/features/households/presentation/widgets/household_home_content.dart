@@ -147,7 +147,12 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
           final budgetsAsync = ref.watch(householdBudgetsProvider(household.id));
           final summaryAsync = ref.watch(
             householdSummaryProvider(
-              HouseholdSummaryParams(householdId: household.id, currency: selectedCurrency),
+              HouseholdSummaryParams(
+                householdId: household.id,
+                currency: selectedCurrency,
+                startDate: from.toIso8601String(),
+                endDate: to.toIso8601String(),
+              ),
             ),
           );
           final membersAsync = ref.watch(householdMembersProvider(household.id));

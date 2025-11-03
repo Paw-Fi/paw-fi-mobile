@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/insights/presentation/widgets/charts/charts.dart';
 import 'package:moneko/features/insights/presentation/widgets/chart_legend.dart';
+import 'package:moneko/features/insights/presentation/widgets/insights_ui.dart';
+import 'package:moneko/features/utils/currency.dart';
 
 Widget build30DayLookAheadTab(BuildContext context, shadcnui.ColorScheme colorScheme, AnalyticsData analyticsData, {String? selectedCurrency}) {
   // Filter data by currency if selected
-  var expenses = analyticsData.expenses;
-  var budgets = analyticsData.budgets;
+  var expenses = analyticsData.allExpenses;
+  var budgets = analyticsData.allBudgets;
   
   if (selectedCurrency != null) {
     final currency = selectedCurrency.toUpperCase();
@@ -21,13 +24,8 @@ Widget build30DayLookAheadTab(BuildContext context, shadcnui.ColorScheme colorSc
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          decoration: BoxDecoration(
-            color: colorScheme.card,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: colorScheme.border, width: 1),
-          ),
-          padding: const EdgeInsets.all(16),
+        InsightsSectionCard(
+          colorScheme: colorScheme,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -81,6 +79,8 @@ Widget build30DayLookAheadTab(BuildContext context, shadcnui.ColorScheme colorSc
             ],
           ),
         ),
+        const SizedBox(height: 8),
+        _ThirtyDaySummaryPills(colorScheme: colorScheme, expenses: expenses, selectedCurrency: selectedCurrency),
       ],
     ),
   );
@@ -290,6 +290,60 @@ class _InsightsHelpSlide extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ThirtyDaySummaryPills extends StatelessWidget {
+  const _ThirtyDaySummaryPills({
+    required this.colorScheme,
+    required this.expenses,
+    this.selectedCurrency,
+  });
+
+  final shadcnui.ColorScheme colorScheme;
+  final List<ExpenseEntry> expenses;
+  final String? selectedCurrency;
+
+  @override
+  Widget build(BuildContext context) {
+    if (expenses.isEmpty) return const SizedBox.shrink();
+    final now = DateTime.now();
+    final thirtyDaysAgo = now.subtract(const Duration(days: 30));
+    final recent = expenses.where((e) => e.date.isAfter(thirtyDaysAgo) && e.date.isBefore(now)).toList();
+    final total = recent.fold<double>(0, (s, e) => s + e.amount);
+    final avgDaily = recent.isEmpty ? 0.0 : total / 30.0;
+    final code = selectedCurrency ?? 'USD';
+    final totalTxt = formatCurrency(total.abs(), code);
+    final avgTxt = formatCurrency(avgDaily.abs(), code);
+    final span = '${thirtyDaysAgo.year}-${thirtyDaysAgo.month.toString().padLeft(2, '0')}-${thirtyDaysAgo.day.toString().padLeft(2, '0')} → ${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: [
+        MetricPill(
+          colorScheme: colorScheme,
+          icon: Icons.calendar_month,
+          label: context.l10n.last30Days,
+          value: span,
+          tint: const Color(0xFF10B981),
+        ),
+        MetricPill(
+          colorScheme: colorScheme,
+          icon: Icons.shopping_bag_outlined,
+          label: context.l10n.spent,
+          value: totalTxt,
+          tint: const Color(0xFFEF4444),
+        ),
+        MetricPill(
+          colorScheme: colorScheme,
+          icon: Icons.show_chart,
+          label: '${context.l10n.day} avg',
+          value: avgTxt,
+          tint: const Color(0xFF10B981),
+        ),
+      ],
     );
   }
 }

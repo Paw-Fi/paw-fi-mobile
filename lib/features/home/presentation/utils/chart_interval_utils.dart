@@ -14,6 +14,8 @@ String getChartIntervalTypeFromFilter(DateRangeFilter filter) {
     case DateRangeFilter.last30Days:
     case DateRangeFilter.thisMonth:
       return 'daily'; // 7 days
+    case DateRangeFilter.allTime:
+      return 'yearly';
     case DateRangeFilter.custom:
       return 'daily'; // Default to daily for custom ranges
   }

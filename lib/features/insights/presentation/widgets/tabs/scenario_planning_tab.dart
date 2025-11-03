@@ -846,7 +846,7 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
                 Builder(
                   builder: (context) {
                     // Filter expenses by selected currency if applicable
-                    var expenses = widget.analyticsData.expenses;
+                    var expenses = widget.analyticsData.allExpenses;
                     if (widget.selectedCurrency != null) {
                       final currency = widget.selectedCurrency!.toUpperCase();
                       expenses = expenses.where((e) => e.currency?.toUpperCase() == currency).toList();

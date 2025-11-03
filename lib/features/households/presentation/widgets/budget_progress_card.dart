@@ -18,11 +18,39 @@ class BudgetProgressCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = shadcnui.Theme.of(context).colorScheme;
 
+    // Calculate date range based on budget period
+    final now = DateTime.now();
+    DateTime startDate;
+    DateTime endDate;
+
+    switch (budget.period) {
+      case BudgetPeriod.daily:
+        startDate = DateTime(now.year, now.month, now.day);
+        endDate = DateTime(now.year, now.month, now.day, 23, 59, 59);
+        break;
+      case BudgetPeriod.weekly:
+        final weekDay = now.weekday;
+        startDate = now.subtract(Duration(days: weekDay - 1)); // Monday
+        startDate = DateTime(startDate.year, startDate.month, startDate.day);
+        endDate = startDate.add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59));
+        break;
+      case BudgetPeriod.monthly:
+        startDate = DateTime(now.year, now.month, 1);
+        endDate = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
+        break;
+      case BudgetPeriod.yearly:
+        startDate = DateTime(now.year, 1, 1);
+        endDate = DateTime(now.year, 12, 31, 23, 59, 59);
+        break;
+    }
+
     // Get summary to calculate actual spending
     final summaryAsync = ref.watch(householdSummaryProvider(
       HouseholdSummaryParams(
         householdId: householdId,
         currency: budget.currency,
+        startDate: startDate.toIso8601String(),
+        endDate: endDate.toIso8601String(),
       ),
     ));
 

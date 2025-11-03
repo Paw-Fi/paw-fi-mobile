@@ -372,7 +372,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   void _showDateRangeFilter() {
     final colorScheme = shadcnui.Theme.of(context).colorScheme;
-    showDateRangeFilter(context, colorScheme);
+    showDateRangeFilter(context, colorScheme, height: 480);
   }
 
   void _showCurrencySelector() {

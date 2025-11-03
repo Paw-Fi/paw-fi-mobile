@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
@@ -305,15 +306,12 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: colorScheme.primary,
-                        borderRadius: BorderRadius.circular(12),
+                    IconButton(
+                      icon: Icon(
+                        Icons.tune,
+                        color: selectedCategory != 'all' ? colorScheme.primary : colorScheme.mutedForeground,
                       ),
-                      child: IconButton(
-                        icon: const Icon(Icons.tune, color: Colors.white),
-                        onPressed: () => _showFilterSheet(context, colorScheme),
-                      ),
+                      onPressed: () => _showFilterSheet(context, colorScheme),
                     ),
                   ],
                 ),
@@ -512,7 +510,6 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                   padding: const EdgeInsets.only(right: 8),
                   child: _buildBarChart(colorScheme),
                 ),
-                _buildPieChart(colorScheme, totalSpent, displayText),
               ],
             ),
           ),
@@ -520,7 +517,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
           // Carousel indicators
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(3, (index) {
+            children: List.generate(2, (index) {
               return GestureDetector(
                 onTap: () {
                   _chartPageController.animateToPage(
@@ -546,6 +543,41 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         ],
       ),
     );
+  }
+
+  /// Format Y-axis values dynamically based on magnitude
+  String _formatYAxisValue(double value) {
+    if (value == 0) return '0';
+
+    final absValue = value.abs();
+
+    // For values >= 1 million
+    if (absValue >= 1000000) {
+      final millions = value / 1000000;
+      // Show 1 decimal place for millions, unless it's a whole number
+      if (millions == millions.truncate()) {
+        return '${millions.truncate()}M';
+      }
+      return '${millions.toStringAsFixed(1)}M';
+    }
+
+    // For values >= 1 thousand
+    if (absValue >= 1000) {
+      final thousands = value / 1000;
+      // Show 1 decimal place for thousands, unless it's a whole number
+      if (thousands == thousands.truncate()) {
+        return '${thousands.truncate()}k';
+      }
+      return '${thousands.toStringAsFixed(1)}k';
+    }
+
+    // For values < 1000, show as-is
+    // Show whole numbers without decimals
+    if (value == value.truncate()) {
+      return value.truncate().toString();
+    }
+    // Show up to 2 decimal places, removing trailing zeros
+    return value.toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), '');
   }
 
   Widget _buildLineChart(shadcnui.ColorScheme colorScheme) {
@@ -589,10 +621,10 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
             rightTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
-                reservedSize: 40,
+                reservedSize: 50,
                 getTitlesWidget: (value, meta) {
                   return Text(
-                    '${(value / 1000).toStringAsFixed(1)}k',
+                    _formatYAxisValue(value),
                     style: TextStyle(
                       fontSize: 10,
                       color: colorScheme.mutedForeground,
@@ -675,13 +707,45 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     }
 
     final maxValue = barData.periodTotals.values.reduce((a, b) => a > b ? a : b);
+    
+    // Calculate dynamic Y-axis max and interval to prevent overlapping
+    double chartMaxY;
+    double interval;
+    
+    if (maxValue <= 0) {
+      chartMaxY = 10;
+      interval = 2;
+    } else if (maxValue <= 50) {
+      // For small values (0-50), use increments of 10
+      chartMaxY = ((maxValue / 10).ceil() * 10).toDouble();
+      interval = chartMaxY / 5;
+    } else if (maxValue <= 100) {
+      // For values 50-100, use increments of 20
+      chartMaxY = ((maxValue / 20).ceil() * 20).toDouble();
+      interval = chartMaxY / 5;
+    } else if (maxValue <= 500) {
+      // For values 100-500, use increments of 100
+      chartMaxY = ((maxValue / 100).ceil() * 100).toDouble();
+      interval = chartMaxY / 5;
+    } else if (maxValue <= 1000) {
+      // For values 500-1000, use increments of 200
+      chartMaxY = ((maxValue / 200).ceil() * 200).toDouble();
+      interval = chartMaxY / 5;
+    } else {
+      // For larger values, round to nearest significant figure
+      final magnitude = (maxValue / 5).ceilToDouble();
+      final powerOf10 = pow(10, (log(magnitude) / ln10).floor());
+      interval = ((magnitude / powerOf10).ceil() * powerOf10).toDouble();
+      chartMaxY = interval * 5;
+    }
 
     return Padding(
       padding: const EdgeInsets.only(top: 16, bottom: 8),
       child: BarChart(
       BarChartData(
         alignment: BarChartAlignment.spaceAround,
-        maxY: maxValue * 1.2,
+        minY: 0,
+        maxY: chartMaxY,
         barGroups: barData.sortedPeriods.asMap().entries.map((entry) {
           final index = entry.key;
           final period = entry.value;
@@ -704,13 +768,19 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
           rightTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              reservedSize: 40,
+              reservedSize: 50,
+              interval: interval,
               getTitlesWidget: (value, meta) {
-                return Text(
-                  formatAmount(value / 100),
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: colorScheme.mutedForeground,
+                // Only show labels at exact intervals to prevent overlap
+                if ((value % interval).abs() > 0.01) return const SizedBox();
+                return Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: Text(
+                    _formatYAxisValue(value),
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: colorScheme.mutedForeground,
+                    ),
                   ),
                 );
               },
@@ -736,7 +806,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         gridData: FlGridData(
           show: true,
           drawVerticalLine: false,
-          horizontalInterval: maxValue / 4,
+          horizontalInterval: interval,
           getDrawingHorizontalLine: (value) {
             return FlLine(
               color: colorScheme.border.withValues(alpha: 0.3),
@@ -748,78 +818,6 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         borderData: FlBorderData(show: false),
       ),
       ),
-    );
-  }
-
-  Widget _buildPieChart(shadcnui.ColorScheme colorScheme, double totalSpent, String displayText) {
-    // Group expenses by category
-    final Map<String, double> categoryTotals = {};
-    for (final expense in filteredExpenses) {
-      {
-        final cat = (expense.category ?? 'uncategorized').toLowerCase();
-        categoryTotals[cat] = (categoryTotals[cat] ?? 0) + expense.amount.abs();
-      }
-    }
-
-    if (categoryTotals.isEmpty) {
-      return Center(
-        child: Text(context.l10n.noData, style: TextStyle(color: colorScheme.mutedForeground)),
-      );
-    }
-
-    final sortedCategories = categoryTotals.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-
-    return Stack(
-      children: [
-        PieChart(
-          PieChartData(
-            sectionsSpace: 2,
-            centerSpaceRadius: 70,
-            sections: sortedCategories.map((entry) {
-              final category = entry.key;
-              final amount = entry.value;
-              final color = getCategoryColor(category);
-
-              return PieChartSectionData(
-                color: color,
-                value: amount,
-                title: '',
-                radius: 40,
-              );
-            }).toList(),
-          ),
-        ),
-        Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                context.l10n.spent,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: colorScheme.mutedForeground,
-                ),
-              ),
-              Text(
-                displayText,
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.foreground,
-                ),
-              ),
-              Text(
-                periodLabel,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: colorScheme.mutedForeground,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 
@@ -978,72 +976,6 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                       );
                     }).toList(),
                   ),
-                  const SizedBox(height: 24),
-                  // Date range controls
-                  Text(
-                    context.l10n.selectDateRange,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: colorScheme.foreground,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: shadcnui.OutlineButton(
-                          onPressed: () {
-                            final now = DateTime.now();
-                            final start = DateTime(now.year, now.month, 1);
-                            final end = DateTime(now.year, now.month + 1, 0);
-                            setState(() {
-                              selectedPeriod = 'Custom';
-                              _customStartDate = start;
-                              _customEndDate = end;
-                            });
-                            setModalState(() {});
-                          },
-                          child: Text(context.l10n.thisMonth),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: shadcnui.OutlineButton(
-                          onPressed: () async {
-                            final initialRange = _customStartDate != null && _customEndDate != null
-                                ? DateTimeRange(start: _customStartDate!, end: _customEndDate!)
-                                : DateTimeRange(
-                                    start: DateTime(DateTime.now().year, DateTime.now().month, 1),
-                                    end: DateTime(DateTime.now().year, DateTime.now().month + 1, 0),
-                                  );
-                            final picked = await showDateRangePicker(
-                              context: context,
-                              firstDate: DateTime(2000),
-                              lastDate: DateTime(2100),
-                              initialDateRange: initialRange,
-                            );
-                            if (picked != null) {
-                              setState(() {
-                                selectedPeriod = 'Custom';
-                                _customStartDate = picked.start;
-                                _customEndDate = picked.end;
-                              });
-                              setModalState(() {});
-                            }
-                          },
-                          child: Text(context.l10n.customRange),
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (selectedPeriod == 'Custom' && _customStartDate != null && _customEndDate != null) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      '${DateFormat('MMM d, yyyy').format(_customStartDate!)} – ${DateFormat('MMM d, yyyy').format(_customEndDate!)}',
-                      style: TextStyle(fontSize: 12, color: colorScheme.mutedForeground),
-                    ),
-                  ],
                   const SizedBox(height: 24),
                   Row(
                     children: [

@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/insights/presentation/widgets/charts/charts.dart';
 import 'package:moneko/features/insights/presentation/widgets/chart_legend.dart';
+import 'package:moneko/features/insights/presentation/widgets/insights_ui.dart';
+import 'package:moneko/features/utils/currency.dart';
 
 Widget buildLongTermProjectionTab(BuildContext context, shadcnui.ColorScheme colorScheme, AnalyticsData analyticsData, {String? selectedCurrency}) {
   // Filter data by currency if selected
-  var expenses = analyticsData.expenses;
-  var budgets = analyticsData.budgets;
+  var expenses = analyticsData.allExpenses;
+  var budgets = analyticsData.allBudgets;
   
   if (selectedCurrency != null) {
     final currency = selectedCurrency.toUpperCase();
@@ -21,13 +24,8 @@ Widget buildLongTermProjectionTab(BuildContext context, shadcnui.ColorScheme col
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          decoration: BoxDecoration(
-            color: colorScheme.card,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: colorScheme.border, width: 1),
-          ),
-          padding: const EdgeInsets.all(16),
+        InsightsSectionCard(
+          colorScheme: colorScheme,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -81,6 +79,8 @@ Widget buildLongTermProjectionTab(BuildContext context, shadcnui.ColorScheme col
             ],
           ),
         ),
+        const SizedBox(height: 8),
+        _LongTermSummaryPills(colorScheme: colorScheme, expenses: expenses, selectedCurrency: selectedCurrency),
       ],
     ),
   );
@@ -286,6 +286,64 @@ class _LongTermHelpSlide extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _LongTermSummaryPills extends StatelessWidget {
+  const _LongTermSummaryPills({
+    required this.colorScheme,
+    required this.expenses,
+    this.selectedCurrency,
+  });
+
+  final shadcnui.ColorScheme colorScheme;
+  final List<ExpenseEntry> expenses;
+  final String? selectedCurrency;
+
+  @override
+  Widget build(BuildContext context) {
+    if (expenses.isEmpty) return const SizedBox.shrink();
+    final Map<String, double> monthlyTotals = {};
+    for (final e in expenses) {
+      final key = '${e.date.year}-${e.date.month.toString().padLeft(2, '0')}';
+      monthlyTotals[key] = (monthlyTotals[key] ?? 0) + e.amount;
+    }
+    if (monthlyTotals.isEmpty) return const SizedBox.shrink();
+    final total = monthlyTotals.values.fold<double>(0, (a, b) => a + b);
+    final months = monthlyTotals.length;
+    final avg = total / (months == 0 ? 1 : months);
+    final code = selectedCurrency ?? 'USD';
+    final totalTxt = formatCurrency(total.abs(), code);
+    final avgTxt = formatCurrency(avg.abs(), code);
+    final spanLabel = months > 0 ? '${months}m' : '0m';
+
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: [
+        MetricPill(
+          colorScheme: colorScheme,
+          icon: Icons.timeline,
+          label: context.l10n.allTime,
+          value: spanLabel,
+          tint: colorScheme.primary,
+        ),
+        MetricPill(
+          colorScheme: colorScheme,
+          icon: Icons.shopping_bag_outlined,
+          label: context.l10n.spent,
+          value: totalTxt,
+          tint: const Color(0xFFEF4444),
+        ),
+        MetricPill(
+          colorScheme: colorScheme,
+          icon: Icons.calendar_view_month,
+          label: context.l10n.monthly,
+          value: avgTxt,
+          tint: const Color(0xFF10B981),
+        ),
+      ],
     );
   }
 }

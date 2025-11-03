@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/insights/presentation/widgets/charts/charts.dart';
 import 'package:moneko/features/insights/presentation/widgets/chart_legend.dart';
+import 'package:moneko/features/insights/presentation/widgets/insights_ui.dart';
+import 'package:moneko/features/utils/currency.dart';
 
 Widget buildRunningBalanceTab(BuildContext context, shadcnui.ColorScheme colorScheme, AnalyticsData analyticsData, {String? selectedCurrency}) {
   // Filter data by currency if selected
-  var expenses = analyticsData.expenses;
-  var budgets = analyticsData.budgets;
+  var expenses = analyticsData.allExpenses;
+  var budgets = analyticsData.allBudgets;
   
   if (selectedCurrency != null) {
     final currency = selectedCurrency.toUpperCase();
@@ -21,13 +24,8 @@ Widget buildRunningBalanceTab(BuildContext context, shadcnui.ColorScheme colorSc
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          decoration: BoxDecoration(
-            color: colorScheme.card,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: colorScheme.border, width: 1),
-          ),
-          padding: const EdgeInsets.all(16),
+        InsightsSectionCard(
+          colorScheme: colorScheme,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -83,6 +81,8 @@ Widget buildRunningBalanceTab(BuildContext context, shadcnui.ColorScheme colorSc
             ],
           ),
         ),
+        const SizedBox(height: 8),
+        _AllTimeSummaryPills(colorScheme: colorScheme, expenses: expenses, budgets: budgets, selectedCurrency: selectedCurrency),
       ],
     ),
   );
@@ -203,6 +203,90 @@ void _showRunningBalanceInfoModal(BuildContext context, shadcnui.ColorScheme col
       );
     },
   );
+}
+
+class _AllTimeSummaryPills extends StatelessWidget {
+  const _AllTimeSummaryPills({
+    required this.colorScheme,
+    required this.expenses,
+    required this.budgets,
+    this.selectedCurrency,
+  });
+
+  final shadcnui.ColorScheme colorScheme;
+  final List<ExpenseEntry> expenses;
+  final List<DailyBudgetEntry> budgets;
+  final String? selectedCurrency;
+
+  @override
+  Widget build(BuildContext context) {
+    if (expenses.isEmpty && budgets.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    DateTime? minDate;
+    DateTime? maxDate;
+    double totalSpent = 0;
+    double totalBudget = 0;
+
+    for (final e in expenses) {
+      totalSpent += e.amount;
+      final d = DateTime(e.date.year, e.date.month, e.date.day);
+      minDate = (minDate == null || d.isBefore(minDate!)) ? d : minDate;
+      maxDate = (maxDate == null || d.isAfter(maxDate!)) ? d : maxDate;
+    }
+    for (final b in budgets) {
+      totalBudget += b.amount;
+      final d = DateTime(b.date.year, b.date.month, b.date.day);
+      minDate = (minDate == null || d.isBefore(minDate!)) ? d : minDate;
+      maxDate = (maxDate == null || d.isAfter(maxDate!)) ? d : maxDate;
+    }
+
+    final net = totalBudget - totalSpent;
+    final code = selectedCurrency ?? 'USD';
+    final spentTxt = formatCurrency(totalSpent.abs(), code);
+    final budgetTxt = formatCurrency(totalBudget.abs(), code);
+    final netTxt = formatCurrency(net.abs(), code);
+    final spanStart = minDate != null ? '${minDate!.year}-${minDate!.month.toString().padLeft(2, '0')}-${minDate!.day.toString().padLeft(2, '0')}' : '';
+    final spanEnd = maxDate != null ? '${maxDate!.year}-${maxDate!.month.toString().padLeft(2, '0')}-${maxDate!.day.toString().padLeft(2, '0')}' : '';
+
+    final netTint = net >= 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: [
+        MetricPill(
+          colorScheme: colorScheme,
+          icon: Icons.timeline,
+          label: context.l10n.allTime,
+          value: '$spanStart → $spanEnd',
+          tint: colorScheme.primary,
+        ),
+        MetricPill(
+          colorScheme: colorScheme,
+          icon: Icons.shopping_bag_outlined,
+          label: context.l10n.spent,
+          value: spentTxt,
+          tint: const Color(0xFFEF4444),
+        ),
+        MetricPill(
+          colorScheme: colorScheme,
+          icon: Icons.account_balance_wallet_outlined,
+          label: context.l10n.budget,
+          value: budgetTxt,
+          tint: const Color(0xFF3B82F6),
+        ),
+        MetricPill(
+          colorScheme: colorScheme,
+          icon: Icons.stacked_line_chart,
+          label: context.l10n.net,
+          value: (net < 0 ? '-' : '+') + netTxt,
+          tint: netTint,
+        ),
+      ],
+    );
+  }
 }
 
 class _RunningBalanceSlideData {

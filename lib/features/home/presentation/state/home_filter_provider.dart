@@ -94,6 +94,11 @@ Map<String, DateTime> getDateRangeFromFilter(
       final from = today.subtract(const Duration(days: 29));
       return {'from': from, 'to': today};
 
+    case DateRangeFilter.allTime:
+      // Treat as unbounded past to today
+      final from = DateTime.fromMillisecondsSinceEpoch(0);
+      return {'from': from, 'to': today};
+
     case DateRangeFilter.custom:
       if (customStart != null && customEnd != null) {
         return {'from': customStart, 'to': customEnd};
