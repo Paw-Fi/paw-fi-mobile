@@ -1,5 +1,5 @@
 import 'package:flutter/widgets.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:moneko/l10n/app_localizations.dart';
 
 /// Date range filter options
 enum DateRangeFilter {

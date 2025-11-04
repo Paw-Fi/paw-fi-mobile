@@ -342,19 +342,23 @@ class _RegistrationFormView extends HookConsumerWidget {
                                 color: theme.colorScheme.mutedForeground.withOpacity(0.6),
                               ),
                             ),
-                            trailing: GestureDetector(
-                              onTap: () => showPassword.value = !showPassword.value,
-                              child: Padding(
-                                padding: const EdgeInsets.only(right: 12),
-                                child: Icon(
-                                  showPassword.value
-                                      ? Icons.visibility_off_outlined
-                                      : Icons.visibility_outlined,
-                                  color: theme.colorScheme.mutedForeground,
-                                  size: 20,
+                            features: [
+                              shadcnui.InputTrailingFeature(
+                                GestureDetector(
+                                  onTap: () => showPassword.value = !showPassword.value,
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(right: 12),
+                                    child: Icon(
+                                      showPassword.value
+                                          ? Icons.visibility_off_outlined
+                                          : Icons.visibility_outlined,
+                                      color: theme.colorScheme.mutedForeground,
+                                      size: 20,
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
+                            ],
                             enabled: !isLoading.value,
                             style: theme.typography.base.copyWith(fontSize: 16),
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),

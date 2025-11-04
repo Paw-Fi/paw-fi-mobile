@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/pages/home_page.dart';
-import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
 import 'package:moneko/features/insights/presentation/pages/insights_page.dart';
 import 'package:moneko/features/profile/presentation/pages/profile_page.dart';
 import 'package:moneko/features/reminders/presentation/pages/reminder_page.dart';

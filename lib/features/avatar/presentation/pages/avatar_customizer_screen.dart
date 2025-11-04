@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -8,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:ios_color_picker/show_ios_color_picker.dart';
 import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 
@@ -548,28 +550,17 @@ class _AvatarCustomizerScreenState extends ConsumerState<AvatarCustomizerScreen>
 
   void _openColorPicker(BuildContext context, String key) {
     final current = _hexToColor(_colors[key]!);
-    final derivative = shadcnui.ColorDerivative.fromColor(current);
-    void apply(dynamic v) {
-      try {
-        final Color chosen = (v.toColor != null) ? v.toColor() as Color : (v.color as Color);
-        setState(() { _colors[key] = _colorToHex(chosen); });
-      } catch (_) {}
-    }
-    try {
-      shadcnui.showColorPicker(
-        context: context,
-        offset: const Offset(0, 8),
-        color: derivative,
-        onColorChanged: apply,
-      );
-    } catch (_) {
-      shadcnui.showColorPickerDialog(
-        context: context,
-        title: Text(context.l10n.selectColor),
-        color: derivative,
-        onColorChanged: apply,
-      );
-    }
+    final iosColorPickerController = IOSColorPickerController();
+
+    iosColorPickerController.showIOSCustomColorPicker(
+      startingColor: current,
+      onColorChanged: (color) {
+        setState(() {
+          _colors[key] = _colorToHex(color);
+        });
+      },
+      context: context,
+    );
   }
 
   void _cycleColor(String key) {

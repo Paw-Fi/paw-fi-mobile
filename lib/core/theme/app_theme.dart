@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart' hide ThemeData, Colors;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/material.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
 /// Theme mode provider
@@ -95,16 +96,16 @@ class AppTheme {
 
   /// Light theme matching web design
   static shadcnui.ThemeData lightTheme() {
-    final colorScheme = shadcnui.ColorSchemes.lightZinc().copyWith(
-      primary: monekoSeed,
-      primaryForeground: const Color(0xFFFFFFFF), // Use Color directly instead of Colors.white
-      background: lightBackground,
-      foreground: lightForeground,
-      card: lightCardBg,
-      border: lightBorder,
-      muted: const Color(0xFFF3F4F6),
-      mutedForeground: lightMuted,
-      destructive: danger,
+    final colorScheme = shadcnui.ColorSchemes.blue(shadcnui.ThemeMode.light).copyWith(
+      primary: () => monekoSeed,
+      primaryForeground: () => const Color(0xFFFFFFFF), // Use Color directly instead of Colors.white
+      background: () => lightBackground,
+      foreground: () => lightForeground,
+      card: () => lightCardBg,
+      border: () => lightBorder,
+      muted: () => const Color(0xFFF3F4F6),
+      mutedForeground: () => lightMuted,
+      destructive: () => danger,
     );
 
     return shadcnui.ThemeData(
@@ -116,16 +117,16 @@ class AppTheme {
 
   /// Dark theme matching web design
   static shadcnui.ThemeData darkTheme() {
-    final colorScheme = shadcnui.ColorSchemes.darkZinc().copyWith(
-      primary: const Color(0xFF8B70FF), // Lighter purple for dark mode
-      primaryForeground: const Color(0xFFFFFFFF), // White text on primary buttons
-      background: darkBackground,
-      foreground: darkForeground, // Bright white/light text for readability
-      card: darkCardBg,
-      border: darkBorder,
-      muted: darkMuted, // Dark background for input fields
-      mutedForeground: darkMutedForeground, // Light gray for muted text
-      destructive: const Color(0xFFFF7A7A), // Lighter red for dark mode
+    final colorScheme = shadcnui.ColorSchemes.blue(shadcnui.ThemeMode.dark).copyWith(
+      primary: () => const Color(0xFF8B70FF), // Lighter purple for dark mode
+      primaryForeground: () => const Color(0xFFFFFFFF), // White text on primary buttons
+      background: () => darkBackground,
+      foreground: () => darkForeground, // Bright white/light text for readability
+      card: () => darkCardBg,
+      border: () => darkBorder,
+      muted: () => darkMuted, // Dark background for input fields
+      mutedForeground: () => darkMutedForeground, // Light gray for muted text
+      destructive: () => const Color(0xFFFF7A7A), // Lighter red for dark mode
     );
 
     return shadcnui.ThemeData(

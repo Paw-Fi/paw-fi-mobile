@@ -659,7 +659,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
               padding: const EdgeInsets.only(right: 0),
               child: shadcnui.Theme(
                 data: shadcnui.Theme.of(context).copyWith(
-                  radius: 0.8,
+                  radius: () => 0.8,
                 ),
                 child: shadcnui.Checkbox(
                   state: isIncluded
