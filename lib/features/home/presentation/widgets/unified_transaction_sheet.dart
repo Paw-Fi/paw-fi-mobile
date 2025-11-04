@@ -212,13 +212,22 @@ class _UnifiedTransactionSheetState
 
   String get currency {
     if (_editedCurrency != null) return _editedCurrency!;
-    if (isNewExpense) return widget.newExpense!.currency;
+    if (isNewExpense) {
+      // For new expenses, read from pendingExpenseProvider (which gets updated on edit)
+      final pending = ref.read(pendingExpenseProvider);
+      return pending?.currency ?? widget.newExpense!.currency;
+    }
     return widget.existingExpense!.currency ?? 'USD';
   }
 
-  String get currencySymbol => isNewExpense
-      ? widget.newExpense!.currencySymbol
-      : resolveCurrencySymbol(currency);
+  String get currencySymbol {
+    if (isNewExpense) {
+      // For new expenses, read from pendingExpenseProvider (which gets updated on edit)
+      final pending = ref.read(pendingExpenseProvider);
+      return pending?.currencySymbol ?? widget.newExpense!.currencySymbol;
+    }
+    return resolveCurrencySymbol(currency);
+  }
 
   String get category {
     if (_editedCategory != null) return _editedCategory!;

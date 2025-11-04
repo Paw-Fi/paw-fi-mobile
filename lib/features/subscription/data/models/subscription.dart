@@ -62,8 +62,15 @@ class Subscription {
   /// 4. Row exists + status = "trialing" → SUBSCRIBED (trial period)
   /// 5. Row exists + status = "active" + stripe_subscription_id is NOT null → SUBSCRIBED (active subscription)
   /// 6. Row exists + status = "active" + bound_to_user_id is NOT null → SUBSCRIBED (household member with shared access)
+  /// 7. Row exists + status = "canceled" → NOT SUBSCRIBED (cancelled subscription)
   bool get isSubscribed {
     print('🔍 [Subscription] Checking isSubscribed: plan=$plan, status=$status, boundTo=$boundToUserId');
+    
+    // Case 7: Cancelled status - subscription is cancelled, not active
+    if (status == 'canceled') {
+      print('❌ [Subscription] CANCELED status - subscribed=false');
+      return false;
+    }
     
     // Case 3: Lifetime plan with active status
     if (plan == 'lifetime' && status == 'active') {
