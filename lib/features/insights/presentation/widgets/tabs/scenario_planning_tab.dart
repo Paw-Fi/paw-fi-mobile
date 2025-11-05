@@ -315,7 +315,6 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
         barrierDismissible: true,
         builder: (ctx) {
           final bg = widget.colorScheme.background;
-          final fg = widget.colorScheme.foreground;
           return Material(
             color: Colors.transparent,
             child: Container(
@@ -388,9 +387,6 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
     final lang = Localizations.localeOf(context).languageCode.toLowerCase();
 
     // Families based on user's specification and common grammatical tendencies
-    const svo = {
-      'en', 'nl', 'sv', 'th', 'vi', 'id', 'ms', 'fi', 'da', 'nb', 'no'
-    };
     const sov = {
       'zh', 'ja', 'ko', 'hi', 'ur', 'tr', 'fa'
     };
@@ -689,7 +685,7 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
                                         },
                                       );
 
-                                      if (!mounted) return;
+                                      if (!context.mounted) return;
 
                                       // Close loading modal
                                       Navigator.of(context, rootNavigator: true).pop();
@@ -709,7 +705,7 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
                                         throw Exception(error);
                                       }
                                     } catch (e) {
-                                      if (!mounted) return;
+                                      if (!context.mounted) return;
 
                                       // Close loading modal
                                       Navigator.of(context, rootNavigator: true).pop();
@@ -759,7 +755,6 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
                         case _WordOrder.vso:
                         case _WordOrder.v2:
                         case _WordOrder.svo:
-                        default:
                           // Default: "Can I" + action, then pre/suffix around date; button in its own row
                           row1 = [
                             canI,

@@ -564,6 +564,7 @@ class _AvatarCustomizerScreenState extends ConsumerState<AvatarCustomizerScreen>
     );
   }
 
+  // ignore: unused_element
   void _cycleColor(String key) {
     final palettes = <String, List<String>>{
       'hair': ['#8B4513', '#654321', '#4A4A4A', '#2C1810', '#B8860B', '#800080', '#FF6347', '#32CD32', '#1E90FF'],

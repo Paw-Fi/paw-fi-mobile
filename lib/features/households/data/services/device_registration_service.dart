@@ -7,7 +7,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:moneko/core/services/deep_link_service.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:moneko/core/app/router.dart';
 
 /// Global container for deep link handling from FCM
 class DeepLinkContainer {
@@ -245,12 +244,9 @@ class DeviceRegistrationService {
       // Wait a bit for app to be ready, then trigger deep link directly
       Future.delayed(const Duration(milliseconds: 500), () {
         if (DeepLinkContainer.deepLinkService != null && DeepLinkContainer.ref != null) {
-          final context = rootNavigatorKey.currentContext;
-          if (context != null) {
-            final uri = Uri.parse(deepLink);
-            debugPrint('🚀 Triggering deep link directly: $deepLink');
-            DeepLinkContainer.deepLinkService!.handleDeepLinkUri(uri, DeepLinkContainer.ref!, context);
-          }
+          final uri = Uri.parse(deepLink);
+          debugPrint('🚀 Triggering deep link directly: $deepLink');
+          DeepLinkContainer.deepLinkService!.handleDeepLinkUri(uri, DeepLinkContainer.ref!);
         }
       });
     } else {

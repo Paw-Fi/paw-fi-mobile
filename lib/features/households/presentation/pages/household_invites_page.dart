@@ -214,7 +214,9 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
                 message: messageController.text.isNotEmpty ? messageController.text : null,
                 expiresInDays: expiresInDays,
               );
-              Navigator.pop(context);
+              if (context.mounted) {
+                Navigator.pop(context);
+              }
             },
             child: Text(context.l10n.create),
           ),

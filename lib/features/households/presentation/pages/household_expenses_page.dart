@@ -57,37 +57,6 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
     super.dispose();
   }
 
-  // Build personal-share list of expenses from split groups
-  List<ExpenseEntry> _personalShareExpenses(
-    List<ExpenseEntry> expenses,
-    List<ExpenseSplitGroup> splits,
-    String currentUserId,
-  ) {
-    if (expenses.isEmpty || splits.isEmpty) return const <ExpenseEntry>[];
-    final byGroupId = {for (final g in splits) g.id: g};
-    final result = <ExpenseEntry>[];
-    for (final e in expenses) {
-      final gid = e.splitGroupId;
-      if (gid == null) continue;
-      final group = byGroupId[gid];
-      if (group == null) continue;
-      final line = (group.splitLines ?? const <ExpenseSplitLine>[])
-          .firstWhere((l) => l.userId == currentUserId, orElse: () => ExpenseSplitLine(
-                id: '',
-                splitGroupId: '',
-                userId: '',
-                isSettled: false,
-                createdAt: DateTime.fromMillisecondsSinceEpoch(0),
-                updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
-              ));
-      if (line.userId != currentUserId) continue;
-      final int share = (line.amountCents ?? 0);
-      final int shareClamped = share < 0 ? 0 : share;
-      result.add(e.copyWith(amountCents: shareClamped));
-    }
-    return result;
-  }
-
   List<ExpenseEntry> _filterExpenses(List<ExpenseEntry> expenses) {
     var filtered = expenses;
 
@@ -246,6 +215,7 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
     );
   }
 
+  // ignore: unused_element
   void _clearFilters() {
     setState(() {
       _searchQuery = '';
@@ -394,9 +364,6 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
                 final filteredExpenses = _filterExpenses(expenses);
                 final currentUserId = Supabase.instance.client.auth.currentUser?.id;
                 final splits = splitsAsync.asData?.value ?? const <ExpenseSplitGroup>[];
-                final personalExpenses = currentUserId != null
-                    ? _personalShareExpenses(filteredExpenses, splits, currentUserId)
-                    : const <ExpenseEntry>[];
 
                 if (filteredExpenses.isEmpty) {
                   return Center(
@@ -1089,6 +1056,7 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildCategoryFilter(shadcnui.ColorScheme colorScheme, AsyncValue<List<ExpenseEntry>> expensesAsync) {
     return expensesAsync.maybeWhen(
       data: (expenses) {
@@ -1134,6 +1102,7 @@ class _HouseholdExpensesPageState extends ConsumerState<HouseholdExpensesPage> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildMemberFilter(shadcnui.ColorScheme colorScheme, AsyncValue<List<ExpenseEntry>> expensesAsync) {
     return expensesAsync.maybeWhen(
       data: (expenses) {

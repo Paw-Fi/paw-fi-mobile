@@ -363,6 +363,8 @@ class HouseholdImagePicker {
         return null;
       }
 
+      // Ensure context is still valid before showing crop UI
+      if (!context.mounted) return null;
       final croppedFile = await _cropImage(context, image.path);
       if (croppedFile != null) {
         return await _copyToAppDirectory(File(croppedFile.path));

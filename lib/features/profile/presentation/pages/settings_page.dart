@@ -9,7 +9,6 @@ import 'package:app_settings/app_settings.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
-import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
 import 'package:moneko/features/subscription/data/models/subscription_details.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
@@ -33,7 +32,6 @@ class SettingsPage extends HookConsumerWidget {
     final subscriptionAsync = ref.watch(subscriptionManagementProvider);
 
     final selectedCurrency = useState<String?>(contact?.preferredCurrency?.toUpperCase());
-    final isSaving = useState(false);
     final nameReloadKey = useState(0);
 
     useEffect(() {
@@ -88,7 +86,7 @@ class SettingsPage extends HookConsumerWidget {
       }
     }
 
-    final currencies = getAvailableCurrencyOptions();
+    // final currencies = getAvailableCurrencyOptions(); // reserved for future currency picker
     final selectedLocale = ref.watch(localeProvider);
     const supportedLocales = AppLocalizations.supportedLocales;
     final dropdownValue = _coerceToSupported(selectedLocale, supportedLocales);
@@ -589,7 +587,6 @@ Future<void> _showEditNameSheet({
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
     ),
     builder: (ctx) {
-      bool isSaving = false;
       String? errorText;
       return StatefulBuilder(
         builder: (ctx, setState) {
@@ -652,25 +649,17 @@ Future<void> _showEditNameSheet({
                   children: [
                     Expanded(
                       child: shadcnui.OutlineButton(
-                        onPressed: isSaving ? null : () => Navigator.of(ctx).pop(),
+                        onPressed: () => Navigator.of(ctx).pop(),
                         child: Text(AppLocalizations.of(ctx)!.cancel),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: shadcnui.PrimaryButton(
-                        onPressed: isSaving
-                            ? null
-                            : () async {
-                                await _saveName(ctx, ref, controller, authState.uid, setState, onUpdated);
-                              },
-                        child: isSaving
-                            ? SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(colorScheme.primaryForeground)),
-                              )
-                            : Text(AppLocalizations.of(ctx)!.save),
+                        onPressed: () async {
+                          await _saveName(ctx, ref, controller, authState.uid, setState, onUpdated);
+                        },
+                        child: Text(AppLocalizations.of(ctx)!.save),
                       ),
                     ),
                   ],
@@ -721,6 +710,7 @@ Future<void> _saveName(
     // Invalidate Riverpod-derived profile data and notify
     onUpdated();
 
+    if (!ctx.mounted) return;
     Navigator.of(ctx).pop();
     ScaffoldMessenger.of(ctx).showSnackBar(
       SnackBar(
@@ -730,9 +720,11 @@ Future<void> _saveName(
       ),
     );
   } catch (e) {
-    ScaffoldMessenger.of(ctx).showSnackBar(
-      SnackBar(content: Text('Failed to update: $e')),
-    );
+    if (ctx.mounted) {
+      ScaffoldMessenger.of(ctx).showSnackBar(
+        SnackBar(content: Text('Failed to update: $e')),
+      );
+    }
   }
 }
 
@@ -913,12 +905,14 @@ class _MembershipCard extends ConsumerWidget {
                       if (await canLaunchUrl(url)) {
                         await launchUrl(url, mode: LaunchMode.externalApplication);
                       } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(context.l10n.couldNotOpenMembershipPage),
-                            backgroundColor: colorScheme.destructive,
-                          ),
-                        );
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(context.l10n.couldNotOpenMembershipPage),
+                              backgroundColor: colorScheme.destructive,
+                            ),
+                          );
+                        }
                       }
                     },
                     child:  Icon(Icons.open_in_new, size: 16, color: colorScheme.mutedForeground),)

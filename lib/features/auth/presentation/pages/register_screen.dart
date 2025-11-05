@@ -88,6 +88,7 @@ class _RegistrationFormView extends HookConsumerWidget {
     }, [errorShake.value]);
 
     Future<void> handleSignUp() async {
+      final l10n = context.l10n;
       final fullName = fullNameController.text.trim();
       final email = emailController.text.trim();
       final password = passwordController.text;
@@ -137,7 +138,7 @@ class _RegistrationFormView extends HookConsumerWidget {
         if (errorMessage.contains('User already registered')) {
           errorMessage = 'An account with this email already exists. Please sign in instead.';
         } else if (errorMessage.contains('Invalid email')) {
-          errorMessage = context.l10n.enterValidEmail;
+          errorMessage = l10n.enterValidEmail;
         } else if (errorMessage.contains('rate limit')) {
           errorMessage = 'Too many attempts. Please wait a moment before trying again.';
         }
@@ -566,9 +567,10 @@ class _OTPVerificationView extends HookConsumerWidget {
     }, [resendCooldown.value]);
 
     Future<void> handleVerifyOtp() async {
+      final l10n = context.l10n;
       final otp = otpValue.value;
       if (otp.length != 6) {
-        error.value = context.l10n.enterCompleteCode;
+        error.value = l10n.enterCompleteCode;
         return;
       }
 
@@ -593,9 +595,9 @@ class _OTPVerificationView extends HookConsumerWidget {
         String errorMessage = e.toString().replaceAll('Exception: ', '').replaceAll('AuthException: ', '');
 
         if (errorMessage.contains('expired')) {
-          errorMessage = context.l10n.verificationCodeExpired;
+          errorMessage = l10n.verificationCodeExpired;
         } else if (errorMessage.contains('invalid')) {
-          errorMessage = context.l10n.invalidVerificationCode;
+          errorMessage = l10n.invalidVerificationCode;
         }
 
         error.value = errorMessage;

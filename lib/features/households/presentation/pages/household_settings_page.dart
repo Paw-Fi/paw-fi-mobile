@@ -14,6 +14,7 @@ import '../utils/household_ui_utils.dart';
 import '../../../../core/config/storage_config.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/app/router.dart';
 
 /// Household Settings Page
 /// Manage budgets, privacy preferences, and household settings
@@ -927,6 +928,7 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
     );
   }
 
+  // ignore: unused_element
   Widget _oldBuild(BuildContext context) {
     final colorScheme = shadcnui.Theme.of(context).colorScheme;
     final membersAsync = ref.watch(householdMembersProvider(widget.householdId));
@@ -1503,6 +1505,7 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
   }
 
   Future<void> _revokeInvite(HouseholdInvite invite) async {
+    final l10n = context.l10n;
     bool? confirmed;
     if (Platform.isIOS) {
       confirmed = await showCupertinoDialog<bool>(
@@ -1546,23 +1549,28 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
 
     if (confirmed == true) {
       try {
-        // Show blocking loader while revoking
-        _showBlockingLoader(context, message: context.l10n.loading);
+        // Show blocking loader using a fresh, global context
+        final navStartCtx = rootNavigatorKey.currentContext;
+        if (navStartCtx != null && navStartCtx.mounted) {
+          _showBlockingLoader(navStartCtx, message: l10n.loading);
+        }
         final repository = ref.read(householdRepositoryProvider);
         await repository.revokeInvite(inviteId: invite.id);
         await _loadInvites();
 
-        if (mounted) {
-          _hideBlockingLoader(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(context.l10n.invitationRevoked)),
+        final navCtx = rootNavigatorKey.currentContext;
+        if (navCtx != null && navCtx.mounted) {
+          _hideBlockingLoader(navCtx);
+          ScaffoldMessenger.of(navCtx).showSnackBar(
+            SnackBar(content: Text(l10n.invitationRevoked)),
           );
         }
       } catch (e) {
-        if (mounted) {
-          _hideBlockingLoader(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('${context.l10n.errorRevokingInvite}: $e')),
+        final navCtx = rootNavigatorKey.currentContext;
+        if (navCtx != null && navCtx.mounted) {
+          _hideBlockingLoader(navCtx);
+          ScaffoldMessenger.of(navCtx).showSnackBar(
+            SnackBar(content: Text('${l10n.errorRevokingInvite}: $e')),
           );
         }
       }
@@ -1701,6 +1709,7 @@ class _InviteCard extends StatelessWidget {
     );
   }
 
+  // ignore: unused_element
   IconData _getInviteIcon(String? email) {
     if (email == null || email.isEmpty) {
       return Icons.link_rounded;
@@ -1708,6 +1717,7 @@ class _InviteCard extends StatelessWidget {
     return Icons.mail_rounded;
   }
 
+  // ignore: unused_element
   Color _getStatusColor(InviteStatus status, bool isExpired) {
     if (isExpired) return Colors.red;
 

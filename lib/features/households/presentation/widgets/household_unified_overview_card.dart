@@ -38,7 +38,7 @@ Widget buildHouseholdUnifiedOverviewCard(
     }
   }
 
-  final budgetAmount = totalBudgetCents / 100.0;
+  // final budgetAmount = totalBudgetCents / 100.0; // currently unused
   final budgetSpentAmount = totalBudgetSpentCents / 100.0;
   final budgetRemainingAmount = totalBudgetRemainingCents / 100.0;
   final budgetPercentage = totalBudgetCents > 0

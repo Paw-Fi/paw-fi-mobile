@@ -529,6 +529,8 @@ class _ReminderModalContentState extends State<_ReminderModalContent> {
       if (!canSend) {
         if (mounted) {
           Navigator.of(context).pop();
+        }
+        if (widget.parentContext.mounted) {
           ScaffoldMessenger.of(widget.parentContext).showSnackBar(
             SnackBar(
               content: Text(widget.parentContext.l10n.pleaseWait24HoursBeforeSendingAnotherReminder(widget.targetUserName)),
@@ -551,22 +553,25 @@ class _ReminderModalContentState extends State<_ReminderModalContent> {
 
       if (mounted) {
         Navigator.of(context).pop();
-
-        if (response.status == 200) {
+      }
+      if (response.status == 200) {
+        if (widget.parentContext.mounted) {
           ScaffoldMessenger.of(widget.parentContext).showSnackBar(
             SnackBar(
               content: Text(widget.parentContext.l10n.reminderSentToName(widget.targetUserName)),
               backgroundColor: Colors.green,
             ),
           );
-        } else {
-          throw Exception('Failed to send reminder');
         }
+      } else {
+        throw Exception('Failed to send reminder');
       }
     } catch (e) {
       debugPrint('Error sending reminder: $e');
       if (mounted) {
         Navigator.of(context).pop();
+      }
+      if (widget.parentContext.mounted) {
         ScaffoldMessenger.of(widget.parentContext).showSnackBar(
           SnackBar(
             content: Text(widget.parentContext.l10n.failedToSendReminderTryAgain),

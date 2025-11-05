@@ -326,6 +326,7 @@ class HouseholdDashboard extends ConsumerWidget {
     );
   }
 
+  // ignore: unused_element
   Widget _buildSplitsSection(WidgetRef ref, shadcnui.ColorScheme colorScheme) {
     final splitsParams = HouseholdSplitsParams(householdId: household.id);
     final splitsAsync = ref.watch(householdSplitsProvider(splitsParams));

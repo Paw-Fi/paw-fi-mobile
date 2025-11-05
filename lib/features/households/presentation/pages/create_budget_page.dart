@@ -88,7 +88,10 @@ class CreateBudgetPage extends HookConsumerWidget {
           Navigator.pop(context);
         }
       } catch (e) {
-        _showError(context, '${context.l10n.failedToCreateBudget}: $e');
+        if (context.mounted) {
+          final l10n = context.l10n;
+          _showError(context, '${l10n.failedToCreateBudget}: $e');
+        }
       } finally {
         isCreating.value = false;
       }
@@ -516,6 +519,7 @@ class CreateBudgetPage extends HookConsumerWidget {
     }
   }
 
+  // ignore: unused_element
   String _formatBudgetType(BuildContext context, BudgetType type) {
     switch (type) {
       case BudgetType.household:

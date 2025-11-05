@@ -174,7 +174,6 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   Widget build(BuildContext context) {
     final colorScheme = shadcnui.Theme.of(context).colorScheme;
     final analyticsData = ref.watch(analyticsProvider);
-    final user = ref.watch(authProvider);
 
     // Resolve base expenses source (household-specific or global analytics)
     if (widget.householdId != null) {
@@ -215,7 +214,6 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   }
 
   Scaffold _buildMainScaffold(shadcnui.ColorScheme colorScheme, UserContact? contact) {
-    final analyticsData = ref.watch(analyticsProvider);
     return Scaffold(
       backgroundColor: colorScheme.background,
       body: SafeArea(

@@ -29,7 +29,7 @@ class DeepLinkService {
       final initialLink = await _appLinks.getInitialLink();
       if (initialLink != null) {
         debugPrint('🔗 Initial deep link received: $initialLink');
-        _handleDeepLink(initialLink, ref, context);
+        _handleDeepLink(initialLink, ref);
       }
     } catch (e) {
       debugPrint('❌ Error getting initial link: $e');
@@ -39,7 +39,7 @@ class DeepLinkService {
     _linkSubscription = _appLinks.uriLinkStream.listen(
       (uri) {
         debugPrint('🔗 Deep link received: $uri');
-        _handleDeepLink(uri, ref, context);
+        _handleDeepLink(uri, ref);
       },
       onError: (err) {
         debugPrint('❌ Deep link error: $err');
@@ -48,12 +48,12 @@ class DeepLinkService {
   }
 
   /// Handle deep link navigation (public for FCM integration)
-  void handleDeepLinkUri(Uri uri, WidgetRef ref, BuildContext context) {
-    _handleDeepLink(uri, ref, context);
+  void handleDeepLinkUri(Uri uri, WidgetRef ref) {
+    _handleDeepLink(uri, ref);
   }
 
   /// Handle deep link navigation
-  void _handleDeepLink(Uri uri, WidgetRef ref, BuildContext context) {
+  void _handleDeepLink(Uri uri, WidgetRef ref) {
     debugPrint('🔗 Handling deep link: ${uri.scheme}://${uri.host}${uri.path}');
     debugPrint('🔗 Query parameters: ${uri.queryParameters}');
 
@@ -64,11 +64,12 @@ class DeepLinkService {
       
       // Supabase auth tokens are in the URL fragment (#access_token=...)
       // Navigate to auth callback screen which will process the session
-      if (context.mounted) {
+      final navCtx = rootNavigatorKey.currentContext;
+      if (navCtx?.mounted ?? false) {
         // For new users, redirect to avatar customizer
         // For existing users, redirect to dashboard
         // The AuthCallbackScreen will determine this
-        context.go('/auth/callback');
+        navCtx!.go('/auth/callback');
       }
       return;
     }
@@ -76,8 +77,9 @@ class DeepLinkService {
     // Legacy OAuth callback support: moneko://auth/callback (kept for backward compatibility)
     if (DeepLinks.isLegacyOAuthCallback(uri)) {
       debugPrint('🔐 Legacy OAuth callback received');
-      if (context.mounted) {
-        context.go('/auth/callback');
+      final navCtx = rootNavigatorKey.currentContext;
+      if (navCtx?.mounted ?? false) {
+        navCtx!.go('/auth/callback');
       }
       return;
     }
@@ -91,23 +93,27 @@ class DeepLinkService {
       ref.read(subscriptionNotifierProvider.notifier).refresh();
 
       // Show appropriate message based on status
-      if (context.mounted) {
+      final navCtx = rootNavigatorKey.currentContext;
+      if (navCtx != null && navCtx.mounted) {
+        final ctx = navCtx;
         if (status == 'success') {
-          ScaffoldMessenger.of(context).showSnackBar(
+          ScaffoldMessenger.of(ctx).showSnackBar(
             SnackBar(
-              content: Text(context.l10n.paymentSuccessfulCheckingSubscription),
+              content: Text(ctx.l10n.paymentSuccessfulCheckingSubscription),
               duration: const Duration(seconds: 3),
             ),
           );
           // Navigate to dashboard after a short delay to let subscription load
           Future.delayed(const Duration(seconds: 2), () {
-            if (context.mounted) {
-              context.go('/dashboard');
+            final delayed = rootNavigatorKey.currentContext;
+            if (delayed != null && delayed.mounted) {
+              // ignore: use_build_context_synchronously
+              delayed.go('/dashboard');
             }
           });
         } else if (status == 'failed') {
-          final error = uri.queryParameters['error'] ?? context.l10n.paymentFailed;
-          ScaffoldMessenger.of(context).showSnackBar(
+          final error = uri.queryParameters['error'] ?? ctx.l10n.paymentFailed;
+          ScaffoldMessenger.of(ctx).showSnackBar(
             SnackBar(
               content: Text('❌ $error'),
               duration: const Duration(seconds: 4),
@@ -115,9 +121,9 @@ class DeepLinkService {
             ),
           );
         } else if (status == 'canceled') {
-          ScaffoldMessenger.of(context).showSnackBar(
+          ScaffoldMessenger.of(ctx).showSnackBar(
             SnackBar(
-              content: Text(context.l10n.paymentCanceled),
+              content: Text(ctx.l10n.paymentCanceled),
               duration: const Duration(seconds: 3),
             ),
           );
@@ -141,7 +147,7 @@ class DeepLinkService {
         // Wait a bit longer and try again
         Future.delayed(const Duration(milliseconds: 1000), () {
           final retryContext = rootNavigatorKey.currentContext;
-          if (retryContext != null) {
+          if (retryContext != null && retryContext.mounted) {
             debugPrint('📱 Got context on retry, showing modal...');
             _showVerificationModal(retryContext, otp, ref);
           } else {
@@ -154,7 +160,7 @@ class DeepLinkService {
       // Add small delay to ensure app UI is ready when coming from background
       Future.delayed(const Duration(milliseconds: 500), () {
         final delayedContext = rootNavigatorKey.currentContext;
-        if (delayedContext == null) {
+        if (delayedContext == null || !delayedContext.mounted) {
           debugPrint('⚠️ Context lost after delay');
           return;
         }
@@ -166,9 +172,10 @@ class DeepLinkService {
     }
 
     // Handle household invitation: moneko://households/join?token=abc123
+    // This deep link comes from the web when user clicks invite link on mobile
     if (DeepLinks.isHouseholdInvitation(uri)) {
       final token = uri.queryParameters['token'];
-      debugPrint('🏠 Household invitation callback received!');
+      debugPrint('🏠 Household invitation deep link received from web!');
       debugPrint('🏠 Token: $token');
 
       if (token == null || token.isEmpty) {
@@ -176,12 +183,21 @@ class DeepLinkService {
         return;
       }
 
-      // Navigate to household invitation acceptance page
-      if (context.mounted) {
-        // Navigate to a page that will handle the invitation acceptance
-        // This could be the household overview or a dedicated invitation page
-        context.go('/households/invitation/$token');
-      }
+      // Wait a bit to ensure app is fully loaded and context is ready
+      Future.delayed(const Duration(milliseconds: 300), () {
+        final navigatorContext = rootNavigatorKey.currentContext;
+        if (navigatorContext == null) {
+          debugPrint('⚠️ Navigator context is null for household invitation');
+          return;
+        }
+
+        // Navigate to household invitation handler page which auto-accepts the invite
+        // This page will validate and accept the invitation automatically
+        if (navigatorContext.mounted) {
+          debugPrint('🏠 Navigating to invitation handler: /households/invitation/$token');
+          navigatorContext.go('/households/invitation/$token');
+        }
+      });
       return;
     }
 
@@ -190,7 +206,7 @@ class DeepLinkService {
       final expenseId = uri.pathSegments.first;
       debugPrint('💸 Expense deep link received: $expenseId');
       
-      _handleExpenseDeepLink(expenseId, ref, context);
+      _handleExpenseDeepLink(expenseId, ref);
       return;
     }
 
@@ -200,7 +216,7 @@ class DeepLinkService {
       final subRoute = uri.pathSegments.length > 1 ? uri.pathSegments[1] : null;
       debugPrint('🏠 Household deep link received: $householdId (sub: $subRoute)');
       
-      _handleHouseholdDeepLink(householdId, ref, context, subRoute: subRoute);
+      _handleHouseholdDeepLink(householdId, ref, subRoute: subRoute);
       return;
     }
 
@@ -223,15 +239,16 @@ class DeepLinkService {
     // Handle home deep link: moneko://home
     if (DeepLinks.isHomeLink(uri)) {
       debugPrint('🏠 Home deep link received');
-      if (context.mounted) {
-        context.go('/dashboard');
+      final navCtx = rootNavigatorKey.currentContext;
+      if (navCtx?.mounted ?? false) {
+        navCtx!.go('/dashboard');
       }
       return;
     }
   }
 
   /// Handle expense deep link - show expense detail sheet
-  void _handleExpenseDeepLink(String expenseId, WidgetRef ref, BuildContext context) async {
+  void _handleExpenseDeepLink(String expenseId, WidgetRef ref) async {
     // Wait a bit to ensure app is fully loaded
     await Future.delayed(const Duration(milliseconds: 300));
     
@@ -283,7 +300,6 @@ class DeepLinkService {
   void _handleHouseholdDeepLink(
     String householdId,
     WidgetRef ref,
-    BuildContext context,
     {String? subRoute}
   ) async {
     debugPrint('🏠 Switching to household mode for: $householdId');

@@ -113,13 +113,13 @@ class _GoalsListPageState extends ConsumerState<GoalsListPage> with SingleTicker
                   child: const Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.construction,
                         size: 64,
                         color: Colors.orange,
                       ),
-                      const SizedBox(height: 16),
-                      const Text(
+                      SizedBox(height: 16),
+                      Text(
                         'In Development',
                         style: TextStyle(
                           fontSize: 24,
@@ -127,8 +127,8 @@ class _GoalsListPageState extends ConsumerState<GoalsListPage> with SingleTicker
                           color: Colors.black87,
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      const Text(
+                      SizedBox(height: 12),
+                      Text(
                         'Goals feature is currently under construction.\nStay tuned for updates!',
                         textAlign: TextAlign.center,
                         style: TextStyle(

@@ -603,9 +603,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                   }).toList();
                   // Use split-adjusted personal shares for breakdown
                   final splits = splitsAsync.asData?.value ?? const <ExpenseSplitGroup>[];
-                  final personal = (userId != null)
-                      ? _personalShareExpenses(filteredExpenses, splits, userId)
-                      : const <ExpenseEntry>[];
+                  final personal = _personalShareExpenses(filteredExpenses, splits, userId);
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     child: GestureDetector(
@@ -644,9 +642,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                     return dateOk && currencyOk;
                   }).toList();
                   final splits = splitsAsync.asData?.value ?? const <ExpenseSplitGroup>[];
-                  final personal = (userId != null)
-                      ? _personalShareExpenses(filteredExpenses, splits, userId)
-                      : const <ExpenseEntry>[];
+                  final personal = _personalShareExpenses(filteredExpenses, splits, userId);
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     child: GestureDetector(
