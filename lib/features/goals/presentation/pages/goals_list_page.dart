@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcn;
 import '../providers/goals_providers.dart';
 import '../widgets/goal_card.dart';
 import '../widgets/create_goal_sheet.dart';
-import '../../../../l10n/l10n.dart';
+import '../../../../core/l10n/l10n.dart';
 
 class GoalsListPage extends ConsumerStatefulWidget {
   const GoalsListPage({super.key});
@@ -39,7 +39,7 @@ class _GoalsListPageState extends ConsumerState<GoalsListPage> with SingleTicker
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.goals ?? 'Goals'),
+        title: Text(l10n.goals),
         actions: [
           IconButton(
             icon: const Icon(Icons.filter_list),
@@ -51,9 +51,9 @@ class _GoalsListPageState extends ConsumerState<GoalsListPage> with SingleTicker
         bottom: TabBar(
           controller: _tabController,
           tabs: [
-            Tab(text: l10n.all ?? 'All'),
-            Tab(text: l10n.savings ?? 'Savings'),
-            Tab(text: l10n.paydown ?? 'Pay Down'),
+            Tab(text: l10n.all),
+            Tab(text: l10n.savings),
+            Tab(text: l10n.paydown),
           ],
         ),
       ),
@@ -101,17 +101,17 @@ class _GoalsListPageState extends ConsumerState<GoalsListPage> with SingleTicker
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 _buildSummaryItem(
-                  l10n.totalGoals ?? 'Total',
+                  l10n.totalGoals,
                   summary.totalGoals.toString(),
                   Icons.flag,
                 ),
                 _buildSummaryItem(
-                  l10n.active ?? 'Active',
+                  l10n.active,
                   summary.activeGoals.toString(),
                   Icons.play_circle,
                 ),
                 _buildSummaryItem(
-                  l10n.completed ?? 'Completed',
+                  l10n.completed,
                   summary.completedGoals.toString(),
                   Icons.check_circle,
                 ),
@@ -187,11 +187,11 @@ class _GoalsListPageState extends ConsumerState<GoalsListPage> with SingleTicker
 
     String message;
     if (category == 'savings') {
-      message = l10n.noSavingsGoals ?? 'No savings goals yet. Create one to start saving!';
+      message = l10n.noSavingsGoals;
     } else if (category == 'paydown') {
-      message = l10n.noPaydownGoals ?? 'No paydown goals yet. Create one to start reducing debt!';
+      message = l10n.noPaydownGoals;
     } else {
-      message = l10n.noGoals ?? 'No goals yet. Create your first goal to get started!';
+      message = l10n.noGoals;
     }
 
     return Center(
@@ -211,7 +211,7 @@ class _GoalsListPageState extends ConsumerState<GoalsListPage> with SingleTicker
               showCreateGoalSheet(context);
             },
             icon: const Icon(Icons.add),
-            label: Text(l10n.createGoal ?? 'Create Goal'),
+            label: Text(l10n.createGoal),
           ),
         ],
       ),

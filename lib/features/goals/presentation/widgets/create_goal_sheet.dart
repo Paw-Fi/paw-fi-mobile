@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcn;
 import '../providers/goals_providers.dart';
-import '../../../../l10n/l10n.dart';
+import '../../../../core/l10n/l10n.dart';
 
 void showCreateGoalSheet(BuildContext context) {
   showModalBottomSheet(
@@ -70,7 +70,7 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      l10n.createGoal ?? 'Create Goal',
+                      l10n.createGoal,
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -97,30 +97,30 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
                         TextFormField(
                           controller: _titleController,
                           decoration: InputDecoration(
-                            labelText: l10n.goalTitle ?? 'Goal Title',
-                            hintText: l10n.enterGoalTitle ?? 'e.g., Emergency Fund',
+                            labelText: l10n.goalTitle,
+                            hintText: l10n.enterGoalTitle,
                           ),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return l10n.pleaseEnterTitle ?? 'Please enter a title';
+                              return l10n.pleaseEnterTitle;
                             }
                             return null;
                           },
                         ),
                         const SizedBox(height: 16),
                         // Category
-                        Text(l10n.category ?? 'Category', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        Text(l10n.category, style: const TextStyle(fontWeight: FontWeight.bold)),
                         const SizedBox(height: 8),
                         SegmentedButton<String>(
                           segments: [
                             ButtonSegment(
                               value: 'savings',
-                              label: Text(l10n.savings ?? 'Savings'),
+                              label: Text(l10n.savings),
                               icon: const Icon(Icons.savings),
                             ),
                             ButtonSegment(
                               value: 'paydown',
-                              label: Text(l10n.paydown ?? 'Pay Down'),
+                              label: Text(l10n.paydown),
                               icon: const Icon(Icons.trending_down),
                             ),
                           ],
@@ -140,16 +140,16 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
                               child: TextFormField(
                                 controller: _targetAmountController,
                                 decoration: InputDecoration(
-                                  labelText: l10n.targetAmount ?? 'Target Amount',
+                                  labelText: l10n.targetAmount,
                                 ),
                                 keyboardType: TextInputType.number,
                                 validator: (value) {
                                   if (value == null || value.isEmpty) {
-                                    return l10n.pleaseEnterAmount ?? 'Please enter amount';
+                                    return l10n.pleaseEnterAmount;
                                   }
                                   final amount = double.tryParse(value);
                                   if (amount == null || amount <= 0) {
-                                    return l10n.invalidAmount ?? 'Invalid amount';
+                                    return l10n.invalidAmount;
                                   }
                                   return null;
                                 },
@@ -182,7 +182,7 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
                         TextFormField(
                           controller: _currentAmountController,
                           decoration: InputDecoration(
-                            labelText: l10n.currentAmount ?? 'Current Amount (Optional)',
+                            labelText: l10n.currentAmount,
                           ),
                           keyboardType: TextInputType.number,
                         ),
@@ -190,7 +190,7 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
                         // Target date
                         ListTile(
                           contentPadding: EdgeInsets.zero,
-                          title: Text(l10n.targetDate ?? 'Target Date'),
+                          title: Text(l10n.targetDate),
                           subtitle: Text(_targetDate.toString().split(' ')[0]),
                           trailing: const Icon(Icons.calendar_today),
                           onTap: () async {
@@ -212,28 +212,28 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
                         TextFormField(
                           controller: _descriptionController,
                           decoration: InputDecoration(
-                            labelText: l10n.description ?? 'Description (Optional)',
+                            labelText: l10n.description,
                           ),
                           maxLines: 3,
                         ),
                         const SizedBox(height: 16),
                         // Privacy scope
-                        Text(l10n.privacyScope ?? 'Privacy', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        Text(l10n.privacyScope, style: const TextStyle(fontWeight: FontWeight.bold)),
                         const SizedBox(height: 8),
                         DropdownButtonFormField<String>(
                           value: _privacyScope,
                           items: [
                             DropdownMenuItem(
                               value: 'full',
-                              child: Text(l10n.privacyFull ?? 'Full - All details visible'),
+                              child: Text(l10n.privacyFull),
                             ),
                             DropdownMenuItem(
                               value: 'balances_only',
-                              child: Text(l10n.privacyBalancesOnly ?? 'Balances Only'),
+                              child: Text(l10n.privacyBalancesOnly),
                             ),
                             DropdownMenuItem(
                               value: 'private',
-                              child: Text(l10n.privacyPrivate ?? 'Private - Only me'),
+                              child: Text(l10n.privacyPrivate),
                             ),
                           ],
                           onChanged: (value) {
@@ -250,7 +250,7 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
                           width: double.infinity,
                           child: ElevatedButton(
                             onPressed: _submitForm,
-                            child: Text(l10n.createGoal ?? 'Create Goal'),
+                            child: Text(l10n.createGoal),
                           ),
                         ),
                       ],
@@ -298,7 +298,7 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(l10n.goalCreated ?? 'Goal created successfully'),
+          content: Text(l10n.goalCreated),
         ),
       );
     }

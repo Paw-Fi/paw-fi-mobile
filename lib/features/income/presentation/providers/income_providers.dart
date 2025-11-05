@@ -277,3 +277,6 @@ class IncomeAcknowledgeNotifier extends StateNotifier<AsyncValue<bool>> {
 
 /// Pending income provider (for temporary storage during entry)
 final pendingIncomeProvider = StateProvider<IncomeEntry?>((ref) => null);
+
+/// Selected currency provider for income entry
+final selectedCurrencyProvider = StateProvider<String>((ref) => 'USD');

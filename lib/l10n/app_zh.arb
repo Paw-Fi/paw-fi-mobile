@@ -1171,10 +1171,13 @@
   "goalTitle": "目标标题",
   "enterGoalTitle": "输入目标标题",
   "pleaseEnterTitle": "请输入标题",
+  "pleaseEnterAmount": "请输入金额",
+  "invalidAmount": "请输入大于0的有效金额",
   "targetAmount": "目标金额",
   "currentAmount": "当前金额",
   "targetDate": "目标日期",
   "description": "描述",
+  "descriptionHint": "备注（可选）",
   "category": "类别",
   "savings": "储蓄",
   "paydown": "还款",
@@ -1198,5 +1201,5 @@
   "addContribution": "添加存入",
   "contributionAmount": "存入金额",
   "contributionType": "类型",
-  "contributionAdded": "已成功添加存入",
+  "contributionAdded": "已成功添加存入"
 }

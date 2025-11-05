@@ -55,7 +55,7 @@ class IncomeCard extends ConsumerWidget {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            context.l10n.income ?? 'Income',
+                            context.l10n.income,
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -77,7 +77,7 @@ class IncomeCard extends ConsumerWidget {
                   // MTD Income
                   if (summary.mtdIncome != null) ...[
                     Text(
-                      context.l10n.monthToDate ?? 'Month-to-Date',
+                      context.l10n.monthToDate,
                       style: TextStyle(
                         fontSize: 12,
                         color: colorScheme.mutedForeground,
@@ -94,7 +94,7 @@ class IncomeCard extends ConsumerWidget {
                     ),
                   ] else ...[
                     Text(
-                      context.l10n.totalIncome ?? 'Total Income',
+                      context.l10n.totalIncome,
                       style: TextStyle(
                         fontSize: 12,
                         color: colorScheme.mutedForeground,
@@ -118,7 +118,7 @@ class IncomeCard extends ConsumerWidget {
                     Row(
                       children: [
                         Text(
-                          '${context.l10n.yearToDate ?? "YTD"}: ',
+                          '${context.l10n.yearToDate}: ',
                           style: TextStyle(
                             fontSize: 12,
                             color: colorScheme.mutedForeground,
@@ -166,7 +166,7 @@ class IncomeCard extends ConsumerWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      context.l10n.income ?? 'Income',
+                      context.l10n.income,
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -177,7 +177,7 @@ class IncomeCard extends ConsumerWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  context.l10n.failedToLoadIncome ?? 'Failed to load income',
+                  context.l10n.failedToLoadIncome,
                   style: TextStyle(
                     fontSize: 12,
                     color: colorScheme.destructive,
@@ -193,7 +193,7 @@ class IncomeCard extends ConsumerWidget {
 
   String _getTransactionLabel(BuildContext context, int count) {
     if (count == 1) {
-      return context.l10n.transaction;
+      return context.l10n.transactions;
     }
     return context.l10n.transactions;
   }

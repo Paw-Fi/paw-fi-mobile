@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcn;
 import '../../domain/models/goal.dart';
 import '../providers/goals_providers.dart';
-import '../../../../l10n/l10n.dart';
+import '../../../../core/l10n/l10n.dart';
 
 class GoalCard extends ConsumerWidget {
   final Goal goal;

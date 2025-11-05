@@ -37,7 +37,6 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
   final _sourceController = TextEditingController();
 
   String _selectedCategory = incomeCategories[0];
-  String _selectedCurrency = 'USD';
   DateTime _selectedDate = DateTime.now();
   TimeOfDay _selectedTime = TimeOfDay.now();
   String _selectedOwnerType = 'me';
@@ -133,7 +132,7 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
         userId: user.uid,
         amount: amount,
         category: _selectedCategory,
-        currency: _selectedCurrency,
+        currency: ref.read(selectedCurrencyProvider),
         date: dateTime,
         description: _descriptionController.text.trim(),
         source: _sourceController.text.trim(),
@@ -299,8 +298,8 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
                       controller: _amountController,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       decoration: InputDecoration(
-                        labelText: context.l10n.amount ?? 'Amount',
-                        prefixText: resolveCurrencySymbol(_selectedCurrency),
+                        labelText: context.l10n.amount,
+                        prefixText: resolveCurrencySymbol(ref.watch(selectedCurrencyProvider)),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -325,9 +324,7 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
                       onTap: () async {
                         final result = await showCurrencySelectorModal(context, ref);
                         if (result != null) {
-                          setState(() {
-                            _selectedCurrency = result;
-                          });
+                          ref.read(selectedCurrencyProvider.notifier).state = result;
                         }
                       },
                       child: Container(
@@ -340,13 +337,13 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              context.l10n.currency ?? 'Currency',
+                              context.l10n.currency,
                               style: TextStyle(color: colorScheme.foreground),
                             ),
                             Row(
                               children: [
                                 Text(
-                                  _selectedCurrency,
+                                  ref.watch(selectedCurrencyProvider),
                                   style: TextStyle(
                                     color: colorScheme.primary,
                                     fontWeight: FontWeight.w600,
@@ -393,8 +390,8 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
                     TextFormField(
                       controller: _sourceController,
                       decoration: InputDecoration(
-                        labelText: context.l10n.source ?? 'Source',
-                        hintText: context.l10n.sourceHint ?? 'e.g., Employer, Client',
+                        labelText: context.l10n.source ,
+                        hintText: context.l10n.sourceHint ,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -407,8 +404,8 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
                     TextFormField(
                       controller: _descriptionController,
                       decoration: InputDecoration(
-                        labelText: context.l10n.description ?? 'Description',
-                        hintText: context.l10n.descriptionHint ?? 'Optional note',
+                        labelText: context.l10n.description,
+                        hintText: context.l10n.descriptionHint,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
