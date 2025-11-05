@@ -18,6 +18,8 @@ import '../pages/household_settings_page.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
+import 'package:moneko/features/income/presentation/widgets/income_card.dart';
+import 'package:moneko/features/income/presentation/providers/income_providers.dart';
 
 /// Household home content that handles loading, empty, and data states
 /// Returns Sliver widgets for use in CustomScrollView
@@ -121,6 +123,14 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
           
           // Determine which household to show
           final household = selectedState.household ?? households.first;
+
+          // Load income summary for household
+          Future.microtask(() {
+            ref.read(incomeSummaryProvider.notifier).loadSummary(
+              userId,
+              householdId: household.id,
+            );
+          });
           
           // Filters
           final filterState = ref.watch(homeFilterProvider);
@@ -365,6 +375,14 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                     ),
                   );
                 },
+              ),
+
+              const SizedBox(height: 16),
+
+              // Income Card
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: IncomeCard(householdId: household.id),
               ),
 
               const SizedBox(height: 16),

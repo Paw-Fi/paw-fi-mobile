@@ -21,6 +21,8 @@ import 'package:moneko/features/home/presentation/state/expense_save_providers.d
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
+import 'package:moneko/features/income/presentation/widgets/income_entry_sheet.dart';
+import 'package:moneko/features/goals/presentation/widgets/create_goal_sheet.dart';
 
 // ============================================================================
 // HOME PAGE
@@ -986,6 +988,22 @@ class _HomePageState extends ConsumerState<HomePage> {
       key: _fabKey,
       distance: 90,
       children: [
+        ActionButton(
+          onPressed: () {
+            _fabKey.currentState?.close();
+            showCreateGoalSheet(context);
+          },
+          icon: const Icon(Icons.flag),
+          label: context.l10n.createGoal,
+        ),
+        ActionButton(
+          onPressed: () {
+            _fabKey.currentState?.close();
+            showIncomeEntrySheet(context);
+          },
+          icon: const Icon(Icons.account_balance_wallet),
+          label: context.l10n.addIncome,
+        ),
         ActionButton(
           onPressed: () {
             _fabKey.currentState?.close();
