@@ -114,7 +114,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> with SingleTicker
 
   Widget _buildScenarioPlanningTabWithProvider(shadcnui.ColorScheme colorScheme, AnalyticsData analyticsData, String? selectedCurrency) {
     return ProviderScope(
-      overrides: [
+      overrides: const [
         // Override any providers if needed
       ],
       child: buildScenarioPlanningTab(context, colorScheme, analyticsData, selectedCurrency: selectedCurrency),

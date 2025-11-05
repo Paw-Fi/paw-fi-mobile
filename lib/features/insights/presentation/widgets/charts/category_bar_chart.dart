@@ -23,7 +23,7 @@ Widget buildCategoryBarChart(BuildContext context, shadcnui.ColorScheme colorSch
   }
 
   // Calculate required width: each bar needs ~60px (40px bar + 20px spacing)
-  final barWidth = 60.0;
+  const barWidth = 60.0;
   final minWidth = categories.length * barWidth;
   final screenWidth = MediaQuery.of(context).size.width - 32; // subtract padding
 
@@ -71,7 +71,7 @@ Widget buildCategoryBarChart(BuildContext context, shadcnui.ColorScheme colorSch
               ),
             ),
           ),
-          gridData: FlGridData(show: false),
+          gridData: const FlGridData(show: false),
           borderData: FlBorderData(show: false),
         ),
       ),

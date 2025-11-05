@@ -243,8 +243,8 @@ class HouseholdOverviewPage extends ConsumerWidget {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.person_add, size: 18),
-                          SizedBox(width: 8),
+                          const Icon(Icons.person_add, size: 18),
+                          const SizedBox(width: 8),
                           Text(context.l10n.invite),
                         ],
                       ),
@@ -259,8 +259,8 @@ class HouseholdOverviewPage extends ConsumerWidget {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.call_split, size: 18),
-                          SizedBox(width: 8),
+                          const Icon(Icons.call_split, size: 18),
+                          const SizedBox(width: 8),
                           Text(context.l10n.split),
                         ],
                       ),

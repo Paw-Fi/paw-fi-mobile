@@ -546,7 +546,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
                       '|',
                       style: TextStyle(
                         fontSize: 14,
-                        color: colorScheme.mutedForeground.withOpacity(0.3),
+                        color: colorScheme.mutedForeground.withValues(alpha: 0.3),
                       ),
                     ),
                   ),
@@ -557,7 +557,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
                       '|',
                       style: TextStyle(
                         fontSize: 14,
-                        color: colorScheme.mutedForeground.withOpacity(0.3),
+                        color: colorScheme.mutedForeground.withValues(alpha: 0.3),
                       ),
                     ),
                   ),
@@ -589,9 +589,9 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: colorScheme.destructive.withOpacity(0.1),
+                color: colorScheme.destructive.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: colorScheme.destructive.withOpacity(0.3)),
+                border: Border.all(color: colorScheme.destructive.withValues(alpha: 0.3)),
               ),
               child: Row(
                 children: [
@@ -749,7 +749,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
       style: TextStyle(
         fontSize: 15,
         fontWeight: FontWeight.w600,
-        color: enabled ? colorScheme.foreground : colorScheme.mutedForeground.withOpacity(0.4),
+        color: enabled ? colorScheme.foreground : colorScheme.mutedForeground.withValues(alpha: 0.4),
       ),
       decoration: InputDecoration(
         isDense: true,
@@ -760,7 +760,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
         suffixStyle: TextStyle(
           fontSize: 15,
           fontWeight: FontWeight.w600,
-          color: enabled ? colorScheme.foreground : colorScheme.mutedForeground.withOpacity(0.4),
+          color: enabled ? colorScheme.foreground : colorScheme.mutedForeground.withValues(alpha: 0.4),
         ),
       ),
       onSubmitted: (_) => FocusScope.of(context).unfocus(),
@@ -802,7 +802,6 @@ class _CustomSplitSheetState extends State<_CustomSplitSheet> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = shadcnui.Theme.of(context).colorScheme;
-    final isDark = shadcnui.Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       constraints: BoxConstraints(
@@ -821,7 +820,7 @@ class _CustomSplitSheetState extends State<_CustomSplitSheet> {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: colorScheme.border.withOpacity(0.5),
+              color: colorScheme.border.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(2),
             ),
           ),

@@ -95,15 +95,15 @@ class ForceUpdateDialog extends StatelessWidget {
                 width: double.infinity,
                 child: shadcnui.PrimaryButton(
                   onPressed: _openStore,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 4),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                     
                         Text(
                           'Update now',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
                             color: Colors.white,

@@ -1,5 +1,7 @@
-import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'dart:developer' as developer;
+
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Service for managing guest goals and migrating them on login
@@ -13,6 +15,10 @@ class GuestGoalService {
 
   GuestGoalService(this._prefs, this._supabase);
 
+  void _log(String message, {Object? error, StackTrace? stackTrace}) {
+    developer.log(message, name: 'GuestGoalService', error: error, stackTrace: stackTrace);
+  }
+
   // ============================================================================
   // Guest Goals Management
   // ============================================================================
@@ -25,8 +31,8 @@ class GuestGoalService {
     try {
       final List<dynamic> decoded = jsonDecode(goalIdsJson);
       return decoded.map((e) => e.toString()).toList();
-    } catch (e) {
-      print('Error parsing guest goal IDs: $e');
+    } catch (e, stack) {
+      _log('Error parsing guest goal IDs', error: e, stackTrace: stack);
       return [];
     }
   }
@@ -43,14 +49,14 @@ class GuestGoalService {
     final updatedGoalIds = [...existingGoalIds, goalId];
     await _prefs.setString(_guestGoalsKey, jsonEncode(updatedGoalIds));
 
-    print('Added guest goal ID: $goalId');
-    print('Total guest goals: ${updatedGoalIds.length}');
+    _log('Added guest goal ID', error: goalId);
+    _log('Total guest goals: ${updatedGoalIds.length}');
   }
 
   /// Clear all guest goal IDs (called after successful migration)
   Future<void> clearGuestGoalIds() async {
     await _prefs.remove(_guestGoalsKey);
-    print('Cleared all guest goal IDs');
+    _log('Cleared all guest goal IDs');
   }
 
   // ============================================================================
@@ -65,8 +71,8 @@ class GuestGoalService {
     try {
       final List<dynamic> decoded = jsonDecode(profileIdsJson);
       return decoded.map((e) => e.toString()).toList();
-    } catch (e) {
-      print('Error parsing guest profile IDs: $e');
+    } catch (e, stack) {
+      _log('Error parsing guest profile IDs', error: e, stackTrace: stack);
       return [];
     }
   }
@@ -83,14 +89,14 @@ class GuestGoalService {
     final updatedProfileIds = [...existingProfileIds, profileId];
     await _prefs.setString(_guestProfilesKey, jsonEncode(updatedProfileIds));
 
-    print('Added guest profile ID: $profileId');
-    print('Total guest profiles: ${updatedProfileIds.length}');
+    _log('Added guest profile ID', error: profileId);
+    _log('Total guest profiles: ${updatedProfileIds.length}');
   }
 
   /// Clear all guest profile IDs (called after successful migration)
   Future<void> clearGuestProfileIds() async {
     await _prefs.remove(_guestProfilesKey);
-    print('Cleared all guest profile IDs');
+    _log('Cleared all guest profile IDs');
   }
 
   // ============================================================================
@@ -104,7 +110,7 @@ class GuestGoalService {
     final guestProfileIds = await getGuestProfileIds();
 
     if (guestGoalIds.isEmpty && guestProfileIds.isEmpty) {
-      print('No guest data to migrate');
+      _log('No guest data to migrate');
       return MigrationResult(
         success: true,
         migratedGoals: 0,
@@ -112,9 +118,9 @@ class GuestGoalService {
       );
     }
 
-    print('Starting migration for user $userId');
-    print('Guest goals to migrate: ${guestGoalIds.length}');
-    print('Guest profiles to migrate: ${guestProfileIds.length}');
+    _log('Starting migration', error: userId);
+    _log('Guest goals to migrate: ${guestGoalIds.length}');
+    _log('Guest profiles to migrate: ${guestProfileIds.length}');
 
     int migratedGoals = 0;
     int migratedProfiles = 0;
@@ -132,15 +138,15 @@ class GuestGoalService {
 
         if (response.isNotEmpty) {
           migratedGoals++;
-          print('Successfully migrated goal: $goalId');
+          _log('Successfully migrated goal: $goalId');
 
           // Log the migration activity
           await _logMigrationActivity(userId, goalId, 'goal');
         } else {
-          print('Goal not found or already migrated: $goalId');
+          _log('Goal not found or already migrated: $goalId');
         }
-      } catch (e) {
-        print('Error migrating goal $goalId: $e');
+      } catch (e, stack) {
+        _log('Error migrating goal $goalId', error: e, stackTrace: stack);
         errors.add('Goal $goalId: ${e.toString()}');
       }
     }
@@ -157,15 +163,15 @@ class GuestGoalService {
 
         if (response.isNotEmpty) {
           migratedProfiles++;
-          print('Successfully migrated profile: $profileId');
+          _log('Successfully migrated profile: $profileId');
 
           // Log the migration activity
           await _logMigrationActivity(userId, profileId, 'profile');
         } else {
-          print('Profile not found or already migrated: $profileId');
+          _log('Profile not found or already migrated: $profileId');
         }
-      } catch (e) {
-        print('Error migrating profile $profileId: $e');
+      } catch (e, stack) {
+        _log('Error migrating profile $profileId', error: e, stackTrace: stack);
         errors.add('Profile $profileId: ${e.toString()}');
       }
     }
@@ -185,9 +191,9 @@ class GuestGoalService {
       errors: errors.isEmpty ? null : errors,
     );
 
-    print('Migration completed: $migratedGoals goals, $migratedProfiles profiles');
+    _log('Migration completed: $migratedGoals goals, $migratedProfiles profiles');
     if (errors.isNotEmpty) {
-      print('Migration errors: ${errors.join(', ')}');
+      _log('Migration errors: ${errors.join(', ')}');
     }
 
     return result;
@@ -211,8 +217,8 @@ class GuestGoalService {
           'source': 'mobile_app',
         },
       });
-    } catch (e) {
-      print('Error logging migration activity: $e');
+    } catch (e, stack) {
+      _log('Error logging migration activity', error: e, stackTrace: stack);
       // Don't fail migration if logging fails
     }
   }

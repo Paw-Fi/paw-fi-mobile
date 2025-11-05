@@ -1,5 +1,4 @@
 import 'package:dio/dio.dart';
-import 'package:moneko/core/core.dart';
 import 'package:moneko/features/onboarding/data/api/onboarding_api.dart';
 import 'package:moneko/features/onboarding/data/models/onboarding_chat_models.dart';
 import 'package:moneko/features/onboarding/data/models/goal_creation_models.dart';

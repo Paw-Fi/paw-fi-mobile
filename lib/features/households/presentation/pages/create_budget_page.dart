@@ -301,7 +301,7 @@ class CreateBudgetPage extends HookConsumerWidget {
             // Personal Budget Options
             if (selectedType.value == BudgetType.personal) ...[
               Card(
-                color: colorScheme.muted.withOpacity(0.5),
+                color: colorScheme.muted.withValues(alpha: 0.5),
                 child: Padding(
                   padding: const EdgeInsets.all(12),
                   child: Row(

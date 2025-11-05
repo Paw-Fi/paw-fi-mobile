@@ -183,7 +183,7 @@ class _GoalPresentationModalState extends State<GoalPresentationModal> {
               width: 80,
               height: 80,
               decoration: BoxDecoration(
-                color: shadcnui.Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                color: shadcnui.Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -329,10 +329,10 @@ class _GoalPresentationModalState extends State<GoalPresentationModal> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: shadcnui.Theme.of(context).colorScheme.primary.withOpacity(0.1),
+              color: shadcnui.Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: shadcnui.Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                color: shadcnui.Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                 width: 1,
               ),
             ),
@@ -385,7 +385,7 @@ class _GoalPresentationModalState extends State<GoalPresentationModal> {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: shadcnui.Theme.of(context).colorScheme.primary.withOpacity(0.1),
+              color: shadcnui.Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
@@ -476,8 +476,8 @@ class _GoalPresentationModalState extends State<GoalPresentationModal> {
           Container(
             width: 28,
             height: 28,
-            decoration: BoxDecoration(
-              color: const Color(0xFF16CDA2),
+            decoration: const BoxDecoration(
+              color: Color(0xFF16CDA2),
               shape: BoxShape.circle,
             ),
             child: Center(

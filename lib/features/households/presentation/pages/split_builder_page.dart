@@ -90,7 +90,7 @@ class _SplitBuilderPageState extends ConsumerState<SplitBuilderPage> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: _selectedPayer,
+                initialValue: _selectedPayer,
                 decoration: const InputDecoration(
                   labelText: 'Payer',
                   border: OutlineInputBorder(),

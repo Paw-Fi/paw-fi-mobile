@@ -232,14 +232,14 @@ class _AllTimeSummaryPills extends StatelessWidget {
     for (final e in expenses) {
       totalSpent += e.amount;
       final d = DateTime(e.date.year, e.date.month, e.date.day);
-      minDate = (minDate == null || d.isBefore(minDate!)) ? d : minDate;
-      maxDate = (maxDate == null || d.isAfter(maxDate!)) ? d : maxDate;
+      minDate = (minDate == null || d.isBefore(minDate)) ? d : minDate;
+      maxDate = (maxDate == null || d.isAfter(maxDate)) ? d : maxDate;
     }
     for (final b in budgets) {
       totalBudget += b.amount;
       final d = DateTime(b.date.year, b.date.month, b.date.day);
-      minDate = (minDate == null || d.isBefore(minDate!)) ? d : minDate;
-      maxDate = (maxDate == null || d.isAfter(maxDate!)) ? d : maxDate;
+      minDate = (minDate == null || d.isBefore(minDate)) ? d : minDate;
+      maxDate = (maxDate == null || d.isAfter(maxDate)) ? d : maxDate;
     }
 
     final net = totalBudget - totalSpent;
@@ -247,8 +247,8 @@ class _AllTimeSummaryPills extends StatelessWidget {
     final spentTxt = formatCurrency(totalSpent.abs(), code);
     final budgetTxt = formatCurrency(totalBudget.abs(), code);
     final netTxt = formatCurrency(net.abs(), code);
-    final spanStart = minDate != null ? '${minDate!.year}-${minDate!.month.toString().padLeft(2, '0')}-${minDate!.day.toString().padLeft(2, '0')}' : '';
-    final spanEnd = maxDate != null ? '${maxDate!.year}-${maxDate!.month.toString().padLeft(2, '0')}-${maxDate!.day.toString().padLeft(2, '0')}' : '';
+    final spanStart = minDate != null ? '${minDate.year}-${minDate.month.toString().padLeft(2, '0')}-${minDate.day.toString().padLeft(2, '0')}' : '';
+    final spanEnd = maxDate != null ? '${maxDate.year}-${maxDate.month.toString().padLeft(2, '0')}-${maxDate.day.toString().padLeft(2, '0')}' : '';
 
     final netTint = net >= 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444);
 

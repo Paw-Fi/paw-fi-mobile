@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:moneko/core/l10n/l10n.dart';
-import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/income/presentation/providers/income_providers.dart';
 import 'package:moneko/features/income/presentation/constants/income_categories.dart';
@@ -144,7 +142,7 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
 
       if (income != null && mounted) {
         Navigator.of(context).pop();
-        _showSuccess(context.l10n.incomeAdded ?? 'Income added successfully');
+        _showSuccess(context.l10n.incomeAdded);
       } else if (mounted) {
         _showError('Failed to save income');
       }
@@ -182,21 +180,21 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
   String _getCategoryLabel(String category) {
     switch (category) {
       case 'income:salary':
-        return context.l10n.incomeSalary ?? 'Salary';
+        return context.l10n.incomeSalary;
       case 'income:freelance':
-        return context.l10n.incomeFreelance ?? 'Freelance';
+        return context.l10n.incomeFreelance;
       case 'income:investment':
-        return context.l10n.incomeInvestment ?? 'Investment';
+        return context.l10n.incomeInvestment;
       case 'income:refund':
-        return context.l10n.incomeRefund ?? 'Refund';
+        return context.l10n.incomeRefund;
       case 'income:gift':
-        return context.l10n.incomeGift ?? 'Gift';
+        return context.l10n.incomeGift;
       case 'income:bonus':
-        return context.l10n.incomeBonus ?? 'Bonus';
+        return context.l10n.incomeBonus;
       case 'income:rental':
-        return context.l10n.incomeRental ?? 'Rental';
+        return context.l10n.incomeRental;
       case 'income:other':
-        return context.l10n.incomeOther ?? 'Other';
+        return context.l10n.incomeOther;
       default:
         return category;
     }
@@ -205,11 +203,11 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
   String _getOwnerTypeLabel(String ownerType) {
     switch (ownerType) {
       case 'me':
-        return context.l10n.me ?? 'Me';
+        return context.l10n.me;
       case 'partner':
-        return context.l10n.partner ?? 'Partner';
+        return context.l10n.partner;
       case 'household':
-        return context.l10n.household ?? 'Household';
+        return context.l10n.household;
       default:
         return ownerType;
     }
@@ -218,11 +216,11 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
   String _getPrivacyScopeLabel(String scope) {
     switch (scope) {
       case 'full':
-        return context.l10n.privacyFull ?? 'Full Details';
+        return context.l10n.privacyFull;
       case 'balances_only':
-        return context.l10n.privacyBalancesOnly ?? 'Balances Only';
+        return context.l10n.privacyBalancesOnly;
       case 'private':
-        return context.l10n.privacyPrivate ?? 'Private';
+        return context.l10n.privacyPrivate;
       default:
         return scope;
     }
@@ -262,7 +260,7 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  context.l10n.addIncome ?? 'Add Income',
+                  context.l10n.addIncome,
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
@@ -362,9 +360,9 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
 
                     // Category Selector
                     DropdownButtonFormField<String>(
-                      value: _selectedCategory,
+                      initialValue: _selectedCategory,
                       decoration: InputDecoration(
-                        labelText: context.l10n.category ?? 'Category',
+                        labelText: context.l10n.category,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -431,7 +429,7 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
-                                    context.l10n.date ?? 'Date',
+                                    context.l10n.date,
                                     style: TextStyle(color: colorScheme.foreground),
                                   ),
                                   Text(
@@ -460,7 +458,7 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
-                                    context.l10n.time ?? 'Time',
+                                    context.l10n.time,
                                     style: TextStyle(color: colorScheme.foreground),
                                   ),
                                   Text(
@@ -491,7 +489,7 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            context.l10n.shareWithHousehold ?? 'Share with Household',
+                            context.l10n.shareWithHousehold,
                             style: TextStyle(color: colorScheme.foreground),
                           ),
                           Switch(
@@ -511,9 +509,9 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
 
                       // Owner Type
                       DropdownButtonFormField<String>(
-                        value: _selectedOwnerType,
+                        initialValue: _selectedOwnerType,
                         decoration: InputDecoration(
-                          labelText: context.l10n.owner ?? 'Owner',
+                          labelText: context.l10n.owner,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
@@ -537,9 +535,9 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
 
                       // Privacy Scope
                       DropdownButtonFormField<String>(
-                        value: _selectedPrivacyScope,
+                        initialValue: _selectedPrivacyScope,
                         decoration: InputDecoration(
-                          labelText: context.l10n.privacyScope ?? 'Privacy',
+                          labelText: context.l10n.privacyScope,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
@@ -565,7 +563,7 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: colorScheme.muted.withOpacity(0.5),
+                          color: colorScheme.muted.withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
@@ -591,7 +589,7 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
                                 width: 20,
                                 child: CircularProgressIndicator(strokeWidth: 2),
                               )
-                            : Text(context.l10n.save ?? 'Save'),
+                            : Text(context.l10n.save),
                       ),
                     ),
 
@@ -609,14 +607,11 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
   String _getPrivacyExplanation(String scope) {
     switch (scope) {
       case 'full':
-        return context.l10n.privacyFullExplanation ??
-            'Partner can see all details including amount, source, and description.';
+        return context.l10n.privacyFullExplanation;
       case 'balances_only':
-        return context.l10n.privacyBalancesOnlyExplanation ??
-            'Partner can see this income in totals but not the details (source, description hidden).';
+        return context.l10n.privacyBalancesOnlyExplanation;
       case 'private':
-        return context.l10n.privacyPrivateExplanation ??
-            'Only you can see this income. It contributes to household totals but partner cannot see details.';
+        return context.l10n.privacyPrivateExplanation;
       default:
         return '';
     }

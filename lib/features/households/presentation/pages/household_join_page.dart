@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
@@ -246,7 +245,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
               width: 120,
               height: 120,
               decoration: BoxDecoration(
-                color: colorScheme.primary.withOpacity(0.1),
+                color: colorScheme.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(32),
               ),
               child: Center(
@@ -272,7 +271,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
               context.l10n.enterYourInvitationLinkToJoin,
               style: TextStyle(
                 fontSize: 16,
-                color: colorScheme.foreground.withOpacity(0.6),
+                color: colorScheme.foreground.withValues(alpha: 0.6),
                 height: 1.5,
                 letterSpacing: -0.2,
               ),
@@ -291,10 +290,10 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: colorScheme.muted.withOpacity(0.3),
+          color: colorScheme.muted.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: colorScheme.border.withOpacity(0.08),
+            color: colorScheme.border.withValues(alpha: 0.08),
             width: 1,
           ),
         ),
@@ -302,7 +301,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
           children: [
             Icon(
               Icons.info_outline_rounded,
-              color: colorScheme.mutedForeground.withOpacity(0.7),
+              color: colorScheme.mutedForeground.withValues(alpha: 0.7),
               size: 18,
             ),
             const SizedBox(width: 12),
@@ -311,7 +310,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
                 context.l10n.pasteTheInvitationLinkYouReceived,
                 style: TextStyle(
                   fontSize: 13,
-                  color: colorScheme.foreground.withOpacity(0.65),
+                  color: colorScheme.foreground.withValues(alpha: 0.65),
                   height: 1.4,
                   letterSpacing: -0.1,
                 ),
@@ -332,7 +331,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
           color: colorScheme.background,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: colorScheme.border.withOpacity(0.12),
+            color: colorScheme.border.withValues(alpha: 0.12),
             width: 1.5,
           ),
         ),
@@ -343,7 +342,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
               padding: const EdgeInsets.only(left: 14, right: 8),
               child: Icon(
                 Icons.link_rounded,
-                color: colorScheme.mutedForeground.withOpacity(0.6),
+                color: colorScheme.mutedForeground.withValues(alpha: 0.6),
                 size: 20,
               ),
             ),
@@ -366,7 +365,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
                 decoration: InputDecoration(
                   hintText: context.l10n.pasteInvitationLink,
                   hintStyle: TextStyle(
-                    color: colorScheme.mutedForeground.withOpacity(0.4),
+                    color: colorScheme.mutedForeground.withValues(alpha: 0.4),
                     fontWeight: FontWeight.normal,
                     fontSize: 15,
                   ),
@@ -409,7 +408,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
                       child: IconButton(
                         icon: Icon(
                           Icons.close_rounded,
-                          color: colorScheme.mutedForeground.withOpacity(0.6),
+                          color: colorScheme.mutedForeground.withValues(alpha: 0.6),
                           size: 20,
                         ),
                         onPressed: isValidating
@@ -424,7 +423,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
                           minHeight: 36,
                         ),
                         style: IconButton.styleFrom(
-                          backgroundColor: colorScheme.muted.withOpacity(0.4),
+                          backgroundColor: colorScheme.muted.withValues(alpha: 0.4),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
@@ -435,7 +434,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
                       label: HouseholdConstants.pasteButtonLabel,
                       button: true,
                       child: Material(
-                        color: colorScheme.primary.withOpacity(0.1),
+                        color: colorScheme.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                         child: InkWell(
                           onTap: (isValidating || _isPasting) ? null : _pasteFromClipboard,
@@ -514,7 +513,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
                         valueColor: AlwaysStoppedAnimation<Color>(
-                          colorScheme.primaryForeground.withOpacity(0.5),
+                          colorScheme.primaryForeground.withValues(alpha: 0.5),
                         ),
                       ),
                     ),
@@ -666,15 +665,15 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              colorScheme.primary.withOpacity(0.08),
-              colorScheme.primary.withOpacity(0.03),
+              colorScheme.primary.withValues(alpha: 0.08),
+              colorScheme.primary.withValues(alpha: 0.03),
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: colorScheme.primary.withOpacity(0.12),
+            color: colorScheme.primary.withValues(alpha: 0.12),
             width: 2,
           ),
         ),
@@ -688,7 +687,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
+                    color: Colors.black.withValues(alpha: 0.08),
                     blurRadius: 20,
                     offset: const Offset(0, 8),
                   ),
@@ -703,7 +702,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
                         loadingBuilder: (context, child, progress) {
                           if (progress == null) return child;
                           return Container(
-                            color: colorScheme.primary.withOpacity(0.2),
+                            color: colorScheme.primary.withValues(alpha: 0.2),
                             child: Center(
                               child: SizedBox(
                                 width: 30,
@@ -721,7 +720,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
                         },
                         errorBuilder: (context, error, stack) {
                           return Container(
-                            color: colorScheme.primary.withOpacity(0.2),
+                            color: colorScheme.primary.withValues(alpha: 0.2),
                             child: Icon(
                               Icons.home_rounded,
                               size: 48,
@@ -731,7 +730,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
                         },
                       )
                     : Container(
-                        color: colorScheme.primary.withOpacity(0.2),
+                        color: colorScheme.primary.withValues(alpha: 0.2),
                         child: Center(
                           child: Icon(
                             Icons.home_rounded,
@@ -759,7 +758,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: colorScheme.muted.withOpacity(0.5),
+                color: colorScheme.muted.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
@@ -768,7 +767,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
                   Icon(
                     Icons.person_outline_rounded,
                     size: 16,
-                    color: colorScheme.foreground.withOpacity(0.7),
+                    color: colorScheme.foreground.withValues(alpha: 0.7),
                   ),
                   const SizedBox(width: 6),
                   Flexible(
@@ -776,7 +775,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
                       context.l10n.invitedBy(inviterEmail),
                       style: TextStyle(
                         fontSize: 14,
-                        color: colorScheme.foreground.withOpacity(0.7),
+                        color: colorScheme.foreground.withValues(alpha: 0.7),
                         fontWeight: FontWeight.w500,
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -793,9 +792,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
 
   Widget _buildExpirationCard(shadcnui.ColorScheme colorScheme, String expiresAt) {
     final expirationDate = DateTime.tryParse(expiresAt);
-    final daysUntilExpiry = expirationDate != null
-        ? expirationDate.difference(DateTime.now()).inDays
-        : null;
+    final daysUntilExpiry = expirationDate?.difference(DateTime.now()).inDays;
     final isExpiringSoon = daysUntilExpiry != null && daysUntilExpiry <= 2;
 
     return Semantics(
@@ -807,13 +804,13 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: isExpiringSoon
-              ? Colors.orange.withOpacity(0.1)
-              : colorScheme.muted.withOpacity(0.5),
+              ? Colors.orange.withValues(alpha: 0.1)
+              : colorScheme.muted.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isExpiringSoon
-                ? Colors.orange.withOpacity(0.3)
-                : colorScheme.border.withOpacity(0.12),
+                ? Colors.orange.withValues(alpha: 0.3)
+                : colorScheme.border.withValues(alpha: 0.12),
             width: 1,
           ),
         ),
@@ -821,7 +818,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
           children: [
             Icon(
               isExpiringSoon ? Icons.warning_amber_rounded : Icons.schedule_rounded,
-              color: isExpiringSoon ? Colors.orange : colorScheme.foreground.withOpacity(0.7),
+              color: isExpiringSoon ? Colors.orange : colorScheme.foreground.withValues(alpha: 0.7),
               size: 20,
             ),
             const SizedBox(width: 12),
@@ -842,7 +839,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
                     _formatDate(expiresAt),
                     style: TextStyle(
                       fontSize: 13,
-                      color: colorScheme.foreground.withOpacity(0.7),
+                      color: colorScheme.foreground.withValues(alpha: 0.7),
                     ),
                   ),
                 ],
@@ -867,10 +864,10 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.blue.withOpacity(0.05),
+          color: Colors.blue.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: Colors.blue.withOpacity(0.12),
+            color: Colors.blue.withValues(alpha: 0.12),
             width: 1,
           ),
         ),
@@ -883,7 +880,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
                   width: 32,
                   height: 32,
                   decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.1),
+                    color: Colors.blue.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(
@@ -920,7 +917,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
                         benefit['text'] as String,
                         style: TextStyle(
                           fontSize: 14,
-                          color: colorScheme.foreground.withOpacity(0.8),
+                          color: colorScheme.foreground.withValues(alpha: 0.8),
                           height: 1.4,
                         ),
                       ),
@@ -968,7 +965,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
                     '"$message"',
                     style: TextStyle(
                       fontSize: 14,
-                      color: colorScheme.foreground.withOpacity(0.8),
+                      color: colorScheme.foreground.withValues(alpha: 0.8),
                       height: 1.4,
                     ),
                   ),
@@ -1011,7 +1008,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
               context.l10n.thisWillOnlyTakeAMoment,
               style: TextStyle(
                 fontSize: 14,
-                color: colorScheme.foreground.withOpacity(0.6),
+                color: colorScheme.foreground.withValues(alpha: 0.6),
               ),
             ),
           ],
@@ -1036,7 +1033,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
               width: 120,
               height: 120,
               decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.1),
+                color: Colors.green.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -1060,7 +1057,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
               context.l10n.youreNowPartOfTheHousehold,
               style: TextStyle(
                 fontSize: 16,
-                color: colorScheme.foreground.withOpacity(0.6),
+                color: colorScheme.foreground.withValues(alpha: 0.6),
                 height: 1.5,
               ),
               textAlign: TextAlign.center,
@@ -1108,10 +1105,10 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
             Container(
               padding: const EdgeInsets.all(32),
               decoration: BoxDecoration(
-                color: colorScheme.destructive.withOpacity(0.05),
+                color: colorScheme.destructive.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(
-                  color: colorScheme.destructive.withOpacity(0.12),
+                  color: colorScheme.destructive.withValues(alpha: 0.12),
                   width: 2,
                 ),
               ),
@@ -1121,7 +1118,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
                     width: 80,
                     height: 80,
                     decoration: BoxDecoration(
-                      color: colorScheme.destructive.withOpacity(0.1),
+                      color: colorScheme.destructive.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
@@ -1145,7 +1142,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
                     _errorMessage ?? context.l10n.anUnexpectedErrorOccurred,
                     style: TextStyle(
                       fontSize: 15,
-                      color: colorScheme.foreground.withOpacity(0.7),
+                      color: colorScheme.foreground.withValues(alpha: 0.7),
                       height: 1.5,
                     ),
                     textAlign: TextAlign.center,

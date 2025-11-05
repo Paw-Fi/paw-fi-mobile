@@ -565,7 +565,7 @@ class _UnifiedTransactionSheetState
     }
     return Container(
       decoration: BoxDecoration(
-        color: colorScheme.muted.withOpacity(0.12),
+        color: colorScheme.muted.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -614,7 +614,7 @@ class _UnifiedTransactionSheetState
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               decoration: BoxDecoration(
-                color: colorScheme.muted.withOpacity(0.08),
+                color: colorScheme.muted.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: DropdownButtonHideUnderline(
@@ -702,7 +702,7 @@ class _UnifiedTransactionSheetState
                   return Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: colorScheme.muted.withOpacity(0.08),
+                      color: colorScheme.muted.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
@@ -726,7 +726,7 @@ class _UnifiedTransactionSheetState
                   return Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: colorScheme.destructive.withOpacity(0.08),
+                      color: colorScheme.destructive.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
@@ -747,7 +747,7 @@ class _UnifiedTransactionSheetState
                   return Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: colorScheme.muted.withOpacity(0.06),
+                      color: colorScheme.muted.withValues(alpha: 0.06),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -762,7 +762,7 @@ class _UnifiedTransactionSheetState
 
                 return Container(
                   decoration: BoxDecoration(
-                    color: colorScheme.muted.withOpacity(0.08),
+                    color: colorScheme.muted.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: CustomSplitEditor(
@@ -819,7 +819,7 @@ class _UnifiedTransactionSheetState
                     label,
                     style: TextStyle(
                       fontSize: 13,
-                      color: disabled ? colorScheme.mutedForeground.withOpacity(0.6) : colorScheme.mutedForeground,
+                      color: disabled ? colorScheme.mutedForeground.withValues(alpha: 0.6) : colorScheme.mutedForeground,
                       fontWeight: FontWeight.w400,
                     ),
                   ),
@@ -835,7 +835,7 @@ class _UnifiedTransactionSheetState
                 ],
               ),
             ),
-            Icon(Icons.chevron_right, color: disabled ? colorScheme.mutedForeground.withOpacity(0.4) : colorScheme.mutedForeground, size: 18),
+            Icon(Icons.chevron_right, color: disabled ? colorScheme.mutedForeground.withValues(alpha: 0.4) : colorScheme.mutedForeground, size: 18),
           ],
         ),
       ),
@@ -930,7 +930,7 @@ class _UnifiedTransactionSheetState
                     child: ListView.separated(
                       shrinkWrap: true,
                       itemCount: items.length,
-                      separatorBuilder: (_, __) => Divider(height: 1, color: scheme.border.withOpacity(0.4)),
+                      separatorBuilder: (_, __) => Divider(height: 1, color: scheme.border.withValues(alpha: 0.4)),
                       itemBuilder: (context, i) {
                         final value = items[i];
                         final label = getLabel(value);
@@ -1005,7 +1005,7 @@ class _UnifiedTransactionSheetState
         width: double.infinity,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: colorScheme.muted.withOpacity(0.08),
+          color: colorScheme.muted.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
@@ -1387,7 +1387,7 @@ class _UnifiedTransactionSheetState
                             onPressed: () => Navigator.pop(context),
                             child: Text(context.l10n.cancel),
                           ),
-                          Text(context.l10n.editNotes, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+                          Text(context.l10n.editNotes, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
                           CupertinoButton(
                             padding: EdgeInsets.zero,
                             onPressed: () => Navigator.pop(context, controller.text),
@@ -1457,7 +1457,7 @@ class _UnifiedTransactionSheetState
                     decoration: InputDecoration(
                       hintText: context.l10n.addANote,
                       filled: true,
-                      fillColor: colorScheme.muted.withOpacity(0.1),
+                      fillColor: colorScheme.muted.withValues(alpha: 0.1),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
@@ -1763,7 +1763,7 @@ class _UnifiedTransactionSheetState
           ),
           content: Text(
             context.l10n.confirmDeleteExpense,
-            style: TextStyle(fontSize: 15),
+            style: const TextStyle(fontSize: 15),
           ),
           actions: [
             TextButton(
@@ -1777,9 +1777,9 @@ class _UnifiedTransactionSheetState
               onPressed: () => Navigator.pop(context, true),
               style: TextButton.styleFrom(
                 foregroundColor: colorScheme.destructive,
-                backgroundColor: colorScheme.destructive.withOpacity(0.1),
+                backgroundColor: colorScheme.destructive.withValues(alpha: 0.1),
               ),
-              child: Text(context.l10n.delete, style: TextStyle(fontWeight: FontWeight.w600)),
+              child: Text(context.l10n.delete, style: const TextStyle(fontWeight: FontWeight.w600)),
             ),
           ],
           shape: RoundedRectangleBorder(

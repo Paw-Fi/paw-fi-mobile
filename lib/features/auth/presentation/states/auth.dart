@@ -45,22 +45,25 @@ class Auth extends _$Auth {
       final hasGuestData = await guestGoalService.hasGuestDataToMigrate();
 
       if (!hasGuestData) {
-        print('No guest data to migrate for user $userId');
+        appLog('No guest data to migrate for user $userId', name: 'Auth');
         return;
       }
 
-      print('Migrating guest data for user $userId...');
+      appLog('Migrating guest data for user $userId...', name: 'Auth');
 
       // Perform migration
       final result = await guestGoalService.migrateGuestGoals(userId);
 
       if (result.success) {
-        print('Successfully migrated guest data: ${result.migratedGoals} goals, ${result.migratedProfiles} profiles');
+        appLog(
+          'Successfully migrated guest data: ${result.migratedGoals} goals, ${result.migratedProfiles} profiles',
+          name: 'Auth',
+        );
       } else {
-        print('Guest data migration completed with errors: ${result.errors}');
+        appLog('Guest data migration completed with errors: ${result.errors}', name: 'Auth');
       }
-    } catch (error) {
-      print('Error during guest data migration: $error');
+    } catch (error, stackTrace) {
+      appLog('Error during guest data migration', name: 'Auth', error: error, stackTrace: stackTrace);
       // Don't fail login if migration fails
     }
   }
@@ -75,11 +78,11 @@ class Auth extends _$Auth {
         password: password,
       );
       return response;
-    } on AuthException catch (error) {
-      print('Sign in error: ${error.message}');
+    } on AuthException catch (error, stackTrace) {
+      appLog('Sign in error: ${error.message}', name: 'Auth', error: error, stackTrace: stackTrace);
       rethrow;
-    } catch (error) {
-      print('Unexpected sign in error: $error');
+    } catch (error, stackTrace) {
+      appLog('Unexpected sign in error', name: 'Auth', error: error, stackTrace: stackTrace);
       rethrow;
     } finally {
       _isLoading = false;
@@ -105,11 +108,11 @@ class Auth extends _$Auth {
         emailRedirectTo: redirectUrl,
       );
       return response;
-    } on AuthException catch (error) {
-      print('Sign up error: ${error.message}');
+    } on AuthException catch (error, stackTrace) {
+      appLog('Sign up error: ${error.message}', name: 'Auth', error: error, stackTrace: stackTrace);
       rethrow;
-    } catch (error) {
-      print('Unexpected sign up error: $error');
+    } catch (error, stackTrace) {
+      appLog('Unexpected sign up error', name: 'Auth', error: error, stackTrace: stackTrace);
       rethrow;
     } finally {
       _isLoading = false;
@@ -130,11 +133,11 @@ class Auth extends _$Auth {
         type: OtpType.email,
       );
       return response;
-    } on AuthException catch (error) {
-      print('OTP verification error: ${error.message}');
+    } on AuthException catch (error, stackTrace) {
+      appLog('OTP verification error: ${error.message}', name: 'Auth', error: error, stackTrace: stackTrace);
       rethrow;
-    } catch (error) {
-      print('Unexpected OTP verification error: $error');
+    } catch (error, stackTrace) {
+      appLog('Unexpected OTP verification error', name: 'Auth', error: error, stackTrace: stackTrace);
       rethrow;
     } finally {
       _isLoading = false;
@@ -148,11 +151,11 @@ class Auth extends _$Auth {
         type: OtpType.signup,
         email: email,
       );
-    } on AuthException catch (error) {
-      print('Resend verification error: ${error.message}');
+    } on AuthException catch (error, stackTrace) {
+      appLog('Resend verification error: ${error.message}', name: 'Auth', error: error, stackTrace: stackTrace);
       rethrow;
-    } catch (error) {
-      print('Unexpected resend error: $error');
+    } catch (error, stackTrace) {
+      appLog('Unexpected resend error', name: 'Auth', error: error, stackTrace: stackTrace);
       rethrow;
     }
   }
@@ -164,11 +167,11 @@ class Auth extends _$Auth {
         email,
         redirectTo: redirectUrl,
       );
-    } on AuthException catch (error) {
-      print('Reset password error: ${error.message}');
+    } on AuthException catch (error, stackTrace) {
+      appLog('Reset password error: ${error.message}', name: 'Auth', error: error, stackTrace: stackTrace);
       rethrow;
-    } catch (error) {
-      print('Unexpected reset password error: $error');
+    } catch (error, stackTrace) {
+      appLog('Unexpected reset password error', name: 'Auth', error: error, stackTrace: stackTrace);
       rethrow;
     }
   }
@@ -179,11 +182,11 @@ class Auth extends _$Auth {
 
     try {
       await supabase.auth.signOut();
-    } on AuthException catch (error) {
-      print('Sign out error: ${error.message}');
+    } on AuthException catch (error, stackTrace) {
+      appLog('Sign out error: ${error.message}', name: 'Auth', error: error, stackTrace: stackTrace);
       rethrow;
-    } catch (error) {
-      print('Unexpected sign out error: $error');
+    } catch (error, stackTrace) {
+      appLog('Unexpected sign out error', name: 'Auth', error: error, stackTrace: stackTrace);
       rethrow;
     } finally {
       _isLoading = false;

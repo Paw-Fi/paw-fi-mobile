@@ -90,7 +90,7 @@ class SettingsPage extends HookConsumerWidget {
 
     final currencies = getAvailableCurrencyOptions();
     final selectedLocale = ref.watch(localeProvider);
-    final supportedLocales = AppLocalizations.supportedLocales;
+    const supportedLocales = AppLocalizations.supportedLocales;
     final dropdownValue = _coerceToSupported(selectedLocale, supportedLocales);
 
     return Scaffold(
@@ -364,9 +364,7 @@ class SettingsPage extends HookConsumerWidget {
                           // Persist preference to backend (same flow as currency)
                           if (auth.uid.isNotEmpty) {
                             final selected = ref.read(localeProvider);
-                            final langCode = selected == null
-                                ? null
-                                : selected.languageCode.toLowerCase();
+                            final langCode = selected?.languageCode.toLowerCase();
 
                             try {
                               final resp = await Supabase.instance.client.functions.invoke(
@@ -399,7 +397,7 @@ class SettingsPage extends HookConsumerWidget {
                                       onPressed: () async {
                                         try {
                                           final sel = ref.read(localeProvider);
-                                          final code = sel == null ? null : sel.languageCode.toLowerCase();
+                                          final code = sel?.languageCode.toLowerCase();
                                           final retry = await Supabase.instance.client.functions.invoke(
                                             'update-preferred-language',
                                             body: {
@@ -410,7 +408,7 @@ class SettingsPage extends HookConsumerWidget {
                                           if (retry.status >= 400) throw Exception('Retry failed');
                                           if (context.mounted) {
                                             ScaffoldMessenger.of(context).showSnackBar(
-                                              SnackBar(content: const Text('Language updated successfully')),
+                                              const SnackBar(content: Text('Language updated successfully')),
                                             );
                                           }
                                         } catch (_) {}
@@ -699,7 +697,7 @@ Future<void> _saveName(
   if (newName.isEmpty || newName.length < 2) {
     setState(() {}); // keep UI responsive; validation shown via snackbar below
     ScaffoldMessenger.of(ctx).showSnackBar(
-      SnackBar(content: Text('Please enter a valid name')), // concise default copy
+      const SnackBar(content: Text('Please enter a valid name')), // concise default copy
     );
     return;
   }

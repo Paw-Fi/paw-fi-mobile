@@ -301,7 +301,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                           child: _isExpanded
                               ? const Column(
                                   crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: const [
+                                  children: [
                                     SizedBox(height: 8),
                                     HouseholdSelector(),
                                   ],
@@ -333,7 +333,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                   final myContribution = summary?.memberContributions.firstWhere(
                     (m) => m.userId == userId,
                     orElse: () => MemberContribution(
-                      userId: userId!,
+                      userId: userId,
                       totalSpentCents: 0,
                       transactionCount: 0,
                       splitCount: 0,

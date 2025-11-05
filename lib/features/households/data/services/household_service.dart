@@ -1,14 +1,15 @@
+import 'package:moneko/core/core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../domain/entities/household.dart';
-import '../../domain/entities/household_summary.dart';
-import '../../domain/entities/expense_split.dart';
-import '../../domain/entities/shared_budget.dart';
 
 /// Supabase service for household operations
 class HouseholdService {
   final SupabaseClient _supabase;
 
   HouseholdService(this._supabase);
+
+  void _log(String message, {Object? error, StackTrace? stackTrace}) {
+    appLog(message, name: 'HouseholdService', error: error, stackTrace: stackTrace);
+  }
 
   // ============================================================================
   // HOUSEHOLDS
@@ -43,12 +44,13 @@ class HouseholdService {
   }) async {
     try {
       final userId = _supabase.auth.currentUser?.id;
-      print('🏠 Creating household:');
-      print('  - Name: $name');
-      print('  - Currency: ${currency.toUpperCase()}');
-      print('  - Cover URL: $coverImageUrl');
-      print('  - Theme: $themeColor');
-      print('  - Owner ID: $userId');
+      _log('Creating household', error: {
+        'name': name,
+        'currency': currency.toUpperCase(),
+        'coverImageUrl': coverImageUrl,
+        'themeColor': themeColor,
+        'ownerId': userId,
+      });
 
       final response = await _supabase.from('households').insert({
         'name': name,
@@ -58,13 +60,10 @@ class HouseholdService {
         'owner_id': userId,
       }).select().single();
 
-      print('✅ Household created successfully: ${response['id']}');
+      _log('Household created successfully: ${response['id']}');
       return response;
     } catch (e, stackTrace) {
-      print('❌ HOUSEHOLD SERVICE ERROR:');
-      print('Error type: ${e.runtimeType}');
-      print('Error: $e');
-      print('Stack trace: $stackTrace');
+      _log('Error creating household', error: e, stackTrace: stackTrace);
       rethrow;
     }
   }
@@ -185,9 +184,11 @@ class HouseholdService {
     int expiresInDays = 7,
   }) async {
     try {
-      print('📧 Calling households-create-invite edge function');
-      print('  - household_id: $householdId');
-      print('  - expires_in_days: $expiresInDays');
+      _log('Calling households-create-invite edge function', error: {
+        'householdId': householdId,
+        'invitedEmail': invitedEmail,
+        'expiresInDays': expiresInDays,
+      });
 
       final response = await _supabase.functions.invoke(
         'households-create-invite',
@@ -199,9 +200,10 @@ class HouseholdService {
         },
       );
 
-      print('📧 Edge function response:');
-      print('  - status: ${response.status}');
-      print('  - data: ${response.data}');
+      _log('Edge function response', error: {
+        'status': response.status,
+        'data': response.data,
+      });
 
       if (response.status != 200) {
         throw Exception('Failed to create invite: ${response.data}');
@@ -209,13 +211,10 @@ class HouseholdService {
 
       final data = response.data as Map<String, dynamic>;
       final inviteUrl = data['invite_url'] as String;
-      print('✅ Invite URL created: $inviteUrl');
+      _log('Invite URL created: $inviteUrl');
       return inviteUrl;
     } catch (e, stackTrace) {
-      print('❌ CREATE INVITE ERROR:');
-      print('Error type: ${e.runtimeType}');
-      print('Error: $e');
-      print('Stack trace: $stackTrace');
+      _log('Error creating invite', error: e, stackTrace: stackTrace);
       rethrow;
     }
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:moneko/core/core.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -478,7 +479,7 @@ final householdExpensesProvider =
             usersMap[user['id'] as String] = user;
           }
         } catch (e) {
-          debugPrint('❌ Error fetching users: $e');
+          appLog('Error fetching users: $e', name: 'HouseholdProviders', error: e);
         }
       }
 
@@ -493,7 +494,7 @@ final householdExpensesProvider =
     } catch (e, st) {
       debugPrint('❌ Error loading household expenses: $e\n$st');
       // Bubble up to UI to show consistent error state
-      throw e;
+      rethrow;
     }
   },
 );
@@ -524,9 +525,9 @@ final coverImagesProvider = FutureProvider<List<String>>((ref) async {
     '${baseUrl}shopping_bag.png',
   ];
 
-  print('🖼️ coverImagesProvider: Returning ${images.length} images');
-  print('🖼️ First image URL: ${images.first}');
-  print('🖼️ Last image URL: ${images.last}');
+  appLog('Household cover images loaded: count=${images.length}', name: 'HouseholdProviders');
+  appLog('First image URL: ${images.first}', name: 'HouseholdProviders');
+  appLog('Last image URL: ${images.last}', name: 'HouseholdProviders');
 
   return images;
 });

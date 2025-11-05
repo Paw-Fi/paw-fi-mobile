@@ -80,8 +80,8 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.add),
-                        SizedBox(width: 8),
+                        const Icon(Icons.add),
+                        const SizedBox(width: 8),
                         Text(context.l10n.createInvitation),
                       ],
                     ),
@@ -185,7 +185,7 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<int>(
-                value: expiresInDays,
+                initialValue: expiresInDays,
                 decoration: InputDecoration(labelText: context.l10n.expiresIn),
                 items: [
                   DropdownMenuItem(value: 1, child: Text(context.l10n.oneDay)),
@@ -251,7 +251,7 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(context.l10n.inviteLinkCopiedToClipboard),
-            duration: Duration(seconds: 2),
+            duration: const Duration(seconds: 2),
           ),
         );
       }
@@ -271,7 +271,7 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(context.l10n.inviteLinkCopiedToClipboard),
-        duration: Duration(seconds: 2),
+        duration: const Duration(seconds: 2),
       ),
     );
   }
@@ -398,8 +398,8 @@ class _InviteCard extends StatelessWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.copy, size: 16),
-                            SizedBox(width: 8),
+                            const Icon(Icons.copy, size: 16),
+                            const SizedBox(width: 8),
                             Text(context.l10n.copyLink),
                           ],
                         ),
@@ -413,8 +413,8 @@ class _InviteCard extends StatelessWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.cancel, size: 16),
-                            SizedBox(width: 8),
+                            const Icon(Icons.cancel, size: 16),
+                            const SizedBox(width: 8),
                             Text(context.l10n.revoke),
                           ],
                         ),
@@ -462,7 +462,7 @@ class _StatusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(4),
         border: Border.all(color: color, width: 1),
       ),

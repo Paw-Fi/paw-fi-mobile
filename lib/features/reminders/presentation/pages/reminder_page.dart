@@ -146,7 +146,7 @@ class ReminderPage extends HookConsumerWidget {
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
                 child: Container(
-                  color: colorScheme.background.withOpacity(0.3),
+                  color: colorScheme.background.withValues(alpha: 0.3),
                   child: Center(
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
@@ -159,7 +159,7 @@ class ReminderPage extends HookConsumerWidget {
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
+                            color: Colors.black.withValues(alpha: 0.1),
                             blurRadius: 20,
                             offset: const Offset(0, 4),
                           ),
@@ -262,11 +262,11 @@ class ReminderPage extends HookConsumerWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: isPositive
-            ? const Color(0xFF10B981).withOpacity(0.1)
-            : const Color(0xFFEF4444).withOpacity(0.1),
+            ? const Color(0xFF10B981).withValues(alpha: 0.1)
+            : const Color(0xFFEF4444).withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: colorScheme.border.withOpacity(0.5),
+          color: colorScheme.border.withValues(alpha: 0.5),
           width: 1,
         ),
       ),

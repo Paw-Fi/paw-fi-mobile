@@ -551,7 +551,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         'set-budget',
         body: payload,
       );
-      print(response);
+      debugPrint('Set budget response: $response');
 
       final data = response.data as Map<String, dynamic>?;
 

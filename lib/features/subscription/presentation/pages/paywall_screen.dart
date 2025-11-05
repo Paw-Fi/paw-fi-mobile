@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:moneko/core/core.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:url_launcher/url_launcher.dart';
@@ -29,7 +28,7 @@ class PaywallScreen extends ConsumerWidget {
     showDialog(
       context: ref.context,
       barrierDismissible: false,
-      barrierColor: Colors.black.withOpacity(0.5),
+      barrierColor: Colors.black.withValues(alpha: 0.5),
       builder: (context) => PopScope(
         canPop: false,
         child: Center(
@@ -41,7 +40,7 @@ class PaywallScreen extends ConsumerWidget {
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
+                  color: Colors.black.withValues(alpha: 0.2),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -71,7 +70,7 @@ class PaywallScreen extends ConsumerWidget {
     );
 
     try {
-      final discordUrl = 'https://discord.gg/M2Dgujvtze';
+      const discordUrl = 'https://discord.gg/M2Dgujvtze';
 
       if (!ref.context.mounted) return;
       Navigator.of(ref.context).pop();
@@ -131,7 +130,7 @@ class PaywallScreen extends ConsumerWidget {
                 width: 100,
                 height: 100,
                 decoration: BoxDecoration(
-                  color: colorScheme.primary.withOpacity(0.1),
+                  color: colorScheme.primary.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Center(
@@ -252,7 +251,7 @@ class PaywallScreen extends ConsumerWidget {
                 'Free to join • Limited spots • Exclusive perks',
                 style: TextStyle(
                   fontSize: 13,
-                  color: colorScheme.mutedForeground.withOpacity(0.9),
+                  color: colorScheme.mutedForeground.withValues(alpha: 0.9),
                   fontWeight: FontWeight.w500,
                 ),
                 textAlign: TextAlign.center,

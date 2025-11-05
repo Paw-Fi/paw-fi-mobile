@@ -1,3 +1,4 @@
+import 'dart:developer' as developer;
 import 'dart:io';
 import 'package:moneko/core/core.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -21,7 +22,7 @@ class VersionService {
     try {
       // Dynamically detect platform
       final platform = Platform.isIOS ? 'ios' : 'android';
-      print('[VersionService] Fetching version config for platform: $platform');
+      developer.log('Fetching version config for platform: $platform', name: 'VersionService');
       
       final response = await supabase
           .from('app_version_config')
@@ -32,16 +33,19 @@ class VersionService {
       final responseList = response as List;
       
       if (responseList.isEmpty) {
-        print('[VersionService] No version config found in database');
+        developer.log('No version config found in database', name: 'VersionService');
         return null;
       }
 
       final config = AppVersionConfig.fromJson(responseList[0] as Map<String, dynamic>);
-      print('[VersionService] Config loaded: minVersion=${config.minVersion}, forceUpdate=${config.forceUpdate}');
+      developer.log(
+        'Config loaded: minVersion=${config.minVersion}, forceUpdate=${config.forceUpdate}',
+        name: 'VersionService',
+      );
       
       return config;
     } catch (e) {
-      print('[VersionService] Error fetching version config: $e');
+      developer.log('Error fetching version config: $e', name: 'VersionService', error: e);
       return null;
     }
   }
@@ -76,7 +80,10 @@ class VersionService {
     final currentVersion = await getCurrentVersion();
     final comparison = compareVersions(currentVersion, config.minVersion);
 
-    print('[VersionService] Current: $currentVersion, Min Required: ${config.minVersion}, Update Required: ${comparison < 0}');
+    developer.log(
+      'Current: $currentVersion, Min Required: ${config.minVersion}, Update Required: ${comparison < 0}',
+      name: 'VersionService',
+    );
 
     return comparison < 0; // Current version is older than minimum
   }

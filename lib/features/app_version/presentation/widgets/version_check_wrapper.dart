@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../providers/version_provider.dart';
@@ -33,7 +35,7 @@ class _VersionCheckWrapperState extends ConsumerState<VersionCheckWrapper> with 
     // Initial version check after app launches
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) {
-        print('[VersionCheck] Initial check after navigation settled');
+        developer.log('Initial check after navigation settled', name: 'VersionCheck');
         _checkVersion();
       }
     });
@@ -51,7 +53,7 @@ class _VersionCheckWrapperState extends ConsumerState<VersionCheckWrapper> with 
     
     // Check version when app comes back to foreground
     if (state == AppLifecycleState.resumed && mounted && !_shouldShowDialog) {
-      print('[VersionCheck] App resumed, checking version...');
+      developer.log('App resumed, checking version...', name: 'VersionCheck');
       _checkVersion();
     }
   }
@@ -59,27 +61,27 @@ class _VersionCheckWrapperState extends ConsumerState<VersionCheckWrapper> with 
   Future<void> _checkVersion() async {
     // Prevent multiple simultaneous checks
     if (_shouldShowDialog) {
-      print('[VersionCheck] Dialog already showing, skipping...');
+      developer.log('Dialog already showing, skipping...', name: 'VersionCheck');
       return;
     }
 
     try {
-      print('[VersionCheck] Starting version check...');
+      developer.log('Starting version check...', name: 'VersionCheck');
       
       // Check if update is required
       final updateRequired = await ref.read(isUpdateRequiredProvider.future);
       
-      print('[VersionCheck] Update required: $updateRequired');
+      developer.log('Update required: $updateRequired', name: 'VersionCheck');
       
       if (updateRequired && mounted) {
-        print('[VersionCheck] Fetching version data...');
+        developer.log('Fetching version data...', name: 'VersionCheck');
         
         // Get version data
         final versionConfig = await ref.read(versionConfigProvider.future);
         final currentVersion = await ref.read(currentAppVersionProvider.future);
 
         if (!mounted || versionConfig == null) {
-          print('[VersionCheck] Widget unmounted or no config');
+          developer.log('Widget unmounted or no config', name: 'VersionCheck');
           return;
         }
 
@@ -92,13 +94,12 @@ class _VersionCheckWrapperState extends ConsumerState<VersionCheckWrapper> with 
           _appStoreUrl = versionConfig.iosAppStoreUrl;
         });
         
-        print('[VersionCheck] ✅ Dialog state updated - should now be visible!');
+        developer.log('Dialog state updated - should now be visible!', name: 'VersionCheck');
       } else {
-        print('[VersionCheck] No update required');
+        developer.log('No update required', name: 'VersionCheck');
       }
     } catch (e, stack) {
-      print('[VersionCheck] Exception in version check: $e');
-      print('[VersionCheck] Stack trace: $stack');
+      developer.log('Exception in version check: $e', name: 'VersionCheck', error: e, stackTrace: stack);
     }
   }
 
@@ -106,7 +107,7 @@ class _VersionCheckWrapperState extends ConsumerState<VersionCheckWrapper> with 
   Widget build(BuildContext context) {
     if (_shouldShowDialog && _currentVersion != null && _minVersion != null) {
       // Render dialog directly in the tree as an overlay
-      print('[VersionCheck] 🎨 Rendering dialog overlay in build method');
+      developer.log('Rendering dialog overlay in build method', name: 'VersionCheck');
       return Stack(
         children: [
           widget.child,

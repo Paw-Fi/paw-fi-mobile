@@ -205,8 +205,8 @@ class _MemberCard extends StatelessWidget {
                       value: 'make_admin',
                       child: Row(
                         children: [
-                          Icon(Icons.admin_panel_settings),
-                          SizedBox(width: 8),
+                          const Icon(Icons.admin_panel_settings),
+                          const SizedBox(width: 8),
                           Text(context.l10n.makeAdmin),
                         ],
                       ),
@@ -216,8 +216,8 @@ class _MemberCard extends StatelessWidget {
                       value: 'make_member',
                       child: Row(
                         children: [
-                          Icon(Icons.person),
-                          SizedBox(width: 8),
+                          const Icon(Icons.person),
+                          const SizedBox(width: 8),
                           Text(context.l10n.makeMember),
                         ],
                       ),
@@ -226,9 +226,9 @@ class _MemberCard extends StatelessWidget {
                     value: 'remove',
                     child: Row(
                       children: [
-                        Icon(Icons.remove_circle_outline, color: Colors.red),
-                        SizedBox(width: 8),
-                        Text(context.l10n.remove, style: TextStyle(color: Colors.red)),
+                        const Icon(Icons.remove_circle_outline, color: Colors.red),
+                        const SizedBox(width: 8),
+                        Text(context.l10n.remove, style: const TextStyle(color: Colors.red)),
                       ],
                     ),
                   ),

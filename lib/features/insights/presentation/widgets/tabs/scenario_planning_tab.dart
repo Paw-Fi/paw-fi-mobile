@@ -11,7 +11,6 @@ import 'package:moneko/features/insights/presentation/widgets/scenario_result_sh
 import 'package:intl/intl.dart';
 import 'dart:ui' as ui;
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/foundation.dart';
 
 /// Supported sentence word orders for arranging the scenario inputs
 enum _WordOrder { svo, sov, vso, v2 }

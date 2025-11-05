@@ -48,7 +48,7 @@ class IncomeCard extends ConsumerWidget {
                     children: [
                       Row(
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.account_balance_wallet,
                             color: Colors.green,
                             size: 20,
@@ -86,7 +86,7 @@ class IncomeCard extends ConsumerWidget {
                     const SizedBox(height: 4),
                     Text(
                       formatCurrency(summary.mtdIncome!, summary.currency),
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                         color: Colors.green,
@@ -103,7 +103,7 @@ class IncomeCard extends ConsumerWidget {
                     const SizedBox(height: 4),
                     Text(
                       formatCurrency(summary.totalIncome, summary.currency),
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                         color: Colors.green,
@@ -159,7 +159,7 @@ class IncomeCard extends ConsumerWidget {
               children: [
                 Row(
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.account_balance_wallet,
                       color: Colors.green,
                       size: 20,

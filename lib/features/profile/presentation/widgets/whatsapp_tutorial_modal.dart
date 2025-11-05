@@ -59,7 +59,7 @@ class WhatsAppTutorialModal extends HookWidget {
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.2),
+              color: Colors.black.withValues(alpha: 0.2),
               blurRadius: 30,
               offset: const Offset(0, 10),
             ),
@@ -166,7 +166,7 @@ class WhatsAppTutorialModal extends HookWidget {
                               borderRadius: BorderRadius.circular(12),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFF25D366).withOpacity(0.3),
+                                  color: const Color(0xFF25D366).withValues(alpha: 0.3),
                                   blurRadius: 12,
                                   offset: const Offset(0, 4),
                                 ),
@@ -180,7 +180,7 @@ class WhatsAppTutorialModal extends HookWidget {
                                 child: Center(
                                   child: Text(
                                     context.l10n.connectWhatsApp,
-                                    style: TextStyle(
+                                    style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600,

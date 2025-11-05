@@ -60,7 +60,7 @@ Widget buildRunningBalanceChart(BuildContext context, shadcnui.ColorScheme color
         horizontalInterval: interval,
         getDrawingHorizontalLine: (value) {
           return FlLine(
-            color: colorScheme.border.withOpacity(0.3),
+            color: colorScheme.border.withValues(alpha: 0.3),
             strokeWidth: 1,
             dashArray: [5, 5],
           );

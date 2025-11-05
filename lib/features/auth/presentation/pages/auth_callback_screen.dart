@@ -64,23 +64,23 @@ class AuthCallbackScreen extends HookConsumerWidget {
                 context.go('/login');
                 shadcnui.showToast(
                   context: context,
-                  builder: (context, overlay) => shadcnui.Alert.destructive(
-                    leading: const Icon(Icons.error),
-                    title: const Text('Authentication session could not be established'),
+                  builder: (context, overlay) => const shadcnui.Alert.destructive(
+                    leading: Icon(Icons.error),
+                    title: Text('Authentication session could not be established'),
                   ),
                 );
               }
             }
           }
         } catch (error) {
-          print('OAuth callback processing error: $error');
+          debugPrint('OAuth callback processing error: $error');
           if (context.mounted) {
             context.go('/login');
             shadcnui.showToast(
               context: context,
-              builder: (context, overlay) => shadcnui.Alert.destructive(
-                leading: const Icon(Icons.error),
-                title: const Text('An unexpected error occurred during authentication'),
+              builder: (context, overlay) => const shadcnui.Alert.destructive(
+                leading: Icon(Icons.error),
+                title: Text('An unexpected error occurred during authentication'),
               ),
             );
           }

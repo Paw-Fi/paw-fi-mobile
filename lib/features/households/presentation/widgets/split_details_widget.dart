@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
-import '../../domain/entities/expense_split.dart';
+// import '../../domain/entities/expense_split.dart';
 
 /// Widget to display split details in transaction detail sheets
 class SplitDetailsWidget extends ConsumerWidget {
@@ -51,7 +51,7 @@ class SplitDetailsWidget extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: colorScheme.primary.withOpacity(0.1),
+                color: colorScheme.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(

@@ -49,7 +49,7 @@ class MainShell extends HookConsumerWidget {
               ),
               _NavButton(
                 icon: currentIndex.value == 1 ? Icons.flag : Icons.flag_outlined,
-                label: context.l10n.goals ?? 'Goals',
+                label: context.l10n.goals,
                 isSelected: currentIndex.value == 1,
                 onTap: () => currentIndex.value = 1,
               ),
@@ -97,7 +97,7 @@ class _NavButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
           decoration: BoxDecoration(
             color: isSelected
-                ? colorScheme.primary.withOpacity(0.1)
+                ? colorScheme.primary.withValues(alpha: 0.1)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
           ),

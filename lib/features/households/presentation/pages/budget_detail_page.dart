@@ -290,7 +290,7 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
               borderRadius: BorderRadius.circular(8),
             ),
             filled: !enabled,
-            fillColor: enabled ? null : colorScheme.muted.withOpacity(0.3),
+            fillColor: enabled ? null : colorScheme.muted.withValues(alpha: 0.3),
           ),
         ),
       ],
@@ -317,7 +317,7 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: colorScheme.muted.withOpacity(0.3),
+            color: colorScheme.muted.withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: colorScheme.border),
           ),

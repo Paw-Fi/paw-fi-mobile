@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
-import 'package:moneko/core/l10n/l10n.dart';
 
 Widget buildSectionTitle(BuildContext context, String titleKey) {
   final colorScheme = shadcnui.Theme.of(context).colorScheme;

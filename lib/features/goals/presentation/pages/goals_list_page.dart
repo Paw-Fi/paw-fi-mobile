@@ -1,7 +1,8 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcn;
+import 'package:hooks_riverpod/hooks_riverpod.dart';
+// import 'package:go_router/go_router.dart';
+// import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcn;
 import '../providers/goals_providers.dart';
 import '../widgets/goal_card.dart';
 import '../widgets/create_goal_sheet.dart';
@@ -16,8 +17,8 @@ class GoalsListPage extends ConsumerStatefulWidget {
 
 class _GoalsListPageState extends ConsumerState<GoalsListPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  String? _householdId;
-  String? _userId;
+  // String? _householdId;
+  // String? _userId;
 
   @override
   void initState() {
@@ -37,7 +38,9 @@ class _GoalsListPageState extends ConsumerState<GoalsListPage> with SingleTicker
     final goalsState = ref.watch(goalsListProvider);
     final summaryState = ref.watch(goalSummaryProvider);
 
-    return Scaffold(
+    return Stack(
+      children: [
+        Scaffold(
       appBar: AppBar(
         title: Text(l10n.goals),
         actions: [
@@ -83,8 +86,64 @@ class _GoalsListPageState extends ConsumerState<GoalsListPage> with SingleTicker
           showCreateGoalSheet(context);
         },
         icon: const Icon(Icons.add),
-        label: Text(l10n.createGoal ?? 'Create Goal'),
+        label: Text(l10n.createGoal),
       ),
+    ),
+        // In Development Overlay
+        Positioned.fill(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+            child: Container(
+              color: Colors.black.withValues(alpha: 0.3),
+              child: Center(
+                child: Container(
+                  margin: const EdgeInsets.all(32),
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.2),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.construction,
+                        size: 64,
+                        color: Colors.orange,
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'In Development',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Goals feature is currently under construction.\nStay tuned for updates!',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.black54,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -124,7 +183,7 @@ class _GoalsListPageState extends ConsumerState<GoalsListPage> with SingleTicker
             ),
             const SizedBox(height: 8),
             Text(
-              '${summary.overallProgress.toStringAsFixed(1)}% ${l10n.overallProgress ?? "overall progress"}',
+              '${summary.overallProgress.toStringAsFixed(1)}% ${l10n.overallProgress}',
               style: const TextStyle(fontSize: 12, color: Colors.grey),
             ),
           ],

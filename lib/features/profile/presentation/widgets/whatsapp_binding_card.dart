@@ -33,14 +33,14 @@ Widget buildWhatsAppBindingCard(BuildContext context, WidgetRef ref) {
           decoration: BoxDecoration(
             color: colorScheme.card,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFF25D366).withOpacity(0.3)),
+            border: Border.all(color: const Color(0xFF25D366).withValues(alpha: 0.3)),
           ),
           child: Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF25D366).withOpacity(0.1),
+                  color: const Color(0xFF25D366).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
@@ -98,15 +98,15 @@ Widget buildWhatsAppBindingCard(BuildContext context, WidgetRef ref) {
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                const Color(0xFF25D366).withOpacity(0.1),
-                const Color(0xFF128C7E).withOpacity(0.05),
+                const Color(0xFF25D366).withValues(alpha: 0.1),
+                const Color(0xFF128C7E).withValues(alpha: 0.05),
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: const Color(0xFF25D366).withOpacity(0.3),
+              color: const Color(0xFF25D366).withValues(alpha: 0.3),
               width: 2,
             ),
           ),

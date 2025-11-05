@@ -1,8 +1,8 @@
 import 'dart:math';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/services.dart';
+// import 'package:flutter/cupertino.dart';
+// import 'package:flutter/services.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
@@ -32,7 +32,7 @@ class _AvatarCustomizerScreenState extends ConsumerState<AvatarCustomizerScreen>
   ];
 
   // Initial selections
-  Map<String, String> _selected = {
+  final Map<String, String> _selected = {
     'face': 'Face1',
     'ears': 'Ear1',
     'shirts': 'Shirt1',
@@ -47,7 +47,7 @@ class _AvatarCustomizerScreenState extends ConsumerState<AvatarCustomizerScreen>
   };
 
   // Color selections
-  Map<String, String> _colors = {
+  final Map<String, String> _colors = {
     'hair': '#8B4513',
     'eyes': '#4A4A4A',
     'mouth': '#FF6B6B',
@@ -125,7 +125,8 @@ class _AvatarCustomizerScreenState extends ConsumerState<AvatarCustomizerScreen>
 
   String _colorToHex(Color c) {
     String two(int n) => n.toRadixString(16).padLeft(2, '0');
-    return '#${two(c.red)}${two(c.green)}${two(c.blue)}';
+    int toByte(double x) => (x * 255.0).round() & 0xff;
+    return '#${two(toByte(c.r))}${two(toByte(c.g))}${two(toByte(c.b))}';
   }
 
   String _assetPath(String category, String asset) {
@@ -248,7 +249,7 @@ class _AvatarCustomizerScreenState extends ConsumerState<AvatarCustomizerScreen>
       final publicUrl = client.storage.from('avatars').getPublicUrl(path);
 
       await client.from('users').update({
-        'avatar_url': '${publicUrl}?t=${DateTime.now().millisecondsSinceEpoch}',
+        'avatar_url': '$publicUrl?t=${DateTime.now().millisecondsSinceEpoch}',
         'avatar_elements': _selected,
         'avatar_colors': _colors,
         'updated_at': DateTime.now().toIso8601String(),
@@ -455,7 +456,7 @@ class _AvatarCustomizerScreenState extends ConsumerState<AvatarCustomizerScreen>
                           onTap: () => setState(() => _selected[_activeCategory] = asset),
                           child: Container(
                             decoration: BoxDecoration(
-                              color: selected ? scheme.primary.withOpacity(0.08) : scheme.muted.withOpacity(0.2),
+                              color: selected ? scheme.primary.withValues(alpha: 0.08) : scheme.muted.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(color: selected ? scheme.primary : scheme.border),
                             ),
@@ -494,7 +495,7 @@ class _AvatarCustomizerScreenState extends ConsumerState<AvatarCustomizerScreen>
                   Expanded(
                     child: shadcnui.PrimaryButton(
                       onPressed: _isUploading ? null : _saveAvatar,
-                      child: Text(_isUploading ? '${context.l10n.saving} ${_uploadProgress}%' : context.l10n.saveAvatar),
+                      child: Text(_isUploading ? '${context.l10n.saving} $_uploadProgress%' : context.l10n.saveAvatar),
                     ),
                   ),
                 ],
@@ -524,7 +525,7 @@ class _AvatarCustomizerScreenState extends ConsumerState<AvatarCustomizerScreen>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: scheme.muted.withOpacity(0.25),
+          color: scheme.muted.withValues(alpha: 0.25),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: scheme.border),
         ),
@@ -537,7 +538,7 @@ class _AvatarCustomizerScreenState extends ConsumerState<AvatarCustomizerScreen>
               decoration: BoxDecoration(
                 color: _hexToColor(_colors[key]!),
                 shape: BoxShape.circle,
-                border: Border.all(color: scheme.border.withOpacity(0.6)),
+                border: Border.all(color: scheme.border.withValues(alpha: 0.6)),
               ),
             ),
             const SizedBox(width: 8),

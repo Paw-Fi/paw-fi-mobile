@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
-import '../../domain/repositories/household_repository.dart';
 import '../providers/household_providers.dart';
 import 'household_overview_page.dart';
 
@@ -45,7 +43,7 @@ class _HouseholdInvitationHandlerPageState extends ConsumerState<HouseholdInvita
         return;
       }
 
-      if (validateResponse != null && validateResponse['valid'] == true) {
+      if (validateResponse['valid'] == true) {
 
         if (householdId != null) {
 
@@ -72,7 +70,7 @@ class _HouseholdInvitationHandlerPageState extends ConsumerState<HouseholdInvita
         }
       } else {
         // Validation failed
-        final errorMsg = validateResponse?['error'] as String? ?? 'Invalid invitation';
+        final errorMsg = validateResponse['error'] as String? ?? 'Invalid invitation';
         setState(() => _error = errorMsg);
       }
     } catch (e) {

@@ -153,6 +153,6 @@ class BudgetProgressCard extends ConsumerWidget {
 
   String _formatMoney(int cents) {
     final amount = cents / 100;
-    return budget.currency + ' ' + amount.toStringAsFixed(2);
+    return '${budget.currency} ${amount.toStringAsFixed(2)}';
   }
 }

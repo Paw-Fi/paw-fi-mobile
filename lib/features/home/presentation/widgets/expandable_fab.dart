@@ -67,6 +67,7 @@ class ExpandableFabState extends State<ExpandableFab>
     });
   }
 
+  @override
   void close() {
     if (_open) {
       setState(() {

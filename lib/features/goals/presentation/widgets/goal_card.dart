@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcn;
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../domain/models/goal.dart';
 import '../providers/goals_providers.dart';
 import '../../../../core/l10n/l10n.dart';
@@ -18,7 +17,6 @@ class GoalCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
-    final theme = Theme.of(context);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -39,8 +37,8 @@ class GoalCard extends ConsumerWidget {
                     height: 40,
                     decoration: BoxDecoration(
                       color: goal.isSavings
-                          ? Colors.green.withOpacity(0.1)
-                          : Colors.orange.withOpacity(0.1),
+                          ? Colors.green.withValues(alpha: 0.1)
+                          : Colors.orange.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(
@@ -70,8 +68,8 @@ class GoalCard extends ConsumerWidget {
                         ),
                         Text(
                           goal.isSavings
-                              ? (l10n.savings ?? 'Savings')
-                              : (l10n.paydown ?? 'Pay Down'),
+                              ? l10n.savings
+                              : l10n.paydown,
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.grey[600],
@@ -85,11 +83,11 @@ class GoalCard extends ConsumerWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.1),
+                        color: Colors.green.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
-                        l10n.completed ?? 'Completed',
+                        l10n.completed,
                         style: const TextStyle(
                           fontSize: 10,
                           color: Colors.green,
@@ -101,11 +99,11 @@ class GoalCard extends ConsumerWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.1),
+                        color: Colors.red.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
-                        l10n.offTrack ?? 'Off Track',
+                        l10n.offTrack,
                         style: const TextStyle(
                           fontSize: 10,
                           color: Colors.red,
@@ -150,7 +148,7 @@ class GoalCard extends ConsumerWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${goal.progressPercentage.toStringAsFixed(1)}% ${l10n.complete ?? "complete"}',
+                    '${goal.progressPercentage.toStringAsFixed(1)}% ${l10n.complete}',
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.grey[600],
@@ -185,7 +183,7 @@ class GoalCard extends ConsumerWidget {
                         minimumSize: Size.zero,
                       ),
                       child: Text(
-                        l10n.acknowledge ?? 'Acknowledge',
+                        l10n.acknowledge,
                         style: const TextStyle(fontSize: 12),
                       ),
                     )
@@ -195,7 +193,7 @@ class GoalCard extends ConsumerWidget {
                         const Icon(Icons.check_circle, size: 14, color: Colors.green),
                         const SizedBox(width: 4),
                         Text(
-                          l10n.acknowledged ?? 'Acknowledged',
+                          l10n.acknowledged,
                           style: const TextStyle(
                             fontSize: 12,
                             color: Colors.green,
@@ -218,7 +216,7 @@ class GoalCard extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: Colors.grey.withOpacity(0.2),
+        color: Colors.grey.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Row(
@@ -227,7 +225,7 @@ class GoalCard extends ConsumerWidget {
           const Icon(Icons.visibility_off, size: 10, color: Colors.grey),
           const SizedBox(width: 4),
           Text(
-            l10n.balancesOnly ?? 'Balances Only',
+            l10n.balancesOnly,
             style: const TextStyle(
               fontSize: 9,
               color: Colors.grey,
@@ -243,7 +241,7 @@ class GoalCard extends ConsumerWidget {
 
     // Get current user ID (assuming from some auth provider)
     // TODO: Get actual user ID from auth provider
-    final userId = 'current-user-id';
+    const userId = 'current-user-id';
 
     await ref.read(acknowledgeGoalProvider.notifier).acknowledgeGoal(
           userId,
@@ -254,7 +252,7 @@ class GoalCard extends ConsumerWidget {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(l10n.goalAcknowledged ?? 'Goal acknowledged'),
+          content: Text(l10n.goalAcknowledged),
         ),
       );
     }

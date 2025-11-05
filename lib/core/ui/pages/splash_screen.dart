@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
 /// Splash screen with device registration for push notifications
 class SplashScreen extends ConsumerStatefulWidget {
@@ -15,9 +14,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
-    final brightness = shadcnui.Theme.of(context).brightness;
-    final isDark = brightness == Brightness.dark;
+    // final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    // final brightness = shadcnui.Theme.of(context).brightness;
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -25,10 +23,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
+            SizedBox(
               width: 150,
               height: 150,
-            
               child: Image.asset(
                 'lib/assets/gifs/splashscreen-loading.gif',
                 fit: BoxFit.contain,

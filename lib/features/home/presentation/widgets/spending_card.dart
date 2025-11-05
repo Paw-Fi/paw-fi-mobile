@@ -5,7 +5,6 @@ import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dart';
-import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
 /// Interactive spending card with swipeable chart and current point highlight

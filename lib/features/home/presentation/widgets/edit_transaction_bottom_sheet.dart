@@ -10,7 +10,6 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/currency_flags.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:moneko/core/l10n/l10n.dart';
 
 /// Generic bottom sheet for editing transaction fields
 class EditTransactionBottomSheet extends ConsumerStatefulWidget {

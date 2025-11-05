@@ -28,11 +28,11 @@ class SubscriptionManagementNotifier extends AsyncNotifier<SubscriptionDetails?>
 
       final data = response.data as Map<String, dynamic>?;
       if (data == null) return null;
-      print('Subscription details received: $data');
+      appLog('Subscription details received: $data', name: 'SubscriptionManagement');
 
       return SubscriptionDetails.fromJson(data);
-    } catch (e) {
-      print('Error fetching subscription details: $e');
+    } catch (e, stack) {
+      appLog('Error fetching subscription details', name: 'SubscriptionManagement', error: e, stackTrace: stack);
       return null;
     }
   }

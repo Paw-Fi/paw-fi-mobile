@@ -6,9 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
-import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/core.dart';
 import '../../../../core/utils/error_handler.dart';
 import '../../../../core/config/storage_config.dart';
 import '../providers/household_providers.dart';
@@ -67,13 +67,14 @@ class HouseholdImagePicker {
                 // Grid with camera, gallery, and presets
                 Expanded(
                   child: coverImagesAsync.when(
-                    loading: () {
-                      print('🔄 ImagePicker: Loading state');
-                      return const Center(child: CircularProgressIndicator());
-                    },
+                    loading: () => const Center(child: CircularProgressIndicator()),
                     error: (error, stack) {
-                      print('❌ ImagePicker: Error state - $error');
-                      print('❌ Stack trace: $stack');
+                      appLog(
+                        'Failed to load household cover images',
+                        name: 'HouseholdImagePicker',
+                        error: error,
+                        stackTrace: stack,
+                      );
                       return Center(
                         child: Text(
                           '${context.l10n.failedToLoadImages}: $error',
@@ -82,8 +83,6 @@ class HouseholdImagePicker {
                       );
                     },
                     data: (coverImages) {
-                      print('✅ ImagePicker: Data state - ${coverImages.length} images');
-                      print('✅ Grid item count: ${coverImages.length + 2}');
                       return GridView.builder(
                         physics: const BouncingScrollPhysics(),
                         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -94,17 +93,14 @@ class HouseholdImagePicker {
                         ),
                         itemCount: coverImages.length + 2,
                         itemBuilder: (context, index) {
-                          print('🎯 Building grid item at index $index');
-
                           // Camera option
                           if (index == 0) {
-                            print('📷 Building camera tile');
                             return _buildActionTile(
                               colorScheme: colorScheme,
                               icon: Icons.camera_alt_rounded,
                               label: context.l10n.takePhoto,
                               gradientColors: [
-                                colorScheme.primary.withOpacity(0.8),
+                                colorScheme.primary.withValues(alpha: 0.8),
                                 colorScheme.primary,
                               ],
                               onTap: () async {
@@ -125,14 +121,13 @@ class HouseholdImagePicker {
 
                           // Gallery option
                           if (index == 1) {
-                            print('🖼️ Building gallery tile');
                             return _buildActionTile(
                               colorScheme: colorScheme,
                               icon: Icons.photo_library_rounded,
                               label: context.l10n.chooseFromGallery,
                               gradientColors: [
-                                colorScheme.primary.withOpacity(0.6),
-                                colorScheme.primary.withOpacity(0.8),
+                                colorScheme.primary.withValues(alpha: 0.6),
+                                colorScheme.primary.withValues(alpha: 0.8),
                               ],
                               onTap: () async {
                                 final result = await _pickImage(
@@ -154,7 +149,6 @@ class HouseholdImagePicker {
                           final imageIndex = index - 2;
                           final imageUrl = coverImages[imageIndex];
                           final isSelected = imageUrl == currentImageUrl;
-                          print('🎨 Building preset tile $imageIndex: $imageUrl (selected: $isSelected)');
 
                           return _buildPresetTile(
                             colorScheme: colorScheme,
@@ -201,7 +195,7 @@ class HouseholdImagePicker {
             ),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: colorScheme.primary.withOpacity(0.3),
+              color: colorScheme.primary.withValues(alpha: 0.3),
               width: 1,
             ),
           ),
@@ -212,7 +206,7 @@ class HouseholdImagePicker {
                 width: 56,
                 height: 56,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(icon, color: Colors.white, size: 28),
@@ -253,7 +247,7 @@ class HouseholdImagePicker {
           border: Border.all(
             color: isSelected
                 ? colorScheme.primary
-                : colorScheme.border.withOpacity(0.12),
+                : colorScheme.border.withValues(alpha: 0.12),
             width: isSelected ? 3 : 1,
           ),
         ),
@@ -267,10 +261,8 @@ class HouseholdImagePicker {
                 fit: BoxFit.cover,
                 loadingBuilder: (context, child, progress) {
                   if (progress == null) {
-                    print('✅ Image loaded successfully: $imageUrl');
                     return child;
                   }
-                  print('⏳ Loading image: $imageUrl (${progress.cumulativeBytesLoaded}/${progress.expectedTotalBytes ?? "unknown"} bytes)');
                   return Container(
                     color: colorScheme.muted,
                     child: const Center(
@@ -283,8 +275,12 @@ class HouseholdImagePicker {
                   );
                 },
                 errorBuilder: (context, error, stackTrace) {
-                  print('❌ Failed to load image: $imageUrl');
-                  print('❌ Error: $error');
+                  appLog(
+                    'Failed to load household preset image',
+                    name: 'HouseholdImagePicker',
+                    error: error,
+                    stackTrace: stackTrace,
+                  );
                   return Container(
                     color: colorScheme.muted,
                     child: Column(
@@ -418,11 +414,11 @@ class HouseholdImagePicker {
     try {
       final appDir = await getApplicationDocumentsDirectory();
       final fileName =
-          '${DateTime.now().millisecondsSinceEpoch}${path.extension(sourceFile.path)}';
+          '${DateTime.now().millisecondsSinceEpoch}${(sourceFile.path.contains('.') ? '.${sourceFile.path.split('.').last}' : '')}';
       final permanentPath =
-          path.join(appDir.path, 'household_images', fileName);
+          '${appDir.path}/household_images/$fileName';
 
-      final dir = Directory(path.dirname(permanentPath));
+      final dir = Directory(permanentPath.substring(0, permanentPath.lastIndexOf('/')));
       if (!await dir.exists()) {
         await dir.create(recursive: true);
       }

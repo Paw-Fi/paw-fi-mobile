@@ -81,10 +81,13 @@ class LoginScreen extends HookConsumerWidget {
           context.go('/dashboard');
         }
       } catch (e) {
+        if (!context.mounted) return; // Widget may have been disposed after navigation
         error.value = e.toString().replaceAll('Exception: ', '').replaceAll('AuthException: ', '');
         errorShake.value = true;
       } finally {
-        isLoading.value = false;
+        if (context.mounted) {
+          isLoading.value = false;
+        }
       }
     }
 
@@ -180,12 +183,12 @@ class LoginScreen extends HookConsumerWidget {
                       borderRadius: BorderRadius.circular(24),
                       boxShadow: [
                         BoxShadow(
-                          color: theme.colorScheme.foreground.withOpacity(0.05),
+                          color: theme.colorScheme.foreground.withValues(alpha: 0.05),
                           blurRadius: 20,
                           offset: const Offset(0, 4),
                         ),
                         BoxShadow(
-                          color: theme.colorScheme.foreground.withOpacity(0.03),
+                          color: theme.colorScheme.foreground.withValues(alpha: 0.03),
                           blurRadius: 40,
                           offset: const Offset(0, 8),
                         ),
@@ -213,7 +216,7 @@ class LoginScreen extends HookConsumerWidget {
                                     gradient: LinearGradient(
                                       colors: [
                                         Colors.transparent,
-                                        theme.colorScheme.border.withOpacity(0.5),
+                                        theme.colorScheme.border.withValues(alpha: 0.5),
                                       ],
                                     ),
                                   ),
@@ -235,7 +238,7 @@ class LoginScreen extends HookConsumerWidget {
                                   decoration: BoxDecoration(
                                     gradient: LinearGradient(
                                       colors: [
-                                        theme.colorScheme.border.withOpacity(0.5),
+                                        theme.colorScheme.border.withValues(alpha: 0.5),
                                         Colors.transparent,
                                       ],
                                     ),
@@ -255,7 +258,7 @@ class LoginScreen extends HookConsumerWidget {
                             placeholder: shadcnui.Text(
                               context.l10n.emailAddress,
                               style: TextStyle(
-                                color: theme.colorScheme.mutedForeground.withOpacity(0.6),
+                                color: theme.colorScheme.mutedForeground.withValues(alpha: 0.6),
                               ),
                             ),
                             enabled: !isLoading.value,
@@ -283,7 +286,7 @@ class LoginScreen extends HookConsumerWidget {
                             placeholder: shadcnui.Text(
                               context.l10n.password,
                               style: TextStyle(
-                                color: theme.colorScheme.mutedForeground.withOpacity(0.6),
+                                color: theme.colorScheme.mutedForeground.withValues(alpha: 0.6),
                               ),
                             ),
                             features: [
@@ -355,10 +358,10 @@ class LoginScreen extends HookConsumerWidget {
                               child: Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: theme.colorScheme.destructive.withOpacity(0.1),
+                                  color: theme.colorScheme.destructive.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
-                                    color: theme.colorScheme.destructive.withOpacity(0.3),
+                                    color: theme.colorScheme.destructive.withValues(alpha: 0.3),
                                   ),
                                 ),
                                 child: Row(
@@ -394,7 +397,7 @@ class LoginScreen extends HookConsumerWidget {
                                 gradient: LinearGradient(
                                   colors: [
                                     theme.colorScheme.primary,
-                                    theme.colorScheme.primary.withOpacity(0.85),
+                                    theme.colorScheme.primary.withValues(alpha: 0.85),
                                   ],
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
@@ -402,7 +405,7 @@ class LoginScreen extends HookConsumerWidget {
                                 borderRadius: BorderRadius.circular(12),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: theme.colorScheme.primary.withOpacity(0.3),
+                                    color: theme.colorScheme.primary.withValues(alpha: 0.3),
                                     blurRadius: 12,
                                     offset: const Offset(0, 4),
                                   ),

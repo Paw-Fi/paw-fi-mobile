@@ -1,3 +1,5 @@
+import 'package:moneko/core/core.dart';
+
 class Subscription {
   final String id;
   final String userId;
@@ -64,29 +66,29 @@ class Subscription {
   /// 6. Row exists + status = "active" + bound_to_user_id is NOT null → SUBSCRIBED (household member with shared access)
   /// 7. Row exists + status = "canceled" → NOT SUBSCRIBED (cancelled subscription)
   bool get isSubscribed {
-    print('🔍 [Subscription] Checking isSubscribed: plan=$plan, status=$status, boundTo=$boundToUserId');
+    appLog('Checking isSubscribed: plan=$plan, status=$status, boundTo=$boundToUserId', name: 'Subscription');
     
     // Case 7: Cancelled status - subscription is cancelled, not active
     if (status == 'canceled') {
-      print('❌ [Subscription] CANCELED status - subscribed=false');
+      appLog('CANCELED status - subscribed=false', name: 'Subscription');
       return false;
     }
     
     // Case 3: Lifetime plan with active status
     if (plan == 'lifetime' && status == 'active') {
-      print('✅ [Subscription] LIFETIME plan with active status - subscribed=true');
+      appLog('LIFETIME plan with active status - subscribed=true', name: 'Subscription');
       return true;
     }
     
     // Case 4: Trialing status - user is in trial period
     if (status == 'trialing') {
-      print('✅ [Subscription] TRIALING status - subscribed=true');
+      appLog('TRIALING status - subscribed=true', name: 'Subscription');
       return true;
     }
     
     // Case 6: Active status with household binding (shared subscription access)
     if (status == 'active' && boundToUserId != null) {
-      print('✅ [Subscription] ACTIVE status with household binding - subscribed=true (shared access)');
+      appLog('ACTIVE status with household binding - subscribed=true (shared access)', name: 'Subscription');
       return true;
     }
     
@@ -94,15 +96,15 @@ class Subscription {
     if (status == 'active' && stripeSubscriptionId != null) {
       // Additional check: plan should not be explicitly free
       if (plan == 'free') {
-        print('❌ [Subscription] Active status but plan is "free" - subscribed=false');
+        appLog('Active status but plan is "free" - subscribed=false', name: 'Subscription');
         return false;
       }
-      print('✅ [Subscription] ACTIVE status with stripe_subscription_id - subscribed=true');
+      appLog('ACTIVE status with stripe_subscription_id - subscribed=true', name: 'Subscription');
       return true;
     }
     
     // Case 2: All other cases mean free/inactive
-    print('❌ [Subscription] No matching active/trialing subscription - subscribed=false (FREE)');
+    appLog('No matching active/trialing subscription - subscribed=false (FREE)', name: 'Subscription');
     return false;
   }
 

@@ -89,10 +89,10 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
             const SizedBox(height: 12),
             // In real app, fetch household members and show selector
             DropdownButtonFormField<String>(
-              value: _selectedMemberId,
+              initialValue: _selectedMemberId,
               decoration: InputDecoration(
                 labelText: context.l10n.selectMember,
-                border: OutlineInputBorder(),
+                border: const OutlineInputBorder(),
               ),
               items: const [
                 DropdownMenuItem(value: 'user1', child: Text('John Doe')),
@@ -277,7 +277,7 @@ class _SettlementOption extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: colorScheme.primary.withOpacity(0.1),
+                color: colorScheme.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(

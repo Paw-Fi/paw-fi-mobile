@@ -95,7 +95,7 @@ Widget buildProfileAvatarHeader(BuildContext context, WidgetRef ref, user) {
               shadcnui.PrimaryBadge(
                 child: Text(
                   context.l10n.proBadge,
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
                 ),
               ),
             ],

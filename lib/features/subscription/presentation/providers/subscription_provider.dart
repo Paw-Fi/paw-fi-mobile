@@ -1,4 +1,3 @@
-import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -18,7 +17,7 @@ class SubscriptionNotifier extends _$SubscriptionNotifier {
 
   Future<Subscription?> _fetchSubscription(String userId) async {
     try {
-      print('🔍 [SubscriptionProvider] Fetching subscription for userId: $userId');
+      appLog('Fetching subscription for userId: $userId', name: 'SubscriptionProvider');
       
       final response = await supabase
           .from('subscriptions')
@@ -28,22 +27,28 @@ class SubscriptionNotifier extends _$SubscriptionNotifier {
           .limit(1);
 
       final responseList = response as List;
-      print('📊 [SubscriptionProvider] Response: ${responseList.length} rows');
+      appLog('Response: ${responseList.length} rows', name: 'SubscriptionProvider');
       
       if (responseList.isEmpty) {
-        print('❌ [SubscriptionProvider] No subscription found - returning null');
+        appLog('No subscription found - returning null', name: 'SubscriptionProvider');
         return null;
       }
       
       final subData = responseList[0] as Map<String, dynamic>;
-      print('📦 [SubscriptionProvider] Subscription data: plan=${subData['plan']}, status=${subData['status']}, bound_to=${subData['bound_to_user_id']}');
+      appLog(
+        'Subscription data: plan=${subData['plan']}, status=${subData['status']}, bound_to=${subData['bound_to_user_id']}',
+        name: 'SubscriptionProvider',
+      );
       
       final subscription = Subscription.fromJson(subData);
-      print('✅ [SubscriptionProvider] Created Subscription object, isSubscribed=${subscription.isSubscribed}');
+      appLog(
+        'Created Subscription object, isSubscribed=${subscription.isSubscribed}',
+        name: 'SubscriptionProvider',
+      );
       
       return subscription;
-    } catch (e) {
-      print('❌ [SubscriptionProvider] Error fetching subscription: $e');
+    } catch (e, stack) {
+      appLog('Error fetching subscription', name: 'SubscriptionProvider', error: e, stackTrace: stack);
       return null;
     }
   }
@@ -65,15 +70,15 @@ bool hasActiveSubscription(HasActiveSubscriptionRef ref) {
   final result = subscriptionAsync.maybeWhen(
     data: (subscription) {
       final hasActive = subscription?.isSubscribed ?? false;
-      print('🎯 [hasActiveSubscription] Subscription: ${subscription?.plan}, isSubscribed: $hasActive');
+      appLog('Subscription: ${subscription?.plan}, isSubscribed: $hasActive', name: 'SubscriptionProvider');
       return hasActive;
     },
     orElse: () {
-      print('⏳ [hasActiveSubscription] Subscription still loading or error - returning false');
+      appLog('Subscription still loading or error - returning false', name: 'SubscriptionProvider');
       return false;
     },
   );
-  print('🎯 [hasActiveSubscription] Final result: $result');
+  appLog('hasActiveSubscription result: $result', name: 'SubscriptionProvider');
   return result;
 }
 

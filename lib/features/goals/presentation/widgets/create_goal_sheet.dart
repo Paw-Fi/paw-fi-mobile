@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcn;
+import 'package:hooks_riverpod/hooks_riverpod.dart';
+// import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcn;
 import '../providers/goals_providers.dart';
 import '../../../../core/l10n/l10n.dart';
 
@@ -30,8 +30,8 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
   String _currency = 'USD';
   DateTime _targetDate = DateTime.now().add(const Duration(days: 365));
   String _privacyScope = 'full';
-  String _ownerType = 'me';
-  String _goalType = 'custom';
+  final String _ownerType = 'me';
+  final String _goalType = 'custom';
 
   @override
   void dispose() {
@@ -159,7 +159,7 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
                             Expanded(
                               flex: 1,
                               child: DropdownButtonFormField<String>(
-                                value: _currency,
+                                initialValue: _currency,
                                 items: ['USD', 'EUR', 'GBP', 'JPY', 'CNY']
                                     .map((currency) => DropdownMenuItem(
                                           value: currency,
@@ -221,7 +221,7 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
                         Text(l10n.privacyScope, style: const TextStyle(fontWeight: FontWeight.bold)),
                         const SizedBox(height: 8),
                         DropdownButtonFormField<String>(
-                          value: _privacyScope,
+                          initialValue: _privacyScope,
                           items: [
                             DropdownMenuItem(
                               value: 'full',
@@ -275,8 +275,8 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
         : double.parse(_currentAmountController.text);
 
     // TODO: Get actual user ID and household ID from auth/context
-    final userId = 'current-user-id';
-    final householdId = null; // TODO: Get from context if in household view
+    const userId = 'current-user-id';
+    const householdId = null; // TODO: Get from context if in household view
 
     await ref.read(createGoalProvider.notifier).createGoal(
           userId: userId,

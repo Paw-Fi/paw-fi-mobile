@@ -14,7 +14,6 @@ import '../utils/household_ui_utils.dart';
 import '../../../../core/config/storage_config.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/core/l10n/l10n.dart';
-import 'package:path/path.dart' as path;
 
 /// Household Settings Page
 /// Manage budgets, privacy preferences, and household settings
@@ -423,7 +422,10 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
     try {
       final supabase = Supabase.instance.client;
       final user = ref.read(authProvider);
-      final fileName = '${StorageConfig.householdCoversPath}/${user.uid}/${DateTime.now().millisecondsSinceEpoch}${path.extension(imageFile.path)}';
+      final ext = imageFile.path.contains('.')
+          ? '.${imageFile.path.split('.').last.toLowerCase()}'
+          : '';
+      final fileName = '${StorageConfig.householdCoversPath}/${user.uid}/${DateTime.now().millisecondsSinceEpoch}$ext';
 
       await supabase.storage
           .from(StorageConfig.publicBucket)
@@ -1011,13 +1013,13 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        colorScheme.muted.withOpacity(0.3),
-                        colorScheme.muted.withOpacity(0.1),
+                        colorScheme.muted.withValues(alpha: 0.3),
+                        colorScheme.muted.withValues(alpha: 0.1),
                       ],
                     ),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: colorScheme.border.withOpacity(0.3),
+                      color: colorScheme.border.withValues(alpha: 0.3),
                     ),
                   ),
                   child: Row(
@@ -1025,7 +1027,7 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: colorScheme.primary.withOpacity(0.12),
+                          color: colorScheme.primary.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Icon(
@@ -1060,12 +1062,12 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
                   width: double.infinity,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [colorScheme.primary, colorScheme.primary.withOpacity(0.8)],
+                      colors: [colorScheme.primary, colorScheme.primary.withValues(alpha: 0.8)],
                     ),
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: colorScheme.primary.withOpacity(0.3),
+                        color: colorScheme.primary.withValues(alpha: 0.3),
                         blurRadius: 12,
                         offset: const Offset(0, 4),
                       ),
@@ -1081,7 +1083,7 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.add_circle_outline_rounded, color: Colors.white, size: 22),
+                            const Icon(Icons.add_circle_outline_rounded, color: Colors.white, size: 22),
                             const SizedBox(width: 10),
                             Text(
                               context.l10n.createInvitation,
@@ -1112,7 +1114,7 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
                   Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: Colors.orange.withOpacity(0.12),
+                      color: Colors.orange.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: const Icon(Icons.schedule_rounded, size: 16, color: Colors.orange),
@@ -1170,7 +1172,7 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
                   Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: colorScheme.mutedForeground.withOpacity(0.12),
+                      color: colorScheme.mutedForeground.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Icon(Icons.history_rounded, size: 16, color: colorScheme.mutedForeground),
@@ -1238,13 +1240,13 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: colorScheme.muted.withOpacity(0.3),
+                color: colorScheme.muted.withValues(alpha: 0.3),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 icon,
                 size: 40,
-                color: colorScheme.mutedForeground.withOpacity(0.5),
+                color: colorScheme.mutedForeground.withValues(alpha: 0.5),
               ),
             ),
             const SizedBox(height: 16),
@@ -1406,7 +1408,7 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<int>(
-                  value: expiresInDays,
+                  initialValue: expiresInDays,
                   decoration: InputDecoration(labelText: context.l10n.expiresIn),
                   items: [
                     DropdownMenuItem(value: 1, child: Text(context.l10n.oneDay)),
@@ -1475,7 +1477,7 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(context.l10n.inviteLinkCopiedToClipboard),
-            duration: Duration(seconds: 2),
+            duration: const Duration(seconds: 2),
           ),
         );
       }
@@ -1495,7 +1497,7 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(context.l10n.inviteLinkCopiedToClipboard),
-        duration: Duration(seconds: 2),
+        duration: const Duration(seconds: 2),
       ),
     );
   }
@@ -1571,8 +1573,8 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => WillPopScope(
-        onWillPop: () async => false,
+      builder: (_) => PopScope(
+        canPop: false,
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,

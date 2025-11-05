@@ -198,7 +198,7 @@ class QuestionnaireModal extends HookConsumerWidget {
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: setupMode.value == 'faster'
-                  ? shadcnui.Theme.of(context).colorScheme.primary.withOpacity(0.1)
+                  ? shadcnui.Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)
                   : shadcnui.Theme.of(context).colorScheme.card,
               border: Border.all(
                 color: setupMode.value == 'faster'
@@ -348,7 +348,7 @@ class QuestionnaireModal extends HookConsumerWidget {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: selectedPreset.value == preset['id']
-                      ? shadcnui.Theme.of(context).colorScheme.primary.withOpacity(0.1)
+                      ? shadcnui.Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)
                       : shadcnui.Theme.of(context).colorScheme.card,
                   border: Border.all(
                     color: selectedPreset.value == preset['id']

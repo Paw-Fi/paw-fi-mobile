@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -28,7 +29,7 @@ class WhatsAppBinding extends _$WhatsAppBinding {
 
       return (response as List).isNotEmpty;
     } catch (error) {
-      print('Error checking WhatsApp binding: $error');
+      debugPrint('Error checking WhatsApp binding: $error');
       return false;
     }
   }
@@ -62,7 +63,7 @@ class WhatsAppBinding extends _$WhatsAppBinding {
           ? response[0] as Map<String, dynamic>?
           : null;
     } catch (error) {
-      print('Error fetching WhatsApp contact: $error');
+      debugPrint('Error fetching WhatsApp contact: $error');
       return null;
     }
   }

@@ -18,9 +18,9 @@ class BalanceSummaryWidget extends ConsumerWidget {
 
     // In real app, fetch balance data from provider/Edge Function
     // For now, show placeholder UI with example data
-    final youOwe = 45.50;
-    final youAreOwed = 75.00;
-    final netBalance = youAreOwed - youOwe;
+    const youOwe = 45.50;
+    const youAreOwed = 75.00;
+    const netBalance = youAreOwed - youOwe;
 
     return Card(
       margin: const EdgeInsets.all(16),
@@ -44,8 +44,8 @@ class BalanceSummaryWidget extends ConsumerWidget {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: netBalance >= 0
-                    ? colorScheme.primary.withOpacity(0.1)
-                    : colorScheme.destructive.withOpacity(0.1),
+                    ? colorScheme.primary.withValues(alpha: 0.1)
+                    : colorScheme.destructive.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(

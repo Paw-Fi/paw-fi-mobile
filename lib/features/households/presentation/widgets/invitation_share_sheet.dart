@@ -81,10 +81,10 @@ class InvitationShareSheet extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
+                  color: Colors.green.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: Colors.green.withOpacity(0.12),
+                    color: Colors.green.withValues(alpha: 0.12),
                     width: 1,
                   ),
                 ),
@@ -130,10 +130,10 @@ class InvitationShareSheet extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: colorScheme.muted.withOpacity(0.3),
+                      color: colorScheme.muted.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: colorScheme.border.withOpacity(0.08),
+                        color: colorScheme.border.withValues(alpha: 0.08),
                         width: 1,
                       ),
                     ),
@@ -144,7 +144,7 @@ class InvitationShareSheet extends StatelessWidget {
                             inviteUrl,
                             style: TextStyle(
                               fontSize: 14,
-                              color: colorScheme.foreground.withOpacity(0.8),
+                              color: colorScheme.foreground.withValues(alpha: 0.8),
                               fontFamily: 'monospace',
                               fontWeight: FontWeight.w500,
                             ),
@@ -162,7 +162,7 @@ class InvitationShareSheet extends StatelessWidget {
                             child: Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: colorScheme.primary.withOpacity(0.1),
+                                color: colorScheme.primary.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Icon(
@@ -198,7 +198,7 @@ class InvitationShareSheet extends StatelessWidget {
                           const SizedBox(width: 8),
                           Text(
                             AppLocalizations.of(context)!.copyLink,
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
                               letterSpacing: -0.2,
@@ -223,7 +223,7 @@ class InvitationShareSheet extends StatelessWidget {
                           const SizedBox(width: 8),
                           Text(
                             AppLocalizations.of(context)!.share,
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
                               letterSpacing: -0.2,
@@ -249,7 +249,7 @@ class InvitationShareSheet extends StatelessWidget {
                   onPressed: onClose ?? () => Navigator.pop(context),
                   child: Text(
                     AppLocalizations.of(context)!.done,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
                     ),

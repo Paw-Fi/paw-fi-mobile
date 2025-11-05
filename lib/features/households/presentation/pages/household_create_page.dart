@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:path/path.dart' as path;
 import '../../../../core/utils/error_handler.dart';
 import '../../../../core/config/storage_config.dart';
 import '../../core/household_constants.dart';
@@ -153,15 +152,15 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
             decoration: InputDecoration(
               hintText: context.l10n.personalMessageHint,
               hintStyle: TextStyle(
-                color: colorScheme.mutedForeground.withOpacity(0.5),
+                color: colorScheme.mutedForeground.withValues(alpha: 0.5),
               ),
               counterText: '',
               filled: true,
-              fillColor: colorScheme.muted.withOpacity(0.3),
+              fillColor: colorScheme.muted.withValues(alpha: 0.3),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide(
-                  color: colorScheme.border.withOpacity(0.12),
+                  color: colorScheme.border.withValues(alpha: 0.12),
                   width: 1,
                 ),
               ),
@@ -229,12 +228,12 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(32),
                   border: Border.all(
-                    color: colorScheme.border.withOpacity(0.12),
+                    color: colorScheme.border.withValues(alpha: 0.12),
                     width: 2,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -358,22 +357,22 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
             decoration: InputDecoration(
               hintText: context.l10n.householdNameHint,
               hintStyle: TextStyle(
-                color: colorScheme.mutedForeground.withOpacity(0.4),
+                color: colorScheme.mutedForeground.withValues(alpha: 0.4),
                 fontWeight: FontWeight.normal,
               ),
               filled: true,
-              fillColor: colorScheme.muted.withOpacity(0.3),
+              fillColor: colorScheme.muted.withValues(alpha: 0.3),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide(
-                  color: colorScheme.border.withOpacity(0.12),
+                  color: colorScheme.border.withValues(alpha: 0.12),
                   width: 1,
                 ),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide(
-                  color: colorScheme.border.withOpacity(0.12),
+                  color: colorScheme.border.withValues(alpha: 0.12),
                   width: 1,
                 ),
               ),
@@ -462,12 +461,12 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
                     decoration: BoxDecoration(
                       color: isSelected
                           ? colorScheme.primary
-                          : colorScheme.muted.withOpacity(0.3),
+                          : colorScheme.muted.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
                         color: isSelected
                             ? colorScheme.primary
-                            : colorScheme.border.withOpacity(0.12),
+                            : colorScheme.border.withValues(alpha: 0.12),
                         width: isSelected ? 2 : 1,
                       ),
                     ),
@@ -498,10 +497,10 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: colorScheme.muted.withOpacity(0.3),
+          color: colorScheme.muted.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: colorScheme.border.withOpacity(0.08),
+            color: colorScheme.border.withValues(alpha: 0.08),
             width: 1,
           ),
         ),
@@ -509,7 +508,7 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
           children: [
             Icon(
               Icons.info_outline_rounded,
-              color: colorScheme.mutedForeground.withOpacity(0.7),
+              color: colorScheme.mutedForeground.withValues(alpha: 0.7),
               size: 20,
             ),
             const SizedBox(width: 12),
@@ -518,7 +517,7 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
                 context.l10n.createHouseholdDescription,
                 style: TextStyle(
                   fontSize: 13,
-                  color: colorScheme.foreground.withOpacity(0.65),
+                  color: colorScheme.foreground.withValues(alpha: 0.65),
                   height: 1.4,
                 ),
               ),
@@ -536,7 +535,7 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
         color: colorScheme.background,
         border: Border(
           top: BorderSide(
-            color: colorScheme.border.withOpacity(0.08),
+            color: colorScheme.border.withValues(alpha: 0.08),
             width: 1,
           ),
         ),
@@ -560,7 +559,7 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
                           valueColor: AlwaysStoppedAnimation<Color>(
-                            colorScheme.primaryForeground.withOpacity(0.5),
+                            colorScheme.primaryForeground.withValues(alpha: 0.5),
                           ),
                         ),
                       ),
@@ -584,7 +583,7 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
                   onPressed: _createHousehold,
                   child: Text(
                     context.l10n.createHousehold,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                       letterSpacing: -0.3,
@@ -716,7 +715,9 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
         );
       }
 
-      final fileExt = path.extension(imageFile.path).toLowerCase();
+      final fileExt = imageFile.path.contains('.')
+          ? '.${imageFile.path.split('.').last.toLowerCase()}'
+          : '';
       if (!StorageConfig.isAllowedFormat(fileExt)) {
         throw Exception('Unsupported file format: $fileExt');
       }

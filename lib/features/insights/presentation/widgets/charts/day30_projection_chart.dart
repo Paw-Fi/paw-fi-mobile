@@ -25,7 +25,7 @@ Widget build30DayProjectionChart(BuildContext context, shadcnui.ColorScheme colo
 
   return LineChart(
     LineChartData(
-      gridData: FlGridData(show: false),
+      gridData: const FlGridData(show: false),
       titlesData: FlTitlesData(
         leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -55,8 +55,8 @@ Widget build30DayProjectionChart(BuildContext context, shadcnui.ColorScheme colo
             show: true,
             gradient: LinearGradient(
               colors: [
-                const Color(0xFF10B981).withOpacity(0.2),
-                const Color(0xFF10B981).withOpacity(0.0),
+                const Color(0xFF10B981).withValues(alpha: 0.2),
+                const Color(0xFF10B981).withValues(alpha: 0.0),
               ],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,

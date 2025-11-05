@@ -10,9 +10,9 @@ import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 
-/// Shows a full-screen currency selector modal
-Future<void> showCurrencySelectorModal(BuildContext context, WidgetRef ref) async {
-  await Navigator.of(context).push(
+/// Shows a full-screen currency selector modal and returns the selected currency code
+Future<String?> showCurrencySelectorModal(BuildContext context, WidgetRef ref) async {
+  return Navigator.of(context).push<String>(
     MaterialPageRoute(
       fullscreenDialog: true,
       builder: (_) => const CurrencySelectorScreen(),
@@ -163,7 +163,7 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.close, color: colorScheme.foreground),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Navigator.pop(context, null),
         ),
         title: Text(
           context.l10n.selectCurrency,
@@ -217,9 +217,9 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
                   await service.setSelectedCurrency(summary.currencyCode);
                   ref.read(homeFilterProvider.notifier).setSelectedCurrency(summary.currencyCode);
                   
-                  // Close modal immediately for better UX
+                  // Close modal immediately for better UX and return selected currency
                   if (context.mounted) {
-                    Navigator.pop(context);
+                    Navigator.pop(context, summary.currencyCode);
                   }
                   
                   // Update analytics state optimistically
@@ -379,7 +379,7 @@ class _CurrencyIcon extends StatelessWidget {
         height: 48,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          border: Border.all(color: colorScheme.border.withOpacity(0.3), width: 1),
+          border: Border.all(color: colorScheme.border.withValues(alpha: 0.3), width: 1),
         ),
         child: ClipOval(
           child: Image.asset(

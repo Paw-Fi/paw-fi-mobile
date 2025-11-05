@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
-import 'package:moneko/core/core.dart';
-import 'package:moneko/features/home/presentation/state/state.dart';
-import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 
 void showTextInputDrawer(

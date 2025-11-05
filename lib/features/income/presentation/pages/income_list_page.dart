@@ -44,7 +44,7 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
     if (success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(context.l10n.incomeAcknowledged ?? 'Income acknowledged'),
+          content: Text(context.l10n.incomeAcknowledged),
           backgroundColor: Colors.green,
         ),
       );
@@ -64,7 +64,7 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
         backgroundColor: colorScheme.background,
         elevation: 0,
         title: Text(
-          context.l10n.income ?? 'Income',
+          context.l10n.income,
           style: TextStyle(color: colorScheme.foreground),
         ),
         actions: [
@@ -107,7 +107,7 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
               const SizedBox(height: 24),
               shadcnui.PrimaryButton(
                 onPressed: _refresh,
-                child: Text(context.l10n.retry ?? 'Retry'),
+                child: Text(context.l10n.retry),
               ),
             ],
           ),
@@ -128,7 +128,7 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
           ),
           const SizedBox(height: 16),
           Text(
-            context.l10n.noIncome ?? 'No Income Yet',
+            context.l10n.noIncome,
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w600,
@@ -139,8 +139,7 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32),
             child: Text(
-              context.l10n.noIncomeDescription ??
-                  'Record your income to track your household\'s financial health',
+              context.l10n.noIncomeDescription,
               style: TextStyle(
                 fontSize: 14,
                 color: colorScheme.mutedForeground,
@@ -151,7 +150,7 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
           const SizedBox(height: 24),
           shadcnui.PrimaryButton(
             onPressed: () => showIncomeEntrySheet(context),
-            child: Text(context.l10n.addIncome ?? 'Add Income'),
+            child: Text(context.l10n.addIncome),
           ),
         ],
       ),
@@ -202,7 +201,7 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
                       width: 48,
                       height: 48,
                       decoration: BoxDecoration(
-                        color: categoryColor.withOpacity(0.1),
+                        color: categoryColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Center(
@@ -274,7 +273,7 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
                   if (income.source != null && income.source!.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Text(
-                      context.l10n.source ?? 'Source: ${income.source}',
+                      '${context.l10n.source}: ${income.source}',
                       style: TextStyle(
                         fontSize: 13,
                         color: colorScheme.mutedForeground,
@@ -303,7 +302,7 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: _getPrivacyScopeColor(income.privacyScope).withOpacity(0.1),
+                          color: _getPrivacyScopeColor(income.privacyScope).withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
@@ -317,14 +316,14 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
                       ),
                       if (income.acknowledgedCount > 0) ...[
                         const SizedBox(width: 8),
-                        Icon(
+                        const Icon(
                           Icons.check_circle,
                           size: 16,
                           color: Colors.green,
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          '${income.acknowledgedCount} ${context.l10n.acknowledged ?? "acknowledged"}',
+                          '${income.acknowledgedCount} ${context.l10n.acknowledged}',
                           style: TextStyle(
                             fontSize: 11,
                             color: colorScheme.mutedForeground,
@@ -342,7 +341,7 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
                     width: double.infinity,
                     child: shadcnui.PrimaryButton(
                       onPressed: () => _acknowledgeIncome(income),
-                      child: Text(context.l10n.acknowledge ?? 'Acknowledge'),
+                      child: Text(context.l10n.acknowledge),
                     ),
                   ),
                 ],
@@ -357,21 +356,21 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
   String _getCategoryLabel(String category) {
     switch (category) {
       case 'income:salary':
-        return context.l10n.incomeSalary ?? 'Salary';
+        return context.l10n.incomeSalary;
       case 'income:freelance':
-        return context.l10n.incomeFreelance ?? 'Freelance';
+        return context.l10n.incomeFreelance;
       case 'income:investment':
-        return context.l10n.incomeInvestment ?? 'Investment';
+        return context.l10n.incomeInvestment;
       case 'income:refund':
-        return context.l10n.incomeRefund ?? 'Refund';
+        return context.l10n.incomeRefund;
       case 'income:gift':
-        return context.l10n.incomeGift ?? 'Gift';
+        return context.l10n.incomeGift;
       case 'income:bonus':
-        return context.l10n.incomeBonus ?? 'Bonus';
+        return context.l10n.incomeBonus;
       case 'income:rental':
-        return context.l10n.incomeRental ?? 'Rental';
+        return context.l10n.incomeRental;
       case 'income:other':
-        return context.l10n.incomeOther ?? 'Other';
+        return context.l10n.incomeOther;
       default:
         return category.replaceFirst('income:', '');
     }
@@ -380,11 +379,11 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
   String _getPrivacyScopeLabel(String scope) {
     switch (scope) {
       case 'full':
-        return context.l10n.privacyFull ?? 'Full';
+        return context.l10n.privacyFull;
       case 'balances_only':
-        return context.l10n.privacyBalancesOnly ?? 'Balances Only';
+        return context.l10n.privacyBalancesOnly;
       case 'private':
-        return context.l10n.privacyPrivate ?? 'Private';
+        return context.l10n.privacyPrivate;
       default:
         return scope;
     }

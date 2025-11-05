@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
@@ -8,32 +9,6 @@ import 'package:moneko/features/home/presentation/state/processing_state.dart';
 /// Expense processing notifier
 class ExpenseProcessingNotifier extends StateNotifier<ProcessingState> {
   ExpenseProcessingNotifier() : super(ProcessingState());
-
-  Future<void> _simulateProgress() async {
-    // Fast initial progress
-    await Future.delayed(const Duration(milliseconds: 100));
-    state = state.copyWith(progress: 0.3);
-
-    await Future.delayed(const Duration(milliseconds: 200));
-    state = state.copyWith(progress: 0.5);
-
-    await Future.delayed(const Duration(milliseconds: 300));
-    state = state.copyWith(progress: 0.65);
-
-    // Slower as it approaches the end
-    await Future.delayed(const Duration(milliseconds: 500));
-    state = state.copyWith(progress: 0.75);
-
-    await Future.delayed(const Duration(milliseconds: 800));
-    state = state.copyWith(progress: 0.82);
-
-    await Future.delayed(const Duration(milliseconds: 1000));
-    state = state.copyWith(progress: 0.88);
-
-    // Very slow near completion
-    await Future.delayed(const Duration(milliseconds: 1500));
-    state = state.copyWith(progress: 0.92);
-  }
 
   Future<void> processText(String text, String phone) async {
     state = state.copyWith(isProcessing: true, message: 'Processing expense...', progress: 0.1, clearExpense: true);
@@ -69,7 +44,7 @@ class ExpenseProcessingNotifier extends StateNotifier<ProcessingState> {
               receiptImageUrl: expenseData['receipt_image_url'],
             );
           } catch (parseError) {
-            print('Error parsing expense data: $parseError');
+            debugPrint('Error parsing expense data: $parseError');
           }
         } else if (responseData != null && responseData['items'] != null && responseData['items'].isNotEmpty) {
           // Fallback: If 'expenses' array is missing, create from 'items' (Gemini parsed data)
@@ -88,7 +63,7 @@ class ExpenseProcessingNotifier extends StateNotifier<ProcessingState> {
               receiptImageUrl: null,
             );
           } catch (parseError) {
-            print('Error parsing items data: $parseError');
+            debugPrint('Error parsing items data: $parseError');
           }
         }
 
@@ -137,24 +112,24 @@ class ExpenseProcessingNotifier extends StateNotifier<ProcessingState> {
 
       if (response.data != null && response.data['success'] == true) {
         // DEBUG: Log the full response structure
-        print('=== FULL RESPONSE ===');
-        print(response.data);
+        debugPrint('=== FULL RESPONSE ===');
+        debugPrint(response.data);
 
         // Parse expense data from response - it's nested in data.expenses array
         final responseData = response.data['data'];
-        print('=== RESPONSE DATA ===');
-        print(responseData);
+        debugPrint('=== RESPONSE DATA ===');
+        debugPrint(responseData);
 
         ExpenseEntry? createdExpense;
 
         if (responseData != null && responseData['expenses'] != null && responseData['expenses'].isNotEmpty) {
           try {
-            print('=== EXPENSES ARRAY ===');
-            print(responseData['expenses']);
+            debugPrint('=== EXPENSES ARRAY ===');
+            debugPrint(responseData['expenses']);
 
             final expenseData = responseData['expenses'][0]; // Get first expense
-            print('=== FIRST EXPENSE ===');
-            print(expenseData);
+            debugPrint('=== FIRST EXPENSE ===');
+            debugPrint(expenseData);
 
             createdExpense = ExpenseEntry(
               id: expenseData['id'] ?? '',
@@ -167,16 +142,16 @@ class ExpenseProcessingNotifier extends StateNotifier<ProcessingState> {
               currency: expenseData['currency'],
               receiptImageUrl: expenseData['receipt_image_url'],
             );
-            print('=== CREATED EXPENSE ENTRY ===');
-            print('Category: ${createdExpense.category}, Amount: ${createdExpense.amount}');
+            debugPrint('=== CREATED EXPENSE ENTRY ===');
+            debugPrint('Category: ${createdExpense.category}, Amount: ${createdExpense.amount}');
           } catch (parseError) {
-            print('Error parsing expense data: $parseError');
+            debugPrint('Error parsing expense data: $parseError');
           }
         } else {
-          print('=== NO EXPENSES FOUND ===');
-          print('responseData is null: ${responseData == null}');
-          print('expenses is null: ${responseData?['expenses'] == null}');
-          print('expenses isEmpty: ${responseData?['expenses']?.isEmpty}');
+          debugPrint('=== NO EXPENSES FOUND ===');
+          debugPrint('responseData is null: ${responseData == null}');
+          debugPrint('expenses is null: ${responseData?['expenses'] == null}');
+          debugPrint('expenses isEmpty: ${responseData?['expenses']?.isEmpty}');
         }
 
         // Mark as complete

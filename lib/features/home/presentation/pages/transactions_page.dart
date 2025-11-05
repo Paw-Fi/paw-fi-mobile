@@ -215,7 +215,6 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   }
 
   Scaffold _buildMainScaffold(shadcnui.ColorScheme colorScheme, UserContact? contact) {
-    final user = ref.watch(authProvider);
     final analyticsData = ref.watch(analyticsProvider);
     return Scaffold(
       backgroundColor: colorScheme.background,
@@ -225,7 +224,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
             if (widget.householdId != null) {
               ref.invalidate(householdExpensesProvider);
             } else {
-              ref.read(analyticsProvider.notifier).refresh(user.uid);
+              ref.read(analyticsProvider.notifier).refresh(ref.read(authProvider).uid);
             }
             await Future.delayed(const Duration(milliseconds: 500));
           },

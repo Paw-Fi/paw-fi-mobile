@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
-import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 
@@ -18,7 +17,7 @@ void showDateRangeFilter(
   shadcnui.ColorScheme colorScheme, {
   double? height,
 }) {
-  double _resolveHeight(BuildContext c, double? h) {
+  double resolveHeight(BuildContext c, double? h) {
     final screenH = MediaQuery.of(c).size.height;
     if (h == null) return screenH * 0.7;
     if (h > 0 && h <= 1) return screenH * h;
@@ -33,7 +32,7 @@ void showDateRangeFilter(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
     builder: (ctx) {
-      final sheetHeight = _resolveHeight(ctx, height);
+      final sheetHeight = resolveHeight(ctx, height);
       return SafeArea(
         top: false,
         child: SizedBox(
@@ -77,14 +76,15 @@ void showDateRangeFilter(
                           onTap: () async {
                             final container = ProviderScope.containerOf(ctx);
                             container.read(homeFilterProvider.notifier).setFilter(filter);
-                            // Persist selection in local storage for next app launch
+                            // Close first to avoid using context across async gap
+                            Navigator.pop(ctx);
+                            // Persist selection in local storage for next app launch (no context use)
                             try {
                               final service = container.read(dateRangePreferenceServiceProvider);
                               await service.setSelectedDateRange(filter.name);
                             } catch (e) {
                               debugPrint('Error saving date range preference: $e');
                             }
-                            Navigator.pop(ctx);
                           },
                         );
                       }).toList(),

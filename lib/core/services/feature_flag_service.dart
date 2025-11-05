@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -34,7 +35,7 @@ class FeatureFlagService {
 
       if (response.status != 200) {
         // If there's an error, default to disabled for safety
-        print('Feature flag check failed for $featureKey: ${response.status}');
+        debugPrint('Feature flag check failed for $featureKey: ${response.status}');
         return false;
       }
 
@@ -42,7 +43,7 @@ class FeatureFlagService {
       return data['enabled'] as bool? ?? false;
     } catch (e) {
       // If there's an error, default to disabled for safety
-      print('Error checking feature flag $featureKey: $e');
+      debugPrint('Error checking feature flag $featureKey: $e');
       return false;
     }
   }
@@ -78,7 +79,7 @@ class FeatureFlagService {
         'metadata': data['metadata'],
       };
     } catch (e) {
-      print('Error checking feature flag $featureKey: $e');
+      debugPrint('Error checking feature flag $featureKey: $e');
       return {'enabled': false, 'metadata': null};
     }
   }
@@ -95,7 +96,7 @@ class FeatureFlagService {
 
       return response as bool? ?? false;
     } catch (e) {
-      print('Error checking feature flag $featureKey: $e');
+      debugPrint('Error checking feature flag $featureKey: $e');
       return false;
     }
   }

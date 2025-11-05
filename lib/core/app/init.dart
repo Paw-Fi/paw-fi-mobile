@@ -5,7 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 initApp() async {
   const env = String.fromEnvironment('ENV');
-  final fileName = (env == 'prod' || env == 'production')
+  const fileName = (env == 'prod' || env == 'production')
       ? '.env.prod'
       : (env == 'dev' || env == 'development')
           ? '.env.development'

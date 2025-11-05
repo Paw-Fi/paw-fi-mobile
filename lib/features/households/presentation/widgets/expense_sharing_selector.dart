@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
-import '../../../home/presentation/models/expense_entry.dart';
-import '../../domain/entities/household.dart';
+// import '../../../home/presentation/models/expense_entry.dart';
+// import '../../domain/entities/household.dart';
 import '../../domain/entities/shared_budget.dart' show ShareScope;
 import '../providers/household_providers.dart';
 
@@ -137,7 +137,7 @@ class _ExpenseSharingSelectorState extends ConsumerState<ExpenseSharingSelector>
                   }
 
                   return DropdownButtonFormField<String>(
-                    value: _householdId,
+                    initialValue: _householdId,
                     decoration: const InputDecoration(
                       labelText: 'Select Household',
                       border: OutlineInputBorder(),

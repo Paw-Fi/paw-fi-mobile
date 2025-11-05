@@ -709,7 +709,7 @@ class _ReminderModalContentState extends State<_ReminderModalContent> {
                           ),
                         ),
                         child: isLoading
-                            ? SizedBox(
+                            ? const SizedBox(
                                 height: 20,
                                 width: 20,
                                 child: CircularProgressIndicator(
@@ -719,7 +719,7 @@ class _ReminderModalContentState extends State<_ReminderModalContent> {
                               )
                             : Text(
                                 context.l10n.sendReminder,
-                                style: TextStyle(
+                                style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
                                   color: Colors.white,

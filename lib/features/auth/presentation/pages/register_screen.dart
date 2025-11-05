@@ -209,12 +209,12 @@ class _RegistrationFormView extends HookConsumerWidget {
                       borderRadius: BorderRadius.circular(24),
                       boxShadow: [
                         BoxShadow(
-                          color: theme.colorScheme.foreground.withOpacity(0.05),
+                          color: theme.colorScheme.foreground.withValues(alpha: 0.05),
                           blurRadius: 20,
                           offset: const Offset(0, 4),
                         ),
                         BoxShadow(
-                          color: theme.colorScheme.foreground.withOpacity(0.03),
+                          color: theme.colorScheme.foreground.withValues(alpha: 0.03),
                           blurRadius: 40,
                           offset: const Offset(0, 8),
                         ),
@@ -242,7 +242,7 @@ class _RegistrationFormView extends HookConsumerWidget {
                                     gradient: LinearGradient(
                                       colors: [
                                         Colors.transparent,
-                                        theme.colorScheme.border.withOpacity(0.5),
+                                        theme.colorScheme.border.withValues(alpha: 0.5),
                                       ],
                                     ),
                                   ),
@@ -264,7 +264,7 @@ class _RegistrationFormView extends HookConsumerWidget {
                                   decoration: BoxDecoration(
                                     gradient: LinearGradient(
                                       colors: [
-                                        theme.colorScheme.border.withOpacity(0.5),
+                                        theme.colorScheme.border.withValues(alpha: 0.5),
                                         Colors.transparent,
                                       ],
                                     ),
@@ -284,7 +284,7 @@ class _RegistrationFormView extends HookConsumerWidget {
                             placeholder: shadcnui.Text(
                               context.l10n.fullName,
                               style: TextStyle(
-                                color: theme.colorScheme.mutedForeground.withOpacity(0.6),
+                                color: theme.colorScheme.mutedForeground.withValues(alpha: 0.6),
                               ),
                             ),
                             enabled: !isLoading.value,
@@ -311,7 +311,7 @@ class _RegistrationFormView extends HookConsumerWidget {
                             placeholder: shadcnui.Text(
                               context.l10n.emailAddress,
                               style: TextStyle(
-                                color: theme.colorScheme.mutedForeground.withOpacity(0.6),
+                                color: theme.colorScheme.mutedForeground.withValues(alpha: 0.6),
                               ),
                             ),
                             enabled: !isLoading.value,
@@ -339,7 +339,7 @@ class _RegistrationFormView extends HookConsumerWidget {
                             placeholder: shadcnui.Text(
                               context.l10n.createPassword,
                               style: TextStyle(
-                                color: theme.colorScheme.mutedForeground.withOpacity(0.6),
+                                color: theme.colorScheme.mutedForeground.withValues(alpha: 0.6),
                               ),
                             ),
                             features: [
@@ -402,10 +402,10 @@ class _RegistrationFormView extends HookConsumerWidget {
                               child: Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: theme.colorScheme.destructive.withOpacity(0.1),
+                                  color: theme.colorScheme.destructive.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
-                                    color: theme.colorScheme.destructive.withOpacity(0.3),
+                                    color: theme.colorScheme.destructive.withValues(alpha: 0.3),
                                   ),
                                 ),
                                 child: Row(
@@ -441,7 +441,7 @@ class _RegistrationFormView extends HookConsumerWidget {
                                 gradient: LinearGradient(
                                   colors: [
                                     theme.colorScheme.primary,
-                                    theme.colorScheme.primary.withOpacity(0.85),
+                                    theme.colorScheme.primary.withValues(alpha: 0.85),
                                   ],
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
@@ -449,7 +449,7 @@ class _RegistrationFormView extends HookConsumerWidget {
                                 borderRadius: BorderRadius.circular(12),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: theme.colorScheme.primary.withOpacity(0.3),
+                                    color: theme.colorScheme.primary.withValues(alpha: 0.3),
                                     blurRadius: 12,
                                     offset: const Offset(0, 4),
                                   ),

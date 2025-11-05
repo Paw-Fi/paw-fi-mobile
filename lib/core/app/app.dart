@@ -62,10 +62,10 @@ class _AppState extends ConsumerState<App> {
 
     return shadcnui.ShadcnApp.router(
       title: 'Moneko',
-      localizationsDelegates: [
+      localizationsDelegates: const [
         ...AppLocalizations.localizationsDelegates,
-        const FallbackMaterialLocalizationDelegate(),
-        const FallbackCupertinoLocalizationDelegate(),
+        FallbackMaterialLocalizationDelegate(),
+        FallbackCupertinoLocalizationDelegate(),
       ],
       supportedLocales: AppLocalizations.supportedLocales,
       locale: locale,
