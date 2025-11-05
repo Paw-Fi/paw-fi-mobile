@@ -8,6 +8,5 @@ export 'net_cashflow_card.dart';
 export 'category_breakdown_card.dart';
 export 'spending_breakdown_chart.dart';
 export 'text_input_drawer.dart';
-export 'joint_account_modal.dart';
 export 'date_range_filter_modal.dart';
 export 'currency_selector_modal.dart';

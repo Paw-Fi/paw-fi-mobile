@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/household_providers.dart';
-import 'household_overview_page.dart';
+import '../providers/selected_household_provider.dart';
+import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 
 class HouseholdInvitationHandlerPage extends ConsumerStatefulWidget {
   final String token;
@@ -97,13 +99,7 @@ class _HouseholdInvitationHandlerPageState extends ConsumerState<HouseholdInvita
 
     if (_error != null) {
       return Scaffold(
-        backgroundColor: colors.background,
-        appBar: AppBar(
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => context.pop(),
-          ),
-        ),
+        backgroundColor: colors.background,       
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -123,8 +119,17 @@ class _HouseholdInvitationHandlerPageState extends ConsumerState<HouseholdInvita
     }
 
     if (_accepted && _householdId != null) {
-      // Navigate to overview
-      return HouseholdOverviewPage(householdId: _householdId!);
+      // Navigate to home page with household mode
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          final userId = Supabase.instance.client.auth.currentUser?.id;
+          if (userId != null) {
+            ref.read(viewModeProvider.notifier).setMode(ViewMode.household);
+            ref.read(selectedHouseholdProvider.notifier).selectHousehold(_householdId!, userId);
+            context.go('/dashboard');
+          }
+        }
+      });
     }
 
     return Scaffold(

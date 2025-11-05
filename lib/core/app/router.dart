@@ -11,10 +11,8 @@ import 'package:moneko/features/subscription/presentation/providers/subscription
 import 'package:moneko/core/navigation/main_shell.dart';
 import 'package:moneko/core/app/app_initialization_provider.dart';
 import 'package:moneko/core/ui/pages/splash_screen.dart';
-import 'package:moneko/features/households/presentation/pages/household_invitation_handler_page.dart';
 import 'package:moneko/features/households/presentation/pages/household_invites_page.dart';
 import 'package:moneko/features/households/presentation/pages/household_join_page.dart';
-import 'package:moneko/features/households/presentation/pages/household_overview_page.dart';
 import 'package:moneko/features/households/presentation/pages/household_members_page.dart';
 import 'package:moneko/features/households/presentation/pages/household_settings_page.dart';
 
@@ -104,14 +102,8 @@ GoRouter router(RouterRef ref) {
 
 
 
-      // Household invitation deep link handler
-      GoRoute(
-        path: '/households/invitation/:token',
-        builder: (context, state) {
-          final token = state.pathParameters['token'] ?? '';
-          return HouseholdInvitationHandlerPage(token: token);
-        },
-      ),
+      // Household invitation is now handled via bottom sheet in deep_link_service.dart
+      // No route needed here
 
       // Household join page (with optional token query param)
       GoRoute(
@@ -122,36 +114,27 @@ GoRouter router(RouterRef ref) {
         },
       ),
 
-      // Household routes
+      // Household routes (household overview moved to home page "For Us" mode)
       GoRoute(
-        path: '/households/:householdId',
+        path: '/households/:householdId/invites',
         builder: (context, state) {
           final householdId = state.pathParameters['householdId'] ?? '';
-          return HouseholdOverviewPage(householdId: householdId);
+          return HouseholdInvitesPage(householdId: householdId);
         },
-        routes: [
-          GoRoute(
-            path: 'invites',
-            builder: (context, state) {
-              final householdId = state.pathParameters['householdId'] ?? '';
-              return HouseholdInvitesPage(householdId: householdId);
-            },
-          ),
-          GoRoute(
-            path: 'members',
-            builder: (context, state) {
-              final householdId = state.pathParameters['householdId'] ?? '';
-              return HouseholdMembersPage(householdId: householdId);
-            },
-          ),
-          GoRoute(
-            path: 'settings',
-            builder: (context, state) {
-              final householdId = state.pathParameters['householdId'] ?? '';
-              return HouseholdSettingsPage(householdId: householdId);
-            },
-          ),
-        ],
+      ),
+      GoRoute(
+        path: '/households/:householdId/members',
+        builder: (context, state) {
+          final householdId = state.pathParameters['householdId'] ?? '';
+          return HouseholdMembersPage(householdId: householdId);
+        },
+      ),
+      GoRoute(
+        path: '/households/:householdId/settings',
+        builder: (context, state) {
+          final householdId = state.pathParameters['householdId'] ?? '';
+          return HouseholdSettingsPage(householdId: householdId);
+        },
       ),
 
       // Onboarding Routes

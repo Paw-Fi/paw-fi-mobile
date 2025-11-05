@@ -11,6 +11,7 @@ import 'package:moneko/features/home/presentation/state/analytics_provider.dart'
 import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/features/households/presentation/widgets/household_invitation_sheet.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:go_router/go_router.dart';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -184,18 +185,18 @@ class DeepLinkService {
       }
 
       // Wait a bit to ensure app is fully loaded and context is ready
-      Future.delayed(const Duration(milliseconds: 300), () {
+      Future.delayed(const Duration(milliseconds: 500), () {
         final navigatorContext = rootNavigatorKey.currentContext;
         if (navigatorContext == null) {
           debugPrint('⚠️ Navigator context is null for household invitation');
           return;
         }
 
-        // Navigate to household invitation handler page which auto-accepts the invite
-        // This page will validate and accept the invitation automatically
+        // Show invitation as a bottom sheet (like WhatsApp verification)
+        // This allows users to dismiss it and continue using the app
         if (navigatorContext.mounted) {
-          debugPrint('🏠 Navigating to invitation handler: /households/invitation/$token');
-          navigatorContext.go('/households/invitation/$token');
+          debugPrint('🏠 Showing household invitation bottom sheet');
+          showHouseholdInvitationSheet(navigatorContext, token: token);
         }
       });
       return;
