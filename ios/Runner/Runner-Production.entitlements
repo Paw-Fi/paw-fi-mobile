@@ -3,14 +3,14 @@
 <plist version="1.0">
 <dict>
 	<!-- Associated Domains for Universal Links -->
-	<!-- This enables deep linking from web (moneko.app) to the mobile app -->
+	<!-- This enables deep linking from web (moneko.io) to the mobile app -->
 	<key>com.apple.developer.associated-domains</key>
 	<array>
 		<!-- Universal Links for household invitations -->
-		<!-- Web URL: https://moneko.app/invites/:token -->
+		<!-- Web URL: https://moneko.io/invites/:token -->
 		<!-- Opens in app: moneko://households/join?token=... -->
-		<string>applinks:moneko.app</string>
-		<string>applinks:www.moneko.app</string>
+		<string>applinks:moneko.io</string>
+		<string>applinks:www.moneko.io</string>
 	</array>
 
 	<!-- Push Notifications Entitlement (PRODUCTION) -->

@@ -247,7 +247,7 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
         );
 
         // Automatically copy the invite link
-        final inviteUrl = 'https://moneko.app/invites/$token';
+        final inviteUrl = 'https://moneko.io/invites/$token';
         Clipboard.setData(ClipboardData(text: inviteUrl));
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -267,7 +267,7 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
   }
 
   void _copyInviteLink(HouseholdInvite invite) {
-    final inviteUrl = 'https://moneko.app/invites/${invite.token}';
+    final inviteUrl = 'https://moneko.io/invites/${invite.token}';
     Clipboard.setData(ClipboardData(text: inviteUrl));
 
     ScaffoldMessenger.of(context).showSnackBar(

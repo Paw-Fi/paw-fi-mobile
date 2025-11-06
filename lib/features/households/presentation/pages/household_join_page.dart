@@ -1404,8 +1404,8 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
 
   String? _extractTokenFromUrl(String url) {
     // Try to extract token from various URL formats:
-    // - https://moneko.app/invites/TOKEN
-    // - moneko.app/invites/TOKEN
+    // - https://moneko.io/invites/TOKEN
+    // - moneko.io/invites/TOKEN
     // - /invites/TOKEN
     // - TOKEN (raw token)
 
