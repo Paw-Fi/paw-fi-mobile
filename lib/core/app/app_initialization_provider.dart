@@ -5,6 +5,8 @@ import 'package:moneko/features/subscription/presentation/providers/subscription
 import 'package:moneko/features/profile/data/providers/whatsapp_binding_provider.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/features/households/domain/entities/household.dart';
 
 part 'app_initialization_provider.g.dart';
 
@@ -57,8 +59,10 @@ class AppInitialization extends _$AppInitialization {
           _loadWhatsAppBinding(),
           // Load analytics/dashboard data
           _loadAnalytics(auth.uid),
+          // Load household data
+          _loadHouseholdData(auth.uid),
         ]);
-        
+
         debugPrint('✅ All user data loaded');
       } else {
         debugPrint('👋 User not authenticated, skipping data load');
@@ -138,6 +142,85 @@ class AppInitialization extends _$AppInitialization {
       debugPrint('✅ Analytics loaded');
     } catch (e) {
       debugPrint('❌ Error loading analytics: $e');
+    }
+  }
+
+  /// Load household data (for "For Us" mode)
+  Future<void> _loadHouseholdData(String userId) async {
+    try {
+      debugPrint('🏠 Loading household data...');
+
+      // Load user's households
+      final householdsState = ref.read(userHouseholdsProvider(userId));
+
+      // Wait for data to load
+      final households = await householdsState.when(
+        data: (data) async => data,
+        loading: () async {
+          // Wait a bit for data to load
+          await Future.delayed(const Duration(milliseconds: 100));
+          final state = ref.read(userHouseholdsProvider(userId));
+          return state.value ?? [];
+        },
+        error: (_, __) async => <Household>[],
+      );
+
+      if (households.isEmpty) {
+        debugPrint('📭 No households found for user');
+        return;
+      }
+
+      // Initialize selected household
+      await ref.read(selectedHouseholdProvider.notifier).initialize(userId);
+
+      // Get the selected household
+      final selectedState = ref.read(selectedHouseholdProvider);
+      final household = selectedState.household ?? households.first;
+
+      debugPrint('🏠 Preloading data for household: ${household.name}');
+
+      // Get filter state for date range
+      final filterState = ref.read(homeFilterProvider);
+      final dateRange = getDateRangeFromFilter(
+        filterState.dateRangeFilter,
+        filterState.customStartDate,
+        filterState.customEndDate,
+      );
+      final from = dateRange['from']!;
+      final to = dateRange['to']!;
+      final selectedCurrency = (filterState.selectedCurrency ?? household.currency).toUpperCase();
+
+      // Preload all household data in parallel
+      await Future.wait([
+        // Load expenses
+        ref.read(householdExpensesProvider(
+          HouseholdExpensesParams(householdId: household.id, limit: 500),
+        ).future),
+
+        // Load splits
+        ref.read(householdSplitsProvider(
+          HouseholdSplitsParams(householdId: household.id),
+        ).future),
+
+        // Load summary
+        ref.read(householdSummaryProvider(
+          HouseholdSummaryParams(
+            householdId: household.id,
+            currency: selectedCurrency,
+            startDate: from.toIso8601String(),
+            endDate: to.toIso8601String(),
+          ),
+        ).future),
+      ]);
+
+      // Trigger budgets and members load (StateNotifierProviders)
+      ref.read(householdBudgetsProvider(household.id));
+      ref.read(householdMembersProvider(household.id));
+
+      debugPrint('✅ Household data preloaded');
+    } catch (e) {
+      debugPrint('❌ Error loading household data: $e');
+      // Non-critical error, continue with app initialization
     }
   }
 

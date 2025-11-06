@@ -3,7 +3,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../households/presentation/providers/household_providers.dart';
-import '../../../households/presentation/pages/household_overview_page.dart';
 import '../state/analytics_provider.dart';
 import '../../../utils/currency.dart';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -26,16 +25,11 @@ void navigateToHousehold(BuildContext context, WidgetRef ref) async {
   householdsAsync.when(
     data: (households) {
       if (households.isNotEmpty) {
-        // User has household(s), navigate to first one
-        final household = households.first;
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => HouseholdOverviewPage(
-              householdId: household.id,
-            ),
-          ),
-        );
+        // User has household(s), close modal
+        // Navigation is handled by the home screen
+        if (context.mounted) {
+          Navigator.of(context).pop();
+        }
       } else {
         // No household, show onboarding modal
         showHouseholdOnboardingModal(context, ref, userId);
@@ -244,16 +238,8 @@ void _showCreateHouseholdDialog(BuildContext context, WidgetRef ref, String user
                         final households = householdsAsync.value ?? [];
 
                         if (context.mounted && households.isNotEmpty) {
-                          final household = households.first;
+                          // Close the modal, navigation is handled by the home screen
                           Navigator.of(context).pop();
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => HouseholdOverviewPage(
-                                householdId: household.id,
-                              ),
-                            ),
-                          );
                         }
                       } catch (e) {
                         if (context.mounted) {

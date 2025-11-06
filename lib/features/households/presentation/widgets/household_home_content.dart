@@ -379,13 +379,13 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
 
               const SizedBox(height: 16),
 
-              // Income Card
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: IncomeCard(householdId: household.id),
-              ),
+              // Income Card (development in progress)
+              // Padding(
+              //   padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              //   child: IncomeCard(householdId: household.id),
+              // ),
 
-              const SizedBox(height: 16),
+              // const SizedBox(height: 16),
 
               // Budget Overview Card: Total Spent + Budget Progress
               Padding(
