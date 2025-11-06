@@ -991,22 +991,6 @@ class _HomePageState extends ConsumerState<HomePage> {
         ActionButton(
           onPressed: () {
             _fabKey.currentState?.close();
-            showCreateGoalSheet(context);
-          },
-          icon: const Icon(Icons.flag),
-          label: context.l10n.createGoal,
-        ),
-        ActionButton(
-          onPressed: () {
-            _fabKey.currentState?.close();
-            showIncomeEntrySheet(context);
-          },
-          icon: const Icon(Icons.account_balance_wallet),
-          label: context.l10n.addIncome,
-        ),
-        ActionButton(
-          onPressed: () {
-            _fabKey.currentState?.close();
             _showTextInputDrawer();
           },
           icon: const Icon(Icons.text_fields),
