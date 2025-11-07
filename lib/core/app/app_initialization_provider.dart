@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
@@ -77,6 +78,10 @@ class AppInitialization extends _$AppInitialization {
       // The force update dialog will show on top of the app if needed
       _checkAppVersion();
     } catch (e) {
+      // Record non-fatal so we can analyze initialization failures in production
+      try {
+        FirebaseCrashlytics.instance.recordError(e, StackTrace.current, fatal: false, reason: 'app_initialization_error');
+      } catch (_) {}
       debugPrint('❌ Error during app initialization: $e');
       // Even if there's an error, mark as initialized to avoid stuck splash screen
       state = AppInitState.initialized;
@@ -116,6 +121,9 @@ class AppInitialization extends _$AppInitialization {
         },
       );
     } catch (e) {
+      try {
+        FirebaseCrashlytics.instance.recordError(e, StackTrace.current, fatal: false, reason: 'subscription_load_error');
+      } catch (_) {}
       debugPrint('❌ Error loading subscription: $e');
     }
   }
@@ -129,6 +137,9 @@ class AppInitialization extends _$AppInitialization {
       await bindingAsync;
       debugPrint('✅ WhatsApp binding loaded');
     } catch (e) {
+      try {
+        FirebaseCrashlytics.instance.recordError(e, StackTrace.current, fatal: false, reason: 'whatsapp_binding_error');
+      } catch (_) {}
       debugPrint('❌ Error loading WhatsApp binding: $e');
     }
   }
@@ -141,6 +152,9 @@ class AppInitialization extends _$AppInitialization {
       await ref.read(analyticsProvider.notifier).loadData(userId);
       debugPrint('✅ Analytics loaded');
     } catch (e) {
+      try {
+        FirebaseCrashlytics.instance.recordError(e, StackTrace.current, fatal: false, reason: 'analytics_load_error');
+      } catch (_) {}
       debugPrint('❌ Error loading analytics: $e');
     }
   }
@@ -219,6 +233,9 @@ class AppInitialization extends _$AppInitialization {
 
       debugPrint('✅ Household data preloaded');
     } catch (e) {
+      try {
+        FirebaseCrashlytics.instance.recordError(e, StackTrace.current, fatal: false, reason: 'household_load_error');
+      } catch (_) {}
       debugPrint('❌ Error loading household data: $e');
       // Non-critical error, continue with app initialization
     }

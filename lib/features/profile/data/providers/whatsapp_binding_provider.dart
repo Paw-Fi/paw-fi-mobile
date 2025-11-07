@@ -27,7 +27,10 @@ class WhatsAppBinding extends _$WhatsAppBinding {
           .order('id', ascending: false)
           .limit(1);
 
-      return (response as List).isNotEmpty;
+      if (response is List) {
+        return response.isNotEmpty;
+      }
+      return false;
     } catch (error) {
       debugPrint('Error checking WhatsApp binding: $error');
       return false;
@@ -59,9 +62,13 @@ class WhatsAppBinding extends _$WhatsAppBinding {
           .order('id', ascending: false)
           .limit(1);
 
-      return (response as List).isNotEmpty 
-          ? response[0] as Map<String, dynamic>?
-          : null;
+      if (response is List && response.isNotEmpty) {
+        final first = response.first;
+        if (first is Map) {
+          return Map<String, dynamic>.from(first as Map);
+        }
+      }
+      return null;
     } catch (error) {
       debugPrint('Error fetching WhatsApp contact: $error');
       return null;

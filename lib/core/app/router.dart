@@ -17,6 +17,7 @@ import 'package:moneko/features/households/presentation/pages/household_members_
 import 'package:moneko/features/households/presentation/pages/household_settings_page.dart';
 
 import '../ui/pages/error_page.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 part 'router.g.dart';
 
@@ -159,6 +160,7 @@ GoRouter router(RouterRef ref) {
       ),
     ],
     redirect: (context, state) {
+      try {
       final isAuthenticated = !auth.isEmpty;
       final isOnSplashPage = state.matchedLocation == '/splash';
       final isOnAuthPage = state.matchedLocation == '/login' ||
@@ -240,6 +242,15 @@ GoRouter router(RouterRef ref) {
 
       // Allow navigation (includes when subscription is loading)
       return null;
+      } catch (e, s) {
+        // Record non-fatal to Crashlytics for production observability
+        try {
+          FirebaseCrashlytics.instance.recordError(e, s, fatal: false, reason: 'router_redirect_error');
+        } catch (_) {}
+        debugPrint('Router redirect error: $e');
+        debugPrint(s.toString());
+        return '/splash';
+      }
     },
     errorBuilder: (context, state) => ErrorPage(state.error),
   );

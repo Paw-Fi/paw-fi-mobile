@@ -3,27 +3,28 @@ Excellent, I've reviewed the provided changes. Here is my feedback.
 
 ### Code Review
 
-Overall, this is a fantastic set of changes that significantly improves the application's startup sequence and session management. The introduction of a splash screen controlled by an initialization provider creates a much smoother and more professional user experience, eliminating potential flashes of content or redirects. The centralized handling of state clearing on logout is a major step forward for robustness and maintainability.
+Overall, these changes are excellent and significantly improve the application's startup robustness and error handling. The developer has correctly identified and fixed several potential race conditions and added safeguards to prevent crashes during initialization and navigation. This is a high-quality contribution that directly enhances app stability.
+
+#### Critical Issues
+
+There are no critical issues. The changes are solid.
+
+#### Warnings
+
+There are no warnings to report.
 
 #### Suggestions (Consider Improving)
 
-*   **Centralized State Clearing:** The `RouterNotifier` now correctly triggers a reset flow on logout by calling `_ref.read(appInitializationProvider.notifier).clearCache()`. You've added `clear()` methods to `AnalyticsNotifier`, `ExpenseProcessingNotifier`, and `WhatsAppBinding`. This is the right pattern.
+*   **Production Error Logging:** The `try-catch` blocks in `app.dart` and `router.dart` currently use `debugPrint` to log errors. While this is great for development, these logs will be lost in a production environment. For better observability, consider integrating a dedicated crash reporting service (like Firebase Crashlytics or Sentry) to log these errors. This will allow you to monitor and fix issues that users encounter in the wild.
 
-    To make this even more robust, ensure that the `clearCache()` method explicitly calls the `clear()` method of *every* provider that holds user-specific state. This creates a single, clear place to manage session cleanup, making it easier to maintain as the app grows.
-
-    **Example:**
+    **Example (`lib/core/app/router.dart`):**
     ```dart
-    // In your AppInitializationNotifier
-    void clearCache() {
-      ref.read(analyticsNotifierProvider.notifier).clear();
-      ref.read(expenseProcessingNotifierProvider.notifier).clear();
-      ref.read(whatsAppBindingProvider.notifier).clear();
-      // ... add any other user-state providers here
+    // Instead of just printing
+    } catch (e, s) {
+      debugPrint('Router redirect error: $e');
+      debugPrint(s.toString());
+      // Consider logging to a remote service
+      // For example: FirebaseCrashlytics.instance.recordError(e, s);
+      return '/splash';
     }
     ```
-
-*   **Provider Caching (`keepAlive`):** You've changed `WhatsAppBinding` to use `@Riverpod(keepAlive: true)`. This is an excellent choice for caching data that is fetched once per session. I recommend reviewing other providers in the application. Any provider that fetches user-specific data that doesn't change often could be a good candidate for `keepAlive: true`, as long as it also has a `clear()` method that is called on logout. This will improve performance and reduce unnecessary API calls.
-
-*   **Redirect Logic Complexity:** The `redirect` function in `router.dart` has grown significantly. It's currently well-structured and readable, but it's a critical piece of logic that is becoming complex. As more states or roles are introduced, this function could become difficult to manage. Consider keeping an eye on its complexity and, if it grows further, refactoring the logic into smaller, dedicated functions that can be more easily tested and understood.
-
-There are no critical issues or warnings to report. This is a high-quality contribution that dramatically improves the app's architecture and user experience. Great work.

@@ -27,15 +27,17 @@ class SubscriptionNotifier extends _$SubscriptionNotifier {
           .order('updated_at', ascending: false)
           .limit(1);
 
-      final responseList = response as List;
-      appLog('Response: ${responseList.length} rows', name: 'SubscriptionProvider');
-      
-      if (responseList.isEmpty) {
+      if (response is! List || response.isEmpty) {
         appLog('No subscription found - returning null', name: 'SubscriptionProvider');
         return null;
       }
       
-      final subData = responseList[0] as Map<String, dynamic>;
+      final first = response.first;
+      if (first is! Map) {
+        appLog('Unexpected subscription payload shape', name: 'SubscriptionProvider');
+        return null;
+      }
+      final subData = Map<String, dynamic>.from(first as Map);
       appLog(
         'Subscription data: plan=${subData['plan']}, status=${subData['status']}, bound_to=${subData['bound_to_user_id']}',
         name: 'SubscriptionProvider',

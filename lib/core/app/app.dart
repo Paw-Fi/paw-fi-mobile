@@ -9,6 +9,8 @@ import 'package:moneko/features/households/data/services/device_registration_ser
 import 'package:moneko/features/app_version/presentation/widgets/version_check_wrapper.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/ui/pages/splash_screen.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 class App extends ConsumerStatefulWidget {
   const App({super.key});
@@ -28,7 +30,15 @@ class _AppState extends ConsumerState<App> {
     // Context will be available after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_deepLinkInitialized && mounted) {
-        _deepLinkService.initialize(ref, context);
+        try {
+          _deepLinkService.initialize(ref, context);
+        } catch (e, s) {
+          try {
+            FirebaseCrashlytics.instance.recordError(e, s, fatal: false, reason: 'deeplink_init_error');
+          } catch (_) {}
+          debugPrint('DeepLink initialization error: $e');
+          debugPrint(s.toString());
+        }
         _deepLinkInitialized = true;
         
         // Store in global container for FCM integration
@@ -41,11 +51,7 @@ class _AppState extends ConsumerState<App> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Try to initialize as early as possible once context is available
-    if (!_deepLinkInitialized && mounted) {
-      _deepLinkService.initialize(ref, context);
-      _deepLinkInitialized = true;
-    }
+    // Deep link initialization happens post-frame to avoid early platform-channel churn
   }
 
   @override
@@ -80,7 +86,8 @@ class _AppState extends ConsumerState<App> {
         // Apply global Material theme wrapper for TextField styling
         return Theme(
           data: _getMaterialTheme(context, themeMode),
-          child: VersionCheckWrapper(child: child ?? const SizedBox.shrink()),
+          // Never render an empty child on first frames; fallback to SplashScreen
+          child: VersionCheckWrapper(child: child ?? const SplashScreen()),
         );
       },
     );

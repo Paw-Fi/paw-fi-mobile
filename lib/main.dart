@@ -1,7 +1,12 @@
+import 'dart:async';
+import 'dart:isolate';
+import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:moneko/core/app/app.dart';
 import 'package:moneko/core/app/init.dart';
@@ -24,30 +29,92 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // Note: Don't do heavy processing here, just handle the notification
 }
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+void main() {
+  runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase before everything else
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+    // Initialize Firebase and Crashlytics first
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+    const enableCrashlyticsInDebug = bool.fromEnvironment('ENABLE_CRASHLYTICS_DEBUG', defaultValue: false);
+    await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(!kDebugMode || enableCrashlyticsInDebug);
+    FirebaseCrashlytics.instance.log('startup: firebase_initialized');
 
-  // Register background message handler
-  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    // Record Flutter framework errors as fatal in Crashlytics
+    FlutterError.onError = (FlutterErrorDetails details) {
+      FirebaseCrashlytics.instance.recordFlutterFatalError(details);
+      FlutterError.presentError(details);
+    };
 
-  // Initialize Supabase and other app dependencies
-  await initApp();
+    // Show a friendly UI on build errors instead of a blank screen in release
+    ErrorWidget.builder = (FlutterErrorDetails details) {
+      // Record non-fatal to Crashlytics as well
+      FirebaseCrashlytics.instance.recordError(details.exception, details.stack ?? StackTrace.empty, reason: 'ErrorWidget', fatal: false);
+      return Directionality(
+        textDirection: TextDirection.ltr,
+        child: ColoredBox(
+          color: const Color(0xFF000000),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Text(
+                'Something went wrong. Please restart the app.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Color(0xFFFFFFFF), fontSize: 16),
+              ),
+            ),
+          ),
+        ),
+      );
+    };
 
-  // Initialize SharedPreferences for persistent state
-  final sharedPreferences = await SharedPreferences.getInstance();
+    // Record platform dispatcher errors
+    ui.PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      return true; // handled
+    };
 
-  runApp(
-    ProviderScope(
-      overrides: [
-        // Provide SharedPreferences instance to selected household provider
-        sharedPreferencesProvider.overrideWithValue(sharedPreferences),
-      ],
-      child: const App(),
-    ),
-  );
+    // Catch isolate-level errors (e.g., background isolates)
+    final errorPort = RawReceivePort((dynamic pair) {
+      final List<dynamic> errorAndStackTrace = pair as List<dynamic>;
+      final Object err = errorAndStackTrace.first as Object;
+      final StackTrace st = errorAndStackTrace.last is StackTrace
+          ? (errorAndStackTrace.last as StackTrace)
+          : StackTrace.fromString(errorAndStackTrace.last.toString());
+      FirebaseCrashlytics.instance.recordError(err, st, fatal: true);
+    });
+    Isolate.current.addErrorListener(errorPort.sendPort);
+
+    // Register background message handler
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    FirebaseCrashlytics.instance.log('startup: fcm_background_handler_registered');
+
+    // Initialize Supabase and other app dependencies (dotenv + Supabase)
+    try {
+      await initApp();
+      FirebaseCrashlytics.instance.log('startup: supabase_initialized');
+    } catch (e, s) {
+      debugPrint('❌ initApp failed: $e');
+      debugPrint(s.toString());
+      FirebaseCrashlytics.instance.recordError(e, s, reason: 'initApp failed', fatal: false);
+      // Continue; router/splash will still render and can show error UI later
+    }
+
+    // Initialize SharedPreferences for persistent state
+    final sharedPreferences = await SharedPreferences.getInstance();
+    FirebaseCrashlytics.instance.log('startup: shared_prefs_ready');
+
+    runApp(
+      ProviderScope(
+        overrides: [
+          // Provide SharedPreferences instance to selected household provider
+          sharedPreferencesProvider.overrideWithValue(sharedPreferences),
+        ],
+        child: const App(),
+      ),
+    );
+    FirebaseCrashlytics.instance.log('startup: runApp_called');
+  }, (error, stack) {
+    // Record uncaught zone errors as fatal
+    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+  });
 }
