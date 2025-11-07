@@ -103,8 +103,6 @@ GoRouter router(RouterRef ref) {
 
 
 
-      // Household invitation is now handled via bottom sheet in deep_link_service.dart
-      // No route needed here
 
       // Household join page (with optional token query param)
       GoRoute(
@@ -161,6 +159,14 @@ GoRouter router(RouterRef ref) {
     ],
     redirect: (context, state) {
       try {
+      // Handle invitation universal links - redirect to home page
+      // The invitation modal is shown by deep_link_service.dart on top of the home page
+      if (state.matchedLocation.startsWith('/invites/')) {
+        debugPrint('🔗 Invitation universal link detected: ${state.matchedLocation}');
+        // Redirect to home page where modal will be shown
+        return '/';
+      }
+
       final isAuthenticated = !auth.isEmpty;
       final isOnSplashPage = state.matchedLocation == '/splash';
       final isOnAuthPage = state.matchedLocation == '/login' ||

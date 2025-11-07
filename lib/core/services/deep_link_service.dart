@@ -172,11 +172,27 @@ class DeepLinkService {
       return;
     }
 
-    // Handle household invitation: moneko://households/join?token=abc123
-    // This deep link comes from the web when user clicks invite link on mobile
+    // Handle household invitation
+    // Supports both formats:
+    // - Deep link: moneko://households/join?token=abc123
+    // - Universal link: https://moneko.io/invites/abc123
     if (DeepLinks.isHouseholdInvitation(uri)) {
-      final token = uri.queryParameters['token'];
-      debugPrint('🏠 Household invitation deep link received from web!');
+      String? token;
+
+      // Extract token based on URL format
+      if (uri.scheme == 'moneko') {
+        // Deep link format: moneko://households/join?token=abc123
+        token = uri.queryParameters['token'];
+      } else if (uri.scheme == 'https' || uri.scheme == 'http') {
+        // Universal link format: https://moneko.io/invites/abc123
+        // Token is the second path segment after 'invites'
+        if (uri.pathSegments.length >= 2 && uri.pathSegments.first == 'invites') {
+          token = uri.pathSegments[1];
+        }
+      }
+
+      debugPrint('🏠 Household invitation link received!');
+      debugPrint('🏠 URI: $uri');
       debugPrint('🏠 Token: $token');
 
       if (token == null || token.isEmpty) {
@@ -184,7 +200,13 @@ class DeepLinkService {
         return;
       }
 
+      // Capture token in a final variable for the closure
+      final inviteToken = token;
+
       // Wait a bit to ensure app is fully loaded and context is ready
+      // NOTE: This uses a fixed delay which is pragmatic but not ideal for all devices.
+      // Future improvement: Use a provider/state manager to signal when navigation is ready.
+      // This would be more reliable on slower devices or under heavy load.
       Future.delayed(const Duration(milliseconds: 500), () {
         final navigatorContext = rootNavigatorKey.currentContext;
         if (navigatorContext == null) {
@@ -196,7 +218,7 @@ class DeepLinkService {
         // This allows users to dismiss it and continue using the app
         if (navigatorContext.mounted) {
           debugPrint('🏠 Showing household invitation bottom sheet');
-          showHouseholdInvitationSheet(navigatorContext, token: token);
+          showHouseholdInvitationSheet(navigatorContext, token: inviteToken);
         }
       });
       return;

@@ -90,10 +90,27 @@ class DeepLinks {
   }
 
   /// Check if a URI is a household invitation callback
+  /// Handles both:
+  /// - Deep link: moneko://households/join?token=abc123
+  /// - Universal link: https://moneko.io/invites/abc123
   static bool isHouseholdInvitation(Uri uri) {
-    return uri.scheme == appScheme &&
-           uri.host == 'households' &&
-           uri.path == '/join';
+    // Deep link format: moneko://households/join?token=abc123
+    if (uri.scheme == appScheme &&
+        uri.host == 'households' &&
+        uri.path == '/join') {
+      return true;
+    }
+
+    // Universal link format: https://moneko.io/invites/{token}
+    // Also handles: https://www.moneko.io/invites/{token}
+    if ((uri.scheme == 'https' || uri.scheme == 'http') &&
+        (uri.host == 'moneko.io' || uri.host == 'www.moneko.io') &&
+        uri.pathSegments.isNotEmpty &&
+        uri.pathSegments.first == 'invites') {
+      return true;
+    }
+
+    return false;
   }
 
   /// Check if a URI is an expense deep link

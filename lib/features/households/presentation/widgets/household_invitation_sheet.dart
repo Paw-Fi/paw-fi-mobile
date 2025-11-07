@@ -37,6 +37,22 @@ class _HouseholdInvitationSheetState
     WidgetsBinding.instance.addPostFrameCallback((_) => _acceptInvite());
   }
 
+  /// Helper method to refresh the household list for the current user
+  /// This is called whenever a user joins or is already a member of a household
+  /// to ensure the UI reflects the latest state
+  Future<void> _refreshHouseholdList() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    try {
+      await ref.read(userHouseholdsProvider(userId).notifier).load();
+      debugPrint('✅ [HouseholdInvitationSheet] Household list refreshed successfully');
+    } catch (e) {
+      debugPrint('⚠️ [HouseholdInvitationSheet] Failed to refresh household list: $e');
+      // Continue anyway - this is not a critical failure
+    }
+  }
+
   Future<void> _acceptInvite() async {
     debugPrint('🏠 [HouseholdInvitationSheet] Starting invitation acceptance flow');
     final repo = ref.read(householdRepositoryProvider);
@@ -56,6 +72,11 @@ class _HouseholdInvitationSheetState
       if (errorCode == 'ALREADY_MEMBER' && householdId != null) {
         debugPrint(
             '🏠 [HouseholdInvitationSheet] User already a member, showing success');
+
+        // Ensure household list is refreshed even if already a member
+        // This handles cases where the household might not be in the local cache
+        await _refreshHouseholdList();
+
         setState(() {
           _accepted = true;
           _householdId = householdId;
@@ -84,6 +105,10 @@ class _HouseholdInvitationSheetState
             if (e.toString().contains('409') || e.toString().contains('already')) {
               debugPrint(
                   '🏠 [HouseholdInvitationSheet] Already a member (from accept call), showing success anyway');
+
+              // Refresh household list to ensure consistency
+              await _refreshHouseholdList();
+
               setState(() {
                 _accepted = true;
                 _householdId = householdId;
