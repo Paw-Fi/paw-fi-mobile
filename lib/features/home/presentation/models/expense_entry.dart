@@ -1,5 +1,5 @@
 
-/// Represents a single spending entry from expenses table
+/// Represents a single transaction from expenses table (type = 'expense' or 'income')
 class ExpenseEntry {
   final String id;
   final String? contactId;
@@ -16,6 +16,7 @@ class ExpenseEntry {
   final String? receiptImageUrl;
   final List<String>? sharedMemberIds;
   final String? splitGroupId;
+  final String? type; // 'expense' | 'income'
 
   ExpenseEntry({
     required this.id,
@@ -33,6 +34,7 @@ class ExpenseEntry {
     this.receiptImageUrl,
     this.sharedMemberIds,
     this.splitGroupId,
+    this.type,
   });
 
   double get amount => amountCents / 100.0;
@@ -59,6 +61,7 @@ class ExpenseEntry {
           ? List<String>.from(json['shared_member_ids'] as List)
           : null,
       splitGroupId: json['split_group_id'] as String?,
+      type: json['type'] as String?,
     );
   }
 
@@ -79,6 +82,7 @@ class ExpenseEntry {
       'receipt_image_url': receiptImageUrl,
       'shared_member_ids': sharedMemberIds,
       'split_group_id': splitGroupId,
+      'type': type,
     };
   }
 
@@ -99,6 +103,7 @@ class ExpenseEntry {
     String? receiptImageUrl,
     List<String>? sharedMemberIds,
     String? splitGroupId,
+    String? type,
   }) {
     return ExpenseEntry(
       id: id ?? this.id,
@@ -116,6 +121,7 @@ class ExpenseEntry {
       receiptImageUrl: receiptImageUrl ?? this.receiptImageUrl,
       sharedMemberIds: sharedMemberIds ?? this.sharedMemberIds,
       splitGroupId: splitGroupId ?? this.splitGroupId,
+      type: type ?? this.type,
     );
   }
 }

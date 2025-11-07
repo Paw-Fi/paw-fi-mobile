@@ -9,14 +9,16 @@ Widget buildNetCashflowCard(
   BuildContext context,
   shadcnui.ColorScheme colorScheme,
   List<DailyBudgetEntry> budgets,
-  List<ExpenseEntry> expenses,
+  List<ExpenseEntry> transactions,
   UserContact? contact,
   DateRangeFilter filter, {
   String? selectedCurrency,
 }) {
-  final totalBudget = _getTotalBudget(budgets);
-  final totalSpent = _getTotalSpent(expenses);
-  final netCashflow = totalBudget - totalSpent;
+  // Net cashflow = income - expenses (budget not used in calculation)
+  final totals = _getIncomeAndExpenses(transactions);
+  final totalIncome = totals.$1;
+  final totalSpent = totals.$2;
+  final netCashflow = totalIncome - totalSpent;
   final isNegative = netCashflow < 0;
   
   // selectedCurrency is never null (defaults to USD)
@@ -79,9 +81,19 @@ double _getTotalBudget(List<DailyBudgetEntry> budgets) {
   return budgets.fold(0.0, (sum, b) => sum + b.amount);
 }
 
-double _getTotalSpent(List<ExpenseEntry> expenses) {
-  // Treat all rows as spending and sum absolute values for consistency
-  return expenses.fold(0.0, (sum, e) => sum + e.amount.abs());
+/// Returns (income, expenses)
+(double, double) _getIncomeAndExpenses(List<ExpenseEntry> transactions) {
+  double income = 0;
+  double spend = 0;
+  for (final t in transactions) {
+    final ttype = (t.type ?? 'expense').toLowerCase();
+    if (ttype == 'income') {
+      income += t.amount.abs();
+    } else {
+      spend += t.amount.abs();
+    }
+  }
+  return (income, spend);
 }
 
 String _netCashflowTitleForFilter(BuildContext context, DateRangeFilter filter) {

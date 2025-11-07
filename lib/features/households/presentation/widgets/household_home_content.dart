@@ -18,8 +18,9 @@ import '../pages/household_settings_page.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
-import 'package:moneko/features/income/presentation/widgets/income_card.dart';
 import 'package:moneko/features/income/presentation/providers/income_providers.dart';
+import 'package:moneko/features/households/presentation/widgets/group_fairness_meter.dart';
+import 'package:moneko/features/households/presentation/widgets/settlement_suggestions_card.dart';
 
 /// Household home content that handles loading, empty, and data states
 /// Returns Sliver widgets for use in CustomScrollView
@@ -459,6 +460,20 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
               ),
 
               const SizedBox(height: 16),
+
+              // Group fairness & settlement suggestions
+              if (summaryAsync.asData?.value != null) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: GroupFairnessMeter(summary: summaryAsync.asData!.value!),
+                ),
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: SettlementSuggestionsCard(summary: summaryAsync.asData!.value!),
+                ),
+                const SizedBox(height: 16),
+              ],
 
               // Member Spending Card
               Padding(

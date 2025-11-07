@@ -9,6 +9,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/features/income/presentation/providers/income_providers.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
 import 'package:moneko/features/home/presentation/models/user_contact.dart';
@@ -249,10 +250,15 @@ class _UnifiedTransactionSheetState
 
   String? get receiptImageUrl => widget.existingExpense?.receiptImageUrl;
 
-  // Generate note prefix like "I spent $XX on category"
+  // Generate note prefix like "I spent $XX on category" or income variant
   String _generateNotePrefix() {
-    final displayAmount = (ref.read(pendingExpenseProvider)?.amount ?? amount);
-    final displayCategory = (ref.read(pendingExpenseProvider)?.category ?? category);
+    final pending = ref.read(pendingExpenseProvider);
+    final isIncomeMode = (isNewExpense && (pending?.isIncome ?? widget.newExpense!.isIncome));
+    final displayAmount = (pending?.amount ?? amount);
+    final displayCategory = (pending?.category ?? category);
+    if (isIncomeMode) {
+      return 'I earned $currencySymbol${displayAmount.toStringAsFixed(2)} ($displayCategory)';
+    }
     return 'I spent $currencySymbol${displayAmount.toStringAsFixed(2)} on $displayCategory';
   }
 
@@ -272,6 +278,11 @@ class _UnifiedTransactionSheetState
     final displayCategory = isNewExpense && pendingExpense != null ? pendingExpense.category : category;
     final displayDate = isNewExpense && pendingExpense != null ? pendingExpense.date : date;
     final displayDescription = isNewExpense && pendingExpense != null ? pendingExpense.description : description;
+
+    // Income mode for display (for new or existing items)
+    final isIncomeMode = isNewExpense
+        ? (pendingExpense?.isIncome ?? widget.newExpense!.isIncome)
+        : ((widget.existingExpense?.type?.toLowerCase() == 'income'));
 
     return Container(
       constraints: BoxConstraints(
@@ -309,7 +320,7 @@ class _UnifiedTransactionSheetState
                 ),
                 Expanded(
                   child: Text(
-                    isNewExpense ? context.l10n.confirmExpense : context.l10n.expenseDetails,
+                    isNewExpense ? (isIncomeMode ? 'Confirm Income' : context.l10n.confirmExpense) : context.l10n.expenseDetails,
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
@@ -338,11 +349,11 @@ class _UnifiedTransactionSheetState
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          '-$currencySymbol${displayAmount.toStringAsFixed(2)}',
+                          '${isIncomeMode ? '+' : '-'}$currencySymbol${displayAmount.toStringAsFixed(2)}',
                           style: TextStyle(
                             fontSize: 48,
                             fontWeight: FontWeight.w700,
-                            color: colorScheme.foreground,
+                            color: isIncomeMode ? const Color(0xFF10B981) : colorScheme.foreground,
                             letterSpacing: -1.5,
                           ),
                         ),
@@ -375,6 +386,7 @@ class _UnifiedTransactionSheetState
                             colorScheme,
                             households,
                             selectedHousehold,
+                            isIncomeMode,
                           ),
                           const SizedBox(height: 24),
                         ],
@@ -507,7 +519,7 @@ class _UnifiedTransactionSheetState
                                     Colors.white),
                               ),
                             )
-                          : Text(context.l10n.saveExpense),
+                          : Text(isIncomeMode ? 'Save Income' : context.l10n.saveExpense),
                     ),
                   ),
 
@@ -553,6 +565,7 @@ class _UnifiedTransactionSheetState
     shadcnui.ColorScheme colorScheme,
     List households,
     String? selectedHousehold,
+    bool isIncomeMode,
   ) {
     // Auto-select first household when sharing is enabled but no selection exists yet
     if (_isSharedWithHousehold && households.isNotEmpty && selectedHousehold == null) {
@@ -760,12 +773,16 @@ class _UnifiedTransactionSheetState
                 final pendingExpense = isNewExpense ? ref.read(pendingExpenseProvider) : null;
                 final currentAmount = pendingExpense?.amount ?? amount;
 
-                return Container(
-                  decoration: BoxDecoration(
-                    color: colorScheme.muted.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: CustomSplitEditor(
+            // For income mode, we hide the custom split editor entirely
+            if (isIncomeMode) {
+              return const SizedBox();
+            }
+            return Container(
+              decoration: BoxDecoration(
+                color: colorScheme.muted.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: CustomSplitEditor(
                     members: _householdMembers!,
                     totalAmount: currentAmount,
                     currencySymbol: currencySymbol,
@@ -1553,12 +1570,12 @@ class _UnifiedTransactionSheetState
       final viewMode = ref.read(viewModeProvider);
 
       if (isNewExpense) {
-        // NEW EXPENSE: Use existing save logic
+        // NEW TRANSACTION (expense or income)
         final expense = ref.read(pendingExpenseProvider);
         final selectedHousehold = ref.read(selectedHouseholdForSharingProvider);
 
         if (expense == null) {
-          throw Exception('No expense to save');
+          throw Exception('No transaction to save');
         }
 
         // Combine date with time
@@ -1570,50 +1587,82 @@ class _UnifiedTransactionSheetState
           _selectedTime.minute,
         );
 
-        // Create updated expense with time
-        final expenseWithTime = expense.copyWith(date: expenseDateTime);
+        if (expense.isIncome) {
+          // Save INCOME
+          final saved = await ref.read(incomeSaveProvider.notifier).saveIncome(
+                userId: user.uid,
+                amount: expense.amount,
+                category: expense.category.isNotEmpty ? expense.category : 'income',
+                currency: expense.currency,
+                date: expenseDateTime,
+                description: expense.description,
+                householdId: selectedHousehold,
+              );
 
-        // Upload receipt image if available
-        String? receiptUrl;
-        if (widget.localImagePath != null) {
-          receiptUrl = await ref
-              .read(expenseSaveNotifierProvider.notifier)
-              .uploadReceiptImage(File(widget.localImagePath!), user.uid);
-        }
+          // Reset state
+          ref.read(pendingExpenseProvider.notifier).state = null;
+          ref.read(selectedHouseholdForSharingProvider.notifier).state = null;
 
-        // Save expense with time and custom splits (if configured)
-        await ref.read(expenseSaveNotifierProvider.notifier).saveExpense(
-              expense: expenseWithTime,
-              householdId: selectedHousehold,
-              receiptImageUrl: receiptUrl,
-              customSplitType: _customSplitType,
-              customSplits: _customSplits,
+          if (!mounted) return;
+
+          Navigator.of(context).pop();
+          if (saved != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(selectedHousehold != null ? 'Income saved and shared' : 'Income saved'),
+                backgroundColor: shadcnui.Theme.of(context).colorScheme.primary,
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+              ),
             );
+          }
+        } else {
+          // Save EXPENSE
+          // Create updated expense with time
+          final expenseWithTime = expense.copyWith(date: expenseDateTime);
 
-        // Clear pending expense, selection, and custom splits
-        ref.read(pendingExpenseProvider.notifier).state = null;
-        ref.read(selectedHouseholdForSharingProvider.notifier).state = null;
-        
-        if (!mounted) return;
+          // Upload receipt image if available
+          String? receiptUrl;
+          if (widget.localImagePath != null) {
+            receiptUrl = await ref
+                .read(expenseSaveNotifierProvider.notifier)
+                .uploadReceiptImage(File(widget.localImagePath!), user.uid);
+          }
 
-        // Close modal
-        Navigator.of(context).pop();
+          // Save expense with time and custom splits (if configured)
+          await ref.read(expenseSaveNotifierProvider.notifier).saveExpense(
+                expense: expenseWithTime,
+                householdId: selectedHousehold,
+                receiptImageUrl: receiptUrl,
+                customSplitType: _customSplitType,
+                customSplits: _customSplits,
+              );
 
-        // Show success toast with split info
-        final splitInfo = _customSplitType != null 
-            ? ' (${_customSplitType.toString().split('.').last} split)'
-            : '';
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(selectedHousehold != null
-                ? context.l10n.expenseSavedAndShared(splitInfo)
-                : context.l10n.expenseSaved),
-            backgroundColor: shadcnui.Theme.of(context).colorScheme.primary,
-            duration: const Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+          // Clear pending expense, selection, and custom splits
+          ref.read(pendingExpenseProvider.notifier).state = null;
+          ref.read(selectedHouseholdForSharingProvider.notifier).state = null;
+          
+          if (!mounted) return;
+
+          // Close modal
+          Navigator.of(context).pop();
+
+          // Show success toast with split info
+          final splitInfo = _customSplitType != null 
+              ? ' (${_customSplitType.toString().split('.').last} split)'
+              : '';
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(selectedHousehold != null
+                  ? context.l10n.expenseSavedAndShared(splitInfo)
+                  : context.l10n.expenseSaved),
+              backgroundColor: shadcnui.Theme.of(context).colorScheme.primary,
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       } else {
         // EXISTING EXPENSE: Build updates map from local edits
         final Map<String, dynamic> updates = {};

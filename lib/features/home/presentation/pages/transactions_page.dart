@@ -32,6 +32,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   String searchQuery = '';
   String selectedCategory = 'all';
   String selectedPeriod = '1M';
+  String selectedType = 'all'; // all | expense | income
   int currentChartIndex = 0;
   DateTime? _customStartDate;
   DateTime? _customEndDate;
@@ -109,6 +110,14 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       expenses = expenses.where((e) {
         final cat = (e.category ?? 'uncategorized').toLowerCase();
         return cat == selectedCategory.toLowerCase();
+      }).toList();
+    }
+
+    // Filter by type
+    if (selectedType != 'all') {
+      expenses = expenses.where((e) {
+        final t = (e.type ?? 'expense').toLowerCase();
+        return t == selectedType;
       }).toList();
     }
 
@@ -397,6 +406,27 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
               ),
             ),
 
+            // Type filter chips
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
+                child: Wrap(
+                  spacing: 8,
+                  children: [
+                    for (final type in const ['all','expense','income'])
+                      ChoiceChip(
+                        label: Text(type[0].toUpperCase() + type.substring(1)),
+                        selected: selectedType == type,
+                        onSelected: (v) {
+                          if (!v) return;
+                          setState(() { selectedType = type; });
+                        },
+                      ),
+                  ],
+                ),
+              ),
+            ),
+
             const SliverToBoxAdapter(child: SizedBox(height: 8)),
 
             // Transactions List
@@ -446,8 +476,10 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   }
 
   Widget _buildChart(shadcnui.ColorScheme colorScheme, UserContact? contact) {
-    final totalSpent = filteredExpenses
-        .fold(0.0, (sum, e) => sum + e.amount.abs());
+    final spendOnly = filteredExpenses
+        .where((e) => (e.type ?? 'expense').toLowerCase() != 'income')
+        .toList();
+    final totalSpent = spendOnly.fold(0.0, (sum, e) => sum + e.amount.abs());
     final filterState = ref.watch(homeFilterProvider);
     
     // selectedCurrency is never null (defaults to USD)
@@ -880,15 +912,20 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
               ],
             ),
           ),
-          // Amount
-          Text(
-            '-${formatCurrency(expense.amount.abs(), expense.currency)}',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: colorScheme.foreground,
-            ),
-          ),
+          // Amount with sign based on type
+          Builder(builder: (_) {
+            final isIncome = (expense.type ?? 'expense').toLowerCase() == 'income';
+            final sign = isIncome ? '+' : '-';
+            final txt = '$sign${formatCurrency(expense.amount.abs(), expense.currency)}';
+            return Text(
+              txt,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: isIncome ? const Color(0xFF10B981) : colorScheme.foreground,
+              ),
+            );
+          }),
         ],
       ),
     ),

@@ -130,7 +130,7 @@ final homeFilteredExpensesProvider = Provider<List<ExpenseEntry>>((ref) {
   final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
 
   // Filter expenses locally by date AND currency AND view mode
-  return allExpenses.where((expense) {
+  final filtered = allExpenses.where((expense) {
     final expenseDate = DateTime(
       expense.date.year,
       expense.date.month,
@@ -145,6 +145,38 @@ final homeFilteredExpensesProvider = Provider<List<ExpenseEntry>>((ref) {
         ? expense.householdId == null  // Personal mode: only expenses without household_id
         : expense.householdId == viewMode.selectedHouseholdId;  // Household mode: only expenses for selected household
 
+    return dateOk && currencyOk && viewModeOk;
+  })
+  // Treat incomes separately; filteredExpenses represents spending only for UI cards
+  .where((e) => (e.type ?? 'expense').toLowerCase() != 'income')
+  .toList();
+  return filtered;
+});
+
+/// Filtered transactions (both expense and income) for home page based on local filter
+final homeFilteredTransactionsProvider = Provider<List<ExpenseEntry>>((ref) {
+  final analyticsData = ref.watch(analyticsProvider);
+  final filterState = ref.watch(homeFilterProvider);
+  final viewMode = ref.watch(viewModeProvider);
+
+  final all = analyticsData.allExpenses;
+
+  final dateRange = getDateRangeFromFilter(
+    filterState.dateRangeFilter,
+    filterState.customStartDate,
+    filterState.customEndDate,
+  );
+  final from = dateRange['from']!;
+  final to = dateRange['to']!;
+  final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
+
+  return all.where((tx) {
+    final d = DateTime(tx.date.year, tx.date.month, tx.date.day);
+    final dateOk = !d.isBefore(from) && !d.isAfter(to);
+    final currencyOk = selectedCurrency == null || (tx.currency?.toUpperCase() == selectedCurrency);
+    final viewModeOk = viewMode.mode == ViewMode.personal
+        ? tx.householdId == null
+        : tx.householdId == viewMode.selectedHouseholdId;
     return dateOk && currencyOk && viewModeOk;
   }).toList();
 });
@@ -250,16 +282,22 @@ final currencySummariesProvider = Provider<List<CurrencySummary>>((ref) {
   final to = range['to']!;
 
   final byCurExpenses = <String, double>{};
+  final byCurIncome = <String, double>{};
   final byCurBudgets = <String, double>{};
   final byCurCount = <String, int>{};
 
-  // Group expenses by currency
+  // Group transactions by currency (split expenses vs income)
   for (final e in data.allExpenses) {
     final c = (e.currency ?? '').toUpperCase();
     if (c.isEmpty) continue;
     final d = DateTime(e.date.year, e.date.month, e.date.day);
     if (d.isBefore(from) || d.isAfter(to)) continue;
-    byCurExpenses[c] = (byCurExpenses[c] ?? 0) + e.amount;
+    final t = (e.type ?? 'expense').toLowerCase();
+    if (t == 'income') {
+      byCurIncome[c] = (byCurIncome[c] ?? 0) + e.amount.abs();
+    } else {
+      byCurExpenses[c] = (byCurExpenses[c] ?? 0) + e.amount.abs();
+    }
     byCurCount[c] = (byCurCount[c] ?? 0) + 1;
   }
 
@@ -273,11 +311,12 @@ final currencySummariesProvider = Provider<List<CurrencySummary>>((ref) {
   }
 
   // Create summaries
-  final codes = {...byCurExpenses.keys, ...byCurBudgets.keys}.toList()..sort();
+  final codes = {...byCurExpenses.keys, ...byCurBudgets.keys, ...byCurIncome.keys}.toList()..sort();
   return codes
       .map((code) => CurrencySummary(
             currencyCode: code,
             totalExpenses: byCurExpenses[code] ?? 0,
+            totalIncome: byCurIncome[code] ?? 0,
             totalBudget: byCurBudgets[code] ?? 0,
             transactionCount: byCurCount[code] ?? 0,
           ))

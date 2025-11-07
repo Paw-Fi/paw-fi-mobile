@@ -49,6 +49,10 @@ final Map<String, Color> categoryColors = {
   'income': const Color(0xFF16A34A),
   'salary': const Color(0xFF15803D),
   'bonus': const Color(0xFF0F766E),
+  'refund': const Color(0xFF10B981),
+  'gift': const Color(0xFF34D399),
+  'rental': const Color(0xFF059669),
+  'freelance': const Color(0xFF10B981),
   'travel': const Color(0xFF0EA5E9),
   'flights': const Color(0xFF0284C7),
   'vacation': const Color(0xFF0EA5E9),
@@ -100,6 +104,10 @@ final Map<String, IconData> categoryIcons = {
   'income': Icons.attach_money,
   'salary': Icons.payments,
   'bonus': Icons.card_giftcard,
+  'refund': Icons.reply,
+  'gift': Icons.card_giftcard,
+  'rental': Icons.house_siding,
+  'freelance': Icons.computer,
   'pets': Icons.pets,
   'kids': Icons.child_friendly,
   'family': Icons.family_restroom,
@@ -205,6 +213,8 @@ String getCategoryTranslation(BuildContext context, String? category) {
     case 'family':
       return l10n.categoryFamily;
     case 'gifts':
+      return l10n.categoryGifts;
+    case 'gift':
       return l10n.categoryGifts;
     case 'charity':
       return l10n.categoryCharity;

@@ -105,6 +105,7 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
       return summaryMap[code] ?? CurrencySummary(
         currencyCode: code,
         totalExpenses: 0,
+        totalIncome: 0,
         totalBudget: 0,
         transactionCount: 0,
       );
@@ -147,6 +148,7 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
             orElse: () => CurrencySummary(
               currencyCode: selectedCurrency,
               totalExpenses: 0,
+              totalIncome: 0,
               totalBudget: 0,
               transactionCount: 0,
             ),

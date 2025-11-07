@@ -1233,7 +1233,9 @@ class _ExpenseListItem extends StatelessWidget {
     final dateLabel = DateFormat('MMM d').format(expense.date);
     final timeLabel = DateFormat('h:mm a').format(expense.createdAt);
     final title = (expense.rawText ?? expense.category ?? 'Expense').trim();
-    final totalAmountText = formatCurrency(expense.amount.abs(), expense.currency ?? 'USD');
+    final isIncome = (expense.type ?? 'expense').toLowerCase() == 'income';
+    final sign = isIncome ? '+' : '-';
+    final totalAmountText = '$sign${formatCurrency(expense.amount.abs(), expense.currency ?? 'USD')}';
     final shareAmountText = userShareCents != null
         ? formatCurrency((userShareCents!.abs()) / 100.0, expense.currency ?? 'USD')
         : null;
@@ -1330,11 +1332,11 @@ class _ExpenseListItem extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  shareAmountText ?? totalAmountText,
+                  shareAmountText != null ? '$sign$shareAmountText' : totalAmountText,
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: colorScheme.foreground,
+                    color: isIncome ? const Color(0xFF10B981) : colorScheme.foreground,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

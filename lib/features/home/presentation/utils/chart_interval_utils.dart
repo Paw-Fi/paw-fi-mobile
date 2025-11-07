@@ -52,19 +52,21 @@ Map<DateTime, double> groupExpensesByInterval(
   List<ExpenseEntry> expenses,
   String intervalType,
 ) {
-  if (expenses.isEmpty) return {};
+  // Exclude income entries; this util is used for spending charts
+  final spendOnly = expenses.where((e) => (e.type ?? 'expense').toLowerCase() != 'income').toList();
+  if (spendOnly.isEmpty) return {};
 
   switch (intervalType) {
     case 'hourly':
-      return _groupByHourRanges(expenses);
+      return _groupByHourRanges(spendOnly);
     case 'daily':
-      return _groupBySevenDays(expenses);
+      return _groupBySevenDays(spendOnly);
     case 'monthly':
-      return _groupByMonthPairs(expenses);
+      return _groupByMonthPairs(spendOnly);
     case 'yearly':
-      return _groupBySevenYears(expenses);
+      return _groupBySevenYears(spendOnly);
     default:
-      return _groupBySevenDays(expenses);
+      return _groupBySevenDays(spendOnly);
   }
 }
 

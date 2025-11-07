@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:moneko/core/theme/theme.dart';
+// import 'package:moneko/core/theme/theme.dart'; // Unnecessary (covered by core.dart)
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -21,8 +21,11 @@ import 'package:moneko/features/home/presentation/state/expense_save_providers.d
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
-import 'package:moneko/features/income/presentation/widgets/income_entry_sheet.dart';
-import 'package:moneko/features/goals/presentation/widgets/create_goal_sheet.dart';
+import 'package:moneko/features/home/presentation/widgets/cashflow_sparkline_card.dart';
+import 'package:moneko/features/home/presentation/widgets/mom_trend_bar.dart';
+import 'package:moneko/features/home/presentation/widgets/savings_rate_tile.dart';
+import 'package:moneko/features/home/presentation/widgets/runway_gauge.dart';
+// Removed unused imports
 
 // ============================================================================
 // HOME PAGE
@@ -242,7 +245,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         };
       }
 
-      // Call analyze-expense endpoint (NEW: doesn't save yet)
+      // Call analyze-expense endpoint (NEW: doesn't save yet). Backend now classifies income vs expense.
       final response = await supabase.functions.invoke(
         'analyze-expense',
         body: body,
@@ -265,10 +268,15 @@ class _HomePageState extends ConsumerState<HomePage> {
           
           if (items.isNotEmpty) {
             // Parse ALL items from the response
-            final parsedExpenses = items.map((item) {
+            final parsed = items.map((item) {
+              final isIncome = (item['type']?.toString().toLowerCase() == 'income');
               return ParsedExpense(
+                isIncome: isIncome,
                 amount: (item['amount'] as num).toDouble(),
-                category: item['category'] as String,
+                // Normalize income categories to at least 'income' umbrella if model returns a granular one
+                category: (item['category'] as String?)?.isNotEmpty == true
+                    ? (isIncome ? (item['category'] as String) : item['category'] as String)
+                    : (isIncome ? 'income' : 'other'),
                 currency: item['currency'] as String,
                 currencySymbol: item['currencySymbol'] as String? ?? '\$',
                 date: DateTime.parse(item['date'] as String),
@@ -277,17 +285,26 @@ class _HomePageState extends ConsumerState<HomePage> {
               );
             }).toList();
 
-            // If only one expense, show single confirmation
-            if (parsedExpenses.length == 1) {
-              ref.read(pendingExpenseProvider.notifier).state = parsedExpenses[0];
+            // Partition by type to handle mixed cases robustly
+            final incomes = parsed.where((p) => p.isIncome).toList();
+            final expenses = parsed.where((p) => !p.isIncome).toList();
+
+            if (parsed.length == 1) {
+              ref.read(pendingExpenseProvider.notifier).state = parsed.first;
               showUnifiedTransactionSheet(
                 context,
-                newExpense: parsedExpenses[0],
+                newExpense: parsed.first,
                 localImagePath: imagePath,
               );
+            } else if (incomes.isNotEmpty && expenses.isNotEmpty) {
+              // We don't auto-merge mixed types. Ask user to submit separately.
+              _showToast('${context.l10n.failedToAnalyzeNoData} (mixed income and expense detected; please submit separately)');
+            } else if (incomes.isNotEmpty) {
+              // Multiple income items - combine into a single summarized income
+              _showMultiIncomeConfirmation(incomes, imagePath);
             } else {
-              // Multiple expenses - show list confirmation
-              _showMultiExpenseConfirmation(parsedExpenses, imagePath);
+              // Multiple expenses - combine existing behavior
+              _showMultiExpenseConfirmation(expenses, imagePath);
             }
           } else {
             _showToast(context.l10n.noExpenseInformationExtracted);
@@ -345,6 +362,38 @@ class _HomePageState extends ConsumerState<HomePage> {
     showUnifiedTransactionSheet(
       context,
       newExpense: combinedExpense,
+      localImagePath: imagePath,
+    );
+  }
+
+  void _showMultiIncomeConfirmation(List<ParsedExpense> incomes, String? imagePath) {
+    // Sum all income amounts and build a combined note
+    final totalAmount = incomes.fold<double>(0, (sum, inc) => sum + inc.amount);
+    final currencySymbol = incomes.first.currencySymbol;
+    final itemDescriptions = incomes
+        .map((e) => (e.description ?? e.category))
+        .where((s) => s.trim().isNotEmpty)
+        .map((s) => s.trim())
+        .toList();
+    final combinedDescription = itemDescriptions.isNotEmpty
+        ? 'Income: ${itemDescriptions.join(', ')}'
+        : 'Income';
+
+    final combined = ParsedExpense(
+      isIncome: true,
+      amount: totalAmount,
+      category: 'income',
+      currency: incomes.first.currency,
+      currencySymbol: currencySymbol,
+      date: incomes.first.date,
+      description: combinedDescription,
+      localImagePath: imagePath,
+    );
+
+    ref.read(pendingExpenseProvider.notifier).state = combined;
+    showUnifiedTransactionSheet(
+      context,
+      newExpense: combined,
       localImagePath: imagePath,
     );
   }
@@ -899,11 +948,31 @@ class _HomePageState extends ConsumerState<HomePage> {
                               context,
                               colorScheme, 
                               filteredBudgets, 
-                              filteredExpenses, 
+                              ref.watch(homeFilteredTransactionsProvider), 
                               analyticsData.contact,
                               filterState.dateRangeFilter,
                               selectedCurrency: filterState.selectedCurrency,
                             ),
+                          ),
+                          const SizedBox(width: 12),
+                          SizedBox(
+                            width: 200,
+                            child: const CashflowSparklineCard(),
+                          ),
+                          const SizedBox(width: 12),
+                          SizedBox(
+                            width: 200,
+                            child: const MoMTrendBar(),
+                          ),
+                          const SizedBox(width: 12),
+                          SizedBox(
+                            width: 200,
+                            child: const SavingsRateTile(),
+                          ),
+                          const SizedBox(width: 12),
+                          SizedBox(
+                            width: 200,
+                            child: const RunwayGauge(),
                           ),
                           const SizedBox(width: 12),
                         ],

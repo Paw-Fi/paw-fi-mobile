@@ -87,7 +87,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
       try {
         final expensesResponse = await supabase
             .from('expenses')
-            .select('id,contact_id,date,amount_cents,currency,category,created_at,raw_text,receipt_image_url,household_id,split_group_id')
+            .select('id,contact_id,user_id,date,amount_cents,currency,category,created_at,raw_text,receipt_image_url,household_id,split_group_id,type')
             .eq('contact_id', fetchedContact.id)
             .isFilter('split_group_id', null) // CRITICAL: Only personal expenses (no household sharing)
             .order('date', ascending: true);
