@@ -3,27 +3,47 @@ Excellent, I've reviewed the provided changes. Here is my feedback.
 
 ### Code Review
 
-Overall, this is a fantastic set of changes that significantly improves the application's startup sequence and session management. The introduction of a splash screen controlled by an initialization provider creates a much smoother and more professional user experience, eliminating potential flashes of content or redirects. The centralized handling of state clearing on logout is a major step forward for robustness and maintainability.
+Overall, this is a fantastic set of changes that correctly and robustly implements universal link handling for household invitations, working alongside the existing custom deep link scheme. The logic is clear, well-documented, and considers important edge cases. The addition of the household list refresh in the UI is a great touch for improving the user experience.
+
+There are no critical issues or warnings to report. This is a high-quality contribution.
 
 #### Suggestions (Consider Improving)
 
-*   **Centralized State Clearing:** The `RouterNotifier` now correctly triggers a reset flow on logout by calling `_ref.read(appInitializationProvider.notifier).clearCache()`. You've added `clear()` methods to `AnalyticsNotifier`, `ExpenseProcessingNotifier`, and `WhatsAppBinding`. This is the right pattern.
+*   **DRY Principle in `household_invitation_sheet.dart`**: The logic for refreshing the household list is duplicated in two places within the `_HouseholdInvitationSheetState`. You could extract this logic into a private helper method to avoid repetition and improve maintainability.
 
-    To make this even more robust, ensure that the `clearCache()` method explicitly calls the `clear()` method of *every* provider that holds user-specific state. This creates a single, clear place to manage session cleanup, making it easier to maintain as the app grows.
-
-    **Example:**
+    *Example:*
     ```dart
-    // In your AppInitializationNotifier
-    void clearCache() {
-      ref.read(analyticsNotifierProvider.notifier).clear();
-      ref.read(expenseProcessingNotifierProvider.notifier).clear();
-      ref.read(whatsAppBindingProvider.notifier).clear();
-      // ... add any other user-state providers here
+    // In _HouseholdInvitationSheetState
+
+    Future<void> _refreshHouseholdList() async {
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) return;
+
+      try {
+        // Use 'await' to ensure the refresh completes
+        await ref.read(userHouseholdsProvider(userId).notifier).load();
+      } catch (e) {
+        debugPrint('⚠️ [HouseholdInvitationSheet] Failed to refresh household list: $e');
+        // This is not a critical failure, so we can continue.
+      }
+    }
+
+    // Then call it where needed:
+    if (errorCode == 'ALREADY_MEMBER' && householdId != null) {
+      debugPrint('🏠 [HouseholdInvitationSheet] User already a member, showing success');
+      await _refreshHouseholdList(); // Call the helper
+      setState(() { ... });
+    }
+
+    // and in the catch block...
+    } catch (e) {
+      if (e.toString().contains('409') || e.toString().contains('already')) {
+        debugPrint('🏠 [HouseholdInvitationSheet] Already a member (from accept call), showing success anyway');
+        await _refreshHouseholdList(); // Call the helper
+        setState(() { ... });
+      }
+      // ...
     }
     ```
 
-*   **Provider Caching (`keepAlive`):** You've changed `WhatsAppBinding` to use `@Riverpod(keepAlive: true)`. This is an excellent choice for caching data that is fetched once per session. I recommend reviewing other providers in the application. Any provider that fetches user-specific data that doesn't change often could be a good candidate for `keepAlive: true`, as long as it also has a `clear()` method that is called on logout. This will improve performance and reduce unnecessary API calls.
-
-*   **Redirect Logic Complexity:** The `redirect` function in `router.dart` has grown significantly. It's currently well-structured and readable, but it's a critical piece of logic that is becoming complex. As more states or roles are introduced, this function could become difficult to manage. Consider keeping an eye on its complexity and, if it grows further, refactoring the logic into smaller, dedicated functions that can be more easily tested and understood.
-
-There are no critical issues or warnings to report. This is a high-quality contribution that dramatically improves the app's architecture and user experience. Great work.
+*   **Reliability of `Future.delayed` in `DeepLinkService`**: Using `Future.delayed` to wait for the app to be ready is a common pattern, but it can sometimes be unreliable on slower devices or under heavy load. A more robust long-term solution might involve using a provider or a state manager to signal when the app's navigation is ready to handle deep link events. However, for the current implementation, the 500ms delay is a reasonable and pragmatic approach. No change is required now, but it's something to keep in mind for future architectural improvements.

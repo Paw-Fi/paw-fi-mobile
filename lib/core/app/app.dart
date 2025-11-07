@@ -9,6 +9,8 @@ import 'package:moneko/features/households/data/services/device_registration_ser
 import 'package:moneko/features/app_version/presentation/widgets/version_check_wrapper.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/ui/pages/splash_screen.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 class App extends ConsumerStatefulWidget {
   const App({super.key});
@@ -28,7 +30,15 @@ class _AppState extends ConsumerState<App> {
     // Context will be available after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_deepLinkInitialized && mounted) {
-        _deepLinkService.initialize(ref, context);
+        try {
+          _deepLinkService.initialize(ref, context);
+        } catch (e, s) {
+          try {
+            FirebaseCrashlytics.instance.recordError(e, s, fatal: false, reason: 'deeplink_init_error');
+          } catch (_) {}
+          debugPrint('DeepLink initialization error: $e');
+          debugPrint(s.toString());
+        }
         _deepLinkInitialized = true;
         
         // Store in global container for FCM integration
@@ -41,11 +51,7 @@ class _AppState extends ConsumerState<App> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Try to initialize as early as possible once context is available
-    if (!_deepLinkInitialized && mounted) {
-      _deepLinkService.initialize(ref, context);
-      _deepLinkInitialized = true;
-    }
+    // Deep link initialization happens post-frame to avoid early platform-channel churn
   }
 
   @override
@@ -80,7 +86,8 @@ class _AppState extends ConsumerState<App> {
         // Apply global Material theme wrapper for TextField styling
         return Theme(
           data: _getMaterialTheme(context, themeMode),
-          child: VersionCheckWrapper(child: child ?? const SizedBox.shrink()),
+          // Never render an empty child on first frames; fallback to SplashScreen
+          child: VersionCheckWrapper(child: child ?? const SplashScreen()),
         );
       },
     );
@@ -88,59 +95,39 @@ class _AppState extends ConsumerState<App> {
 
   /// Get Material theme with proper input decoration for all TextFields
   ThemeData _getMaterialTheme(BuildContext context, shadcnui.ThemeMode themeMode) {
-    final shadcnTheme = shadcnui.Theme.of(context);
-    final colorScheme = shadcnTheme.colorScheme;
-    final isDark = themeMode == shadcnui.ThemeMode.dark ||
-        (themeMode == shadcnui.ThemeMode.system &&
-            MediaQuery.of(context).platformBrightness == Brightness.dark);
+    try {
+      final shadcnTheme = shadcnui.Theme.of(context);
+      final colorScheme = shadcnTheme.colorScheme;
+      final mediaQuery = MediaQuery.maybeOf(context);
+      final platformBrightness = mediaQuery?.platformBrightness ?? Brightness.light;
+      final isDark = themeMode == shadcnui.ThemeMode.dark ||
+          (themeMode == shadcnui.ThemeMode.system && platformBrightness == Brightness.dark);
 
-    return ThemeData(
-      brightness: isDark ? Brightness.dark : Brightness.light,
-      // Global input decoration theme - applies to ALL TextField and TextFormField
-      inputDecorationTheme: InputDecorationTheme(
-        // Text styles
-        labelStyle: TextStyle(
-          fontSize: 16,
-          color: colorScheme.foreground,
-          fontWeight: FontWeight.w400,
+      return ThemeData(
+        brightness: isDark ? Brightness.dark : Brightness.light,
+        inputDecorationTheme: InputDecorationTheme(
+          labelStyle: TextStyle(fontSize: 16, color: colorScheme.foreground, fontWeight: FontWeight.w400),
+          hintStyle: TextStyle(fontSize: 16, color: colorScheme.mutedForeground, fontWeight: FontWeight.w400),
+          prefixStyle: TextStyle(fontSize: 16, color: colorScheme.foreground, fontWeight: FontWeight.w400),
+          suffixStyle: TextStyle(fontSize: 16, color: colorScheme.foreground, fontWeight: FontWeight.w400),
+          prefixIconColor: colorScheme.foreground,
+          suffixIconColor: colorScheme.foreground,
+          iconColor: colorScheme.foreground,
         ),
-        hintStyle: TextStyle(
-          fontSize: 16,
-          color: colorScheme.mutedForeground,
-          fontWeight: FontWeight.w400,
+        textTheme: TextTheme(
+          bodyLarge: TextStyle(fontSize: 16, color: colorScheme.foreground, fontWeight: FontWeight.w400),
+          bodyMedium: TextStyle(fontSize: 14, color: colorScheme.foreground, fontWeight: FontWeight.w400),
         ),
-        prefixStyle: TextStyle(
-          fontSize: 16,
-          color: colorScheme.foreground,
-          fontWeight: FontWeight.w400,
-        ),
-        suffixStyle: TextStyle(
-          fontSize: 16,
-          color: colorScheme.foreground,
-          fontWeight: FontWeight.w400,
-        ),
-        // Icon theme for prefix/suffix icons
-        prefixIconColor: colorScheme.foreground,
-        suffixIconColor: colorScheme.foreground,
-        iconColor: colorScheme.foreground,
-      ),
-      // Global text theme for ALL text input
-      textTheme: TextTheme(
-        bodyLarge: TextStyle(
-          fontSize: 16,
-          color: colorScheme.foreground,
-          fontWeight: FontWeight.w400,
-        ),
-        bodyMedium: TextStyle(
-          fontSize: 14,
-          color: colorScheme.foreground,
-          fontWeight: FontWeight.w400,
-        ),
-      ),
-      // Icon theme for consistency
-      iconTheme: IconThemeData(
-        color: colorScheme.foreground,
-      ),
-    );
+        iconTheme: IconThemeData(color: colorScheme.foreground),
+      );
+    } catch (e, s) {
+      // Defensive fallback if shadcn Theme is not available during the very first frames
+      try {
+        FirebaseCrashlytics.instance.recordError(e, s, fatal: false, reason: 'material_theme_build_error');
+      } catch (_) {}
+      final mediaQuery = MediaQuery.maybeOf(context);
+      final platformBrightness = mediaQuery?.platformBrightness ?? Brightness.light;
+      return ThemeData(brightness: platformBrightness);
+    }
   }
 }

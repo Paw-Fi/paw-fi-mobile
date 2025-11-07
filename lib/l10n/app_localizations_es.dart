@@ -853,6 +853,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get currencyCannotBeChanged => 'No se puede cambiar la moneda al compartir con un hogar';
 
   @override
+  String get cannotEditOthersExpenses => 'Solo puedes editar tus propios gastos';
+
+  @override
   String get failedToLoadImage => 'Error al cargar la imagen';
 
   @override

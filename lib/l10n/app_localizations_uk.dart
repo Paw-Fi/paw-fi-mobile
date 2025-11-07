@@ -835,6 +835,9 @@ class AppLocalizationsUk extends AppLocalizations {
   String get currencyCannotBeChanged => 'Валюту не можна змінити, якщо ви ділитеся витратою з домогосподарством';
 
   @override
+  String get cannotEditOthersExpenses => 'Ви можете редагувати лише власні витрати';
+
+  @override
   String get failedToLoadImage => 'Не вдалося завантажити зображення';
 
   @override

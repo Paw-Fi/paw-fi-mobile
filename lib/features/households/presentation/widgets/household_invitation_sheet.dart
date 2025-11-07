@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/household_providers.dart';
 import '../providers/selected_household_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
+import 'package:moneko/core/app/router.dart';
 
 class HouseholdInvitationSheet extends ConsumerStatefulWidget {
   final String token;
@@ -36,6 +37,22 @@ class _HouseholdInvitationSheetState
     WidgetsBinding.instance.addPostFrameCallback((_) => _acceptInvite());
   }
 
+  /// Helper method to refresh the household list for the current user
+  /// This is called whenever a user joins or is already a member of a household
+  /// to ensure the UI reflects the latest state
+  Future<void> _refreshHouseholdList() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    try {
+      await ref.read(userHouseholdsProvider(userId).notifier).load();
+      debugPrint('✅ [HouseholdInvitationSheet] Household list refreshed successfully');
+    } catch (e) {
+      debugPrint('⚠️ [HouseholdInvitationSheet] Failed to refresh household list: $e');
+      // Continue anyway - this is not a critical failure
+    }
+  }
+
   Future<void> _acceptInvite() async {
     debugPrint('🏠 [HouseholdInvitationSheet] Starting invitation acceptance flow');
     final repo = ref.read(householdRepositoryProvider);
@@ -55,6 +72,11 @@ class _HouseholdInvitationSheetState
       if (errorCode == 'ALREADY_MEMBER' && householdId != null) {
         debugPrint(
             '🏠 [HouseholdInvitationSheet] User already a member, showing success');
+
+        // Ensure household list is refreshed even if already a member
+        // This handles cases where the household might not be in the local cache
+        await _refreshHouseholdList();
+
         setState(() {
           _accepted = true;
           _householdId = householdId;
@@ -83,6 +105,10 @@ class _HouseholdInvitationSheetState
             if (e.toString().contains('409') || e.toString().contains('already')) {
               debugPrint(
                   '🏠 [HouseholdInvitationSheet] Already a member (from accept call), showing success anyway');
+
+              // Refresh household list to ensure consistency
+              await _refreshHouseholdList();
+
               setState(() {
                 _accepted = true;
                 _householdId = householdId;
@@ -238,15 +264,32 @@ class _HouseholdInvitationSheetState
             ),
             const SizedBox(height: 24),
             shadcnui.PrimaryButton(
-              onPressed: () {
-                Navigator.of(context).pop();
+              onPressed: () async {
                 final userId = Supabase.instance.client.auth.currentUser?.id;
-                if (_householdId != null && userId != null) {
-                  // Switch to household mode and navigate to home page
-                  // This will show the "For Us" view with the household selected
-                  ref.read(viewModeProvider.notifier).setMode(ViewMode.household);
-                  ref.read(selectedHouseholdProvider.notifier).selectHousehold(_householdId!, userId);
-                  context.go('/dashboard');
+                final householdId = _householdId;
+
+                if (householdId == null || userId == null) {
+                  // If no household ID or user ID, just close the sheet
+                  if (mounted) {
+                    Navigator.of(context).pop();
+                  }
+                  return;
+                }
+
+                // Refresh household list to include the newly joined household
+                await ref.read(userHouseholdsProvider(userId).notifier).load();
+
+                // Switch to household mode and set the selected household
+                // This will show the "For Us" view with the household selected
+                ref.read(viewModeProvider.notifier).setMode(ViewMode.household);
+                await ref.read(selectedHouseholdProvider.notifier).selectHousehold(householdId, userId);
+
+                // Close the bottom sheet and navigate using the root navigator
+                // Use root navigator directly to avoid context issues
+                final navCtx = rootNavigatorKey.currentContext;
+                if (navCtx != null && navCtx.mounted) {
+                  Navigator.of(navCtx).pop();
+                  navCtx.go('/dashboard');
                 }
               },
               child: const Text('View Household'),

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/income/presentation/providers/income_providers.dart';
@@ -95,8 +96,10 @@ class _UnifiedTransactionSheet extends ConsumerStatefulWidget {
 
 class _UnifiedTransactionSheetState
     extends ConsumerState<_UnifiedTransactionSheet> {
+  final ImagePicker _imagePicker = ImagePicker();
   bool _isSaving = false;
   bool _isDeleting = false;
+  String? _localImagePath; // Track locally captured image for existing expenses
   final timeFormat = DateFormat('HH:mm');
   bool _isSharedWithHousehold = false;
   TimeOfDay _selectedTime = TimeOfDay.now();
@@ -248,9 +251,20 @@ class _UnifiedTransactionSheetState
     return widget.existingExpense!.rawText;
   }
 
-  String? get receiptImageUrl => widget.existingExpense?.receiptImageUrl;
+  String? get receiptImageUrl {
+    final url = widget.existingExpense?.receiptImageUrl;
+    debugPrint('🖼️ Receipt image URL from expense: $url');
+    return url;
+  }
 
-  // Generate note prefix like "I spent $XX on category" or income variant
+  String? get effectiveImagePath {
+    // For new expenses, use widget.localImagePath
+    if (isNewExpense) return widget.localImagePath;
+    // For existing expenses, use locally captured image first, then stored URL
+    return _localImagePath ?? receiptImageUrl;
+  }
+
+  // Generate note prefix like "I spent $XX on category"
   String _generateNotePrefix() {
     final pending = ref.read(pendingExpenseProvider);
     final isIncomeMode = (isNewExpense && (pending?.isIncome ?? widget.newExpense!.isIncome));
@@ -260,6 +274,51 @@ class _UnifiedTransactionSheetState
       return 'I earned $currencySymbol${displayAmount.toStringAsFixed(2)} ($displayCategory)';
     }
     return 'I spent $currencySymbol${displayAmount.toStringAsFixed(2)} on $displayCategory';
+  }
+
+  /// Handle adding a photo to existing expense
+  Future<void> _handleAddPhoto() async {
+    debugPrint('📷 Adding photo to existing expense...');
+
+    try {
+      final XFile? photo = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+      );
+
+      if (photo != null) {
+        debugPrint('📷 Photo captured: ${photo.path}');
+        setState(() {
+          _localImagePath = photo.path;
+        });
+      } else {
+        debugPrint('📷 Photo capture cancelled');
+      }
+    } catch (e) {
+      debugPrint('❌ Error capturing photo: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to capture photo: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Show full-screen image viewer with pinch-to-zoom
+  void _showFullScreenImage(String? localImagePath, String? receiptImageUrl) {
+    if (localImagePath == null && receiptImageUrl == null) return;
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => _FullScreenImageViewer(
+          localImagePath: localImagePath,
+          imageUrl: receiptImageUrl,
+        ),
+      ),
+    );
   }
 
   @override
@@ -481,28 +540,18 @@ class _UnifiedTransactionSheetState
                     const SizedBox(height: 32),
                   ],
 
-                  // Receipt Section
-                  if (widget.localImagePath != null ||
-                      (receiptImageUrl != null && receiptImageUrl!.isNotEmpty)) ...[
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        context.l10n.receipt,
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.foreground,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildReceiptCard(
-                      colorScheme: colorScheme,
-                      localImagePath: widget.localImagePath,
-                      receiptImageUrl: receiptImageUrl,
-                    ),
-                    const SizedBox(height: 32),
-                  ],
+                  // Receipt Section - Always show (with placeholder if no image)
+                  () {
+                    debugPrint('🖼️ Checking receipt display: effectiveImagePath=$effectiveImagePath');
+                    return Container();
+                  }(),
+                  _buildReceiptCard(
+                    colorScheme: colorScheme,
+                    localImagePath: isNewExpense ? effectiveImagePath : _localImagePath,
+                    receiptImageUrl: isNewExpense ? null : receiptImageUrl,
+                    onAddPhoto: effectiveImagePath == null ? _handleAddPhoto : null,
+                  ),
+                  const SizedBox(height: 32),
 
                   // Save Button (for both new and existing expenses)
                   SizedBox(
@@ -1050,60 +1099,147 @@ class _UnifiedTransactionSheetState
     required shadcnui.ColorScheme colorScheme,
     String? localImagePath,
     String? receiptImageUrl,
+    VoidCallback? onAddPhoto,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: localImagePath != null
-            ? Image.file(File(localImagePath), fit: BoxFit.cover, height: 200)
-            : receiptImageUrl != null
-                ? Image.network(
-                    receiptImageUrl,
-                    fit: BoxFit.cover,
-                    height: 200,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return Container(
-                        height: 200,
-                        color: colorScheme.muted,
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            value: loadingProgress.expectedTotalBytes != null
-                                ? loadingProgress.cumulativeBytesLoaded /
-                                    loadingProgress.expectedTotalBytes!
-                                : null,
-                            color: AppTheme.success,
-                            strokeWidth: 2,
-                          ),
-                        ),
-                      );
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        height: 200,
-                        color: colorScheme.muted,
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.image_not_supported_outlined,
-                                  size: 40,
-                                  color: colorScheme.mutedForeground),
-                              const SizedBox(height: 12),
-                              Text(context.l10n.failedToLoadImage,
-                                  style: TextStyle(
-                                      color: colorScheme.mutedForeground,
-                                      fontSize: 14)),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  )
-                : const SizedBox(),
+    // Show receipt title if there's an image or add photo option
+    final hasImage = localImagePath != null || receiptImageUrl != null;
+    final canAddPhoto = onAddPhoto != null;
+    
+    if (!hasImage && !canAddPhoto) {
+      return const SizedBox(); // No image and no way to add one
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Receipt title
+        if (hasImage || canAddPhoto) ...[
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              context.l10n.receipt,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.foreground,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+        
+        // Image or placeholder
+        GestureDetector(
+          onTap: hasImage ? () => _showFullScreenImage(localImagePath, receiptImageUrl) : null,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: hasImage ? Colors.transparent : colorScheme.border,
+                width: 2,
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: localImagePath != null
+                  ? Image.file(File(localImagePath), fit: BoxFit.cover, height: 200)
+                  : receiptImageUrl != null
+                      ? Image.network(
+                          receiptImageUrl,
+                          fit: BoxFit.cover,
+                          height: 200,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Container(
+                              height: 200,
+                              color: colorScheme.muted,
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  value: loadingProgress.expectedTotalBytes != null
+                                      ? loadingProgress.cumulativeBytesLoaded /
+                                          loadingProgress.expectedTotalBytes!
+                                      : null,
+                                  color: AppTheme.success,
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              height: 200,
+                              color: colorScheme.muted,
+                              child: Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.image_not_supported_outlined,
+                                        size: 40,
+                                        color: colorScheme.mutedForeground),
+                                    const SizedBox(height: 12),
+                                    Text(context.l10n.failedToLoadImage,
+                                        style: TextStyle(
+                                            color: colorScheme.mutedForeground,
+                                            fontSize: 14)),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        )
+                      : _buildReceiptPlaceholder(colorScheme, onAddPhoto!),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReceiptPlaceholder(shadcnui.ColorScheme colorScheme, VoidCallback onAddPhoto) {
+    return InkWell(
+      onTap: onAddPhoto,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        height: 200,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: colorScheme.muted.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: colorScheme.primary.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.camera_alt_outlined,
+                size: 48,
+                color: colorScheme.primary,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Add Receipt Photo',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: colorScheme.foreground,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Tap to take a photo of your receipt',
+              style: TextStyle(
+                fontSize: 14,
+                color: colorScheme.mutedForeground,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1569,6 +1705,39 @@ class _UnifiedTransactionSheetState
       final user = ref.read(authProvider);
       final viewMode = ref.read(viewModeProvider);
 
+      // ═══════════════════════════════════════════════════════════════
+      // PERMISSION CHECK: User can only edit their own expenses
+      // ═══════════════════════════════════════════════════════════════
+      // When editing existing expenses, verify that the logged-in user
+      // is the one who created the expense. This prevents users from
+      // editing expenses logged by other household members.
+      //
+      // Security: Each expense has a userId field that identifies the creator.
+      // We compare this with the current logged-in user's ID.
+      //
+      // Example scenario:
+      //   - User A logs an expense in household
+      //   - User B (another household member) views the expense list
+      //   - User B tries to edit User A's expense
+      //   - Result: Blocked with error message "You can only edit your own expenses"
+      // ═══════════════════════════════════════════════════════════════
+      if (isExistingExpense) {
+        if (widget.existingExpense!.userId != user.uid) {
+          setState(() => _isSaving = false);
+          if (!mounted) return;
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(context.l10n.cannotEditOthersExpenses),
+              backgroundColor: shadcnui.Theme.of(context).colorScheme.destructive,
+              duration: const Duration(seconds: 3),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          return;
+        }
+      }
+
       if (isNewExpense) {
         // NEW TRANSACTION (expense or income)
         final expense = ref.read(pendingExpenseProvider);
@@ -1602,6 +1771,20 @@ class _UnifiedTransactionSheetState
           // Reset state
           ref.read(pendingExpenseProvider.notifier).state = null;
           ref.read(selectedHouseholdForSharingProvider.notifier).state = null;
+        // Upload receipt image if available
+        // Priority: 1) expense.localImagePath (from ParsedExpense), 2) widget.localImagePath (fallback)
+        String? receiptUrl;
+        final imagePathToUpload = expense.localImagePath ?? widget.localImagePath;
+
+        if (imagePathToUpload != null) {
+          debugPrint('📤 Uploading receipt image: $imagePathToUpload');
+          receiptUrl = await ref
+              .read(expenseSaveNotifierProvider.notifier)
+              .uploadReceiptImage(File(imagePathToUpload), user.uid);
+          debugPrint('📤 Receipt upload result: $receiptUrl');
+        } else {
+          debugPrint('📤 No local image path to upload');
+        }
 
           if (!mounted) return;
 
@@ -1698,6 +1881,19 @@ class _UnifiedTransactionSheetState
         
         // Send full datetime as created_at in UTC to preserve timezone consistency
         updates['created_at'] = expenseDateTime.toUtc().toIso8601String();
+
+        // Handle receipt image upload for existing expenses
+        if (_localImagePath != null) {
+          debugPrint('📤 Uploading new receipt image for existing expense: $_localImagePath');
+          final receiptUrl = await ref
+              .read(expenseSaveNotifierProvider.notifier)
+              .uploadReceiptImage(File(_localImagePath!), user.uid);
+          debugPrint('📤 New receipt upload result: $receiptUrl');
+          
+          if (receiptUrl != null) {
+            updates['receipt_image_url'] = receiptUrl;
+          }
+        }
 
         // Only update if there are actual changes
         if (updates.isEmpty) {
@@ -1911,5 +2107,93 @@ class _UnifiedTransactionSheetState
         setState(() => _isDeleting = false);
       }
     }
+  }
+}
+
+/// Full-screen image viewer with pinch-to-zoom functionality
+class _FullScreenImageViewer extends StatefulWidget {
+  final String? localImagePath;
+  final String? imageUrl;
+
+  const _FullScreenImageViewer({
+    this.localImagePath,
+    this.imageUrl,
+  });
+
+  @override
+  State<_FullScreenImageViewer> createState() => _FullScreenImageViewerState();
+}
+
+class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
+  final TransformationController _transformationController = TransformationController();
+
+  @override
+  void dispose() {
+    _transformationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        iconTheme: const IconThemeData(color: Colors.white),
+        elevation: 0,
+      ),
+      body: Center(
+        child: InteractiveViewer(
+          transformationController: _transformationController,
+          minScale: 0.5,
+          maxScale: 4.0,
+          child: widget.localImagePath != null
+              ? Image.file(
+                  File(widget.localImagePath!),
+                  fit: BoxFit.contain,
+                )
+              : widget.imageUrl != null
+                  ? Image.network(
+                      widget.imageUrl!,
+                      fit: BoxFit.contain,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Center(
+                          child: CircularProgressIndicator(
+                            value: loadingProgress.expectedTotalBytes != null
+                                ? loadingProgress.cumulativeBytesLoaded /
+                                    loadingProgress.expectedTotalBytes!
+                                : null,
+                            color: Colors.white,
+                          ),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.image_not_supported_outlined,
+                                size: 64,
+                                color: Colors.white54,
+                              ),
+                              SizedBox(height: 16),
+                              Text(
+                                'Failed to load image',
+                                style: TextStyle(
+                                  color: Colors.white54,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    )
+                  : const SizedBox(),
+        ),
+      ),
+    );
   }
 }

@@ -345,6 +345,7 @@
   "selectHouseholdToConfigureSplit": "Выберите домохозяйство, чтобы настроить разделение",
   "currencyManagedByHousehold": "Валюта управляется домохозяйством и не может быть изменена",
   "currencyCannotBeChanged": "Валюту нельзя изменить, если расход общий",
+  "cannotEditOthersExpenses": "Вы можете редактировать только свои расходы",
   "failedToLoadImage": "Не удалось загрузить фото",
   "editAmount": "Изменить сумму",
   "amount": "Сумма",

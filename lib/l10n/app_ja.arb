@@ -342,6 +342,7 @@
   "selectHouseholdToConfigureSplit": "割り勘を設定するグループを選択",
   "currencyManagedByHousehold": "通貨はグループによって管理されており、変更できません",
   "currencyCannotBeChanged": "グループと共有する場合、通貨は変更できません",
+  "cannotEditOthersExpenses": "自分の支出のみ編集できます",
   "failedToLoadImage": "画像の読み込みに失敗しました",
   "editAmount": "金額を編集",
   "amount": "金額",

@@ -34,20 +34,70 @@ class HouseholdHomeContent extends ConsumerStatefulWidget {
 class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
   bool _isExpanded = false;
 
-  // Compute split-adjusted expenses for the current user
+  /// Calculate user's personal share of household expenses
+  ///
+  /// This method is ONLY used for the "Spent by You" card to show what the current user
+  /// personally owes/spent in the household, including split portions from other members.
+  ///
+  /// ⚠️ IMPORTANT: This is NOT used for category breakdown or pie charts.
+  /// Those should show ALL household expenses, not just personal share.
+  ///
+  /// Calculation logic:
+  /// 1. If expense has NO split group (splitGroupId == null):
+  ///    - Include full amount if current user created it
+  ///    - Example: User logs $10 with no split → User's share = $10
+  ///
+  /// 2. If expense HAS split group (splitGroupId != null):
+  ///    - Look up the split group to find user's allocated share
+  ///    - Use the amountCents from the user's split line
+  ///    - Example: Other logs $100, splits $50 to user → User's share = $50
+  ///
+  /// Example calculation:
+  /// - User logs $10 expense, splits $0 to others → Returns $10
+  /// - Other logs $100 expense, splits $50 to user → Returns $50
+  /// - Total "Spent by You" = $60
+  /// - Total household = $110 (calculated separately)
   List<ExpenseEntry> _personalShareExpenses(
     List<ExpenseEntry> expenses,
     List<ExpenseSplitGroup> splits,
     String currentUserId,
   ) {
-    if (expenses.isEmpty || splits.isEmpty) return const <ExpenseEntry>[];
+    if (expenses.isEmpty) return const <ExpenseEntry>[];
+
+    // If no splits data, return all expenses created by current user with full amounts
+    // This handles the case where split data hasn't loaded yet
+    if (splits.isEmpty) {
+      return expenses.where((e) => e.userId == currentUserId).toList();
+    }
+
+    // Create lookup map for quick access to split groups by ID
     final byGroupId = {for (final g in splits) g.id: g};
     final result = <ExpenseEntry>[];
+
     for (final e in expenses) {
       final gid = e.splitGroupId;
-      if (gid == null) continue;
+
+      // CASE 1: Expense has NO split group (not shared)
+      // Include full amount if current user created it
+      if (gid == null) {
+        if (e.userId == currentUserId) {
+          result.add(e);
+        }
+        continue;
+      }
+
+      // CASE 2: Expense HAS split group (shared expense)
+      // Find the split group and extract user's allocated share
       final group = byGroupId[gid];
-      if (group == null) continue;
+      if (group == null) {
+        // Split group not found in data, fallback to including full amount if user created it
+        if (e.userId == currentUserId) {
+          result.add(e);
+        }
+        continue;
+      }
+
+      // Find current user's split line within the group
       final line = (group.splitLines ?? const <ExpenseSplitLine>[])
           .firstWhere((l) => l.userId == currentUserId, orElse: () => ExpenseSplitLine(
                 id: '',
@@ -57,9 +107,15 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                 createdAt: DateTime.fromMillisecondsSinceEpoch(0),
                 updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
               ));
-      if (line.userId != currentUserId) continue; // user not part of this split
+
+      // User not part of this split, skip this expense
+      if (line.userId != currentUserId) continue;
+
+      // Extract user's share amount from split line (in cents)
       final int share = (line.amountCents ?? 0);
-      final int shareClamped = share < 0 ? 0 : share;
+      final int shareClamped = share < 0 ? 0 : share; // Clamp negatives to zero
+
+      // Create new expense entry with user's share amount
       result.add(e.copyWith(amountCents: shareClamped));
     }
     return result;
@@ -315,8 +371,22 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
               ),
               const SizedBox(height: 16),
 
-              // Spending Card - Use SUMMARY DATA (backend calculates splits correctly)
-              // CRITICAL: The backend households-summary already calculates split-aware totals
+              // ═══════════════════════════════════════════════════════════════
+              // "SPENT BY YOU" CARD
+              // ═══════════════════════════════════════════════════════════════
+              // Shows the current user's personal spending in the household.
+              // This includes:
+              //   1. Full amount of expenses created by user
+              //   2. Split portions allocated to user from other members' expenses
+              //
+              // Data source: Backend households-summary endpoint
+              // Backend calculates split-aware totals correctly, so we trust this data.
+              //
+              // Example:
+              //   - User logs $10 expense, splits $0 to others
+              //   - Other logs $100 expense, splits $50 to user
+              //   - Result: "Spent by You" = $60 (user's $10 + split $50)
+              // ═══════════════════════════════════════════════════════════════
               summaryAsync.when(
                 loading: () => const Padding(
                   padding: EdgeInsets.all(16.0),
@@ -330,7 +400,8 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                   ),
                 ),
                 data: (summary) {
-                  // Get user's total from summary (this is CORRECT - includes split portions)
+                  // Extract user's contribution from backend summary
+                  // This includes user's own expenses + split portions from others
                   final myContribution = summary?.memberContributions.firstWhere(
                     (m) => m.userId == userId,
                     orElse: () => MemberContribution(
@@ -344,8 +415,9 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
 
                   final myTotalCents = myContribution?.totalSpentCents ?? 0;
 
-                  // Create a synthetic expense representing the user's total
-                  // This is used ONLY for display - the amount is correct from backend
+                  // Create a synthetic expense entry for display purposes
+                  // The buildSpendingCard widget expects an expense list, so we create
+                  // a single entry with the correct total from backend
                   final syntheticExpense = ExpenseEntry(
                     id: 'user-summary-total',
                     date: DateTime.now(),
@@ -604,11 +676,28 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
 
               // const SizedBox(height: 16),
 
-              // Category breakdown (reuse)
+              // ═══════════════════════════════════════════════════════════════
+              // CATEGORY BREAKDOWN CARD
+              // ═══════════════════════════════════════════════════════════════
+              // Shows spending breakdown by category for ALL household expenses.
+              //
+              // ⚠️ CRITICAL: Uses filteredExpenses (ALL household expenses),
+              // NOT personal share. This shows where the household money went,
+              // regardless of who paid or how it was split.
+              //
+              // Example:
+              //   - User logs $10 for "Food"
+              //   - Other logs $100 for "Transport"
+              //   - Category breakdown shows:
+              //     • Food: $10
+              //     • Transport: $100
+              //   - Total displayed: $110 (entire household spending)
+              // ═══════════════════════════════════════════════════════════════
               expensesAsync.when(
                 loading: () => const SizedBox.shrink(),
                 error: (e, st) => const SizedBox.shrink(),
                 data: (allExpenses) {
+                  // Filter expenses by date range and selected currency
                   final filteredExpenses = allExpenses.where((e) {
                     final d = DateTime(e.date.year, e.date.month, e.date.day);
                     final dateOk = !d.isBefore(from) && !d.isAfter(to);
@@ -616,9 +705,9 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                     final currencyOk = rawCurrency.isEmpty || rawCurrency == selectedCurrency;
                     return dateOk && currencyOk;
                   }).toList();
-                  // Use split-adjusted personal shares for breakdown
-                  final splits = splitsAsync.asData?.value ?? const <ExpenseSplitGroup>[];
-                  final personal = _personalShareExpenses(filteredExpenses, splits, userId);
+
+                  // ⚠️ IMPORTANT: Pass filteredExpenses (ALL expenses), not personal share
+                  // This was a bug fix - previously used personal share which was incorrect
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     child: GestureDetector(
@@ -632,7 +721,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                       child: buildCategoryBreakdownCard(
                         context,
                         colorScheme,
-                        personal,
+                        filteredExpenses, // ALL household expenses (not personal share)
                         null,
                         selectedCurrency: selectedCurrency,
                         householdId: household.id,
@@ -644,11 +733,25 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
 
               const SizedBox(height: 16),
 
-              // Spending breakdown donut (reuse)
+              // ═══════════════════════════════════════════════════════════════
+              // PIE CHART CARD (Spending Breakdown)
+              // ═══════════════════════════════════════════════════════════════
+              // Shows visual distribution of ALL household expenses by category.
+              //
+              // ⚠️ CRITICAL: Uses filteredExpenses (ALL household expenses),
+              // NOT personal share. This provides a complete picture of household
+              // spending patterns across all categories.
+              //
+              // Example:
+              //   - User logs $10 for "Food" (9% of total)
+              //   - Other logs $100 for "Transport" (91% of total)
+              //   - Pie chart shows both slices representing full household
+              // ═══════════════════════════════════════════════════════════════
               expensesAsync.when(
                 loading: () => const SizedBox.shrink(),
                 error: (e, st) => const SizedBox.shrink(),
                 data: (allExpenses) {
+                  // Filter expenses by date range and selected currency
                   final filteredExpenses = allExpenses.where((e) {
                     final d = DateTime(e.date.year, e.date.month, e.date.day);
                     final dateOk = !d.isBefore(from) && !d.isAfter(to);
@@ -656,8 +759,9 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                     final currencyOk = rawCurrency.isEmpty || rawCurrency == selectedCurrency;
                     return dateOk && currencyOk;
                   }).toList();
-                  final splits = splitsAsync.asData?.value ?? const <ExpenseSplitGroup>[];
-                  final personal = _personalShareExpenses(filteredExpenses, splits, userId);
+
+                  // ⚠️ IMPORTANT: Pass filteredExpenses (ALL expenses), not personal share
+                  // This was a bug fix - previously used personal share which was incorrect
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     child: GestureDetector(
@@ -671,7 +775,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                       child: buildSpendingBreakdownChart(
                         context,
                         colorScheme,
-                        personal,
+                        filteredExpenses, // ALL household expenses (not personal share)
                         const <DailyBudgetEntry>[],
                         null,
                         filterState.dateRangeFilter,

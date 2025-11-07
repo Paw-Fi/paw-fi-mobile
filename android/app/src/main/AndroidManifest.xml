@@ -51,14 +51,21 @@
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="moneko" android:host="verify-whatsapp"/>
             </intent-filter>
-            <!-- Deep Link for Household Invitation -->
-            <!-- Web URL: https://moneko.io/invites/:token -->
-            <!-- Deep Link: moneko://households/join?token=... -->
+            <!-- Custom Deep Link for Household Invitation -->
+            <!-- Format: moneko://households/join?token=... -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="moneko" android:host="households" android:pathPrefix="/join"/>
+            </intent-filter>
+            <!-- Android App Links for Household Invitation (Universal Links) -->
+            <!-- Format: https://moneko.io/invites/{token} -->
+            <!-- Requires: .well-known/assetlinks.json on moneko.io -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
-                <data android:scheme="moneko" android:host="households"/>
                 <data android:scheme="https" android:host="moneko.io" android:pathPrefix="/invites"/>
                 <data android:scheme="https" android:host="www.moneko.io" android:pathPrefix="/invites"/>
             </intent-filter>

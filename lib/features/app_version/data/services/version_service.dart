@@ -30,14 +30,19 @@ class VersionService {
           .eq('platform', platform)
           .limit(1);
 
-      final responseList = response as List;
-      
-      if (responseList.isEmpty) {
+      // Safely parse list payload
+      if (response is! List || response.isEmpty) {
         developer.log('No version config found in database', name: 'VersionService');
         return null;
       }
 
-      final config = AppVersionConfig.fromJson(responseList[0] as Map<String, dynamic>);
+      final first = response.first;
+      if (first is! Map) {
+        developer.log('Unexpected config payload shape', name: 'VersionService');
+        return null;
+      }
+
+      final config = AppVersionConfig.fromJson(Map<String, dynamic>.from(first as Map));
       developer.log(
         'Config loaded: minVersion=${config.minVersion}, forceUpdate=${config.forceUpdate}',
         name: 'VersionService',

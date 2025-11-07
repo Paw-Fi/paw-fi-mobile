@@ -286,6 +286,7 @@
   "selectHouseholdToConfigureSplit": "정산 방식을 설정할 그룹을 선택하세요.",
   "currencyManagedByHousehold": "통화는 그룹에서 관리하며 변경할 수 없습니다.",
   "currencyCannotBeChanged": "그룹과 공유 시 통화를 변경할 수 없습니다.",
+  "cannotEditOthersExpenses": "본인의 지출만 수정할 수 있어요",
   "failedToLoadImage": "이미지 로딩 실패",
   "editAmount": "금액 수정",
   "amount": "금액",

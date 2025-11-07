@@ -361,6 +361,7 @@
   "selectHouseholdToConfigureSplit": "選擇一個家庭以設定分帳",
   "currencyManagedByHousehold": "幣別由家庭管理，無法變更",
   "currencyCannotBeChanged": "與家庭共享時無法變更幣別",
+  "cannotEditOthersExpenses": "你只能編輯自己的支出",
   "failedToLoadImage": "載入圖片失敗",
   "editAmount": "編輯金額",
   "amount": "金額",

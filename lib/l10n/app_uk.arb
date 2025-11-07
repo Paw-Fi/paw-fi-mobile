@@ -342,6 +342,7 @@
   "selectHouseholdToConfigureSplit": "Оберіть домогосподарство, щоб налаштувати розділення",
   "currencyManagedByHousehold": "Валюта керується домогосподарством і не може бути змінена",
   "currencyCannotBeChanged": "Валюту не можна змінити, якщо ви ділитеся витратою з домогосподарством",
+  "cannotEditOthersExpenses": "Ви можете редагувати лише власні витрати",
   "failedToLoadImage": "Не вдалося завантажити зображення",
   "editAmount": "Редагувати суму",
   "amount": "Сума",

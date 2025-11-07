@@ -835,6 +835,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get currencyCannotBeChanged => '分享至家庭时无法更改货币';
 
   @override
+  String get cannotEditOthersExpenses => '你只能编辑自己的支出';
+
+  @override
   String get failedToLoadImage => '图片加载失败';
 
   @override
@@ -3197,6 +3200,9 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get currencyCannotBeChanged => '與家庭共享時無法變更幣別';
+
+  @override
+  String get cannotEditOthersExpenses => '你只能編輯自己的支出';
 
   @override
   String get failedToLoadImage => '載入圖片失敗';

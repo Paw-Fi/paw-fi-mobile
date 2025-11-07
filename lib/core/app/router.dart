@@ -17,6 +17,7 @@ import 'package:moneko/features/households/presentation/pages/household_members_
 import 'package:moneko/features/households/presentation/pages/household_settings_page.dart';
 
 import '../ui/pages/error_page.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 part 'router.g.dart';
 
@@ -102,8 +103,6 @@ GoRouter router(RouterRef ref) {
 
 
 
-      // Household invitation is now handled via bottom sheet in deep_link_service.dart
-      // No route needed here
 
       // Household join page (with optional token query param)
       GoRoute(
@@ -159,6 +158,15 @@ GoRouter router(RouterRef ref) {
       ),
     ],
     redirect: (context, state) {
+      try {
+      // Handle invitation universal links - redirect to home page
+      // The invitation modal is shown by deep_link_service.dart on top of the home page
+      if (state.matchedLocation.startsWith('/invites/')) {
+        debugPrint('🔗 Invitation universal link detected: ${state.matchedLocation}');
+        // Redirect to home page where modal will be shown
+        return '/';
+      }
+
       final isAuthenticated = !auth.isEmpty;
       final isOnSplashPage = state.matchedLocation == '/splash';
       final isOnAuthPage = state.matchedLocation == '/login' ||
@@ -240,6 +248,15 @@ GoRouter router(RouterRef ref) {
 
       // Allow navigation (includes when subscription is loading)
       return null;
+      } catch (e, s) {
+        // Record non-fatal to Crashlytics for production observability
+        try {
+          FirebaseCrashlytics.instance.recordError(e, s, fatal: false, reason: 'router_redirect_error');
+        } catch (_) {}
+        debugPrint('Router redirect error: $e');
+        debugPrint(s.toString());
+        return '/splash';
+      }
     },
     errorBuilder: (context, state) => ErrorPage(state.error),
   );

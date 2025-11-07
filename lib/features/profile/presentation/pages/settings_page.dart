@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
@@ -17,6 +18,9 @@ import 'package:go_router/go_router.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/app/locale_provider.dart';
 import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
+import 'package:moneko/features/income/presentation/providers/income_providers.dart';
+import 'package:moneko/features/goals/presentation/providers/goals_providers.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 
 class SettingsPage extends HookConsumerWidget {
   const SettingsPage({super.key});
@@ -548,6 +552,73 @@ class SettingsPage extends HookConsumerWidget {
               subscriptionAsync: subscriptionAsync,
             ),
             const shadcnui.Gap(32),
+            // Developer tools (commented out)
+            // Text(
+            //   'Developer',
+            //   style: TextStyle(
+            //     fontSize: 18,
+            //     fontWeight: FontWeight.w600,
+            //     color: colorScheme.foreground,
+            //     letterSpacing: -0.2,
+            //   ),
+            // ),
+            // const shadcnui.Gap(12),
+            // SizedBox(
+            //   width: double.infinity,
+            //   child: shadcnui.DestructiveButton(
+            //     onPressed: () async {
+            //       final confirmed = await showDialog<bool>(
+            //         context: context,
+            //         builder: (ctx) {
+            //           return AlertDialog(
+            //             title: const Text('Crashlytics Test Crash'),
+            //             content: const Text('This will intentionally crash the app to verify Crashlytics reporting. Continue?'),
+            //             actions: [
+            //               TextButton(
+            //                 onPressed: () => Navigator.of(ctx).pop(false),
+            //                 child: const Text('Cancel'),
+            //               ),
+            //               TextButton(
+            //                 onPressed: () => Navigator.of(ctx).pop(true),
+            //                 child: const Text('Crash Now'),
+            //               ),
+            //             ],
+            //           );
+            //         },
+            //       );
+            //       if (confirmed == true) {
+            //         FirebaseCrashlytics.instance.log('manual_test_crash: user triggered from settings');
+            //         FirebaseCrashlytics.instance.crash();
+            //       }
+            //     },
+            //     child: const Text('Crash Test (Crashlytics)'),
+            //   ),
+            // ),
+            // const shadcnui.Gap(12),
+            // SizedBox(
+            //   width: double.infinity,
+            //   child: shadcnui.PrimaryButton(
+            //     onPressed: () {
+            //       throw Exception('Test exception thrown from SettingsPage');
+            //     },
+            //     child: const Text('Throw Test Exception (Zone)'),
+            //   ),
+            // ),
+            // const shadcnui.Gap(12),
+            // SizedBox(
+            //   width: double.infinity,
+            //   child: shadcnui.PrimaryButton(
+            //     onPressed: () async {
+            //       try {
+            //         throw StateError('Non-fatal test error from SettingsPage');
+            //       } catch (e, s) {
+            //         FirebaseCrashlytics.instance.recordError(e, s, fatal: false, reason: 'Manual non-fatal test');
+            //       }
+            //     },
+            //     child: const Text('Send Non‑fatal Error'),
+            //   ),
+            // ),
+            const shadcnui.Gap(32),
             // Logout Button
             SizedBox(
               width: double.infinity,
@@ -557,7 +628,45 @@ class SettingsPage extends HookConsumerWidget {
                   try {
                     await ref.read(deviceRegistrationServiceProvider).unregisterDevice();
                   } catch (_) {}
+
+                  // Sign out from auth first (this will trigger navigation to login)
                   await ref.read(authProvider.notifier).signOut();
+
+                  // Clear all user-specific Riverpod state AFTER signing out
+                  // This prevents data from previous user appearing when new user logs in
+                  debugPrint('🧹 Clearing all user-specific Riverpod state after logout');
+
+                  // Analytics and expenses
+                  ref.invalidate(analyticsProvider);
+
+                  // Households
+                  ref.invalidate(userHouseholdsProvider);
+                  ref.invalidate(householdExpensesProvider);
+                  ref.invalidate(householdSplitsProvider);
+                  ref.invalidate(householdBudgetsProvider);
+                  ref.invalidate(householdSummaryProvider);
+                  ref.invalidate(householdMembersProvider);
+                  ref.invalidate(selectedHouseholdProvider);
+
+                  // View mode and filters
+                  ref.invalidate(viewModeProvider);
+                  ref.invalidate(homeFilterProvider);
+
+                  // Income
+                  ref.invalidate(incomeSummaryProvider);
+                  ref.invalidate(incomeListProvider);
+
+                  // Goals
+                  ref.invalidate(goalsListProvider);
+                  ref.invalidate(goalSummaryProvider);
+
+                  // Subscription
+                  ref.invalidate(subscriptionManagementProvider);
+
+                  // User profile
+                  ref.invalidate(userProfileProvider);
+
+                  debugPrint('✅ All user-specific state cleared');
                 },
                 child: Text(context.l10n.signOut),
               ),

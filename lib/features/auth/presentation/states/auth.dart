@@ -6,6 +6,7 @@ import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/onboarding/data/services/guest_goal_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 part 'auth.g.dart';
 
@@ -17,7 +18,17 @@ class Auth extends _$Auth {
   @override
   AppUser build() {
     initListener();
-    return AppUser.fromSession(supabase.auth.currentSession);
+    final user = AppUser.fromSession(supabase.auth.currentSession);
+    // Set Crashlytics user identifier for initial state as well
+    try {
+      final uid = user.uid;
+      if (uid.isNotEmpty) {
+        FirebaseCrashlytics.instance.setUserIdentifier(uid);
+      } else {
+        FirebaseCrashlytics.instance.setUserIdentifier('anonymous');
+      }
+    } catch (_) {}
+    return user;
   }
 
   bool get isLoading => _isLoading;
@@ -26,6 +37,16 @@ class Auth extends _$Auth {
   initListener() {
     _authStateSubscription = supabase.auth.onAuthStateChange.listen((data) async {
       state = AppUser.fromSession(data.session);
+
+      // Set Crashlytics user identifier for better correlation
+      try {
+        final uid = state.uid;
+        if (uid.isNotEmpty) {
+          await FirebaseCrashlytics.instance.setUserIdentifier(uid);
+        } else {
+          await FirebaseCrashlytics.instance.setUserIdentifier('anonymous');
+        }
+      } catch (_) {}
 
       // Migrate guest data on sign in
       if (data.event == AuthChangeEvent.signedIn && data.session != null) {

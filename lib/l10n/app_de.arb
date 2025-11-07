@@ -342,6 +342,7 @@
   "selectHouseholdToConfigureSplit": "Wähle einen Haushalt, um die Aufteilung zu konfigurieren",
   "currencyManagedByHousehold": "Die Währung wird vom Haushalt verwaltet und kann nicht geändert werden",
   "currencyCannotBeChanged": "Währung kann nicht geändert werden, wenn mit einem Haushalt geteilt wird",
+  "cannotEditOthersExpenses": "Du kannst nur deine eigenen Ausgaben bearbeiten",
   "failedToLoadImage": "Bild konnte nicht geladen werden",
   "editAmount": "Betrag bearbeiten",
   "amount": "Betrag",

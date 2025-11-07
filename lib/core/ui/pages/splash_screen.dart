@@ -10,7 +10,6 @@ class SplashScreen extends ConsumerStatefulWidget {
 }
 
 class _SplashScreenState extends ConsumerState<SplashScreen> {
-  // No per-page initialization; all app init is centralized in AppInitialization provider
 
   @override
   Widget build(BuildContext context) {
@@ -29,6 +28,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
               child: Image.asset(
                 'lib/assets/gifs/splashscreen-loading.gif',
                 fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) => const CircularProgressIndicator(color: Colors.white),
               ),
             ),
           ],

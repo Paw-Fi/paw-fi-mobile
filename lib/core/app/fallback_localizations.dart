@@ -54,19 +54,46 @@ Locale? _localeResolutionCallback(Locale? locale, Iterable<Locale> supportedLoca
   if (locale == null) {
     return supportedLocales.first;
   }
-  
-  // Check if the locale is directly supported
-  for (final supportedLocale in supportedLocales) {
-    if (supportedLocale.languageCode == locale.languageCode &&
-        (supportedLocale.countryCode == null || 
-         supportedLocale.countryCode == locale.countryCode)) {
-      return locale;
+
+  // 1) Exact match: language + (optional) country
+  for (final supported in supportedLocales) {
+    if (supported.languageCode == locale.languageCode &&
+        (supported.countryCode == null || supported.countryCode == locale.countryCode)) {
+      return supported;
     }
   }
-  
-  // For unsupported locales like 'pks', return the locale anyway
-  // Our fallback delegates will handle the Material/Cupertino localizations
-  return locale;
+
+  // 2) Language-only match
+  final languageOnly = supportedLocales.firstWhere(
+    (l) => l.languageCode == locale.languageCode,
+    orElse: () => const Locale('@@__no_match__@@'),
+  );
+  if (languageOnly.languageCode != '@@__no_match__@@') {
+    return languageOnly;
+  }
+
+  // 3) Common alias fixes (map device language to our supported set)
+  // e.g., device uses 'ko' but our bundle is 'kr'
+  final aliasMap = <String, String>{
+    'ko': 'kr',
+  };
+  final alias = aliasMap[locale.languageCode];
+  if (alias != null) {
+    final aliasMatch = supportedLocales.firstWhere(
+      (l) => l.languageCode == alias,
+      orElse: () => const Locale('@@__no_alias__@@'),
+    );
+    if (aliasMatch.languageCode != '@@__no_alias__@@') {
+      return aliasMatch;
+    }
+  }
+
+  // 4) Default to English to ensure AppLocalizations is always present
+  final english = supportedLocales.firstWhere(
+    (l) => l.languageCode == 'en',
+    orElse: () => supportedLocales.first,
+  );
+  return english;
 }
 
 /// Get the locale resolution callback for the app
