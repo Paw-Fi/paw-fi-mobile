@@ -31,7 +31,17 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
     );
     
     try {
-      // 1. Try to get current expense from analytics provider for optimistic update
+      // ═══════════════════════════════════════════════════════════════
+      // STEP 1: Try optimistic UI update (if expense is in local cache)
+      // ═══════════════════════════════════════════════════════════════
+      // Optimistic updates make the UI feel instant by updating immediately
+      // before waiting for the backend. However, NOT all expenses are in
+      // the analytics provider cache:
+      //   - Personal expenses: In analyticsProvider cache ✅
+      //   - Household expenses: NOT in analyticsProvider cache ❌
+      //
+      // Solution: Make optimistic update optional - skip if not found.
+      // ═══════════════════════════════════════════════════════════════
       final analyticsData = ref.read(analyticsProvider);
       final currentExpenses = analyticsData.allExpenses;
 
@@ -54,12 +64,19 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
         state = state.copyWith(optimisticUpdate: optimisticExpense);
         _applyOptimisticUpdateToProvider(optimisticExpense);
       } else {
+        // Expense not in cache - likely a household expense
+        // This is NOT an error, just skip optimistic update
         if (kDebugMode) {
-          debugPrint('💾 Expense not in local cache (might be household expense), skipping optimistic update');
+          debugPrint('💾 Expense not in local cache (household expense), skipping optimistic update');
         }
       }
-      
-      // 4. Call backend API
+
+      // ═══════════════════════════════════════════════════════════════
+      // STEP 2: Call backend API (works for ALL expense types)
+      // ═══════════════════════════════════════════════════════════════
+      // The backend update works for both personal and household expenses.
+      // We continue regardless of whether optimistic update was applied.
+      // ═══════════════════════════════════════════════════════════════
       final user = ref.read(authProvider);
       if (kDebugMode) {
         debugPrint('🌐 Calling update-expense API...');
@@ -91,12 +108,25 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
         debugPrint('✅ Backend update successful');
       }
       
-      // 5. Success: Reload data from backend to sync
-      // This ensures we have the latest data including any backend-side transformations
+      // ═══════════════════════════════════════════════════════════════
+      // STEP 3: Reload data from backend to sync all providers
+      // ═══════════════════════════════════════════════════════════════
+      // After successful backend update, refresh all affected data:
+      //   1. Personal expenses (analyticsProvider)
+      //   2. Household expenses (householdExpensesProvider, etc.)
+      //
+      // This ensures UI shows the latest data from backend, including
+      // any transformations or calculations done server-side.
+      // ═══════════════════════════════════════════════════════════════
       await ref.read(analyticsProvider.notifier).loadData(user.uid);
 
-      // 6. Always invalidate household providers to be safe
-      // (expense might be a household expense even if not in local cache)
+      // ⚠️ CRITICAL: Always invalidate household providers after update
+      // Even if the expense wasn't in analyticsProvider cache (household expense),
+      // we must refresh household data to show the updated expense.
+      //
+      // This was a bug fix: Previously, household expenses failed to update
+      // because they weren't in analyticsProvider and household providers
+      // weren't being refreshed.
       debugPrint('🔄 Invalidating household providers after expense update');
       ref.invalidate(userHouseholdsProvider(user.uid));
       ref.invalidate(householdSummaryProvider);

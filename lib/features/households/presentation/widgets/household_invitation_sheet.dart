@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/household_providers.dart';
 import '../providers/selected_household_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
+import 'package:moneko/core/app/router.dart';
 
 class HouseholdInvitationSheet extends ConsumerStatefulWidget {
   final String token;
@@ -238,15 +239,32 @@ class _HouseholdInvitationSheetState
             ),
             const SizedBox(height: 24),
             shadcnui.PrimaryButton(
-              onPressed: () {
-                Navigator.of(context).pop();
+              onPressed: () async {
                 final userId = Supabase.instance.client.auth.currentUser?.id;
-                if (_householdId != null && userId != null) {
-                  // Switch to household mode and navigate to home page
-                  // This will show the "For Us" view with the household selected
-                  ref.read(viewModeProvider.notifier).setMode(ViewMode.household);
-                  ref.read(selectedHouseholdProvider.notifier).selectHousehold(_householdId!, userId);
-                  context.go('/dashboard');
+                final householdId = _householdId;
+
+                if (householdId == null || userId == null) {
+                  // If no household ID or user ID, just close the sheet
+                  if (mounted) {
+                    Navigator.of(context).pop();
+                  }
+                  return;
+                }
+
+                // Refresh household list to include the newly joined household
+                await ref.read(userHouseholdsProvider(userId).notifier).load();
+
+                // Switch to household mode and set the selected household
+                // This will show the "For Us" view with the household selected
+                ref.read(viewModeProvider.notifier).setMode(ViewMode.household);
+                await ref.read(selectedHouseholdProvider.notifier).selectHousehold(householdId, userId);
+
+                // Close the bottom sheet and navigate using the root navigator
+                // Use root navigator directly to avoid context issues
+                final navCtx = rootNavigatorKey.currentContext;
+                if (navCtx != null && navCtx.mounted) {
+                  Navigator.of(navCtx).pop();
+                  navCtx.go('/dashboard');
                 }
               },
               child: const Text('View Household'),

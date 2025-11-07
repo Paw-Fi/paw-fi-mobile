@@ -1687,7 +1687,22 @@ class _UnifiedTransactionSheetState
       final user = ref.read(authProvider);
       final viewMode = ref.read(viewModeProvider);
 
-      // For existing expenses, verify user owns the expense before allowing edits
+      // ═══════════════════════════════════════════════════════════════
+      // PERMISSION CHECK: User can only edit their own expenses
+      // ═══════════════════════════════════════════════════════════════
+      // When editing existing expenses, verify that the logged-in user
+      // is the one who created the expense. This prevents users from
+      // editing expenses logged by other household members.
+      //
+      // Security: Each expense has a userId field that identifies the creator.
+      // We compare this with the current logged-in user's ID.
+      //
+      // Example scenario:
+      //   - User A logs an expense in household
+      //   - User B (another household member) views the expense list
+      //   - User B tries to edit User A's expense
+      //   - Result: Blocked with error message "You can only edit your own expenses"
+      // ═══════════════════════════════════════════════════════════════
       if (isExistingExpense) {
         if (widget.existingExpense!.userId != user.uid) {
           setState(() => _isSaving = false);
