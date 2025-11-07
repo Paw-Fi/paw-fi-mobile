@@ -342,6 +342,7 @@
   "selectHouseholdToConfigureSplit": "选择一个家庭以配置分摊",
   "currencyManagedByHousehold": "家庭货币统一设置，无法在此更改",
   "currencyCannotBeChanged": "分享至家庭时无法更改货币",
+  "cannotEditOthersExpenses": "你只能编辑自己的支出",
   "failedToLoadImage": "图片加载失败",
   "editAmount": "编辑金额",
   "amount": "金额",

@@ -342,6 +342,7 @@
   "selectHouseholdToConfigureSplit": "Kies een huishouden om de splitsing in te stellen",
   "currencyManagedByHousehold": "Valuta wordt beheerd door het huishouden en kan niet worden gewijzigd",
   "currencyCannotBeChanged": "Valuta kan niet worden gewijzigd bij delen met een huishouden",
+  "cannotEditOthersExpenses": "Je kunt alleen je eigen uitgaven bewerken",
   "failedToLoadImage": "Afbeelding laden mislukt",
   "editAmount": "Bedrag bewerken",
   "amount": "Bedrag",

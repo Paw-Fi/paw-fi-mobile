@@ -835,6 +835,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get currencyCannotBeChanged => 'La devise ne peut pas être modifiée lors du partage avec un foyer.';
 
   @override
+  String get cannotEditOthersExpenses => 'Vous ne pouvez modifier que vos propres dépenses';
+
+  @override
   String get failedToLoadImage => 'Échec du chargement de l\'image.';
 
   @override

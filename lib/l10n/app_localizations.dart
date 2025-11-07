@@ -1736,6 +1736,12 @@ abstract class AppLocalizations {
   /// **'Currency cannot be changed when sharing with a household'**
   String get currencyCannotBeChanged;
 
+  /// No description provided for @cannotEditOthersExpenses.
+  ///
+  /// In en, this message translates to:
+  /// **'You can only edit your own expenses'**
+  String get cannotEditOthersExpenses;
+
   /// No description provided for @failedToLoadImage.
   ///
   /// In en, this message translates to:

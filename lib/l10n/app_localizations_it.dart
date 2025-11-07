@@ -835,6 +835,9 @@ class AppLocalizationsIt extends AppLocalizations {
   String get currencyCannotBeChanged => 'La valuta non può essere modificata quando si condivide con un gruppo';
 
   @override
+  String get cannotEditOthersExpenses => 'Puoi modificare solo le tue spese';
+
+  @override
   String get failedToLoadImage => 'Impossibile caricare l\'immagine';
 
   @override

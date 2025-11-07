@@ -342,6 +342,7 @@
   "selectHouseholdToConfigureSplit": "تقسیم سیٹ کرنے کے لیے گروپ منتخب کریں",
   "currencyManagedByHousehold": "کرنسی کا انتظام گروپ کے پاس ہے اور اسے تبدیل نہیں کیا جا سکتا",
   "currencyCannotBeChanged": "گروپ کے ساتھ شیئر کرتے وقت کرنسی تبدیل نہیں کی جا سکتی",
+  "cannotEditOthersExpenses": "آپ صرف اپنے اخراجات میں ترمیم کر سکتے ہیں",
   "failedToLoadImage": "تصویر لوڈ کرنے میں ناکامی",
   "editAmount": "رقم میں ترمیم کریں",
   "amount": "رقم",

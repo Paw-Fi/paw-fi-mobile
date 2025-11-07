@@ -835,6 +835,9 @@ class AppLocalizationsKr extends AppLocalizations {
   String get currencyCannotBeChanged => '그룹과 공유 시 통화를 변경할 수 없습니다.';
 
   @override
+  String get cannotEditOthersExpenses => '본인의 지출만 수정할 수 있어요';
+
+  @override
   String get failedToLoadImage => '이미지 로딩 실패';
 
   @override

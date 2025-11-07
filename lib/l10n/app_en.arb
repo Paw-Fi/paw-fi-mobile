@@ -361,6 +361,7 @@
   "selectHouseholdToConfigureSplit": "Select a household to configure split",
   "currencyManagedByHousehold": "Currency is managed by the household and cannot be changed",
   "currencyCannotBeChanged": "Currency cannot be changed when sharing with a household",
+  "cannotEditOthersExpenses": "You can only edit your own expenses",
   "failedToLoadImage": "Failed to load image",
   "editAmount": "Edit Amount",
   "amount": "Amount",

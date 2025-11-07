@@ -859,6 +859,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get currencyCannotBeChanged => 'Валюту нельзя изменить, если расход общий';
 
   @override
+  String get cannotEditOthersExpenses => 'Вы можете редактировать только свои расходы';
+
+  @override
   String get failedToLoadImage => 'Не удалось загрузить фото';
 
   @override

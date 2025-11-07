@@ -835,6 +835,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get currencyCannotBeChanged => 'Currency cannot be changed when sharing with a household';
 
   @override
+  String get cannotEditOthersExpenses => 'You can only edit your own expenses';
+
+  @override
   String get failedToLoadImage => 'Failed to load image';
 
   @override

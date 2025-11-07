@@ -342,6 +342,7 @@
   "selectHouseholdToConfigureSplit": "Seleziona una famiglia per configurare la divisione",
   "currencyManagedByHousehold": "La valuta è gestita dal gruppo e non può essere modificata",
   "currencyCannotBeChanged": "La valuta non può essere modificata quando si condivide con un gruppo",
+  "cannotEditOthersExpenses": "Puoi modificare solo le tue spese",
   "failedToLoadImage": "Impossibile caricare l'immagine",
   "editAmount": "Modifica importo",
   "amount": "Importo",

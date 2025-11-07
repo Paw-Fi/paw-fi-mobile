@@ -12,6 +12,8 @@ import 'package:moneko/core/app/app.dart';
 import 'package:moneko/core/app/init.dart';
 import 'package:moneko/firebase_options.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/core/util/constants.dart';
+import 'package:go_router/go_router.dart';
 
 /// Top-level background message handler for Firebase Cloud Messaging
 /// Must be a top-level function for iOS background execution
@@ -48,7 +50,43 @@ void main() {
     // Show a friendly UI on build errors instead of a blank screen in release
     ErrorWidget.builder = (FlutterErrorDetails details) {
       // Record non-fatal to Crashlytics as well
-      FirebaseCrashlytics.instance.recordError(details.exception, details.stack ?? StackTrace.empty, reason: 'ErrorWidget', fatal: false);
+      try {
+        FirebaseCrashlytics.instance.recordError(
+          details.exception,
+          details.stack ?? StackTrace.empty,
+          reason: 'ErrorWidget',
+          fatal: false,
+        );
+      } catch (_) {}
+
+      String _shortFingerprint(String s) {
+        // Simple FNV-1a 32-bit hash for a short, repeatable ID
+        int hash = 0x811C9DC5;
+        for (final codeUnit in s.codeUnits) {
+          hash ^= codeUnit;
+          hash = (hash * 0x01000193) & 0xFFFFFFFF;
+        }
+        return hash.toRadixString(16).padLeft(8, '0');
+      }
+
+      String errorType = details.exception.runtimeType.toString();
+      String topFrame = '';
+      try {
+        final lines = (details.stack ?? StackTrace.current).toString().split('\n');
+        if (lines.isNotEmpty) topFrame = lines.first.trim();
+      } catch (_) {}
+
+      final now = DateTime.now();
+      final env = Constants.environment;
+      String route = '';
+      try {
+        // May throw if router not available in this context
+        route = GoRouter.of(details.context as BuildContext).location;
+      } catch (_) {}
+
+      final fid = 'E-${now.millisecondsSinceEpoch.toRadixString(36)}-${_shortFingerprint('$errorType|$topFrame')}';
+      final message = 'Something went wrong. Please restart the app.';
+
       return Directionality(
         textDirection: TextDirection.ltr,
         child: ColoredBox(
@@ -56,10 +94,30 @@ void main() {
           child: Center(
             child: Padding(
               padding: const EdgeInsets.all(24.0),
-              child: Text(
-                'Something went wrong. Please restart the app.',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Color(0xFFFFFFFF), fontSize: 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Moneko encountered an error',
+                    style: TextStyle(color: Color(0xFFFFFFFF), fontSize: 18, fontWeight: FontWeight.w600),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Color(0xFFE5E7EB), fontSize: 14),
+                  ),
+                  const SizedBox(height: 20),
+                  // Minimal diagnostic info for screenshots
+                  Text(
+                    'ID: $fid\nEnv: $env\nRoute: ${route.isEmpty ? '-' : route}\nType: $errorType\nTop: ${topFrame.isEmpty ? '-' : topFrame}',
+                    style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 12, height: 1.4),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ),
             ),
           ),

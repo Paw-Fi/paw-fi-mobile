@@ -342,6 +342,7 @@
   "selectHouseholdToConfigureSplit": "Sélectionnez un foyer pour configurer le partage.",
   "currencyManagedByHousehold": "La devise est gérée par le foyer et ne peut pas être modifiée.",
   "currencyCannotBeChanged": "La devise ne peut pas être modifiée lors du partage avec un foyer.",
+  "cannotEditOthersExpenses": "Vous ne pouvez modifier que vos propres dépenses",
   "failedToLoadImage": "Échec du chargement de l'image.",
   "editAmount": "Modifier le montant",
   "amount": "Montant",

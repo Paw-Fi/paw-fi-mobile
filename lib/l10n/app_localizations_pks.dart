@@ -835,6 +835,9 @@ class AppLocalizationsPks extends AppLocalizations {
   String get currencyCannotBeChanged => 'گروپ کے ساتھ شیئر کرتے وقت کرنسی تبدیل نہیں کی جا سکتی';
 
   @override
+  String get cannotEditOthersExpenses => 'آپ صرف اپنے اخراجات میں ترمیم کر سکتے ہیں';
+
+  @override
   String get failedToLoadImage => 'تصویر لوڈ کرنے میں ناکامی';
 
   @override

@@ -161,22 +161,24 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
   Future<String?> uploadReceiptImage(File imageFile, String userId) async {
     try {
       debugPrint('📤 Uploading receipt image...');
-      
+
       final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final path = '$userId/receipts/$fileName';
-      
+
+      //This Path is fixed, SO DO NOT CHANGE IT!
+      final path = 'receipts/$userId/$fileName';
+
       final response = await supabase.storage
-          .from('receipts')
+          .from('expense-receipts')
           .upload(path, imageFile);
-      
+
       if (response.isEmpty) {
         throw Exception('Upload failed');
       }
-      
+
       final publicUrl = supabase.storage
-          .from('receipts')
+          .from('expense-receipts')
           .getPublicUrl(path);
-      
+
       debugPrint('✅ Receipt uploaded: $publicUrl');
       return publicUrl;
     } catch (error) {
