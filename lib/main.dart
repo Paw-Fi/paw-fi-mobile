@@ -81,7 +81,7 @@ void main() {
       String route = '';
       try {
         // May throw if router not available in this context
-        route = GoRouter.of(details.context as BuildContext).location;
+        route = GoRouterState.of(details.context as BuildContext).uri.path;
       } catch (_) {}
 
       final fid = 'E-${now.millisecondsSinceEpoch.toRadixString(36)}-${_shortFingerprint('$errorType|$topFrame')}';

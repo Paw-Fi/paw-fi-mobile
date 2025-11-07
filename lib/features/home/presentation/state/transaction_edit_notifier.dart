@@ -31,29 +31,33 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
     );
     
     try {
-      // 1. Get current expense from analytics provider
+      // 1. Try to get current expense from analytics provider for optimistic update
       final analyticsData = ref.read(analyticsProvider);
       final currentExpenses = analyticsData.allExpenses;
-      
+
       final originalExpenseIndex = currentExpenses.indexWhere((e) => e.id == expenseId);
-      if (originalExpenseIndex == -1) {
-        throw Exception('Expense not found in local data');
+
+      // If expense found in local cache, apply optimistic update
+      if (originalExpenseIndex != -1) {
+        final originalExpense = currentExpenses[originalExpenseIndex];
+
+        // 2. Create optimistic update (what the UI will show immediately)
+        final optimisticExpense = _applyUpdates(originalExpense, updates);
+
+        if (kDebugMode) {
+          debugPrint('💾 Applying optimistic update for expense $expenseId');
+          debugPrint('   Original: ${originalExpense.amount} ${originalExpense.currency}');
+          debugPrint('   Updated:  ${optimisticExpense.amount} ${optimisticExpense.currency}');
+        }
+
+        // 3. Update UI immediately (optimistic)
+        state = state.copyWith(optimisticUpdate: optimisticExpense);
+        _applyOptimisticUpdateToProvider(optimisticExpense);
+      } else {
+        if (kDebugMode) {
+          debugPrint('💾 Expense not in local cache (might be household expense), skipping optimistic update');
+        }
       }
-      
-      final originalExpense = currentExpenses[originalExpenseIndex];
-      
-      // 2. Create optimistic update (what the UI will show immediately)
-      final optimisticExpense = _applyUpdates(originalExpense, updates);
-      
-      if (kDebugMode) {
-        debugPrint('💾 Applying optimistic update for expense $expenseId');
-        debugPrint('   Original: ${originalExpense.amount} ${originalExpense.currency}');
-        debugPrint('   Updated:  ${optimisticExpense.amount} ${optimisticExpense.currency}');
-      }
-      
-      // 3. Update UI immediately (optimistic)
-      state = state.copyWith(optimisticUpdate: optimisticExpense);
-      _applyOptimisticUpdateToProvider(optimisticExpense);
       
       // 4. Call backend API
       final user = ref.read(authProvider);
@@ -91,23 +95,15 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       // This ensures we have the latest data including any backend-side transformations
       await ref.read(analyticsProvider.notifier).loadData(user.uid);
 
-      // 6. If this was a household expense, invalidate household providers
-      // Check the optimistic update for household_id (since we just updated it)
-      final updatedExpense = state.optimisticUpdate;
-      if (updatedExpense != null && updatedExpense.householdId != null) {
-        debugPrint('🔄 Invalidating household providers for household: ${updatedExpense.householdId}');
-
-        // Invalidate household list to update counts
-        ref.invalidate(userHouseholdsProvider(user.uid));
-
-        // Invalidate family providers so all parameterized instances refresh
-        ref.invalidate(householdSummaryProvider);
-        ref.invalidate(householdExpensesProvider);
-        ref.invalidate(householdSplitsProvider);
-        ref.invalidate(householdBudgetsProvider);
-
-        debugPrint('✅ Invalidated household providers');
-      }
+      // 6. Always invalidate household providers to be safe
+      // (expense might be a household expense even if not in local cache)
+      debugPrint('🔄 Invalidating household providers after expense update');
+      ref.invalidate(userHouseholdsProvider(user.uid));
+      ref.invalidate(householdSummaryProvider);
+      ref.invalidate(householdExpensesProvider);
+      ref.invalidate(householdSplitsProvider);
+      ref.invalidate(householdBudgetsProvider);
+      debugPrint('✅ Invalidated household providers');
 
       state = state.copyWith(
         isLoading: false,

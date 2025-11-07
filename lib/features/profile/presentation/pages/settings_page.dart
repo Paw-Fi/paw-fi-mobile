@@ -18,6 +18,9 @@ import 'package:go_router/go_router.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/app/locale_provider.dart';
 import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
+import 'package:moneko/features/income/presentation/providers/income_providers.dart';
+import 'package:moneko/features/goals/presentation/providers/goals_providers.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 
 class SettingsPage extends HookConsumerWidget {
   const SettingsPage({super.key});
@@ -625,7 +628,45 @@ class SettingsPage extends HookConsumerWidget {
                   try {
                     await ref.read(deviceRegistrationServiceProvider).unregisterDevice();
                   } catch (_) {}
+
+                  // Sign out from auth first (this will trigger navigation to login)
                   await ref.read(authProvider.notifier).signOut();
+
+                  // Clear all user-specific Riverpod state AFTER signing out
+                  // This prevents data from previous user appearing when new user logs in
+                  debugPrint('🧹 Clearing all user-specific Riverpod state after logout');
+
+                  // Analytics and expenses
+                  ref.invalidate(analyticsProvider);
+
+                  // Households
+                  ref.invalidate(userHouseholdsProvider);
+                  ref.invalidate(householdExpensesProvider);
+                  ref.invalidate(householdSplitsProvider);
+                  ref.invalidate(householdBudgetsProvider);
+                  ref.invalidate(householdSummaryProvider);
+                  ref.invalidate(householdMembersProvider);
+                  ref.invalidate(selectedHouseholdProvider);
+
+                  // View mode and filters
+                  ref.invalidate(viewModeProvider);
+                  ref.invalidate(homeFilterProvider);
+
+                  // Income
+                  ref.invalidate(incomeSummaryProvider);
+                  ref.invalidate(incomeListProvider);
+
+                  // Goals
+                  ref.invalidate(goalsListProvider);
+                  ref.invalidate(goalSummaryProvider);
+
+                  // Subscription
+                  ref.invalidate(subscriptionManagementProvider);
+
+                  // User profile
+                  ref.invalidate(userProfileProvider);
+
+                  debugPrint('✅ All user-specific state cleared');
                 },
                 child: Text(context.l10n.signOut),
               ),

@@ -39,14 +39,37 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
     List<ExpenseSplitGroup> splits,
     String currentUserId,
   ) {
-    if (expenses.isEmpty || splits.isEmpty) return const <ExpenseEntry>[];
+    if (expenses.isEmpty) return const <ExpenseEntry>[];
+
+    // If no splits data, return all expenses created by current user with full amounts
+    if (splits.isEmpty) {
+      return expenses.where((e) => e.userId == currentUserId).toList();
+    }
+
     final byGroupId = {for (final g in splits) g.id: g};
     final result = <ExpenseEntry>[];
+
     for (final e in expenses) {
       final gid = e.splitGroupId;
-      if (gid == null) continue;
+
+      // If expense has no split group, include it if user created it (full amount)
+      if (gid == null) {
+        if (e.userId == currentUserId) {
+          result.add(e);
+        }
+        continue;
+      }
+
+      // If expense has split group, calculate user's share
       final group = byGroupId[gid];
-      if (group == null) continue;
+      if (group == null) {
+        // Split group not found, include if user created it
+        if (e.userId == currentUserId) {
+          result.add(e);
+        }
+        continue;
+      }
+
       final line = (group.splitLines ?? const <ExpenseSplitLine>[])
           .firstWhere((l) => l.userId == currentUserId, orElse: () => ExpenseSplitLine(
                 id: '',
@@ -56,7 +79,9 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                 createdAt: DateTime.fromMillisecondsSinceEpoch(0),
                 updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
               ));
+
       if (line.userId != currentUserId) continue; // user not part of this split
+
       final int share = (line.amountCents ?? 0);
       final int shareClamped = share < 0 ? 0 : share;
       result.add(e.copyWith(amountCents: shareClamped));
@@ -601,9 +626,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                     final currencyOk = rawCurrency.isEmpty || rawCurrency == selectedCurrency;
                     return dateOk && currencyOk;
                   }).toList();
-                  // Use split-adjusted personal shares for breakdown
-                  final splits = splitsAsync.asData?.value ?? const <ExpenseSplitGroup>[];
-                  final personal = _personalShareExpenses(filteredExpenses, splits, userId);
+                  // Use ALL household expenses for category breakdown (not just personal share)
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     child: GestureDetector(
@@ -617,7 +640,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                       child: buildCategoryBreakdownCard(
                         context,
                         colorScheme,
-                        personal,
+                        filteredExpenses,
                         null,
                         selectedCurrency: selectedCurrency,
                         householdId: household.id,
@@ -641,8 +664,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                     final currencyOk = rawCurrency.isEmpty || rawCurrency == selectedCurrency;
                     return dateOk && currencyOk;
                   }).toList();
-                  final splits = splitsAsync.asData?.value ?? const <ExpenseSplitGroup>[];
-                  final personal = _personalShareExpenses(filteredExpenses, splits, userId);
+                  // Use ALL household expenses for pie chart (not just personal share)
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     child: GestureDetector(
@@ -656,7 +678,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                       child: buildSpendingBreakdownChart(
                         context,
                         colorScheme,
-                        personal,
+                        filteredExpenses,
                         const <DailyBudgetEntry>[],
                         null,
                         filterState.dateRangeFilter,
