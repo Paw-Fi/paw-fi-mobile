@@ -62,15 +62,15 @@ String? canonicalizeCurrencyCode(String? code) {
   }
 
   // Common symbol/alias mappings we see from OCR or legacy data
-  const aliases = {
-    'US$': 'USD',
-    'A$': 'AUD',
-    'C$': 'CAD',
-    'S$': 'SGD',
-    'HK$': 'HKD',
-    'NZ$': 'NZD',
-    'MX$': 'MXN',
-    'R$': 'BRL',
+  final aliases = <String, String>{
+    'US\$': 'USD',
+    'A\$': 'AUD',
+    'C\$': 'CAD',
+    'S\$': 'SGD',
+    'HK\$': 'HKD',
+    'NZ\$': 'NZD',
+    'MX\$': 'MXN',
+    'R\$': 'BRL',
     // South African Rand often saved as just 'R'
     'R': 'ZAR',
     // Kenyan Shilling
