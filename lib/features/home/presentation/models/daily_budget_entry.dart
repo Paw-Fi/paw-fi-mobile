@@ -38,7 +38,8 @@ class DailyBudgetEntry {
       contactId: json['contact_id'] as String?,
       date: DateTime.parse(json['date'] as String),
       amountCents: json['amount_cents'] as int,
-      currency: json['currency'] as String?,
+      currency: canonicalizeCurrencyCode(json['currency'] as String?),
     );
   }
 }
+import 'package:moneko/features/utils/currency.dart';

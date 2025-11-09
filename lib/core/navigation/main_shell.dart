@@ -7,6 +7,7 @@ import 'package:moneko/features/profile/presentation/pages/profile_page.dart';
 import 'package:moneko/features/goals/presentation/pages/goals_list_page.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/features/auth/presentation/widgets/impersonation_banner.dart';
 
 /// Main navigation shell with bottom navigation bar
 class MainShell extends HookConsumerWidget {
@@ -25,7 +26,12 @@ class MainShell extends HookConsumerWidget {
     ];
 
     return Scaffold(
-      body: pages[currentIndex.value],
+      body: Column(
+        children: [
+          const ImpersonationBanner(),
+          Expanded(child: pages[currentIndex.value]),
+        ],
+      ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: colorScheme.card,

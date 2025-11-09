@@ -48,8 +48,45 @@ const Map<String, String> currencyOptions = {
 
 const String _defaultCurrencySymbol = r'$';
 
+/// Canonicalize various currency notations/symbols to 3-letter ISO codes
+/// Returns uppercased 3-letter code if recognized, otherwise returns the
+/// original uppercased trimmed input (which may or may not be valid).
+String? canonicalizeCurrencyCode(String? code) {
+  if (code == null) return null;
+  final raw = code.trim().toUpperCase();
+  if (raw.isEmpty) return null;
+
+  // Direct 3-letter codes
+  if (raw.length == 3) {
+    return raw;
+  }
+
+  // Common symbol/alias mappings we see from OCR or legacy data
+  const aliases = {
+    'US$': 'USD',
+    'A$': 'AUD',
+    'C$': 'CAD',
+    'S$': 'SGD',
+    'HK$': 'HKD',
+    'NZ$': 'NZD',
+    'MX$': 'MXN',
+    'R$': 'BRL',
+    // South African Rand often saved as just 'R'
+    'R': 'ZAR',
+    // Kenyan Shilling
+    'KSH': 'KES',
+  };
+
+  if (aliases.containsKey(raw)) {
+    return aliases[raw];
+  }
+
+  // Fallback: unknown non-ISO string → null (will resolve to default symbol)
+  return null;
+}
+
 String resolveCurrencySymbol(String? currencyCode) {
-  final code = currencyCode?.trim().toUpperCase();
+  final code = canonicalizeCurrencyCode(currencyCode);
   if (code == null || code.isEmpty) {
     return _defaultCurrencySymbol;
   }

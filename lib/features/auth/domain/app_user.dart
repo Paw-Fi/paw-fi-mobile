@@ -12,6 +12,7 @@ class AppUser with _$AppUser {
     required String email,
     String? displayName,
     String? photoUrl,
+    @Default(false) bool isCreator,
   }) = _AppUser;
 
   factory AppUser.fromJson(Map<String, Object?> json) =>
