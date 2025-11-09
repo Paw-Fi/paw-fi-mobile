@@ -51,3 +51,6 @@ app.*.map.json
 !.env.example
 
 .windsurfrules
+dsym_files.zip
+dsym_files
+

@@ -81,15 +81,63 @@ else
     exit 1
 fi
 
+# Step 4: Create zip archive of dSYM files
+print_step "Step 4/4: Creating zip archive of dSYM files..."
+
+# Create timestamp for zip filename
+TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+ZIP_FILENAME="dsym_files_${TIMESTAMP}.zip"
+
+# Create zip file
+cd "$DSYM_OUTPUT_DIR"
+zip -r "../$ZIP_FILENAME" .
+cd ..
+
+print_success "dSYM files zipped to: $ZIP_FILENAME"
+
+# Clean up unzipped dSYM files to save space
+print_step "Cleaning up unzipped dSYM files..."
+rm -rf "$DSYM_OUTPUT_DIR"
+print_success "Unzipped dSYM files deleted to save space"
+
 # Instructions for uploading to Firebase Crashlytics
 echo ""
 print_success "🎉 dSYM extraction completed!"
-print_warning "Next steps for Firebase Crashlytics:"
-echo "1. Open Firebase Console -> Your App -> Crashlytics"
-echo "2. Go to 'dSYM files' tab"
-echo "3. Upload the dSYM files from: $DSYM_OUTPUT_DIR"
+print_warning "Files available:"
+echo "• Zip archive: $ZIP_FILENAME"
 echo ""
-echo "Or use Firebase CLI to upload automatically:"
-echo "firebase crashlytics:symbols:upload --app=YOUR_IOS_APP_ID $DSYM_OUTPUT_DIR/*.app.dSYM"
+
+# Step 5: Upload to Firebase Crashlytics (optional)
+print_step "Step 5/5: Uploading to Firebase Crashlytics..."
+
+# Firebase iOS App ID
+FIREBASE_APP_ID="1:1075784863194:ios:5d785653675dce8e2ec4e3"
+
+# Check if Firebase CLI is available
+if command -v firebase &> /dev/null; then
+    print_step "Firebase CLI found. Uploading dSYM files..."
+    echo "App ID: $FIREBASE_APP_ID"
+    echo "File: $ZIP_FILENAME"
+    
+    # Upload to Firebase Crashlytics
+    if firebase crashlytics:symbols:upload --app="$FIREBASE_APP_ID" "$ZIP_FILENAME"; then
+        print_success "🎉 dSYM files uploaded successfully to Firebase Crashlytics!"
+        print_warning "You can now view crash reports in the Firebase Console."
+        echo ""
+        echo "Firebase Console: https://console.firebase.google.com/project/moneko-9c2c6/crashlytics"
+    else
+        print_error "Failed to upload dSYM files to Firebase."
+        print_warning "You can upload manually using:"
+        echo "firebase crashlytics:symbols:upload --app=$FIREBASE_APP_ID $ZIP_FILENAME"
+    fi
+else
+    print_warning "Firebase CLI not found. Skipping automatic upload."
+    print_warning "To upload manually:"
+    echo "1. Install Firebase CLI: npm install -g firebase-tools"
+    echo "2. Run: firebase crashlytics:symbols:upload --app=$FIREBASE_APP_ID $ZIP_FILENAME"
+fi
+
 echo ""
-print_warning "Note: Make sure you have the Firebase CLI installed and authenticated."
+print_success "✅ Complete workflow finished!"
+echo "• dSYM files extracted and zipped: $ZIP_FILENAME"
+echo "• Firebase upload: completed above (if CLI available)"
