@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 import '../../domain/entities/expense_split.dart';
 import '../../domain/entities/household.dart';
 import '../providers/household_providers.dart';
@@ -241,16 +242,12 @@ class _SplitBuilderPageState extends ConsumerState<SplitBuilderPage> {
       await repository.computeSplit(request);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Split created successfully!')),
-        );
+        AppToast.success('Split created successfully!');
         Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error creating split: $e')),
-        );
+        AppToast.error('Error creating split: $e');
       }
     }
   }

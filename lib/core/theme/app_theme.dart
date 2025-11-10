@@ -74,6 +74,7 @@ class AppTheme {
   static const Color success = Color(0xFF16CDA2); // --success
   static const Color warning = Color(0xFFFFC219); // --warning
   static const Color danger = Color(0xFFFF6060); // --danger
+  static const Color info = monekoPrimary; // brand primary for neutral/info
 
   // Light theme colors
   static const Color lightBackground = Color(0xFFF9FAFB); // --moneko-background
@@ -184,3 +185,91 @@ extension ColorSchemeExtension on shadcnui.ColorScheme {
   }
 }
 
+/// Status-driven primitives for surfaces (toasts/snackbars/etc.)
+class AppSurface {
+  const AppSurface._();
+
+  /// Compute a tinted surface for a status on top of the neutral `card` color.
+  /// This produces elegant, subtle backgrounds that work for light/dark.
+  static Color tintedBackground({
+    required shadcnui.ColorScheme scheme,
+    required Color base,
+    required bool isDark,
+  }) {
+    // Light: very light tint, Dark: slightly stronger tint for contrast.
+    final t = isDark ? 0.16 : 0.08;
+    return Color.lerp(scheme.card, base, t) ?? scheme.card;
+  }
+
+  /// Subtle hairline border that harmonizes with the status hue.
+  static Color tintedBorder({
+    required shadcnui.ColorScheme scheme,
+    required Color base,
+    required bool isDark,
+  }) {
+    // Blend the base with the neutral border for a refined outline.
+    final t = isDark ? 0.55 : 0.45;
+    return Color.lerp(scheme.border, base, t) ?? scheme.border;
+  }
+
+  /// Action/accent color for links and buttons.
+  static Color accent(Color base) => base;
+
+  /// Derive a status base color by type.
+  static Color statusBase(AppSurfaceStatus status) {
+    switch (status) {
+      case AppSurfaceStatus.info:
+        return AppTheme.info;
+      case AppSurfaceStatus.success:
+        return AppTheme.success;
+      case AppSurfaceStatus.warning:
+        return AppTheme.warning;
+      case AppSurfaceStatus.error:
+        return AppTheme.danger;
+    }
+  }
+}
+
+enum AppSurfaceStatus { info, success, warning, error }
+
+/// Build a Material SnackBarTheme that mirrors our shadcn palette and Apple-like
+/// sleek floating cards. Use this from the Material theme wrapper.
+class AppSnackBarStyles {
+  const AppSnackBarStyles._();
+
+  static SnackBarThemeData build(
+    shadcnui.ColorScheme scheme, {
+    required bool isDark,
+  }) {
+    final bg = AppSurface.tintedBackground(
+      scheme: scheme,
+      base: AppTheme.info, // neutral/info tint as the default surface
+      isDark: isDark,
+    );
+    final border = AppSurface.tintedBorder(
+      scheme: scheme,
+      base: AppTheme.info,
+      isDark: isDark,
+    );
+
+    return SnackBarThemeData(
+      backgroundColor: bg,
+      contentTextStyle: TextStyle(
+        color: scheme.foreground,
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        height: 1.2,
+      ),
+      actionTextColor: AppSurface.accent(AppTheme.info),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: border, width: 1),
+      ),
+      elevation: 0,
+      behavior: SnackBarBehavior.floating,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      showCloseIcon: false,
+      disabledActionTextColor: scheme.mutedForeground,
+    );
+  }
+}

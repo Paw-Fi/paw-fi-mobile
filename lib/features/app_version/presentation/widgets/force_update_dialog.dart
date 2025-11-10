@@ -24,11 +24,11 @@ class ForceUpdateDialog extends StatelessWidget {
     if (storeUrl == null || storeUrl.isEmpty) {
       if (Platform.isIOS) {
         // TestFlight public link (replace with your actual link)
-        storeUrl = 'https://testflight.apple.com/join/YOUR_TESTFLIGHT_CODE';
+        storeUrl = 'https://testflight.apple.com/join/Q9rNbkN5';
         // OR App Store link:
         // storeUrl = 'https://apps.apple.com/app/idYOUR_APP_ID';
       } else if (Platform.isAndroid) {
-        storeUrl = 'https://play.google.com/store/apps/details?id=YOUR_PACKAGE_NAME';
+        storeUrl = 'https://play.google.com/store/apps/details?id=com.moneko.app';
       }
     }
 

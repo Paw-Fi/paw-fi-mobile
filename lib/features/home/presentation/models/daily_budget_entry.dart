@@ -1,3 +1,5 @@
+import 'package:moneko/features/utils/currency.dart';
+
 /// Represents a daily budget entry from daily_budgets table
 class DailyBudgetEntry {
   final String id;
@@ -42,4 +44,3 @@ class DailyBudgetEntry {
     );
   }
 }
-import 'package:moneko/features/utils/currency.dart';

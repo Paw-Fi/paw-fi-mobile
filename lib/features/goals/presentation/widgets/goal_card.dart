@@ -3,6 +3,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../domain/models/goal.dart';
 import '../providers/goals_providers.dart';
 import '../../../../core/l10n/l10n.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 
 class GoalCard extends ConsumerWidget {
   final Goal goal;
@@ -250,11 +251,7 @@ class GoalCard extends ConsumerWidget {
         );
 
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(l10n.goalAcknowledged),
-        ),
-      );
+      AppToast.success(l10n.goalAcknowledged);
     }
   }
 }

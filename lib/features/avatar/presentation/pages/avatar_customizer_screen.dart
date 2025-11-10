@@ -8,6 +8,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:ios_color_picker/show_ios_color_picker.dart';
 import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
@@ -268,9 +269,8 @@ class _AvatarCustomizerScreenState extends ConsumerState<AvatarCustomizerScreen>
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${context.l10n.failedToSaveAvatar}: $e')),
-      );
+      // Use AppToast so the error is visible above any bottom sheet/overlay
+      AppToast.error('${context.l10n.failedToSaveAvatar}: $e');
     } finally {
       if (mounted) {
         setState(() { _isUploading = false; _uploadProgress = 0; });

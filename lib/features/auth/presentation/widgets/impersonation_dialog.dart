@@ -1,10 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/auth/data/services/impersonation_service.dart';
 
 /// Dialog for admins to start impersonating a user
 class ImpersonationDialog extends ConsumerStatefulWidget {
   const ImpersonationDialog({super.key});
+
+  // Convenient static helper to show this dialog
+  static Future<void> show(BuildContext context) {
+    return showDialog(
+      context: context,
+      builder: (context) => const ImpersonationDialog(),
+    );
+  }
 
   @override
   ConsumerState<ImpersonationDialog> createState() => _ImpersonationDialogState();
@@ -130,11 +138,4 @@ class _ImpersonationDialogState extends ConsumerState<ImpersonationDialog> {
     );
   }
 
-  /// Show the impersonation dialog
-  static Future<void> show(BuildContext context) {
-    return showDialog(
-      context: context,
-      builder: (context) => const ImpersonationDialog(),
-    );
-  }
 }

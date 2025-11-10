@@ -18,7 +18,6 @@ import '../pages/household_settings_page.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
-import 'package:moneko/features/income/presentation/widgets/income_card.dart';
 import 'package:moneko/features/income/presentation/providers/income_providers.dart';
 
 /// Household home content that handles loading, empty, and data states
@@ -56,6 +55,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
   /// - Other logs $100 expense, splits $50 to user → Returns $50
   /// - Total "Spent by You" = $60
   /// - Total household = $110 (calculated separately)
+  // ignore: unused_element
   List<ExpenseEntry> _personalShareExpenses(
     List<ExpenseEntry> expenses,
     List<ExpenseSplitGroup> splits,
@@ -205,7 +205,8 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
               HouseholdExpensesParams(householdId: household.id, limit: 500),
             ),
           );
-          final splitsAsync = ref.watch(
+          // Preload splits (no local variable needed)
+          ref.watch(
             householdSplitsProvider(
               HouseholdSplitsParams(householdId: household.id),
             ),

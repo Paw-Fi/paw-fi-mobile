@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 
 void showTextInputDrawer(
   BuildContext parentContext,
@@ -46,13 +47,8 @@ class _TextInputContentState extends ConsumerState<_TextInputContent> {
   Future<void> _processExpense() async {
     final text = widget.textController.text.trim();
     if (text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.l10n.pleaseEnterExpenseDetails),
-          duration: const Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      // Use AppToast to ensure message is visible above the bottom sheet
+      AppToast.info(context.l10n.pleaseEnterExpenseDetails);
       return;
     }
 

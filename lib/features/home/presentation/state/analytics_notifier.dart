@@ -93,19 +93,22 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
       // Aggregate across ALL contact IDs to handle historical rows.
       List<ExpenseEntry> allExpenses = [];
       try {
-        final query = supabase
-            .from('expenses')
-            .select('id,contact_id,date,amount_cents,currency,category,created_at,raw_text,receipt_image_url,household_id,split_group_id')
-            .isFilter('split_group_id', null) // Only personal expenses (no household sharing)
-            .order('date', ascending: true);
-
         dynamic expensesResponse;
         if (contactIds.length <= 1) {
-          // Single contact id or none
           final contactId = contactIds.isNotEmpty ? contactIds.first : fetchedContact.id;
-          expensesResponse = await query.eq('contact_id', contactId);
+          expensesResponse = await supabase
+              .from('expenses')
+              .select('id,contact_id,date,amount_cents,currency,category,created_at,raw_text,receipt_image_url,household_id,split_group_id')
+              .isFilter('split_group_id', null)
+              .eq('contact_id', contactId)
+              .order('date', ascending: true);
         } else {
-          expensesResponse = await query.inFilter('contact_id', contactIds);
+          expensesResponse = await supabase
+              .from('expenses')
+              .select('id,contact_id,date,amount_cents,currency,category,created_at,raw_text,receipt_image_url,household_id,split_group_id')
+              .isFilter('split_group_id', null)
+              .inFilter('contact_id', contactIds)
+              .order('date', ascending: true);
         }
 
         allExpenses = (expensesResponse as List)
@@ -133,17 +136,20 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
       // Fetch ALL budgets (unfiltered) aggregated across all contact IDs
       List<DailyBudgetEntry> allBudgets = [];
       try {
-        final budgetQuery = supabase
-            .from('daily_budgets')
-            .select('id,contact_id,date,amount_cents,currency')
-            .order('date', ascending: true);
-
         dynamic budgetsResponse;
         if (contactIds.length <= 1) {
           final contactId = contactIds.isNotEmpty ? contactIds.first : fetchedContact.id;
-          budgetsResponse = await budgetQuery.eq('contact_id', contactId);
+          budgetsResponse = await supabase
+              .from('daily_budgets')
+              .select('id,contact_id,date,amount_cents,currency')
+              .eq('contact_id', contactId)
+              .order('date', ascending: true);
         } else {
-          budgetsResponse = await budgetQuery.inFilter('contact_id', contactIds);
+          budgetsResponse = await supabase
+              .from('daily_budgets')
+              .select('id,contact_id,date,amount_cents,currency')
+              .inFilter('contact_id', contactIds)
+              .order('date', ascending: true);
         }
 
         allBudgets = (budgetsResponse as List)

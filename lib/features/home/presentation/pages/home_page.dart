@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:moneko/core/theme/theme.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -21,8 +20,7 @@ import 'package:moneko/features/home/presentation/state/expense_save_providers.d
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
-import 'package:moneko/features/income/presentation/widgets/income_entry_sheet.dart';
-import 'package:moneko/features/goals/presentation/widgets/create_goal_sheet.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 
 // ============================================================================
 // HOME PAGE
@@ -592,13 +590,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   void _showToast(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        duration: const Duration(seconds: 3),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    AppToast.info(message);
   }
 
   double _totalBudgetAmount(List<DailyBudgetEntry> budgets) {

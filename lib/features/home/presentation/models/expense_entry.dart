@@ -1,3 +1,4 @@
+import 'package:moneko/features/utils/currency.dart';
 
 /// Represents a single spending entry from expenses table
 class ExpenseEntry {
@@ -119,4 +120,3 @@ class ExpenseEntry {
     );
   }
 }
-import 'package:moneko/features/utils/currency.dart';

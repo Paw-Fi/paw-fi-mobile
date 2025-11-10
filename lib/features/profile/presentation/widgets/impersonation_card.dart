@@ -31,7 +31,7 @@ Widget buildImpersonationCard(BuildContext context, WidgetRef ref) {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: colorScheme.primary.withOpacity(0.1),
+                      color: colorScheme.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(
@@ -110,11 +110,10 @@ Widget buildImpersonationCard(BuildContext context, WidgetRef ref) {
                   ),
                 ),
                 const shadcnui.Gap(12),
-                shadcnui.Button(
+                shadcnui.OutlineButton(
                   onPressed: () {
                     ref.read(impersonationProvider.notifier).stopImpersonation();
                   },
-                  variance: shadcnui.ButtonVariance.outline,
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -125,7 +124,7 @@ Widget buildImpersonationCard(BuildContext context, WidgetRef ref) {
                   ),
                 ),
               ] else ...[
-                shadcnui.Button(
+                shadcnui.PrimaryButton(
                   onPressed: () {
                     ImpersonationDialog.show(context);
                   },

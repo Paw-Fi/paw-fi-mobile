@@ -21,6 +21,7 @@ import 'package:moneko/features/utils/datetime.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
@@ -290,12 +291,7 @@ class _UnifiedTransactionSheetState
     } catch (e) {
       debugPrint('❌ Error capturing photo: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to capture photo: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        AppToast.error('Failed to capture photo: $e');
       }
     }
   }
@@ -843,14 +839,7 @@ class _UnifiedTransactionSheetState
     return GestureDetector(
       onTap: disabled
           ? () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(context.l10n.currencyIsManagedByHousehold),
-                  backgroundColor: colorScheme.muted,
-                  behavior: SnackBarBehavior.floating,
-                  duration: const Duration(seconds: 2),
-                ),
-              );
+              AppToast.info(context.l10n.currencyIsManagedByHousehold);
             }
           : onTap,
       child: Container(
@@ -1002,15 +991,7 @@ class _UnifiedTransactionSheetState
 
   Future<void> _handleEditCurrency(String currentCurrency) async {
     if (_isSharedWithHousehold) {
-      final scheme = shadcnui.Theme.of(context).colorScheme;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.l10n.currencyCannotBeChangedWhenSharing),
-          backgroundColor: scheme.muted,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 2),
-        ),
-      );
+      AppToast.info(context.l10n.currencyCannotBeChangedWhenSharing);
       return;
     }
 
@@ -1708,14 +1689,7 @@ class _UnifiedTransactionSheetState
           setState(() => _isSaving = false);
           if (!mounted) return;
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(context.l10n.cannotEditOthersExpenses),
-              backgroundColor: shadcnui.Theme.of(context).colorScheme.destructive,
-              duration: const Duration(seconds: 3),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+          AppToast.error(context.l10n.cannotEditOthersExpenses);
           return;
         }
       }
@@ -1779,16 +1753,9 @@ class _UnifiedTransactionSheetState
             ? ' (${_customSplitType.toString().split('.').last} split)'
             : '';
         
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(selectedHousehold != null
-                ? context.l10n.expenseSavedAndShared(splitInfo)
-                : context.l10n.expenseSaved),
-            backgroundColor: shadcnui.Theme.of(context).colorScheme.primary,
-            duration: const Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppToast.success(selectedHousehold != null
+            ? context.l10n.expenseSavedAndShared(splitInfo)
+            : context.l10n.expenseSaved);
       } else {
         // EXISTING EXPENSE: Build updates map from local edits
         final Map<String, dynamic> updates = {};
@@ -1878,14 +1845,7 @@ class _UnifiedTransactionSheetState
           // Close the sheet so when user reopens it, they see fresh data
           Navigator.of(context).pop();
           
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Expense updated successfully'),
-              backgroundColor: shadcnui.Theme.of(context).colorScheme.primary,
-              duration: const Duration(seconds: 2),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+          AppToast.success('Expense updated successfully');
         } else {
           throw Exception('Failed to update expense');
         }
@@ -1894,14 +1854,7 @@ class _UnifiedTransactionSheetState
       debugPrint('❌ Error saving expense: $error');
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to save: ${error.toString()}'),
-          backgroundColor: shadcnui.Theme.of(context).colorScheme.destructive,
-          duration: const Duration(seconds: 3),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      AppToast.error('Failed to save: ${error.toString()}');
     } finally {
       if (mounted) {
         setState(() => _isSaving = false);
@@ -2025,26 +1978,12 @@ class _UnifiedTransactionSheetState
 
       Navigator.of(context).pop();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.l10n.expenseDeletedSuccessfully),
-          backgroundColor: shadcnui.Theme.of(context).colorScheme.primary,
-          duration: const Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      AppToast.success(context.l10n.expenseDeletedSuccessfully);
     } catch (error) {
       debugPrint('❌ Error deleting expense: $error');
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${context.l10n.failedToDeleteExpense}: ${error.toString()}'),
-          backgroundColor: shadcnui.Theme.of(context).colorScheme.destructive,
-          duration: const Duration(seconds: 3),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      AppToast.error('${context.l10n.failedToDeleteExpense}: ${error.toString()}');
     } finally {
       if (mounted) {
         setState(() => _isDeleting = false);

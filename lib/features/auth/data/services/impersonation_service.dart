@@ -1,6 +1,5 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:moneko/core/core.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 part 'impersonation_service.g.dart';
 

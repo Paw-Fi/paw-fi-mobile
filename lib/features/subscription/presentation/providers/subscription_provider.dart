@@ -20,24 +20,19 @@ class SubscriptionNotifier extends _$SubscriptionNotifier {
     try {
       appLog('Fetching subscription for userId: $userId', name: 'SubscriptionProvider');
       
-      final response = await supabase
+      final List<dynamic> response = await supabase
           .from('subscriptions')
           .select('id, user_id, stripe_subscription_id, stripe_customer_id, plan, status, bound_to_user_id, bound_to_household_id, created_at, updated_at')
           .eq('user_id', userId)
           .order('updated_at', ascending: false)
           .limit(1);
 
-      if (response is! List || response.isEmpty) {
+      if (response.isEmpty) {
         appLog('No subscription found - returning null', name: 'SubscriptionProvider');
         return null;
       }
       
-      final first = response.first;
-      if (first is! Map) {
-        appLog('Unexpected subscription payload shape', name: 'SubscriptionProvider');
-        return null;
-      }
-      final subData = Map<String, dynamic>.from(first as Map);
+      final subData = Map<String, dynamic>.from(response.first as Map<String, dynamic>);
       appLog(
         'Subscription data: plan=${subData['plan']}, status=${subData['status']}, bound_to=${subData['bound_to_user_id']}',
         name: 'SubscriptionProvider',

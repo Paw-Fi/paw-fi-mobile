@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import '../../../../../core/l10n/l10n.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 
 /// Bottom sheet for settling up balances
 class SettleUpSheet extends ConsumerStatefulWidget {
@@ -198,9 +199,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
     if (_selectedMemberId == null && widget.specificMemberId == null) {
       // Show error
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a member')),
-        );
+        AppToast.info('Please select a member');
       }
       return;
     }
@@ -220,21 +219,11 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
 
       if (mounted) {
         Navigator.pop(context, true); // Return success
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Settled via $method'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        AppToast.success('Settled via $method');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        AppToast.error('Error: $e');
       }
     } finally {
       if (mounted) {

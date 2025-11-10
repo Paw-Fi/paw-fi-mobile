@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/auth/data/services/impersonation_service.dart';
 
 /// Banner that appears when admin is impersonating a user

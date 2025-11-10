@@ -24,6 +24,7 @@ mixin _$AppUser {
   String get email => throw _privateConstructorUsedError;
   String? get displayName => throw _privateConstructorUsedError;
   String? get photoUrl => throw _privateConstructorUsedError;
+  bool get isCreator => throw _privateConstructorUsedError;
 
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
   @JsonKey(ignore: true)
@@ -35,7 +36,7 @@ abstract class $AppUserCopyWith<$Res> {
   factory $AppUserCopyWith(AppUser value, $Res Function(AppUser) then) =
       _$AppUserCopyWithImpl<$Res, AppUser>;
   @useResult
-  $Res call({String uid, String email, String? displayName, String? photoUrl});
+  $Res call({String uid, String email, String? displayName, String? photoUrl, bool isCreator});
 }
 
 /// @nodoc
@@ -53,6 +54,7 @@ class _$AppUserCopyWithImpl<$Res, $Val extends AppUser>
     Object? email = null,
     Object? displayName = freezed,
     Object? photoUrl = freezed,
+    Object? isCreator = null,
   }) {
     return _then(_value.copyWith(
       uid: null == uid
@@ -67,6 +69,9 @@ class _$AppUserCopyWithImpl<$Res, $Val extends AppUser>
       photoUrl: freezed == photoUrl
           ? _value.photoUrl
           : photoUrl as String?,
+      isCreator: null == isCreator
+          ? _value.isCreator
+          : isCreator as bool,
     ) as $Val);
   }
 }
@@ -78,7 +83,7 @@ abstract class _$$AppUserImplCopyWith<$Res> implements $AppUserCopyWith<$Res> {
       __$$AppUserImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({String uid, String email, String? displayName, String? photoUrl});
+  $Res call({String uid, String email, String? displayName, String? photoUrl, bool isCreator});
 }
 
 /// @nodoc
@@ -96,6 +101,7 @@ class __$$AppUserImplCopyWithImpl<$Res>
     Object? email = null,
     Object? displayName = freezed,
     Object? photoUrl = freezed,
+    Object? isCreator = null,
   }) {
     return _then(_$AppUserImpl(
       uid: null == uid
@@ -110,6 +116,9 @@ class __$$AppUserImplCopyWithImpl<$Res>
       photoUrl: freezed == photoUrl
           ? _value.photoUrl
           : photoUrl as String?,
+      isCreator: null == isCreator
+          ? _value.isCreator
+          : isCreator as bool,
     ));
   }
 }
@@ -121,7 +130,8 @@ class _$AppUserImpl with DiagnosticableTreeMixin implements _AppUser {
       {required this.uid,
       required this.email,
       this.displayName,
-      this.photoUrl});
+      this.photoUrl,
+      this.isCreator = false});
 
   factory _$AppUserImpl.fromJson(Map<String, dynamic> json) =>
       _$$AppUserImplFromJson(json);
@@ -134,10 +144,13 @@ class _$AppUserImpl with DiagnosticableTreeMixin implements _AppUser {
   final String? displayName;
   @override
   final String? photoUrl;
+  @override
+  @JsonKey()
+  final bool isCreator;
 
   @override
   String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) {
-    return 'AppUser(uid: $uid, email: $email, displayName: $displayName, photoUrl: $photoUrl)';
+    return 'AppUser(uid: $uid, email: $email, displayName: $displayName, photoUrl: $photoUrl, isCreator: $isCreator)';
   }
 
   @override
@@ -148,7 +161,8 @@ class _$AppUserImpl with DiagnosticableTreeMixin implements _AppUser {
       ..add(DiagnosticsProperty('uid', uid))
       ..add(DiagnosticsProperty('email', email))
       ..add(DiagnosticsProperty('displayName', displayName))
-      ..add(DiagnosticsProperty('photoUrl', photoUrl));
+      ..add(DiagnosticsProperty('photoUrl', photoUrl))
+      ..add(DiagnosticsProperty('isCreator', isCreator));
   }
 
   @override
@@ -161,13 +175,15 @@ class _$AppUserImpl with DiagnosticableTreeMixin implements _AppUser {
             (identical(other.displayName, displayName) ||
                 other.displayName == displayName) &&
             (identical(other.photoUrl, photoUrl) ||
-                other.photoUrl == photoUrl));
+                other.photoUrl == photoUrl) &&
+            (identical(other.isCreator, isCreator) ||
+                other.isCreator == isCreator));
   }
 
   @JsonKey(ignore: true)
   @override
   int get hashCode =>
-      Object.hash(runtimeType, uid, email, displayName, photoUrl);
+      Object.hash(runtimeType, uid, email, displayName, photoUrl, isCreator);
 
   @JsonKey(ignore: true)
   @override
@@ -188,7 +204,8 @@ abstract class _AppUser implements AppUser {
       {required final String uid,
       required final String email,
       final String? displayName,
-      final String? photoUrl}) = _$AppUserImpl;
+      final String? photoUrl,
+      final bool isCreator}) = _$AppUserImpl;
 
   factory _AppUser.fromJson(Map<String, dynamic> json) =
       _$AppUserImpl.fromJson;
@@ -201,6 +218,8 @@ abstract class _AppUser implements AppUser {
   String? get displayName;
   @override
   String? get photoUrl;
+  @override
+  bool get isCreator;
   @override
   @JsonKey(ignore: true)
   _$$AppUserImplCopyWith<_$AppUserImpl> get copyWith =>

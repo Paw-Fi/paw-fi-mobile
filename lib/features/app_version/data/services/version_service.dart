@@ -24,25 +24,20 @@ class VersionService {
       final platform = Platform.isIOS ? 'ios' : 'android';
       developer.log('Fetching version config for platform: $platform', name: 'VersionService');
       
-      final response = await supabase
+      final List<dynamic> response = await supabase
           .from('app_version_config')
           .select()
           .eq('platform', platform)
           .limit(1);
 
       // Safely parse list payload
-      if (response is! List || response.isEmpty) {
+      if (response.isEmpty) {
         developer.log('No version config found in database', name: 'VersionService');
         return null;
       }
 
-      final first = response.first;
-      if (first is! Map) {
-        developer.log('Unexpected config payload shape', name: 'VersionService');
-        return null;
-      }
-
-      final config = AppVersionConfig.fromJson(Map<String, dynamic>.from(first as Map));
+      final first = response.first as Map<String, dynamic>;
+      final config = AppVersionConfig.fromJson(first);
       developer.log(
         'Config loaded: minVersion=${config.minVersion}, forceUpdate=${config.forceUpdate}',
         name: 'VersionService',

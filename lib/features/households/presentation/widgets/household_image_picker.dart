@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/core.dart';
 import '../../../../core/utils/error_handler.dart';
 import '../../../../core/config/storage_config.dart';
@@ -432,13 +433,6 @@ class HouseholdImagePicker {
   }
 
   static void _showError(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor:
-            shadcnui.Theme.of(context).colorScheme.destructive,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    AppToast.error(message);
   }
 }
