@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
@@ -359,6 +361,9 @@ class RecurringTransactionSaveNotifier
     DateTime? endDate,
     int? interval,
     String? description,
+    bool? hasReminder,
+    int? reminderValue,
+    String? reminderUnit,
     String ownerType = 'me',
     String privacyScope = 'full',
     String? householdId,
@@ -366,31 +371,54 @@ class RecurringTransactionSaveNotifier
     state = const AsyncValue.loading();
 
     try {
+      // Build recurrence rule with optional reminder
+      final recurrenceRule = <String, dynamic>{
+        'frequency': frequency,
+        'anchor_date': startDate.toIso8601String(),
+        if (endDate != null) 'end_date': endDate.toIso8601String(),
+        if (interval != null) 'interval': interval,
+        if (hasReminder == true && reminderValue != null && reminderUnit != null)
+          'reminder': {
+            'enabled': true,
+            'value': reminderValue,
+            'unit': reminderUnit,
+          },
+      };
+
+      debugPrint('🔶 saveRecurringExpense: Building request body');
+      debugPrint('🔶 recurrenceRule: $recurrenceRule');
+      
+      final requestBody = {
+        'userId': userId,
+        'amount': amount,
+        'category': category,
+        'currency': currency,
+        'date': startDate.toIso8601String(),
+        'clientCreatedAt': DateTime.now().toIso8601String(),
+        if (description != null && description.isNotEmpty)
+          'description': description,
+        'ownerType': ownerType,
+        'privacyScope': privacyScope,
+        if (householdId != null) 'householdId': householdId,
+        'isRecurring': true,
+        'recurrence_rule': recurrenceRule,
+      };
+      
+      debugPrint('🔶 Request body: $requestBody');
+      debugPrint('🔶 Request body JSON: ${jsonEncode(requestBody)}');
+
       final response = await supabase.functions.invoke(
         'save-expense',
-        body: {
-          'userId': userId,
-          'amount': amount,
-          'category': category,
-          'currency': currency,
-          'date': startDate.toIso8601String(),
-          'clientCreatedAt': DateTime.now().toIso8601String(),
-          if (description != null && description.isNotEmpty)
-            'description': description,
-          'ownerType': ownerType,
-          'privacyScope': privacyScope,
-          if (householdId != null) 'householdId': householdId,
-          'isRecurring': true,
-          'recurrenceRule': {
-            'frequency': frequency,
-            'anchor_date': startDate.toIso8601String(),
-            if (endDate != null) 'end_date': endDate.toIso8601String(),
-            if (interval != null) 'interval': interval,
-          },
-        },
+        body: requestBody,
       );
 
+      debugPrint('🔶 Response status: ${response.status}');
+      debugPrint('🔶 Response data: ${response.data}');
+      debugPrint('🔶 Response data type: ${response.data.runtimeType}');
+      debugPrint('🔶 Response data[success]: ${response.data['success']}');
+
       if (response.data['success'] == true) {
+        debugPrint('✅ Success check passed!');
         final expense = RecurringTransaction.fromJson(
             response.data['data'] as Map<String, dynamic>);
         state = AsyncValue.data(expense);
@@ -402,6 +430,7 @@ class RecurringTransactionSaveNotifier
 
         return expense;
       } else {
+        debugPrint('❌ Success check failed!');
         state = AsyncValue.error(
           response.data['error'] ?? 'Failed to save recurring expense',
           StackTrace.current,
@@ -409,6 +438,8 @@ class RecurringTransactionSaveNotifier
         return null;
       }
     } catch (e, st) {
+      debugPrint('🔥 Exception caught in saveRecurringExpense: $e');
+      debugPrint('🔥 Stack trace: $st');
       state = AsyncValue.error(e, st);
       return null;
     }
@@ -426,6 +457,9 @@ class RecurringTransactionSaveNotifier
     int? interval,
     String? description,
     String? source,
+    bool? hasReminder,
+    int? reminderValue,
+    String? reminderUnit,
     String ownerType = 'me',
     String privacyScope = 'full',
     String? householdId,
@@ -433,32 +467,56 @@ class RecurringTransactionSaveNotifier
     state = const AsyncValue.loading();
 
     try {
+      // Build recurrence rule with optional reminder
+      final recurrenceRule = <String, dynamic>{
+        'frequency': frequency,
+        'anchor_date': startDate.toIso8601String(),
+        if (endDate != null) 'end_date': endDate.toIso8601String(),
+        if (interval != null) 'interval': interval,
+        if (hasReminder == true && reminderValue != null && reminderUnit != null)
+          'reminder': {
+            'enabled': true,
+            'value': reminderValue,
+            'unit': reminderUnit,
+          },
+      };
+
+      debugPrint('🔷 saveRecurringIncome: Building request body');
+      debugPrint('🔷 recurrenceRule: $recurrenceRule');
+      
+      final requestBody = {
+        'userId': userId,
+        'amount': amount,
+        'category': category,
+        'currency': currency,
+        'date': startDate.toIso8601String(),
+        'clientCreatedAt': DateTime.now().toIso8601String(),
+        if (description != null && description.isNotEmpty)
+          'description': description,
+        if (source != null && source.isNotEmpty) 'source': source,
+        'ownerType': ownerType,
+        'privacyScope': privacyScope,
+        if (householdId != null) 'householdId': householdId,
+        'isRecurring': true,
+        'recurrence_rule': recurrenceRule,
+      };
+      
+      debugPrint('🔷 Request body: $requestBody');
+      debugPrint('🔷 Request body JSON: ${jsonEncode(requestBody)}');
+
       final response = await supabase.functions.invoke(
         'save-income',
-        body: {
-          'userId': userId,
-          'amount': amount,
-          'category': category,
-          'currency': currency,
-          'date': startDate.toIso8601String(),
-          'clientCreatedAt': DateTime.now().toIso8601String(),
-          if (description != null && description.isNotEmpty)
-            'description': description,
-          if (source != null && source.isNotEmpty) 'source': source,
-          'ownerType': ownerType,
-          'privacyScope': privacyScope,
-          if (householdId != null) 'householdId': householdId,
-          'isRecurring': true,
-          'recurrenceRule': {
-            'frequency': frequency,
-            'anchor_date': startDate.toIso8601String(),
-            if (endDate != null) 'end_date': endDate.toIso8601String(),
-            if (interval != null) 'interval': interval,
-          },
-        },
+        body: requestBody,
       );
 
+      debugPrint('🔷 Response status: ${response.status}');
+      debugPrint('🔷 Response data: ${response.data}');
+      debugPrint('🔷 Response data type: ${response.data.runtimeType}');
+      debugPrint('🔷 Response data[success]: ${response.data['success']}');
+      debugPrint('🔷 Response data[success] type: ${response.data['success'].runtimeType}');
+
       if (response.data['success'] == true) {
+        debugPrint('✅ Success check passed!');
         final income = RecurringTransaction.fromJson(
             response.data['data'] as Map<String, dynamic>);
         state = AsyncValue.data(income);
@@ -468,6 +526,7 @@ class RecurringTransactionSaveNotifier
 
         return income;
       } else {
+        debugPrint('❌ Success check failed!');
         state = AsyncValue.error(
           response.data['error'] ?? 'Failed to save recurring income',
           StackTrace.current,
@@ -475,6 +534,8 @@ class RecurringTransactionSaveNotifier
         return null;
       }
     } catch (e, st) {
+      debugPrint('🔥 Exception caught: $e');
+      debugPrint('🔥 Stack trace: $st');
       state = AsyncValue.error(e, st);
       return null;
     }

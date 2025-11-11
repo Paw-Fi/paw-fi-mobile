@@ -12,7 +12,7 @@ class RecurringTransaction {
   final String ownerType; // 'me', 'partner', 'household'
   final String privacyScope; // 'private', 'balances_only', 'full'
   final String? householdId;
-  final RecurrenceRule recurrenceRule;
+  final RecurrenceRule? recurrenceRule; // Nullable - for parsing safety
   final String type; // 'income' or 'expense'
   final List<Attachment> attachments;
   final DateTime createdAt;
@@ -29,7 +29,7 @@ class RecurringTransaction {
     required this.ownerType,
     required this.privacyScope,
     this.householdId,
-    required this.recurrenceRule,
+    this.recurrenceRule, // Not required anymore
     required this.type,
     required this.attachments,
     required this.createdAt,
@@ -54,10 +54,12 @@ class RecurringTransaction {
           'full',
       householdId:
           json['householdId'] as String? ?? json['household_id'] as String?,
-      recurrenceRule: RecurrenceRule.fromJson(
-        json['recurrenceRule'] as Map<String, dynamic>? ??
-            json['recurrence_rule'] as Map<String, dynamic>,
-      ),
+      recurrenceRule: (json['recurrenceRule'] != null || json['recurrence_rule'] != null)
+          ? RecurrenceRule.fromJson(
+              json['recurrenceRule'] as Map<String, dynamic>? ??
+                  json['recurrence_rule'] as Map<String, dynamic>,
+            )
+          : null,
       type: json['type'] as String,
       attachments: (json['attachments'] as List<dynamic>?)
               ?.map((e) => Attachment.fromJson(e as Map<String, dynamic>))

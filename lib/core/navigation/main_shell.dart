@@ -55,8 +55,8 @@ class MainShell extends HookConsumerWidget {
                 onTap: () => currentIndex.value = 0,
               ),
               _NavButton(
-                icon: currentIndex.value == 1 ? Icons.flag : Icons.flag_outlined,
-                label: context.l10n.goals,
+                icon: currentIndex.value == 1 ? Icons.repeat : Icons.repeat_outlined,
+                label: "Recurring",
                 isSelected: currentIndex.value == 1,
                 onTap: () => currentIndex.value = 1,
               ),

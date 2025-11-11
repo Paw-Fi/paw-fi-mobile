@@ -3,6 +3,8 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/core/core.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/ui/widgets/custom_text_field.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
@@ -10,6 +12,7 @@ import 'package:moneko/core/ui/widgets/transaction_category_picker.dart';
 import 'package:moneko/core/ui/widgets/transaction_currency_picker.dart';
 import 'package:moneko/core/ui/widgets/transaction_frequency_picker.dart';
 import 'package:moneko/core/ui/widgets/transaction_date_picker.dart';
+import 'package:moneko/core/ui/widgets/transaction_selection_sheet.dart';
 import 'package:intl/intl.dart';
 
 /// Modern bottom sheet for adding recurring transactions
@@ -38,39 +41,64 @@ class AddRecurringSheet extends HookConsumerWidget {
     final hasEndDate = useState<bool>(false);
     final endDate = useState<DateTime?>(null);
     final customInterval = useState<int?>(null);
+    final hasReminder = useState<bool>(false);
+    final reminderValue = useState<int>(1);
+    final reminderUnit = useState<String>('days');
     final isLoading = useState<bool>(false);
 
     Future<void> handleSave() async {
+      debugPrint('🔵 handleSave called');
+      debugPrint('🔵 selectedCategory: ${selectedCategory.value}');
+      debugPrint('🔵 amountText: ${amountController.text}');
+      
       if (selectedCategory.value == null) {
+        debugPrint('🔴 Error: No category selected');
         _showError(context, 'Please select a category');
         return;
       }
 
       final amountText = amountController.text.trim();
       if (amountText.isEmpty) {
+        debugPrint('🔴 Error: Amount is empty');
         _showError(context, 'Please enter an amount');
         return;
       }
 
       final amount = double.tryParse(amountText);
       if (amount == null || amount <= 0) {
+        debugPrint('🔴 Error: Invalid amount');
         _showError(context, 'Please enter a valid amount');
         return;
       }
 
+      debugPrint('✅ Validation passed, starting save...');
       isLoading.value = true;
 
       try {
         final user = supabase.auth.currentUser;
         if (user == null) {
+          debugPrint('🔴 User not authenticated');
           _showError(context, 'User not authenticated');
           isLoading.value = false;
           return;
         }
 
+        debugPrint('👤 User ID: ${user.id}');
+        debugPrint('💰 Amount: $amount');
+        debugPrint('📂 Category: ${selectedCategory.value}');
+        debugPrint('💱 Currency: ${selectedCurrency.value}');
+        debugPrint('📅 Start Date: ${startDate.value}');
+        debugPrint('🔄 Frequency: ${selectedFrequency.value}');
+        debugPrint('📝 Description: ${descriptionController.text.trim()}');
+        debugPrint('🏢 Source: ${sourceController.text.trim()}');
+        debugPrint('📆 Has End Date: ${hasEndDate.value}');
+        debugPrint('🔚 End Date: ${endDate.value}');
+        debugPrint('⏱️ Interval: ${customInterval.value}');
+
         RecurringTransaction? result;
 
         if (isExpense) {
+          debugPrint('💸 Calling saveRecurringExpense...');
           result = await ref
               .read(recurringTransactionSaveProvider.notifier)
               .saveRecurringExpense(
@@ -85,8 +113,12 @@ class AddRecurringSheet extends HookConsumerWidget {
                 description: descriptionController.text.trim().isEmpty
                     ? null
                     : descriptionController.text.trim(),
+                hasReminder: hasReminder.value,
+                reminderValue: hasReminder.value ? reminderValue.value : null,
+                reminderUnit: hasReminder.value ? reminderUnit.value : null,
               );
         } else {
+          debugPrint('💵 Calling saveRecurringIncome...');
           result = await ref
               .read(recurringTransactionSaveProvider.notifier)
               .saveRecurringIncome(
@@ -104,22 +136,30 @@ class AddRecurringSheet extends HookConsumerWidget {
                 source: sourceController.text.trim().isEmpty
                     ? null
                     : sourceController.text.trim(),
+                hasReminder: hasReminder.value,
+                reminderValue: hasReminder.value ? reminderValue.value : null,
+                reminderUnit: hasReminder.value ? reminderUnit.value : null,
               );
         }
 
+        debugPrint('📊 Result: $result');
         isLoading.value = false;
 
         if (result != null) {
+          debugPrint('✅ Save successful!');
           if (context.mounted) {
             Navigator.of(context).pop();
             _showSuccess(context,
                 'Recurring ${isExpense ? 'expense' : 'income'} added successfully');
           }
         } else {
+          debugPrint('🔴 Result is null - save failed');
           _showError(context,
               'Failed to add recurring ${isExpense ? 'expense' : 'income'}');
         }
-      } catch (e) {
+      } catch (e, stackTrace) {
+        debugPrint('❌ Exception caught: $e');
+        debugPrint('Stack trace: $stackTrace');
         isLoading.value = false;
         _showError(context, 'Error: ${e.toString()}');
       }
@@ -142,20 +182,7 @@ class AddRecurringSheet extends HookConsumerWidget {
             Padding(
               padding: const EdgeInsets.all(20),
               child: Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: colorScheme.muted,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      isExpense ? Icons.autorenew : Icons.trending_up,
-                      color: colorScheme.foreground,
-                      size: 20,
-                    ),
-                  ),
+                children: [              
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -190,11 +217,11 @@ class AddRecurringSheet extends HookConsumerWidget {
                     // Amount input
                     _buildLabel('Amount', colorScheme),
                     const SizedBox(height: 8),
-                    shadcnui.TextField(
+                    CustomTextField(
                       controller: amountController,
                       keyboardType: const TextInputType.numberWithOptions(
                           decimal: true),
-                      placeholder: const Text('0.00'),
+                      placeholder: '0.00',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
@@ -203,10 +230,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                     ),
 
                     const SizedBox(height: 20),
-
-                    // Category selector
-                    _buildLabel('Category', colorScheme),
-                    const SizedBox(height: 8),
+          
                     _buildDetailCard(
                       colorScheme: colorScheme,
                       label: 'Category',
@@ -225,7 +249,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                       },
                     ),
 
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 20),
 
                     // Currency selector
                     _buildDetailCard(
@@ -244,10 +268,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                     ),
 
                     const SizedBox(height: 20),
-
-                    // Frequency selector
-                    _buildLabel('Frequency', colorScheme),
-                    const SizedBox(height: 8),
+                
                     _buildDetailCard(
                       colorScheme: colorScheme,
                       label: 'Frequency',
@@ -271,10 +292,8 @@ class AddRecurringSheet extends HookConsumerWidget {
                     ),
 
                     const SizedBox(height: 20),
-
-                    // Start date
-                    _buildLabel('Start Date', colorScheme),
-                    const SizedBox(height: 8),
+             
+               
                     _buildDetailCard(
                       colorScheme: colorScheme,
                       label: 'Start Date',
@@ -294,31 +313,52 @@ class AddRecurringSheet extends HookConsumerWidget {
 
                     const SizedBox(height: 20),
 
-                    // End date toggle
-                    Row(
-                      children: [
-                        shadcnui.Checkbox(
-                          state: hasEndDate.value
-                              ? shadcnui.CheckboxState.checked
-                              : shadcnui.CheckboxState.unchecked,
-                          onChanged: (state) {
-                            hasEndDate.value =
-                                state == shadcnui.CheckboxState.checked;
-                            if (!hasEndDate.value) {
-                              endDate.value = null;
-                            }
-                          },
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          'Set end date',
-                          style: TextStyle(
-                            color: colorScheme.foreground,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
+                    // End date toggle (clickable container)
+                    GestureDetector(
+                      onTap: () {
+                        hasEndDate.value = !hasEndDate.value;
+                        if (!hasEndDate.value) {
+                          endDate.value = null;
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: colorScheme.muted.withValues(alpha: 0.05),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: colorScheme.border.withValues(alpha: 0.2),
+                            width: 1,
                           ),
                         ),
-                      ],
+                        child: Row(
+                          children: [
+                            shadcnui.Checkbox(
+                              state: hasEndDate.value
+                                  ? shadcnui.CheckboxState.checked
+                                  : shadcnui.CheckboxState.unchecked,
+                              onChanged: (state) {
+                                hasEndDate.value =
+                                    state == shadcnui.CheckboxState.checked;
+                                if (!hasEndDate.value) {
+                                  endDate.value = null;
+                                }
+                              },
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'Set end date',
+                                style: TextStyle(
+                                  color: colorScheme.foreground,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
 
                     // End date picker (if enabled)
@@ -350,9 +390,9 @@ class AddRecurringSheet extends HookConsumerWidget {
                     // Description
                     _buildLabel('Description (Optional)', colorScheme),
                     const SizedBox(height: 8),
-                    shadcnui.TextField(
+                    CustomTextField(
                       controller: descriptionController,
-                      placeholder: const Text('Add a note...'),
+                      placeholder: 'Add a note...',
                       maxLines: 2,
                     ),
 
@@ -361,10 +401,150 @@ class AddRecurringSheet extends HookConsumerWidget {
                       const SizedBox(height: 20),
                       _buildLabel('Source (Optional)', colorScheme),
                       const SizedBox(height: 8),
-                      shadcnui.TextField(
+                      CustomTextField(
                         controller: sourceController,
-                        placeholder:
-                            const Text('e.g., Company name, Client name'),
+                        placeholder: 'e.g., Company name, Client name',
+                      ),
+                    ],
+
+                    const SizedBox(height: 24),
+
+                    // Reminder toggle (clickable container)
+                    GestureDetector(
+                      onTap: () {
+                        hasReminder.value = !hasReminder.value;
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: colorScheme.muted.withValues(alpha: 0.05),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: colorScheme.border.withValues(alpha: 0.2),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            shadcnui.Checkbox(
+                              state: hasReminder.value
+                                  ? shadcnui.CheckboxState.checked
+                                  : shadcnui.CheckboxState.unchecked,
+                              onChanged: (state) {
+                                hasReminder.value =
+                                    state == shadcnui.CheckboxState.checked;
+                              },
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'Set reminder',
+                                style: TextStyle(
+                                  color: colorScheme.foreground,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // Reminder configuration (if enabled)
+                    if (hasReminder.value) ...[
+                      const SizedBox(height: 12),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          // Reminder value input
+                          SizedBox(
+                            width: 80,
+                            child: CustomTextField(
+                              initialValue: reminderValue.value.toString(),
+                              keyboardType: TextInputType.number,
+                              placeholder: '1',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.foreground,
+                              ),
+                              onChanged: (value) {
+                                final parsed = int.tryParse(value);
+                                if (parsed != null && parsed > 0) {
+                                  reminderValue.value = parsed;
+                                }
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // Reminder unit picker
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () async {
+                                final result = await showTransactionSelectionSheet<String>(
+                                  context: context,
+                                  items: ['days', 'hours'],
+                                  getLabel: (unit) => unit.substring(0, 1).toUpperCase() + unit.substring(1),
+                                  initial: reminderUnit.value,
+                                );
+                                if (result != null) {
+                                  reminderUnit.value = result;
+                                }
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.muted.withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: colorScheme.border.withValues(alpha: 0.2),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      reminderUnit.value.substring(0, 1).toUpperCase() + 
+                                      reminderUnit.value.substring(1),
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: colorScheme.foreground,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    Icon(
+                                      Icons.arrow_drop_down,
+                                      color: colorScheme.mutedForeground,
+                                      size: 24,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // "Before" label
+                          Text(
+                            'Before',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: colorScheme.foreground,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'You will be notified ${reminderValue.value} ${reminderUnit.value} before each occurrence',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: colorScheme.mutedForeground,
+                          fontStyle: FontStyle.italic,
+                        ),
                       ),
                     ],
 
@@ -373,7 +553,12 @@ class AddRecurringSheet extends HookConsumerWidget {
                     SizedBox(
                       width: double.infinity,
                       child: shadcnui.PrimaryButton(
-                        onPressed: isLoading.value ? null : handleSave,
+                        onPressed: isLoading.value 
+                            ? null 
+                            : () {
+                                debugPrint('🟢 Save button pressed!');
+                                handleSave();
+                              },
                         child: isLoading.value
                             ? const SizedBox(
                                 width: 20,
@@ -466,20 +651,12 @@ class AddRecurringSheet extends HookConsumerWidget {
   }
 
   void _showError(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-      ),
-    );
+    debugPrint('🔴 _showError called: $message');
+    AppToast.error(message);
   }
 
   void _showSuccess(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: const Color(0xFF10B981),
-      ),
-    );
+    debugPrint('✅ _showSuccess called: $message');
+    AppToast.success(message);
   }
 }
