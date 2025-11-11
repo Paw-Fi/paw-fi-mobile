@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 import '../../domain/entities/shared_budget.dart';
 import '../providers/household_providers.dart';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -400,12 +401,7 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
 
       if (mounted) {
         Navigator.pop(context, true); // Return true to indicate success
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.budgetUpdatedSuccessfully),
-            backgroundColor: Colors.green,
-          ),
-        );
+        AppToast.success(context.l10n.budgetUpdatedSuccessfully);
       }
     } catch (error) {
       if (mounted) {
@@ -459,12 +455,7 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
 
       if (mounted) {
         Navigator.pop(context, true); // Return true to indicate success
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.budgetDeletedSuccessfully),
-            backgroundColor: Colors.orange,
-          ),
-        );
+        AppToast.success(context.l10n.budgetDeletedSuccessfully);
       }
     } catch (error) {
       if (mounted) {
@@ -475,11 +466,6 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: shadcnui.Theme.of(context).colorScheme.destructive,
-      ),
-    );
+    AppToast.error(message);
   }
 }

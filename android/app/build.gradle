@@ -26,6 +26,12 @@ if (flutterVersionName == null) {
     flutterVersionName = '1.0'
 }
 
+def keystorePropertiesFile = rootProject.file('key.properties')
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
 android {
     namespace "com.moneko.mobile"
     compileSdk 36
@@ -45,6 +51,15 @@ android {
         main.java.srcDirs += 'src/main/kotlin'
     }
 
+     signingConfigs {
+        release {
+            keyAlias keystoreProperties['keyAlias']
+            keyPassword keystoreProperties['keyPassword']
+            storeFile file(keystoreProperties['storeFile'])
+            storePassword keystoreProperties['storePassword']
+        }
+    }
+
     defaultConfig {
         // Application ID must match iOS bundle identifier for Universal Links
         applicationId "com.moneko.mobile"
@@ -60,7 +75,7 @@ android {
         release {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.release
             // Ensure Crashlytics mapping files get uploaded for obfuscated builds
             firebaseCrashlytics {
                 nativeSymbolUploadEnabled true

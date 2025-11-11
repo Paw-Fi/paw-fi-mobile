@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 import '../../../../core/utils/error_handler.dart';
 import '../../../../core/config/storage_config.dart';
 import '../../core/household_constants.dart';
@@ -817,14 +818,7 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
 
   void _showErrorSnackbar(String message) {
     if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: shadcnui.Theme.of(context).colorScheme.destructive,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 4),
-      ),
-    );
+    // Prefer AppToast over SnackBar so message is visible above bottom sheet
+    AppToast.error(message, duration: const Duration(seconds: 4));
   }
 }

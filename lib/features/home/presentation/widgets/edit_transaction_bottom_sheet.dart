@@ -10,6 +10,7 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/currency_flags.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 
 /// Generic bottom sheet for editing transaction fields
 class EditTransactionBottomSheet extends ConsumerStatefulWidget {
@@ -563,24 +564,13 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
       }
       
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${_getLabel()} updated successfully'),
-          backgroundColor: Colors.green,
-          duration: const Duration(seconds: 2),
-        ),
-      );
+      // Prefer AppToast over SnackBar for visibility above sheets
+      AppToast.success('${_getLabel()} updated successfully');
     } else {
       final error = ref.read(transactionEditProvider).error;
       setState(() => _error = error);
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error ?? 'Failed to update'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 3),
-        ),
-      );
+      AppToast.error(error ?? 'Failed to update');
     }
   }
   

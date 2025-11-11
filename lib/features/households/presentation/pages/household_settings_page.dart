@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 // removed shared budgets UI from settings; budgets are managed elsewhere
 import '../../domain/entities/household.dart';
@@ -397,14 +398,7 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
       }
 
       if (mounted) {
-        final currentColorScheme = shadcnui.Theme.of(context).colorScheme;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.householdUpdatedSuccessfully),
-            backgroundColor: currentColorScheme.primary,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppToast.success(context.l10n.householdUpdatedSuccessfully);
       }
     } catch (e) {
       if (mounted) {
@@ -445,13 +439,7 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
 
   void _showError(String message) {
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: shadcnui.Theme.of(context).colorScheme.destructive,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      AppToast.error(message);
     }
   }
 
@@ -577,11 +565,7 @@ class _MembersTab extends ConsumerWidget {
   Future<void> _updateMemberRole(BuildContext context, WidgetRef ref, HouseholdMember member, HouseholdRole role) async {
     await ref.read(householdMembersProvider(householdId).notifier).updateRole(member.id, role);
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${context.l10n.updatedMemberRole} ${member.userName ?? member.userEmail}'),
-        ),
-      );
+      AppToast.success('${context.l10n.updatedMemberRole} ${member.userName ?? member.userEmail}');
     }
   }
 }
@@ -801,9 +785,7 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${context.l10n.errorLoadingInvites}: $e')),
-        );
+        AppToast.error('${context.l10n.errorLoadingInvites}: $e');
       }
     }
   }
@@ -1468,26 +1450,17 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
       await _loadInvites();
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.invitationCreatedSuccessfully)),
-        );
+        AppToast.success(context.l10n.invitationCreatedSuccessfully);
 
         // Auto-copy invite link
         final inviteUrl = 'https://moneko.io/invites/$token';
         Clipboard.setData(ClipboardData(text: inviteUrl));
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.inviteLinkCopiedToClipboard),
-            duration: const Duration(seconds: 2),
-          ),
-        );
+        AppToast.success(context.l10n.inviteLinkCopiedToClipboard);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${context.l10n.errorCreatingInvite}: $e')),
-        );
+        AppToast.error('${context.l10n.errorCreatingInvite}: $e');
       }
     }
   }
@@ -1496,12 +1469,7 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
     final inviteUrl = 'https://moneko.io/invites/${invite.token}';
     Clipboard.setData(ClipboardData(text: inviteUrl));
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(context.l10n.inviteLinkCopiedToClipboard),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    AppToast.success(context.l10n.inviteLinkCopiedToClipboard);
   }
 
   Future<void> _revokeInvite(HouseholdInvite invite) async {
@@ -1561,17 +1529,13 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
         final navCtx = rootNavigatorKey.currentContext;
         if (navCtx != null && navCtx.mounted) {
           _hideBlockingLoader(navCtx);
-          ScaffoldMessenger.of(navCtx).showSnackBar(
-            SnackBar(content: Text(l10n.invitationRevoked)),
-          );
+          AppToast.success(l10n.invitationRevoked);
         }
       } catch (e) {
         final navCtx = rootNavigatorKey.currentContext;
         if (navCtx != null && navCtx.mounted) {
           _hideBlockingLoader(navCtx);
-          ScaffoldMessenger.of(navCtx).showSnackBar(
-            SnackBar(content: Text('${l10n.errorRevokingInvite}: $e')),
-          );
+          AppToast.error('${l10n.errorRevokingInvite}: $e');
         }
       }
     }

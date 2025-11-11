@@ -3,6 +3,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 // import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcn;
 import '../providers/goals_providers.dart';
 import '../../../../core/l10n/l10n.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 
 void showCreateGoalSheet(BuildContext context) {
   showModalBottomSheet(
@@ -296,11 +297,7 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
 
     if (mounted) {
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(l10n.goalCreated),
-        ),
-      );
+      AppToast.success(l10n.goalCreated);
     }
   }
 }

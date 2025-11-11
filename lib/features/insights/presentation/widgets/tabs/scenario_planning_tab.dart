@@ -10,6 +10,7 @@ import 'package:moneko/features/insights/presentation/widgets/scenario_result_sh
 import 'package:intl/intl.dart';
 import 'dart:ui' as ui;
 import 'package:flutter/cupertino.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 
 /// Supported sentence word orders for arranging the scenario inputs
 enum _WordOrder { svo, sov, vso, v2 }
@@ -486,19 +487,9 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
     super.dispose();
   }
 
-  void _showToast(String message, {Widget? trailing}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Expanded(child: Text(message)),
-            if (trailing != null) trailing,
-          ],
-        ),
-        duration: const Duration(seconds: 3),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+  void _showToast(String message) {
+    // For custom trailing controls, consider AppToast.action
+    AppToast.info(message);
   }
 
   @override

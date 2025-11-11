@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 import '../../domain/entities/household.dart';
 import '../providers/household_providers.dart';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -42,9 +43,7 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${context.l10n.errorLoadingInvites}: $e')),
-        );
+        AppToast.error('${context.l10n.errorLoadingInvites}: $e');
       }
     }
   }
@@ -242,26 +241,17 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
       await _loadInvites();
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.invitationCreatedSuccessfully)),
-        );
+        AppToast.success(context.l10n.invitationCreatedSuccessfully);
 
         // Automatically copy the invite link
         final inviteUrl = 'https://moneko.io/invites/$token';
         Clipboard.setData(ClipboardData(text: inviteUrl));
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.inviteLinkCopiedToClipboard),
-            duration: const Duration(seconds: 2),
-          ),
-        );
+        AppToast.success(context.l10n.inviteLinkCopiedToClipboard);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${context.l10n.errorCreatingInvite}: $e')),
-        );
+        AppToast.error('${context.l10n.errorCreatingInvite}: $e');
       }
     }
   }
@@ -270,12 +260,7 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
     final inviteUrl = 'https://moneko.io/invites/${invite.token}';
     Clipboard.setData(ClipboardData(text: inviteUrl));
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(context.l10n.inviteLinkCopiedToClipboard),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    AppToast.success(context.l10n.inviteLinkCopiedToClipboard);
   }
 
   Future<void> _revokeInvite(HouseholdInvite invite) async {
@@ -305,15 +290,11 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
         await _loadInvites();
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(context.l10n.invitationRevoked)),
-          );
+          AppToast.success(context.l10n.invitationRevoked);
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('${context.l10n.errorRevokingInvite}: $e')),
-          );
+          AppToast.error('${context.l10n.errorRevokingInvite}: $e');
         }
       }
     }

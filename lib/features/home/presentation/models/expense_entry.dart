@@ -1,3 +1,4 @@
+import 'package:moneko/features/utils/currency.dart';
 
 /// Represents a single transaction from expenses table (type = 'expense' or 'income')
 class ExpenseEntry {
@@ -52,7 +53,7 @@ class ExpenseEntry {
       householdId: json['household_id'] as String?,
       date: DateTime.parse(json['date'] as String),
       amountCents: json['amount_cents'] as int,
-      currency: json['currency'] as String?,
+      currency: canonicalizeCurrencyCode(json['currency'] as String?),
       category: json['category'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
       rawText: json['raw_text'] as String?,

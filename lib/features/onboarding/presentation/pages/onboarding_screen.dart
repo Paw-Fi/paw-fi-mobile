@@ -8,6 +8,7 @@ import 'package:moneko/features/onboarding/presentation/widgets/chat_bubble.dart
 import 'package:moneko/features/onboarding/presentation/widgets/questionnaire_modal.dart';
 import 'package:moneko/features/onboarding/presentation/widgets/goal_presentation_modal.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 
 class OnboardingScreen extends HookConsumerWidget {
   const OnboardingScreen({super.key});
@@ -63,9 +64,7 @@ class OnboardingScreen extends HookConsumerWidget {
             );
       } catch (e) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: ${e.toString()}')),
-          );
+          AppToast.error('Error: ${e.toString()}');
         }
       } finally {
         ref.read(chatLoadingProvider.notifier).setLoading(false);

@@ -12,6 +12,7 @@ _$AppUserImpl _$$AppUserImplFromJson(Map<String, dynamic> json) =>
       email: json['email'] as String,
       displayName: json['displayName'] as String?,
       photoUrl: json['photoUrl'] as String?,
+      isCreator: json['isCreator'] as bool? ?? false,
     );
 
 Map<String, dynamic> _$$AppUserImplToJson(_$AppUserImpl instance) =>
@@ -20,4 +21,5 @@ Map<String, dynamic> _$$AppUserImplToJson(_$AppUserImpl instance) =>
       'email': instance.email,
       'displayName': instance.displayName,
       'photoUrl': instance.photoUrl,
+      'isCreator': instance.isCreator,
     };

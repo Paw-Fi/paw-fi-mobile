@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:share_plus/share_plus.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 import '../../core/household_constants.dart';
 
 /// Invitation share sheet for sharing household invitation URLs
@@ -270,14 +271,8 @@ class InvitationShareSheet extends StatelessWidget {
     Clipboard.setData(ClipboardData(text: text));
 
     if (!context.mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(AppLocalizations.of(context)!.invitationLinkCopiedToClipboard),
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    // Use AppToast to ensure visibility above this bottom sheet
+    AppToast.success(AppLocalizations.of(context)!.invitationLinkCopiedToClipboard);
   }
 
   void _shareInvite(BuildContext context) {

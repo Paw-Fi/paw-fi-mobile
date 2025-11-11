@@ -9,6 +9,7 @@ import 'package:moneko/features/income/presentation/constants/income_categories.
 import 'package:moneko/features/income/presentation/widgets/income_entry_sheet.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 
 class IncomeListPage extends ConsumerStatefulWidget {
   const IncomeListPage({super.key});
@@ -42,12 +43,7 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
     );
 
     if (success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.l10n.incomeAcknowledged),
-          backgroundColor: Colors.green,
-        ),
-      );
+      AppToast.success(context.l10n.incomeAcknowledged);
     }
   }
 

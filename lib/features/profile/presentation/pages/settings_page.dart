@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
@@ -21,6 +21,7 @@ import 'package:moneko/features/profile/presentation/providers/user_profile_prov
 import 'package:moneko/features/income/presentation/providers/income_providers.dart';
 import 'package:moneko/features/goals/presentation/providers/goals_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 
 class SettingsPage extends HookConsumerWidget {
   const SettingsPage({super.key});
@@ -114,6 +115,60 @@ class SettingsPage extends HookConsumerWidget {
           ),
         ),
       ),
+      // Developer: quick test entry to verify AppToast (shadcn toast) shows above bottom sheets.
+      // Use AppToast instead of SnackBar for global, z-index-safe messages.
+      floatingActionButton: kDebugMode
+          ? FloatingActionButton.extended(
+              icon: const Icon(Icons.bug_report),
+              label: const Text('Toast Test'),
+              onPressed: () {
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  builder: (context) {
+                    final scheme = shadcnui.Theme.of(context).colorScheme;
+                    return SafeArea(
+                      child: Padding(
+                        padding: EdgeInsets.only(
+                          left: 16,
+                          right: 16,
+                          top: 16,
+                          bottom: 16 + MediaQuery.of(context).viewInsets.bottom,
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Test Bottom Sheet',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: scheme.foreground,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Press to show a global AppToast above this sheet.',
+                              style: TextStyle(color: scheme.mutedForeground),
+                            ),
+                            const SizedBox(height: 16),
+                            shadcnui.PrimaryButton(
+                              onPressed: () {
+                                // Use AppToast to ensure visibility above bottom sheets
+                                AppToast.success('Hello from ello from  ello from  ello from bottom sheet!');
+                              },
+                              child: const Text('Show Toast'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            )
+          : null,
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
         child: Column(
@@ -391,32 +446,26 @@ class SettingsPage extends HookConsumerWidget {
                                 await ref.read(localeProvider.notifier).setLocale(previous);
                               }
                               if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Failed to sync language preference: $e'),
-                                    action: SnackBarAction(
-                                      label: 'Retry',
-                                      onPressed: () async {
-                                        try {
-                                          final sel = ref.read(localeProvider);
-                                          final code = sel?.languageCode.toLowerCase();
-                                          final retry = await Supabase.instance.client.functions.invoke(
-                                            'update-preferred-language',
-                                            body: {
-                                              'userId': auth.uid,
-                                              'language': code,
-                                            },
-                                          );
-                                          if (retry.status >= 400) throw Exception('Retry failed');
-                                          if (context.mounted) {
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              const SnackBar(content: Text('Language updated successfully')),
-                                            );
-                                          }
-                                        } catch (_) {}
-                                      },
-                                    ),
-                                  ),
+                                // Prefer AppToast (top-center) to avoid being hidden by bottom sheets
+                                AppToast.action(
+                                  'Failed to sync language preference: $e',
+                                  actionLabel: 'Retry',
+                                  type: AppToastType.warning,
+                                  onPressed: () async {
+                                    try {
+                                      final sel = ref.read(localeProvider);
+                                      final code = sel?.languageCode.toLowerCase();
+                                      final retry = await Supabase.instance.client.functions.invoke(
+                                        'update-preferred-language',
+                                        body: {
+                                          'userId': auth.uid,
+                                          'language': code,
+                                        },
+                                      );
+                                      if (retry.status >= 400) throw Exception('Retry failed');
+                                      AppToast.success('Language updated successfully');
+                                    } catch (_) {/* swallow */}
+                                  },
                                 );
                               }
                             }
@@ -790,13 +839,11 @@ Future<void> _saveName(
   void Function(void Function()) setState,
   VoidCallback onUpdated,
 ) async {
-  final colorScheme = shadcnui.Theme.of(ctx).colorScheme;
   final newName = controller.text.trim();
   if (newName.isEmpty || newName.length < 2) {
     setState(() {}); // keep UI responsive; validation shown via snackbar below
-    ScaffoldMessenger.of(ctx).showSnackBar(
-      const SnackBar(content: Text('Please enter a valid name')), // concise default copy
-    );
+    // Developer note: prefer AppToast over SnackBar to ensure visibility above bottom sheets
+    AppToast.info('Please enter a valid name'); // concise default copy
     return;
   }
 
@@ -821,18 +868,10 @@ Future<void> _saveName(
 
     if (!ctx.mounted) return;
     Navigator.of(ctx).pop();
-    ScaffoldMessenger.of(ctx).showSnackBar(
-      SnackBar(
-        content: const Text('Profile updated'),
-        backgroundColor: colorScheme.primary,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    AppToast.success('Profile updated');
   } catch (e) {
     if (ctx.mounted) {
-      ScaffoldMessenger.of(ctx).showSnackBar(
-        SnackBar(content: Text('Failed to update: $e')),
-      );
+      AppToast.error('Failed to update: $e');
     }
   }
 }
@@ -1015,12 +1054,7 @@ class _MembershipCard extends ConsumerWidget {
                         await launchUrl(url, mode: LaunchMode.externalApplication);
                       } else {
                         if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(context.l10n.couldNotOpenMembershipPage),
-                              backgroundColor: colorScheme.destructive,
-                            ),
-                          );
+                          AppToast.error(context.l10n.couldNotOpenMembershipPage);
                         }
                       }
                     },

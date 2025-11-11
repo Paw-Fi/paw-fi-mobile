@@ -1,7 +1,29 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Package visibility for URL intents (Android 11+) so url_launcher can resolve handlers -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="http" />
+        </intent>
+        <!-- Optional: direct WhatsApp deep links if used anywhere -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="whatsapp" />
+        </intent>
+    </queries>
     <!-- Android 13+ runtime notifications permission -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Required for Supabase/auth and any network calls in release builds -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Helpful for connectivity checks and some libraries -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
@@ -29,6 +51,13 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <!-- Generic handler for all custom moneko:// links (aligns with iOS CFBundleURLSchemes) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="moneko"/>
             </intent-filter>
             <!-- Deep Link for payment callback -->
             <intent-filter android:autoVerify="true">

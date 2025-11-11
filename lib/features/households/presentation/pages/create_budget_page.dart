@@ -6,6 +6,7 @@ import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import '../../domain/entities/shared_budget.dart';
 import '../providers/household_providers.dart';
 import '../../../../core/l10n/l10n.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 
 /// Page for creating a new household budget
 class CreateBudgetPage extends HookConsumerWidget {
@@ -78,13 +79,7 @@ class CreateBudgetPage extends HookConsumerWidget {
             );
 
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(context.l10n.budgetCreatedSuccessfully),
-              backgroundColor: colorScheme.primary,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+          AppToast.success(context.l10n.budgetCreatedSuccessfully);
           Navigator.pop(context);
         }
       } catch (e) {
@@ -531,13 +526,7 @@ class CreateBudgetPage extends HookConsumerWidget {
 
   void _showError(BuildContext context, String message) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: shadcnui.Theme.of(context).colorScheme.destructive,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      AppToast.error(message);
     }
   }
 }

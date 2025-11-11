@@ -9,6 +9,7 @@ import 'package:moneko/features/utils/currency_flags.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 
 /// Shows a full-screen currency selector modal and returns the selected currency code
 Future<String?> showCurrencySelectorModal(BuildContext context, WidgetRef ref) async {
@@ -210,7 +211,6 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
                 summary: summary,
                 isSelected: filterState.selectedCurrency?.toUpperCase() == summary.currencyCode,
                 onTap: () async {
-                  final colorScheme = shadcnui.Theme.of(context).colorScheme;
                   final authState = ref.read(authProvider);
                   final previousCurrency = filterState.selectedCurrency;
                   
@@ -263,54 +263,31 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
                       
                       // Show error to user if context is still mounted
                       if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Failed to sync currency preference: $error'),
-                            backgroundColor: colorScheme.destructive,
-                            action: SnackBarAction(
-                              label: 'Retry',
-                              textColor: Colors.white,
-                              onPressed: () async {
-                                // Retry the operation
-                                try {
-                                  final retryResponse = await supabase.functions.invoke(
-                                    'update-preferred-currency',
-                                    body: {
-                                      'userId': authState.uid,
-                                      'currency': summary.currencyCode,
-                                    },
-                                  );
-                                  
-                                  if (retryResponse.status >= 400) {
-                                    throw Exception('Retry failed');
-                                  }
-                                  
-                                  // Update UI again after successful retry
-                                  await service.setSelectedCurrency(summary.currencyCode);
-                                  ref.read(homeFilterProvider.notifier).setSelectedCurrency(summary.currencyCode);
-                                  ref.read(analyticsProvider.notifier).updatePreferredCurrency(summary.currencyCode);
-                                  
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: const Text('Currency updated successfully'),
-                                        backgroundColor: colorScheme.primary,
-                                      ),
-                                    );
-                                  }
-                                } catch (retryError) {
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text('Retry failed: $retryError'),
-                                        backgroundColor: colorScheme.destructive,
-                                      ),
-                                    );
-                                  }
-                                }
-                              },
-                            ),
-                          ),
+                        // Use AppToast with action so message appears above any bottom sheet
+                        AppToast.action(
+                          'Failed to sync currency preference: $error',
+                          actionLabel: 'Retry',
+                          type: AppToastType.warning,
+                          onPressed: () async {
+                            try {
+                              final retryResponse = await supabase.functions.invoke(
+                                'update-preferred-currency',
+                                body: {
+                                  'userId': authState.uid,
+                                  'currency': summary.currencyCode,
+                                },
+                              );
+                              if (retryResponse.status >= 400) {
+                                throw Exception('Retry failed');
+                              }
+                              await service.setSelectedCurrency(summary.currencyCode);
+                              ref.read(homeFilterProvider.notifier).setSelectedCurrency(summary.currencyCode);
+                              ref.read(analyticsProvider.notifier).updatePreferredCurrency(summary.currencyCode);
+                              AppToast.success('Currency updated successfully');
+                            } catch (retryError) {
+                              AppToast.error('Retry failed: $retryError');
+                            }
+                          },
                         );
                       }
                     }

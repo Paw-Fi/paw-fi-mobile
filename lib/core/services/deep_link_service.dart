@@ -15,6 +15,7 @@ import 'package:moneko/features/households/presentation/widgets/household_invita
 import 'package:moneko/features/auth/auth.dart';
 import 'package:go_router/go_router.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 
 /// Deep link service that handles app links
 class DeepLinkService {
@@ -98,12 +99,7 @@ class DeepLinkService {
       if (navCtx != null && navCtx.mounted) {
         final ctx = navCtx;
         if (status == 'success') {
-          ScaffoldMessenger.of(ctx).showSnackBar(
-            SnackBar(
-              content: Text(ctx.l10n.paymentSuccessfulCheckingSubscription),
-              duration: const Duration(seconds: 3),
-            ),
-          );
+          AppToast.success(ctx.l10n.paymentSuccessfulCheckingSubscription);
           // Navigate to dashboard after a short delay to let subscription load
           Future.delayed(const Duration(seconds: 2), () {
             final delayed = rootNavigatorKey.currentContext;
@@ -114,20 +110,9 @@ class DeepLinkService {
           });
         } else if (status == 'failed') {
           final error = uri.queryParameters['error'] ?? ctx.l10n.paymentFailed;
-          ScaffoldMessenger.of(ctx).showSnackBar(
-            SnackBar(
-              content: Text('❌ $error'),
-              duration: const Duration(seconds: 4),
-              backgroundColor: Colors.red,
-            ),
-          );
+          AppToast.error('❌ $error');
         } else if (status == 'canceled') {
-          ScaffoldMessenger.of(ctx).showSnackBar(
-            SnackBar(
-              content: Text(ctx.l10n.paymentCanceled),
-              duration: const Duration(seconds: 3),
-            ),
-          );
+          AppToast.info(ctx.l10n.paymentCanceled);
         }
       }
       return;
@@ -295,12 +280,7 @@ class DeepLinkService {
       if (expense == null) {
         debugPrint('⚠️ Expense not found: $expenseId');
         if (navigatorContext.mounted) {
-          ScaffoldMessenger.of(navigatorContext).showSnackBar(
-            SnackBar(
-              content: Text(navigatorContext.l10n.expenseNotFoundOrDeleted),
-              duration: const Duration(seconds: 3),
-            ),
-          );
+          AppToast.info(navigatorContext.l10n.expenseNotFoundOrDeleted);
         }
         return;
       }
@@ -373,12 +353,7 @@ class DeepLinkService {
         ref.read(whatsAppBindingProvider.notifier).setVerified();
         
         // Show success message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.whatsappVerifiedSuccessfully),
-            duration: const Duration(seconds: 3),
-          ),
-        );
+        AppToast.success(context.l10n.whatsappVerifiedSuccessfully);
       },
     );
   }

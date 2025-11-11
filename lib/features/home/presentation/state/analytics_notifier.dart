@@ -25,15 +25,16 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
         return;
       }
 
-      // Fetch user contact (get most recent if duplicates exist)
-      // Order by updated_at/created_at descending to get latest entry
+      // Fetch ALL contacts for this user (some users may have more than one
+      // historical contact id). We still use the most recent as the primary
+      // contact for UI, but we will aggregate expenses/budgets across all
+      // contact IDs to avoid missing older rows.
       final contactsResponse = await supabase
           .from('user_contacts')
           .select('id,user_id,phone_e164,verified,preferred_currency,created_at,updated_at')
           .eq('user_id', userId)
           .order('updated_at', ascending: false)
-          .order('created_at', ascending: false)
-          .limit(1);
+          .order('created_at', ascending: false);
       
       // Debug: Log what we fetched from database (only in debug mode)
       if (kDebugMode) {
@@ -42,9 +43,8 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
         debugPrint('🔍 Analytics: contactsResponse length = ${(contactsResponse as List).length}');
       }
       
-      final contactResponse = (contactsResponse as List).isNotEmpty 
-          ? contactsResponse[0] as Map<String, dynamic>?
-          : null;
+      final contactsList = (contactsResponse as List).cast<Map<String, dynamic>>();
+      final contactResponse = contactsList.isNotEmpty ? contactsList.first : null;
       
       if (kDebugMode) {
         debugPrint('🔍 Analytics: contactResponse = $contactResponse');
@@ -82,33 +82,75 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
       // Fetch ALL historical data (all time) without date filtering
       // Ensures insights are computed from the complete history
 
+      // Build list of all contact IDs associated with this user
+      final contactIds = contactsList
+          .map((c) => c['id'] as String?)
+          .where((id) => id != null && id.isNotEmpty)
+          .cast<String>()
+          .toList();
+
       // Fetch ALL PERSONAL expenses (exclude household expenses where split_group_id IS NOT NULL)
+      // Aggregate across ALL contact IDs to handle historical rows.
       List<ExpenseEntry> allExpenses = [];
       try {
-        final expensesResponse = await supabase
-            .from('expenses')
-            .select('id,contact_id,user_id,date,amount_cents,currency,category,created_at,raw_text,receipt_image_url,household_id,split_group_id,type')
-            .eq('contact_id', fetchedContact.id)
-            .isFilter('split_group_id', null) // CRITICAL: Only personal expenses (no household sharing)
-            .order('date', ascending: true);
+        dynamic expensesResponse;
+        if (contactIds.length <= 1) {
+          final contactId = contactIds.isNotEmpty ? contactIds.first : fetchedContact.id;
+          expensesResponse = await supabase
+              .from('expenses')
+              .select('id,contact_id,date,amount_cents,currency,category,created_at,raw_text,receipt_image_url,household_id,split_group_id')
+              .isFilter('split_group_id', null)
+              .eq('contact_id', contactId)
+              .order('date', ascending: true);
+        } else {
+          expensesResponse = await supabase
+              .from('expenses')
+              .select('id,contact_id,date,amount_cents,currency,category,created_at,raw_text,receipt_image_url,household_id,split_group_id')
+              .isFilter('split_group_id', null)
+              .inFilter('contact_id', contactIds)
+              .order('date', ascending: true);
+        }
 
         allExpenses = (expensesResponse as List)
             .map((e) => ExpenseEntry.fromJson(e as Map<String, dynamic>))
             .toList();
       } catch (expenseError) {
-        // Handle foreign key errors or empty results gracefully
-        debugPrint('[Analytics] Error fetching expenses: $expenseError');
-        allExpenses = [];
+        // Handle errors gracefully and attempt a fallback using user_id if available
+        debugPrint('[Analytics] Error fetching expenses by contact_id: $expenseError');
+        try {
+          final fallbackResponse = await supabase
+              .from('expenses')
+              .select('id,contact_id,date,amount_cents,currency,category,created_at,raw_text,receipt_image_url,household_id,split_group_id')
+              .eq('user_id', userId)
+              .isFilter('split_group_id', null)
+              .order('date', ascending: true);
+          allExpenses = (fallbackResponse as List)
+              .map((e) => ExpenseEntry.fromJson(e as Map<String, dynamic>))
+              .toList();
+        } catch (fallbackError) {
+          debugPrint('[Analytics] Fallback fetch by user_id failed: $fallbackError');
+          allExpenses = [];
+        }
       }
 
-      // Fetch ALL budgets (unfiltered) with error handling
+      // Fetch ALL budgets (unfiltered) aggregated across all contact IDs
       List<DailyBudgetEntry> allBudgets = [];
       try {
-        final budgetsResponse = await supabase
-            .from('daily_budgets')
-            .select('id,contact_id,date,amount_cents,currency')
-            .eq('contact_id', fetchedContact.id)
-            .order('date', ascending: true);
+        dynamic budgetsResponse;
+        if (contactIds.length <= 1) {
+          final contactId = contactIds.isNotEmpty ? contactIds.first : fetchedContact.id;
+          budgetsResponse = await supabase
+              .from('daily_budgets')
+              .select('id,contact_id,date,amount_cents,currency')
+              .eq('contact_id', contactId)
+              .order('date', ascending: true);
+        } else {
+          budgetsResponse = await supabase
+              .from('daily_budgets')
+              .select('id,contact_id,date,amount_cents,currency')
+              .inFilter('contact_id', contactIds)
+              .order('date', ascending: true);
+        }
 
         allBudgets = (budgetsResponse as List)
             .map((b) => DailyBudgetEntry.fromJson(b as Map<String, dynamic>))

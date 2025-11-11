@@ -20,17 +20,14 @@ class WhatsAppBinding extends _$WhatsAppBinding {
       final user = ref.read(authProvider);
       if (user.isEmpty) return false;
 
-      final response = await supabase
+      final List<dynamic> response = await supabase
           .from('user_contacts')
           .select('id')
           .eq('user_id', user.uid)
           .order('id', ascending: false)
           .limit(1);
 
-      if (response is List) {
-        return response.isNotEmpty;
-      }
-      return false;
+      return response.isNotEmpty;
     } catch (error) {
       debugPrint('Error checking WhatsApp binding: $error');
       return false;
@@ -55,18 +52,15 @@ class WhatsAppBinding extends _$WhatsAppBinding {
       final user = ref.read(authProvider);
       if (user.isEmpty) return null;
 
-      final response = await supabase
+      final List<dynamic> response = await supabase
           .from('user_contacts')
           .select()
           .eq('user_id', user.uid)
           .order('id', ascending: false)
           .limit(1);
 
-      if (response is List && response.isNotEmpty) {
-        final first = response.first;
-        if (first is Map) {
-          return Map<String, dynamic>.from(first as Map);
-        }
+      if (response.isNotEmpty) {
+        return Map<String, dynamic>.from(response.first as Map<String, dynamic>);
       }
       return null;
     } catch (error) {

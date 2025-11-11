@@ -6,6 +6,7 @@ import '../../../households/presentation/providers/household_providers.dart';
 import '../state/analytics_provider.dart';
 import '../../../utils/currency.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 
 /// Navigate to household screen (either overview or onboarding)
 void navigateToHousehold(BuildContext context, WidgetRef ref) async {
@@ -13,9 +14,7 @@ void navigateToHousehold(BuildContext context, WidgetRef ref) async {
   final userId = Supabase.instance.client.auth.currentUser?.id;
 
   if (userId == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(context.l10n.userNotLoggedIn)),
-    );
+    AppToast.info(context.l10n.userNotLoggedIn);
     return;
   }
 
@@ -46,9 +45,7 @@ void navigateToHousehold(BuildContext context, WidgetRef ref) async {
     },
     error: (error, stack) {
       // Show error message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.errorLoadingHouseholds)),
-      );
+      AppToast.error(context.l10n.errorLoadingHouseholds);
     },
   );
 }
@@ -135,9 +132,7 @@ void showHouseholdOnboardingModal(BuildContext context, WidgetRef ref, String us
               child: shadcnui.OutlineButton(
                 onPressed: () {
                   Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(context.l10n.pleaseUseInvitationLink)),
-                  );
+                  AppToast.info(context.l10n.pleaseUseInvitationLink);
                 },
                 child: Text(
                   context.l10n.joinWithInvite,
@@ -214,9 +209,7 @@ void _showCreateHouseholdDialog(BuildContext context, WidgetRef ref, String user
                   child: shadcnui.PrimaryButton(
                     onPressed: () async {
                       if (nameController.text.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(context.l10n.pleaseEnterHouseholdName)),
-                        );
+                        AppToast.info(context.l10n.pleaseEnterHouseholdName);
                         return;
                       }
 
@@ -243,9 +236,7 @@ void _showCreateHouseholdDialog(BuildContext context, WidgetRef ref, String user
                         }
                       } catch (e) {
                         if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(context.l10n.errorCreatingHousehold)),
-                          );
+                          AppToast.error(context.l10n.errorCreatingHousehold);
                         }
                       }
                     },

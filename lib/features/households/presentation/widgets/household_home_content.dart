@@ -57,6 +57,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
   /// - Other logs $100 expense, splits $50 to user → Returns $50
   /// - Total "Spent by You" = $60
   /// - Total household = $110 (calculated separately)
+  // ignore: unused_element
   List<ExpenseEntry> _personalShareExpenses(
     List<ExpenseEntry> expenses,
     List<ExpenseSplitGroup> splits,
@@ -206,7 +207,8 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
               HouseholdExpensesParams(householdId: household.id, limit: 500),
             ),
           );
-          final splitsAsync = ref.watch(
+          // Preload splits (no local variable needed)
+          ref.watch(
             householdSplitsProvider(
               HouseholdSplitsParams(householdId: household.id),
             ),

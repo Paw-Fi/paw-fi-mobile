@@ -5,6 +5,7 @@ import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 
 /// Member spending breakdown card with modern, Apple-inspired design
 Widget buildHouseholdMemberSpendingCard(
@@ -531,12 +532,7 @@ class _ReminderModalContentState extends State<_ReminderModalContent> {
           Navigator.of(context).pop();
         }
         if (widget.parentContext.mounted) {
-          ScaffoldMessenger.of(widget.parentContext).showSnackBar(
-            SnackBar(
-              content: Text(widget.parentContext.l10n.pleaseWait24HoursBeforeSendingAnotherReminder(widget.targetUserName)),
-              backgroundColor: widget.colorScheme.destructive,
-            ),
-          );
+          AppToast.warning(widget.parentContext.l10n.pleaseWait24HoursBeforeSendingAnotherReminder(widget.targetUserName));
         }
         return;
       }
@@ -556,12 +552,7 @@ class _ReminderModalContentState extends State<_ReminderModalContent> {
       }
       if (response.status == 200) {
         if (widget.parentContext.mounted) {
-          ScaffoldMessenger.of(widget.parentContext).showSnackBar(
-            SnackBar(
-              content: Text(widget.parentContext.l10n.reminderSentToName(widget.targetUserName)),
-              backgroundColor: Colors.green,
-            ),
-          );
+          AppToast.success(widget.parentContext.l10n.reminderSentToName(widget.targetUserName));
         }
       } else {
         throw Exception('Failed to send reminder');
@@ -572,12 +563,7 @@ class _ReminderModalContentState extends State<_ReminderModalContent> {
         Navigator.of(context).pop();
       }
       if (widget.parentContext.mounted) {
-        ScaffoldMessenger.of(widget.parentContext).showSnackBar(
-          SnackBar(
-            content: Text(widget.parentContext.l10n.failedToSendReminderTryAgain),
-            backgroundColor: widget.colorScheme.destructive,
-          ),
-        );
+        AppToast.error(widget.parentContext.l10n.failedToSendReminderTryAgain);
       }
     } finally {
       if (mounted) {

@@ -21,6 +21,7 @@ import 'package:moneko/features/home/presentation/state/expense_save_providers.d
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/home/presentation/widgets/cashflow_sparkline_card.dart';
 import 'package:moneko/features/home/presentation/widgets/mom_trend_bar.dart';
 import 'package:moneko/features/home/presentation/widgets/savings_rate_tile.dart';
@@ -641,13 +642,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   void _showToast(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        duration: const Duration(seconds: 3),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    AppToast.info(message);
   }
 
   double _totalBudgetAmount(List<DailyBudgetEntry> budgets) {

@@ -10,6 +10,7 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/home/presentation/widgets/currency_selector_modal.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 
 void showIncomeEntrySheet(BuildContext context) {
   showModalBottomSheet(
@@ -160,21 +161,11 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-      ),
-    );
+    AppToast.error(message);
   }
 
   void _showSuccess(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.green,
-      ),
-    );
+    AppToast.success(message);
   }
 
   String _getCategoryLabel(String category) {

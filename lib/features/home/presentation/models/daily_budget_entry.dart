@@ -1,3 +1,5 @@
+import 'package:moneko/features/utils/currency.dart';
+
 /// Represents a daily budget entry from daily_budgets table
 class DailyBudgetEntry {
   final String id;
@@ -38,7 +40,7 @@ class DailyBudgetEntry {
       contactId: json['contact_id'] as String?,
       date: DateTime.parse(json['date'] as String),
       amountCents: json['amount_cents'] as int,
-      currency: json['currency'] as String?,
+      currency: canonicalizeCurrencyCode(json['currency'] as String?),
     );
   }
 }

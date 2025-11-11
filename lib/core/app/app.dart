@@ -119,6 +119,7 @@ class _AppState extends ConsumerState<App> {
           bodyMedium: TextStyle(fontSize: 14, color: colorScheme.foreground, fontWeight: FontWeight.w400),
         ),
         iconTheme: IconThemeData(color: colorScheme.foreground),
+        snackBarTheme: AppSnackBarStyles.build(colorScheme, isDark: isDark),
       );
     } catch (e, s) {
       // Defensive fallback if shadcn Theme is not available during the very first frames

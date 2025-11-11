@@ -5,6 +5,7 @@ import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/core/core.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 import '../providers/subscription_provider.dart';
 import '../providers/referral_code_provider.dart';
 
@@ -93,13 +94,7 @@ class PaywallScreen extends ConsumerWidget {
       }
     } catch (e) {
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to open referral page: ${e.toString()}'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
-          ),
-        );
+      AppToast.error('Failed to open referral page: ${e.toString()}');
     }
   }
 
@@ -114,13 +109,7 @@ class PaywallScreen extends ConsumerWidget {
         throw Exception('Could not open Discord link');
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to open Discord: ${e.toString()}'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
-          ),
-        );
+      AppToast.error('Failed to open Discord: ${e.toString()}');
     }
   }
 
@@ -128,9 +117,8 @@ class PaywallScreen extends ConsumerWidget {
     final user = ref.read(authProvider);
 
     if (user.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please log in to continue')),
-      );
+      // Use global AppToast so it appears above any modal sheet
+      AppToast.info('Please log in to continue');
       return;
     }
 
@@ -210,13 +198,7 @@ class PaywallScreen extends ConsumerWidget {
       }
     } catch (e) {
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to start trial: ${e.toString()}'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
-          ),
-        );
+      AppToast.error('Failed to start trial: ${e.toString()}');
     }
   }
 
@@ -225,13 +207,7 @@ class PaywallScreen extends ConsumerWidget {
       await ref.read(authProvider.notifier).signOut();
       context.go('/login');
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to logout: ${e.toString()}'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
-        );
+      AppToast.error('Failed to logout: ${e.toString()}');
     }
   }
 
