@@ -15,32 +15,47 @@ import 'package:moneko/core/ui/widgets/transaction_date_picker.dart';
 import 'package:moneko/core/ui/widgets/transaction_selection_sheet.dart';
 import 'package:intl/intl.dart';
 
-/// Modern bottom sheet for adding recurring transactions
+/// Modern bottom sheet for adding/editing recurring transactions
 /// Apple-inspired design with clean animations and intuitive UX
 class AddRecurringSheet extends HookConsumerWidget {
   final String type; // 'expense' or 'income'
+  final RecurringTransaction? existingTransaction; // For editing
 
   const AddRecurringSheet({
     super.key,
     required this.type,
+    this.existingTransaction,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = shadcnui.Theme.of(context).colorScheme;
     final isExpense = type == 'expense';
+    final isEditing = existingTransaction != null;
 
-    final amountController = useTextEditingController();
-    final descriptionController = useTextEditingController();
-    final sourceController = useTextEditingController();
+    final amountController = useTextEditingController(
+      text: existingTransaction?.amount.toString() ?? '',
+    );
+    final descriptionController = useTextEditingController(
+      text: existingTransaction?.description ?? '',
+    );
+    final sourceController = useTextEditingController(
+      text: existingTransaction?.source ?? '',
+    );
 
-    final selectedCategory = useState<String?>(null);
-    final selectedFrequency = useState<String>('monthly');
-    final selectedCurrency = useState<String>('USD');
-    final startDate = useState<DateTime>(DateTime.now());
-    final hasEndDate = useState<bool>(false);
-    final endDate = useState<DateTime?>(null);
-    final customInterval = useState<int?>(null);
+    final selectedCategory = useState<String?>(existingTransaction?.category);
+    final selectedFrequency = useState<String>(
+      existingTransaction?.recurrenceRule?.frequency ?? 'monthly',
+    );
+    final selectedCurrency = useState<String>(
+      existingTransaction?.currency ?? 'USD',
+    );
+    final startDate = useState<DateTime>(
+      existingTransaction?.recurrenceRule?.anchorDate ?? DateTime.now(),
+    );
+    final hasEndDate = useState<bool>(existingTransaction?.recurrenceRule?.endDate != null);
+    final endDate = useState<DateTime?>(existingTransaction?.recurrenceRule?.endDate);
+    final customInterval = useState<int?>(existingTransaction?.recurrenceRule?.interval);
     final hasReminder = useState<bool>(false);
     final reminderValue = useState<int>(1);
     final reminderUnit = useState<String>('days');
@@ -48,6 +63,8 @@ class AddRecurringSheet extends HookConsumerWidget {
 
     Future<void> handleSave() async {
       debugPrint('🔵 handleSave called');
+      debugPrint('🔵 isEditing: $isEditing');
+      debugPrint('🔵 existingTransaction: ${existingTransaction?.id}');
       debugPrint('🔵 selectedCategory: ${selectedCategory.value}');
       debugPrint('🔵 amountText: ${amountController.text}');
       
@@ -98,69 +115,130 @@ class AddRecurringSheet extends HookConsumerWidget {
         RecurringTransaction? result;
 
         if (isExpense) {
-          debugPrint('💸 Calling saveRecurringExpense...');
-          result = await ref
-              .read(recurringTransactionSaveProvider.notifier)
-              .saveRecurringExpense(
-                userId: user.id,
-                amount: amount,
-                category: selectedCategory.value!,
-                currency: selectedCurrency.value,
-                startDate: startDate.value,
-                frequency: selectedFrequency.value,
-                endDate: hasEndDate.value ? endDate.value : null,
-                interval: customInterval.value,
-                description: descriptionController.text.trim().isEmpty
-                    ? null
-                    : descriptionController.text.trim(),
-                hasReminder: hasReminder.value,
-                reminderValue: hasReminder.value ? reminderValue.value : null,
-                reminderUnit: hasReminder.value ? reminderUnit.value : null,
-              );
+          if (isEditing) {
+            // UPDATE existing expense
+            debugPrint('💸 Calling updateRecurringExpense...');
+            result = await ref
+                .read(recurringTransactionSaveProvider.notifier)
+                .updateRecurringExpense(
+                  userId: user.id,
+                  expenseId: existingTransaction!.id,
+                  amount: amount,
+                  category: selectedCategory.value!,
+                  currency: selectedCurrency.value,
+                  startDate: startDate.value,
+                  frequency: selectedFrequency.value,
+                  endDate: hasEndDate.value ? endDate.value : null,
+                  interval: customInterval.value,
+                  description: descriptionController.text.trim().isEmpty
+                      ? null
+                      : descriptionController.text.trim(),
+                  hasReminder: hasReminder.value,
+                  reminderValue: hasReminder.value ? reminderValue.value : null,
+                  reminderUnit: hasReminder.value ? reminderUnit.value : null,
+                );
+          } else {
+            // CREATE new expense
+            debugPrint('💸 Calling saveRecurringExpense...');
+            result = await ref
+                .read(recurringTransactionSaveProvider.notifier)
+                .saveRecurringExpense(
+                  userId: user.id,
+                  amount: amount,
+                  category: selectedCategory.value!,
+                  currency: selectedCurrency.value,
+                  startDate: startDate.value,
+                  frequency: selectedFrequency.value,
+                  endDate: hasEndDate.value ? endDate.value : null,
+                  interval: customInterval.value,
+                  description: descriptionController.text.trim().isEmpty
+                      ? null
+                      : descriptionController.text.trim(),
+                  hasReminder: hasReminder.value,
+                  reminderValue: hasReminder.value ? reminderValue.value : null,
+                  reminderUnit: hasReminder.value ? reminderUnit.value : null,
+                );
+          }
         } else {
-          debugPrint('💵 Calling saveRecurringIncome...');
-          result = await ref
-              .read(recurringTransactionSaveProvider.notifier)
-              .saveRecurringIncome(
-                userId: user.id,
-                amount: amount,
-                category: selectedCategory.value!,
-                currency: selectedCurrency.value,
-                startDate: startDate.value,
-                frequency: selectedFrequency.value,
-                endDate: hasEndDate.value ? endDate.value : null,
-                interval: customInterval.value,
-                description: descriptionController.text.trim().isEmpty
-                    ? null
-                    : descriptionController.text.trim(),
-                source: sourceController.text.trim().isEmpty
-                    ? null
-                    : sourceController.text.trim(),
-                hasReminder: hasReminder.value,
-                reminderValue: hasReminder.value ? reminderValue.value : null,
-                reminderUnit: hasReminder.value ? reminderUnit.value : null,
-              );
+          if (isEditing) {
+            // UPDATE existing income
+            debugPrint('💵 Calling updateRecurringIncome...');
+            result = await ref
+                .read(recurringTransactionSaveProvider.notifier)
+                .updateRecurringIncome(
+                  userId: user.id,
+                  expenseId: existingTransaction!.id,
+                  amount: amount,
+                  category: selectedCategory.value!,
+                  currency: selectedCurrency.value,
+                  startDate: startDate.value,
+                  frequency: selectedFrequency.value,
+                  endDate: hasEndDate.value ? endDate.value : null,
+                  interval: customInterval.value,
+                  description: descriptionController.text.trim().isEmpty
+                      ? null
+                      : descriptionController.text.trim(),
+                  source: sourceController.text.trim().isEmpty
+                      ? null
+                      : sourceController.text.trim(),
+                  hasReminder: hasReminder.value,
+                  reminderValue: hasReminder.value ? reminderValue.value : null,
+                  reminderUnit: hasReminder.value ? reminderUnit.value : null,
+                );
+          } else {
+            // CREATE new income
+            debugPrint('💵 Calling saveRecurringIncome...');
+            result = await ref
+                .read(recurringTransactionSaveProvider.notifier)
+                .saveRecurringIncome(
+                  userId: user.id,
+                  amount: amount,
+                  category: selectedCategory.value!,
+                  currency: selectedCurrency.value,
+                  startDate: startDate.value,
+                  frequency: selectedFrequency.value,
+                  endDate: hasEndDate.value ? endDate.value : null,
+                  interval: customInterval.value,
+                  description: descriptionController.text.trim().isEmpty
+                      ? null
+                      : descriptionController.text.trim(),
+                  source: sourceController.text.trim().isEmpty
+                      ? null
+                      : sourceController.text.trim(),
+                  hasReminder: hasReminder.value,
+                  reminderValue: hasReminder.value ? reminderValue.value : null,
+                  reminderUnit: hasReminder.value ? reminderUnit.value : null,
+                );
+          }
         }
 
         debugPrint('📊 Result: $result');
         isLoading.value = false;
 
         if (result != null) {
-          debugPrint('✅ Save successful!');
-          if (context.mounted) {
-            Navigator.of(context).pop();
-            _showSuccess(context,
-                'Recurring ${isExpense ? 'expense' : 'income'} added successfully');
-          }
+          debugPrint('✅ ${isEditing ? 'Update' : 'Save'} successful!');
+          // Check if widget is still mounted before using context
+          if (!context.mounted) return;
+          Navigator.of(context).pop();
+          _showSuccess(
+            context,
+            isEditing
+                ? 'Recurring ${isExpense ? 'expense' : 'income'} updated successfully'
+                : 'Recurring ${isExpense ? 'expense' : 'income'} added successfully',
+          );
         } else {
-          debugPrint('🔴 Result is null - save failed');
-          _showError(context,
-              'Failed to add recurring ${isExpense ? 'expense' : 'income'}');
+          debugPrint('🔴 Result is null - ${isEditing ? 'update' : 'save'} failed');
+          if (!context.mounted) return;
+          _showError(
+            context,
+            'Failed to ${isEditing ? 'update' : 'add'} recurring ${isExpense ? 'expense' : 'income'}',
+          );
         }
       } catch (e, stackTrace) {
         debugPrint('❌ Exception caught: $e');
         debugPrint('Stack trace: $stackTrace');
         isLoading.value = false;
+        if (!context.mounted) return;
         _showError(context, 'Error: ${e.toString()}');
       }
     }
@@ -186,7 +264,9 @@ class AddRecurringSheet extends HookConsumerWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Add Recurring ${isExpense ? 'Expense' : 'Income'}',
+                      isEditing 
+                        ? 'Edit Recurring ${isExpense ? 'Expense' : 'Income'}'
+                        : 'Add Recurring ${isExpense ? 'Expense' : 'Income'}',
                       style: TextStyle(
                         color: colorScheme.foreground,
                         fontSize: 20,
@@ -569,7 +649,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                                       Colors.white),
                                 ),
                               )
-                            : const Text('Add Recurring Transaction'),
+                            : Text(isEditing ? 'Update Recurring Transaction' : 'Add Recurring Transaction'),
                       ),
                     ),
                   ],

@@ -130,6 +130,54 @@ class _HomePageState extends ConsumerState<HomePage> {
     super.dispose();
   }
 
+  /// Helper to get date range from current filter
+  Map<String, DateTime?> _getDateRangeFromFilter() {
+    final filter = ref.read(homeFilterProvider).dateRangeFilter;
+    final now = DateTime.now();
+    DateTime? startDate;
+    DateTime? endDate = now;
+    
+    switch (filter) {
+      case DateRangeFilter.today:
+        startDate = DateTime(now.year, now.month, now.day);
+        break;
+      case DateRangeFilter.yesterday:
+        final yesterday = now.subtract(const Duration(days: 1));
+        startDate = DateTime(yesterday.year, yesterday.month, yesterday.day);
+        endDate = DateTime(yesterday.year, yesterday.month, yesterday.day, 23, 59, 59);
+        break;
+      case DateRangeFilter.thisWeek:
+        // Start from Monday
+        final weekday = now.weekday;
+        startDate = now.subtract(Duration(days: weekday - 1));
+        break;
+      case DateRangeFilter.lastWeek:
+        final weekday = now.weekday;
+        final lastMonday = now.subtract(Duration(days: weekday + 6));
+        final lastSunday = now.subtract(Duration(days: weekday));
+        startDate = DateTime(lastMonday.year, lastMonday.month, lastMonday.day);
+        endDate = DateTime(lastSunday.year, lastSunday.month, lastSunday.day, 23, 59, 59);
+        break;
+      case DateRangeFilter.last30Days:
+        startDate = now.subtract(const Duration(days: 30));
+        break;
+      case DateRangeFilter.thisMonth:
+        startDate = DateTime(now.year, now.month, 1);
+        break;
+      case DateRangeFilter.allTime:
+        startDate = null;
+        endDate = null;
+        break;
+      case DateRangeFilter.custom:
+        // For custom, use filter's custom dates if available
+        startDate = null;
+        endDate = null;
+        break;
+    }
+    
+    return {'startDate': startDate, 'endDate': endDate};
+  }
+
   Future<void> _handleCameraCapture() async {
     debugPrint('🎥 Starting camera capture...');
     
@@ -690,6 +738,24 @@ class _HomePageState extends ConsumerState<HomePage> {
     final viewMode = ref.watch(viewModeProvider);
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
 
+    // Listen for date filter changes and reload analytics with date filters
+    ref.listen<HomeFilterState>(homeFilterProvider, (previous, next) {
+      if (previous?.dateRangeFilter != next.dateRangeFilter) {
+        debugPrint('🔄 Date filter changed: ${previous?.dateRangeFilter} → ${next.dateRangeFilter}');
+        
+        final dateRange = _getDateRangeFromFilter();
+        final startDate = dateRange['startDate'];
+        final endDate = dateRange['endDate'];
+        
+        debugPrint('🔄 Reloading analytics with date range: $startDate to $endDate');
+        ref.read(analyticsProvider.notifier).loadData(
+          user.uid,
+          startDate: startDate,
+          endDate: endDate,
+        );
+      }
+    });
+
     // Only show loading indicator if we've never loaded before
     // If we have data already, show it even if a refresh is in progress
     if (analyticsData.isLoading && !(analyticsData.hasLoadedOnce ?? false)) {
@@ -717,7 +783,14 @@ class _HomePageState extends ConsumerState<HomePage> {
                 ),
                 const SizedBox(height: 24),
                 shadcnui.PrimaryButton(
-                  onPressed: () => ref.read(analyticsProvider.notifier).refresh(user.uid),
+                  onPressed: () {
+                    final dateRange = _getDateRangeFromFilter();
+                    ref.read(analyticsProvider.notifier).refresh(
+                      user.uid,
+                      startDate: dateRange['startDate'],
+                      endDate: dateRange['endDate'],
+                    );
+                  },
                   child: Text(context.l10n.retry),
                 ),
               ],
@@ -746,8 +819,13 @@ class _HomePageState extends ConsumerState<HomePage> {
                   ref.invalidate(householdMembersProvider); // FIXED: Added member info refresh
                   debugPrint('✅ Invalidated: households, expenses, splits, budgets, summary, members');
                 } else {
-                  // In personal mode: refresh analytics
-                  ref.read(analyticsProvider.notifier).refresh(user.uid);
+                  // In personal mode: refresh analytics with current date filters
+                  final dateRange = _getDateRangeFromFilter();
+                  ref.read(analyticsProvider.notifier).refresh(
+                    user.uid,
+                    startDate: dateRange['startDate'],
+                    endDate: dateRange['endDate'],
+                  );
                 }
                 await Future.delayed(const Duration(milliseconds: 500));
               },

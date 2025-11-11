@@ -1,6 +1,9 @@
 /// Recurring transaction model
 /// Represents a recurring income or expense transaction
 
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+
 class RecurringTransaction {
   final String id;
   final DateTime date;
@@ -37,6 +40,26 @@ class RecurringTransaction {
   });
 
   factory RecurringTransaction.fromJson(Map<String, dynamic> json) {
+    debugPrint('🔍 Parsing RecurringTransaction from JSON: ${json.keys.toList()}');
+    debugPrint('🔍 Raw JSON: ${jsonEncode(json)}');
+    
+    // Infer type from source field (income) or default to expense
+    // Backend doesn't always return 'type' field, so we need to infer it
+    String inferredType;
+    if (json['type'] != null) {
+      inferredType = json['type'] as String;
+    } else if (json['source'] != null) {
+      // If source field exists, it's income
+      inferredType = 'income';
+    } else {
+      // Default to expense
+      inferredType = 'expense';
+    }
+    
+    debugPrint('🔍 Inferred type: $inferredType');
+    debugPrint('🔍 Attachments type: ${json['attachments'].runtimeType}');
+    debugPrint('🔍 Attachments value: ${json['attachments']}');
+    
     return RecurringTransaction(
       id: json['id'] as String,
       date: DateTime.parse(json['date'] as String),
@@ -46,7 +69,7 @@ class RecurringTransaction {
       source: json['source'] as String?,
       amount: (json['amountMajor'] as num?)?.toDouble() ??
           (json['amount_cents'] as num).toDouble() / 100,
-      currency: json['currency'] as String,
+      currency: json['currency'] as String? ?? 'USD',
       ownerType:
           json['ownerType'] as String? ?? json['owner_type'] as String? ?? 'me',
       privacyScope: json['privacyScope'] as String? ??
@@ -60,11 +83,8 @@ class RecurringTransaction {
                   json['recurrence_rule'] as Map<String, dynamic>,
             )
           : null,
-      type: json['type'] as String,
-      attachments: (json['attachments'] as List<dynamic>?)
-              ?.map((e) => Attachment.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [],
+      type: inferredType,
+      attachments: _parseAttachments(json['attachments']),
       createdAt: DateTime.parse(
           json['createdAt'] as String? ?? json['created_at'] as String),
       updatedAt: json['updatedAt'] != null
@@ -73,6 +93,53 @@ class RecurringTransaction {
               ? DateTime.parse(json['updated_at'] as String)
               : null),
     );
+  }
+  
+  /// Parse attachments from various formats (List, String, null)
+  static List<Attachment> _parseAttachments(dynamic value) {
+    debugPrint('🔍 _parseAttachments called with type: ${value.runtimeType}, value: $value');
+    
+    if (value == null) {
+      debugPrint('🔍 Attachments is null, returning empty list');
+      return [];
+    }
+    
+    if (value is String) {
+      debugPrint('🔍 Attachments is String: "$value"');
+      // Backend might return JSON string, parse it
+      if (value.isEmpty || value == '[]') {
+        debugPrint('🔍 Empty string or "[]", returning empty list');
+        return [];
+      }
+      try {
+        final parsed = jsonDecode(value);
+        debugPrint('🔍 Parsed string to: ${parsed.runtimeType}');
+        if (parsed is List) {
+          return parsed
+              .map((e) => Attachment.fromJson(e as Map<String, dynamic>))
+              .toList();
+        }
+      } catch (e) {
+        debugPrint('❌ Error parsing attachments string: $e');
+        return [];
+      }
+      return [];
+    }
+    
+    if (value is List) {
+      debugPrint('🔍 Attachments is List with ${value.length} items');
+      try {
+        return value
+            .map((e) => Attachment.fromJson(e as Map<String, dynamic>))
+            .toList();
+      } catch (e) {
+        debugPrint('❌ Error parsing attachments list: $e');
+        return [];
+      }
+    }
+    
+    debugPrint('⚠️ Attachments is unexpected type: ${value.runtimeType}');
+    return [];
   }
 
   Map<String, dynamic> toJson() {
@@ -87,7 +154,7 @@ class RecurringTransaction {
       'ownerType': ownerType,
       'privacyScope': privacyScope,
       'householdId': householdId,
-      'recurrenceRule': recurrenceRule.toJson(),
+      if (recurrenceRule != null) 'recurrenceRule': recurrenceRule!.toJson(),
       'type': type,
       'attachments': attachments.map((e) => e.toJson()).toList(),
       'createdAt': createdAt.toIso8601String(),
@@ -133,8 +200,14 @@ class RecurringTransaction {
 
   /// Get the next occurrence date from a reference date
   DateTime getNextOccurrence([DateTime? from]) {
+    // If no recurrence rule, return the transaction date
+    if (recurrenceRule == null) {
+      return date;
+    }
+    
+    final rule = recurrenceRule!;
     final reference = from ?? DateTime.now();
-    final anchor = recurrenceRule.anchorDate;
+    final anchor = rule.anchorDate;
 
     // If reference is before anchor, return anchor
     if (reference.isBefore(anchor)) {
@@ -142,21 +215,21 @@ class RecurringTransaction {
     }
 
     // If there's an end date and we're past it, return the anchor (no more occurrences)
-    if (recurrenceRule.endDate != null &&
-        reference.isAfter(recurrenceRule.endDate!)) {
+    if (rule.endDate != null &&
+        reference.isAfter(rule.endDate!)) {
       return anchor;
     }
 
     // Calculate next occurrence based on frequency
-    switch (recurrenceRule.frequency) {
+    switch (rule.frequency) {
       case 'daily':
-        final interval = recurrenceRule.interval ?? 1;
+        final interval = rule.interval ?? 1;
         final daysDiff = reference.difference(anchor).inDays;
         final nextDays = ((daysDiff / interval).ceil() * interval).toInt();
         return anchor.add(Duration(days: nextDays));
 
       case 'weekly':
-        final interval = recurrenceRule.interval ?? 1;
+        final interval = rule.interval ?? 1;
         final weeksDiff = reference.difference(anchor).inDays ~/ 7;
         final nextWeeks = ((weeksDiff / interval).ceil() * interval).toInt();
         return anchor.add(Duration(days: nextWeeks * 7));
@@ -167,7 +240,7 @@ class RecurringTransaction {
         return anchor.add(Duration(days: nextWeeks * 7));
 
       case 'monthly':
-        final interval = recurrenceRule.interval ?? 1;
+        final interval = rule.interval ?? 1;
         var nextDate = DateTime(anchor.year, anchor.month, anchor.day);
         while (nextDate.isBefore(reference) ||
             nextDate.isAtSameMomentAs(reference)) {
@@ -179,7 +252,7 @@ class RecurringTransaction {
         return nextDate;
 
       case 'yearly':
-        final interval = recurrenceRule.interval ?? 1;
+        final interval = rule.interval ?? 1;
         var nextDate = DateTime(anchor.year, anchor.month, anchor.day);
         while (nextDate.isBefore(reference) ||
             nextDate.isAtSameMomentAs(reference)) {
@@ -195,30 +268,35 @@ class RecurringTransaction {
 
   /// Check if the recurring transaction is still active
   bool get isActive {
-    if (recurrenceRule.endDate == null) return true;
-    return DateTime.now().isBefore(recurrenceRule.endDate!);
+    if (recurrenceRule == null) return true;
+    final rule = recurrenceRule!;
+    if (rule.endDate == null) return true;
+    return DateTime.now().isBefore(rule.endDate!);
   }
 
   /// Get human-readable frequency text
   String get frequencyText {
-    switch (recurrenceRule.frequency) {
+    if (recurrenceRule == null) return 'One-time';
+    
+    final rule = recurrenceRule!;
+    switch (rule.frequency) {
       case 'daily':
-        return recurrenceRule.interval != null && recurrenceRule.interval! > 1
-            ? 'Every ${recurrenceRule.interval} days'
+        return rule.interval != null && rule.interval! > 1
+            ? 'Every ${rule.interval} days'
             : 'Daily';
       case 'weekly':
-        return recurrenceRule.interval != null && recurrenceRule.interval! > 1
-            ? 'Every ${recurrenceRule.interval} weeks'
+        return rule.interval != null && rule.interval! > 1
+            ? 'Every ${rule.interval} weeks'
             : 'Weekly';
       case 'biweekly':
         return 'Every 2 weeks';
       case 'monthly':
-        return recurrenceRule.interval != null && recurrenceRule.interval! > 1
-            ? 'Every ${recurrenceRule.interval} months'
+        return rule.interval != null && rule.interval! > 1
+            ? 'Every ${rule.interval} months'
             : 'Monthly';
       case 'yearly':
-        return recurrenceRule.interval != null && recurrenceRule.interval! > 1
-            ? 'Every ${recurrenceRule.interval} years'
+        return rule.interval != null && rule.interval! > 1
+            ? 'Every ${rule.interval} years'
             : 'Yearly';
       case 'custom':
         return 'Custom';

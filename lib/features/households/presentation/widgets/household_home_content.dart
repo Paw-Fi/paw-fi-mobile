@@ -201,10 +201,15 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
           final to = dateRange['to']!;
           final selectedCurrency = (filterState.selectedCurrency ?? household.currency).toUpperCase();
 
-          // Data providers
+          // Data providers with date filtering
           final expensesAsync = ref.watch(
             householdExpensesProvider(
-              HouseholdExpensesParams(householdId: household.id, limit: 500),
+              HouseholdExpensesParams(
+                householdId: household.id,
+                limit: 10000,  // Safety limit (10K max)
+                startDate: from,
+                endDate: to,
+              ),
             ),
           );
           // Load splits data (needed for split-aware calculations)

@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/core/core.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/recurring/presentation/widgets/recurring_transaction_card.dart';
 import 'package:moneko/features/recurring/presentation/widgets/add_recurring_sheet.dart';
+import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 
 /// Modern recurring transactions page with Apple-inspired design
 /// Features tabbed interface for expenses and income
@@ -43,21 +45,14 @@ class _RecurringTransactionsPageState
     final user = supabase.auth.currentUser;
     if (user == null) return;
 
-    final expensesState = ref.read(recurringExpensesProvider);
-    final incomesState = ref.read(recurringIncomesProvider);
+    final state = ref.read(recurringTransactionsProvider);
 
     // Only load if we've NEVER loaded successfully before
     // This prevents unnecessary reloads when navigating back to this page
-    if (!expensesState.hasLoadedOnce) {
+    if (!state.hasLoadedOnce) {
       await ref
-          .read(recurringExpensesProvider.notifier)
-          .loadRecurringExpenses(user.id);
-    }
-
-    if (!incomesState.hasLoadedOnce) {
-      await ref
-          .read(recurringIncomesProvider.notifier)
-          .loadRecurringIncomes(user.id);
+          .read(recurringTransactionsProvider.notifier)
+          .loadRecurringTransactions(user.id);
     }
   }
 
@@ -66,11 +61,9 @@ class _RecurringTransactionsPageState
     final user = supabase.auth.currentUser;
     if (user == null) return;
 
-    // Force refresh both lists
-    await Future.wait([
-      ref.read(recurringExpensesProvider.notifier).refresh(user.id),
-      ref.read(recurringIncomesProvider.notifier).refresh(user.id),
-    ]);
+    // Force refresh the unified list
+    await ref.read(recurringTransactionsProvider.notifier).refresh(user.id);
+    await Future.delayed(const Duration(milliseconds: 500));
   }
 
   @override
@@ -84,9 +77,9 @@ class _RecurringTransactionsPageState
   Widget build(BuildContext context) {
     final colorScheme = shadcnui.Theme.of(context).colorScheme;
 
-    // Watch the state objects (not just the data)
-    final recurringExpensesState = ref.watch(recurringExpensesProvider);
-    final recurringIncomesState = ref.watch(recurringIncomesProvider);
+    // Watch the filtered providers (they derive from the unified provider)
+    final recurringExpenses = ref.watch(recurringExpensesProvider);
+    final recurringIncomes = ref.watch(recurringIncomesProvider);
 
     return Scaffold(
       backgroundColor: colorScheme.background,
@@ -141,7 +134,7 @@ class _RecurringTransactionsPageState
                   borderRadius: BorderRadius.circular(10),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
@@ -198,10 +191,10 @@ class _RecurringTransactionsPageState
                 controller: _tabController,
                 children: [
                   // Expenses tab - pass the AsyncValue data
-                  _buildExpensesTab(recurringExpensesState.data, colorScheme),
+                  _buildExpensesTab(recurringExpenses, colorScheme),
 
                   // Income tab - pass the AsyncValue data
-                  _buildIncomesTab(recurringIncomesState.data, colorScheme),
+                  _buildIncomesTab(recurringIncomes, colorScheme),
                 ],
               ),
             ),
@@ -223,17 +216,27 @@ class _RecurringTransactionsPageState
       child: recurringExpenses.when(
         data: (expenses) {
           if (expenses.isEmpty) {
-            return EmptyRecurringState(
-              type: 'expense',
-              onAddPressed: () => _showAddSheet('expense'),
+            // Wrap in ListView to make it scrollable for RefreshIndicator
+            return ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.6,
+                  child: EmptyRecurringState(
+                    type: 'expense',
+                    onAddPressed: () => _showAddSheet('expense'),
+                  ),
+                ),
+              ],
             );
           }
 
           return ListView.builder(
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
             itemCount: expenses.length,
             itemBuilder: (context, index) {
-              final expense = expenses[index];
+              final expense = expenses[index] as RecurringTransaction;
               return RecurringTransactionCard(
                 transaction: expense,
                 onTap: () => _showTransactionDetails(expense),
@@ -257,17 +260,27 @@ class _RecurringTransactionsPageState
       child: recurringIncomes.when(
         data: (incomes) {
           if (incomes.isEmpty) {
-            return EmptyRecurringState(
-              type: 'income',
-              onAddPressed: () => _showAddSheet('income'),
+            // Wrap in ListView to make it scrollable for RefreshIndicator
+            return ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.6,
+                  child: EmptyRecurringState(
+                    type: 'income',
+                    onAddPressed: () => _showAddSheet('income'),
+                  ),
+                ),
+              ],
             );
           }
 
           return ListView.builder(
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
             itemCount: incomes.length,
             itemBuilder: (context, index) {
-              final income = incomes[index];
+              final income = incomes[index] as RecurringTransaction;
               return RecurringTransactionCard(
                 transaction: income,
                 onTap: () => _showTransactionDetails(income),
@@ -283,51 +296,66 @@ class _RecurringTransactionsPageState
   }
 
   Widget _buildLoadingState() {
-    return const Center(
-      child: CircularProgressIndicator(),
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: const [
+        SizedBox(height: 200),
+        Center(
+          child: CircularProgressIndicator(),
+        ),
+      ],
     );
   }
 
   Widget _buildErrorState(String error, String type) {
     final colorScheme = shadcnui.Theme.of(context).colorScheme;
 
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.error_outline,
-              size: 64,
-              color: colorScheme.mutedForeground,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Error Loading Data',
-              style: TextStyle(
-                color: colorScheme.foreground,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
+    // Wrap in ListView to make it scrollable for RefreshIndicator
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        SizedBox(
+          height: MediaQuery.of(context).size.height * 0.6,
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: 64,
+                    color: colorScheme.mutedForeground,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Error Loading Data',
+                    style: TextStyle(
+                      color: colorScheme.foreground,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    error,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: colorScheme.mutedForeground,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  shadcnui.PrimaryButton(
+                    onPressed: _refresh,
+                    child: const Text('Retry'),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              error,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: colorScheme.mutedForeground,
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(height: 24),
-            shadcnui.PrimaryButton(
-              onPressed: _refresh,
-              child: const Text('Retry'),
-            ),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 
@@ -340,7 +368,7 @@ class _RecurringTransactionsPageState
         gradient: LinearGradient(
           colors: [
             colorScheme.primary,
-            colorScheme.primary.withOpacity(0.8),
+            colorScheme.primary.withValues(alpha: 0.8),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -348,7 +376,7 @@ class _RecurringTransactionsPageState
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: colorScheme.primary.withOpacity(0.4),
+            color: colorScheme.primary.withValues(alpha: 0.4),
             blurRadius: 16,
             offset: const Offset(0, 8),
           ),
@@ -401,14 +429,25 @@ class _RecurringTransactionsPageState
     );
   }
 
-  void _showTransactionDetails(dynamic transaction) {
-    // TODO: Implement transaction details view
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Transaction details coming soon')),
+  void _showTransactionDetails(RecurringTransaction transaction) {
+    // Show the add sheet with prefilled data for editing
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: AddRecurringSheet(
+          type: transaction.type,
+          existingTransaction: transaction,
+        ),
+      ),
     );
   }
 
-  Future<void> _deleteTransaction(dynamic transaction) async {
+  Future<void> _deleteTransaction(RecurringTransaction transaction) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -432,26 +471,16 @@ class _RecurringTransactionsPageState
       final user = supabase.auth.currentUser;
       if (user == null) return;
 
-      final isExpense = transaction.type == 'expense';
-      final success = isExpense
-          ? await ref
-              .read(recurringExpensesProvider.notifier)
-              .deleteRecurring(user.id, transaction.id)
-          : await ref
-              .read(recurringIncomesProvider.notifier)
-              .deleteRecurring(user.id, transaction.id);
+      final success = await ref
+          .read(recurringTransactionsProvider.notifier)
+          .deleteRecurring(user.id, transaction.id);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              success
-                  ? 'Recurring transaction deleted'
-                  : 'Failed to delete recurring transaction',
-            ),
-            backgroundColor: success ? const Color(0xFF10B981) : Colors.red,
-          ),
-        );
+        if (success) {
+          AppToast.success('Recurring transaction deleted');
+        } else {
+          AppToast.error('Failed to delete recurring transaction');
+        }
       }
     }
   }

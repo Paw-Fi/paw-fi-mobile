@@ -414,10 +414,14 @@ final householdSplitsProvider =
 class HouseholdExpensesParams {
   final String householdId;
   final int limit;
+  final DateTime? startDate;  // NEW: Date filter
+  final DateTime? endDate;    // NEW: Date filter
 
   const HouseholdExpensesParams({
     required this.householdId,
-    this.limit = 10,
+    this.limit = 500,  // Increased default from 10 to 500 for better UX
+    this.startDate,
+    this.endDate,
   });
 
   @override
@@ -426,13 +430,21 @@ class HouseholdExpensesParams {
       other is HouseholdExpensesParams &&
           runtimeType == other.runtimeType &&
           householdId == other.householdId &&
-          limit == other.limit;
+          limit == other.limit &&
+          startDate == other.startDate &&
+          endDate == other.endDate;
 
   @override
-  int get hashCode => householdId.hashCode ^ limit.hashCode;
+  int get hashCode => householdId.hashCode ^ limit.hashCode ^ 
+                      (startDate?.hashCode ?? 0) ^ (endDate?.hashCode ?? 0);
 }
 
 /// Household expenses provider
+/// NOTE: Uses direct database query instead of backend endpoint because:
+/// 1. Needs user_id and contact_id for user enrichment (not returned by backend)
+/// 2. Needs to fetch and join with users table for display names
+/// 3. Backend endpoint is optimized for simple lists, not joined data
+/// The is_recurring filter is applied here to ensure data separation
 final householdExpensesProvider =
     FutureProvider.family<List<ExpenseEntry>, HouseholdExpensesParams>(
   (ref, params) async {
@@ -440,11 +452,23 @@ final householdExpensesProvider =
     try {
       // Fetch expenses (RLS allows: own or any with same household membership)
       // CRITICAL: Only fetch household expenses (split_group_id NOT NULL)
-      final expenses = await supabase
+      // ALSO: Exclude recurring transactions (is_recurring = true)
+      var expensesQuery = supabase
           .from('expenses')
-          .select('id, contact_id, user_id, household_id, date, amount_cents, currency, category, raw_text, receipt_image_url, created_at, updated_at, split_group_id, type')
+          .select('id, contact_id, user_id, household_id, date, amount_cents, currency, category, raw_text, receipt_image_url, created_at, updated_at, split_group_id, type, is_recurring')
           .eq('household_id', params.householdId)
           .not('split_group_id', 'is', null) // Explicit filter for household expenses
+          .or('is_recurring.is.false,is_recurring.is.null'); // EXCLUDE recurring transactions
+      
+      // Apply date filters if provided
+      if (params.startDate != null) {
+        expensesQuery = expensesQuery.gte('date', params.startDate!.toIso8601String());
+      }
+      if (params.endDate != null) {
+        expensesQuery = expensesQuery.lte('date', params.endDate!.toIso8601String());
+      }
+      
+      final expenses = await expensesQuery
           .order('updated_at', ascending: false)
           .limit(params.limit);
 
