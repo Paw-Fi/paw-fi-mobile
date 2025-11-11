@@ -6,6 +6,7 @@ import 'package:moneko/features/profile/data/providers/whatsapp_binding_provider
 import 'package:moneko/features/profile/presentation/widgets/profile_helpers.dart';
 import 'package:moneko/features/profile/presentation/widgets/whatsapp_tutorial_modal.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 
 Widget buildWhatsAppBindingCard(BuildContext context, WidgetRef ref) {
   final colorScheme = shadcnui.Theme.of(context).colorScheme;
@@ -14,11 +15,25 @@ Widget buildWhatsAppBindingCard(BuildContext context, WidgetRef ref) {
     Future<void> handleBindWhatsApp() async {
       // This wa link doesnt contains a "start" welcome message
       final Uri url = Uri.parse('https://wa.link/zxwtld');
-      if (await canLaunchUrl(url)) {
-        await launchUrl(url, mode: LaunchMode.externalApplication);
-        if (context.mounted) {
-          Navigator.of(context).pop(true); // Return true to refresh status
+      try {
+        // Prefer external browser/WhatsApp if available
+        bool launched = await launchUrl(url, mode: LaunchMode.externalApplication);
+        if (!launched) {
+          // Some Android emulators/devices may not have a browser handler.
+          // Fall back to an in-app webview so the flow still works.
+          launched = await launchUrl(url, mode: LaunchMode.inAppBrowserView);
         }
+        if (!launched) {
+          // Final fallback
+          launched = await launchUrl(url, mode: LaunchMode.inAppWebView);
+        }
+        if (launched && context.mounted) {
+          Navigator.of(context).pop(true); // Return true to refresh status
+        } else if (!launched) {
+          AppToast.error('Unable to open WhatsApp link. Please install a browser or WhatsApp.');
+        }
+      } catch (_) {
+        AppToast.error('Could not launch WhatsApp link.');
       }
     }
 

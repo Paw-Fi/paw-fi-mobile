@@ -3,6 +3,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 
 class WhatsAppTutorialModal extends HookWidget {
   const WhatsAppTutorialModal({super.key});
@@ -42,11 +43,24 @@ class WhatsAppTutorialModal extends HookWidget {
     Future<void> handleBindWhatsApp() async {
       // This wa link contains a "start" welcome message
       final Uri url = Uri.parse('https://wa.link/67a9gl');
-      if (await canLaunchUrl(url)) {
-        await launchUrl(url, mode: LaunchMode.externalApplication);
-        if (context.mounted) {
-          Navigator.of(context).pop(true); // Return true to refresh status
+      try {
+        // Prefer external browser/WhatsApp if available
+        bool launched = await launchUrl(url, mode: LaunchMode.externalApplication);
+        if (!launched) {
+          // Emulator without Chrome or devices with restricted resolvers
+          // may fail to resolve https handlers. Use in-app fallbacks.
+          launched = await launchUrl(url, mode: LaunchMode.inAppBrowserView);
         }
+        if (!launched) {
+          launched = await launchUrl(url, mode: LaunchMode.inAppWebView);
+        }
+        if (launched && context.mounted) {
+          Navigator.of(context).pop(true); // Return true to refresh status
+        } else if (!launched) {
+          AppToast.error('Unable to open WhatsApp link. Please install a browser or WhatsApp.');
+        }
+      } catch (_) {
+        AppToast.error('Could not launch WhatsApp link.');
       }
     }
 
