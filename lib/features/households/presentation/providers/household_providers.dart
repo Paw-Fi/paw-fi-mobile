@@ -442,10 +442,10 @@ final householdExpensesProvider =
       // CRITICAL: Only fetch household expenses (split_group_id NOT NULL)
       final expenses = await supabase
           .from('expenses')
-          .select('id, contact_id, user_id, household_id, date, amount_cents, currency, category, raw_text, receipt_image_url, created_at, split_group_id, type')
+          .select('id, contact_id, user_id, household_id, date, amount_cents, currency, category, raw_text, receipt_image_url, created_at, updated_at, split_group_id, type')
           .eq('household_id', params.householdId)
           .not('split_group_id', 'is', null) // Explicit filter for household expenses
-          .order('created_at', ascending: false)
+          .order('updated_at', ascending: false)
           .limit(params.limit);
 
       final expensesList = (expenses as List).cast<Map<String, dynamic>>();

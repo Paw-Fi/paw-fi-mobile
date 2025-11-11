@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:moneko/core/core.dart';
@@ -52,6 +53,12 @@ class Auth extends _$Auth {
       if (data.event == AuthChangeEvent.signedIn && data.session != null) {
         _migrateGuestData(data.session!.user.id);
       }
+    }, onError: (error) {
+      // Handle auth stream errors gracefully
+      appLog('Auth state change error: $error', name: 'Auth', error: error);
+      try {
+        FirebaseCrashlytics.instance.recordError(error, null, fatal: false);
+      } catch (_) {}
     });
   }
 
@@ -205,9 +212,29 @@ class Auth extends _$Auth {
       await supabase.auth.signOut();
     } on AuthException catch (error, stackTrace) {
       appLog('Sign out error: ${error.message}', name: 'Auth', error: error, stackTrace: stackTrace);
+      
+      // Handle specific refresh token errors
+      if (error.message.contains('Refresh Token Not Found') || 
+          error.message.contains('Invalid Refresh Token')) {
+        // Token is already invalid, clear local state and proceed with logout
+        appLog('Refresh token already invalid, proceeding with logout', name: 'Auth');
+        return; // Don't rethrow, allow logout to complete
+      }
+      
+      rethrow;
+    } on SocketException catch (error, stackTrace) {
+      appLog('Network error during sign out: $error', name: 'Auth', error: error, stackTrace: stackTrace);
+      // For network errors during logout, still try to clear local state
+      try {
+        state = const AppUser(uid: '', email: '', displayName: null, photoUrl: null);
+      } catch (_) {}
       rethrow;
     } catch (error, stackTrace) {
       appLog('Unexpected sign out error', name: 'Auth', error: error, stackTrace: stackTrace);
+      // Clear local state even if sign out fails
+      try {
+        state = const AppUser(uid: '', email: '', displayName: null, photoUrl: null);
+      } catch (_) {}
       rethrow;
     } finally {
       _isLoading = false;

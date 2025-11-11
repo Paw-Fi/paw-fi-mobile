@@ -205,9 +205,13 @@ class PaywallScreen extends ConsumerWidget {
   static Future<void> _handleLogout(BuildContext context, WidgetRef ref) async {
     try {
       await ref.read(authProvider.notifier).signOut();
-      context.go('/login');
+      if (context.mounted) {
+        context.go('/login');
+      }
     } catch (e) {
-      AppToast.error('Failed to logout: ${e.toString()}');
+      if (context.mounted) {
+        AppToast.error('Failed to logout: ${e.toString()}');
+      }
     }
   }
 
@@ -216,7 +220,7 @@ class PaywallScreen extends ConsumerWidget {
     await ref.read(referralCodeCheckerProvider.notifier).refresh();
 
     final hasSubscription = ref.read(hasActiveSubscriptionProvider);
-    if (hasSubscription) {
+    if (hasSubscription && context.mounted) {
       context.go('/dashboard');
     }
   }

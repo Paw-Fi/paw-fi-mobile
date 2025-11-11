@@ -207,8 +207,8 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
               HouseholdExpensesParams(householdId: household.id, limit: 500),
             ),
           );
-          // Preload splits (no local variable needed)
-          ref.watch(
+          // Load splits data (needed for split-aware calculations)
+          final splitsAsync = ref.watch(
             householdSplitsProvider(
               HouseholdSplitsParams(householdId: household.id),
             ),
@@ -381,45 +381,83 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
               //   1. Full amount of expenses created by user
               //   2. Split portions allocated to user from other members' expenses
               //
-              // Data source: Backend households-summary endpoint
-              // Backend calculates split-aware totals correctly, so we trust this data.
+              // Data source: Real-time calculation from transactions + splits
+              // Same as member spending card to ensure consistency
               //
               // Example:
               //   - User logs $10 expense, splits $0 to others
               //   - Other logs $100 expense, splits $50 to user
               //   - Result: "Spent by You" = $60 (user's $10 + split $50)
               // ═══════════════════════════════════════════════════════════════
-              summaryAsync.when(
-                loading: () => const Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-                error: (e, st) => Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Text(
-                    'Error loading spending data',
-                    style: TextStyle(color: colorScheme.destructive),
-                  ),
-                ),
-                data: (summary) {
-                  // Extract user's contribution from backend summary
-                  // This includes user's own expenses + split portions from others
-                  final myContribution = summary?.memberContributions.firstWhere(
-                    (m) => m.userId == userId,
-                    orElse: () => MemberContribution(
-                      userId: userId,
-                      totalSpentCents: 0,
-                      transactionCount: 0,
-                      splitCount: 0,
-                      balanceCents: 0,
-                    ),
-                  );
+              Builder(
+                builder: (context) {
+                  final transactions = expensesAsync.asData?.value;
+                  final splits = splitsAsync.asData?.value;
 
-                  final myTotalCents = myContribution?.totalSpentCents ?? 0;
+                  if (transactions == null || splits == null) {
+                    return const Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: Center(child: CircularProgressIndicator()),
+                    );
+                  }
+
+                  // Calculate user's personal share from transactions + splits (real-time)
+                  // This ensures immediate updates when expenses are added/edited/deleted
+                  int myTotalCents = 0;
+                  
+                  // Create lookup map for split groups
+                  final byGroupId = {for (final g in splits) g.id: g};
+                  
+                  for (final t in transactions) {
+                    final tdate = DateTime(t.date.year, t.date.month, t.date.day);
+                    final code = (t.currency ?? '').trim().toUpperCase();
+                    final currencyOk = code.isEmpty || code == selectedCurrency;
+                    final isSpend = (t.type ?? 'expense').toLowerCase() != 'income';
+                    
+                    if (!isSpend) continue;
+                    if (!currencyOk) continue;
+                    if (tdate.isBefore(from) || tdate.isAfter(to)) continue;
+                    
+                    final splitGroupId = t.splitGroupId;
+                    
+                    // CASE 1: No split - attribute full amount if user created it
+                    if (splitGroupId == null) {
+                      if (t.userId == userId) {
+                        myTotalCents += t.amountCents.abs();
+                      }
+                      continue;
+                    }
+                    
+                    // CASE 2: Has split - add user's allocated portion
+                    final group = byGroupId[splitGroupId];
+                    if (group == null || group.splitLines == null) {
+                      // Split group not found, fallback to full amount if user created it
+                      if (t.userId == userId) {
+                        myTotalCents += t.amountCents.abs();
+                      }
+                      continue;
+                    }
+                    
+                    // Find user's split line and add their share
+                    final userLine = group.splitLines!.firstWhere(
+                      (line) => line.userId == userId,
+                      orElse: () => ExpenseSplitLine(
+                        id: '',
+                        splitGroupId: '',
+                        userId: '',
+                        isSettled: false,
+                        createdAt: DateTime.now(),
+                        updatedAt: DateTime.now(),
+                      ),
+                    );
+                    
+                    if (userLine.userId == userId) {
+                      final shareAmount = (userLine.amountCents ?? 0).abs();
+                      myTotalCents += shareAmount;
+                    }
+                  }
 
                   // Create a synthetic expense entry for display purposes
-                  // The buildSpendingCard widget expects an expense list, so we create
-                  // a single entry with the correct total from backend
                   final syntheticExpense = ExpenseEntry(
                     id: 'user-summary-total',
                     date: DateTime.now(),
@@ -442,7 +480,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                       child: buildSpendingCard(
                         context,
                         colorScheme,
-                        [syntheticExpense], // Single entry with correct total from backend
+                        [syntheticExpense], // Single entry with real-time calculated total
                         null,
                         filterState.dateRangeFilter,
                         selectedCurrency: selectedCurrency,
@@ -499,10 +537,50 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                   ),
                   data: (summary) {
                     final hasBudget = (summary?.budgets ?? []).isNotEmpty;
+
+                    // Ensure "Spent by household" excludes income and respects date/currency
+                    final allExpenses = expensesAsync.asData?.value ?? const <ExpenseEntry>[];
+                    int spentCents = 0;
+                    int incomeCents = 0;
+                    int txCount = 0;
+                    for (final e in allExpenses) {
+                      final d = DateTime(e.date.year, e.date.month, e.date.day);
+                      final inRange = !d.isBefore(from) && !d.isAfter(to);
+                      final code = (e.currency ?? '').trim().toUpperCase();
+                      final currencyOk = code.isEmpty || code == selectedCurrency;
+                      if (!inRange || !currencyOk) continue;
+                      final t = (e.type ?? 'expense').toLowerCase();
+                      if (t == 'income') {
+                        incomeCents += e.amountCents.abs();
+                      } else {
+                        spentCents += e.amountCents.abs();
+                        txCount += 1;
+                      }
+                    }
+
+                    final fixedSummary = summary == null
+                        ? null
+                        : HouseholdSummary(
+                            householdId: summary.householdId,
+                            currency: summary.currency,
+                            period: summary.period,
+                            totals: Totals(
+                              totalExpensesCents: spentCents,
+                              totalIncomeCents: incomeCents,
+                              netCents: incomeCents - spentCents,
+                              transactionCount: txCount,
+                              splitCount: summary.totals.splitCount,
+                            ),
+                            memberContributions: summary.memberContributions,
+                            categoryBreakdown: summary.categoryBreakdown,
+                            budgets: summary.budgets,
+                            balances: summary.balances,
+                          );
+
                     return buildHouseholdBudgetOverviewCard(
                       context,
                       colorScheme,
-                      summary,
+                      fixedSummary,
                       onTap: () {
                         if (hasBudget) {
                           // Navigate to budget detail page
@@ -539,12 +617,25 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
               if (summaryAsync.asData?.value != null) ...[
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: GroupFairnessMeter(summary: summaryAsync.asData!.value!),
+                  child: GroupFairnessMeter(
+                    summary: summaryAsync.asData!.value!,
+                    transactions: expensesAsync.asData?.value,
+                    from: from,
+                    to: to,
+                    currency: selectedCurrency,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: SettlementSuggestionsCard(summary: summaryAsync.asData!.value!),
+                  child: SettlementSuggestionsCard(
+                    summary: summaryAsync.asData!.value!,
+                    transactions: expensesAsync.asData?.value,
+                    from: from,
+                    to: to,
+                    currency: selectedCurrency,
+                    members: membersAsync.asData?.value,
+                  ),
                 ),
                 const SizedBox(height: 16),
               ],
@@ -590,6 +681,11 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                     summary,
                     members: membersAsync.asData?.value,
                     householdId: household.id,
+                    transactions: expensesAsync.asData?.value,
+                    splits: splitsAsync.asData?.value,
+                    from: from,
+                    to: to,
+                    selectedCurrency: selectedCurrency,
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
@@ -699,8 +795,19 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                 loading: () => const SizedBox.shrink(),
                 error: (e, st) => const SizedBox.shrink(),
                 data: (allExpenses) {
-                  // Filter expenses by date range and selected currency
+                  // Filter expenses by date range and selected currency (spend only)
                   final filteredExpenses = allExpenses.where((e) {
+                    final d = DateTime(e.date.year, e.date.month, e.date.day);
+                    final dateOk = !d.isBefore(from) && !d.isAfter(to);
+                    final rawCurrency = (e.currency ?? '').trim().toUpperCase();
+                    final currencyOk = rawCurrency.isEmpty || rawCurrency == selectedCurrency;
+                    final t = (e.type ?? 'expense').toLowerCase();
+                    final isSpend = t != 'income';
+                    return dateOk && currencyOk && isSpend;
+                  }).toList();
+
+                  // Transactions for recent list (include income)
+                  final filteredTransactions = allExpenses.where((e) {
                     final d = DateTime(e.date.year, e.date.month, e.date.day);
                     final dateOk = !d.isBefore(from) && !d.isAfter(to);
                     final rawCurrency = (e.currency ?? '').trim().toUpperCase();
@@ -723,7 +830,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                       child: buildCategoryBreakdownCard(
                         context,
                         colorScheme,
-                        filteredExpenses, // ALL household expenses (not personal share)
+                        filteredTransactions, // include income for recent list
                         null,
                         selectedCurrency: selectedCurrency,
                         householdId: household.id,
@@ -759,7 +866,9 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                     final dateOk = !d.isBefore(from) && !d.isAfter(to);
                     final rawCurrency = (e.currency ?? '').trim().toUpperCase();
                     final currencyOk = rawCurrency.isEmpty || rawCurrency == selectedCurrency;
-                    return dateOk && currencyOk;
+                    final t = (e.type ?? 'expense').toLowerCase();
+                    final isSpend = t != 'income';
+                    return dateOk && currencyOk && isSpend;
                   }).toList();
 
                   // ⚠️ IMPORTANT: Pass filteredExpenses (ALL expenses), not personal share

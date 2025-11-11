@@ -654,14 +654,19 @@ class _ExpenseActivityCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          Text(
-            '\$${(expense.amountCents / 100).toStringAsFixed(2)}',
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w700,
-              color: colorScheme.foreground,
-            ),
-          ),
+          Builder(builder: (_) {
+            final isIncome = (expense.type ?? 'expense').toLowerCase() == 'income';
+            final sign = isIncome ? '+' : '-';
+            final txt = '$sign\${(expense.amountCents / 100).toStringAsFixed(2)}';
+            return Text(
+              txt,
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: isIncome ? const Color(0xFF10B981) : colorScheme.foreground,
+              ),
+            );
+          }),
         ],
       ),
     );

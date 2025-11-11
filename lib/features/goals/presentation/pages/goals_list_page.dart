@@ -90,59 +90,59 @@ class _GoalsListPageState extends ConsumerState<GoalsListPage> with SingleTicker
       ),
     ),
         // In Development Overlay
-        Positioned.fill(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-            child: Container(
-              color: Colors.black.withValues(alpha: 0.3),
-              child: Center(
-                child: Container(
-                  margin: const EdgeInsets.all(32),
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.2),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                  child: const Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.construction,
-                        size: 64,
-                        color: Colors.orange,
-                      ),
-                      SizedBox(height: 16),
-                      Text(
-                        'In Development',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      SizedBox(height: 12),
-                      Text(
-                        'Goals feature is currently under construction.\nStay tuned for updates!',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.black54,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
+        // Positioned.fill(
+        //   child: BackdropFilter(
+        //     filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+        //     child: Container(
+        //       color: Colors.black.withValues(alpha: 0.3),
+        //       child: Center(
+        //         child: Container(
+        //           margin: const EdgeInsets.all(32),
+        //           padding: const EdgeInsets.all(24),
+        //           decoration: BoxDecoration(
+        //             color: Colors.white,
+        //             borderRadius: BorderRadius.circular(16),
+        //             boxShadow: [
+        //               BoxShadow(
+        //                 color: Colors.black.withValues(alpha: 0.2),
+        //                 blurRadius: 20,
+        //                 offset: const Offset(0, 10),
+        //               ),
+        //             ],
+        //           ),
+        //           child: const Column(
+        //             mainAxisSize: MainAxisSize.min,
+        //             children: [
+        //               Icon(
+        //                 Icons.construction,
+        //                 size: 64,
+        //                 color: Colors.orange,
+        //               ),
+        //               SizedBox(height: 16),
+        //               Text(
+        //                 'In Development',
+        //                 style: TextStyle(
+        //                   fontSize: 24,
+        //                   fontWeight: FontWeight.bold,
+        //                   color: Colors.black87,
+        //                 ),
+        //               ),
+        //               SizedBox(height: 12),
+        //               Text(
+        //                 'Goals feature is currently under construction.\nStay tuned for updates!',
+        //                 textAlign: TextAlign.center,
+        //                 style: TextStyle(
+        //                   fontSize: 14,
+        //                   color: Colors.black54,
+        //                 ),
+        //               ),
+        //             ],
+        //           ),
+        //         ),
+        //       ),
+        //     ),
+        //   ),
+        // ),
       ],
     );
   }

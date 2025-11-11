@@ -76,7 +76,8 @@ class _AvatarCustomizerScreenState extends ConsumerState<AvatarCustomizerScreen>
 
     if (!mounted) return;
     setState(() {
-      _hasAvatar = (data?['avatar_url'] != null && data!['avatar_url'] != 'SKIPPED');
+      final avatarUrl = data?['avatar_url'] as String?;
+      _hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty && avatarUrl != 'SKIPPED';
       final elements = (data?['avatar_elements'] as Map<String, dynamic>?)?.cast<String, String>();
       final colors = (data?['avatar_colors'] as Map<String, dynamic>?)?.cast<String, String>();
       if (elements != null && elements.isNotEmpty) {

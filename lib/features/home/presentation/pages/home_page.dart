@@ -201,9 +201,15 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
 
     try {
+      final locale = Localizations.localeOf(context);
+      final languageTag = locale.countryCode != null && locale.countryCode!.isNotEmpty
+          ? '${locale.languageCode}-${locale.countryCode!.toUpperCase()}'
+          : locale.languageCode;
+
       Map<String, dynamic> body = {
         'userId': user.uid,
         'date': DateTime.now().toIso8601String().split('T')[0],
+        'language': languageTag,
       };
       
       // Determine currency based on view mode
@@ -265,7 +271,26 @@ class _HomePageState extends ConsumerState<HomePage> {
         final responseData = response.data['data'];
         
         if (responseData != null && responseData['items'] != null) {
-          final items = responseData['items'] as List;
+          List items = List.from(responseData['items'] as List);
+          // Safety filter: drop total/subtotal rows when multiple items exist
+          if (items.length > 1) {
+            bool isTotalLike(dynamic it) {
+              final desc = (it is Map && it['description'] is String) ? (it['description'] as String) : '';
+              return RegExp(r'(sub\s*total|subtotal|grand\s*total|total)', caseSensitive: false).hasMatch(desc);
+            }
+            final filtered = items.where((it) => !isTotalLike(it)).toList();
+            if (filtered.isNotEmpty) items = filtered;
+            // Additional check: if any item equals sum of others, drop it
+            double amt(dynamic it) {
+              final a = (it is Map && it['amount'] != null) ? (it['amount'] as num).toDouble() : 0.0;
+              return a;
+            }
+            items = items.where((it) {
+              final others = items.where((x) => !identical(x, it)).toList();
+              final sumOthers = others.fold<double>(0.0, (s, x) => s + amt(x));
+              return (amt(it) - sumOthers).abs() > 1e-6;
+            }).toList();
+          }
           
           if (items.isNotEmpty) {
             // Parse ALL items from the response
@@ -341,18 +366,18 @@ class _HomePageState extends ConsumerState<HomePage> {
         .reduce((a, b) => a.value > b.value ? a : b)
         .key;
     
-    // Build combined description with all items
-    final currencySymbol = expenses.first.currencySymbol;
-    final itemDescriptions = expenses.map((e) => 
-      '${e.description ?? e.category} $currencySymbol${e.amount.toStringAsFixed(2)}'
-    ).join(', ');
+    // Use AI-generated descriptions as-is - DO NOT append amounts (AI already includes them)
+    final itemDescriptions = expenses
+        .map((e) => e.description ?? e.category)
+        .where((s) => s.trim().isNotEmpty)
+        .join(', ');
     
     // Create single combined expense
     final combinedExpense = ParsedExpense(
       amount: totalAmount,
       category: mostCommonCategory,
       currency: expenses.first.currency,
-      currencySymbol: currencySymbol,
+      currencySymbol: expenses.first.currencySymbol,
       date: expenses.first.date,
       description: itemDescriptions,
       localImagePath: imagePath,
@@ -368,26 +393,23 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   void _showMultiIncomeConfirmation(List<ParsedExpense> incomes, String? imagePath) {
-    // Sum all income amounts and build a combined note
+    // Sum all income amounts and use AI-generated descriptions as-is
     final totalAmount = incomes.fold<double>(0, (sum, inc) => sum + inc.amount);
-    final currencySymbol = incomes.first.currencySymbol;
-    final itemDescriptions = incomes
-        .map((e) => (e.description ?? e.category))
+    
+    // Use AI-generated descriptions directly - DO NOT add prefixes or modify
+    final combinedDescription = incomes
+        .map((e) => e.description ?? e.category)
         .where((s) => s.trim().isNotEmpty)
-        .map((s) => s.trim())
-        .toList();
-    final combinedDescription = itemDescriptions.isNotEmpty
-        ? 'Income: ${itemDescriptions.join(', ')}'
-        : 'Income';
+        .join(', ');
 
     final combined = ParsedExpense(
       isIncome: true,
       amount: totalAmount,
       category: 'income',
       currency: incomes.first.currency,
-      currencySymbol: currencySymbol,
+      currencySymbol: incomes.first.currencySymbol,
       date: incomes.first.date,
-      description: combinedDescription,
+      description: combinedDescription.isNotEmpty ? combinedDescription : 'Income',
       localImagePath: imagePath,
     );
 
@@ -992,7 +1014,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                         child: buildCategoryBreakdownCard(
                           context, 
                           colorScheme, 
-                          filteredExpenses, 
+                          ref.watch(homeFilteredTransactionsProvider), 
                           analyticsData.contact,
                           selectedCurrency: filterState.selectedCurrency,
                         ),

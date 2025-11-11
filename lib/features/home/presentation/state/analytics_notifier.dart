@@ -98,14 +98,14 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
           final contactId = contactIds.isNotEmpty ? contactIds.first : fetchedContact.id;
           expensesResponse = await supabase
               .from('expenses')
-              .select('id,contact_id,date,amount_cents,currency,category,created_at,raw_text,receipt_image_url,household_id,split_group_id')
+              .select('id,contact_id,date,amount_cents,currency,category,created_at,raw_text,receipt_image_url,household_id,split_group_id,type')
               .isFilter('split_group_id', null)
               .eq('contact_id', contactId)
               .order('date', ascending: true);
         } else {
           expensesResponse = await supabase
               .from('expenses')
-              .select('id,contact_id,date,amount_cents,currency,category,created_at,raw_text,receipt_image_url,household_id,split_group_id')
+              .select('id,contact_id,date,amount_cents,currency,category,created_at,raw_text,receipt_image_url,household_id,split_group_id,type')
               .isFilter('split_group_id', null)
               .inFilter('contact_id', contactIds)
               .order('date', ascending: true);
@@ -120,7 +120,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
         try {
           final fallbackResponse = await supabase
               .from('expenses')
-              .select('id,contact_id,date,amount_cents,currency,category,created_at,raw_text,receipt_image_url,household_id,split_group_id')
+              .select('id,contact_id,date,amount_cents,currency,category,created_at,raw_text,receipt_image_url,household_id,split_group_id,type')
               .eq('user_id', userId)
               .isFilter('split_group_id', null)
               .order('date', ascending: true);

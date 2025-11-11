@@ -13,6 +13,7 @@ class ExpenseEntry {
   final String? currency;
   final String? category;
   final DateTime createdAt;
+  final DateTime? updatedAt;
   final String? rawText;
   final String? receiptImageUrl;
   final List<String>? sharedMemberIds;
@@ -31,6 +32,7 @@ class ExpenseEntry {
     this.currency,
     this.category,
     required this.createdAt,
+    this.updatedAt,
     this.rawText,
     this.receiptImageUrl,
     this.sharedMemberIds,
@@ -56,6 +58,7 @@ class ExpenseEntry {
       currency: canonicalizeCurrencyCode(json['currency'] as String?),
       category: json['category'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
+      updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at'] as String) : null,
       rawText: json['raw_text'] as String?,
       receiptImageUrl: json['receipt_image_url'] as String?,
       sharedMemberIds: json['shared_member_ids'] != null
@@ -79,6 +82,7 @@ class ExpenseEntry {
       'currency': currency,
       'category': category,
       'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
       'raw_text': rawText,
       'receipt_image_url': receiptImageUrl,
       'shared_member_ids': sharedMemberIds,
@@ -100,6 +104,7 @@ class ExpenseEntry {
     String? currency,
     String? category,
     DateTime? createdAt,
+    DateTime? updatedAt,
     String? rawText,
     String? receiptImageUrl,
     List<String>? sharedMemberIds,
@@ -118,6 +123,7 @@ class ExpenseEntry {
       currency: currency ?? this.currency,
       category: category ?? this.category,
       createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
       rawText: rawText ?? this.rawText,
       receiptImageUrl: receiptImageUrl ?? this.receiptImageUrl,
       sharedMemberIds: sharedMemberIds ?? this.sharedMemberIds,

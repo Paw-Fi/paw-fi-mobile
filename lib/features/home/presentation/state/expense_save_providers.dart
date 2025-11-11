@@ -70,11 +70,17 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
         'description': expense.description,
         'receiptImageUrl': receiptImageUrl,
         'householdId': householdId, // null = personal, id = shared
+        // Explicitly set type for new expenses
+        'type': 'expense',
       };
 
       // Add custom splits if provided
       if (householdId != null && customSplitType != null && customSplits != null) {
         final splitTypeStr = customSplitType.toString().split('.').last;
+        
+        debugPrint('🔍 [SAVE EXPENSE] Preparing custom splits:');
+        debugPrint('  - Split type: $splitTypeStr');
+        debugPrint('  - Number of members: ${customSplits.length}');
         
         requestBody['customSplits'] = {
           'splitType': splitTypeStr,
@@ -87,14 +93,18 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
             switch (customSplitType) {
               case SplitType.amount:
                 memberData['amount'] = split.amount;
+                debugPrint('  - Member ${split.member.userName ?? split.member.userEmail}: amount=${split.amount}');
                 break;
               case SplitType.percentage:
                 memberData['percentage'] = split.percentage;
+                debugPrint('  - Member ${split.member.userName ?? split.member.userEmail}: percentage=${split.percentage}');
                 break;
               case SplitType.shares:
                 memberData['shares'] = split.shares;
+                debugPrint('  - Member ${split.member.userName ?? split.member.userEmail}: shares=${split.shares}');
                 break;
               case SplitType.equal:
+                debugPrint('  - Member ${split.member.userName ?? split.member.userEmail}: equal (no data)');
                 // No additional data needed for equal splits
                 break;
             }
@@ -104,6 +114,10 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
         };
         
         debugPrint('📊 Custom splits payload: ${requestBody['customSplits']}');
+      } else if (householdId != null) {
+        debugPrint('⚠️ [SAVE EXPENSE] No custom splits - backend will default to equal split');
+        debugPrint('  - customSplitType: $customSplitType');
+        debugPrint('  - customSplits: ${customSplits?.length ?? 0} members');
       }
 
       // Call save-expense edge function

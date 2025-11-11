@@ -6,16 +6,15 @@ import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 String getChartIntervalTypeFromFilter(DateRangeFilter filter) {
   switch (filter) {
     case DateRangeFilter.today:
-      return 'hourly'; // 6 4-hour blocks for single day
     case DateRangeFilter.yesterday:
+      return 'hourly'; // Show hourly intervals for single day views
     case DateRangeFilter.thisWeek:
     case DateRangeFilter.lastWeek:
-      return 'daily'; // 7 days
     case DateRangeFilter.last30Days:
     case DateRangeFilter.thisMonth:
-      return 'daily'; // 7 days
+      return 'daily'; // Show daily intervals for week/month views
     case DateRangeFilter.allTime:
-      return 'yearly';
+      return 'yearly'; // Show yearly intervals for all-time view
     case DateRangeFilter.custom:
       return 'daily'; // Default to daily for custom ranges
   }
@@ -110,26 +109,35 @@ Map<DateTime, double> _groupByHourRanges(List<ExpenseEntry> expenses) {
   return buckets;
 }
 
-/// Groups expenses into exactly 7 days
+/// Groups expenses into exactly 7 days going backwards from today
 Map<DateTime, double> _groupBySevenDays(List<ExpenseEntry> expenses) {
   if (expenses.isEmpty) return {};
   
   final Map<DateTime, double> buckets = {};
   
-  // Get date range from expenses
+  // Get date range from expenses, but ensure we end at today
   final sortedExpenses = expenses.toList()..sort((a, b) => a.date.compareTo(b.date));
   final oldestDate = sortedExpenses.first.date;
   final newestDate = sortedExpenses.last.date;
+  final today = DateTime.now();
+  
+  // Use the latest of (newestDate, today) to ensure we don't show future dates
+  final endDate = DateTime(
+    newestDate.isAfter(today) ? today.year : newestDate.year,
+    newestDate.isAfter(today) ? today.month : newestDate.month,
+    newestDate.isAfter(today) ? today.day : newestDate.day,
+  );
   
   // Calculate day span
-  final daySpan = newestDate.difference(oldestDate).inDays + 1;
+  final daySpan = endDate.difference(oldestDate).inDays + 1;
   
-  // Create 7 evenly distributed buckets
-  final bucketSize = (daySpan / 7).ceil();
+  // Create 7 evenly distributed buckets going backwards from endDate
+  final bucketSize = (daySpan / 7).ceil().clamp(1, 999);
   
-  for (int i = 0; i < 7; i++) {
-    final bucketStart = DateTime(oldestDate.year, oldestDate.month, oldestDate.day).add(Duration(days: i * bucketSize));
-    buckets[bucketStart] = 0.0;
+  for (int i = 6; i >= 0; i--) {
+    final bucketStart = endDate.subtract(Duration(days: i * bucketSize));
+    final normalizedDate = DateTime(bucketStart.year, bucketStart.month, bucketStart.day);
+    buckets[normalizedDate] = 0.0;
   }
 
   // Fill buckets with expense data
@@ -138,8 +146,14 @@ Map<DateTime, double> _groupBySevenDays(List<ExpenseEntry> expenses) {
     
     // Find which bucket this expense belongs to
     DateTime? targetBucket;
-    for (final bucketDate in buckets.keys) {
-      final bucketEnd = bucketDate.add(Duration(days: bucketSize));
+    final sortedBuckets = buckets.keys.toList()..sort();
+    
+    for (int i = 0; i < sortedBuckets.length; i++) {
+      final bucketDate = sortedBuckets[i];
+      final bucketEnd = i < sortedBuckets.length - 1 
+          ? sortedBuckets[i + 1]
+          : bucketDate.add(Duration(days: bucketSize));
+      
       if ((expenseDate.isAtSameMomentAs(bucketDate) || expenseDate.isAfter(bucketDate)) && 
           expenseDate.isBefore(bucketEnd)) {
         targetBucket = bucketDate;

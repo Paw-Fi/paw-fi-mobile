@@ -18,16 +18,20 @@ import 'package:moneko/features/home/presentation/state/transaction_edit_notifie
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
+import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/datetime.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/ui/widgets/transaction_category_picker.dart';
+import 'package:moneko/core/ui/widgets/transaction_currency_picker.dart';
 
 /// Format date with relative terms
 String _formatRelativeDate(DateTime date, BuildContext context) {
@@ -118,37 +122,7 @@ class _UnifiedTransactionSheetState
   String? _editedDescription;
 
   /// Get localized category name
-  String _getLocalizedCategory(String category) {
-    switch (category.toLowerCase()) {
-      case 'groceries':
-        return context.l10n.categoryGroceries;
-      case 'food':
-        return context.l10n.categoryFood;
-      case 'transport':
-        return context.l10n.categoryTransport;
-      case 'housing':
-        return context.l10n.categoryHousing;
-      case 'utilities':
-        return context.l10n.categoryUtilities;
-      case 'entertainment':
-        return context.l10n.categoryEntertainment;
-      case 'healthcare':
-        return context.l10n.categoryHealthcare;
-      case 'education':
-        return context.l10n.categoryEducation;
-      case 'shopping':
-        return context.l10n.categoryShopping;
-      case 'travel':
-        return context.l10n.categoryTravel;
-      case 'income':
-        return context.l10n.categoryIncome;
-      case 'other':
-        return context.l10n.categoryOther;
-      default:
-        // Fallback to capitalized first letter + lowercase
-        return category[0].toUpperCase() + category.substring(1);
-    }
-  }
+  String _getLocalizedCategory(String category) => getCategoryTranslation(context, category);
 
   @override
   void initState() {
@@ -183,6 +157,11 @@ class _UnifiedTransactionSheetState
           if (mounted) {
             ref.read(selectedHouseholdForSharingProvider.notifier).state = widget.existingExpense!.householdId;
             _loadMembers(widget.existingExpense!.householdId!);
+            
+            // Load existing split configuration if expense has a split group
+            if (widget.existingExpense!.splitGroupId != null) {
+              _loadExistingSplitConfiguration(widget.existingExpense!.splitGroupId!);
+            }
           }
         });
       }
@@ -524,12 +503,24 @@ class _UnifiedTransactionSheetState
                   _buildNotesCard(
                     colorScheme: colorScheme,
                     notes: (() {
-                      final notePrefix = _generateNotePrefix();
+                      // Prefer AI-provided description when it matches the UI language;
+                      // otherwise fall back to a localized, minimal description.
+                      final locale = Localizations.localeOf(context);
                       final desc = displayDescription;
-                      if (desc == null) return notePrefix;
-                      final trimmed = desc.trimLeft();
-                      final isReceipt = trimmed.toLowerCase().startsWith('receipt:');
-                      return isReceipt ? notePrefix : desc;
+                      String? effective = desc;
+                      if (effective != null) {
+                        final isReceipt = effective.trimLeft().toLowerCase().startsWith('receipt:');
+                        if (isReceipt) effective = null;
+                      }
+                      if (locale.languageCode.startsWith('zh')) {
+                        final hasCJK = effective != null && RegExp(r'[\u4E00-\u9FFF]').hasMatch(effective);
+                        if (!hasCJK) {
+                          // Use localized category name as a safe fallback
+                          effective = getCategoryTranslation(context, displayCategory);
+                        }
+                      }
+                      // Final fallback
+                      return effective ?? getCategoryTranslation(context, displayCategory);
                     })(),
                     onTap: () => _handleEditDescription(displayDescription),
                   ),
@@ -828,9 +819,12 @@ class _UnifiedTransactionSheetState
                 borderRadius: BorderRadius.circular(16),
               ),
               child: CustomSplitEditor(
+                    key: ValueKey('split_${_customSplitType}_${_customSplits?.length}'),
                     members: _householdMembers!,
                     totalAmount: currentAmount,
                     currencySymbol: currencySymbol,
+                    initialSplitType: _customSplitType,
+                    initialSplits: _customSplits,
                     onChanged: (splitType, splits) {
                       setState(() {
                         _customSplitType = splitType;
@@ -897,131 +891,15 @@ class _UnifiedTransactionSheetState
     );
   }
 
-  Future<T?> _showSelectionSheet<T>({
-    required List<T> items,
-    required String Function(T) getLabel,
-    required T initial,
-  }) async {
-    if (Platform.isIOS) {
-      int selectedIndex = items.indexOf(initial);
-      if (selectedIndex < 0) selectedIndex = 0;
-      return await showCupertinoModalPopup<T>(
-        context: context,
-        builder: (context) {
-          T tempValue = items[selectedIndex];
-          return Container(
-            height: 320,
-            color: CupertinoColors.systemBackground.resolveFrom(context),
-            child: Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(
-                        color: CupertinoColors.separator.resolveFrom(context),
-                        width: 0.5,
-                      ),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      CupertinoButton(
-                        padding: EdgeInsets.zero,
-                        onPressed: () => Navigator.pop<T>(context),
-                        child: Text(context.l10n.cancel),
-                      ),
-                      CupertinoButton(
-                        padding: EdgeInsets.zero,
-                        onPressed: () => Navigator.pop<T>(context, tempValue),
-                        child: Text(context.l10n.done),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: CupertinoPicker(
-                    scrollController: FixedExtentScrollController(initialItem: selectedIndex),
-                    itemExtent: 40,
-                    onSelectedItemChanged: (i) {
-                      tempValue = items[i];
-                    },
-                    children: items.map((e) => Center(child: Text(getLabel(e)))).toList(),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      );
-    } else {
-      return await showModalBottomSheet<T>(
-        context: context,
-        backgroundColor: Colors.transparent,
-        isScrollControlled: true,
-        builder: (context) {
-          final scheme = shadcnui.Theme.of(context).colorScheme;
-          return Container(
-            decoration: BoxDecoration(
-              color: scheme.card,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            child: SafeArea(
-              top: false,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    margin: const EdgeInsets.only(top: 10, bottom: 6),
-                    width: 32,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: scheme.border,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  Flexible(
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      itemCount: items.length,
-                      separatorBuilder: (_, __) => Divider(height: 1, color: scheme.border.withValues(alpha: 0.4)),
-                      itemBuilder: (context, i) {
-                        final value = items[i];
-                        final label = getLabel(value);
-                        final selected = value == initial;
-                        return ListTile(
-                          title: Text(label, style: TextStyle(color: scheme.foreground)),
-                          trailing: selected ? Icon(Icons.check, color: scheme.primary) : null,
-                          onTap: () => Navigator.pop<T>(context, value),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      );
-    }
-  }
-
   Future<void> _handleEditCurrency(String currentCurrency) async {
     if (_isSharedWithHousehold) {
       AppToast.info(context.l10n.currencyCannotBeChangedWhenSharing);
       return;
     }
 
-    final options = getAvailableCurrencyOptions();
-    final codes = options.keys.toList()..sort();
-    final current = currentCurrency.toUpperCase();
-    final initial = codes.contains(current) ? current : codes.first;
-
-    final selected = await _showSelectionSheet<String>(
-      items: codes,
-      getLabel: (code) => '$code  ${options[code]}',
-      initial: initial,
+    final selected = await showCurrencyPicker(
+      context: context,
+      currentCurrency: currentCurrency,
     );
 
     if (selected != null) {
@@ -1275,26 +1153,16 @@ class _UnifiedTransactionSheetState
   }
 
   void _handleEditCategory(String currentCategory) async {
-    final categories = [
-      'groceries',
-      'food',
-      'transport',
-      'housing',
-      'utilities',
-      'entertainment',
-      'healthcare',
-      'education',
-      'shopping',
-      'travel',
-      'income',
-      'other'
-    ];
-    final initial = categories.contains(currentCategory) ? currentCategory : categories.first;
-    final result = await _showSelectionSheet<String>(
-      items: categories,
-      getLabel: (c) => _getLocalizedCategory(c),
-      initial: initial,
+    final isIncomeMode = isNewExpense
+        ? (ref.read(pendingExpenseProvider)?.isIncome ?? widget.newExpense!.isIncome)
+        : ((widget.existingExpense?.type?.toLowerCase() == 'income'));
+
+    final result = await showCategoryPicker(
+      context: context,
+      currentCategory: currentCategory,
+      isIncome: isIncomeMode,
     );
+    
     if (result != null) {
       if (isNewExpense) {
         final current = ref.read(pendingExpenseProvider);
@@ -1679,6 +1547,97 @@ class _UnifiedTransactionSheetState
     }
   }
 
+  /// Map database SplitType to UI SplitType
+  SplitType _mapSplitType(dynamic dbSplitType) {
+    // dbSplitType is ExpenseSplitGroup.SplitType from expense_split.dart
+    // We need to convert it to SplitType from custom_split_sheet.dart
+    final typeString = dbSplitType.toString().split('.').last;
+    switch (typeString) {
+      case 'equal':
+        return SplitType.equal;
+      case 'amount':
+        return SplitType.amount;
+      case 'percentage':
+        return SplitType.percentage;
+      case 'shares':
+        return SplitType.shares;
+      default:
+        return SplitType.amount; // fallback
+    }
+  }
+
+  /// Load existing split configuration from database
+  Future<void> _loadExistingSplitConfiguration(String splitGroupId) async {
+    debugPrint('🔄 [LOAD SPLIT] Loading existing split configuration for: $splitGroupId');
+    
+    try {
+      final householdId = widget.existingExpense!.householdId;
+      if (householdId == null) return;
+      
+      // Load splits for this household
+      final splitsAsync = await ref.read(householdSplitsProvider(
+        HouseholdSplitsParams(householdId: householdId),
+      ).future);
+      
+      // Find the split group for this expense
+      final splitGroup = splitsAsync.firstWhere(
+        (g) => g.id == splitGroupId,
+        orElse: () => throw Exception('Split group not found'),
+      );
+      
+      debugPrint('🔄 [LOAD SPLIT] Found split group: ${splitGroup.splitType}');
+      debugPrint('🔄 [LOAD SPLIT] Split lines: ${splitGroup.splitLines?.length ?? 0}');
+      
+      if (splitGroup.splitLines == null || splitGroup.splitLines!.isEmpty) {
+        debugPrint('⚠️ [LOAD SPLIT] No split lines found');
+        return;
+      }
+      
+      // Wait for members to load first
+      while (_householdMembers == null && _isLoadingMembers) {
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+      
+      if (_householdMembers == null) {
+        debugPrint('⚠️ [LOAD SPLIT] Members not loaded');
+        return;
+      }
+      
+      // Convert split lines to MemberSplit objects
+      final memberSplits = <MemberSplit>[];
+      for (final member in _householdMembers!) {
+        final splitLine = splitGroup.splitLines!.firstWhere(
+          (line) => line.userId == member.userId,
+          orElse: () => throw Exception('Split line not found for member ${member.userId}'),
+        );
+        
+        memberSplits.add(MemberSplit(
+          member: member,
+          amount: splitLine.amountCents != null ? splitLine.amountCents! / 100.0 : null,
+          percentage: splitLine.percentage,
+          shares: splitLine.shares,
+          includedInAmount: true,
+          includedInPercentage: true,
+        ));
+        
+        debugPrint('🔄 [LOAD SPLIT] Member ${member.userName ?? member.userEmail}: amountCents=${splitLine.amountCents}');
+      }
+      
+      if (mounted) {
+        // Map ExpenseSplitGroup.SplitType to CustomSplitSheet.SplitType
+        final uiSplitType = _mapSplitType(splitGroup.splitType);
+        
+        setState(() {
+          _customSplitType = uiSplitType;
+          _customSplits = memberSplits;
+        });
+        debugPrint('✅ [LOAD SPLIT] Initialized split editor with existing configuration: $uiSplitType');
+      }
+    } catch (error) {
+      debugPrint('❌ [LOAD SPLIT] Error loading split configuration: $error');
+    }
+  }
+
   Future<void> _handleSave() async {
     setState(() => _isSaving = true);
 
@@ -1760,6 +1719,34 @@ class _UnifiedTransactionSheetState
           debugPrint('📤 No local image path to upload');
         }
 
+          // Ensure UI updates immediately
+          if (viewMode.mode == ViewMode.household && selectedHousehold != null) {
+            final homeFilter = ref.watch(homeFilterProvider);
+            final dateRange = getDateRangeFromFilter(
+              homeFilter.dateRangeFilter,
+              homeFilter.customStartDate,
+              homeFilter.customEndDate,
+            );
+            ref.invalidate(householdExpensesProvider(
+              HouseholdExpensesParams(householdId: selectedHousehold, limit: 500),
+            ));
+            ref.invalidate(householdSplitsProvider(
+              HouseholdSplitsParams(householdId: selectedHousehold),
+            ));
+            ref.invalidate(householdBudgetsProvider(selectedHousehold));
+            ref.invalidate(householdSummaryProvider(
+              HouseholdSummaryParams(
+                householdId: selectedHousehold,
+                currency: homeFilter.selectedCurrency ?? 'USD',
+                startDate: dateRange['from']!.toIso8601String(),
+                endDate: dateRange['to']!.toIso8601String(),
+              ),
+            ));
+            ref.invalidate(householdMembersProvider(selectedHousehold));
+          } else {
+            ref.read(analyticsProvider.notifier).refresh(user.uid);
+          }
+
           if (!mounted) return;
 
           Navigator.of(context).pop();
@@ -1803,6 +1790,38 @@ class _UnifiedTransactionSheetState
         AppToast.success(selectedHousehold != null
             ? context.l10n.expenseSavedAndShared(splitInfo)
             : context.l10n.expenseSaved);
+
+        // Ensure UI updates immediately and close sheet
+        if (viewMode.mode == ViewMode.household && selectedHousehold != null) {
+          final homeFilter = ref.watch(homeFilterProvider);
+          final dateRange = getDateRangeFromFilter(
+            homeFilter.dateRangeFilter,
+            homeFilter.customStartDate,
+            homeFilter.customEndDate,
+          );
+          ref.invalidate(householdExpensesProvider(
+            HouseholdExpensesParams(householdId: selectedHousehold, limit: 500),
+          ));
+          ref.invalidate(householdSplitsProvider(
+            HouseholdSplitsParams(householdId: selectedHousehold),
+          ));
+          ref.invalidate(householdBudgetsProvider(selectedHousehold));
+          ref.invalidate(householdSummaryProvider(
+            HouseholdSummaryParams(
+              householdId: selectedHousehold,
+              currency: homeFilter.selectedCurrency ?? 'USD',
+              startDate: dateRange['from']!.toIso8601String(),
+              endDate: dateRange['to']!.toIso8601String(),
+            ),
+          ));
+          ref.invalidate(householdMembersProvider(selectedHousehold));
+        } else {
+          ref.read(analyticsProvider.notifier).refresh(user.uid);
+        }
+
+        if (!mounted) return;
+        Navigator.of(context).pop();
+      }
       } else {
         // EXISTING EXPENSE: Build updates map from local edits
         final Map<String, dynamic> updates = {};

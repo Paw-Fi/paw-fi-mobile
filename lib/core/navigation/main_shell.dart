@@ -5,6 +5,7 @@ import 'package:moneko/features/home/presentation/pages/home_page.dart';
 import 'package:moneko/features/insights/presentation/pages/insights_page.dart';
 import 'package:moneko/features/profile/presentation/pages/profile_page.dart';
 import 'package:moneko/features/goals/presentation/pages/goals_list_page.dart';
+import 'package:moneko/features/recurring/recurring_transactionts.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/auth/presentation/widgets/impersonation_banner.dart';
@@ -20,7 +21,7 @@ class MainShell extends HookConsumerWidget {
 
     final pages = [
       const HomePage(),
-      const GoalsListPage(),
+      const RecurringTransactionsPage(),
       const AnalyticsPage(),
       const ProfilePage(),
     ];

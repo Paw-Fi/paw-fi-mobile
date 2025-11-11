@@ -10,6 +10,8 @@ import 'package:moneko/features/home/presentation/widgets/unified_transaction_sh
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 Widget buildCategoryBreakdownCard(
   BuildContext context,
   shadcnui.ColorScheme colorScheme,
@@ -18,11 +20,13 @@ Widget buildCategoryBreakdownCard(
   String? selectedCurrency,
   String? householdId,
 }) {
-  // Recent transactions - show latest 5 expense rows (exclude income)
-  final recent = expenses
-      .where((e) => (e.type ?? 'expense').toLowerCase() != 'income')
-      .toList()
-    ..sort((a, b) => b.date.compareTo(a.date));
+  // Recent transactions - show latest 5 by updatedAt (fallback to createdAt)
+  final recent = expenses.toList()
+    ..sort((a, b) {
+      final ad = a.updatedAt ?? a.createdAt;
+      final bd = b.updatedAt ?? b.createdAt;
+      return bd.compareTo(ad);
+    });
   final latest = recent.take(5).toList();
 
   return Container(
@@ -66,6 +70,7 @@ Widget buildCategoryBreakdownCard(
                     key: ValueKey(e.id),
                     endActionPane: ActionPane(
                       motion: const ScrollMotion(),
+                      extentRatio: 0.18, // reduce action width
                       children: [
                         SlidableAction(
                           onPressed: (_) async {
@@ -77,20 +82,25 @@ Widget buildCategoryBreakdownCard(
                                 'expenseId': e.id,
                               });
                               if (res.data != null && (res.data['success'] == true)) {
-                                // Refresh analytics
-                                ref.read(analyticsProvider.notifier).refresh(uid);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Transaction deleted')),
-                                );
+                                // Refresh data based on view mode
+                                if (householdId == null) {
+                                  // Personal mode: refresh analytics provider
+                                  ref.read(analyticsProvider.notifier).refresh(uid);
+                                } else {
+                                  // Household mode: invalidate household providers
+                                  ref.invalidate(householdExpensesProvider);
+                                  ref.invalidate(householdSplitsProvider);
+                                  ref.invalidate(householdSummaryProvider);
+                                }
+                                
+                                // Show success toast
+                                AppToast.success('Transaction deleted');
                               } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('${res.data?['error'] ?? 'Failed to delete'}')),
-                                );
+                                final error = res.data?['error'] ?? 'Failed to delete';
+                                AppToast.error(error);
                               }
                             } catch (err) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Error: $err')),
-                              );
+                              AppToast.error('Error: $err');
                             }
                           },
                           backgroundColor: const Color(0xFFFE4A49),
@@ -136,7 +146,7 @@ Widget buildCategoryBreakdownCard(
               }),
               const SizedBox(height: 8),
               Align(
-                alignment: Alignment.centerRight,
+                alignment: Alignment.center,
                 child: TextButton(
                   onPressed: () {
                     Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TransactionsPage()));

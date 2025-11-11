@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
+import 'package:moneko/features/households/domain/entities/expense_split.dart';
+import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -14,13 +16,97 @@ Widget buildHouseholdMemberSpendingCard(
   HouseholdSummary? summary, {
   List<HouseholdMember>? members,
   String? householdId,
+  List<ExpenseEntry>? transactions,
+  List<ExpenseSplitGroup>? splits,
+  DateTime? from,
+  DateTime? to,
+  String? selectedCurrency,
   VoidCallback? onTap,
 }) {
-  final currency = (summary?.currency ?? 'USD').toUpperCase();
+  final currency = ((selectedCurrency ?? summary?.currency) ?? 'USD').toUpperCase();
   final currentUserId = Supabase.instance.client.auth.currentUser?.id;
 
-  // Member data - use all household members, not just those with contributions
-  final memberContributions = summary?.memberContributions ?? [];
+  // ═══════════════════════════════════════════════════════════════
+  // SPLIT-AWARE MEMBER SPENDING CALCULATION
+  // ═══════════════════════════════════════════════════════════════
+  // Calculate how much each member actually owes/spent, considering:
+  // 1. Full amount for expenses they created WITHOUT splits
+  // 2. Their allocated portion for expenses WITH splits
+  //
+  // Example:
+  //   - User A creates $100 expense, splits equally with User B
+  //   - Result: User A owes $50, User B owes $50 (not A=$100, B=$0)
+  // ═══════════════════════════════════════════════════════════════
+  Map<String, int> totalsByUser = {};
+  Map<String, int> countsByUser = {};
+  
+  if (transactions != null && from != null && to != null) {
+    // Create lookup map for split groups
+    final byGroupId = splits != null ? {for (final g in splits) g.id: g} : <String, ExpenseSplitGroup>{};
+    
+    for (final t in transactions) {
+      final tdate = DateTime(t.date.year, t.date.month, t.date.day);
+      final code = (t.currency ?? '').trim().toUpperCase();
+      final currencyOk = selectedCurrency == null || code.isEmpty || code == selectedCurrency;
+      final isSpend = (t.type ?? 'expense').toLowerCase() != 'income';
+      
+      if (!isSpend) continue;
+      if (!currencyOk) continue;
+      if (tdate.isBefore(from) || tdate.isAfter(to)) continue;
+      
+      final splitGroupId = t.splitGroupId;
+      
+      // CASE 1: No split - attribute full amount to creator
+      if (splitGroupId == null) {
+        if (t.userId != null) {
+          totalsByUser[t.userId!] = (totalsByUser[t.userId!] ?? 0) + t.amountCents.abs();
+          countsByUser[t.userId!] = (countsByUser[t.userId!] ?? 0) + 1;
+        }
+        continue;
+      }
+      
+      // CASE 2: Has split - distribute according to split lines
+      final group = byGroupId[splitGroupId];
+      if (group == null || group.splitLines == null) {
+        // Split group not found, fallback to creator
+        if (t.userId != null) {
+          totalsByUser[t.userId!] = (totalsByUser[t.userId!] ?? 0) + t.amountCents.abs();
+          countsByUser[t.userId!] = (countsByUser[t.userId!] ?? 0) + 1;
+        }
+        continue;
+      }
+      
+      // Distribute amounts according to each member's split line
+      for (final line in group.splitLines!) {
+        final memberUserId = line.userId;
+        final memberAmount = (line.amountCents ?? 0).abs();
+        
+        if (memberAmount > 0) {
+          totalsByUser[memberUserId] = (totalsByUser[memberUserId] ?? 0) + memberAmount;
+          // Count transaction for each member who has a share
+          countsByUser[memberUserId] = (countsByUser[memberUserId] ?? 0) + 1;
+        }
+      }
+    }
+  }
+
+  // Member data - prefer computed totals; otherwise fall back to backend summary
+  final memberContributions = (totalsByUser.isNotEmpty && members != null)
+      ? members.map((member) {
+          final cents = totalsByUser[member.userId] ?? 0;
+          final count = countsByUser[member.userId] ?? 0;
+          return MemberContribution(
+            userId: member.userId,
+            totalSpentCents: cents,
+            transactionCount: count,
+            splitCount: 0,
+            balanceCents: 0,
+            userEmail: member.userEmail,
+            userName: member.userName,
+          );
+        }).toList()
+      : (summary?.memberContributions ?? []);
+
   final totalMemberSpent = memberContributions.fold<int>(0, (sum, m) => sum + m.totalSpentCents);
 
   // Create a list of all members with their spending (0 if not in contributions)
