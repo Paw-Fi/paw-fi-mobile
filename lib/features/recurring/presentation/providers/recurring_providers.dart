@@ -98,8 +98,10 @@ class RecurringTransactionsNotifier extends StateNotifier<RecurringTransactionsS
       final expensesResponse = results[0];
       final incomesResponse = results[1];
 
-      debugPrint('📡 Expenses response: ${expensesResponse.status}');
-      debugPrint('📡 Incomes response: ${incomesResponse.status}');
+      debugPrint('📡 Expenses response status: ${expensesResponse.status}');
+      debugPrint('📡 Expenses response data keys: ${expensesResponse.data?.keys.toList()}');
+      debugPrint('📡 Incomes response status: ${incomesResponse.status}');
+      debugPrint('📡 Incomes response data keys: ${incomesResponse.data?.keys.toList()}');
 
       final allTransactions = <RecurringTransaction>[];
 
@@ -108,16 +110,20 @@ class RecurringTransactionsNotifier extends StateNotifier<RecurringTransactionsS
         final expensesData = expensesResponse.data['data'] as List<dynamic>;
         final meta = expensesResponse.data['meta'];
         debugPrint('✅ Recurring expenses: ${expensesData.length} (total: ${meta['total']})');
+        debugPrint('📊 First expense sample: ${expensesData.isNotEmpty ? expensesData[0] : "none"}');
         
         for (final item in expensesData) {
           try {
             final transaction = RecurringTransaction.fromJson(item as Map<String, dynamic>);
             allTransactions.add(transaction);
+            debugPrint('  ✓ Parsed expense: ${transaction.id}, type: ${transaction.type}, recurring: ${transaction.recurrenceRule != null}');
           } catch (parseError) {
             debugPrint('❌ Error parsing expense: $parseError');
             debugPrint('❌ Item: ${jsonEncode(item)}');
           }
         }
+      } else {
+        debugPrint('❌ Expenses response failed: ${expensesResponse.data['error']}');
       }
 
       // Process incomes
@@ -125,16 +131,20 @@ class RecurringTransactionsNotifier extends StateNotifier<RecurringTransactionsS
         final incomesData = incomesResponse.data['data'] as List<dynamic>;
         final meta = incomesResponse.data['meta'];
         debugPrint('✅ Recurring incomes: ${incomesData.length} (total: ${meta['total']})');
+        debugPrint('📊 First income sample: ${incomesData.isNotEmpty ? incomesData[0] : "none"}');
         
         for (final item in incomesData) {
           try {
             final transaction = RecurringTransaction.fromJson(item as Map<String, dynamic>);
             allTransactions.add(transaction);
+            debugPrint('  ✓ Parsed income: ${transaction.id}, type: ${transaction.type}, recurring: ${transaction.recurrenceRule != null}');
           } catch (parseError) {
             debugPrint('❌ Error parsing income: $parseError');
             debugPrint('❌ Item: ${jsonEncode(item)}');
           }
         }
+      } else {
+        debugPrint('❌ Incomes response failed: ${incomesResponse.data['error']}');
       }
 
       // Sort by date (newest first)
@@ -291,13 +301,26 @@ class RecurringTransactionSaveNotifier
     state = const AsyncValue.loading();
 
     try {
-      // Format dates to YYYY-MM-dd for backend validation
+      // IMPORTANT: For recurring transactions:
+      // - 'date' field = accounting date (must be today or in past)
+      // - 'anchor_date' = schedule start date (can be in future)
       final dateFormatter = DateFormat('yyyy-MM-dd');
-      final formattedStartDate = dateFormatter.format(startDate);
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      
+      // If start date is in the future, use today for accounting
+      // Otherwise use the actual start date
+      final accountingDate = startDate.isAfter(today) ? today : startDate;
+      final formattedAccountingDate = dateFormatter.format(accountingDate);
+      
+      debugPrint('💾 Save recurring expense:');
+      debugPrint('  - User selected start: $startDate');
+      debugPrint('  - Accounting date (for DB): $formattedAccountingDate');
+      debugPrint('  - Schedule anchor: ${startDate.toIso8601String()}');
       
       final recurrenceRule = <String, dynamic>{
         'frequency': frequency,
-        'anchor_date': startDate.toIso8601String(), // ISO for recurrence rule
+        'anchor_date': startDate.toIso8601String(), // User-selected start (can be future)
         if (endDate != null) 'end_date': endDate.toIso8601String(),
         if (interval != null) 'interval': interval,
         if (hasReminder == true && reminderValue != null && reminderUnit != null)
@@ -315,7 +338,7 @@ class RecurringTransactionSaveNotifier
           'amount': amount,
           'category': category,
           'currency': currency,
-          'date': formattedStartDate, // Use formatted date (YYYY-MM-DD)
+          'date': formattedAccountingDate, // Accounting date (today or past)
           'clientCreatedAt': DateTime.now().toIso8601String(),
           if (description != null && description.isNotEmpty) 'description': description,
           'ownerType': ownerType,
@@ -367,13 +390,26 @@ class RecurringTransactionSaveNotifier
     state = const AsyncValue.loading();
 
     try {
-      // Format dates to YYYY-MM-dd for backend validation
+      // IMPORTANT: For recurring transactions:
+      // - 'date' field = accounting date (must be today or in past)
+      // - 'anchor_date' = schedule start date (can be in future)
       final dateFormatter = DateFormat('yyyy-MM-dd');
-      final formattedStartDate = dateFormatter.format(startDate);
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      
+      // If start date is in the future, use today for accounting
+      // Otherwise use the actual start date
+      final accountingDate = startDate.isAfter(today) ? today : startDate;
+      final formattedAccountingDate = dateFormatter.format(accountingDate);
+      
+      debugPrint('💾 Save recurring income:');
+      debugPrint('  - User selected start: $startDate');
+      debugPrint('  - Accounting date (for DB): $formattedAccountingDate');
+      debugPrint('  - Schedule anchor: ${startDate.toIso8601String()}');
       
       final recurrenceRule = <String, dynamic>{
         'frequency': frequency,
-        'anchor_date': startDate.toIso8601String(), // ISO for recurrence rule
+        'anchor_date': startDate.toIso8601String(), // User-selected start (can be future)
         if (endDate != null) 'end_date': endDate.toIso8601String(),
         if (interval != null) 'interval': interval,
         if (hasReminder == true && reminderValue != null && reminderUnit != null)
@@ -391,7 +427,7 @@ class RecurringTransactionSaveNotifier
           'amount': amount,
           'category': category,
           'currency': currency,
-          'date': formattedStartDate, // Use formatted date (YYYY-MM-DD)
+          'date': formattedAccountingDate, // Accounting date (today or past)
           'clientCreatedAt': DateTime.now().toIso8601String(),
           if (description != null && description.isNotEmpty) 'description': description,
           if (source != null && source.isNotEmpty) 'source': source,
@@ -446,13 +482,25 @@ class RecurringTransactionSaveNotifier
     try {
       debugPrint('🔄 Updating recurring expense: $expenseId');
       
-      // Format dates to YYYY-MM-dd for backend validation
+      // IMPORTANT: For recurring transactions:
+      // - 'date' field = accounting date (must be today or in past)
+      // - 'anchor_date' = schedule start date (can be in future)
       final dateFormatter = DateFormat('yyyy-MM-dd');
-      final formattedStartDate = dateFormatter.format(startDate);
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      
+      // If start date is in the future, use today for accounting
+      // Otherwise use the actual start date
+      final accountingDate = startDate.isAfter(today) ? today : startDate;
+      final formattedAccountingDate = dateFormatter.format(accountingDate);
+      
+      debugPrint('  - User selected start: $startDate');
+      debugPrint('  - Accounting date (for DB): $formattedAccountingDate');
+      debugPrint('  - Schedule anchor: ${startDate.toIso8601String()}');
       
       final recurrenceRule = <String, dynamic>{
         'frequency': frequency,
-        'anchor_date': startDate.toIso8601String(), // ISO for recurrence rule
+        'anchor_date': startDate.toIso8601String(), // User-selected start (can be future)
         if (endDate != null) 'end_date': endDate.toIso8601String(),
         if (interval != null) 'interval': interval,
         if (hasReminder == true && reminderValue != null && reminderUnit != null)
@@ -472,7 +520,7 @@ class RecurringTransactionSaveNotifier
             'amount_cents': (amount * 100).round(),
             'category': category,
             'currency': currency,
-            'date': formattedStartDate, // Use formatted date (YYYY-MM-DD)
+            'date': formattedAccountingDate, // Accounting date (today or past)
             'raw_text': description ?? '',
             'is_recurring': true,
             'recurrence_rule': recurrenceRule,
@@ -527,13 +575,25 @@ class RecurringTransactionSaveNotifier
     try {
       debugPrint('🔄 Updating recurring income: $expenseId');
       
-      // Format dates to YYYY-MM-dd for backend validation
+      // IMPORTANT: For recurring transactions:
+      // - 'date' field = accounting date (must be today or in past)
+      // - 'anchor_date' = schedule start date (can be in future)
       final dateFormatter = DateFormat('yyyy-MM-dd');
-      final formattedStartDate = dateFormatter.format(startDate);
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      
+      // If start date is in the future, use today for accounting
+      // Otherwise use the actual start date
+      final accountingDate = startDate.isAfter(today) ? today : startDate;
+      final formattedAccountingDate = dateFormatter.format(accountingDate);
+      
+      debugPrint('  - User selected start: $startDate');
+      debugPrint('  - Accounting date (for DB): $formattedAccountingDate');
+      debugPrint('  - Schedule anchor: ${startDate.toIso8601String()}');
       
       final recurrenceRule = <String, dynamic>{
         'frequency': frequency,
-        'anchor_date': startDate.toIso8601String(), // ISO for recurrence rule
+        'anchor_date': startDate.toIso8601String(), // User-selected start (can be future)
         if (endDate != null) 'end_date': endDate.toIso8601String(),
         if (interval != null) 'interval': interval,
         if (hasReminder == true && reminderValue != null && reminderUnit != null)
@@ -553,7 +613,7 @@ class RecurringTransactionSaveNotifier
             'amount_cents': (amount * 100).round(),
             'category': category,
             'currency': currency,
-            'date': formattedStartDate, // Use formatted date (YYYY-MM-DD)
+            'date': formattedAccountingDate, // Accounting date (today or past)
             'raw_text': description ?? '',
             'source': source,
             'is_recurring': true,

@@ -814,6 +814,16 @@
   "currency": "Moneda",
   "notes": "Notas",
   "receipt": "Recibo",
+
+  "@recurringTransactions": {},
+  "recurringTransactions": "Transacciones Periódicas",
+  "recurring": "Periódico",
+  "manageYourRecurringTransactions": "Gestiona tus transacciones periódicas",
+  "errorLoadingData": "Error al cargar datos",
+  "deleteRecurringTransaction": "Eliminar transacción periódica",
+  "areYouSureYouWantToDeleteThisRecurringTransaction": "¿Estás seguro de que quieres eliminar esta transacción periódica?",
+  "recurringTransactionDeleted": "Transacción periódica eliminada",
+  "failedToDeleteRecurringTransaction": "Error al eliminar transacción periódica",
   "saveExpense": "Guardar gasto",
   "currencyIsManagedByHousehold": "La moneda la gestiona el grupo y no se puede cambiar",
   "editAmount": "Editar importe",
@@ -1202,5 +1212,5 @@
   "addContribution": "Añadir contribución",
   "contributionAmount": "Cantidad de contribución",
   "contributionType": "Tipo",
-  "contributionAdded": "Contribución añadida correctamente"
+  "contributionAdded": "Contribución añadida con éxito"
 }

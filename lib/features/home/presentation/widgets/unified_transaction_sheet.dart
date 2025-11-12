@@ -1698,7 +1698,7 @@ class _UnifiedTransactionSheetState
                 currency: expense.currency,
                 date: expenseDateTime,
                 description: expense.description,
-                householdId: selectedHousehold,
+                householdId: _isSharedWithHousehold ? selectedHousehold : null,  // ✅ FIX: Only pass if toggle is ON
               );
 
           // Reset state
@@ -1773,23 +1773,26 @@ class _UnifiedTransactionSheetState
                 .uploadReceiptImage(File(widget.localImagePath!), user.uid);
           }
 
+          // ═══════════════════════════════════════════════════════════════
+          // CRITICAL FIX: Only pass householdId if sharing toggle is ON
+          // ═══════════════════════════════════════════════════════════
+          // When _isSharedWithHousehold is false, we must pass null for householdId
+          // This ensures the expense is saved as PERSONAL (household_id = null in DB)
+          // which makes it appear in the personal page, not the household page.
+          //
+          // Before fix: Always passed selectedHousehold (even when toggle OFF)
+          // After fix: Only pass selectedHousehold when _isSharedWithHousehold is true
+          // ═══════════════════════════════════════════════════════════
           // Save expense with time and custom splits (if configured)
           await ref.read(expenseSaveNotifierProvider.notifier).saveExpense(
                 expense: expenseWithTime,
-                householdId: selectedHousehold,
+                householdId: _isSharedWithHousehold ? selectedHousehold : null,  // ✅ FIX: Only pass if toggle is ON
                 receiptImageUrl: receiptUrl,
                 customSplitType: _customSplitType,
                 customSplits: _customSplits,
               );
 
-        // Show success toast with split info
-        final splitInfo = _customSplitType != null 
-            ? ' (${_customSplitType.toString().split('.').last} split)'
-            : '';
-        
-        AppToast.success(selectedHousehold != null
-            ? context.l10n.expenseSavedAndShared(splitInfo)
-            : context.l10n.expenseSaved);
+        AppToast.success(context.l10n.expenseSaved);
 
         // Ensure UI updates immediately and close sheet
         if (viewMode.mode == ViewMode.household && selectedHousehold != null) {

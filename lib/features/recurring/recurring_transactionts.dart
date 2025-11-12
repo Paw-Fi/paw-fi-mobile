@@ -6,6 +6,7 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/recurring/presentation/widgets/recurring_transaction_card.dart';
 import 'package:moneko/features/recurring/presentation/widgets/add_recurring_sheet.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 
 /// Modern recurring transactions page with Apple-inspired design
@@ -96,7 +97,7 @@ class _RecurringTransactionsPageState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Recurring',
+                          context.l10n.recurring,
                           style: TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.w800,
@@ -105,7 +106,7 @@ class _RecurringTransactionsPageState
                           ),
                         ),
                         Text(
-                          'Manage your recurring transactions',
+                          context.l10n.manageYourRecurringTransactions,
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w400,
@@ -329,7 +330,7 @@ class _RecurringTransactionsPageState
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Error Loading Data',
+                    context.l10n.errorLoadingData,
                     style: TextStyle(
                       color: colorScheme.foreground,
                       fontSize: 18,
@@ -451,9 +452,9 @@ class _RecurringTransactionsPageState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Recurring Transaction'),
-        content: const Text(
-            'Are you sure you want to delete this recurring transaction?'),
+        title: Text(context.l10n.deleteRecurringTransaction),
+        content: Text(
+            context.l10n.areYouSureYouWantToDeleteThisRecurringTransaction),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -477,9 +478,9 @@ class _RecurringTransactionsPageState
 
       if (mounted) {
         if (success) {
-          AppToast.success('Recurring transaction deleted');
+          AppToast.success(context.l10n.recurringTransactionDeleted);
         } else {
-          AppToast.error('Failed to delete recurring transaction');
+          AppToast.error(context.l10n.failedToDeleteRecurringTransaction);
         }
       }
     }

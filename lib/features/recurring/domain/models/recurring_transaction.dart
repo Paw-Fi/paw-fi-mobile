@@ -154,7 +154,7 @@ class RecurringTransaction {
       'ownerType': ownerType,
       'privacyScope': privacyScope,
       'householdId': householdId,
-      if (recurrenceRule != null) 'recurrenceRule': recurrenceRule!.toJson(),
+      if (recurrenceRule != null) 'recurrenceRule': recurrenceRule?.toJson(), // Safe null access
       'type': type,
       'attachments': attachments.map((e) => e.toJson()).toList(),
       'createdAt': createdAt.toIso8601String(),
@@ -205,7 +205,7 @@ class RecurringTransaction {
       return date;
     }
     
-    final rule = recurrenceRule!;
+    final rule = recurrenceRule!; // Safe after null check
     final reference = from ?? DateTime.now();
     final anchor = rule.anchorDate;
 
@@ -215,8 +215,7 @@ class RecurringTransaction {
     }
 
     // If there's an end date and we're past it, return the anchor (no more occurrences)
-    if (rule.endDate != null &&
-        reference.isAfter(rule.endDate!)) {
+    if (rule.endDate != null && reference.isAfter(rule.endDate!)) {
       return anchor;
     }
 
@@ -269,7 +268,7 @@ class RecurringTransaction {
   /// Check if the recurring transaction is still active
   bool get isActive {
     if (recurrenceRule == null) return true;
-    final rule = recurrenceRule!;
+    final rule = recurrenceRule!; // Safe after null check
     if (rule.endDate == null) return true;
     return DateTime.now().isBefore(rule.endDate!);
   }
@@ -278,7 +277,7 @@ class RecurringTransaction {
   String get frequencyText {
     if (recurrenceRule == null) return 'One-time';
     
-    final rule = recurrenceRule!;
+    final rule = recurrenceRule!; // Safe after null check
     switch (rule.frequency) {
       case 'daily':
         return rule.interval != null && rule.interval! > 1
