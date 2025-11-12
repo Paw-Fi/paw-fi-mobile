@@ -397,7 +397,29 @@ class _HomePageState extends ConsumerState<HomePage> {
       // Close processing modal
       Navigator.of(context, rootNavigator: true).pop();
 
-      _showToast('${context.l10n.failedToAnalyze}: ${e.toString()}');
+      String errorMessage;
+      // Check if exception has a 'details' property with an 'error' field
+      if (e.runtimeType.toString().contains('Exception') && 
+          e.toString().contains('status: 400') &&
+          e.toString().contains('details:')) {
+        // Parse the error from the exception string representation
+        final detailsMatch = RegExp(r'details: \{([^}]+)\}').firstMatch(e.toString());
+        if (detailsMatch != null) {
+          final detailsStr = detailsMatch.group(1) ?? '';
+          final errorMatch = RegExp(r'error: ([^,]+)').firstMatch(detailsStr);
+          if (errorMatch != null) {
+            errorMessage = errorMatch.group(1)?.replaceAll("'", '').trim() ?? context.l10n.failedToAnalyze;
+          } else {
+            errorMessage = context.l10n.failedToAnalyze;
+          }
+        } else {
+          errorMessage = context.l10n.failedToAnalyze;
+        }
+      } else {
+        errorMessage = e.toString();
+      }
+      
+      AppToast.error('${context.l10n.failedToAnalyze}: $errorMessage');
     }
   }
 

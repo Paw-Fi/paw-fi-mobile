@@ -1,2 +1,0 @@
-/Users/charles/side-projects/Moneko/moneko-mobile/android/app/.cxx/Debug/e2m425d2/x86_64/CMakeFiles/edit_cache.dir
-/Users/charles/side-projects/Moneko/moneko-mobile/android/app/.cxx/Debug/e2m425d2/x86_64/CMakeFiles/rebuild_cache.dir

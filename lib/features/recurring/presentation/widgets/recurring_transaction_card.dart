@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
@@ -40,7 +41,7 @@ class RecurringTransactionCard extends ConsumerWidget {
         key: ValueKey(transaction.id),
         endActionPane: ActionPane(
           motion: const ScrollMotion(),
-          extentRatio: 0.18,
+          extentRatio: 0.22,
           children: [
             SlidableAction(
               onPressed: (_) async {
@@ -51,8 +52,7 @@ class RecurringTransactionCard extends ConsumerWidget {
               backgroundColor: const Color(0xFFFE4A49),
               foregroundColor: Colors.white,
               icon: Icons.delete,
-              label: 'Delete',
-              borderRadius: BorderRadius.circular(16),
+              label: context.l10n.delete,
             ),
           ],
         ),
@@ -175,7 +175,30 @@ class RecurringTransactionCard extends ConsumerWidget {
                           ),
                         ),
 
-                       
+                        // Status indicator
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: transaction.isActive
+                                ? const Color(0xFF10B981).withValues(alpha: 0.1)
+                                : colorScheme.muted,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            transaction.isActive ? 'Active' : 'Ended',
+                            style: TextStyle(
+                              color: transaction.isActive
+                                  ? const Color(0xFF10B981)
+                                  : colorScheme.mutedForeground,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ],

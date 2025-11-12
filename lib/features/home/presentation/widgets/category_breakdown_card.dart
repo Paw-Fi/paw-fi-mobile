@@ -70,7 +70,7 @@ Widget buildCategoryBreakdownCard(
                     key: ValueKey(e.id),
                     endActionPane: ActionPane(
                       motion: const ScrollMotion(),
-                      extentRatio: 0.18, // reduce action width
+                      extentRatio: 0.22, // reduce action width
                       children: [
                         SlidableAction(
                           onPressed: (_) async {
@@ -106,7 +106,7 @@ Widget buildCategoryBreakdownCard(
                           backgroundColor: const Color(0xFFFE4A49),
                           foregroundColor: Colors.white,
                           icon: Icons.delete,
-                          label: 'Delete',
+                          label: context.l10n.delete,
                         ),
                       ],
                     ),

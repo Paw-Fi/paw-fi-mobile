@@ -217,18 +217,17 @@ class AddRecurringSheet extends HookConsumerWidget {
 
         if (result != null) {
           debugPrint('✅ ${isEditing ? 'Update' : 'Save'} successful!');
-          // Check if widget is still mounted before using context
-          if (!context.mounted) return;
-          Navigator.of(context).pop();
-          _showSuccess(
-            context,
-            isEditing
-                ? 'Recurring ${isExpense ? 'expense' : 'income'} updated successfully'
-                : 'Recurring ${isExpense ? 'expense' : 'income'} added successfully',
-          );
+          if (context.mounted) {
+            Navigator.of(context).pop();
+            _showSuccess(
+              context,
+              isEditing
+                  ? 'Recurring ${isExpense ? 'expense' : 'income'} updated successfully'
+                  : 'Recurring ${isExpense ? 'expense' : 'income'} added successfully',
+            );
+          }
         } else {
           debugPrint('🔴 Result is null - ${isEditing ? 'update' : 'save'} failed');
-          if (!context.mounted) return;
           _showError(
             context,
             'Failed to ${isEditing ? 'update' : 'add'} recurring ${isExpense ? 'expense' : 'income'}',
@@ -238,7 +237,6 @@ class AddRecurringSheet extends HookConsumerWidget {
         debugPrint('❌ Exception caught: $e');
         debugPrint('Stack trace: $stackTrace');
         isLoading.value = false;
-        if (!context.mounted) return;
         _showError(context, 'Error: ${e.toString()}');
       }
     }
