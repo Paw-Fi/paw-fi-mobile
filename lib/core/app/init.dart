@@ -6,10 +6,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 initApp() async {
   const env = String.fromEnvironment('ENV');
   const fileName = (env == 'prod' || env == 'production')
-      ? '.env.prod'
+      ? 'dotenv-prod'
       : (env == 'dev' || env == 'development')
-          ? '.env.development'
-          : (kReleaseMode ? '.env.prod' : '.env.development');
+          ? 'dotenv-dev'
+          : (kReleaseMode ? 'dotenv-prod' : 'dotenv-dev');
 
   await dotenv.load(fileName: fileName);
 

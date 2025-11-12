@@ -56,6 +56,7 @@ dependencies:
   camera: ^0.11.3
   path_provider: ^2.1.2
   permission_handler: ^12.0.1
+  flutter_colorpicker: ^1.1.0
   ios_color_picker: ^2.0.2
   app_settings: ^5.2.0
   markdown_widget: ^2.3.2+6
@@ -99,9 +100,8 @@ flutter:
   generate: true
   # To add assets to your application, add an assets section, like this:
   assets:
-    - .env
-    - .env.prod
-    - .env.development
+    - dotenv-prod
+    - dotenv-dev
     - lib/assets/images/logo192.png
     - lib/assets/images/whatsapp/receipt.png
     - lib/assets/images/flags/

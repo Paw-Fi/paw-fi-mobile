@@ -7,6 +7,8 @@ import '../../domain/entities/shared_budget.dart';
 import '../providers/household_providers.dart';
 import '../../../../core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/ui/widgets/transaction_currency_picker.dart';
+import 'package:moneko/core/ui/widgets/transaction_selection_sheet.dart';
 
 /// Page for creating a new household budget
 class CreateBudgetPage extends HookConsumerWidget {
@@ -29,9 +31,6 @@ class CreateBudgetPage extends HookConsumerWidget {
     final alertThreshold = useState<double>(1.0);
     final isCreating = useState<bool>(false);
     final selectedCurrency = useState<String>('USD');
-
-    // Available currencies
-    final currencies = ['USD', 'EUR', 'GBP', 'JPY', 'CNY', 'INR', 'CAD', 'AUD'];
 
     Future<void> createBudget() async {
       // Validation
@@ -65,6 +64,17 @@ class CreateBudgetPage extends HookConsumerWidget {
       isCreating.value = true;
 
       try {
+        debugPrint('🔵 Creating budget with:');
+        debugPrint('  - householdId: $householdId');
+        debugPrint('  - name: ${nameController.text.trim()}');
+        debugPrint('  - period: ${selectedPeriod.value.toJson()}');
+        debugPrint('  - currency: ${selectedCurrency.value}');
+        debugPrint('  - amountCents: ${(amount * 100).toInt()}');
+        debugPrint('  - warnThreshold: ${warnThreshold.value}');
+        debugPrint('  - alertThreshold: ${alertThreshold.value}');
+        debugPrint('  - budgetType: ${selectedType.value.toJson()}');
+        debugPrint('  - countSplitPortionOnly: ${countSplitPortionOnly.value}');
+        
         await ref
             .read(householdBudgetsProvider(householdId).notifier)
             .createBudget(
@@ -78,11 +88,18 @@ class CreateBudgetPage extends HookConsumerWidget {
               countSplitPortionOnly: countSplitPortionOnly.value,
             );
 
+        debugPrint('✅ Budget created successfully');
+        
         if (context.mounted) {
           AppToast.success(context.l10n.budgetCreatedSuccessfully);
           Navigator.pop(context);
         }
-      } catch (e) {
+      } catch (e, stackTrace) {
+        debugPrint('❌ Error creating budget:');
+        debugPrint('Error type: ${e.runtimeType}');
+        debugPrint('Error message: $e');
+        debugPrint('Stack trace: $stackTrace');
+        
         if (context.mounted) {
           final l10n = context.l10n;
           _showError(context, '${l10n.failedToCreateBudget}: $e');
@@ -167,33 +184,42 @@ class CreateBudgetPage extends HookConsumerWidget {
                 ),
                 const SizedBox(width: 12),
                 // Currency Selector
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: colorScheme.card,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: colorScheme.border),
-                  ),
-                  child: DropdownButton<String>(
-                    value: selectedCurrency.value,
-                    underline: const SizedBox.shrink(),
-                    items: currencies.map((currency) {
-                      return DropdownMenuItem(
-                        value: currency,
-                        child: Text(
-                          currency,
+                GestureDetector(
+                  onTap: () async {
+                    final result = await showCurrencyPicker(
+                      context: context,
+                      currentCurrency: selectedCurrency.value,
+                    );
+                    if (result != null) {
+                      selectedCurrency.value = result;
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: colorScheme.card,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: colorScheme.border),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          selectedCurrency.value.toUpperCase(),
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
                             color: colorScheme.foreground,
+                            fontSize: 16,
                           ),
                         ),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      if (value != null) {
-                        selectedCurrency.value = value;
-                      }
-                    },
+                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.arrow_drop_down,
+                          color: colorScheme.mutedForeground,
+                          size: 24,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -210,31 +236,44 @@ class CreateBudgetPage extends HookConsumerWidget {
               ),
             ),
             const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                color: colorScheme.card,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: colorScheme.border),
-              ),
-              child: DropdownButton<BudgetPeriod>(
-                value: selectedPeriod.value,
-                isExpanded: true,
-                underline: const SizedBox.shrink(),
-                items: BudgetPeriod.values.map((period) {
-                  return DropdownMenuItem(
-                    value: period,
-                    child: Text(
-                      _formatPeriod(context, period),
-                      style: TextStyle(color: colorScheme.foreground),
+            GestureDetector(
+              onTap: () async {
+                final result = await showTransactionSelectionSheet<BudgetPeriod>(
+                  context: context,
+                  items: BudgetPeriod.values,
+                  getLabel: (period) => _formatPeriod(context, period),
+                  initial: selectedPeriod.value,
+                );
+                if (result != null) {
+                  selectedPeriod.value = result;
+                }
+              },
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  color: colorScheme.card,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: colorScheme.border),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _formatPeriod(context, selectedPeriod.value),
+                      style: TextStyle(
+                        color: colorScheme.foreground,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    selectedPeriod.value = value;
-                  }
-                },
+                    Icon(
+                      Icons.arrow_drop_down,
+                      color: colorScheme.mutedForeground,
+                      size: 24,
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 24),

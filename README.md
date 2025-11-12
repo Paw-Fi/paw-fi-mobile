@@ -22,6 +22,11 @@ flutter build ios --release --dart-define=ENV=prod
 flutter build appbundle --release --dart-define=ENV=prod
 `
 
+### Web
+`
+flutter build web --release --dart-define=ENV=prod
+`
+
 ### Localization
 `
 flutter gen-l10n

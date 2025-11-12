@@ -360,6 +360,10 @@ class HouseholdService {
     bool? countSplitPortionOnly,
   }) async {
     final userId = _supabase.auth.currentUser?.id;
+    
+    if (userId == null) {
+      throw Exception('User not authenticated');
+    }
 
     final data = {
       'household_id': householdId,
@@ -374,7 +378,7 @@ class HouseholdService {
     };
 
     // Only add user_id for personal budgets
-    if (budgetType == 'personal' && userId != null) {
+    if (budgetType == 'personal') {
       data['user_id'] = userId;
     }
 
