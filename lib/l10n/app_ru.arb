@@ -1000,6 +1000,48 @@
       }
     }
   },
+
+  "pleaseSelectCategory": "Выберите категорию",
+  "pleaseEnterAmount": "Введите сумму",
+  "userNotAuthenticated": "Пользователь не аутентифицирован",
+  "recurringExpenseUpdatedSuccessfully": "Периодический расход успешно обновлен",
+  "recurringExpenseAddedSuccessfully": "Периодический расход успешно добавлен",
+  "recurringIncomeUpdatedSuccessfully": "Периодический доход успешно обновлен",
+  "recurringIncomeAddedSuccessfully": "Периодический доход успешно добавлен",
+  "failedToUpdateRecurringExpense": "Не удалось обновить периодический расход",
+  "failedToAddRecurringExpense": "Не удалось добавить периодический расход",
+  "failedToUpdateRecurringIncome": "Не удалось обновить периодический доход",
+  "failedToAddRecurringIncome": "Не удалось добавить периодический доход",
+  "editRecurringExpense": "Редактировать Периодический Расход",
+  "editRecurringIncome": "Редактировать Периодический Доход",
+  "addRecurringExpense": "Добавить Периодический Расход",
+  "addRecurringIncome": "Добавить Периодический Доход",
+  "selectCategory": "Выбрать категорию",
+  "frequency": "Частота",
+  "startDate": "Дата начала",
+  "setEndDate": "Установить дату окончания",
+  "endDate": "Дата окончания",
+  "selectEndDate": "Выбрать дату окончания",
+  "descriptionOptional": "Описание (Необязательно)",
+  "sourceOptional": "Источник (Необязательно)",
+  "companyNameClientNameExample": "например, Название компании, Имя клиента",
+  "setReminder": "Установить напоминание",
+  "updateRecurringTransaction": "Обновить Периодическую Транзакцию",
+  "addRecurringTransaction": "Добавить Периодическую Транзакцию",
+  "youWillBeNotifiedBeforeEachOccurrence": "Вы будете уведомлены за {value} {unit} до каждого события",
+  "@youWillBeNotifiedBeforeEachOccurrence": {
+    "placeholders": {
+      "value": {"type": "int"},
+      "unit": {"type": "String"}
+    }
+  },
+  "addReminder": "Добавить Напоминание",
+  "ended": "Завершено",
+  "noRecurringExpenses": "Нет Периодических Расходов",
+  "noRecurringIncome": "Нет Периодических Доходов",
+  "setupAutomaticExpenseTracking": "Настройте автоматическое отслеживание расходов для подписок, счетов и регулярных платежей",
+  "setupAutomaticIncomeTracking": "Настройте автоматическое отслеживание доходов для зарплаты, фриланс-работы и регулярных доходов",
+
   "copyInvitationLink": "Копировать пригласительную ссылку",
   "copyInvitationLinkToClipboard": "Копировать пригласительную ссылку в буфер обмена",
   "copyLink": "Копировать ссылку",
@@ -1139,5 +1181,45 @@
   "addContribution": "Добавить взнос",
   "contributionAmount": "Сумма взноса",
   "contributionType": "Тип",
-  "contributionAdded": "Взнос успешно добавлен"
+  "contributionAdded": "Взнос добавлен",
+  "setupAutomaticExpenseTracking": "Настройте автоматический отслеживание расходов для подписок, счетов и регулярных платежей",
+  "setupAutomaticIncomeTracking": "Настройте автоматический отслеживание доходов для зарплаты, фриланса и регулярных доходов",
+  "biweekly": "Раз в две недели",
+  "oneTime": "Разово",
+  "custom": "Настроить",
+  "everyXDays": "Каждые {count} дней",
+  "@everyXDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXWeeks": "Каждые {count} недель",
+  "@everyXWeeks": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "every2Weeks": "Каждые 2 недели",
+  "everyXMonths": "Каждые {count} месяцев",
+  "@everyXMonths": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXYears": "Каждые {count} лет",
+  "@everyXYears": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "days": "дней",
+  "hours": "часов"
 }

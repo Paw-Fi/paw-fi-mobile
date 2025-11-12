@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:moneko/core/ui/widgets/transaction_selection_sheet.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 /// Frequency option for recurring transactions
 class FrequencyOption {
@@ -12,7 +13,9 @@ class FrequencyOption {
   });
 }
 
-/// Default frequency options for recurring transactions
+/// Default frequency options for recurring transactions (hardcoded - DO NOT USE)
+/// Use getDefaultFrequencyOptions(context) instead for localized labels
+@Deprecated('Use getDefaultFrequencyOptions(context) for localized labels')
 const List<FrequencyOption> defaultFrequencyOptions = [
   FrequencyOption(value: 'daily', label: 'Daily'),
   FrequencyOption(value: 'weekly', label: 'Weekly'),
@@ -20,6 +23,18 @@ const List<FrequencyOption> defaultFrequencyOptions = [
   FrequencyOption(value: 'monthly', label: 'Monthly'),
   FrequencyOption(value: 'yearly', label: 'Yearly'),
 ];
+
+/// Get localized frequency options
+List<FrequencyOption> getDefaultFrequencyOptions(BuildContext context) {
+  final l10n = context.l10n;
+  return [
+    FrequencyOption(value: 'daily', label: l10n.daily),
+    FrequencyOption(value: 'weekly', label: l10n.weekly),
+    FrequencyOption(value: 'biweekly', label: l10n.every2Weeks),
+    FrequencyOption(value: 'monthly', label: l10n.monthly),
+    FrequencyOption(value: 'yearly', label: l10n.yearly),
+  ];
+}
 
 /// Shows a frequency picker for recurring transactions
 /// 
@@ -29,7 +44,7 @@ const List<FrequencyOption> defaultFrequencyOptions = [
 /// 
 /// [context] - BuildContext for showing the modal
 /// [currentFrequency] - Currently selected frequency value (e.g., 'monthly')
-/// [frequencies] - Optional list of frequency options (defaults to defaultFrequencyOptions)
+/// [frequencies] - Optional list of frequency options (defaults to localized options)
 /// 
 /// Returns the selected frequency value or null if cancelled
 Future<String?> showFrequencyPicker({
@@ -37,7 +52,7 @@ Future<String?> showFrequencyPicker({
   required String currentFrequency,
   List<FrequencyOption>? frequencies,
 }) async {
-  final options = frequencies ?? defaultFrequencyOptions;
+  final options = frequencies ?? getDefaultFrequencyOptions(context);
   final values = options.map((f) => f.value).toList();
   final initial = values.contains(currentFrequency) ? currentFrequency : values.first;
 

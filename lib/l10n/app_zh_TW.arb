@@ -1198,5 +1198,84 @@
   "addContribution": "新增貢獻",
   "contributionAmount": "貢獻金額",
   "contributionType": "類型",
-  "contributionAdded": "貢獻新增成功"
+  "contributionAdded": "貢獻新增成功",
+
+  "pleaseSelectCategory": "請選擇分類",
+  "pleaseEnterAmount": "請輸入金額",
+  "userNotAuthenticated": "用戶未認證",
+  "recurringExpenseUpdatedSuccessfully": "定期支出更新成功",
+  "recurringExpenseAddedSuccessfully": "定期支出已成功新增",
+  "recurringIncomeUpdatedSuccessfully": "定期收入已成功更新",
+  "recurringIncomeAddedSuccessfully": "定期收入已成功新增",
+  "failedToUpdateRecurringExpense": "無法更新定期支出",
+  "failedToAddRecurringExpense": "無法新增定期支出",
+  "failedToUpdateRecurringIncome": "無法更新定期收入",
+  "failedToAddRecurringIncome": "無法新增定期收入",
+  "editRecurringExpense": "編輯定期支出",
+  "editRecurringIncome": "編輯定期收入",
+  "addRecurringExpense": "新增定期支出",
+  "addRecurringIncome": "新增定期收入",
+  "selectCategory": "選擇類別",
+  "frequency": "頻率",
+  "startDate": "開始日期",
+  "setEndDate": "設定結束日期",
+  "endDate": "結束日期",
+  "selectEndDate": "選擇結束日期",
+  "descriptionOptional": "描述（選填）",
+  "sourceOptional": "來源（選填）",
+  "companyNameClientNameExample": "例如：公司名稱、客戶名稱",
+  "setReminder": "設定提醒",
+  "updateRecurringTransaction": "更新定期交易",
+  "addRecurringTransaction": "新增定期交易",
+  "youWillBeNotifiedBeforeEachOccurrence": "您將在每次發生前 {value} {unit} 收到通知",
+  "@youWillBeNotifiedBeforeEachOccurrence": {
+    "placeholders": {
+      "value": {"type": "int"},
+      "unit": {"type": "String"}
+    }
+  },
+  "addReminder": "新增提醒",
+  "ended": "已結束",
+  "noRecurringExpenses": "無定期支出",
+  "noRecurringIncome": "無定期收入",
+  "setupAutomaticExpenseTracking": "為訂閱、帳單和定期付款設置自動支出跟蹤",
+  "setupAutomaticIncomeTracking": "為薪資、自由職業和定期收入設置自動收入跟蹤",
+  "biweekly": "每兩週",
+  "oneTime": "一次性",
+  "custom": "自定義",
+  "everyXDays": "每{count}天",
+  "@everyXDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXWeeks": "每{count}週",
+  "@everyXWeeks": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "every2Weeks": "每2週",
+  "everyXMonths": "每{count}個月",
+  "@everyXMonths": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXYears": "每{count}年",
+  "@everyXYears": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "days": "天",
+  "hours": "小時"
 }

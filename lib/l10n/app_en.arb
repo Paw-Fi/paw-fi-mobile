@@ -1066,6 +1066,42 @@
   "weekly": "Weekly",
   "monthly": "Monthly",
   "yearly": "Yearly",
+  "biweekly": "Biweekly",
+  "oneTime": "One-time",
+  "custom": "Custom",
+  "everyXDays": "Every {count} days",
+  "@everyXDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXWeeks": "Every {count} weeks",
+  "@everyXWeeks": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "every2Weeks": "Every 2 weeks",
+  "everyXMonths": "Every {count} months",
+  "@everyXMonths": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXYears": "Every {count} years",
+  "@everyXYears": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "householdBudgetType": "Household Budget",
   "personalBudgetType": "Personal Budget",
 
@@ -1232,6 +1268,8 @@
   "date": "Date",
   "time": "Time",
   "retry": "Retry",
+  "days": "days",
+  "hours": "hours",
 
   "@goalsFeature": {},
   "goals": "Goals",
@@ -1270,5 +1308,50 @@
   "addContribution": "Add Contribution",
   "contributionAmount": "Contribution Amount",
   "contributionType": "Type",
-  "contributionAdded": "Contribution added successfully"
+  "contributionAdded": "Contribution added successfully",
+
+  "pleaseSelectCategory": "Please select a category",
+  "pleaseEnterAmount": "Please enter an amount",
+  "userNotAuthenticated": "User not authenticated",
+  "recurringExpenseUpdatedSuccessfully": "Recurring expense updated successfully",
+  "recurringExpenseAddedSuccessfully": "Recurring expense added successfully",
+  "recurringIncomeUpdatedSuccessfully": "Recurring income updated successfully",
+  "recurringIncomeAddedSuccessfully": "Recurring income added successfully",
+  "failedToUpdateRecurringExpense": "Failed to update recurring expense",
+  "failedToAddRecurringExpense": "Failed to add recurring expense",
+  "failedToUpdateRecurringIncome": "Failed to update recurring income",
+  "failedToAddRecurringIncome": "Failed to add recurring income",
+  "editRecurringExpense": "Edit Recurring Expense",
+  "editRecurringIncome": "Edit Recurring Income",
+  "addRecurringExpense": "Add Recurring Expense",
+  "addRecurringIncome": "Add Recurring Income",
+  "selectCategory": "Select category",
+  "frequency": "Frequency",
+  "startDate": "Start Date",
+  "setEndDate": "Set end date",
+  "endDate": "End Date",
+  "selectEndDate": "Select end date",
+  "descriptionOptional": "Description (Optional)",
+  "sourceOptional": "Source (Optional)",
+  "companyNameClientNameExample": "e.g., Company name, Client name",
+  "setReminder": "Set reminder",
+  "updateRecurringTransaction": "Update Recurring Transaction",
+  "addRecurringTransaction": "Add Recurring Transaction",
+  "youWillBeNotifiedBeforeEachOccurrence": "You will be notified {value} {unit} before each occurrence",
+  "@youWillBeNotifiedBeforeEachOccurrence": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      },
+      "unit": {
+        "type": "String"
+      }
+    }
+  },
+  "addReminder": "Add Reminder",
+  "ended": "Ended",
+  "noRecurringExpenses": "No Recurring Expenses",
+  "noRecurringIncome": "No Recurring Income",
+  "setupAutomaticExpenseTracking": "Set up automatic expense tracking for subscriptions, bills, and regular payments",
+  "setupAutomaticIncomeTracking": "Set up automatic income tracking for salary, freelance work, and regular earnings"
 }

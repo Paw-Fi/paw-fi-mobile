@@ -35,7 +35,7 @@ class CashflowSparklineCard extends ConsumerWidget {
         height: 96,
         child: LineChart(
           LineChartData(
-            gridData: FlGridData(show: false),
+            gridData: const FlGridData(show: false),
             titlesData: FlTitlesData(
               leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
               rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -61,7 +61,7 @@ class CashflowSparklineCard extends ConsumerWidget {
                 isCurved: true,
                 color: colorScheme.primary,
                 barWidth: 3,
-                dotData: FlDotData(show: false),
+                dotData: const FlDotData(show: false),
                 belowBarData: BarAreaData(
                   show: true,
                   gradient: LinearGradient(

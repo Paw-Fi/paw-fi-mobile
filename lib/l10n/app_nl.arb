@@ -1138,5 +1138,84 @@
   "addContribution": "Bijdrage toevoegen",
   "contributionAmount": "Bijdragebedrag",
   "contributionType": "Type",
-  "contributionAdded": "Bijdrage succesvol toegevoegd"
+  "contributionAdded": "Bijdrage succesvol toegevoegd",
+
+  "pleaseSelectCategory": "Selecteer een categorie",
+  "pleaseEnterAmount": "Voer een bedrag in",
+  "userNotAuthenticated": "Gebruiker niet geauthenticeerd",
+  "recurringExpenseUpdatedSuccessfully": "Periodieke uitgave succesvol bijgewerkt",
+  "recurringExpenseAddedSuccessfully": "Periodieke uitgave succesvol toegevoegd",
+  "recurringIncomeUpdatedSuccessfully": "Periodieke inkomst succesvol bijgewerkt",
+  "recurringIncomeAddedSuccessfully": "Periodieke inkomst succesvol toegevoegd",
+  "failedToUpdateRecurringExpense": "Bijwerken van periodieke uitgave mislukt",
+  "failedToAddRecurringExpense": "Toevoegen van periodieke uitgave mislukt",
+  "failedToUpdateRecurringIncome": "Bijwerken van periodieke inkomst mislukt",
+  "failedToAddRecurringIncome": "Toevoegen van periodieke inkomst mislukt",
+  "editRecurringExpense": "Periodieke Uitgave Bewerken",
+  "editRecurringIncome": "Periodieke Inkomst Bewerken",
+  "addRecurringExpense": "Periodieke Uitgave Toevoegen",
+  "addRecurringIncome": "Periodieke Inkomst Toevoegen",
+  "selectCategory": "Selecteer categorie",
+  "frequency": "Frequentie",
+  "startDate": "Startdatum",
+  "setEndDate": "Einddatum instellen",
+  "endDate": "Einddatum",
+  "selectEndDate": "Selecteer einddatum",
+  "descriptionOptional": "Beschrijving (Optioneel)",
+  "sourceOptional": "Bron (Optioneel)",
+  "companyNameClientNameExample": "bv. Bedrijfsnaam, Klantnaam",
+  "setReminder": "Herinnering instellen",
+  "updateRecurringTransaction": "Periodieke Transactie Bijwerken",
+  "addRecurringTransaction": "Periodieke Transactie Toevoegen",
+  "youWillBeNotifiedBeforeEachOccurrence": "U wordt {value} {unit} voor elke gebeurtenis geïnformeerd",
+  "@youWillBeNotifiedBeforeEachOccurrence": {
+    "placeholders": {
+      "value": {"type": "int"},
+      "unit": {"type": "String"}
+    }
+  },
+  "addReminder": "Herinnering Toevoegen",
+  "ended": "Beëindigd",
+  "noRecurringExpenses": "Geen Periodieke Uitgaven",
+  "noRecurringIncome": "Geen Periodieke Inkomsten",
+  "setupAutomaticExpenseTracking": "Stel automatische uitgavetracking in voor abonnementen, rekeningen en regelmatige betalingen",
+  "setupAutomaticIncomeTracking": "Stel automatische inkomsten tracking in voor salaris, freelance werk en regelmatige inkomsten",
+  "biweekly": "Tweewekelijks",
+  "oneTime": "Eenmalig",
+  "custom": "Aangepast",
+  "everyXDays": "Elke {count} dagen",
+  "@everyXDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXWeeks": "Elke {count} weken",
+  "@everyXWeeks": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "every2Weeks": "Elke 2 weken",
+  "everyXMonths": "Elke {count} maanden",
+  "@everyXMonths": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXYears": "Elke {count} jaar",
+  "@everyXYears": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "days": "dagen",
+  "hours": "uren"
 }

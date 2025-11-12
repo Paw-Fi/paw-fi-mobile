@@ -1293,6 +1293,9 @@ String _displayLocaleName(Locale locale) {
   // Italian
   if (lc == 'it') return 'Italiano';
 
+  // Vietnamese
+  if (lc == 'vi') return 'Tiếng Việt';
+
   // Chinese (handle various tags and legacy 'cn')
   if (lc == 'zh' || lc == 'cn') {
     // Simplified for CN or script Hans (if present via other configs)

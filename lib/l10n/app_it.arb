@@ -1138,5 +1138,84 @@
   "addContribution": "Aggiungi contributo",
   "contributionAmount": "Importo contributo",
   "contributionType": "Tipo",
-  "contributionAdded": "Contributo aggiunto con successo"
+  "contributionAdded": "Contributo aggiunto con successo",
+
+  "pleaseSelectCategory": "Seleziona una categoria",
+  "pleaseEnterAmount": "Inserisci un importo",
+  "userNotAuthenticated": "Utente non autenticato",
+  "recurringExpenseUpdatedSuccessfully": "Spesa ricorrente aggiornata con successo",
+  "recurringExpenseAddedSuccessfully": "Spesa ricorrente aggiunta con successo",
+  "recurringIncomeUpdatedSuccessfully": "Reddito ricorrente aggiornato con successo",
+  "recurringIncomeAddedSuccessfully": "Reddito ricorrente aggiunto con successo",
+  "failedToUpdateRecurringExpense": "Impossibile aggiornare la spesa ricorrente",
+  "failedToAddRecurringExpense": "Impossibile aggiungere la spesa ricorrente",
+  "failedToUpdateRecurringIncome": "Impossibile aggiornare il reddito ricorrente",
+  "failedToAddRecurringIncome": "Impossibile aggiungere il reddito ricorrente",
+  "editRecurringExpense": "Modifica Spesa Ricorrente",
+  "editRecurringIncome": "Modifica Reddito Ricorrente",
+  "addRecurringExpense": "Aggiungi Spesa Ricorrente",
+  "addRecurringIncome": "Aggiungi Reddito Ricorrente",
+  "selectCategory": "Seleziona categoria",
+  "frequency": "Frequenza",
+  "startDate": "Data di inizio",
+  "setEndDate": "Imposta data di fine",
+  "endDate": "Data di fine",
+  "selectEndDate": "Seleziona data di fine",
+  "descriptionOptional": "Descrizione (Opzionale)",
+  "sourceOptional": "Fonte (Opzionale)",
+  "companyNameClientNameExample": "es. Nome azienda, Nome cliente",
+  "setReminder": "Imposta promemoria",
+  "updateRecurringTransaction": "Aggiorna Transazione Ricorrente",
+  "addRecurringTransaction": "Aggiungi Transazione Ricorrente",
+  "youWillBeNotifiedBeforeEachOccurrence": "Sarai notificato {value} {unit} prima di ogni occorrenza",
+  "@youWillBeNotifiedBeforeEachOccurrence": {
+    "placeholders": {
+      "value": {"type": "int"},
+      "unit": {"type": "String"}
+    }
+  },
+  "addReminder": "Aggiungi Promemoria",
+  "ended": "Terminato",
+  "noRecurringExpenses": "Nessuna Spesa Ricorrente",
+  "noRecurringIncome": "Nessun Reddito Ricorrente",
+  "setupAutomaticExpenseTracking": "Configura il tracciamento automatico delle spese per abbonamenti, bollette e pagamenti regolari",
+  "setupAutomaticIncomeTracking": "Configura il tracciamento automatico dei redditi per stipendio, lavoro freelance e guadagni regolari",
+  "biweekly": "Bisettimanale",
+  "oneTime": "Una tantum",
+  "custom": "Personalizzato",
+  "everyXDays": "Ogni {count} giorni",
+  "@everyXDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXWeeks": "Ogni {count} settimane",
+  "@everyXWeeks": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "every2Weeks": "Ogni 2 settimane",
+  "everyXMonths": "Ogni {count} mesi",
+  "@everyXMonths": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXYears": "Ogni {count} anni",
+  "@everyXYears": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "days": "giorni",
+  "hours": "ore"
 }

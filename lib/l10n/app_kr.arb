@@ -996,5 +996,84 @@
   "addContribution": "기여 추가",
   "contributionAmount": "기여 금액",
   "contributionType": "유형",
-  "contributionAdded": "기여가 성공적으로 추가되었습니다"
+  "contributionAdded": "기여가 성공적으로 추가되었습니다",
+
+  "pleaseSelectCategory": "카테고리를 선택하세요",
+  "pleaseEnterAmount": "금액을 입력하세요",
+  "userNotAuthenticated": "사용자가 인증되지 않았습니다",
+  "recurringExpenseUpdatedSuccessfully": "정기 지출이 성공적으로 업데이트되었습니다",
+  "recurringExpenseAddedSuccessfully": "정기 지출이 성공적으로 추가되었습니다",
+  "recurringIncomeUpdatedSuccessfully": "정기 수입이 성공적으로 업데이트되었습니다",
+  "recurringIncomeAddedSuccessfully": "정기 수입이 성공적으로 추가되었습니다",
+  "failedToUpdateRecurringExpense": "정기 지출 업데이트에 실패했습니다",
+  "failedToAddRecurringExpense": "정기 지출 추가에 실패했습니다",
+  "failedToUpdateRecurringIncome": "정기 수입 업데이트에 실패했습니다",
+  "failedToAddRecurringIncome": "정기 수입 추가에 실패했습니다",
+  "editRecurringExpense": "정기 지출 편집",
+  "editRecurringIncome": "정기 수입 편집",
+  "addRecurringExpense": "정기 지출 추가",
+  "addRecurringIncome": "정기 수입 추가",
+  "selectCategory": "카테고리 선택",
+  "frequency": "빈도",
+  "startDate": "시작일",
+  "setEndDate": "종료일 설정",
+  "endDate": "종료일",
+  "selectEndDate": "종료일 선택",
+  "descriptionOptional": "설명 (선택사항)",
+  "sourceOptional": "소스 (선택사항)",
+  "companyNameClientNameExample": "예: 회사명, 고객명",
+  "setReminder": "알림 설정",
+  "updateRecurringTransaction": "정기 거래 업데이트",
+  "addRecurringTransaction": "정기 거래 추가",
+  "youWillBeNotifiedBeforeEachOccurrence": "각 발생 {value} {unit} 전에 알림을 받습니다",
+  "@youWillBeNotifiedBeforeEachOccurrence": {
+    "placeholders": {
+      "value": {"type": "int"},
+      "unit": {"type": "String"}
+    }
+  },
+  "addReminder": "알림 추가",
+  "ended": "종료됨",
+  "noRecurringExpenses": "정기 지출 없음",
+  "noRecurringIncome": "정기 수입 없음",
+  "setupAutomaticExpenseTracking": "구독, 청구서, 정기 결제를 위한 자동 지출 추적 설정",
+  "setupAutomaticIncomeTracking": "급여, 프리랜서 작업, 정기 수익을 위한 자동 수입 추적 설정",
+  "biweekly": "격주",
+  "oneTime": "한 번만",
+  "custom": "사용자 정의",
+  "everyXDays": "{count}일마다",
+  "@everyXDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXWeeks": "{count}주마다",
+  "@everyXWeeks": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "every2Weeks": "2주마다",
+  "everyXMonths": "{count}개월마다",
+  "@everyXMonths": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXYears": "{count}년마다",
+  "@everyXYears": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "days": "일",
+  "hours": "시간"
 }

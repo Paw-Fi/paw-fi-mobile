@@ -4,7 +4,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/pages/home_page.dart';
 import 'package:moneko/features/insights/presentation/pages/insights_page.dart';
 import 'package:moneko/features/profile/presentation/pages/profile_page.dart';
-import 'package:moneko/features/goals/presentation/pages/goals_list_page.dart';
 import 'package:moneko/features/recurring/recurring_transactionts.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/core/l10n/l10n.dart';
@@ -55,8 +54,8 @@ class MainShell extends HookConsumerWidget {
                 onTap: () => currentIndex.value = 0,
               ),
               _NavButton(
-                icon: currentIndex.value == 1 ? Icons.repeat : Icons.repeat_outlined,
-                label: context.l10n.recurring,
+                icon: currentIndex.value == 1 ? Icons.alarm : Icons.alarm_outlined,
+                label: context.l10n.reminder,
                 isSelected: currentIndex.value == 1,
                 onTap: () => currentIndex.value = 1,
               ),

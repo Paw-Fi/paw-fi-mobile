@@ -1,7 +1,5 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
-import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 
 /// Daily net cashflow series (income - expenses) grouped by date
 final homeCashflowSeriesProvider = Provider<Map<DateTime, double>>((ref) {
@@ -23,8 +21,11 @@ final savingsRateProvider = Provider<double>((ref) {
   double income = 0, spend = 0;
   for (final t in txs) {
     final isIncome = (t.type ?? 'expense').toLowerCase() == 'income';
-    if (isIncome) income += t.amount.abs();
-    else spend += t.amount.abs();
+    if (isIncome) {
+      income += t.amount.abs();
+    } else {
+      spend += t.amount.abs();
+    }
   }
   if (income <= 0) return 0;
   return ((income - spend) / income).clamp(-1.0, 1.0);

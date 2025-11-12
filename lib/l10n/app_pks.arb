@@ -997,6 +997,48 @@
   "copyLink": "لنک کاپی کریں",
   "shareInvitationLink": "دعوت لنک شیئر کریں",
   "share": "شیئر کریں",
+
+  "pleaseSelectCategory": "ہک زمرہ انتخاب کےرے",
+  "pleaseEnterAmount": "مقدار داخل کےرے",
+  "userNotAuthenticated": "کاربر تصدیق نشو",
+  "recurringExpenseUpdatedSuccessfully": "تکرار خرچہ کامیابی سره اپڈیٹ شو",
+  "recurringExpenseAddedSuccessfully": "تکرار خرچہ کامیابی سره اضافه شو",
+  "recurringIncomeUpdatedSuccessfully": "تکرار آمدنی کامیابی سره اپڈیٹ شو",
+  "recurringIncomeAddedSuccessfully": "تکرار آمدنی کامیابی سره اضافه شو",
+  "failedToUpdateRecurringExpense": "تکرار خرچہ اپڈیٹ کرکہ ناکام شو",
+  "failedToAddRecurringExpense": "تکرار خرچہ اضافه کرکہ ناکام شو",
+  "failedToUpdateRecurringIncome": "تکرار آمدنی اپڈیٹ کرکہ ناکام شو",
+  "failedToAddRecurringIncome": "تکرار آمدنی اضافه کرکہ ناکام شو",
+  "editRecurringExpense": "تکرار خرچہ ایڈیٹ کےرے",
+  "editRecurringIncome": "تکرار آمدنی ایڈیٹ کےرے",
+  "addRecurringExpense": "تکرار خرچہ اضافه کےرے",
+  "addRecurringIncome": "تکرار آمدنی اضافه کےرے",
+  "selectCategory": "زمرہ انتخاب کےرے",
+  "frequency": "تکرار",
+  "startDate": "شروع تاریخ",
+  "setEndDate": "پای تاریخ سیٹ کےرے",
+  "endDate": "پای تاریخ",
+  "selectEndDate": "پای تاریخ انتخاب کےرے",
+  "descriptionOptional": "تفصیر (اختیاری)",
+  "sourceOptional": "ذرائع (اختیاری)",
+  "companyNameClientNameExample": "مثال: کمپنی نوم، کلائنټ نوم",
+  "setReminder": "یادھاوری سیٹ کےرے",
+  "updateRecurringTransaction": "تکرار لړکہ اپڈیٹ کےرے",
+  "addRecurringTransaction": "تکرار لړکہ اضافه کےرے",
+  "youWillBeNotifiedBeforeEachOccurrence": "تاسو ته هر وقته {value} {unit} مخکی خبری کیږے",
+  "@youWillBeNotifiedBeforeEachOccurrence": {
+    "placeholders": {
+      "value": {"type": "int"},
+      "unit": {"type": "String"}
+    }
+  },
+  "addReminder": "یادھاوری اضافه کےرے",
+  "ended": "پای شو",
+  "noRecurringExpenses": "هیڅ تکرار خرچې نې",
+  "noRecurringIncome": "هیڅ تکرار آمدنی نې",
+  "setupAutomaticExpenseTracking": "سبسکرپشن، بل، او منظم تادیو لپاره خودکار خرچہ ټریکینگ سیٹاپ کےرے",
+  "setupAutomaticIncomeTracking": "تنخوا، فریلنس کار، او منظم عواید لپاره خودکار آمدنی ټریکینگ سیٹاپ کےرے",
+
   "closeShareSheet": "شیئر شیٹ بند کریں",
   "done": "ہو گیا",
   "invitationLinkCopiedToClipboard": "دعوت لنک کلپ بورڈ میں کاپی ہو گیا!",
@@ -1132,5 +1174,45 @@
   "addContribution": "جمع کریں",
   "contributionAmount": "جمع کی رقم",
   "contributionType": "قسم",
-  "contributionAdded": "جمع کامیابی سے شامل کر دی گئی"
+  "contributionAdded": "شراکت شامل کر دی گئی",
+  "setupAutomaticExpenseTracking": "سبسکرپشنز، بلز اور باقاعدہ ادائیگیوں کے لیے خودکار خرچ ٹریکنگ سیٹ کریں",
+  "setupAutomaticIncomeTracking": "تنخواہ، فری لانس کام اور باقاعدہ آمدنی کے لیے خودکار آمدنی ٹریکنگ سیٹ کریں",
+  "biweekly": "ہفتہ دو ہفتہ",
+  "oneTime": "ایک بار",
+  "custom": "حسب ضرورت",
+  "everyXDays": "ہر {count} دن",
+  "@everyXDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXWeeks": "ہر {count} ہفتے",
+  "@everyXWeeks": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "every2Weeks": "ہر 2 ہفتے",
+  "everyXMonths": "ہر {count} ماہ",
+  "@everyXMonths": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXYears": "ہر {count} سال",
+  "@everyXYears": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "days": "دن",
+  "hours": "گھنٹے"
 }

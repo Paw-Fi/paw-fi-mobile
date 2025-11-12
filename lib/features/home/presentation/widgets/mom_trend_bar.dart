@@ -27,8 +27,14 @@ class MoMTrendBar extends ConsumerWidget {
         height: 100,
         child: BarChart(
           BarChartData(
-            gridData: FlGridData(show: false),
+            gridData: const FlGridData(show: false),
             borderData: FlBorderData(show: false),
+            barTouchData: BarTouchData(
+              touchTooltipData: BarTouchTooltipData(
+                getTooltipColor: (group) => colorScheme.card,
+                tooltipBorder: BorderSide(color: colorScheme.border, width: 1),
+              ),
+            ),
             barGroups: [
               for (int i = 0; i < labels.length; i++)
                 BarChartGroupData(x: i, barRods: [

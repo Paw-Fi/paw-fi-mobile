@@ -1072,25 +1072,26 @@ class _HomePageState extends ConsumerState<HomePage> {
                             ),
                           ),
                           const SizedBox(width: 12),
-                          SizedBox(
+                          // TODO: Add CashflowSparklineCard
+                          // const SizedBox(
+                          //   width: 200,
+                          //   child: CashflowSparklineCard(),
+                          // ),
+                          // const SizedBox(width: 12),
+                          const SizedBox(
                             width: 200,
-                            child: const CashflowSparklineCard(),
+                            child: MoMTrendBar(),
                           ),
-                          const SizedBox(width: 12),
-                          SizedBox(
-                            width: 200,
-                            child: const MoMTrendBar(),
-                          ),
-                          const SizedBox(width: 12),
-                          SizedBox(
-                            width: 200,
-                            child: const SavingsRateTile(),
-                          ),
-                          const SizedBox(width: 12),
-                          SizedBox(
-                            width: 200,
-                            child: const RunwayGauge(),
-                          ),
+                          // const SizedBox(width: 12),
+                          // const SizedBox(
+                          //   width: 200,
+                          //   child: SavingsRateTile(),
+                          // ),
+                          // const SizedBox(width: 12),
+                          // const SizedBox(
+                          //   width: 200,
+                          //   child: RunwayGauge(),
+                          // ),
                           const SizedBox(width: 12),
                         ],
                       ),

@@ -73,3 +73,5 @@ lib/l10n/app_localizations_kr.dart
 lib/l10n/app_localizations_nl.dart
 
 lib/l10n/app_localizations_uk.dart
+
+lib/l10n/app_localizations_vi.dart

@@ -1210,5 +1210,84 @@
   "addContribution": "Ajouter une contribution",
   "contributionAmount": "Montant de la contribution",
   "contributionType": "Type",
-  "contributionAdded": "Contribution ajoutée avec succès"
+  "contributionAdded": "Contribution ajoutée avec succès",
+
+  "pleaseSelectCategory": "Veuillez sélectionner une catégorie",
+  "pleaseEnterAmount": "Veuillez entrer un montant",
+  "userNotAuthenticated": "Utilisateur non authentifié",
+  "recurringExpenseUpdatedSuccessfully": "Dépense récurrente mise à jour avec succès",
+  "recurringExpenseAddedSuccessfully": "Dépense récurrente ajoutée avec succès",
+  "recurringIncomeUpdatedSuccessfully": "Revenu récurrent mis à jour avec succès",
+  "recurringIncomeAddedSuccessfully": "Revenu récurrent ajouté avec succès",
+  "failedToUpdateRecurringExpense": "Échec de la mise à jour de la dépense récurrente",
+  "failedToAddRecurringExpense": "Échec de l'ajout de la dépense récurrente",
+  "failedToUpdateRecurringIncome": "Échec de la mise à jour du revenu récurrent",
+  "failedToAddRecurringIncome": "Échec de l'ajout du revenu récurrent",
+  "editRecurringExpense": "Modifier Dépense Récurrente",
+  "editRecurringIncome": "Modifier Revenu Récurrent",
+  "addRecurringExpense": "Ajouter Dépense Récurrente",
+  "addRecurringIncome": "Ajouter Revenu Récurrent",
+  "selectCategory": "Sélectionner une catégorie",
+  "frequency": "Fréquence",
+  "startDate": "Date de début",
+  "setEndDate": "Définir une date de fin",
+  "endDate": "Date de fin",
+  "selectEndDate": "Sélectionner la date de fin",
+  "descriptionOptional": "Description (Optionnel)",
+  "sourceOptional": "Source (Optionnel)",
+  "companyNameClientNameExample": "ex: Nom de l'entreprise, Nom du client",
+  "setReminder": "Définir un rappel",
+  "updateRecurringTransaction": "Mettre à jour la Transaction Récurrente",
+  "addRecurringTransaction": "Ajouter une Transaction Récurrente",
+  "youWillBeNotifiedBeforeEachOccurrence": "Vous serez notifié {value} {unit} avant chaque occurrence",
+  "@youWillBeNotifiedBeforeEachOccurrence": {
+    "placeholders": {
+      "value": {"type": "int"},
+      "unit": {"type": "String"}
+    }
+  },
+  "addReminder": "Ajouter un Rappel",
+  "ended": "Terminé",
+  "noRecurringExpenses": "Aucune Dépense Récurrente",
+  "noRecurringIncome": "Aucun Revenu Récurrent",
+  "setupAutomaticExpenseTracking": "Configurez le suivi automatique des dépenses pour les abonnements, les factures et les paiements réguliers",
+  "setupAutomaticIncomeTracking": "Configurez le suivi automatique des revenus pour le salaire, le travail freelance et les gains réguliers",
+  "biweekly": "Bihebdomadaire",
+  "oneTime": "Unique",
+  "custom": "Personnalisé",
+  "everyXDays": "Tous les {count} jours",
+  "@everyXDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXWeeks": "Toutes les {count} semaines",
+  "@everyXWeeks": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "every2Weeks": "Toutes les 2 semaines",
+  "everyXMonths": "Tous les {count} mois",
+  "@everyXMonths": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXYears": "Tous les {count} ans",
+  "@everyXYears": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "days": "jours",
+  "hours": "heures"
 }

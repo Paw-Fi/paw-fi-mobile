@@ -1209,5 +1209,87 @@
   "addContribution": "添加存入",
   "contributionAmount": "存入金额",
   "contributionType": "类型",
-  "contributionAdded": "已成功添加存入"
+  "contributionAdded": "已成功添加存入",
+
+  "pleaseSelectCategory": "请选择分类",
+  "pleaseEnterAmount": "请输入金额",
+  "userNotAuthenticated": "用户未认证",
+  "recurringExpenseUpdatedSuccessfully": "定期支出更新成功",
+  "recurringExpenseAddedSuccessfully": "定期支出已成功添加",
+  "recurringIncomeUpdatedSuccessfully": "定期收入已成功更新",
+  "recurringIncomeAddedSuccessfully": "定期收入已成功添加",
+  "failedToUpdateRecurringExpense": "无法更新定期支出",
+  "failedToAddRecurringExpense": "无法添加定期支出",
+  "failedToUpdateRecurringIncome": "无法更新定期收入",
+  "failedToAddRecurringIncome": "无法添加定期收入",
+  "editRecurringExpense": "编辑定期支出",
+  "editRecurringIncome": "编辑定期收入",
+  "addRecurringExpense": "添加定期支出",
+  "addRecurringIncome": "添加定期收入",
+  "selectCategory": "选择类别",
+  "frequency": "频率",
+  "startDate": "开始日期",
+  "setEndDate": "设置结束日期",
+  "endDate": "结束日期",
+  "selectEndDate": "选择结束日期",
+  "descriptionOptional": "描述（可选）",
+  "sourceOptional": "来源（可选）",
+  "companyNameClientNameExample": "例如：公司名称，客户名称",
+  "setReminder": "设置提醒",
+  "updateRecurringTransaction": "更新定期交易",
+  "addRecurringTransaction": "添加定期交易",
+  "youWillBeNotifiedBeforeEachOccurrence": "您将在每次发生 {value}{unit}之前 收到通知",
+  "@youWillBeNotifiedBeforeEachOccurrence": {
+    "placeholders": {
+      "value": {"type": "int"},
+      "unit": {"type": "String"}
+    }
+  },
+  "addReminder": "添加提醒",
+  "ended": "已结束",
+  "noRecurringExpenses": "无定期支出",
+  "noRecurringIncome": "无定期收入",
+  "setupAutomaticExpenseTracking": "为订阅、账单和定期付款设置自动支出跟踪",
+  "setupAutomaticIncomeTracking": "为工资、自由职业和定期收入设置自动收入跟踪",
+  "biweekly": "每两周",
+  "oneTime": "一次性",
+  "custom": "自定义",
+  "everyXDays": "每{count}天",
+  "@everyXDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXWeeks": "每{count}周",
+  "@everyXWeeks": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "every2Weeks": "每2周",
+  "everyXMonths": "每{count}个月",
+  "@everyXMonths": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXYears": "每{count}年",
+  "@everyXYears": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "days": "天",
+  "hours": "小时",
+  "before": "在...之前",
+  "beforePrefix": "在",
+  "beforeSuffix": "之前"
 }

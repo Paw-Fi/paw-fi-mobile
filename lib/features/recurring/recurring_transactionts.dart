@@ -97,7 +97,7 @@ class _RecurringTransactionsPageState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          context.l10n.recurring,
+                          context.l10n.reminder,
                           style: TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.w800,
@@ -155,7 +155,7 @@ class _RecurringTransactionsPageState
                   fontWeight: FontWeight.w500,
                 ),
                 labelPadding: EdgeInsets.zero,
-                tabs: const [
+                tabs: [
                   Tab(
                     child: Padding(
                       padding: EdgeInsets.symmetric(vertical: 12),
@@ -163,7 +163,7 @@ class _RecurringTransactionsPageState
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                    
-                          Text('Expenses'),
+                          Text(context.l10n.expenses),
                         ],
                       ),
                     ),
@@ -175,7 +175,7 @@ class _RecurringTransactionsPageState
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
            
-                          Text('Income'),
+                          Text(context.l10n.income),
                         ],
                       ),
                     ),
@@ -349,7 +349,7 @@ class _RecurringTransactionsPageState
                   const SizedBox(height: 24),
                   shadcnui.PrimaryButton(
                     onPressed: _refresh,
-                    child: const Text('Retry'),
+                    child: Text(context.l10n.retry),
                   ),
                 ],
               ),
@@ -386,22 +386,22 @@ class _RecurringTransactionsPageState
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () => _showAddSheet(isExpense ? 'expense' : 'income'),
+          onTap: () => _showAddSheet(isExpense ? context.l10n.expenses: context.l10n.income),
           borderRadius: BorderRadius.circular(16),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
+                 Icon(
                   Icons.add,
                   color: Colors.white,
                   size: 24,
                 ),
-                const SizedBox(width: 8),
+                 SizedBox(width: 8),
                 Text(
-                  'Add ${isExpense ? 'Expense' : 'Income'}',
-                  style: const TextStyle(
+                  context.l10n.addReminder,
+                  style:  TextStyle(
                     color: Colors.white,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -458,11 +458,11 @@ class _RecurringTransactionsPageState
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: Text(context.l10n.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: Text(context.l10n.delete, style: const TextStyle(color: Colors.red)),
           ),
         ],
       ),

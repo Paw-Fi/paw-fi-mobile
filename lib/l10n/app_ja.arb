@@ -1210,5 +1210,84 @@
   "addContribution": "貢献を追加",
   "contributionAmount": "貢献額",
   "contributionType": "タイプ",
-  "contributionAdded": "貢献が正常に追加されました"
+  "contributionAdded": "貢献が正常に追加されました",
+
+  "pleaseSelectCategory": "カテゴリを選択してください",
+  "pleaseEnterAmount": "金額を入力してください",
+  "userNotAuthenticated": "ユーザーが認証されていません",
+  "recurringExpenseUpdatedSuccessfully": "定期的な支出が正常に更新されました",
+  "recurringExpenseAddedSuccessfully": "定期的な支出が正常に追加されました",
+  "recurringIncomeUpdatedSuccessfully": "定期的な収入が正常に更新されました",
+  "recurringIncomeAddedSuccessfully": "定期的な収入が正常に追加されました",
+  "failedToUpdateRecurringExpense": "定期的な支出の更新に失敗しました",
+  "failedToAddRecurringExpense": "定期的な支出の追加に失敗しました",
+  "failedToUpdateRecurringIncome": "定期的な収入の更新に失敗しました",
+  "failedToAddRecurringIncome": "定期的な収入の追加に失敗しました",
+  "editRecurringExpense": "定期的な支出を編集",
+  "editRecurringIncome": "定期的な収入を編集",
+  "addRecurringExpense": "定期的な支出を追加",
+  "addRecurringIncome": "定期的な収入を追加",
+  "selectCategory": "カテゴリを選択",
+  "frequency": "頻度",
+  "startDate": "開始日",
+  "setEndDate": "終了日を設定",
+  "endDate": "終了日",
+  "selectEndDate": "終了日を選択",
+  "descriptionOptional": "説明（オプション）",
+  "sourceOptional": "ソース（オプション）",
+  "companyNameClientNameExample": "例：会社名、クライアント名",
+  "setReminder": "リマインダーを設定",
+  "updateRecurringTransaction": "定期的な取引を更新",
+  "addRecurringTransaction": "定期的な取引を追加",
+  "youWillBeNotifiedBeforeEachOccurrence": "各回発生の{value} {unit}前に通知されます",
+  "@youWillBeNotifiedBeforeEachOccurrence": {
+    "placeholders": {
+      "value": {"type": "int"},
+      "unit": {"type": "String"}
+    }
+  },
+  "addReminder": "リマインダーを追加",
+  "ended": "終了",
+  "noRecurringExpenses": "定期的な支出なし",
+  "noRecurringIncome": "定期的な収入なし",
+  "setupAutomaticExpenseTracking": "サブスクリプション、請求書、定期的な支払いのための自動支出追跡を設定",
+  "setupAutomaticIncomeTracking": "給与、フリーランス作業、定期的な収益のための自動収入追跡を設定",
+  "biweekly": "隔週",
+  "oneTime": "一回限り",
+  "custom": "カスタム",
+  "everyXDays": "{count}日ごと",
+  "@everyXDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXWeeks": "{count}週間ごと",
+  "@everyXWeeks": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "every2Weeks": "2週間ごと",
+  "everyXMonths": "{count}ヶ月ごと",
+  "@everyXMonths": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXYears": "{count}年ごと",
+  "@everyXYears": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "days": "日",
+  "hours": "時間"
 }

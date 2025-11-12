@@ -495,6 +495,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
           error = context.l10n.splitAmountsMustEqual(
             widget.currencySymbol,
             widget.totalAmount.toStringAsFixed(2),
+            widget.currencySymbol,
           );
         }
         break;

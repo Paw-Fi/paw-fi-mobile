@@ -7,6 +7,40 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/core/utils/date_formatter.dart';
+
+/// Get localized frequency text for a recurring transaction
+String getLocalizedFrequencyText(BuildContext context, RecurringTransaction transaction) {
+  final l10n = context.l10n;
+  
+  if (transaction.recurrenceRule == null) return l10n.oneTime;
+  
+  final rule = transaction.recurrenceRule!;
+  switch (rule.frequency) {
+    case 'daily':
+      return rule.interval != null && rule.interval! > 1
+          ? l10n.everyXDays(rule.interval!)
+          : l10n.daily;
+    case 'weekly':
+      return rule.interval != null && rule.interval! > 1
+          ? l10n.everyXWeeks(rule.interval!)
+          : l10n.weekly;
+    case 'biweekly':
+      return l10n.every2Weeks;
+    case 'monthly':
+      return rule.interval != null && rule.interval! > 1
+          ? l10n.everyXMonths(rule.interval!)
+          : l10n.monthly;
+    case 'yearly':
+      return rule.interval != null && rule.interval! > 1
+          ? l10n.everyXYears(rule.interval!)
+          : l10n.yearly;
+    case 'custom':
+      return l10n.custom;
+    default:
+      return l10n.unknown;
+  }
+}
 
 /// Modern, Apple-inspired recurring transaction card with slidable actions
 class RecurringTransactionCard extends ConsumerWidget {
@@ -128,7 +162,7 @@ class RecurringTransactionCard extends ConsumerWidget {
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
-                                  transaction.frequencyText,
+                                  getLocalizedFrequencyText(context, transaction),
                                   style: TextStyle(
                                     color: colorScheme.mutedForeground,
                                     fontSize: 12,
@@ -138,10 +172,12 @@ class RecurringTransactionCard extends ConsumerWidget {
                               ),
                               const SizedBox(width: 8),
 
+                              const Icon(Icons.repeat, size: 12),
+                              const SizedBox(width: 2),
                               // Next occurrence
                               Flexible(
                                 child: Text(
-                                  'Next: ${DateFormat('MMM d').format(transaction.getNextOccurrence())}',
+                                  formatLocalizedDate(context, transaction.getNextOccurrence()),
                                   style: TextStyle(
                                     color: colorScheme.mutedForeground,
                                     fontSize: 12,
@@ -189,7 +225,7 @@ class RecurringTransactionCard extends ConsumerWidget {
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
-                            transaction.isActive ? 'Active' : 'Ended',
+                            transaction.isActive ? context.l10n.active : context.l10n.ended,
                             style: TextStyle(
                               color: transaction.isActive
                                   ? const Color(0xFF10B981)
@@ -253,7 +289,7 @@ class EmptyRecurringState extends StatelessWidget {
 
             // Title
             Text(
-              isExpense ? 'No Recurring Expenses' : 'No Recurring Income',
+              isExpense ? context.l10n.noRecurringExpenses : context.l10n.noRecurringIncome,
               style: TextStyle(
                 color: colorScheme.foreground,
                 fontSize: 20,
@@ -267,8 +303,8 @@ class EmptyRecurringState extends StatelessWidget {
             // Description
             Text(
               isExpense
-                  ? 'Set up automatic expense tracking for\nsubscriptions, bills, and regular payments'
-                  : 'Set up automatic income tracking for\nsalary, freelance work, and regular earnings',
+                  ? context.l10n.setupAutomaticExpenseTracking
+                  : context.l10n.setupAutomaticIncomeTracking,
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: colorScheme.mutedForeground,

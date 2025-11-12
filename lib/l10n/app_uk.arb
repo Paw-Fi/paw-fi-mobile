@@ -1184,5 +1184,84 @@
   "addContribution": "Додати внесок",
   "contributionAmount": "Сума внеску",
   "contributionType": "Тип",
-  "contributionAdded": "Внесок успішно додано"
+  "contributionAdded": "Внесок успішно додано",
+
+  "pleaseSelectCategory": "Будь ласка, виберіть категорію",
+  "pleaseEnterAmount": "Будь ласка, введіть суму",
+  "userNotAuthenticated": "Користувач не автентифікований",
+  "recurringExpenseUpdatedSuccessfully": "Періодичну витрату успішно оновлено",
+  "recurringExpenseAddedSuccessfully": "Періодичні витрати успішно додано",
+  "recurringIncomeUpdatedSuccessfully": "Періодичний дохід успішно оновлено",
+  "recurringIncomeAddedSuccessfully": "Періодичний дохід успішно додано",
+  "failedToUpdateRecurringExpense": "Не вдалося оновити періодичні витрати",
+  "failedToAddRecurringExpense": "Не вдалося додати періодичні витрати",
+  "failedToUpdateRecurringIncome": "Не вдалося оновити періодичний дохід",
+  "failedToAddRecurringIncome": "Не вдалося додати періодичний дохід",
+  "editRecurringExpense": "Редагувати Періодичні Витрати",
+  "editRecurringIncome": "Редагувати Періодичний Дохід",
+  "addRecurringExpense": "Додати Періодичні Витрати",
+  "addRecurringIncome": "Додати Періодичний Дохід",
+  "selectCategory": "Вибрати категорію",
+  "frequency": "Частота",
+  "startDate": "Дата початку",
+  "setEndDate": "Встановити дату закінчення",
+  "endDate": "Дата закінчення",
+  "selectEndDate": "Вибрати дату закінчення",
+  "descriptionOptional": "Опис (необов'язково)",
+  "sourceOptional": "Джерело (необов'язково)",
+  "companyNameClientNameExample": "наприклад, Назва компанії, Ім'я клієнта",
+  "setReminder": "Встановити нагадування",
+  "updateRecurringTransaction": "Оновити Періодичну Транзакцію",
+  "addRecurringTransaction": "Додати Періодичну Транзакцію",
+  "youWillBeNotifiedBeforeEachOccurrence": "Ви будете сповіщені за {value} {unit} до кожної події",
+  "@youWillBeNotifiedBeforeEachOccurrence": {
+    "placeholders": {
+      "value": {"type": "int"},
+      "unit": {"type": "String"}
+    }
+  },
+  "addReminder": "Додати Нагадування",
+  "ended": "Завершено",
+  "noRecurringExpenses": "Немає Періодичних Витрат",
+  "noRecurringIncome": "Немає Періодичного Доходу",
+  "setupAutomaticExpenseTracking": "Налаштуйте автоматичне відстеження витрат для підписок, рахунків та регулярних платежів",
+  "setupAutomaticIncomeTracking": "Налаштуйте автоматичне відстеження доходів для зарплати, фрілансу та регулярних доходів",
+  "biweekly": "Раз на два тижні",
+  "oneTime": "Разово",
+  "custom": "Налаштований",
+  "everyXDays": "Кожні {count} днів",
+  "@everyXDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXWeeks": "Кожні {count} тижнів",
+  "@everyXWeeks": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "every2Weeks": "Кожні 2 тижні",
+  "everyXMonths": "Кожні {count} місяців",
+  "@everyXMonths": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXYears": "Кожні {count} років",
+  "@everyXYears": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "days": "днів",
+  "hours": "годин"
 }

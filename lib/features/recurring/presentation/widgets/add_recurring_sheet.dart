@@ -14,6 +14,8 @@ import 'package:moneko/core/ui/widgets/transaction_frequency_picker.dart';
 import 'package:moneko/core/ui/widgets/transaction_date_picker.dart';
 import 'package:moneko/core/ui/widgets/transaction_selection_sheet.dart';
 import 'package:intl/intl.dart';
+import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/utils/date_formatter.dart';
 
 /// Modern bottom sheet for adding/editing recurring transactions
 /// Apple-inspired design with clean animations and intuitive UX
@@ -45,7 +47,7 @@ class AddRecurringSheet extends HookConsumerWidget {
 
     final selectedCategory = useState<String?>(existingTransaction?.category);
     final selectedFrequency = useState<String>(
-      existingTransaction?.recurrenceRule?.frequency ?? 'monthly',
+      existingTransaction?.recurrenceRule?.frequency ?? context.l10n.monthly,
     );
     final selectedCurrency = useState<String>(
       existingTransaction?.currency ?? 'USD',
@@ -56,7 +58,7 @@ class AddRecurringSheet extends HookConsumerWidget {
     final hasEndDate = useState<bool>(existingTransaction?.recurrenceRule?.endDate != null);
     final endDate = useState<DateTime?>(existingTransaction?.recurrenceRule?.endDate);
     final customInterval = useState<int?>(existingTransaction?.recurrenceRule?.interval);
-    final hasReminder = useState<bool>(false);
+    final hasReminder = useState<bool>(!isEditing); // Default to true for new transactions
     final reminderValue = useState<int>(1);
     final reminderUnit = useState<String>('days');
     final isLoading = useState<bool>(false);
@@ -70,21 +72,21 @@ class AddRecurringSheet extends HookConsumerWidget {
       
       if (selectedCategory.value == null) {
         debugPrint('🔴 Error: No category selected');
-        _showError(context, 'Please select a category');
+        _showError(context, context.l10n.pleaseSelectCategory);
         return;
       }
 
       final amountText = amountController.text.trim();
       if (amountText.isEmpty) {
         debugPrint('🔴 Error: Amount is empty');
-        _showError(context, 'Please enter an amount');
+        _showError(context, context.l10n.pleaseEnterAmount);
         return;
       }
 
       final amount = double.tryParse(amountText);
       if (amount == null || amount <= 0) {
         debugPrint('🔴 Error: Invalid amount');
-        _showError(context, 'Please enter a valid amount');
+        _showError(context, context.l10n.pleaseEnterValidAmount);
         return;
       }
 
@@ -95,7 +97,7 @@ class AddRecurringSheet extends HookConsumerWidget {
         final user = supabase.auth.currentUser;
         if (user == null) {
           debugPrint('🔴 User not authenticated');
-          _showError(context, 'User not authenticated');
+          _showError(context, context.l10n.userNotAuthenticated);
           isLoading.value = false;
           return;
         }
@@ -222,15 +224,15 @@ class AddRecurringSheet extends HookConsumerWidget {
             _showSuccess(
               context,
               isEditing
-                  ? 'Recurring ${isExpense ? 'expense' : 'income'} updated successfully'
-                  : 'Recurring ${isExpense ? 'expense' : 'income'} added successfully',
+                  ? context.l10n.recurringExpenseUpdatedSuccessfully
+                  : context.l10n.recurringExpenseAddedSuccessfully,
             );
           }
         } else {
           debugPrint('🔴 Result is null - ${isEditing ? 'update' : 'save'} failed');
           _showError(
             context,
-            'Failed to ${isEditing ? 'update' : 'add'} recurring ${isExpense ? 'expense' : 'income'}',
+            context.l10n.failedToUpdateRecurringExpense,
           );
         }
       } catch (e, stackTrace) {
@@ -263,8 +265,8 @@ class AddRecurringSheet extends HookConsumerWidget {
                   Expanded(
                     child: Text(
                       isEditing 
-                        ? 'Edit Recurring ${isExpense ? 'Expense' : 'Income'}'
-                        : 'Add Recurring ${isExpense ? 'Expense' : 'Income'}',
+                        ? context.l10n.editRecurringExpense
+                        : context.l10n.addRecurringExpense,
                       style: TextStyle(
                         color: colorScheme.foreground,
                         fontSize: 20,
@@ -293,7 +295,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     // Amount input
-                    _buildLabel('Amount', colorScheme),
+                    _buildLabel(context.l10n.amount, colorScheme),
                     const SizedBox(height: 8),
                     CustomTextField(
                       controller: amountController,
@@ -311,10 +313,10 @@ class AddRecurringSheet extends HookConsumerWidget {
           
                     _buildDetailCard(
                       colorScheme: colorScheme,
-                      label: 'Category',
+                      label: context.l10n.category,
                       value: selectedCategory.value != null
                           ? getCategoryTranslation(context, selectedCategory.value!)
-                          : 'Select category',
+                          : context.l10n.selectCategory,
                       onTap: () async {
                         final result = await showCategoryPicker(
                           context: context,
@@ -332,7 +334,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                     // Currency selector
                     _buildDetailCard(
                       colorScheme: colorScheme,
-                      label: 'Currency',
+                      label: context.l10n.currency,
                       value: selectedCurrency.value.toUpperCase(),
                       onTap: () async {
                         final result = await showCurrencyPicker(
@@ -349,12 +351,12 @@ class AddRecurringSheet extends HookConsumerWidget {
                 
                     _buildDetailCard(
                       colorScheme: colorScheme,
-                      label: 'Frequency',
+                      label: context.l10n.frequency,
                       value: () {
                         // Get the label for the current frequency
-                        final freq = defaultFrequencyOptions.firstWhere(
+                        final freq = getDefaultFrequencyOptions(context).firstWhere(
                           (f) => f.value == selectedFrequency.value,
-                          orElse: () => defaultFrequencyOptions[3], // Default to 'monthly'
+                          orElse: () => getDefaultFrequencyOptions(context)[3], // Default to 'monthly'
                         );
                         return freq.label;
                       }(),
@@ -374,8 +376,8 @@ class AddRecurringSheet extends HookConsumerWidget {
                
                     _buildDetailCard(
                       colorScheme: colorScheme,
-                      label: 'Start Date',
-                      value: DateFormat('MMM d, y').format(startDate.value),
+                      label: context.l10n.startDate,
+                      value: formatLocalizedDate(context, startDate.value, includeYear: true),
                       onTap: () async {
                         final result = await showTransactionDatePicker(
                           context: context,
@@ -426,7 +428,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
-                                'Set end date',
+                                context.l10n.setEndDate,
                                 style: TextStyle(
                                   color: colorScheme.foreground,
                                   fontSize: 16,
@@ -444,10 +446,10 @@ class AddRecurringSheet extends HookConsumerWidget {
                       const SizedBox(height: 12),
                       _buildDetailCard(
                         colorScheme: colorScheme,
-                        label: 'End Date',
+                        label: context.l10n.endDate,
                         value: endDate.value != null
-                            ? DateFormat('MMM d, y').format(endDate.value!)
-                            : 'Select end date',
+                            ? formatLocalizedDate(context, endDate.value!, includeYear: true)
+                            : context.l10n.selectEndDate,
                         onTap: () async {
                           final result = await showTransactionDatePicker(
                             context: context,
@@ -466,22 +468,22 @@ class AddRecurringSheet extends HookConsumerWidget {
                     const SizedBox(height: 20),
 
                     // Description
-                    _buildLabel('Description (Optional)', colorScheme),
+                    _buildLabel(context.l10n.descriptionOptional, colorScheme),
                     const SizedBox(height: 8),
                     CustomTextField(
                       controller: descriptionController,
-                      placeholder: 'Add a note...',
+                      placeholder: context.l10n.addANote,
                       maxLines: 2,
                     ),
 
                     // Source (for income only)
                     if (!isExpense) ...[
                       const SizedBox(height: 20),
-                      _buildLabel('Source (Optional)', colorScheme),
+                      _buildLabel(context.l10n.sourceOptional, colorScheme),
                       const SizedBox(height: 8),
                       CustomTextField(
                         controller: sourceController,
-                        placeholder: 'e.g., Company name, Client name',
+                        placeholder: context.l10n.companyNameClientNameExample,
                       ),
                     ],
 
@@ -516,7 +518,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
-                                'Set reminder',
+                                context.l10n.setReminder,
                                 style: TextStyle(
                                   color: colorScheme.foreground,
                                   fontSize: 16,
@@ -532,11 +534,14 @@ class AddRecurringSheet extends HookConsumerWidget {
                     // Reminder configuration (if enabled)
                     if (hasReminder.value) ...[
                       const SizedBox(height: 12),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          // Reminder value input
-                          SizedBox(
+                      Builder(
+                        builder: (context) {
+                          // Detect word order based on language
+                          final lang = Localizations.localeOf(context).languageCode.toLowerCase();
+                          final useSOV = {'zh', 'ja', 'ko', 'hi', 'ur', 'tr', 'fa'}.contains(lang);
+                          
+                          // Build UI components
+                          final valueInput = SizedBox(
                             width: 80,
                             child: CustomTextField(
                               initialValue: reminderValue.value.toString(),
@@ -555,23 +560,27 @@ class AddRecurringSheet extends HookConsumerWidget {
                                 }
                               },
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          // Reminder unit picker
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: () async {
-                                final result = await showTransactionSelectionSheet<String>(
-                                  context: context,
-                                  items: ['days', 'hours'],
-                                  getLabel: (unit) => unit.substring(0, 1).toUpperCase() + unit.substring(1),
-                                  initial: reminderUnit.value,
-                                );
-                                if (result != null) {
-                                  reminderUnit.value = result;
-                                }
-                              },
+                          );
+                          
+                          final unitPicker = GestureDetector(
+                            onTap: () async {
+                              final result = await showTransactionSelectionSheet<String>(
+                                context: context,
+                                items: ['days', 'hours'],
+                                getLabel: (unit) {
+                                  if (unit == 'days') return context.l10n.days;
+                                  if (unit == 'hours') return context.l10n.hours;
+                                  return unit;
+                                },
+                                initial: reminderUnit.value,
+                              );
+                              if (result != null) {
+                                reminderUnit.value = result;
+                              }
+                            },
+                            child: IntrinsicWidth(
                               child: Container(
+                                constraints: const BoxConstraints(minWidth: 80), // Minimum width
                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                                 decoration: BoxDecoration(
                                   color: colorScheme.muted.withValues(alpha: 0.08),
@@ -582,17 +591,18 @@ class AddRecurringSheet extends HookConsumerWidget {
                                   ),
                                 ),
                                 child: Row(
+                                  mainAxisSize: MainAxisSize.min,
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(
-                                      reminderUnit.value.substring(0, 1).toUpperCase() + 
-                                      reminderUnit.value.substring(1),
+                                      reminderUnit.value == 'days' ? context.l10n.days : context.l10n.hours,
                                       style: TextStyle(
                                         fontSize: 16,
                                         color: colorScheme.foreground,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
+                                    const SizedBox(width: 8),
                                     Icon(
                                       Icons.arrow_drop_down,
                                       color: colorScheme.mutedForeground,
@@ -602,22 +612,68 @@ class AddRecurringSheet extends HookConsumerWidget {
                                 ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          // "Before" label
-                          Text(
-                            'Before',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: colorScheme.foreground,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
+                          );
+                          
+                          // Arrange based on word order
+                          List<Widget> rowChildren;
+                          if (useSOV) {
+                            // SOV languages: beforePrefix [value][unit]beforeSuffix
+                            // Chinese: 在 2天之前
+                            rowChildren = [
+                              Text(
+                                context.l10n.beforePrefix,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: colorScheme.foreground,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              valueInput,
+                              const SizedBox(width: 12),
+                              unitPicker,
+                              const SizedBox(width: 12),
+                              Text(
+                                context.l10n.beforeSuffix,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: colorScheme.foreground,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ];
+                          } else {
+                            // Default SVO: [value] [unit] before
+                            // English: 2 days before
+                            rowChildren = [
+                              valueInput,
+                              const SizedBox(width: 12),
+                              unitPicker,
+                              const SizedBox(width: 12),
+                              Text(
+                                context.l10n.before,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: colorScheme.foreground,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ];
+                          }
+                          
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: rowChildren,
+                          );
+                        },
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'You will be notified ${reminderValue.value} ${reminderUnit.value} before each occurrence',
+                        context.l10n.youWillBeNotifiedBeforeEachOccurrence(
+                          reminderValue.value,
+                          reminderUnit.value == 'days' ? context.l10n.days : context.l10n.hours,
+                        ),
                         style: TextStyle(
                           fontSize: 12,
                           color: colorScheme.mutedForeground,
@@ -647,7 +703,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                                       Colors.white),
                                 ),
                               )
-                            : Text(isEditing ? 'Update Recurring Transaction' : 'Add Recurring Transaction'),
+                            : Text(isEditing ? context.l10n.updateRecurringTransaction : context.l10n.addRecurringTransaction),
                       ),
                     ),
                   ],

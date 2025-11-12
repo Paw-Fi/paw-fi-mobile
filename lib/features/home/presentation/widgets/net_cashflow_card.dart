@@ -77,10 +77,6 @@ Widget buildNetCashflowCard(
     );
   }
 
-double _getTotalBudget(List<DailyBudgetEntry> budgets) {
-  return budgets.fold(0.0, (sum, b) => sum + b.amount);
-}
-
 /// Returns (income, expenses)
 (double, double) _getIncomeAndExpenses(List<ExpenseEntry> transactions) {
   double income = 0;
