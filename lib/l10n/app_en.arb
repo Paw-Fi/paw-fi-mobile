@@ -20,21 +20,10 @@
   "enterValidEmail": "Please enter a valid email address",
   "passwordMinLength": "Password must be at least {min} characters long",
   "@passwordMinLength": {
-    "placeholders": {
-      "min": {
-        "type": "int"
-      }
-    }
   },
   "fullNameMinLength": "Full name must be at least {min} characters long",
   "@fullNameMinLength": {
-    "placeholders": {
-      "min": {
-        "type": "int"
-      }
-    }
   },
-
   "createYourAccount": "Create your account",
   "fullName": "Full name",
   "createPassword": "Create a password",
@@ -43,45 +32,29 @@
   "termsAgreement": "By creating an account, you agree to our Terms of Service and Privacy Policy",
   "alreadyHaveAccount": "Already have an account?",
   "signInLower": "Sign in",
-
   "verificationCodeSent": "Verification code sent successfully",
   "verifyYourEmail": "Verify Your Email",
   "verificationEmailSentTo": "We've sent a 6-digit verification code to {email}",
   "@verificationEmailSentTo": {
-    "placeholders": {
-      "email": {
-        "type": "String"
-      }
-    }
   },
   "enterCompleteCode": "Please enter the complete 6-digit code",
-  "invalidVerificationCode": "Invalid verification code. Please check and try again.",
   "verificationCodeExpired": "Verification code has expired. Please request a new one.",
   "verifyEmail": "Verify Email",
   "didntReceiveTheCode": "Didn't receive the code? Check your spam folder or",
   "resendInSeconds": "resend in {seconds}s",
   "@resendInSeconds": {
-    "placeholders": {
-      "seconds": {
-        "type": "int"
-      }
-    }
   },
   "resendVerificationEmail": "resend verification email",
-
   "continueWithGoogle": "Continue with Google",
   "signingInWithGoogle": "Signing in with Google...",
-
   "error": "Error",
   "anErrorOccurred": "An error occurred",
   "unknownError": "Unknown error",
   "goToHome": "Go to Home",
-
   "paymentSuccessfulCheckingSubscription": "✅ Payment successful! Checking subscription...",
   "paymentFailed": "Payment failed",
   "paymentCanceled": "ℹ️ Payment canceled",
   "whatsappVerifiedSuccessfully": "✅ WhatsApp verified successfully!",
-
   "settings": "Settings",
   "enableNotificationsInSettings": "Enable notifications for Moneko in your device settings",
   "appearance": "Appearance",
@@ -108,28 +81,13 @@
   "trialStatus": "Trial",
   "trialEndsInDays": "Trial ends in {days} days",
   "@trialEndsInDays": {
-    "placeholders": {
-      "days": {
-        "type": "int"
-      }
-    }
   },
   "trialEnded": "Trial ended",
   "renewsInDays": "Renews in {days} days",
   "@renewsInDays": {
-    "placeholders": {
-      "days": {
-        "type": "int"
-      }
-    }
   },
   "accessEndsInDays": "Access ends in {days} days",
   "@accessEndsInDays": {
-    "placeholders": {
-      "days": {
-        "type": "int"
-      }
-    }
   },
   "subscriptionEnded": "Subscription ended",
   "profile": "Profile",
@@ -154,19 +112,15 @@
   "activity": "Activity",
   "accountInformation": "Account Information",
   "userId": "User ID",
-  "email": "Email",
   "recentActivity": "Recent Activity",
   "noActivityYet": "No activity yet",
   "signOut": "Sign Out",
-
-  "@insights": {},
   "insights": "Insights",
+  "@insights": {},
   "runningTab": "Running",
   "day30Tab": "30-Day",
   "longTermTab": "Long-Term",
   "scenarioTab": "Scenario",
-
-  "@runningBalance": {},
   "runningAndDailyBalances": "Running & Daily Balances",
   "budgetVsSpentDescription": "Budget vs Spent per day with cumulative running balance.",
   "runningBalanceLegend": "Running Balance",
@@ -174,22 +128,17 @@
   "spentLegend": "Spent",
   "runningBalanceGuide": "Running balance guide",
   "runningBalanceIntro": "Think of this chart as your personal money coach. Let's walk through what it shows and how to use it.",
-
-  "@day30Projection": {},
   "day30LookAhead": "30-Day Look-Ahead",
   "projectedFromTrailing30Days": "Projected from trailing 30-day averages.",
   "projectedSpendingLegend": "Projected Spending",
   "peek30DaysAhead": "Peek 30 days ahead",
   "day30ForecastIntro": "This forecast uses the last month of activity to guess how lively the next month might be. Think of it as a weather report for your wallet.",
-
-  "@longTermProjection": {},
   "longTermProjection": "Long-Term Projection",
+  "@longTermProjection": {},
   "basedOnHistoricalAverages": "Based on historical averages; updates automatically with your data.",
   "month18ProjectionLegend": "18-Month Projection",
   "your18MonthHorizon": "Your 18-month horizon",
   "longTermIntro": "This projection blends your steady habits with gentle growth assumptions so you can see where today's choices lead.",
-
-  "@scenarioPlanning": {},
   "aiScenarioPlanning": "AI Scenario Planning",
   "askAiFinancialAdvisor": "Ask your AI financial advisor if you can afford a future expense",
   "canI": "Can I",
@@ -211,46 +160,30 @@
   "categoryWhyHelpfulDesc": "Quickly identify your biggest spending categories and spot trends over time.",
   "whatToDoWithTheInsight": "What to do with the insight",
   "categoryWhatToDoDesc": "Use this information to adjust your budget and spending habits.",
-
-  "@scenarioResults": {},
   "scenarioAnalysis": "Scenario Analysis",
   "target": "Target",
   "quickStats": "Quick Stats",
   "currentBalance": "Current Balance",
   "projectedNoChange": "Projected (No Change)",
   "avgDailyNet": "Avg Daily Net",
-
-  "@chartLabels": {},
   "noDataAvailable": "No data available",
   "day": "Day",
-
-  "@navigation": {},
   "close": "Close",
-  "next": "Next",
   "done": "Done",
-
-  "@runningBalanceSlides": {},
   "whatYouAreSeeing": "What you are seeing",
   "whyItMatters": "Why it matters",
   "howToRespond": "How to respond",
   "runningBalanceWhatYouSeeDesc": "Your running balance tracks how much breathing room you have after each day of spending. The daily bars show what you planned versus what you actually spent.",
   "runningBalanceWhyMattersDesc": "Treat this as a friendly pulse check. It helps you notice when you are ahead of plan so you can keep investing, or when a course correction will keep you on track.",
   "runningBalanceHowToRespondDesc": "Use the chart like a coach. Celebrate gains, reset expectations when needed, and give yourself grace—it is about steady progress, not perfection.",
-
-  "@day30Slides": {},
   "whatTheForecastShows": "What the forecast shows",
   "day30WhatShowsDesc": "We blend the past 30 days of spending and income to sketch an average week ahead. It smooths out one-off splurges so you can see the usual rhythm.",
   "day30WhyMattersDesc": "Forward-looking budgets help you stay proactive. Seeing big days ahead lets you set aside cash instead of scrambling later.",
   "day30HowToPlaySmartDesc": "Treat it like a friendly nudge, not a strict rulebook. Adjust your plan with tiny moves that feel doable.",
-
-  "@longTermSlides": {},
   "howTheProjectionWorks": "How the projection works",
   "longTermHowWorksDesc": "We roll forward your average income and spending, sprinkling in modest growth so you can see if your plan keeps cash comfortable months ahead.",
   "longTermWhyMattersDesc": "Long horizons make big dreams real. See whether your emergency fund, investments, or big purchases stay on track.",
   "longTermMovesToConsiderDesc": "Use the chart to rehearse future decisions. Small tweaks today compound into big wins later.",
-
-  "@categorySlides": {},
-  "overview": "Overview",
   "forMe": "For me",
   "forUs": "For us",
   "home": "Home",
@@ -263,9 +196,8 @@
   "updateBudget": "Update budget",
   "enterNewTotalDailyBudget": "Enter the new total daily budget.",
   "budgetAmount": "Budget amount",
-  "cancel": "Cancel",
   "save": "Save",
-  "enterValidAmountGreaterThan0": "Enter a valid amount greater than 0",
+  "enterValidAmountGreaterThan0": "Please enter a valid amount greater than 0",
   "updatingBudget": "Updating budget...",
   "budgetUpdated": "Budget updated",
   "failedToUpdateBudget": "Failed to update budget",
@@ -275,15 +207,15 @@
   "failedToCapturePhoto": "Failed to capture photo",
   "noSpendingData": "No spending data",
   "byCategory": "By Category",
-  "noExpensesYet": "No expenses yet",
+  "noExpensesYet": "No Expenses Yet",
   "startLoggingExpensesToSeeCategories": "Start logging expenses to see categories",
   "selectDateRange": "Select Date Range",
   "addExpense": "Add Expense",
   "describeYourExpense": "Describe your expense (eg: \"5 for burger, 3 for coffee\")",
   "enterExpenseDetails": "Enter expense details...",
   "freeFormText": "Free-form text",
-  "takePhoto": "Take photo",
-  "transactions": "transactions",
+  "takePhoto": "Take Photo",
+  "transactions": "Transactions",
   "negative": "Negative",
   "positive": "Positive",
   "spendingBreakdown": "Spending Breakdown",
@@ -320,11 +252,6 @@
   "showLessCurrencies": "Show less currencies",
   "showAllCurrencies": "Show all currencies ({count} more)",
   "@showAllCurrencies": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
   },
   "budget": "Budget",
   "spentLabel": "Spent",
@@ -333,11 +260,10 @@
   "txns": "txns",
   "pleaseEnterExpenseDetails": "Please enter expense details",
   "userNotLoggedIn": "User not logged in",
-  "errorLoadingHouseholds": "Error loading households",
-  "welcomeToHouseholds": "Welcome to Households!",
+  "errorLoadingHouseholds": "Error Loading Households",
   "householdsDescription": "Manage shared finances with your family, partner, or roommates. Track budgets, split expenses, and collaborate on money decisions.",
   "createHousehold": "Create Household",
-  "joinWithInvite": "Join with invite",
+  "joinWithInvite": "Join with Invite",
   "pleaseUseInvitationLink": "Please use an invitation link to join a household",
   "householdName": "Household Name",
   "householdNameHint": "e.g., The Smiths",
@@ -356,7 +282,7 @@
   "notes": "Notes",
   "receipt": "Receipt",
   "saveExpense": "Save Expense",
-  "shareWithHousehold": "Share with household",
+  "shareWithHousehold": "Share with Household",
   "loadingHouseholdMembers": "Loading household members...",
   "selectHouseholdToConfigureSplit": "Select a household to configure split",
   "currencyManagedByHousehold": "Currency is managed by the household and cannot be changed",
@@ -368,25 +294,24 @@
   "editNotes": "Edit Notes",
   "addANote": "Add a note...",
   "noMembersFoundInHousehold": "No members found in household",
-  "errorLoadingMembers": "Error loading members: {error}",
   "noExpenseToSave": "No expense to save",
   "expenseSavedAndShared": "Expense saved and shared{splitInfo}!",
+  "@expenseSavedAndShared": {
+  },
   "expenseSaved": "Expense saved!",
   "failedToSave": "Failed to save: {error}",
+  "@failedToSave": {
+  },
   "failedToSyncCurrencyPreference": "Failed to sync currency preference: {error}",
   "currencyUpdatedSuccessfully": "Currency updated successfully",
   "retryFailed": "Retry failed: {error}",
   "iSpentAmountOnCategory": "I spent {currencySymbol}{amount} on {category}",
   "enterNewTotalDailyBudgetDescription": "Enter the new total daily budget.",
-
-  "@household": {},
   "pleaseSignInToAccessHouseholdFeatures": "Please sign in to access household features",
-  "errorLoadingHouseholds": "Error Loading Households",
   "quickActions": "Quick Actions",
   "members": "Members",
   "invites": "Invites",
-  "settings": "Settings",
-  "errorLoadingExpenses": "Error loading expenses",
+  "errorLoadingExpenses": "Error Loading Expenses",
   "budgets": "Budgets",
   "loadingHousehold": "Loading household...",
   "remaining": "Remaining",
@@ -396,7 +321,6 @@
   "spentByHousehold": "Spent by Household",
   "memberSpending": "Member Spending",
   "spentByHouseholdTooltip": "This shows the total amount spent by all household members during the selected period. It includes all shared expenses logged by any member of the household.",
-  "welcomeToHouseholds": "Welcome to Households",
   "manageMoneyTogether": "Manage money together with your partner, family, or roommates in one shared space.",
   "sharedBudgetsExpenses": "Shared Budgets & Expenses",
   "sharedBudgetsExpensesDesc": "Set budgets, track spending, and see where your household money goes in real-time.",
@@ -404,87 +328,70 @@
   "smartExpenseSplittingDesc": "Automatically calculate who owes what with flexible split options: equal, percentage, or custom amounts.",
   "stayInSync": "Stay in Sync",
   "stayInSyncDesc": "Get notified when expenses are added, budgets are reached, or splits need settling.",
-  "createHousehold": "Create Household",
-  "joinWithInvite": "Join with Invite",
-  
-    "@householdSettings": {},
-    "householdSettings": "Household Settings",
-    "householdNotFound": "Household not found",
-    "coverPhoto": "Cover Photo",
-    "changeCoverPhoto": "Change Cover Photo",
-    "saveChanges": "Save Changes",
-    "pleaseEnterHouseholdName": "Please enter a household name",
-    "errorLoadingHousehold": "Error loading household",
-    "householdUpdatedSuccessfully": "Household updated successfully",
-    "failedToUpdateHousehold": "Failed to update household",
-    
-    "@householdMembers": {},
-    "inviteMember": "Invite Member",
-    "errorLoadingMembers": "Error loading members",
-    "retry": "Retry",
-    "removeMember": "Remove Member",
-    "remove": "Remove",
-    "confirmRemoveMember": "Are you sure you want to remove",
-    "updatedMemberRole": "Updated",
-    "unknown": "Unknown",
-    "makeAdmin": "Make Admin",
-    "makeMember": "Make Member",
-    
-    "@householdInvites": {},
-    "invitations": "Invitations",
-    "errorLoadingInvites": "Error loading invites",
-    "createInvitation": "Create Invitation",
-    "pendingInvitations": "Pending Invitations",
-    "noPendingInvitations": "No pending invitations",
-    "invitationHistory": "Invitation History",
-    "noInvitationHistory": "No invitation history",
-    "emailOptional": "Email (optional)",
-    "friendEmailExample": "friend@example.com",
-    "personalMessageOptional": "Personal Message (optional)",
-    "joinHouseholdBudget": "Join our household budget!",
-    "expiresIn": "Expires In",
-    "oneDay": "1 day",
-    "threeDays": "3 days",
-    "sevenDays": "7 days",
-    "fourteenDays": "14 days",
-    "thirtyDays": "30 days",
-    "unlimited": "Unlimited",
-    "create": "Create",
-    "invitationCreatedSuccessfully": "Invitation created successfully!",
-    "inviteLinkCopiedToClipboard": "Invite link copied to clipboard!",
-    "errorCreatingInvite": "Error creating invite",
-    "revokeInvitation": "Revoke Invitation",
-    "confirmRevokeInvitation": "Are you sure you want to revoke this invitation?",
-    "revoke": "Revoke",
-    "invitationRevoked": "Invitation revoked",
-    "errorRevokingInvite": "Error revoking invite",
-    "anyoneWithLink": "Anyone with link",
-    "noExpiry": "No expiry",
-    "expired": "Expired",
-    "expires": "Expires",
-    "copyLink": "Copy Link",
-    
-    "@householdImagePicker": {},
-    "selectCoverImage": "Select Cover Image",
-    "failedToLoadImages": "Failed to load images",
-    "takePhoto": "Take Photo",
-    "chooseFromGallery": "Choose from Gallery",
-    "failedToLoad": "Failed to load",
-    "imageTooLarge": "Image too large",
-    "maxIs": "Max is",
-    "unsupportedFileFormat": "Unsupported file format. Please use JPG, PNG, or WebP.",
-    "cropCoverImage": "Crop Cover Image",
-
-  "@budgetDetail": {},
+  "householdSettings": "Household Settings",
+  "@householdSettings": {},
+  "householdNotFound": "Household not found",
+  "coverPhoto": "Cover Photo",
+  "changeCoverPhoto": "Change Cover Photo",
+  "saveChanges": "Save Changes",
+  "errorLoadingHousehold": "Error loading household",
+  "householdUpdatedSuccessfully": "Household updated successfully",
+  "failedToUpdateHousehold": "Failed to update household",
+  "inviteMember": "Invite Member",
+  "removeMember": "Remove Member",
+  "remove": "Remove",
+  "confirmRemoveMember": "Are you sure you want to remove",
+  "updatedMemberRole": "Updated member role",
+  "unknown": "Unknown",
+  "makeAdmin": "Make Admin",
+  "makeMember": "Make Member",
+  "invitations": "Invitations",
+  "errorLoadingInvites": "Error loading invites",
+  "createInvitation": "Create Invitation",
+  "pendingInvitations": "Pending Invitations",
+  "noPendingInvitations": "No pending invitations",
+  "invitationHistory": "Invitation History",
+  "noInvitationHistory": "No invitation history",
+  "emailOptional": "Email (optional)",
+  "friendEmailExample": "friend@example.com",
+  "personalMessageOptional": "Personal Message (optional)",
+  "joinHouseholdBudget": "Join our household budget!",
+  "expiresIn": "Expires In",
+  "oneDay": "1 Day",
+  "threeDays": "3 Days",
+  "sevenDays": "7 Days",
+  "fourteenDays": "14 Days",
+  "thirtyDays": "30 Days",
+  "unlimited": "Unlimited",
+  "create": "Create",
+  "invitationCreatedSuccessfully": "Invitation created successfully",
+  "inviteLinkCopiedToClipboard": "Invite link copied to clipboard!",
+  "errorCreatingInvite": "Error creating invite",
+  "revokeInvitation": "Revoke Invitation",
+  "confirmRevokeInvitation": "Are you sure you want to revoke this invitation?",
+  "revoke": "Revoke",
+  "invitationRevoked": "Invitation revoked",
+  "errorRevokingInvite": "Error revoking invite",
+  "anyoneWithLink": "Anyone with link",
+  "noExpiry": "No expiry",
+  "expired": "Expired",
+  "expires": "Expires",
+  "copyLink": "Copy Link",
+  "selectCoverImage": "Select Cover Image",
+  "failedToLoadImages": "Failed to load images",
+  "chooseFromGallery": "Choose from Gallery",
+  "failedToLoad": "Failed to load",
+  "imageTooLarge": "Image too large",
+  "maxIs": "Max is",
+  "unsupportedFileFormat": "Unsupported file format. Please use JPG, PNG, or WebP.",
+  "cropCoverImage": "Crop Cover Image",
   "editBudget": "Edit Budget",
   "budgetDetails": "Budget Details",
   "budgetName": "Budget Name",
-  "amount": "Amount",
   "period": "Period",
-  "currency": "Currency",
   "alertThresholds": "Alert Thresholds",
-  "warningThreshold": "Warning Threshold",
-  "alertThreshold": "Alert Threshold",
+  "warningThreshold": "Warning Threshold (%)",
+  "alertThreshold": "Alert Threshold (%)",
   "warningThresholdHelper": "Alert when budget usage reaches this percentage",
   "alertThresholdHelper": "Critical alert at this percentage",
   "budgetStatus": "Budget Status",
@@ -502,8 +409,6 @@
   "thisActionCannotBeUndone": "This action cannot be undone",
   "budgetUpdatedSuccessfully": "Budget updated successfully",
   "budgetDeletedSuccessfully": "Budget deleted successfully",
-
-  "@categories": {},
   "categoryTransfers": "Transfers",
   "categoryShopping": "Shopping",
   "categoryUtilities": "Utilities",
@@ -548,98 +453,29 @@
   "categoryBeauty": "Beauty",
   "categoryMisc": "Misc",
   "categoryUncategorized": "Uncategorized",
-
-  "alertThresholds": "Alert Thresholds",
-  "warningThreshold": "Warning Threshold (%)",
-  "alertThreshold": "Alert Threshold (%)",
-  "warningThresholdHelper": "Alert when budget usage reaches this percentage",
-  "alertThresholdHelper": "Critical alert at this percentage",
-  "active": "Active",
-  "inactive": "Inactive",
-  "saveChanges": "Save Changes",
-  "pleaseEnterValidAmount": "Please enter a valid amount",
-  "warningThresholdRange": "Warning threshold must be between 0 and 100",
-  "alertThresholdRange": "Alert threshold must be between 0 and 100",
-  "warningThresholdLessThanAlert": "Warning threshold must be less than or equal to alert threshold",
-  "failedToUpdateBudget": "Failed to update budget",
-  "deleteBudget": "Delete Budget",
-  "confirmDeleteBudget": "Are you sure you want to delete",
   "deleteBudgetCannotBeUndone": "This action cannot be undone",
   "delete": "Delete",
   "failedToDeleteBudget": "Failed to delete budget",
-
   "owner": "Owner",
-  "admin": "Admin", 
+  "admin": "Admin",
   "member": "Member",
-  "removeMember": "Remove Member",
-  "confirmRemoveMember": "Are you sure you want to remove",
-  "remove": "Remove",
-  "retry": "Retry",
-  "unknown": "Unknown",
-  "makeAdmin": "Make Admin",
-  "makeMember": "Make Member",
-  "updatedMemberRole": "Updated member role",
-
-  "invitations": "Invitations",
-  "createInvitation": "Create Invitation",
-  "pendingInvitations": "Pending Invitations",
-  "noPendingInvitations": "No pending invitations",
-  "invitationHistory": "Invitation History",
-  "noInvitationHistory": "No invitation history",
-  "emailOptional": "Email (optional)",
-  "friendEmailExample": "friend@example.com",
-  "personalMessageOptional": "Personal Message (optional)",
-  "expiresIn": "Expires In",
-  "oneDay": "1 Day",
-  "threeDays": "3 Days",
-  "sevenDays": "7 Days",
-  "fourteenDays": "14 Days",
-  "thirtyDays": "30 Days",
-  "unlimited": "Unlimited",
-  "create": "Create",
-  "invitationCreatedSuccessfully": "Invitation created successfully",
-  "inviteLinkCopiedToClipboard": "Invite link copied to clipboard!",
-  "anyoneWithLink": "Anyone with link",
-  "revokeInvitation": "Revoke Invitation",
-  "confirmRevokeInvitation": "Are you sure you want to revoke this invitation?",
-  "revoke": "Revoke",
-  "invitationRevoked": "Invitation revoked",
-  "copyLink": "Copy Link",
-  "noExpiry": "No expiry",
-  "expired": "Expired",
-  "expires": "Expires",
   "pending": "Pending",
   "accepted": "Accepted",
   "revoked": "Revoked",
-
-  "createHousehold": "Create Household",
   "tapToChangeCover": "Tap to change cover",
   "personalMessageHint": "Say something to your invitees (e.g., \"Join our household budget!\")",
   "invitationExpiresIn": "Invitation Expires In",
   "daysCount": "{days} day{days, plural, =1 {} other {s}}",
   "@daysCount": {
-    "placeholders": {
-      "days": {
-        "type": "int"
-      }
-    },
-    "plural": "days"
   },
   "createHouseholdDescription": "Create a shared space for tracking budgets and expenses with family or roommates.",
   "uploadingImage": "Uploading Image...",
   "creating": "Creating...",
   "generatingInvite": "Generating Invite...",
   "pleaseSelectValidCurrency": "Please select a valid household currency",
-  "details": "Details",
   "nameMaxLength": "Name must be less than {max} characters",
   "@nameMaxLength": {
-    "placeholders": {
-      "max": {
-        "type": "int"
-      }
-    }
   },
-
   "createHouseholdPage": "Create household page",
   "invitationPersonalMessageInput": "Invitation personal message input",
   "householdNameInput": "Household name input",
@@ -647,23 +483,14 @@
   "unlimitedExpiration": "Unlimited expiration",
   "daysExpiration": "{days} day{days, plural, =1 {} other {s}} expiration",
   "@daysExpiration": {
-    "placeholders": {
-      "days": {
-        "type": "int"
-      }
-    },
-    "plural": "days"
   },
   "householdInformation": "Household information",
   "creatingHousehold": "Creating household",
   "createHouseholdButton": "Create household button",
-
   "searchExpenses": "Search expenses...",
   "clearAll": "Clear All",
   "allCategories": "All Categories",
-  "category": "Category",
   "allMembers": "All Members",
-
   "balanceSummary": "Balance Summary",
   "youAreOwed": "You are owed",
   "youOwe": "You owe",
@@ -671,7 +498,6 @@
   "othersOweYou": "Others owe you",
   "viewDetails": "View Details",
   "settleUp": "Settle Up",
-
   "markExpensesAsSettled": "Mark expenses as settled to update balances",
   "whoAreYouSettlingWith": "Who are you settling with?",
   "selectMember": "Select Member",
@@ -683,50 +509,22 @@
   "transferredViaBank": "Transferred via bank",
   "mobilePayment": "Mobile Payment",
   "venmoPaypalEtc": "Venmo, PayPal, etc.",
-
-  "transactions": "Transactions",
   "search": "Search",
-  "spent": "Spent",
   "noData": "No data",
   "filterTransactions": "Filter Transactions",
-  "byCategory": "By Category",
   "noTransactionsFound": "No transactions found",
   "failedToLoadHouseholdTransactions": "Failed to load household transactions",
-
   "reset": "Reset",
   "apply": "Apply",
-
   "expenses": "Expenses",
   "dateRange": "Date Range",
-  "errorLoadingExpenses": "Error Loading Expenses",
-  "noExpensesYet": "No Expenses Yet",
   "noMatchingExpenses": "No Matching Expenses",
   "startLoggingExpenses": "Start logging expenses to see them here",
   "tryAdjustingFilters": "Try adjusting your filters",
-  "member": "Member",
-  "split": "SPLIT",
-
-  "today": "Today",
-  "yesterday": "Yesterday",
-  "category": "Category",
-  "date": "Date",
-  "time": "Time",
-  "shareWithHousehold": "Share with household",
-  "amount": "Amount",
+  "split": "Split",
   "note": "Note",
-
-  "loadingHouseholdMembers": "Loading household members...",
-
-  "selectHouseholdToConfigureSplit": "Select a household to configure split",
-
   "currencyCannotBeChangedWhenSharing": "Currency cannot be changed when sharing with a household",
-
-  "failedToLoadImage": "Failed to load image",
-
-  "done": "Done",
-
   "createBudget": "Create Budget",
-  "budgetName": "Budget Name",
   "pleaseEnterABudgetName": "Please enter a budget name",
   "pleaseEnterAValidAmountGreaterThan0": "Please enter a valid amount greater than 0",
   "warningThresholdMustBeBetween0And100": "Warning threshold must be between 0 and 100%",
@@ -740,7 +538,6 @@
   "personalBudgetForYourExpensesOnly": "Personal budget for your expenses only",
   "countSplitPortionOnly": "Count Split Portion Only",
   "onlyCountYourPortionOfSplitExpenses": "Only count your portion of split expenses towards this budget",
-
   "joinHousehold": "Join Household",
   "joinAHousehold": "Join a Household",
   "enterYourInvitationLinkToJoin": "Enter your invitation link to join\na shared financial space",
@@ -758,15 +555,15 @@
   "tryAgain": "Try Again",
   "goToHousehold": "Go to Household",
   "expiresSoon": "Expires soon",
-  "invitationValidUntil": "Invitation valid until",
+  "invitationValidUntil": "Invitation valid until {formattedDate}",
+  "@invitationValidUntil": {
+  },
   "whatYoullGet": "What you'll get",
   "viewSharedBudgetsAndExpenses": "View shared budgets and expenses",
   "trackHouseholdFinancialHealth": "Track household financial health",
   "collaborateOnFinancialDecisions": "Collaborate on financial decisions",
-
-  "@householdOverview": {},
   "household": "Household",
-  "errorLoadingMembers": "Error loading members",
+  "@household": {},
   "viewAll": "View All",
   "manage": "Manage",
   "noBudgetsYet": "No budgets yet",
@@ -774,34 +571,13 @@
   "errorLoadingBudgets": "Error loading budgets",
   "recentSplits": "Recent Splits",
   "invite": "Invite",
-  "split": "Split",
-
-  "@transactionsPage": {},
   "last6Months": "Last 6 months",
   "thisYear": "This year",
   "allTime": "All time",
-
-  "@householdCreate": {},
   "nameMinLength": "Name must be at least {min} characters",
   "@nameMinLength": {
-    "placeholders": {
-      "min": {
-        "type": "int"
-      }
-    }
   },
-  "nameMaxLength": "Name must be less than {max} characters",
-  "@nameMaxLength": {
-    "placeholders": {
-      "max": {
-        "type": "int"
-      }
-    }
-  },
-
-  "@customSplitSheet": {},
   "splitExpense": "Split Expense",
-  "amount": "Amount",
   "percent": "Percent",
   "splitShare": "Share",
   "owes": "Owes",
@@ -809,8 +585,10 @@
   "@splitAmountsMustEqual": {
     "placeholders": {
       "currency": {
+        "placeholder": {
         "type": "String"
-      },
+      }
+    },
       "amount": {
         "type": "String"
       }
@@ -818,24 +596,18 @@
   },
   "percentagesMustTotal100": "Percentages must total 100%",
   "eachPersonMustHaveAtLeast1Share": "Each person must have at least 1 share",
-  "member": "Member",
-
-  "@whatsappVerification": {},
   "whatsappVerified": "WhatsApp Verified",
   "whatsappVerification": "WhatsApp Verification",
+  "@whatsappVerification": {},
   "yourWhatsAppNumberIsSuccessfullyLinked": "Your WhatsApp number is successfully linked to your account",
   "verifyingYourWhatsAppNumber": "Verifying your WhatsApp number...",
   "enterThe6DigitCodeFromWhatsApp": "Enter the 6-digit code from WhatsApp",
   "pleaseEnterThe6DigitVerificationCode": "Please enter the 6-digit verification code",
   "failedToVerifyCode": "Failed to verify code",
-  "invalidVerificationCode": "Invalid verification code",
   "failedToVerifyCodePleaseTryAgain": "Failed to verify code. Please try again.",
   "codeAutoFilledFromVerificationLink": "Code auto-filled from verification link",
   "verify": "Verify",
   "verifying": "Verifying...",
-  "done": "Done",
-
-  "@avatarCustomizer": {},
   "avatarStudio": "Avatar Studio",
   "preview": "Preview",
   "colors": "Colors",
@@ -845,8 +617,6 @@
   "skipForNow": "Skip for now",
   "selectColor": "Select Color",
   "failedToSaveAvatar": "Failed to save avatar",
-
-  "@avatarCustomizerCategories": {},
   "hair": "Hair",
   "eyes": "Eyes",
   "mouth": "Mouth",
@@ -859,16 +629,6 @@
   "blush": "Blush",
   "accessories": "Accessories",
   "stars": "Stars",
-
-  "@unifiedTransactionSheet": {},
-  "confirmExpense": "Confirm Expense",
-  "expenseDetails": "Expense Details",
-  "details": "Details",
-  "currency": "Currency",
-  "notes": "Notes",
-  "receipt": "Receipt",
-
-  "@recurringTransactions": {},
   "recurring": "Recurring",
   "manageYourRecurringTransactions": "Manage your recurring transactions",
   "errorLoadingData": "Error Loading Data",
@@ -876,32 +636,7 @@
   "areYouSureYouWantToDeleteThisRecurringTransaction": "Are you sure you want to delete this recurring transaction?",
   "recurringTransactionDeleted": "Recurring transaction deleted",
   "failedToDeleteRecurringTransaction": "Failed to delete recurring transaction",
-  "saveExpense": "Save Expense",
   "currencyIsManagedByHousehold": "Currency is managed by the household and cannot be changed",
-  "editAmount": "Edit Amount",
-  "amount": "Amount",
-  "editNotes": "Edit Notes",
-  "addANote": "Add a note...",
-  "errorLoadingMembers": "Error loading members",
-  "expenseSavedAndShared": "Expense saved and shared{splitInfo}!",
-  "@expenseSavedAndShared": {
-    "placeholders": {
-      "splitInfo": {
-        "type": "String"
-      }
-    }
-  },
-  "expenseSaved": "Expense saved!",
-  "failedToSave": "Failed to save: {error}",
-  "@failedToSave": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-
-  "@scenarioPlanning": {},
   "buyALaptop": "buy a $1,200 laptop",
   "selectTargetDate": "Select target date",
   "scenarioQuestionTemplate": "Can I {action} before {date}",
@@ -909,27 +644,22 @@
     "description": "Template for scenario planning questions. CRITICAL: Adjust word order for your language's grammar structure.\n\nLANGUAGE STRUCTURE EXAMPLES:\n• English (SVO): Can I {action} before {date}?\n• Chinese (STV): 我可以在{date}前{action}吗？\n• Japanese (SOV): {date}前に{action}できますか？\n• Korean (SOV): {date} 전에 {action}할 수 있나요?\n• Spanish (VSO): ¿Puedo {action} antes del {date}?\n• French (VSO): Puis-je {action} avant le {date}?\n• German (V2): Kann ich {action} vor dem {date}?\n• Russian (SVO): Могу ли я {action} до {date}?\n• Arabic (VSO): هل يمكنني {action} قبل {date}؟\n• Hindi (SOV): क्या मैं {date} से पहले {action} कर सकता हूँ?\n• Urdu (SOV): کیا میں {date} سے پہلے {action} کر سکتا ہوں؟\n• Turkish (SOV): {date} öncesi {action} yapabilir miyim?\n• Dutch (SVO): Kan ik {action} voor {date}?\n• Swedish (SVO): Kan jag {action} före {date}?\n• Polish (SVO): Czy mogę {action} przed {date}?\n• Thai (SVO): ฉันสามารถ {action} ก่อน {date} ได้ไหม?\n• Vietnamese (SVO): Tôi có thể {action} trước {date} không?\n• Indonesian (SVO): Bisakah saya {action} sebelum {date}?\n\nIMPORTANT: Consider your language's unique features:\n- Gender agreement (Romance languages)\n- Case systems (Germanic, Slavic languages)\n- Honorific levels (Asian languages)\n- Right-to-left script (Arabic, Hebrew)\n- Postpositions (Indian languages)\n- Verb position variations",
     "placeholders": {
       "action": {
-        "type": "String",
-        "description": "The action phrase (e.g., 'buy a laptop', 'go on vacation')"
-      },
+        "placeholder": {
+        "type": "String"
+      }
+    },
       "date": {
-        "type": "String", 
+        "type": "String",
         "description": "The date string formatted according to locale conventions"
       }
     }
   },
   "scenarioDateFormat": "MM/dd/yyyy",
   "@scenarioDateFormat": {
-    "description": "Date format for scenario planning. Use standard ICU DateFormat patterns.\n\nREGIONAL DATE FORMAT EXAMPLES:\n• United States: MM/dd/yyyy (01/25/2025)\n• United Kingdom: dd/MM/yyyy (25/01/2025)\n• China/Japan/Korea: yyyy/MM/dd (2025/01/25)\n• Germany: dd.MM.yyyy (25.01.2025)\n• France: dd/MM/yyyy (25/01/2025)\n• Spain: dd/MM/yyyy (25/01/2025)\n• Italy: dd/MM/yyyy (25/01/2025)\n• Russia: dd.MM.yyyy (25.01.2025)\n• Arabic (Egypt): dd/MM/yyyy (25/01/2025)\n• Hindi: dd-MM-yyyy (25-01-2025)\n• Urdu: dd/MM/yyyy (25/01/2025)\n• Thai: dd/MM/yyyy (25/01/2565) [Note: Buddhist calendar]\n• Vietnamese: dd/MM/yyyy (25/01/2025)\n• Indonesian: dd/MM/yyyy (25/01/2025)\n• Turkish: dd.MM.yyyy (25.01.2025)\n• Dutch: dd-MM-yyyy (25-01-2025)\n• Swedish: yyyy-MM-dd (2025-01-25)\n• Polish: dd.MM.yyyy (25.01.2025)\n\nSPECIAL CONSIDERATIONS:\n- Buddhist calendar (Thailand): Year + 543\n- Islamic calendar (Arabic countries): Different year system\n- Hebrew calendar (Israel): Different year system\n- Era naming (Japanese): Reiwa, Heisei, etc.\n- Lunar calendars (Chinese, Korean, Vietnamese)\n- Week start day (Sunday vs Monday)\n- Use of separators: /, -, ., or spaces",
-    "example": "01/25/2025"
+    "description": "Date format for scenario planning. Use standard ICU DateFormat patterns.\n\nREGIONAL DATE FORMAT EXAMPLES:\n• United States: MM/dd/yyyy (01/25/2025)\n• United Kingdom: dd/MM/yyyy (25/01/2025)\n• China/Japan/Korea: yyyy/MM/dd (2025/01/25)\n• Germany: dd.MM.yyyy (25.01.2025)\n• France: dd/MM/yyyy (25/01/2025)\n• Spain: dd/MM/yyyy (25/01/2025)\n• Italy: dd/MM/yyyy (25/01/2025)\n• Russia: dd.MM.yyyy (25.01.2025)\n• Arabic (Egypt): dd/MM/yyyy (25/01/2025)\n• Hindi: dd-MM-yyyy (25-01-2025)\n• Urdu: dd/MM/yyyy (25/01/2025)\n• Thai: dd/MM/yyyy (25/01/2565) [Note: Buddhist calendar]\n• Vietnamese: dd/MM/yyyy (25/01/2025)\n• Indonesian: dd/MM/yyyy (25/01/2025)\n• Turkish: dd.MM.yyyy (25.01.2025)\n• Dutch: dd-MM-yyyy (25-01-2025)\n• Swedish: yyyy-MM-dd (2025-01-25)\n• Polish: dd.MM.yyyy (25.01.2025)\n\nSPECIAL CONSIDERATIONS:\n- Buddhist calendar (Thailand): Year + 543\n- Islamic calendar (Arabic countries): Different year system\n- Hebrew calendar (Israel): Different year system\n- Era naming (Japanese): Reiwa, Heisei, etc.\n- Lunar calendars (Chinese, Korean, Vietnamese)\n- Week start day (Sunday vs Monday)\n- Use of separators: /, -, ., or spaces"
   },
   "analysisFailed": "Analysis failed: {error}",
   "@analysisFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
   },
   "leftHandChamps": "The left-hand champs are your heavy hitters—perfect candidates for a quick review.",
   "smallButFrequent": "Small but frequent categories hint at habits that may sneak up over time.",
@@ -940,8 +670,6 @@
   "slideHighBar": "Slide a high bar down a notch by setting a mini limit or switching to lower-cost swaps.",
   "nonNegotiable": "If a bar is non-negotiable (hello, rent), plan around it instead of fighting it.",
   "revisitAfterScenario": "Revisit after running a scenario to see whether your adjustments stick.",
-
-  "@runningBalanceTab": {},
   "purpleLineCushion": "Purple line: the cushion left after each day. Rising lines mean you are building momentum.",
   "blueBarsBudget": "Blue bars: the budget you set for that day.",
   "redBarsSpent": "Red bars: what actually left your account.",
@@ -951,9 +679,6 @@
   "lineRisingDays": "Line rising for several days? Consider moving a little extra into savings or debt payoff.",
   "lineDippingWeekend": "Line dipping after a busy weekend? Rebalance upcoming days by trimming small discretionary spends.",
   "feelStuckRed": "Feel stuck in the red? Revisit your budget in the Home tab—small adjustments add up quickly.",
-
-  "@day30LookAheadTab": {},
-  "peek30DaysAhead": "Peek 30 days ahead",
   "thirtyDayForecastDesc": "This forecast uses the last month of activity to guess how lively the next month might be. Think of it as a weather report for your wallet.",
   "greenLineExpected": "Green line = expected daily spend if the coming month behaves like the last one.",
   "spikesHighlight": "Spikes highlight weeks where your habits usually get pricier (hello, Friday takeaway).",
@@ -964,8 +689,6 @@
   "bigSpikeComing": "Big spike coming? Pre-book cheaper options or shuffle flexible spends to calmer days.",
   "forecastDipping": "Forecast dipping? Reward yourself by scheduling an extra savings transfer.",
   "forecastLooksOff": "If the forecast looks off, review categories in the Home tab to tidy up any mislabels.",
-
-  "@longTermProjectionTab": {},
   "greenLineTrends": "Green line trends with your typical savings rate—upward momentum means your goals are funded.",
   "lineDipsSignals": "If the line dips, it signals future months where expenses tend to outrun income.",
   "largeGoalsDebts": "Large goals or debts are included when you tag them in the Home tab.",
@@ -975,85 +698,49 @@
   "schedulePaymentIncreases": "Schedule gentle payment increases on loans when the curve is rising.",
   "planAheadDips": "Plan ahead for dips by earmarking sinking funds or trimming optional spends.",
   "checkProjectionMonthly": "Check the projection monthly to keep your long game fun and flexible.",
-
-  "@categories": {},
-  "categoryGroceries": "Groceries",
-  "categoryFood": "Food",
-  "categoryTransport": "Transport",
-  "categoryHousing": "Housing",
-  "categoryUtilities": "Utilities",
-  "categoryEntertainment": "Entertainment",
   "categoryHealthcare": "Healthcare",
-  "categoryEducation": "Education",
-  "categoryShopping": "Shopping",
-  "categoryTravel": "Travel",
-  "categoryIncome": "Income",
   "categoryOther": "Other",
-
   "deleteExpense": "Delete Expense",
   "confirmDeleteExpense": "Are you sure you want to delete this expense? This action cannot be undone.",
   "expenseDeletedSuccessfully": "Expense deleted successfully",
   "failedToDeleteExpense": "Failed to delete expense",
   "expenseNotFoundOrDeleted": "Expense not found or has been deleted",
-
   "onlyAdminsAndOwnersCanEditHouseholdSettings": "Only admins and owners can edit household settings",
   "onlyAdminsAndOwnersCanCreateInvitations": "Only admins and owners can create invitations",
-
   "shareInvitationForHousehold": "Share invitation for {householdName} household",
   "@shareInvitationForHousehold": {
-    "placeholders": {
-      "householdName": {
-        "type": "String"
-      }
-    }
   },
   "shareInvitation": "Share Invitation",
   "householdCreatedSuccessfully": "Household {householdName} created successfully",
   "@householdCreatedSuccessfully": {
-    "placeholders": {
-      "householdName": {
-        "type": "String"
-      }
-    }
   },
   "householdCreatedSuccessfullyWithQuotes": "Household \"{householdName}\" created successfully!",
   "@householdCreatedSuccessfullyWithQuotes": {
-    "placeholders": {
-      "householdName": {
-        "type": "String"
-      }
-    }
   },
   "invitationLink": "Invitation Link",
   "invitationLinkWithUrl": "Invitation link: {inviteUrl}",
   "@invitationLinkWithUrl": {
-    "placeholders": {
-      "inviteUrl": {
-        "type": "String"
-      }
-    }
   },
   "copyInvitationLink": "Copy invitation link",
   "copyInvitationLinkToClipboard": "Copy invitation link to clipboard",
-  "copyLink": "Copy Link",
   "shareInvitationLink": "Share invitation link",
   "share": "Share",
   "closeShareSheet": "Close share sheet",
-  "done": "Done",
   "invitationLinkCopiedToClipboard": "Invitation link copied to clipboard!",
   "joinMyHouseholdMessage": "Join my household \"{householdName}\" on Moneko!\n\n{inviteUrl}",
   "@joinMyHouseholdMessage": {
     "placeholders": {
       "householdName": {
+        "placeholder": {
         "type": "String"
-      },
+      }
+    },
       "inviteUrl": {
         "type": "String"
       }
     }
   },
   "joinMyHouseholdSubject": "Join my household on Moneko",
-
   "zeroAmount": "0.00",
   "dollarPrefix": "$ ",
   "notificationSettings": "Notification Settings",
@@ -1068,30 +755,17 @@
   "yearly": "Yearly",
   "householdBudgetType": "Household Budget",
   "personalBudgetType": "Personal Budget",
-
-  "@householdJoin": {},
-  "joinHousehold": "Join Household",
-  "joinAHousehold": "Join a Household",
-  "enterYourInvitationLinkToJoin": "Enter your invitation link to join\na shared financial space",
-  "pasteTheInvitationLinkYouReceived": "Paste the invitation link you received from a household member",
-  "pasteInvitationLink": "Paste invitation link",
-  "pleaseEnterAnInvitationLink": "Please enter an invitation link",
-  "pleaseEnterAValidInvitationLink": "Please enter a valid invitation link",
-  "validating": "Validating...",
   "joinHouseholdName": "Join \"{householdName}\"",
   "@joinHouseholdName": {
-    "placeholders": {
-      "householdName": {
-        "type": "String"
-      }
-    }
   },
-  "householdPreview": "Household preview: {householdName}, invited by {inviterEmail}",
+  "householdPreview": "Household preview: {householdName, invited by {inviterEmail}",
   "@householdPreview": {
     "placeholders": {
       "householdName": {
+        "placeholder": {
         "type": "String"
-      },
+      }
+    },
       "inviterEmail": {
         "type": "String"
       }
@@ -1099,62 +773,23 @@
   },
   "invitedBy": "Invited by {inviterEmail}",
   "@invitedBy": {
-    "placeholders": {
-      "inviterEmail": {
-        "type": "String"
-      }
-    }
   },
   "invitationExpiresSoon": "Invitation expires soon on {formattedDate}",
   "@invitationExpiresSoon": {
-    "placeholders": {
-      "formattedDate": {
-        "type": "String"
-      }
-    }
   },
-  "invitationValidUntil": "Invitation valid until {formattedDate}",
-  "@invitationValidUntil": {
-    "placeholders": {
-      "formattedDate": {
-        "type": "String"
-      }
-    }
-  },
-  "expiresSoon": "Expires soon",
   "invitationValidUntilLabel": "Invitation valid until",
-  "viewSharedBudgetsAndExpenses": "View shared budgets and expenses",
-  "trackHouseholdFinancialHealth": "Track household financial health",
-  "collaborateOnFinancialDecisions": "Collaborate on financial decisions",
-  "whatYoullGet": "What you'll get",
   "personalMessageFromInviter": "Personal message from inviter",
   "messageFromInviter": "Message from inviter",
   "joiningHousehold": "Joining household...",
-  "thisWillOnlyTakeAMoment": "This will only take a moment",
-  "welcomeAboard": "Welcome Aboard!",
-  "youreNowPartOfTheHousehold": "You're now part of the household.\nStart collaborating on your finances!",
-  "goToHousehold": "Go to Household",
   "errorWithMessage": "Error: {errorMessage}",
   "@errorWithMessage": {
-    "placeholders": {
-      "errorMessage": {
-        "type": "String"
-      }
-    }
   },
-  "unableToJoin": "Unable to Join",
   "anUnexpectedErrorOccurred": "An unexpected error occurred",
   "invalidInvitationLinkFormat": "Invalid invitation link format",
   "invalidOrExpiredInvitation": "Invalid or expired invitation",
-  "today": "Today",
   "tomorrow": "Tomorrow",
   "inDays": "in {days} days",
   "@inDays": {
-    "placeholders": {
-      "days": {
-        "type": "int"
-      }
-    }
   },
   "january": "Jan",
   "february": "Feb",
@@ -1168,12 +803,8 @@
   "october": "Oct",
   "november": "Nov",
   "december": "Dec",
-
   "remindUser": "Remind {name}",
   "@remindUser": {
-    "placeholders": {
-      "name": { "type": "String" }
-    }
   },
   "sendFriendlySpendingReminder": "Send a friendly spending reminder",
   "addMessageOptional": "Add a message (optional)",
@@ -1181,19 +812,11 @@
   "sendReminder": "Send Reminder",
   "pleaseWait24HoursBeforeSendingAnotherReminder": "Please wait 24 hours before sending another reminder to {name}",
   "@pleaseWait24HoursBeforeSendingAnotherReminder": {
-    "placeholders": {
-      "name": { "type": "String" }
-    }
   },
   "reminderSentToName": "Reminder sent to {name}! 🔔",
   "@reminderSentToName": {
-    "placeholders": {
-      "name": { "type": "String" }
-    }
   },
   "failedToSendReminderTryAgain": "Failed to send reminder. Please try again.",
-
-  "@incomeFeature": {},
   "income": "Income",
   "addIncome": "Add Income",
   "incomeAdded": "Income added successfully",
@@ -1208,10 +831,8 @@
   "acknowledged": "Acknowledged",
   "source": "Source",
   "sourceHint": "e.g., Employer, Client",
-  "owner": "Owner",
   "me": "Me",
   "partner": "Partner",
-  "household": "Household",
   "privacyScope": "Privacy",
   "privacyFull": "Full Details",
   "privacyBalancesOnly": "Balances Only",
@@ -1219,7 +840,6 @@
   "privacyFullExplanation": "Partner can see all details including amount, source, and description.",
   "privacyBalancesOnlyExplanation": "Partner can see this income in totals but not the details (source, description hidden).",
   "privacyPrivateExplanation": "Only you can see this income. It contributes to household totals but partner cannot see details.",
-  "shareWithHousehold": "Share with Household",
   "incomeSalary": "Salary",
   "incomeFreelance": "Freelance",
   "incomeInvestment": "Investment",
@@ -1228,12 +848,6 @@
   "incomeBonus": "Bonus",
   "incomeRental": "Rental",
   "incomeOther": "Other",
-  "enterValidAmountGreaterThan0": "Please enter a valid amount greater than 0",
-  "date": "Date",
-  "time": "Time",
-  "retry": "Retry",
-
-  "@goalsFeature": {},
   "goals": "Goals",
   "createGoal": "Create Goal",
   "goalCreated": "Goal created successfully",
@@ -1247,11 +861,9 @@
   "targetDate": "Target Date",
   "description": "Description",
   "descriptionHint": "Optional note",
-  "category": "Category",
   "savings": "Savings",
   "paydown": "Pay Down",
   "all": "All",
-  "active": "Active",
   "completed": "Completed",
   "offTrack": "Off Track",
   "onTrack": "On Track",

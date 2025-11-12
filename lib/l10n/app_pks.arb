@@ -11,27 +11,15 @@
   "newToMoneko": "مونیکو پر نئے ہیں؟",
   "createAccount": "اکاؤنٹ بنائیں",
   "resetYourPassword": "اپنا پاس ورڈ ری سیٹ کریں",
-  "email": "ای میل",
   "exampleEmail": "you@example.com",
-  "cancel": "منسوخ کریں",
   "sendResetLink": "ری سیٹ لنک بھیجیں",
   "passwordResetEmailSent": "پاس ورڈ ری سیٹ ای میل بھیج دی گئی ہے۔ اپنا ان باکس چیک کریں۔",
   "enterValidEmail": "براہ کرم ایک درست ای میل ایڈریس درج کریں۔",
   "passwordMinLength": "پاس ورڈ کم از کم {min} حروف پر مشتمل ہونا چاہیے۔",
   "@passwordMinLength": {
-    "placeholders": {
-      "min": {
-        "type": "int"
-      }
-    }
   },
   "fullNameMinLength": "پورا نام کم از کم {min} حروف پر مشتمل ہونا چاہیے۔",
   "@fullNameMinLength": {
-    "placeholders": {
-      "min": {
-        "type": "int"
-      }
-    }
   },
   "createYourAccount": "اپنا اکاؤنٹ بنائیں",
   "fullName": "پورا نام",
@@ -45,24 +33,13 @@
   "verifyYourEmail": "اپنا ای میل تصدیق کریں",
   "verificationEmailSentTo": "ہم نے {email} پر 6 ہندسوں کا تصدیقی کوڈ بھیجا ہے۔",
   "@verificationEmailSentTo": {
-    "placeholders": {
-      "email": {
-        "type": "String"
-      }
-    }
   },
   "enterCompleteCode": "براہ کرم 6 ہندسوں کا مکمل کوڈ درج کریں۔",
-  "invalidVerificationCode": "غلط تصدیقی کوڈ۔ براہ کرم چیک کریں اور دوبارہ کوشش کریں۔",
   "verificationCodeExpired": "تصدیقی کوڈ کی میعاد ختم ہو گیا ہے۔ براہ کرم نیا کوڈ طلب کریں۔",
   "verifyEmail": "ای میل کی تصدیق کریں",
   "didntReceiveTheCode": "کوڈ موصول نہیں ہوا؟ اپنا اسپام فولڈر چیک کریں یا",
   "resendInSeconds": "{seconds} سیکنڈ میں دوبارہ بھیجیں",
   "@resendInSeconds": {
-    "placeholders": {
-      "seconds": {
-        "type": "int"
-      }
-    }
   },
   "resendVerificationEmail": "تصدیقی ای میل دوبارہ بھیجیں",
   "continueWithGoogle": "گوگل کے ساتھ سائن ان کریں",
@@ -75,7 +52,6 @@
   "paymentFailed": "ادائیگی ناکام",
   "paymentCanceled": "ℹ️ ادائیگی منسوخ کر دی گئی",
   "whatsappVerifiedSuccessfully": "✅ واٹس ایپ کامیابی سے تصدیق ہو گیا!",
-  "settings": "سیٹنگز",
   "enableNotificationsInSettings": "اپنے ڈیوائس کی سیٹنگز میں مونیکو کے لیے نوٹیفکیشنز آن کریں۔",
   "appearance": "ظاہری شکل",
   "darkMode": "ڈارک موڈ",
@@ -101,28 +77,13 @@
   "trialStatus": "ٹرائل",
   "trialEndsInDays": "ٹرائل {days} دنوں میں ختم ہو جائے گا",
   "@trialEndsInDays": {
-    "placeholders": {
-      "days": {
-        "type": "int"
-      }
-    }
   },
   "trialEnded": "ٹرائل ختم ہو گیا",
   "renewsInDays": "{days} دنوں میں تجدید ہو گی",
   "@renewsInDays": {
-    "placeholders": {
-      "days": {
-        "type": "int"
-      }
-    }
   },
   "accessEndsInDays": "رسائی {days} دنوں میں ختم ہو جائے گی",
   "@accessEndsInDays": {
-    "placeholders": {
-      "days": {
-        "type": "int"
-      }
-    }
   },
   "subscriptionEnded": "سبسکرپشن ختم ہو گئی",
   "profile": "پروفائل",
@@ -142,12 +103,9 @@
   "snapReceipt": "رسید کی تصویر لیں",
   "snapReceiptDescription": "اپنی رسید کی تصویر لیں۔ AI تفصیلات نکال کر لاگ کر دے گا۔",
   "previous": "پچھلا",
-  "next": "اگلا",
-  "overview": "جائزہ",
   "activity": "سرگرمی",
   "accountInformation": "اکاؤنٹ کی معلومات",
   "userId": "صارف آئی ڈی",
-  "email": "ای میل",
   "recentActivity": "حالیہ سرگرمی",
   "noActivityYet": "ابھی تک کوئی سرگرمی نہیں",
   "signOut": "سائن آؤٹ",
@@ -169,7 +127,6 @@
   "day30LookAhead": "30-دن کا پیش منظر",
   "projectedFromTrailing30Days": "گزشتہ 30 دن کے اوسط کی بنیاد پر تخمینہ۔",
   "projectedSpendingLegend": "متوقع اخراجات",
-  "peek30DaysAhead": "آگے 30 دنوں پر ایک نظر",
   "day30ForecastIntro": "یہ پیشن گوئی پچھلے مہینے کی سرگرمی کی بنیاد پر اگلے مہینے کا اندازہ لگاتی ہے۔ اسے اپنے بٹوے (wallet) کا موسمی رپورٹ سمجھیں۔",
   "@longTermProjection": {},
   "longTermProjection": "طویل مدتی تخمینہ",
@@ -211,8 +168,6 @@
   "day": "دن",
   "@navigation": {},
   "close": "بند کریں",
-  "next": "اگلا",
-  "done": "مکمل",
   "@runningBalanceSlides": {},
   "whatYouAreSeeing": "آپ کیا دیکھ رہے ہیں",
   "whyItMatters": "یہ کیوں اہم ہے",
@@ -231,7 +186,6 @@
   "longTermWhyMattersDesc": "طویل افق بڑے خوابوں کو حقیقت بناتے ہیں۔ دیکھیں کہ کیا آپ کا ایمرجنسی فنڈ، سرمایہ کاری، یا بڑی خریداری ٹریک پر رہتی ہیں۔",
   "longTermMovesToConsiderDesc": "مستقبل کے فیصلوں کی ریہرسل کے لیے چارٹ کا استعمال کریں۔ آج کی چھوٹی تبدیلیاں بعد میں بڑی جیت میں بدل جاتی ہیں۔",
   "@categorySlides": {},
-  "overview": "جائزہ",
   "forMe": "میرے لیے",
   "forUs": "ہمارے لیے",
   "home": "ہوم",
@@ -244,19 +198,13 @@
   "updateBudget": "بجٹ اپ ڈیٹ کریں",
   "enterNewTotalDailyBudget": "نیا کل یومیہ بجٹ درج کریں۔",
   "budgetAmount": "بجٹ کی رقم",
-  "cancel": "منسوخ کریں",
   "save": "محفوظ کریں",
-  "enterValidAmountGreaterThan0": "0 سے زیادہ درست رقم درج کریں",
   "updatingBudget": "بجٹ اپ ڈیٹ ہو رہا ہے۔۔۔",
   "budgetUpdated": "بجٹ اپ ڈیٹ ہو گیا",
-  "failedToUpdateBudget": "بجٹ اپ ڈیٹ کرنے میں ناکامی",
   "loggedSuccessfully": "کامیابی سے لاگ ہو گیا",
   "view": "دیکھیں",
-  "retry": "دوبارہ کوشش کریں",
   "failedToCapturePhoto": "تصویر لینے میں ناکامی",
   "noSpendingData": "اخراجات کا کوئی ڈیٹا نہیں",
-  "byCategory": "کیٹیگری کے لحاظ سے",
-  "noExpensesYet": "ابھی تک کوئی اخراجات نہیں",
   "startLoggingExpensesToSeeCategories": "کیٹیگریز دیکھنے کے لیے اخراجات لاگ کرنا شروع کریں",
   "selectDateRange": "تاریخ کی حد منتخب کریں",
   "addExpense": "خرچ شامل کریں",
@@ -264,13 +212,9 @@
   "enterExpenseDetails": "خرچ کی تفصیلات درج کریں۔۔۔",
   "freeFormText": "فری فارم ٹیکسٹ",
   "takePhoto": "تصویر لیں",
-  "transactions": "ٹرانزیکشنز",
   "negative": "منفی",
   "positive": "مثبت",
   "spendingBreakdown": "اخراجات کی تفصیل",
-  "spent": "خرچ شدہ",
-  "today": "آج",
-  "yesterday": "گزشتہ کل",
   "thisWeek": "اس ہفتے",
   "lastWeek": "پچھلے ہفتے",
   "thisMonth": "اس مہینے",
@@ -301,11 +245,6 @@
   "showLessCurrencies": "کم کرنسیاں دکھائیں",
   "showAllCurrencies": "{count} مزید کرنسیاں دکھائیں",
   "@showAllCurrencies": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
   },
   "budget": "بجٹ",
   "spentLabel": "خرچ شدہ",
@@ -314,11 +253,7 @@
   "txns": "ٹرانزیکشنز",
   "pleaseEnterExpenseDetails": "براہ کرم خرچ کی تفصیلات درج کریں",
   "userNotLoggedIn": "صارف لاگ ان نہیں ہے",
-  "errorLoadingHouseholds": "گروپس لوڈ کرنے میں خرابی",
-  "welcomeToHouseholds": "گروپس (Groups) میں خوش آمدید!",
   "householdsDescription": "اپنے خاندان، پارٹنر، یا روم میٹس کے ساتھ مشترکہ مالیات کا انتظام کریں۔ بجٹ ٹریک کریں، اخراجات تقسیم کریں، اور پیسوں کے فیصلوں پر مل کر کام کریں۔",
-  "createHousehold": "گروپ بنائیں",
-  "joinWithInvite": "دعوت کے ساتھ شامل ہوں",
   "pleaseUseInvitationLink": "براہ کرم گروپ میں شامل ہونے کے لیے دعوتی لنک استعمال کریں",
   "householdName": "گروپ کا نام",
   "householdNameHint": "مثلاً، 'علی فیملی'",
@@ -327,34 +262,12 @@
   "householdsFeature": "گروپس کا فیچر",
   "householdsFeatureDescription": "گروپس کا فیچر اب دستیاب ہے! خاندان، پارٹنرز، یا روم میٹس کے ساتھ مشترکہ مالیات کا انتظام کریں۔",
   "gotIt": "سمجھ گیا!",
-  "confirmExpense": "خرچ کی تصدیق کریں",
-  "expenseDetails": "خرچ کی تفصیلات",
-  "details": "تفصیلات",
-  "category": "کیٹیگری",
-  "currency": "کرنسی",
-  "date": "تاریخ",
-  "time": "وقت",
-  "notes": "نوٹس",
-  "receipt": "رسید",
-  "saveExpense": "خرچ محفوظ کریں",
-  "shareWithHousehold": "گروپ کے ساتھ شیئر کریں",
-  "loadingHouseholdMembers": "گروپ کے اراکین لوڈ ہو رہے ہیں۔۔۔",
-  "selectHouseholdToConfigureSplit": "تقسیم سیٹ کرنے کے لیے گروپ منتخب کریں",
   "currencyManagedByHousehold": "کرنسی کا انتظام گروپ کے پاس ہے اور اسے تبدیل نہیں کیا جا سکتا",
   "currencyCannotBeChanged": "گروپ کے ساتھ شیئر کرتے وقت کرنسی تبدیل نہیں کی جا سکتی",
   "cannotEditOthersExpenses": "آپ صرف اپنے اخراجات میں ترمیم کر سکتے ہیں",
-  "failedToLoadImage": "تصویر لوڈ کرنے میں ناکامی",
-  "editAmount": "رقم میں ترمیم کریں",
   "currencyIsManagedByHousehold": "کرنسی کا انتظام گھر کے ذریعے کیا جاتا ہے اور اسے تبدیل نہیں کیا جا سکتا",
-  "amount": "رقم",
-  "editNotes": "نوٹس میں ترمیم کریں",
-  "addANote": "ایک نوٹ شامل کریں۔۔۔",
   "noMembersFoundInHousehold": "گروپ میں کوئی اراکین نہیں ملے",
-  "errorLoadingMembers": "اراکین لوڈ کرنے میں خرابی: {error}",
   "noExpenseToSave": "محفوظ کرنے کے لیے کوئی خرچ نہیں",
-  "expenseSavedAndShared": "خرچ محفوظ اور شیئر ہو گیا{splitInfo}!",
-  "expenseSaved": "خرچ محفوظ ہو گیا!",
-  "failedToSave": "محفوظ کرنے میں ناکامی: {error}",
   "failedToSyncCurrencyPreference": "کرنسی کی ترجیح سنک کرنے میں ناکامی: {error}",
   "currencyUpdatedSuccessfully": "کرنسی کامیابی سے اپ ڈیٹ ہو گئی",
   "retryFailed": "دوبارہ کوشش ناکام: {error}",
@@ -362,12 +275,9 @@
   "enterNewTotalDailyBudgetDescription": "نیا کل یومیہ بجٹ درج کریں۔",
   "@household": {},
   "pleaseSignInToAccessHouseholdFeatures": "براہ کرم گروپ کی خصوصیات تک رسائی کے لیے سائن ان کریں",
-  "errorLoadingHouseholds": "گروپس لوڈ کرنے میں خرابی",
   "quickActions": "فوری ایکشنز",
   "members": "اراکین",
   "invites": "دعوتیں",
-  "settings": "سیٹنگز",
-  "errorLoadingExpenses": "اخراجات لوڈ کرنے میں خرابی",
   "budgets": "بجٹس",
   "loadingHousehold": "گروپ لوڈ ہو رہا ہے۔۔۔",
   "remaining": "باقی",
@@ -377,7 +287,6 @@
   "spentByHousehold": "گروپ کے خرچے",
   "memberSpending": "ممبر کے لحاظ سے خرچے",
   "spentByHouseholdTooltip": "یہ منتخب مدت کے دوران تمام گروپ ممبرز کی طرف سے خرچ کی گئی کل رقم دکھاتا ہے۔ اس میں گروپ کے کسی بھی ممبر کی طرف سے درج کردہ تمام مشترکہ اخراجات شامل ہیں۔",
-  "welcomeToHouseholds": "گروپس میں خوش آمدید",
   "manageMoneyTogether": "اپنے پارٹنر، فیملی، یا روم میٹس کے ساتھ ایک مشترکہ جگہ پر مل کر پیسوں کا انتظام کریں۔",
   "sharedBudgetsExpenses": "مشترکہ بجٹ اور اخراجات",
   "sharedBudgetsExpensesDesc": "بجٹ سیٹ کریں، اخراجات کو ٹریک کریں، اور دیکھیں کہ آپ کے گروپ کا پیسہ حقیقی وقت میں کہاں جاتا ہے۔",
@@ -385,8 +294,6 @@
   "smartExpenseSplittingDesc": "خود بخود حساب لگائیں کہ کس نے کتنے پیسے دینے ہیں لچکدار تقسیم کے اختیارات کے ساتھ: برابر، فیصد، یا مخصوص رقمیں۔",
   "stayInSync": "مطابقت میں رہیں",
   "stayInSyncDesc": "جب اخراجات شامل ہوں، بجٹ پورا ہو، یا تقسیم کو طے کرنے کی ضرورت ہو تو مطلع رہیں۔",
-  "createHousehold": "گروپ بنائیں",
-  "joinWithInvite": "دعوت کے ساتھ شامل ہوں",
   "@householdSettings": {},
   "householdSettings": "گروپ کی سیٹنگز",
   "householdNotFound": "گروپ نہیں ملا",
@@ -399,8 +306,6 @@
   "failedToUpdateHousehold": "گروپ اپ ڈیٹ کرنے میں ناکامی",
   "@householdMembers": {},
   "inviteMember": "رکن کو مدعو کریں",
-  "errorLoadingMembers": "اراکین لوڈ کرنے میں خرابی",
-  "retry": "دوبارہ کوشش کریں",
   "removeMember": "رکن کو ہٹائیں",
   "remove": "ہٹائیں",
   "confirmRemoveMember": "کیا آپ واقعی ہٹانا چاہتے ہیں",
@@ -440,7 +345,6 @@
   "noExpiry": "کوئی میعاد ختم نہیں",
   "expired": "میعاد ختم ہو گئی",
   "expires": "میعاد ختم ہوتی ہے",
-  "copyLink": "لنک کاپی کریں",
   "@householdImagePicker": {},
   "selectCoverImage": "کور تصویر منتخب کریں",
   "failedToLoadImages": "تصاویر لوڈ کرنے میں ناکامی",
@@ -454,52 +358,27 @@
   "@budgetDetail": {},
   "editBudget": "بجٹ میں ترمیم کریں",
   "budgetDetails": "بجٹ کی تفصیلات",
-  "budgetName": "بجٹ کا نام",
-  "amount": "رقم",
   "period": "مدت",
-  "currency": "کرنسی",
-  "alertThresholds": "الرٹ کی حدیں",
-  "warningThreshold": "انتباہی حد",
-  "alertThreshold": "الرٹ کی حد",
-  "warningThresholdHelper": "جب بجٹ کا استعمال اس فیصد تک پہنچ جائے تو الرٹ کریں",
-  "alertThresholdHelper": "اس فیصد پر تشویشناک الرٹ",
   "budgetStatus": "بجٹ کی حیثیت",
-  "active": "فعال",
-  "inactive": "غیر فعال",
   "deletingBudget": "بجٹ حذف کیا جا رہا ہے۔۔۔",
   "savingChanges": "تبدیلیاں محفوظ کی جا رہی ہیں۔۔۔",
   "budgetNameCannotBeEmpty": "بجٹ کا نام خالی نہیں ہو سکتا",
-  "pleaseEnterValidAmount": "براہ کرم ایک درست رقم درج کریں",
-  "warningThresholdRange": "انتباہی حد 0 اور 100 کے درمیان ہونی چاہیے",
-  "alertThresholdRange": "الرٹ کی حد 0 اور 100 کے درمیان ہونی چاہیے",
-  "warningThresholdLessThanAlert": "انتباہی حد الرٹ کی حد سے کم یا برابر ہونی چاہیے",
-  "deleteBudget": "بجٹ حذف کریں",
-  "confirmDeleteBudget": "کیا آپ واقعی حذف کرنا چاہتے ہیں",
   "thisActionCannotBeUndone": "یہ عمل واپس نہیں کیا جا سکتا",
   "budgetUpdatedSuccessfully": "بجٹ کامیابی سے اپ ڈیٹ ہو گیا",
   "budgetDeletedSuccessfully": "بجٹ کامیابی سے حذف ہو گیا",
   "@categories": {},
   "categoryTransfers": "منتقلیاں",
-  "categoryShopping": "خریداری",
-  "categoryUtilities": "یوٹیلٹیز",
-  "categoryEntertainment": "تفریح",
   "categoryEntertainmentSubscriptions": "تفریحی سبسکرپشنز",
   "categoryRestaurants": "ریستوراں",
-  "categoryFood": "کھانا",
-  "categoryGroceries": "گروسری",
-  "categoryTransport": "ٹرانسپورٹ",
   "categoryTransportation": "نقل و حمل",
-  "categoryTravel": "سفر",
   "categoryFlights": "پروازیں",
   "categoryVacation": "چھٹیاں",
   "categoryHealth": "صحت",
   "categoryMedical": "طبی",
   "categoryText": "ٹیکسٹ",
-  "categoryEducation": "تعلیم",
   "categoryTuition": "ٹیوشن",
   "categorySubscriptions": "سبسکرپشنز",
   "categoryServices": "خدمات",
-  "categoryHousing": "رہائش",
   "categoryRent": "کرایہ",
   "categoryMortgage": "رہن",
   "categoryBills": "بلز",
@@ -507,7 +386,6 @@
   "categorySavings": "بچت",
   "categoryInvestment": "سرمایہ کاری",
   "categoryInvestments": "سرمایہ کاریاں",
-  "categoryIncome": "آمدنی",
   "categorySalary": "تنخواہ",
   "categoryBonus": "بونس",
   "categoryPets": "پالتو جانور",
@@ -523,31 +401,14 @@
   "categoryBeauty": "بیوٹی",
   "categoryMisc": "متفرق",
   "categoryUncategorized": "بغیر کیٹیگری",
-  "alertThresholds": "الرٹ کی حدیں",
-  "warningThreshold": "انتباہی حد (%)",
-  "alertThreshold": "الرٹ کی حد (%)",
-  "warningThresholdHelper": "جب بجٹ کا استعمال اس فیصد تک پہنچ جائے تو الرٹ کریں",
-  "alertThresholdHelper": "اس فیصد پر تشویشناک الرٹ",
-  "active": "فعال",
-  "inactive": "غیر فعال",
   "saveChanges": "تبدیلیاں محفوظ کریں",
-  "pleaseEnterValidAmount": "براہ کرم ایک درست رقم درج کریں",
-  "warningThresholdRange": "انتباہی حد 0 اور 100 کے درمیان ہونی چاہیے",
-  "alertThresholdRange": "الرٹ کی حد 0 اور 100 کے درمیان ہونی چاہیے",
-  "warningThresholdLessThanAlert": "انتباہی حد الرٹ کی حد سے کم یا برابر ہونی چاہیے",
-  "failedToUpdateBudget": "بجٹ اپ ڈیٹ کرنے میں ناکامی",
-  "deleteBudget": "بجٹ حذف کریں",
-  "confirmDeleteBudget": "کیا آپ واقعی حذف کرنا چاہتے ہیں",
   "deleteBudgetCannotBeUndone": "یہ عمل واپس نہیں کیا جا سکتا",
   "delete": "حذف کریں",
   "failedToDeleteBudget": "بجٹ حذف کرنے میں ناکامی",
-  "owner": "مالک",
   "admin": "ایڈمن",
-  "member": "رکن",
   "removeMember": "رکن کو ہٹائیں",
   "confirmRemoveMember": "کیا آپ واقعی ہٹانا چاہتے ہیں",
   "remove": "ہٹائیں",
-  "retry": "دوبارہ کوشش کریں",
   "unknown": "نامعلوم",
   "makeAdmin": "ایڈمن بنائیں",
   "makeMember": "رکن بنائیں",
@@ -576,40 +437,23 @@
   "confirmRevokeInvitation": "کیا آپ واقعی اس دعوت کو منسوخ کرنا چاہتے ہیں؟",
   "revoke": "منسوخ کریں",
   "invitationRevoked": "دعوت منسوخ کر دی گئی",
-  "copyLink": "لنک کاپی کریں",
   "noExpiry": "کوئی میعاد ختم نہیں",
   "expired": "میعاد ختم ہو گئی",
   "expires": "میعاد ختم ہوتی ہے",
   "pending": "زیر التواء",
   "accepted": "قبول شدہ",
   "revoked": "منسوخ شدہ",
-  "createHousehold": "گروپ بنائیں",
   "tapToChangeCover": "کور تبدیل کرنے کے لیے ٹیپ کریں",
   "personalMessageHint": "اپنے مدعوین کو کچھ کہیں (جیسے، \"ہمارے گروپ کا بجٹ جوائن کریں!\")",
   "invitationExpiresIn": "دعوت ختم ہونے میں",
   "daysCount": "{days} دن",
   "@daysCount": {
-    "placeholders": {
-      "days": {
-        "type": "int"
-      }
-    },
-    "plural": "days"
   },
   "createHouseholdDescription": "خاندان یا روم میٹس کے ساتھ بجٹ اور اخراجات کو ٹریک کرنے کے لیے ایک مشترکہ جگہ بنائیں۔",
   "uploadingImage": "تصویر اپ لوڈ ہو رہی ہے۔۔۔",
   "creating": "بنایا جا رہا ہے۔۔۔",
   "generatingInvite": "دعوت تیار کی جا رہی ہے۔۔۔",
   "pleaseSelectValidCurrency": "براہ کرم گروپ کی ایک درست کرنسی منتخب کریں",
-  "details": "تفصیلات",
-  "nameMaxLength": "نام {max} حروف سے کم ہونا چاہیے۔",
-  "@nameMaxLength": {
-    "placeholders": {
-      "max": {
-        "type": "int"
-      }
-    }
-  },
   "createHouseholdPage": "گروپ بنانے کا صفحہ",
   "invitationPersonalMessageInput": "دعوت کا ذاتی پیغام ان پٹ",
   "householdNameInput": "گروپ کا نام ان پٹ",
@@ -617,12 +461,6 @@
   "unlimitedExpiration": "لامحدود میعاد",
   "daysExpiration": "{days} دن کی میعاد",
   "@daysExpiration": {
-    "placeholders": {
-      "days": {
-        "type": "int"
-      }
-    },
-    "plural": "days"
   },
   "householdInformation": "گروپ کی معلومات",
   "creatingHousehold": "گروپ بنایا جا رہا ہے",
@@ -630,7 +468,6 @@
   "searchExpenses": "اخراجات تلاش کریں۔۔۔",
   "clearAll": "سب صاف کریں",
   "allCategories": "تمام کیٹیگریز",
-  "category": "کیٹیگری",
   "allMembers": "تمام اراکین",
   "balanceSummary": "بیلنس کا خلاصہ",
   "youAreOwed": "آپ کو رقم ملنی ہے",
@@ -650,40 +487,21 @@
   "transferredViaBank": "بینک کے ذریعے منتقل کیا",
   "mobilePayment": "موبائل پیمنٹ",
   "venmoPaypalEtc": "ایزی پیسہ، جاز کیش، وغیرہ۔",
-  "transactions": "ٹرانزیکشنز",
   "search": "تلاش",
-  "spent": "خرچ شدہ",
   "noData": "کوئی ڈیٹا نہیں",
   "filterTransactions": "ٹرانزیکشنز فلٹر کریں",
-  "byCategory": "کیٹیگری کے لحاظ سے",
   "noTransactionsFound": "کوئی ٹرانزیکشنز نہیں ملیں",
   "failedToLoadHouseholdTransactions": "گروپ کی ٹرانزیکشنز لوڈ کرنے میں ناکامی",
   "reset": "ری سیٹ",
   "apply": "لاگو کریں",
   "expenses": "اخراجات",
   "dateRange": "تاریخ کی حد",
-  "errorLoadingExpenses": "اخراجات لوڈ کرنے میں خرابی",
-  "noExpensesYet": "ابھی تک کوئی اخراجات نہیں",
   "noMatchingExpenses": "کوئی مماثل اخراجات نہیں",
   "startLoggingExpenses": "یہاں دیکھنے کے لیے اخراجات لاگ کرنا شروع کریں",
   "tryAdjustingFilters": "اپنے فلٹرز کو ایڈجسٹ کرنے کی کوشش کریں",
-  "member": "رکن",
-  "split": "تقسیم شدہ",
-  "today": "آج",
-  "yesterday": "گزشتہ کل",
-  "category": "کیٹیگری",
-  "date": "تاریخ",
-  "time": "وقت",
-  "shareWithHousehold": "گروپ کے ساتھ شیئر کریں",
-  "amount": "رقم",
   "note": "نوٹ",
-  "loadingHouseholdMembers": "گروپ کے اراکین لوڈ ہو رہے ہیں۔۔۔",
-  "selectHouseholdToConfigureSplit": "تقسیم سیٹ کرنے کے لیے گروپ منتخب کریں",
   "currencyCannotBeChangedWhenSharing": "گروپ کے ساتھ شیئر کرتے وقت کرنسی تبدیل نہیں کی جا سکتی",
-  "failedToLoadImage": "تصویر لوڈ کرنے میں ناکامی",
-  "done": "مکمل",
   "createBudget": "بجٹ بنائیں",
-  "budgetName": "بجٹ کا نام",
   "pleaseEnterABudgetName": "براہ کرم بجٹ کا نام درج کریں",
   "pleaseEnterAValidAmountGreaterThan0": "براہ کرم 0 سے زیادہ درست رقم درج کریں",
   "warningThresholdMustBeBetween0And100": "انتباہی حد 0 اور 100% کے درمیان ہونی چاہیے",
@@ -697,38 +515,18 @@
   "personalBudgetForYourExpensesOnly": "صرف آپ کے اخراجات کے لیے ذاتی بجٹ",
   "countSplitPortionOnly": "صرف تقسیم شدہ حصہ شمار کریں",
   "onlyCountYourPortionOfSplitExpenses": "اس بجٹ میں تقسیم شدہ اخراجات میں صرف اپنا حصہ شمار کریں",
-  "joinHousehold": "گھرانے میں شامل ہوں",
-  "joinAHousehold": "کسی گھرانے میں شامل ہوں",
-  "enterYourInvitationLinkToJoin": "مشترکہ مالیاتی اسپیس میں شامل ہونے کے لیے\nاپنا دعوتی لنک درج کریں",
-  "pasteTheInvitationLinkYouReceived": "گھرانے کے رکن سے موصول دعوتی لنک پیسٹ کریں",
-  "pasteInvitationLink": "دعوتی لنک پیسٹ کریں",
-  "pleaseEnterAnInvitationLink": "براہ کرم ایک دعوتی لنک درج کریں",
-  "pleaseEnterAValidInvitationLink": "براہ کرم ایک درست دعوتی لنک درج کریں",
-  "validating": "توثیق ہو رہی ہے...",
   "joinHouseholdName": "\"{householdName}\" میں شامل ہوں",
   "householdPreview": "گھرانے کا پیش منظر: {householdName}، مدعو کنندہ: {inviterEmail}",
   "invitedBy": "{inviterEmail} کی دعوت",
   "invitationExpiresSoon": "دعوت جلد ختم ہو جائے گی: {formattedDate}",
-  "invitationValidUntil": "دعوت {formattedDate} تک معتبر ہے",
-  "expiresSoon": "جلد ختم ہو رہی ہے",
   "invitationValidUntilLabel": "دعوت معتبر ہے تا",
-  "viewSharedBudgetsAndExpenses": "مشترکہ بجٹ اور اخراجات دیکھیں",
-  "trackHouseholdFinancialHealth": "گھرانے کی مالی صحت پر نظر رکھیں",
-  "collaborateOnFinancialDecisions": "مالی فیصلوں پر مل کر کام کریں",
-  "whatYoullGet": "آپ کو کیا ملے گا",
   "personalMessageFromInviter": "دعوت دہندے کا ذاتی پیغام",
   "messageFromInviter": "دعوت دہندے کا پیغام",
   "joiningHousehold": "گھرانے میں شمولیت ہو رہی ہے...",
-  "thisWillOnlyTakeAMoment": "اس میں صرف ایک لمحہ لگے گا",
-  "welcomeAboard": "خوش آمدید!",
-  "youreNowPartOfTheHousehold": "آپ اب گھرانے کا حصہ ہیں۔\nاپنی مالیات پر مل کر کام شروع کریں!",
-  "goToHousehold": "گھرانے پر جائیں",
   "errorWithMessage": "خرابی: {errorMessage}",
-  "unableToJoin": "شامل ہونے سے قاصر",
   "anUnexpectedErrorOccurred": "غیر متوقع خرابی پیش آ گئی",
   "invalidInvitationLinkFormat": "دعوتی لنک کا فارمٹ درست نہیں",
   "invalidOrExpiredInvitation": "دعوت نامعتبر یا میعاد ختم",
-  "today": "آج",
   "tomorrow": "کل",
   "inDays": "{days} دن میں",
   "january": "جنوری",
@@ -744,8 +542,6 @@
   "november": "نومبر",
   "december": "دسمبر",
   "@householdOverview": {},
-  "household": "گروپ",
-  "errorLoadingMembers": "اراکین لوڈ کرنے میں خرابی",
   "viewAll": "سب دیکھیں",
   "manage": "انتظام کریں",
   "noBudgetsYet": "ابھی تک کوئی بجٹ نہیں",
@@ -753,7 +549,6 @@
   "errorLoadingBudgets": "بجٹ لوڈ کرنے میں خرابی",
   "recentSplits": "حالیہ تقسیمات",
   "invite": "دعوت دیں",
-  "split": "تقسیم کریں",
   "@transactionsPage": {},
   "last6Months": "پچھلے 6 مہینے",
   "thisYear": "اس سال",
@@ -761,40 +556,25 @@
   "@householdCreate": {},
   "nameMinLength": "نام کم از کم {min} حروف پر مشتمل ہونا چاہیے۔",
   "@nameMinLength": {
-    "placeholders": {
-      "min": {
-        "type": "int"
-      }
-    }
-  },
-  "nameMaxLength": "نام {max} حروف سے کم ہونا چاہیے۔",
-  "@nameMaxLength": {
-    "placeholders": {
-      "max": {
-        "type": "int"
-      }
-    }
   },
   "@customSplitSheet": {},
   "splitExpense": "خرچ تقسیم کریں",
-  "amount": "رقم",
   "percent": "فیصد",
   "splitShare": "حصہ",
   "owes": "ذمہ ہے",
   "splitAmountsMustEqual": "تقسیم شدہ رقمیں {currency}{amount} کے برابر ہونی چاہئیں",
   "@splitAmountsMustEqual": {
     "placeholders": {
-      "currency": {
+        "placeholder": {
         "type": "String"
-      },
-      "amount": {
+      }
+    },
         "type": "String"
       }
     }
   },
   "percentagesMustTotal100": "فیصد کا کل 100% ہونا چاہیے",
   "eachPersonMustHaveAtLeast1Share": "ہر شخص کا کم از کم 1 حصہ ہونا چاہیے",
-  "member": "رکن",
   "@whatsappVerification": {},
   "whatsappVerified": "واٹس ایپ تصدیق شدہ",
   "whatsappVerification": "واٹس ایپ تصدیق",
@@ -803,12 +583,10 @@
   "enterThe6DigitCodeFromWhatsApp": "واٹس ایپ سے 6 ہندسوں کا کوڈ درج کریں",
   "pleaseEnterThe6DigitVerificationCode": "براہ کرم 6 ہندسوں کا تصدیقی کوڈ درج کریں",
   "failedToVerifyCode": "کوڈ کی تصدیق کرنے میں ناکامی",
-  "invalidVerificationCode": "غلط تصدیقی کوڈ",
   "failedToVerifyCodePleaseTryAgain": "کوڈ کی تصدیق کرنے میں ناکامی۔ براہ کرم دوبارہ کوشش کریں۔",
   "codeAutoFilledFromVerificationLink": "کوڈ تصدیقی لنک سے خود بخود بھر گیا",
   "verify": "تصدیق کریں",
   "verifying": "تصدیق کی جا رہی ہے۔۔۔",
-  "done": "مکمل",
   "@avatarCustomizer": {},
   "avatarStudio": "اوتار اسٹوڈیو",
   "preview": "پیش منظر",
@@ -833,12 +611,6 @@
   "accessories": "لوازمات",
   "stars": "ستارے",
   "@unifiedTransactionSheet": {},
-  "confirmExpense": "خرچ کی تصدیق کریں",
-  "expenseDetails": "خرچ کی تفصیلات",
-  "details": "تفصیلات",
-  "currency": "کرنسی",
-  "notes": "تبصرے",
-  "receipt": "رسید",
   "@recurringTransactions": {},
   "recurring": "متواتر",
   "manageYourRecurringTransactions": "متواتر لین دین کا انتظام کریں",
@@ -848,22 +620,9 @@
   "recurringTransactionDeleted": "متواتر لین دین حذف کر دیا گیا",
   "failedToDeleteRecurringTransaction": "متواتر لین دین کو حذف نہیں کیا جا سکا",
   "recurringTransactions": "متواتر لین دین",
-  "expenseSavedAndShared": "خرچ محفوظ اور شیئر ہو گیا{splitInfo}!",
   "@expenseSavedAndShared": {
-    "placeholders": {
-      "splitInfo": {
-        "type": "String"
-      }
-    }
   },
-  "expenseSaved": "خرچ محفوظ ہو گیا!",
-  "failedToSave": "محفوظ کرنے میں ناکامی: {error}",
   "@failedToSave": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
   },
   "@scenarioPlanning": {},
   "buyALaptop": "50,000 روپے کا لیپ ٹاپ خریدنا",
@@ -873,10 +632,10 @@
     "description": "Template for scenario planning questions. CRITICAL: Adjust word order for your language's grammar structure.\n\nLANGUAGE STRUCTURE EXAMPLES:\n• English (SVO): Can I {action} before {date}?\n• Chinese (STV): 我可以在{date}前{action}吗？\n• Japanese (SOV): {date}前に{action}できますか？\n• Korean (SOV): {date} 전에 {action}할 수 있나요?\n• Spanish (VSO): ¿Puedo {action} antes del {date}?\n• French (VSO): Puis-je {action} avant le {date}?\n• German (V2): Kann ich {action} vor dem {date}?\n• Russian (SVO): Могу ли я {action} до {date}?\n• Arabic (VSO): هل يمكنني {action} قبل {date}؟\n• Hindi (SOV): क्या मैं {date} से पहले {action} कर सकता हूँ?\n• Urdu (SOV): کیا میں {date} سے پہلے {action} کر سکتا ہوں؟\n• Turkish (SOV): {date} öncesi {action} yapabilir miyim?\n• Dutch (SVO): Kan ik {action} voor {date}?\n• Swedish (SVO): Kan jag {action} före {date}?\n• Polish (SVO): Czy mogę {action} przed {date}?\n• Thai (SVO): ฉันสามารถ {action} ก่อน {date} ได้ไหม?\n• Vietnamese (SVO): Tôi có thể {action} trước {date} không?\n• Indonesian (SVO): Bisakah saya {action} sebelum {date}?\n\nIMPORTANT: Consider your language's unique features:\n- Gender agreement (Romance languages)\n- Case systems (Germanic, Slavic languages)\n- Honorific levels (Asian languages)\n- Right-to-left script (Arabic, Hebrew)\n- Postpositions (Indian languages)\n- Verb position variations",
     "placeholders": {
       "action": {
-        "type": "String",
-        "description": "The action phrase (e.g., 'buy a laptop', 'go on vacation')"
-      },
-      "date": {
+        "placeholder": {
+        "type": "String"
+      }
+    },
         "type": "String",
         "description": "The date string formatted according to locale conventions"
       }
@@ -884,16 +643,10 @@
   },
   "scenarioDateFormat": "dd/MM/yyyy",
   "@scenarioDateFormat": {
-    "description": "Date format for scenario planning. Use standard ICU DateFormat patterns.\n\nREGIONAL DATE FORMAT EXAMPLES:\n• United States: MM/dd/yyyy (01/25/2025)\n• United Kingdom: dd/MM/yyyy (25/01/2025)\n• China/Japan/Korea: yyyy/MM/dd (2025/01/25)\n• Germany: dd.MM.yyyy (25.01.2025)\n• France: dd/MM/yyyy (25/01/2025)\n• Spain: dd/MM/yyyy (25/01/2025)\n• Italy: dd/MM/yyyy (25/01/2025)\n• Russia: dd.MM.yyyy (25.01.2025)\n• Arabic (Egypt): dd/MM/yyyy (25/01/2025)\n• Hindi: dd-MM-yyyy (25-01-2025)\n• Urdu: dd/MM/yyyy (25/01/2025)\n• Thai: dd/MM/yyyy (25/01/2565) [Note: Buddhist calendar]\n• Vietnamese: dd/MM/yyyy (25/0G/2025)\n• Indonesian: dd/MM/yyyy (25/01/2025)\n• Turkish: dd.MM.yyyy (25.01.2025)\n• Dutch: dd-MM-yyyy (25-01-2025)\n• Swedish: yyyy-MM-dd (2025-01-25)\n• Polish: dd.MM.yyyy (25.01.2025)\n\nSPECIAL CONSIDERATIONS:\n- Buddhist calendar (Thailand): Year + 543\n- Islamic calendar (Arabic countries): Different year system\n- Hebrew calendar (Israel): Different year system\n- Era naming (Japanese): Reiwa, Heisei, etc.\n- Lunar calendars (Chinese, Korean, Vietnamese)\n- Week start day (Sunday vs Monday)\n- Use of separators: /, -, ., or spaces",
-    "example": "25/01/2025"
+    "description": "Date format for scenario planning. Use standard ICU DateFormat patterns.\n\nREGIONAL DATE FORMAT EXAMPLES:\n• United States: MM/dd/yyyy (01/25/2025)\n• United Kingdom: dd/MM/yyyy (25/01/2025)\n• China/Japan/Korea: yyyy/MM/dd (2025/01/25)\n• Germany: dd.MM.yyyy (25.01.2025)\n• France: dd/MM/yyyy (25/01/2025)\n• Spain: dd/MM/yyyy (25/01/2025)\n• Italy: dd/MM/yyyy (25/01/2025)\n• Russia: dd.MM.yyyy (25.01.2025)\n• Arabic (Egypt): dd/MM/yyyy (25/01/2025)\n• Hindi: dd-MM-yyyy (25-01-2025)\n• Urdu: dd/MM/yyyy (25/01/2025)\n• Thai: dd/MM/yyyy (25/01/2565) [Note: Buddhist calendar]\n• Vietnamese: dd/MM/yyyy (25/0G/2025)\n• Indonesian: dd/MM/yyyy (25/01/2025)\n• Turkish: dd.MM.yyyy (25.01.2025)\n• Dutch: dd-MM-yyyy (25-01-2025)\n• Swedish: yyyy-MM-dd (2025-01-25)\n• Polish: dd.MM.yyyy (25.01.2025)\n\nSPECIAL CONSIDERATIONS:\n- Buddhist calendar (Thailand): Year + 543\n- Islamic calendar (Arabic countries): Different year system\n- Hebrew calendar (Israel): Different year system\n- Era naming (Japanese): Reiwa, Heisei, etc.\n- Lunar calendars (Chinese, Korean, Vietnamese)\n- Week start day (Sunday vs Monday)\n- Use of separators: /, -, ., or spaces"
   },
   "analysisFailed": "تجزیہ ناکام: {error}",
   "@analysisFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
   },
   "leftHandChamps": "بائیں ہاتھ والے چیمپئنز آپ کے سب سے بڑے اخراجات ہیں — فوری جائزے کے لیے بہترین امیدوار۔",
   "smallButFrequent": "چھوٹی لیکن بار بار ہونے والی کیٹیگریز ان عادات کی نشاندہی کرتی ہیں جو وقت کے ساتھ بڑھ سکتی ہیں۔",
@@ -915,7 +668,6 @@
   "lineDippingWeekend": "مصروف ویک اینڈ کے بعد لکیر نیچے جا رہی ہے؟ چھوٹے اختیاری اخراجات میں کمی کر کے آنے والے دنوں کو دوبارہ متوازن کریں۔",
   "feelStuckRed": "سرخ میں پھنسا ہوا محسوس کر رہے ہیں؟ ہوم ٹیب میں اپنے بجٹ پر نظر ثانی کریں — چھوٹی ایڈجسٹمنٹس تیزی سے جمع ہوتی ہیں۔",
   "@day30LookAheadTab": {},
-  "peek30DaysAhead": "آگے 30 دنوں پر ایک نظر",
   "thirtyDayForecastDesc": "یہ پیشن گوئی پچھلے مہینے کی سرگرمی کی بنیاد پر اگلے مہینے کا اندازہ لگاتی ہے۔ اسے اپنے بٹوے (wallet) کا موسمی رپورٹ سمجھیں۔",
   "greenLineExpected": "سبز لکیر = متوقع یومیہ خرچ اگر آنے والا مہینہ پچھلے مہینے کی طرح برتاؤ کرے۔",
   "spikesHighlight": "اسپائکس ان ہفتوں کو نمایاں کرتے ہیں جہاں آپ کی عادات عام طور پر مہنگی ہو جاتی ہیں (جیسے، جمعہ کا ٹیک اوے)۔",
@@ -937,17 +689,7 @@
   "planAheadDips": "ڈوبنے والے فنڈز مختص کر کے یا اختیاری اخراجات میں کمی کر کے گراوٹ کے لیے پہلے سے منصوبہ بندی کریں۔",
   "checkProjectionMonthly": "اپنے طویل مدتی کھیل کو پرلطف اور لچکدار رکھنے کے لیے ماہانہ تخمینہ چیک کریں۔",
   "@categories": {},
-  "categoryGroceries": "گروسری",
-  "categoryFood": "کھانا",
-  "categoryTransport": "ٹرانسپورٹ",
-  "categoryHousing": "رہائش",
-  "categoryUtilities": "یوٹیلٹیز",
-  "categoryEntertainment": "تفریح",
   "categoryHealthcare": "صحت کی دیکھ بھال",
-  "categoryEducation": "تعلیم",
-  "categoryShopping": "خریداری",
-  "categoryTravel": "سفر",
-  "categoryIncome": "آمدنی",
   "categoryOther": "دیگر",
   "deleteExpense": "خرچ حذف کریں",
   "confirmDeleteExpense": "کیا آپ واقعی اس خرچ کو حذف کرنا چاہتے ہیں؟ یہ عمل واپس نہیں کیا جا سکتا۔",
@@ -960,52 +702,32 @@
 
   "shareInvitationForHousehold": "گھر {householdName} کی دعوت شیئر کریں",
   "@shareInvitationForHousehold": {
-    "placeholders": {
-      "householdName": {
-        "type": "String"
-      }
-    }
   },
   "shareInvitation": "دعوت شیئر کریں",
   "householdCreatedSuccessfully": "گھر {householdName} کامیابی سے بنایا گیا",
   "@householdCreatedSuccessfully": {
-    "placeholders": {
-      "householdName": {
-        "type": "String"
-      }
-    }
   },
   "householdCreatedSuccessfullyWithQuotes": "گھر \"{householdName}\" کامیابی سے بنایا گیا!",
   "@householdCreatedSuccessfullyWithQuotes": {
-    "placeholders": {
-      "householdName": {
-        "type": "String"
-      }
-    }
   },
   "invitationLink": "دعوت لنک",
   "invitationLinkWithUrl": "دعوت لنک: {inviteUrl}",
   "@invitationLinkWithUrl": {
-    "placeholders": {
-      "inviteUrl": {
-        "type": "String"
-      }
-    }
   },
   "copyInvitationLink": "دعوت لنک کاپی کریں",
   "copyInvitationLinkToClipboard": "دعوت لنک کلپ بورڈ میں کاپی کریں",
-  "copyLink": "لنک کاپی کریں",
   "shareInvitationLink": "دعوت لنک شیئر کریں",
   "share": "شیئر کریں",
   "closeShareSheet": "شیئر شیٹ بند کریں",
-  "done": "ہو گیا",
   "invitationLinkCopiedToClipboard": "دعوت لنک کلپ بورڈ میں کاپی ہو گیا!",
   "joinMyHouseholdMessage": "میرے گھر \"{householdName}\" میں مونیکو پر شامل ہوں!\n\n{inviteUrl}",
   "@joinMyHouseholdMessage": {
     "placeholders": {
       "householdName": {
+        "placeholder": {
         "type": "String"
-      },
+      }
+    },
       "inviteUrl": {
         "type": "String"
       }
@@ -1033,9 +755,6 @@
 
   "remindUser": "{name} کو یاد دہانی بھیجیں",
   "@remindUser": {
-    "placeholders": {
-      "name": { "type": "String" }
-    }
   },
   "sendFriendlySpendingReminder": "اخراجات کی ایک دوستانہ یاددہانی بھیجیں",
   "addMessageOptional": "پیغام شامل کریں (اختیاری)",
@@ -1043,15 +762,9 @@
   "sendReminder": "یاد دہانی بھیجیں",
   "pleaseWait24HoursBeforeSendingAnotherReminder": "براہِ کرم {name} کو دوبارہ یاد دہانی بھیجنے سے پہلے 24 گھنٹے انتظار کریں",
   "@pleaseWait24HoursBeforeSendingAnotherReminder": {
-    "placeholders": {
-      "name": { "type": "String" }
-    }
   },
   "reminderSentToName": "{name} کو یاد دہانی بھیج دی گئی 🔔",
   "@reminderSentToName": {
-    "placeholders": {
-      "name": { "type": "String" }
-    }
   },
   "failedToSendReminderTryAgain": "یاد دہانی بھیجنے میں ناکامی۔ براہ کرم دوبارہ کوشش کریں۔",
 
@@ -1070,10 +783,8 @@
   "acknowledged": "تسلیم کر لیا گیا",
   "source": "ذریعہ",
   "sourceHint": "مثلاً: آجر، کلائنٹ",
-  "owner": "مالک",
   "me": "میں",
   "partner": "پارٹنر",
-  "household": "گھرانہ",
   "privacyScope": "رازداری",
   "privacyFull": "مکمل تفصیلات",
   "privacyBalancesOnly": "صرف بیلنس",
@@ -1081,7 +792,6 @@
   "privacyFullExplanation": "پارٹنر رقم، ذریعہ اور تفصیل سمیت تمام تفصیلات دیکھ سکتا ہے۔",
   "privacyBalancesOnlyExplanation": "پارٹنر یہ آمدنی کل میں دیکھ سکتا ہے لیکن تفصیلات نہیں (ذرائع، تفصیل پوشیدہ)۔",
   "privacyPrivateExplanation": "صرف آپ ہی یہ آمدنی دیکھ سکتے ہیں۔ یہ گھریلو کل میں حصہ ڈالتی ہے لیکن پارٹنر تفصیلات نہیں دیکھ سکتا۔",
-  "shareWithHousehold": "گھرانے کے ساتھ شیئر کریں",
   "incomeSalary": "تنخواہ",
   "incomeFreelance": "فری لانس",
   "incomeInvestment": "سرمایہ کاری",
@@ -1090,10 +800,6 @@
   "incomeBonus": "بونس",
   "incomeRental": "کرایہ",
   "incomeOther": "دیگر",
-  "enterValidAmountGreaterThan0": "براہ کرم 0 سے زیادہ درست رقم درج کریں",
-  "date": "تاریخ",
-  "time": "وقت",
-  "retry": "دوبارہ کوشش کریں",
 
   "@goalsFeature": {},
   "goals": "مقاصد",
@@ -1109,11 +815,9 @@
   "targetDate": "ہدف تاریخ",
   "description": "تفصیل",
   "descriptionHint": "نوٹ (اختیاری)",
-  "category": "قسم",
   "savings": "بچت",
   "paydown": "قرض ادائیگی",
   "all": "تمام",
-  "active": "فعال",
   "completed": "مکمل",
   "offTrack": "ٹریک سے باہر",
   "onTrack": "ٹریک پر",

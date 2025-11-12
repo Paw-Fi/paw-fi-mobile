@@ -11,27 +11,15 @@
   "newToMoneko": "Moneko 新用户？",
   "createAccount": "创建账户",
   "resetYourPassword": "重置密码",
-  "email": "邮箱",
   "exampleEmail": "you@example.com",
-  "cancel": "取消",
   "sendResetLink": "发送重置链接",
   "passwordResetEmailSent": "密码重置邮件已发送。请检查您的收件箱。",
   "enterValidEmail": "请输入有效的邮箱地址",
   "passwordMinLength": "密码必须至少为 {min} 个字符",
   "@passwordMinLength": {
-    "placeholders": {
-      "min": {
-        "type": "int"
-      }
-    }
   },
   "fullNameMinLength": "姓名必须至少为 {min} 个字符",
   "@fullNameMinLength": {
-    "placeholders": {
-      "min": {
-        "type": "int"
-      }
-    }
   },
   "createYourAccount": "创建您的账户",
   "fullName": "姓名",
@@ -45,11 +33,6 @@
   "verifyYourEmail": "验证您的邮箱",
   "verificationEmailSentTo": "我们已发送一个 6 位验证码至 {email}",
   "@verificationEmailSentTo": {
-    "placeholders": {
-      "email": {
-        "type": "String"
-      }
-    }
   },
   "enterCompleteCode": "请输入完整的 6 位验证码",
   "invalidVerificationCode": "验证码无效。请检查后重试。",
@@ -58,11 +41,6 @@
   "didntReceiveTheCode": "没有收到验证码？请检查您的垃圾邮件夹或",
   "resendInSeconds": "{seconds} 秒后重新发送",
   "@resendInSeconds": {
-    "placeholders": {
-      "seconds": {
-        "type": "int"
-      }
-    }
   },
   "resendVerificationEmail": "重新发送验证邮件",
   "continueWithGoogle": "Google 账号登录",
@@ -75,7 +53,6 @@
   "paymentFailed": "付款失败",
   "paymentCanceled": "ℹ️ 付款已取消",
   "whatsappVerifiedSuccessfully": "✅ WhatsApp 验证成功！",
-  "settings": "设置",
   "enableNotificationsInSettings": "请在您设备的系统设置中为 Moneko 开启通知",
   "appearance": "外观",
   "darkMode": "深色模式",
@@ -101,28 +78,13 @@
   "trialStatus": "试用中",
   "trialEndsInDays": "试用期剩余 {days} 天",
   "@trialEndsInDays": {
-    "placeholders": {
-      "days": {
-        "type": "int"
-      }
-    }
   },
   "trialEnded": "试用已结束",
   "renewsInDays": "{days} 天后自动续费",
   "@renewsInDays": {
-    "placeholders": {
-      "days": {
-        "type": "int"
-      }
-    }
   },
   "accessEndsInDays": "访问权限剩余 {days} 天",
   "@accessEndsInDays": {
-    "placeholders": {
-      "days": {
-        "type": "int"
-      }
-    }
   },
   "subscriptionEnded": "订阅已结束",
   "profile": "个人资料",
@@ -142,12 +104,9 @@
   "snapReceipt": "拍下收据",
   "snapReceiptDescription": "拍下收据，AI 将自动提取并记录。",
   "previous": "上一步",
-  "next": "下一步",
-  "overview": "概览",
   "activity": "活动",
   "accountInformation": "账户信息",
   "userId": "用户 ID",
-  "email": "邮箱",
   "recentActivity": "最近活动",
   "noActivityYet": "暂无活动",
   "signOut": "退出登录",
@@ -169,7 +128,6 @@
   "day30LookAhead": "未来 30 天预测",
   "projectedFromTrailing30Days": "根据过去 30 天的平均数据预测。",
   "projectedSpendingLegend": "预测支出",
-  "peek30DaysAhead": "预见未来 30 天",
   "day30ForecastIntro": "此预测使用上个月的活动来推测下个月的大致情况。把它想象成您钱包的天气预报。",
   "@longTermProjection": {},
   "longTermProjection": "长期预测",
@@ -211,8 +169,6 @@
   "day": "日",
   "@navigation": {},
   "close": "关闭",
-  "next": "下一步",
-  "done": "完成",
   "@runningBalanceSlides": {},
   "whatYouAreSeeing": "您看到的是什么",
   "whyItMatters": "为何重要",
@@ -231,7 +187,6 @@
   "longTermWhyMattersDesc": "长远规划让梦想成真。看看您的应急基金、投资或大额采购是否仍在正轨上。",
   "longTermMovesToConsiderDesc": "使用图表来“排练”未来的决策。今天的小调整将复合成未来的大胜利。",
   "@categorySlides": {},
-  "overview": "概览",
   "forMe": "个人",
   "forUs": "家庭",
   "home": "首页",
@@ -244,19 +199,13 @@
   "updateBudget": "更新预算",
   "enterNewTotalDailyBudget": "请输入新的每日总预算。",
   "budgetAmount": "预算金额",
-  "cancel": "取消",
   "save": "保存",
-  "enterValidAmountGreaterThan0": "请输入一个大于 0 的有效金额",
   "updatingBudget": "正在更新预算...",
   "budgetUpdated": "预算已更新",
-  "failedToUpdateBudget": "预算更新失败",
   "loggedSuccessfully": "记录成功",
   "view": "查看",
-  "retry": "重试",
   "failedToCapturePhoto": "照片拍摄失败",
   "noSpendingData": "暂无支出数据",
-  "byCategory": "按分类",
-  "noExpensesYet": "暂无支出",
   "startLoggingExpensesToSeeCategories": "开始记账以查看分类",
   "selectDateRange": "选择日期范围",
   "addExpense": "记一笔",
@@ -264,13 +213,9 @@
   "enterExpenseDetails": "输入支出详情...",
   "freeFormText": "自由文本",
   "takePhoto": "拍照",
-  "transactions": "交易记录",
   "negative": "负",
   "positive": "正",
   "spendingBreakdown": "支出明细",
-  "spent": "支出",
-  "today": "今天",
-  "yesterday": "昨天",
   "thisWeek": "本周",
   "lastWeek": "上周",
   "thisMonth": "本月",
@@ -301,11 +246,6 @@
   "showLessCurrencies": "收起",
   "showAllCurrencies": "展开全部 {count} 种货币",
   "@showAllCurrencies": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
   },
   "budget": "预算",
   "spentLabel": "支出",
@@ -314,11 +254,8 @@
   "txns": "笔",
   "pleaseEnterExpenseDetails": "请输入支出详情",
   "userNotLoggedIn": "用户未登录",
-  "errorLoadingHouseholds": "家庭加载失败",
   "welcomeToHouseholds": "欢迎使用“家庭”功能！",
   "householdsDescription": "与您的家人、伴侣或室友共同管理财务。一起跟踪预算、分摊支出，并共同规划财务。",
-  "createHousehold": "创建家庭",
-  "joinWithInvite": "使用邀请加入",
   "pleaseUseInvitationLink": "请使用邀请链接加入家庭",
   "householdName": "家庭名称",
   "householdNameHint": "例如：幸福一家人",
@@ -327,32 +264,12 @@
   "householdsFeature": "“家庭”功能",
   "householdsFeatureDescription": "“家庭”功能现已推出！与家人、伴侣或室友共同管理财务。",
   "gotIt": "知道了",
-  "confirmExpense": "确认支出",
-  "expenseDetails": "支出详情",
-  "details": "详情",
-  "category": "分类",
-  "currency": "货币",
-  "date": "日期",
-  "time": "时间",
-  "notes": "备注",
-  "receipt": "收据",
-  "saveExpense": "保存支出",
-  "shareWithHousehold": "分享至家庭",
-  "loadingHouseholdMembers": "正在加载家庭成员...",
-  "selectHouseholdToConfigureSplit": "选择一个家庭以配置分摊",
   "currencyManagedByHousehold": "家庭货币统一设置，无法在此更改",
   "currencyCannotBeChanged": "分享至家庭时无法更改货币",
   "cannotEditOthersExpenses": "你只能编辑自己的支出",
-  "failedToLoadImage": "图片加载失败",
-  "editAmount": "编辑金额",
-  "amount": "金额",
-  "editNotes": "编辑备注",
-  "addANote": "添加备注...",
   "noMembersFoundInHousehold": "未找到家庭成员",
   "errorLoadingMembers": "成员加载失败：{error}",
   "noExpenseToSave": "没有要保存的支出",
-  "expenseSaved": "支出已保存！",
-  "failedToSave": "保存失败：{error}",
   "failedToSyncCurrencyPreference": "货币偏好同步失败：{error}",
   "currencyUpdatedSuccessfully": "货币更新成功",
   "retryFailed": "重试失败：{error}",
@@ -360,12 +277,9 @@
   "enterNewTotalDailyBudgetDescription": "请输入新的每日总预算。",
   "@household": {},
   "pleaseSignInToAccessHouseholdFeatures": "请登录以使用家庭功能",
-  "errorLoadingHouseholds": "家庭加载失败",
   "quickActions": "快捷操作",
   "members": "成员",
   "invites": "邀请",
-  "settings": "设置",
-  "errorLoadingExpenses": "支出加载失败",
   "budgets": "预算",
   "loadingHousehold": "正在加载家庭信息...",
   "remaining": "剩余",
@@ -375,7 +289,6 @@
   "spentByHousehold": "家庭支出",
   "memberSpending": "成员支出",
   "spentByHouseholdTooltip": "显示所选期间内所有家庭成员的总支出金额。包括家庭任何成员记录的所有共享支出。",
-  "welcomeToHouseholds": "欢迎使用「家庭」功能",
   "manageMoneyTogether": "在同一共享空间中，与您的伴侣、家人或室友共同管理财务。",
   "sharedBudgetsExpenses": "共享预算与支出",
   "sharedBudgetsExpensesDesc": "设置预算、跟踪支出，实时查看您家庭的资金流向。",
@@ -383,8 +296,6 @@
   "smartExpenseSplittingDesc": "通过灵活的分摊选项（均摊、按百分比或自定义金额）自动计算谁欠谁。",
   "stayInSync": "保持同步",
   "stayInSyncDesc": "当添加支出、达到预算或需要结算分摊时收到通知。",
-  "createHousehold": "创建家庭",
-  "joinWithInvite": "使用邀请加入",
   "@householdSettings": {},
   "householdSettings": "家庭设置",
   "householdNotFound": "未找到家庭",
@@ -397,8 +308,6 @@
   "failedToUpdateHousehold": "家庭信息更新失败",
   "@householdMembers": {},
   "inviteMember": "邀请成员",
-  "errorLoadingMembers": "成员加载失败",
-  "retry": "重试",
   "removeMember": "移除成员",
   "remove": "移除",
   "confirmRemoveMember": "您确定要移除",
@@ -438,7 +347,6 @@
   "noExpiry": "永不过期",
   "expired": "已过期",
   "expires": "过期时间",
-  "copyLink": "复制链接",
   "@householdImagePicker": {},
   "selectCoverImage": "选择封面图片",
   "failedToLoadImages": "图片加载失败",
@@ -452,52 +360,27 @@
   "@budgetDetail": {},
   "editBudget": "编辑预算",
   "budgetDetails": "预算详情",
-  "budgetName": "预算名称",
-  "amount": "金额",
   "period": "周期",
-  "currency": "货币",
-  "alertThresholds": "提醒阈值",
-  "warningThreshold": "警告阈值",
-  "alertThreshold": "警报阈值",
-  "warningThresholdHelper": "当预算使用达到此百分比时提醒",
-  "alertThresholdHelper": "达到此百分比时发送严重警报",
   "budgetStatus": "预算状态",
-  "active": "启用",
-  "inactive": "停用",
   "deletingBudget": "正在删除预算...",
   "savingChanges": "正在保存更改...",
   "budgetNameCannotBeEmpty": "预算名称不能为空",
-  "pleaseEnterValidAmount": "请输入有效金额",
-  "warningThresholdRange": "警告阈值必须在 0 到 100 之间",
-  "alertThresholdRange": "警报阈值必须在 0 到 100 之间",
-  "warningThresholdLessThanAlert": "警告阈值必须小于或等于警报阈值",
-  "deleteBudget": "删除预算",
-  "confirmDeleteBudget": "您确定要删除",
   "thisActionCannotBeUndone": "此操作无法撤销",
   "budgetUpdatedSuccessfully": "预算更新成功",
   "budgetDeletedSuccessfully": "预算删除成功",
   "@categories": {},
   "categoryTransfers": "转账",
-  "categoryShopping": "购物",
-  "categoryUtilities": "水电煤",
-  "categoryEntertainment": "娱乐",
   "categoryEntertainmentSubscriptions": "娱乐订阅",
   "categoryRestaurants": "餐饮",
-  "categoryFood": "食物",
-  "categoryGroceries": "买菜",
-  "categoryTransport": "交通",
   "categoryTransportation": "交通",
-  "categoryTravel": "旅行",
   "categoryFlights": "机票",
   "categoryVacation": "度假",
   "categoryHealth": "健康",
   "categoryMedical": "医疗",
   "categoryText": "文本",
-  "categoryEducation": "教育",
   "categoryTuition": "学费",
   "categorySubscriptions": "订阅",
   "categoryServices": "服务",
-  "categoryHousing": "住房",
   "categoryRent": "房租",
   "categoryMortgage": "房贷",
   "categoryBills": "账单",
@@ -505,7 +388,6 @@
   "categorySavings": "储蓄",
   "categoryInvestment": "投资",
   "categoryInvestments": "投资",
-  "categoryIncome": "收入",
   "categorySalary": "工资",
   "categoryBonus": "奖金",
   "categoryPets": "宠物",
@@ -521,31 +403,16 @@
   "categoryBeauty": "美容",
   "categoryMisc": "其他",
   "categoryUncategorized": "未分类",
-  "alertThresholds": "提醒阈值",
   "warningThreshold": "警告阈值 (%)",
   "alertThreshold": "警报阈值 (%)",
-  "warningThresholdHelper": "当预算使用达到此百分比时提醒",
-  "alertThresholdHelper": "达到此百分比时发送严重警报",
-  "active": "启用",
-  "inactive": "停用",
   "saveChanges": "保存更改",
-  "pleaseEnterValidAmount": "请输入有效金额",
-  "warningThresholdRange": "警告阈值必须在 0 到 100 之间",
-  "alertThresholdRange": "警报阈值必须在 0 到 100 之间",
-  "warningThresholdLessThanAlert": "警告阈值必须小于或等于警报阈值",
-  "failedToUpdateBudget": "预算更新失败",
-  "deleteBudget": "删除预算",
-  "confirmDeleteBudget": "您确定要删除",
   "deleteBudgetCannotBeUndone": "此操作无法撤销",
   "delete": "删除",
   "failedToDeleteBudget": "预算删除失败",
-  "owner": "所有者",
   "admin": "管理员",
-  "member": "成员",
   "removeMember": "移除成员",
   "confirmRemoveMember": "您确定要移除",
   "remove": "移除",
-  "retry": "重试",
   "unknown": "未知",
   "makeAdmin": "设为管理员",
   "makeMember": "设为成员",
@@ -574,39 +441,24 @@
   "confirmRevokeInvitation": "您确定要撤销此邀请吗？",
   "revoke": "撤销",
   "invitationRevoked": "邀请已撤销",
-  "copyLink": "复制链接",
   "noExpiry": "永不过期",
   "expired": "已过期",
   "expires": "过期时间",
   "pending": "待处理",
   "accepted": "已接受",
   "revoked": "已撤销",
-  "createHousehold": "创建家庭",
   "tapToChangeCover": "点击更换封面",
   "personalMessageHint": "给被邀请人留句话（例如：“加入我们的家庭预算吧！”）",
   "invitationExpiresIn": "邀请有效期",
   "daysCount": "{days} 天",
   "@daysCount": {
-    "placeholders": {
-      "days": {
-        "type": "int"
-      }
-    },
-    "plural": "days"
   },
   "createHouseholdDescription": "创建一个共享空间，与家人或室友一起跟踪预算和支出。",
   "uploadingImage": "正在上传图片...",
   "creating": "正在创建...",
   "generatingInvite": "正在生成邀请...",
   "pleaseSelectValidCurrency": "请选择有效的家庭货币",
-  "details": "详情",
-  "nameMaxLength": "名称必须少于 {max} 个字符",
   "@nameMaxLength": {
-    "placeholders": {
-      "max": {
-        "type": "int"
-      }
-    }
   },
   "createHouseholdPage": "创建家庭页面",
   "invitationPersonalMessageInput": "邀请消息输入框",
@@ -615,12 +467,6 @@
   "unlimitedExpiration": "无限期",
   "daysExpiration": "{days} 天有效期",
   "@daysExpiration": {
-    "placeholders": {
-      "days": {
-        "type": "int"
-      }
-    },
-    "plural": "days"
   },
   "householdInformation": "家庭信息",
   "creatingHousehold": "正在创建家庭",
@@ -628,7 +474,6 @@
   "searchExpenses": "搜索支出...",
   "clearAll": "全部清除",
   "allCategories": "全部",
-  "category": "分类",
   "allMembers": "所有成员",
   "balanceSummary": "结算总览",
   "youAreOwed": "他人欠您",
@@ -648,40 +493,21 @@
   "transferredViaBank": "通过银行转账",
   "mobilePayment": "移动支付",
   "venmoPaypalEtc": "微信、支付宝等",
-  "transactions": "交易记录",
   "search": "搜索",
-  "spent": "支出",
   "noData": "暂无数据",
   "filterTransactions": "筛选交易",
-  "byCategory": "按分类",
   "noTransactionsFound": "未找到交易记录",
   "failedToLoadHouseholdTransactions": "家庭交易记录加载失败",
   "reset": "重置",
   "apply": "应用",
   "expenses": "支出",
   "dateRange": "日期范围",
-  "errorLoadingExpenses": "支出加载失败",
-  "noExpensesYet": "暂无支出",
   "noMatchingExpenses": "无匹配支出",
   "startLoggingExpenses": "开始记账，支出将显示在此处",
   "tryAdjustingFilters": "尝试调整您的筛选条件",
-  "member": "成员",
-  "split": "已分摊",
-  "today": "今天",
-  "yesterday": "昨天",
-  "category": "分类",
-  "date": "日期",
-  "time": "时间",
-  "shareWithHousehold": "分享至家庭",
-  "amount": "金额",
   "note": "备注",
-  "loadingHouseholdMembers": "正在加载家庭成员...",
-  "selectHouseholdToConfigureSplit": "选择一个家庭以配置分摊",
   "currencyCannotBeChangedWhenSharing": "分享至家庭时无法更改货币",
-  "failedToLoadImage": "图片加载失败",
-  "done": "完成",
   "createBudget": "创建预算",
-  "budgetName": "预算名称",
   "pleaseEnterABudgetName": "请输入预算名称",
   "pleaseEnterAValidAmountGreaterThan0": "请输入一个大于 0 的有效金额",
   "warningThresholdMustBeBetween0And100": "警告阈值必须在 0 到 100% 之间",
@@ -695,31 +521,10 @@
   "personalBudgetForYourExpensesOnly": "仅用于您个人支出的预算",
   "countSplitPortionOnly": "仅计算分摊部分",
   "onlyCountYourPortionOfSplitExpenses": "仅将您在分摊支出中承担的部分计入此预算",
-  "joinHousehold": "加入家庭",
-  "joinAHousehold": "加入一个家庭",
-  "enterYourInvitationLinkToJoin": "输入您的邀请链接以加入\n一个共享财务空间",
-  "pasteTheInvitationLinkYouReceived": "粘贴您从家庭成员那里收到的邀请链接",
-  "pasteInvitationLink": "粘贴邀请链接",
-  "pleaseEnterAnInvitationLink": "请输入邀请链接",
-  "pleaseEnterAValidInvitationLink": "请输入有效的邀请链接",
   "paste": "粘贴",
-  "validating": "正在验证...",
   "continueAction": "继续",
-  "welcomeAboard": "欢迎加入！",
-  "youreNowPartOfTheHousehold": "您现已成为该家庭的一员。\n开始协作管理您的财务吧！",
-  "thisWillOnlyTakeAMoment": "这只需片刻时间",
-  "unableToJoin": "无法加入",
   "tryAgain": "重试",
-  "goToHousehold": "前往家庭",
-  "expiresSoon": "即将过期",
-  "invitationValidUntil": "邀请有效期至",
-  "whatYoullGet": "您将获得",
-  "viewSharedBudgetsAndExpenses": "查看共享预算和支出",
-  "trackHouseholdFinancialHealth": "跟踪家庭财务状况",
-  "collaborateOnFinancialDecisions": "协作制定财务决策",
   "@householdOverview": {},
-  "household": "家庭",
-  "errorLoadingMembers": "成员加载失败",
   "viewAll": "查看全部",
   "manage": "管理",
   "noBudgetsYet": "暂无预算",
@@ -735,23 +540,11 @@
   "@householdCreate": {},
   "nameMinLength": "名称必须至少为 {min} 个字符",
   "@nameMinLength": {
-    "placeholders": {
-      "min": {
-        "type": "int"
-      }
-    }
   },
-  "nameMaxLength": "名称必须少于 {max} 个字符",
   "@nameMaxLength": {
-    "placeholders": {
-      "max": {
-        "type": "int"
-      }
-    }
   },
   "@customSplitSheet": {},
   "splitExpense": "分摊支出",
-  "amount": "金额",
   "percent": "百分比",
   "splitShare": "份额",
   "owes": "欠款",
@@ -759,8 +552,10 @@
   "@splitAmountsMustEqual": {
     "placeholders": {
       "currency": {
+        "placeholder": {
         "type": "String"
-      },
+      }
+    },
       "amount": {
         "type": "String"
       }
@@ -768,7 +563,6 @@
   },
   "percentagesMustTotal100": "百分比总和必须为 100%",
   "eachPersonMustHaveAtLeast1Share": "每人必须至少占 1 份",
-  "member": "成员",
   "@whatsappVerification": {},
   "whatsappVerified": "WhatsApp 验证成功",
   "whatsappVerification": "WhatsApp 验证",
@@ -777,12 +571,10 @@
   "enterThe6DigitCodeFromWhatsApp": "请输入来自 WhatsApp 的 6 位验证码",
   "pleaseEnterThe6DigitVerificationCode": "请输入 6 位验证码",
   "failedToVerifyCode": "验证码验证失败",
-  "invalidVerificationCode": "验证码无效",
   "failedToVerifyCodePleaseTryAgain": "验证失败。请重试。",
   "codeAutoFilledFromVerificationLink": "已从验证链接自动填充验证码",
   "verify": "验证",
   "verifying": "验证中...",
-  "done": "完成",
   "@avatarCustomizer": {},
   "avatarStudio": "头像编辑器",
   "preview": "预览",
@@ -807,12 +599,6 @@
   "accessories": "配饰",
   "stars": "星星",
   "@unifiedTransactionSheet": {},
-  "confirmExpense": "确认支出",
-  "expenseDetails": "支出详情",
-  "details": "详情",
-  "currency": "货币",
-  "notes": "备注",
-  "receipt": "收据",
   "@recurringTransactions": {},
   "recurring": "定期",
   "manageYourRecurringTransactions": "管理周期性交易",
@@ -823,39 +609,23 @@
   "failedToDeleteRecurringTransaction": "删除周期性交易失败",
   "recurringTransactions": "周期性交易",
   "currencyIsManagedByHousehold": "家庭货币统一设置，无法在此更改",
-  "editAmount": "编辑金额",
-  "amount": "金额",
-  "editNotes": "编辑备注",
-  "addANote": "添加备注...",
-  "errorLoadingMembers": "成员加载失败",
   "expenseSavedAndShared": "支出已保存并分享{splitInfo}！",
   "@expenseSavedAndShared": {
-    "placeholders": {
-      "splitInfo": {
-        "type": "String"
-      }
-    }
   },
-  "expenseSaved": "支出已保存！",
-  "failedToSave": "保存失败：{error}",
   "@failedToSave": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
   },
   "@scenarioPlanning": {},
   "buyALaptop": "购买一台 8000 元的笔记本电脑",
   "selectTargetDate": "选择目标日期",
   "scenarioQuestionTemplate": "我可以在 {date} 前 {action} 吗",
   "@scenarioQuestionTemplate": {
-    "description": "Template for scenario planning questions. CRITICAL: Adjust word order for your language's grammar structure.\n\nLANGUAGE STRUCTURE EXAMPLES:\n• English (SVO): Can I {action} before {date}?\n• Chinese (STV): 我可以在{date}前{action}吗？\n• Japanese (SOV): {date}前に{action}できますか？\n• Korean (SOV): {date} 전에 {action}할 수 있나요?\n• Spanish (VSO): ¿Puedo {action} antes del {date}?\n• French (VSO): Puis-je {action} avant le {date}?\n• German (V2): Kann ich {action} vor dem {date}?\n• Russian (SVO): Могу ли я {action} до {date}?\n• Arabic (VSO): هل يمكنني {action} قبل {date}؟\n• Hindi (SOV): क्या मैं {date} से पहले {action} कर सकता हूँ?\n• Urdu (SOV): کیا میں {date} سے पहले {action} کر سکتا ہوں؟\n• Turkish (SOV): {date} öncesi {action} yapabilir miyim?\n• Dutch (SVO): Kan ik {action} voor {date}?\n• Swedish (SVO): Kan jag {action} före {date}?\n• Polish (SVO): Czy mogę {action} przed {date}?\n• Thai (SVO): ฉันสามารถ {action} ก่อน {date} ได้ไหม?\n• Vietnamese (SVO): Tôi có thể {action} trước {date} không?\n• Indonesian (SVO): Bisakah saya {action}S-11sebelum {date}?\n\nIMPORTANT: Consider your language's unique features:\n- Gender agreement (Romance languages)\n- Case systems (Germanic, Slavic languages)\n- Honorific levels (Asian languages)\n- Right-to-left script (Arabic, Hebrew)\n- Postpositions (Indian languages)\n- Verb position variations",
+    "description": "Template for scenario planning questions. CRITICAL: Adjust word order for your language's grammar structure.\n\nLANGUAGE STRUCTURE EXAMPLES:\n• English (SVO): Can I {action} before {date}?\n• Chinese (STV): 我可以在{date}前{action}吗？\n• Japanese (SOV): {date}前に{action}できますか？\n• Korean (SOV): {date} 전에 {action}할 수 있나요?\n• Spanish (VSO): ¿Puedo {action} antes del {date}?\n• French (VSO): Puis-je {action} avant le {date}?\n• German (V2): Kann ich {action} vor dem {date}?\n• Russian (SVO): Могу ли я {action} до {date}?\n• Arabic (VSO): هل يمكنني {action} قبل {date}؟\n• Hindi (SOV): क्या मैं {date} से पहले {action} कर सकता हूँ?\n• Urdu (SOV): کیا میں {date} سے पहलے {action} کر سکتا ہوں؟\n• Turkish (SOV): {date} öncesi {action} yapabilir miyim?\n• Dutch (SVO): Kan ik {action} voor {date}?\n• Swedish (SVO): Kan jag {action} före {date}?\n• Polish (SVO): Czy mogę {action} przed {date}?\n• Thai (SVO): ฉันสามารถ {action} ก่อน {date} ได้ไหม?\n• Vietnamese (SVO): Tôi có thể {action} trước {date} không?\n• Indonesian (SVO): Bisakah saya {action}S-11sebelum {date}?\n\nIMPORTANT: Consider your language's unique features:\n- Gender agreement (Romance languages)\n- Case systems (Germanic, Slavic languages)\n- Honorific levels (Asian languages)\n- Right-to-left script (Arabic, Hebrew)\n- Postpositions (Indian languages)\n- Verb position variations",
     "placeholders": {
       "action": {
-        "type": "String",
-        "description": "The action phrase (e.g., 'buy a laptop', 'go on vacation')"
-      },
+        "placeholder": {
+        "type": "String"
+      }
+    },
       "date": {
         "type": "String",
         "description": "The date string formatted according to locale conventions"
@@ -864,16 +634,10 @@
   },
   "scenarioDateFormat": "yyyy/MM/dd",
   "@scenarioDateFormat": {
-    "description": "Date format for scenario planning. Use standard ICU DateFormat patterns.\n\nREGIONAL DATE FORMAT EXAMPLES:\n• United States: MM/dd/yyyy (01/25/2025)\n• United Kingdom: dd/MM/yyyy (25/01/2025)\n• China/Japan/Korea: yyyy/MM/dd (2025/01/25)\n• Germany: dd.MM.yyyy (25.01.2025)\n• France: dd/MM/yyyy (25/01/2025)\n• Spain: dd/MM/yyyy (25/01/2025)\n• Italy: dd/MM/yyyy (25/01/2025)\n• Russia: dd.MM.yyyy (25.01.2025)\n• Arabic (Egypt): dd/MM/yyyy (25/01/2025)\n• Hindi: dd-MM-yyyy (25-01-2025)\n• Urdu: dd/MM/yyyy (25/01/2025)\n• Thai: dd/MM/yyyy (25/01/2565) [Note: Buddhist calendar]\n• Vietnamese: dd/MM/yyyy (25/01/2025)\n• Indonesian: dd/MM/yyyy (25/01/2025)\n• Turkish: dd.MM.yyyy (25.01.2025)\n• Dutch: dd-MM-yyyy (25-01-2025)\n• Swedish: yyyy-MM-dd (2025-01-25)\n• Polish: dd.MM.yyyy (25.01.2025)\n\nSPECIAL CONSIDERATIONS:\n- Buddhist calendar (Thailand): Year + 543\n- Islamic calendar (Arabic countries): Different year system\n- Hebrew calendar (Israel): Different year system\n- Era naming (Japanese): Reiwa, Heisei, etc.\n- Lunar calendars (Chinese, Korean, Vietnamese)\n- Week start day (Sunday vs Monday)\n- Use of separators: /, -, ., or spaces",
-    "example": "2025/01/25"
+    "description": "Date format for scenario planning. Use standard ICU DateFormat patterns.\n\nREGIONAL DATE FORMAT EXAMPLES:\n• United States: MM/dd/yyyy (01/25/2025)\n• United Kingdom: dd/MM/yyyy (25/01/2025)\n• China/Japan/Korea: yyyy/MM/dd (2025/01/25)\n• Germany: dd.MM.yyyy (25.01.2025)\n• France: dd/MM/yyyy (25/01/2025)\n• Spain: dd/MM/yyyy (25/01/2025)\n• Italy: dd/MM/yyyy (25/01/2025)\n• Russia: dd.MM.yyyy (25.01.2025)\n• Arabic (Egypt): dd/MM/yyyy (25/01/2025)\n• Hindi: dd-MM-yyyy (25-01-2025)\n• Urdu: dd/MM/yyyy (25/01/2025)\n• Thai: dd/MM/yyyy (25/01/2565) [Note: Buddhist calendar]\n• Vietnamese: dd/MM/yyyy (25/01/2025)\n• Indonesian: dd/MM/yyyy (25/01/2025)\n• Turkish: dd.MM.yyyy (25.01.2025)\n• Dutch: dd-MM-yyyy (25-01-2025)\n• Swedish: yyyy-MM-dd (2025-01-25)\n• Polish: dd.MM.yyyy (25.01.2025)\n\nSPECIAL CONSIDERATIONS:\n- Buddhist calendar (Thailand): Year + 543\n- Islamic calendar (Arabic countries): Different year system\n- Hebrew calendar (Israel): Different year system\n- Era naming (Japanese): Reiwa, Heisei, etc.\n- Lunar calendars (Chinese, Korean, Vietnamese)\n- Week start day (Sunday vs Monday)\n- Use of separators: /, -, ., or spaces"
   },
   "analysisFailed": "分析失败：{error}",
   "@analysisFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
   },
   "leftHandChamps": "左边的“大头”是您的主要支出项——非常适合快速审查。",
   "smallButFrequent": "小额但频繁的类别暗示着可能随时间“悄悄”养成的习惯。",
@@ -895,7 +659,6 @@
   "lineDippingWeekend": "忙碌的周末后线条下降？通过削减小的非必要开支来重新平衡未来几天的收支。",
   "feelStuckRed": "感觉“陷入赤字”？返回“首页”重新审视您的预算——小的调整会迅速累积。",
   "@day30LookAheadTab": {},
-  "peek30DaysAhead": "预见未来 30 天",
   "thirtyDayForecastDesc": "此预测使用上个月的活动来推测下个月的大致情况。把它想象成您钱包的天气预报。",
   "greenLineExpected": "绿线 = 如果下个月的情况与上个月相似，预计的每日支出。",
   "spikesHighlight": "尖峰突显了您的习惯通常“更昂贵”的几周（比如周五的外卖）。",
@@ -917,17 +680,7 @@
   "planAheadDips": "通过指定“偿债基金”或削减可选支出来为“下降”提前计划。",
   "checkProjectionMonthly": "每月检查一次预测，让您的长期规划保持乐趣和灵活性。",
   "@categories": {},
-  "categoryGroceries": "买菜",
-  "categoryFood": "食物",
-  "categoryTransport": "交通",
-  "categoryHousing": "住房",
-  "categoryUtilities": "水电煤",
-  "categoryEntertainment": "娱乐",
   "categoryHealthcare": "医疗健康",
-  "categoryEducation": "教育",
-  "categoryShopping": "购物",
-  "categoryTravel": "旅行",
-  "categoryIncome": "收入",
   "categoryOther": "其他",
   "deleteExpense": "删除支出",
   "confirmDeleteExpense": "您确定要删除这笔支出吗？此操作无法撤销。",
@@ -940,52 +693,32 @@
 
   "shareInvitationForHousehold": "分享家庭 {householdName} 的邀请",
   "@shareInvitationForHousehold": {
-    "placeholders": {
-      "householdName": {
-        "type": "String"
-      }
-    }
   },
   "shareInvitation": "分享邀请",
   "householdCreatedSuccessfully": "家庭 {householdName} 创建成功",
   "@householdCreatedSuccessfully": {
-    "placeholders": {
-      "householdName": {
-        "type": "String"
-      }
-    }
   },
   "householdCreatedSuccessfullyWithQuotes": "家庭 \"{householdName}\" 创建成功！",
   "@householdCreatedSuccessfullyWithQuotes": {
-    "placeholders": {
-      "householdName": {
-        "type": "String"
-      }
-    }
   },
   "invitationLink": "邀请链接",
   "invitationLinkWithUrl": "邀请链接：{inviteUrl}",
   "@invitationLinkWithUrl": {
-    "placeholders": {
-      "inviteUrl": {
-        "type": "String"
-      }
-    }
   },
   "copyInvitationLink": "复制邀请链接",
   "copyInvitationLinkToClipboard": "复制邀请链接到剪贴板",
-  "copyLink": "复制链接",
   "shareInvitationLink": "分享邀请链接",
   "share": "分享",
   "closeShareSheet": "关闭分享面板",
-  "done": "完成",
   "invitationLinkCopiedToClipboard": "邀请链接已复制到剪贴板！",
   "joinMyHouseholdMessage": "来 Moneko 加入我的家庭 \"{householdName}\" 吧！\n\n{inviteUrl}",
   "@joinMyHouseholdMessage": {
     "placeholders": {
       "householdName": {
+        "placeholder": {
         "type": "String"
-      },
+      }
+    },
       "inviteUrl": {
         "type": "String"
       }
@@ -1009,28 +742,20 @@
   "personalBudgetType": "个人预算",
 
   "@householdJoin": {},
-  "joinHousehold": "加入家庭",
-  "joinAHousehold": "加入一个家庭",
   "enterYourInvitationLinkToJoin": "输入您的邀请链接以加入\n共享的财务空间",
   "pasteTheInvitationLinkYouReceived": "粘贴您从家庭成员收到的邀请链接",
-  "pasteInvitationLink": "粘贴邀请链接",
-  "pleaseEnterAnInvitationLink": "请输入邀请链接",
-  "pleaseEnterAValidInvitationLink": "请输入有效的邀请链接",
   "validating": "验证中...",
   "joinHouseholdName": "加入 \"{householdName}\"",
   "@joinHouseholdName": {
-    "placeholders": {
-      "householdName": {
-        "type": "String"
-      }
-    }
   },
   "householdPreview": "家庭预览：{householdName}，邀请者：{inviterEmail}",
   "@householdPreview": {
     "placeholders": {
       "householdName": {
+        "placeholder": {
         "type": "String"
-      },
+      }
+    },
       "inviterEmail": {
         "type": "String"
       }
@@ -1038,62 +763,30 @@
   },
   "invitedBy": "邀请者：{inviterEmail}",
   "@invitedBy": {
-    "placeholders": {
-      "inviterEmail": {
-        "type": "String"
-      }
-    }
   },
   "invitationExpiresSoon": "邀请即将于 {formattedDate} 过期",
   "@invitationExpiresSoon": {
-    "placeholders": {
-      "formattedDate": {
-        "type": "String"
-      }
-    }
   },
   "invitationValidUntil": "邀请有效期至 {formattedDate}",
   "@invitationValidUntil": {
-    "placeholders": {
-      "formattedDate": {
-        "type": "String"
-      }
-    }
   },
-  "expiresSoon": "即将过期",
   "invitationValidUntilLabel": "邀请有效期至",
-  "viewSharedBudgetsAndExpenses": "查看共享预算和支出",
   "trackHouseholdFinancialHealth": "跟踪家庭财务健康状况",
   "collaborateOnFinancialDecisions": "共同制定财务决策",
-  "whatYoullGet": "您将获得",
   "personalMessageFromInviter": "邀请者的个人消息",
   "messageFromInviter": "来自邀请者的消息",
   "joiningHousehold": "正在加入家庭...",
   "thisWillOnlyTakeAMoment": "只需片刻",
-  "welcomeAboard": "欢迎加入！",
   "youreNowPartOfTheHousehold": "您现在是家庭的一员了。\n开始共同管理您的财务吧！",
-  "goToHousehold": "前往家庭",
   "errorWithMessage": "错误：{errorMessage}",
   "@errorWithMessage": {
-    "placeholders": {
-      "errorMessage": {
-        "type": "String"
-      }
-    }
   },
-  "unableToJoin": "无法加入",
   "anUnexpectedErrorOccurred": "发生了意外错误",
   "invalidInvitationLinkFormat": "无效的邀请链接格式",
   "invalidOrExpiredInvitation": "无效或已过期的邀请",
-  "today": "今天",
   "tomorrow": "明天",
   "inDays": "{days} 天后",
   "@inDays": {
-    "placeholders": {
-      "days": {
-        "type": "int"
-      }
-    }
   },
   "january": "1月",
   "february": "2月",
@@ -1110,9 +803,6 @@
 
   "remindUser": "提醒 {name}",
   "@remindUser": {
-    "placeholders": {
-      "name": { "type": "String" }
-    }
   },
   "sendFriendlySpendingReminder": "发送一条友好的消费提醒",
   "addMessageOptional": "添加留言（可选）",
@@ -1120,15 +810,9 @@
   "sendReminder": "发送提醒",
   "pleaseWait24HoursBeforeSendingAnotherReminder": "请等待 24 小时后再向 {name} 发送提醒",
   "@pleaseWait24HoursBeforeSendingAnotherReminder": {
-    "placeholders": {
-      "name": { "type": "String" }
-    }
   },
   "reminderSentToName": "已向 {name} 发送提醒 🔔",
   "@reminderSentToName": {
-    "placeholders": {
-      "name": { "type": "String" }
-    }
   },
   "failedToSendReminderTryAgain": "提醒发送失败，请重试。",
 
@@ -1147,10 +831,8 @@
   "acknowledged": "已确认",
   "source": "来源",
   "sourceHint": "例如：雇主、客户",
-  "owner": "所有者",
   "me": "我",
   "partner": "伴侣",
-  "household": "家庭",
   "privacyScope": "隐私",
   "privacyFull": "完整详情",
   "privacyBalancesOnly": "仅余额",
@@ -1168,9 +850,6 @@
   "incomeRental": "租金",
   "incomeOther": "其他",
   "enterValidAmountGreaterThan0": "请输入大于 0 的有效金额",
-  "date": "日期",
-  "time": "时间",
-  "retry": "重试",
 
   "@goalsFeature": {},
   "goals": "目标",
