@@ -112,6 +112,7 @@ class _UnifiedTransactionSheetState
   bool _isLoadingMembers = false;
   String? _membersError;
   List<HouseholdMember>? _householdMembers;
+  String? _selectedPayerUserId;
   
   // Local edits (accumulated until save)
   double? _editedAmount;
@@ -808,6 +809,9 @@ class _UnifiedTransactionSheetState
                 final pendingExpense = isNewExpense ? ref.read(pendingExpenseProvider) : null;
                 final currentAmount = pendingExpense?.amount ?? amount;
 
+                // Ensure default payer selection
+                _selectedPayerUserId ??= ref.read(authProvider).uid;
+
             // For income mode, we hide the custom split editor entirely
             if (isIncomeMode) {
               return const SizedBox();
@@ -817,7 +821,34 @@ class _UnifiedTransactionSheetState
                 color: colorScheme.muted.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: CustomSplitEditor(
+              child: Column(
+                children: [
+                  // Who paid selector
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Who paid?',
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: colorScheme.foreground),
+                          ),
+                        ),
+                        DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _selectedPayerUserId,
+                            items: _householdMembers!.map((m) => DropdownMenuItem<String>(
+                              value: m.userId,
+                              child: Text(m.userName ?? m.userEmail ?? 'Member', overflow: TextOverflow.ellipsis),
+                            )).toList(),
+                            onChanged: (v) => setState(() => _selectedPayerUserId = v),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  CustomSplitEditor(
                     key: ValueKey('split_${_customSplitType}_${_customSplits?.length}'),
                     members: _householdMembers!,
                     totalAmount: currentAmount,
@@ -831,6 +862,8 @@ class _UnifiedTransactionSheetState
                       });
                     },
                   ),
+                ],
+              ),
                 );
               },
             ),
@@ -1789,6 +1822,7 @@ class _UnifiedTransactionSheetState
                 receiptImageUrl: receiptUrl,
                 customSplitType: _customSplitType,
                 customSplits: _customSplits,
+                payerUserId: _isSharedWithHousehold ? _selectedPayerUserId : null,
               );
 
         AppToast.success(context.l10n.expenseSaved);

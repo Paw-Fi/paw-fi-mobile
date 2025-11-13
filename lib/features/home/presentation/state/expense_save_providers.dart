@@ -43,6 +43,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     String? receiptImageUrl,
     SplitType? customSplitType,
     List<MemberSplit>? customSplits,
+    String? payerUserId,
   }) async {
     state = const AsyncValue.loading();
 
@@ -112,6 +113,9 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
             return memberData;
           }).toList(),
         };
+        if (payerUserId != null && payerUserId.isNotEmpty) {
+          requestBody['payerUserId'] = payerUserId;
+        }
         
         debugPrint('📊 Custom splits payload: ${requestBody['customSplits']}');
       } else if (householdId != null) {

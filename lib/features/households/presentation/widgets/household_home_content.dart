@@ -636,6 +636,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                   child: SettlementSuggestionsCard(
                     summary: summaryAsync.asData!.value!,
                     transactions: expensesAsync.asData?.value,
+                    splits: splitsAsync.asData?.value,
                     from: from,
                     to: to,
                     currency: selectedCurrency,

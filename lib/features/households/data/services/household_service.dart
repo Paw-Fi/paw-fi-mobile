@@ -529,4 +529,78 @@ class HouseholdService {
         .eq('household_id', householdId)
         .map((data) => data.cast<Map<String, dynamic>>());
   }
+
+  // ============================================================================
+  // SETTLEMENT HELPERS
+  // ============================================================================
+
+  /// Get total unsettled amount (in cents) the current user owes to a specific member
+  /// within a household, based on split lines where that member is the payer.
+  Future<int> getUnsettledAmountToMember({
+    required String householdId,
+    required String memberUserId,
+  }) async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return 0;
+
+    final groups = await _supabase
+        .from('expense_split_groups')
+        .select('id')
+        .eq('household_id', householdId)
+        .eq('payer_user_id', memberUserId);
+
+    final groupIds = (groups as List)
+        .map((e) => (e as Map<String, dynamic>)['id'] as String)
+        .toList();
+
+    if (groupIds.isEmpty) return 0;
+
+    final lines = await _supabase
+        .from('expense_split_lines')
+        .select('amount_cents')
+        .inFilter('split_group_id', groupIds)
+        .eq('user_id', userId)
+        .eq('is_settled', false);
+
+    final cents = (lines as List)
+        .map((e) => (e as Map<String, dynamic>)['amount_cents'] as int? ?? 0)
+        .fold<int>(0, (s, v) => s + v.abs());
+
+    return cents;
+  }
+
+  /// Mark all unsettled lines (current user's) owed to the given member as settled.
+  /// Returns number of lines updated.
+  Future<int> settleAllDebtsToMember({
+    required String householdId,
+    required String memberUserId,
+  }) async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) throw Exception('User not authenticated');
+
+    final groups = await _supabase
+        .from('expense_split_groups')
+        .select('id')
+        .eq('household_id', householdId)
+        .eq('payer_user_id', memberUserId);
+
+    final groupIds = (groups as List)
+        .map((e) => (e as Map<String, dynamic>)['id'] as String)
+        .toList();
+
+    if (groupIds.isEmpty) return 0;
+
+    final updated = await _supabase
+        .from('expense_split_lines')
+        .update({
+          'is_settled': true,
+          'settled_at': DateTime.now().toIso8601String(),
+        })
+        .inFilter('split_group_id', groupIds)
+        .eq('user_id', userId)
+        .eq('is_settled', false)
+        .select('id');
+
+    return (updated as List).length;
+  }
 }

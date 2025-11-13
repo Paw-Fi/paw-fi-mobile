@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../../core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import '../providers/household_providers.dart';
 
 /// Bottom sheet for settling up balances
 class SettleUpSheet extends ConsumerStatefulWidget {
@@ -24,16 +26,39 @@ class SettleUpSheet extends ConsumerStatefulWidget {
 class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
   String? _selectedMemberId;
   bool _isProcessing = false;
+  int? _unsettledCents; // Computed pair-wise unsettled amount (current user -> member)
 
   @override
   void initState() {
     super.initState();
     _selectedMemberId = widget.specificMemberId;
+    // Initial load of unsettled amount if member preselected
+    if (_selectedMemberId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _loadUnsettled());
+    }
+  }
+
+  Future<void> _loadUnsettled() async {
+    final memberId = _selectedMemberId;
+    if (memberId == null) return;
+
+    try {
+      final service = ref.read(householdServiceProvider);
+      final cents = await service.getUnsettledAmountToMember(
+        householdId: widget.householdId,
+        memberUserId: memberId,
+      );
+      if (mounted) setState(() => _unsettledCents = cents);
+    } catch (_) {
+      if (mounted) setState(() => _unsettledCents = null);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final membersAsync = ref.watch(householdMembersProvider(widget.householdId));
+    final userId = Supabase.instance.client.auth.currentUser?.id;
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -78,67 +103,98 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
           const SizedBox(height: 24),
 
           // Member selector (if not specified)
-          if (widget.specificMemberId == null) ...[
-            Text(
-              context.l10n.whoAreYouSettlingWith,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: colorScheme.foreground,
+          if (widget.specificMemberId == null)
+            membersAsync.when(
+              loading: () => const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Center(child: CircularProgressIndicator()),
               ),
-            ),
-            const SizedBox(height: 12),
-            // In real app, fetch household members and show selector
-            DropdownButtonFormField<String>(
-              initialValue: _selectedMemberId,
-              decoration: InputDecoration(
-                labelText: context.l10n.selectMember,
-                border: const OutlineInputBorder(),
+              error: (e, _) => Padding(
+                padding: const EdgeInsets.only(top: 12, bottom: 24),
+                child: Text('Error loading members', style: TextStyle(color: colorScheme.destructive)),
               ),
-              items: const [
-                DropdownMenuItem(value: 'user1', child: Text('John Doe')),
-                DropdownMenuItem(value: 'user2', child: Text('Jane Smith')),
-              ],
-              onChanged: (value) {
-                setState(() {
-                  _selectedMemberId = value;
-                });
+              data: (members) {
+                final items = members
+                    .where((m) => m.userId != userId)
+                    .map((m) => DropdownMenuItem<String>(
+                          value: m.userId,
+                          child: Text(m.userName ?? m.userEmail ?? 'Member'),
+                        ))
+                    .toList();
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      context.l10n.whoAreYouSettlingWith,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.foreground,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: _selectedMemberId,
+                      decoration: InputDecoration(
+                        labelText: context.l10n.selectMember,
+                        border: const OutlineInputBorder(),
+                      ),
+                      items: items,
+                      onChanged: (value) async {
+                        setState(() {
+                          _selectedMemberId = value;
+                          _unsettledCents = null;
+                        });
+                        await _loadUnsettled();
+                      },
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                );
               },
             ),
-            const SizedBox(height: 24),
-          ],
 
-          // Amount display
-          if (widget.amount != null) ...[
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: colorScheme.muted,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    context.l10n.amountToSettle,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: colorScheme.mutedForeground,
-                    ),
+          // Amount display (prefer live computed unsettled -> fallback to provided amount)
+          Builder(builder: (context) {
+            final cents = _unsettledCents;
+            final amountToShow = cents != null
+                ? (cents / 100.0)
+                : (widget.amount != null ? widget.amount! : null);
+            if (amountToShow == null) return const SizedBox.shrink();
+            return Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: colorScheme.muted,
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  Text(
-                    '\$${widget.amount!.toStringAsFixed(2)}',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: colorScheme.foreground,
-                    ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        context.l10n.amountToSettle,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: colorScheme.mutedForeground,
+                        ),
+                      ),
+                      Text(
+                        '\$${amountToShow.toStringAsFixed(2)}',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.foreground,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-          ],
+                ),
+                const SizedBox(height: 24),
+              ],
+            );
+          }),
 
           // Settlement options
           Text(
@@ -209,17 +265,15 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
     });
 
     try {
-      // In real app:
-      // 1. Find all unsettled split lines between current user and selected member
-      // 2. Mark them as settled
-      // 3. Optionally record settlement method
-      // await ref.read(householdProvider).settleSplits(...)
-
-      await Future.delayed(const Duration(seconds: 1)); // Simulate API call
-
+      final memberId = _selectedMemberId ?? widget.specificMemberId!;
+      final service = ref.read(householdServiceProvider);
+      final count = await service.settleAllDebtsToMember(
+        householdId: widget.householdId,
+        memberUserId: memberId,
+      );
       if (mounted) {
-        Navigator.pop(context, true); // Return success
-        AppToast.success('Settled via $method');
+        Navigator.pop(context, true);
+        AppToast.success(count > 0 ? 'Settled via $method' : 'Nothing to settle');
       }
     } catch (e) {
       if (mounted) {
@@ -230,6 +284,8 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
         setState(() {
           _isProcessing = false;
         });
+        // Refresh amount preview
+        await _loadUnsettled();
       }
     }
   }

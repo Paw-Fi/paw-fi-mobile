@@ -59,8 +59,11 @@ class UserHouseholdsNotifier extends StateNotifier<AsyncValue<List<Household>>> 
   }
 
   Future<void> load() async {
+    if (!mounted) return;
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() => _repository.getUserHouseholds(_userId));
+    final result = await AsyncValue.guard(() => _repository.getUserHouseholds(_userId));
+    if (!mounted) return;
+    state = result;
   }
 
   Future<void> createHousehold({
@@ -103,17 +106,22 @@ class HouseholdMembersNotifier extends StateNotifier<AsyncValue<List<HouseholdMe
   }
 
   Future<void> load() async {
+    if (!mounted) return;
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() => _repository.getHouseholdMembers(_householdId));
+    final result = await AsyncValue.guard(() => _repository.getHouseholdMembers(_householdId));
+    if (!mounted) return;
+    state = result;
   }
 
   Future<void> removeMember(String memberId) async {
     await _repository.removeMember(memberId);
+    if (!mounted) return;
     await load();
   }
 
   Future<void> updateRole(String memberId, HouseholdRole role) async {
     await _repository.updateMemberRole(memberId, role);
+    if (!mounted) return;
     await load();
   }
 }
@@ -144,8 +152,11 @@ class HouseholdBudgetsNotifier extends StateNotifier<AsyncValue<List<SharedBudge
   }
 
   Future<void> load() async {
+    if (!mounted) return;
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() => _repository.getHouseholdBudgets(_householdId));
+    final result = await AsyncValue.guard(() => _repository.getHouseholdBudgets(_householdId));
+    if (!mounted) return;
+    state = result;
   }
 
   Future<void> createBudget({
@@ -169,6 +180,7 @@ class HouseholdBudgetsNotifier extends StateNotifier<AsyncValue<List<SharedBudge
       budgetType: budgetType,
       countSplitPortionOnly: countSplitPortionOnly,
     );
+    if (!mounted) return;
     await load();
   }
 }
@@ -199,8 +211,11 @@ class HouseholdInvitesNotifier extends StateNotifier<AsyncValue<List<HouseholdIn
   }
 
   Future<void> load() async {
+    if (!mounted) return;
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() => _repository.getHouseholdInvites(_householdId));
+    final result = await AsyncValue.guard(() => _repository.getHouseholdInvites(_householdId));
+    if (!mounted) return;
+    state = result;
   }
 
   Future<String> createInvite({
@@ -214,12 +229,14 @@ class HouseholdInvitesNotifier extends StateNotifier<AsyncValue<List<HouseholdIn
       personalMessage: personalMessage,
       expiresInDays: expiresInDays,
     );
+    if (!mounted) return token;
     await load();
     return token;
   }
 
   Future<void> revokeInvite({String? inviteId, String? token}) async {
     await _repository.revokeInvite(inviteId: inviteId, token: token);
+    if (!mounted) return;
     await load();
   }
 }
@@ -273,11 +290,14 @@ class SharingPrefsNotifier extends StateNotifier<AsyncValue<SharingPreferences?>
   }
 
   Future<void> load() async {
+    if (!mounted) return;
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() => _repository.getSharingPreferences(
+    final result = await AsyncValue.guard(() => _repository.getSharingPreferences(
           userId: _userId,
           householdId: _householdId,
         ));
+    if (!mounted) return;
+    state = result;
   }
 
   Future<void> updatePreferences({
@@ -298,6 +318,7 @@ class SharingPrefsNotifier extends StateNotifier<AsyncValue<SharingPreferences?>
       nudgeQuietHoursStart: nudgeQuietHoursStart,
       nudgeQuietHoursEnd: nudgeQuietHoursEnd,
     );
+    if (!mounted) return;
     await load();
   }
 }
