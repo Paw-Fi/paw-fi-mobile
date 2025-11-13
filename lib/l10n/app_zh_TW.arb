@@ -1282,5 +1282,7 @@
   "addReceiptPhoto": "新增收據照片",
   "tapToTakePhoto": "點擊拍攝收據照片",
   "atLeastOneMember": "至少需要一個成員",
-  "memberMustHaveShare": "至少一個成員的份額必須大於0"
+  "memberMustHaveShare": "至少一個成員的份額必須大於0",
+  "monthOverMonthSpending": "每月支出趨勢",
+  "last3Months": "過去 3 個月"
 }

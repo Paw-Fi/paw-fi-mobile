@@ -8,6 +8,7 @@ import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 
 part 'app_initialization_provider.g.dart';
 
@@ -60,6 +61,8 @@ class AppInitialization extends _$AppInitialization {
           _loadWhatsAppBinding(),
           // Load analytics/dashboard data
           _loadAnalytics(auth.uid),
+          // Load recurring transactions (expenses and income)
+          ref.read(recurringTransactionsProvider.notifier).loadRecurringTransactions(auth.uid),
           // Load household data
           _loadHouseholdData(auth.uid),
         ]);

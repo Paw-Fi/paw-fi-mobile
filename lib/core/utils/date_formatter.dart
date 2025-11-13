@@ -44,6 +44,70 @@ String formatLocalizedDate(
   }
 }
 
+/// Formats just the month name localized for the user's language.
+///
+/// Examples (abbreviated):
+/// - English: "Dec"
+/// - German: "Dez"
+/// - Chinese: "12月"
+/// - Korean: "12월"
+String formatLocalizedMonth(
+  BuildContext context,
+  DateTime date, {
+  bool abbreviated = true,
+}) {
+  final locale = Localizations.localeOf(context);
+  final languageCode = _normalizeLanguageCode(locale.languageCode.toLowerCase());
+  final intlLocale = _resolveIntlLocale(locale, languageCode);
+
+  final pattern = _getMonthPattern(languageCode, abbreviated);
+
+  try {
+    return DateFormat(pattern, intlLocale).format(date);
+  } catch (e) {
+    try {
+      return DateFormat(pattern, languageCode).format(date);
+    } catch (_) {
+      return _manualFormatMonth(date, languageCode, abbreviated);
+    }
+  }
+}
+
+String _getMonthPattern(String languageCode, bool abbreviated) {
+  switch (languageCode) {
+    // East Asian styles prefer numeric month with marker
+    case 'zh':
+    case 'ja':
+      return 'M月';
+    case 'ko':
+      return 'M월';
+    default:
+      return abbreviated ? 'MMM' : 'MMMM';
+  }
+}
+
+String _manualFormatMonth(DateTime date, String languageCode, bool abbreviated) {
+  // English abbreviations/full names as ultimate fallback
+  const monthAbbr = <String>[
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+  const monthFull = <String>[
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ];
+
+  switch (languageCode) {
+    case 'zh':
+    case 'ja':
+      return '${date.month}月';
+    case 'ko':
+      return '${date.month}월';
+    default:
+      return abbreviated ? monthAbbr[date.month - 1] : monthFull[date.month - 1];
+  }
+}
+
 /// Normalize non-standard language codes to ones supported by intl.
 ///
 /// - "pks" is a custom code in your app but content is Urdu,

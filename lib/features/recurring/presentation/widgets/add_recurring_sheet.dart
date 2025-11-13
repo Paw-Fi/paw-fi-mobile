@@ -32,7 +32,8 @@ class AddRecurringSheet extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = shadcnui.Theme.of(context).colorScheme;
-    final isExpense = type == 'expense';
+    final selectedType = useState<String>(type == 'income' ? 'income' : 'expense');
+    final isExpense = selectedType.value == 'expense';
     final isEditing = existingTransaction != null;
 
     final amountController = useTextEditingController(
@@ -47,7 +48,7 @@ class AddRecurringSheet extends HookConsumerWidget {
 
     final selectedCategory = useState<String?>(existingTransaction?.category);
     final selectedFrequency = useState<String>(
-      existingTransaction?.recurrenceRule?.frequency ?? context.l10n.monthly,
+      existingTransaction?.recurrenceRule?.frequency ?? 'monthly',
     );
     final selectedCurrency = useState<String>(
       existingTransaction?.currency ?? 'USD',
@@ -221,19 +222,21 @@ class AddRecurringSheet extends HookConsumerWidget {
           debugPrint('✅ ${isEditing ? 'Update' : 'Save'} successful!');
           if (context.mounted) {
             Navigator.of(context).pop();
-            _showSuccess(
-              context,
-              isEditing
-                  ? context.l10n.recurringExpenseUpdatedSuccessfully
-                  : context.l10n.recurringExpenseAddedSuccessfully,
-            );
+            final successMsg = isExpense
+                ? (isEditing
+                    ? context.l10n.recurringExpenseUpdatedSuccessfully
+                    : context.l10n.recurringExpenseAddedSuccessfully)
+                : (isEditing
+                    ? context.l10n.recurringIncomeUpdatedSuccessfully
+                    : context.l10n.recurringIncomeAddedSuccessfully);
+            _showSuccess(context, successMsg);
           }
         } else {
           debugPrint('🔴 Result is null - ${isEditing ? 'update' : 'save'} failed');
-          _showError(
-            context,
-            context.l10n.failedToUpdateRecurringExpense,
-          );
+          final errMsg = isExpense
+              ? context.l10n.failedToUpdateRecurringExpense
+              : context.l10n.failedToUpdateRecurringIncome;
+          _showError(context, errMsg);
         }
       } catch (e, stackTrace) {
         debugPrint('❌ Exception caught: $e');
@@ -264,9 +267,13 @@ class AddRecurringSheet extends HookConsumerWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      isEditing 
-                        ? context.l10n.editRecurringExpense
-                        : context.l10n.addRecurringExpense,
+                      isEditing
+                          ? (isExpense
+                              ? context.l10n.editRecurringExpense
+                              : context.l10n.editRecurringIncome)
+                          : (isExpense
+                              ? context.l10n.addRecurringExpense
+                              : context.l10n.addRecurringIncome),
                       style: TextStyle(
                         color: colorScheme.foreground,
                         fontSize: 20,
@@ -294,6 +301,73 @@ class AddRecurringSheet extends HookConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Type toggle
+                    Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => selectedType.value = 'expense',
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                color: isExpense
+                                    ? colorScheme.background
+                                    : colorScheme.muted.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: isExpense
+                                      ? colorScheme.primary.withValues(alpha: 0.4)
+                                      : colorScheme.border.withValues(alpha: 0.2),
+                                ),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                context.l10n.expenses,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: isExpense
+                                      ? colorScheme.foreground
+                                      : colorScheme.mutedForeground,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => selectedType.value = 'income',
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                color: !isExpense
+                                    ? colorScheme.background
+                                    : colorScheme.muted.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: !isExpense
+                                      ? colorScheme.primary.withValues(alpha: 0.4)
+                                      : colorScheme.border.withValues(alpha: 0.2),
+                                ),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                context.l10n.income,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: !isExpense
+                                      ? colorScheme.foreground
+                                      : colorScheme.mutedForeground,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 20),
+
                     // Amount input
                     _buildLabel(context.l10n.amount, colorScheme),
                     const SizedBox(height: 8),

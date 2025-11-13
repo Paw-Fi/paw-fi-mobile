@@ -1301,5 +1301,7 @@
   "addReceiptPhoto": "レシート写真を追加",
   "tapToTakePhoto": "タップしてレシートの写真を撮ってください",
   "atLeastOneMember": "メンバーを少なくとも1人追加する必要があります",
-  "memberMustHaveShare": "少なくとも1人のメンバーの取り分を0より大きくしてください"
+  "memberMustHaveShare": "少なくとも1人のメンバーの取り分を0より大きくしてください",
+  "monthOverMonthSpending": "月次の支出推移",
+  "last3Months": "過去3か月"
 }

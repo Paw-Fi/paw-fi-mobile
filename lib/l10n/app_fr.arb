@@ -1300,5 +1300,7 @@
   "addReceiptPhoto": "Ajouter une photo de reçu",
   "tapToTakePhoto": "Prenez une photo de votre reçu",
   "atLeastOneMember": "Au moins un membre doit être inclus",
-  "memberMustHaveShare": "Au moins un membre doit avoir une part supérieure à 0"
+  "memberMustHaveShare": "Au moins un membre doit avoir une part supérieure à 0",
+  "monthOverMonthSpending": "Évolution des dépenses mensuelles",
+  "last3Months": "3 derniers mois"
 }

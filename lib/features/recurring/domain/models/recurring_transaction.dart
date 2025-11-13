@@ -60,6 +60,12 @@ class RecurringTransaction {
     debugPrint('🔍 Attachments type: ${json['attachments'].runtimeType}');
     debugPrint('🔍 Attachments value: ${json['attachments']}');
     
+    // Normalize amount from various possible fields
+    final amountMajor = (json['amountMajor'] as num?)?.toDouble();
+    final amountCentsNum = (json['amount_cents'] as num?);
+    final amountFromCents = amountCentsNum != null ? amountCentsNum.toDouble() / 100 : null;
+    final amountLegacy = (json['amount'] as num?)?.toDouble();
+
     return RecurringTransaction(
       id: json['id'] as String,
       date: DateTime.parse(json['date'] as String),
@@ -67,8 +73,7 @@ class RecurringTransaction {
       description:
           json['description'] as String? ?? json['raw_text'] as String?,
       source: json['source'] as String?,
-      amount: (json['amountMajor'] as num?)?.toDouble() ??
-          (json['amount_cents'] as num).toDouble() / 100,
+      amount: amountMajor ?? amountFromCents ?? amountLegacy ?? 0.0,
       currency: json['currency'] as String? ?? 'USD',
       ownerType:
           json['ownerType'] as String? ?? json['owner_type'] as String? ?? 'me',

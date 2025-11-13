@@ -1364,5 +1364,7 @@
   "addReceiptPhoto": "Add Receipt Photo",
   "tapToTakePhoto": "Tap to take a photo of your receipt",
   "atLeastOneMember": "At least one member must be included",
-  "memberMustHaveShare": "At least one member must have a share greater than 0"
+  "memberMustHaveShare": "At least one member must have a share greater than 0",
+  "monthOverMonthSpending": "Month-over-month spending",
+  "last3Months": "Last 3 months"
 }

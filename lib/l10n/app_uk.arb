@@ -1274,5 +1274,7 @@
   "addReceiptPhoto": "Додати фото чека",
   "tapToTakePhoto": "Зробіть фото чека",
   "atLeastOneMember": "Потрібен хоча б один учасник",
-  "memberMustHaveShare": "Хоча б один учасник повинен мати частку більше 0"
+  "memberMustHaveShare": "Хоча б один учасник повинен мати частку більше 0",
+  "monthOverMonthSpending": "Динаміка витрат за місяцями",
+  "last3Months": "Останні 3 місяці"
 }

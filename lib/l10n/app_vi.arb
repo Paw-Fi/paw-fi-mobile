@@ -1299,5 +1299,7 @@
   "addReceiptPhoto": "Thêm ảnh hóa đơn",
   "tapToTakePhoto": "Nhấn để chụp ảnh biên lai",
   "atLeastOneMember": "Cần có ít nhất một thành viên",
-  "memberMustHaveShare": "Ít nhất một thành viên phải có phần chia lớn hơn 0"
+  "memberMustHaveShare": "Ít nhất một thành viên phải có phần chia lớn hơn 0",
+  "monthOverMonthSpending": "Xu hướng chi tiêu theo tháng",
+  "last3Months": "3 tháng gần đây"
 }

@@ -97,7 +97,7 @@ class _RecurringTransactionsPageState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          context.l10n.reminder,
+                          context.l10n.recurring,
                           style: TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.w800,
@@ -386,7 +386,7 @@ class _RecurringTransactionsPageState
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () => _showAddSheet(isExpense ? context.l10n.expenses: context.l10n.income),
+          onTap: () => _showAddSheet(isExpense ? 'expense' : 'income'),
           borderRadius: BorderRadius.circular(16),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -400,7 +400,7 @@ class _RecurringTransactionsPageState
                 ),
                  SizedBox(width: 8),
                 Text(
-                  context.l10n.addReminder,
+                  isExpense ? context.l10n.addExpense : context.l10n.addIncome,
                   style:  TextStyle(
                     color: Colors.white,
                     fontSize: 16,

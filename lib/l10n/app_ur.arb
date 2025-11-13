@@ -1217,5 +1217,7 @@
   "addReceiptPhoto": "رسید کی تصویر شامل کریں",
   "tapToTakePhoto": "رسید کی تصویر لینے کے لیے ٹیپ کریں",
   "atLeastOneMember": "کم از کم ایک رکن ضروری ہے",
-  "memberMustHaveShare": "کم از کم ایک رکن کا شیئر 0 سے زیادہ ہونا چاہیے"
+  "memberMustHaveShare": "کم از کم ایک رکن کا شیئر 0 سے زیادہ ہونا چاہیے",
+  "monthOverMonthSpending": "ماہانہ اخراجات کا رجحان",
+  "last3Months": "پچھلے 3 ماہ"
 }

@@ -1,5 +1,7 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
+import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 
 /// Daily net cashflow series (income - expenses) grouped by date
 final homeCashflowSeriesProvider = Provider<Map<DateTime, double>>((ref) {
@@ -36,6 +38,7 @@ final momTrendProvider = Provider<Map<String, double>>((ref) {
   final data = ref.watch(analyticsProvider);
   final filter = ref.watch(homeFilterProvider);
   final setCurrency = filter.selectedCurrency?.toUpperCase();
+  final recurringExpensesAV = ref.watch(recurringExpensesProvider);
 
   // Build last 3 month keys: yyyy-MM
   final now = DateTime.now();
@@ -55,9 +58,107 @@ final momTrendProvider = Provider<Map<String, double>>((ref) {
       map[key] = (map[key] ?? 0) + e.amount.abs();
     }
   }
+
+  // Add recurring expenses occurrence sums for each of the last 3 months
+  recurringExpensesAV.when(
+    data: (items) {
+      for (final item in items) {
+        if (item.type != 'expense') continue;
+        if (setCurrency != null && item.currency.toUpperCase() != setCurrency) continue;
+        for (final month in months) {
+          final start = DateTime(month.year, month.month, 1);
+          final end = DateTime(month.year, month.month + 1, 0);
+          final count = _occurrencesInMonth(item, start, end);
+          if (count > 0) {
+            final key = '${start.year}-${start.month.toString().padLeft(2, '0')}';
+            map[key] = (map[key] ?? 0) + item.amount.abs() * count;
+          }
+        }
+      }
+    },
+    loading: () {},
+    error: (_, __) {},
+  );
   return map;
 });
 
+
+int _occurrencesInMonth(
+  RecurringTransaction item,
+  DateTime monthStart,
+  DateTime monthEnd,
+) {
+  final rule = item.recurrenceRule;
+  if (rule == null) {
+    final d = item.date.toLocal();
+    return (d.year == monthStart.year && d.month == monthStart.month) ? 1 : 0;
+  }
+
+  final anchor = rule.anchorDate.toLocal();
+  final endLocal = rule.endDate?.toLocal();
+  if (endLocal != null && endLocal.isBefore(monthStart)) return 0;
+
+  final interval = rule.interval ?? 1;
+  final freq = rule.frequency.toLowerCase();
+  switch (freq) {
+    case 'daily':
+      return _countOccurrencesByStep(
+          anchor, monthStart, _minDate(monthEnd, endLocal), Duration(days: interval));
+    case 'weekly':
+      return _countOccurrencesByStep(
+          anchor, monthStart, _minDate(monthEnd, endLocal), Duration(days: 7 * interval));
+    case 'biweekly':
+      return _countOccurrencesByStep(
+          anchor, monthStart, _minDate(monthEnd, endLocal), const Duration(days: 14));
+    case 'monthly':
+      return _occursMonthly(anchor, interval, monthStart) ? 1 : 0;
+    case 'yearly':
+      return _occursYearly(anchor, interval, monthStart) ? 1 : 0;
+    default:
+      return (anchor.year == monthStart.year && anchor.month == monthStart.month) ? 1 : 0;
+  }
+}
+
+int _countOccurrencesByStep(
+  DateTime anchor,
+  DateTime rangeStart,
+  DateTime rangeEnd,
+  Duration step,
+) {
+  if (anchor.isAfter(rangeEnd)) return 0;
+  final first = _firstOnOrAfter(anchor, rangeStart, step);
+  if (first.isAfter(rangeEnd)) return 0;
+  final totalDays = rangeEnd.difference(first).inDays;
+  final stepDays = step.inDays;
+  if (stepDays <= 0) return 0;
+  return 1 + (totalDays ~/ stepDays);
+}
+
+DateTime _firstOnOrAfter(DateTime anchor, DateTime start, Duration step) {
+  if (!start.isAfter(anchor)) return anchor;
+  final diffDays = start.difference(anchor).inDays;
+  final stepDays = step.inDays;
+  final remainder = diffDays % stepDays;
+  return remainder == 0 ? start : start.add(Duration(days: stepDays - remainder));
+}
+
+bool _occursMonthly(DateTime anchor, int interval, DateTime monthStart) {
+  final months = (monthStart.year - anchor.year) * 12 + (monthStart.month - anchor.month);
+  if (months < 0) return false;
+  return months % interval == 0;
+}
+
+bool _occursYearly(DateTime anchor, int interval, DateTime monthStart) {
+  if (monthStart.month != anchor.month) return false;
+  final years = monthStart.year - anchor.year;
+  if (years < 0) return false;
+  return years % interval == 0;
+}
+
+DateTime _minDate(DateTime a, DateTime? b) {
+  if (b == null) return a;
+  return a.isBefore(b) ? a : b;
+}
 /// Budget runway gauge inputs (estimated days until budget consumed)
 class RunwayInfo {
   final double daysRemaining;

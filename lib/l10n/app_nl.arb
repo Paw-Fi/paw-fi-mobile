@@ -1228,5 +1228,7 @@
   "addReceiptPhoto": "Bonfoto toevoegen",
   "tapToTakePhoto": "Maak een foto van je bon",
   "atLeastOneMember": "Er moet minstens één lid zijn",
-  "memberMustHaveShare": "Minstens één lid moet een aandeel groter dan 0 hebben"
+  "memberMustHaveShare": "Minstens één lid moet een aandeel groter dan 0 hebben",
+  "monthOverMonthSpending": "Maandelijkse uitgavenontwikkeling",
+  "last3Months": "Afgelopen 3 maanden"
 }

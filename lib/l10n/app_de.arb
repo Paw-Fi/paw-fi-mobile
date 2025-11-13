@@ -1305,5 +1305,7 @@
   "addReceiptPhoto": "Belegfoto hinzufügen",
   "tapToTakePhoto": "Beleg fotografieren",
   "atLeastOneMember": "Mindestens ein Mitglied erforderlich",
-  "memberMustHaveShare": "Mindestens ein Mitglied braucht einen Anteil > 0"
+  "memberMustHaveShare": "Mindestens ein Mitglied braucht einen Anteil > 0",
+  "monthOverMonthSpending": "Monatliche Ausgabenentwicklung",
+  "last3Months": "Letzte 3 Monate"
 }

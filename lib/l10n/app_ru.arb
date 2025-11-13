@@ -1232,5 +1232,7 @@
   "addReceiptPhoto": "Добавить фото чека",
   "tapToTakePhoto": "Сфотографируйте чек",
   "atLeastOneMember": "Нужен хотя бы один участник",
-  "memberMustHaveShare": "Хотя бы один участник должен иметь долю больше 0"
+  "memberMustHaveShare": "Хотя бы один участник должен иметь долю больше 0",
+  "monthOverMonthSpending": "Помесячная динамика расходов",
+  "last3Months": "Последние 3 месяца"
 }

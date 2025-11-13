@@ -1086,5 +1086,7 @@
   "addReceiptPhoto": "영수증 사진 추가",
   "tapToTakePhoto": "탭해서 영수증 사진을 찍어주세요",
   "atLeastOneMember": "최소 한 명의 멤버를 추가해야 합니다",
-  "memberMustHaveShare": "최소 한 명의 멤버의 분담액이 0보다 커야 합니다"
+  "memberMustHaveShare": "최소 한 명의 멤버의 분담액이 0보다 커야 합니다",
+  "monthOverMonthSpending": "월별 지출 추이",
+  "last3Months": "최근 3개월"
 }

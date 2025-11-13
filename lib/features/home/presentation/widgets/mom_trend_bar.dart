@@ -4,6 +4,10 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/state/derived_selectors.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/core/util/logger.dart';
+import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/utils/date_formatter.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
+import 'package:moneko/core/core.dart';
 
 class MoMTrendBar extends ConsumerWidget {
   const MoMTrendBar({super.key});
@@ -11,11 +15,22 @@ class MoMTrendBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    // Ensure recurring data is loaded when the widget appears
+    final recState = ref.watch(recurringTransactionsProvider);
+    final userId = supabase.auth.currentUser?.id;
+    if (userId != null && !recState.hasLoadedOnce && !recState.data.isLoading) {
+      Future.microtask(() {
+        final s = ref.read(recurringTransactionsProvider);
+        if (!s.hasLoadedOnce && !s.data.isLoading) {
+          ref.read(recurringTransactionsProvider.notifier).loadRecurringTransactions(userId);
+        }
+      });
+    }
     final map = ref.watch(momTrendProvider);
     appLog('widget_viewed: mom_trend_bar');
 
     if (map.isEmpty) {
-      return _wrap(colorScheme, const Center(child: Text('No monthly data yet')));
+      return _wrap(colorScheme, Center(child: Text(context.l10n.noSpendingData)));
     }
     final labels = map.keys.toList();
     final values = labels.map((k) => map[k] ?? 0).toList();
@@ -52,7 +67,11 @@ class MoMTrendBar extends ConsumerWidget {
                     final i = v.toInt();
                     if (i < 0 || i >= labels.length) return const SizedBox.shrink();
                     final parts = labels[i].split('-');
-                    return Text('${parts[1]}/${parts[0].substring(2)}', style: TextStyle(fontSize: 10, color: colorScheme.mutedForeground));
+                    final year = int.tryParse(parts[0]) ?? 2000;
+                    final month = int.tryParse(parts[1]) ?? 1;
+                    final date = DateTime(year, month, 1);
+                    final label = formatLocalizedMonth(context, date, abbreviated: true);
+                    return Text(label, style: TextStyle(fontSize: 10, color: colorScheme.mutedForeground));
                   },
                 ),
               ),
@@ -61,8 +80,8 @@ class MoMTrendBar extends ConsumerWidget {
           ),
         ),
       ),
-      title: 'MoM spend',
-      subtitle: 'Last 3 months',
+      title: context.l10n.monthOverMonthSpending,
+      subtitle: context.l10n.last3Months,
     );
   }
 

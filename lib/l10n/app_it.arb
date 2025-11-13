@@ -1229,5 +1229,7 @@
   "addReceiptPhoto": "Aggiungi foto della ricevuta",
   "tapToTakePhoto": "Scatta una foto della ricevuta",
   "atLeastOneMember": "Serve almeno un membro",
-  "memberMustHaveShare": "Almeno un membro deve avere una quota superiore a 0"
+  "memberMustHaveShare": "Almeno un membro deve avere una quota superiore a 0",
+  "monthOverMonthSpending": "Andamento delle spese mensili",
+  "last3Months": "Ultimi 3 mesi"
 }
