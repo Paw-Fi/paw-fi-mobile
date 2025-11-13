@@ -8,6 +8,8 @@ import 'package:moneko/features/recurring/presentation/widgets/recurring_transac
 import 'package:moneko/features/recurring/presentation/widgets/add_recurring_sheet.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
+import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
+import 'package:moneko/features/home/presentation/widgets/currency_dropdown_button.dart';
 
 /// Modern recurring transactions page with Apple-inspired design
 /// Features tabbed interface for expenses and income
@@ -81,6 +83,7 @@ class _RecurringTransactionsPageState
     // Watch the filtered providers (they derive from the unified provider)
     final recurringExpenses = ref.watch(recurringExpensesProvider);
     final recurringIncomes = ref.watch(recurringIncomesProvider);
+    final selectedCurrency = ref.watch(homeFilterProvider).selectedCurrency?.toUpperCase();
 
     return Scaffold(
       backgroundColor: colorScheme.background,
@@ -116,6 +119,8 @@ class _RecurringTransactionsPageState
                       ],
                     ),
                   ),
+                  const SizedBox(width: 12),
+                  const CurrencyDropdownButton(),
                 ],
               ),
             ),
@@ -192,10 +197,10 @@ class _RecurringTransactionsPageState
                 controller: _tabController,
                 children: [
                   // Expenses tab - pass the AsyncValue data
-                  _buildExpensesTab(recurringExpenses, colorScheme),
+                  _buildExpensesTab(recurringExpenses, colorScheme, selectedCurrency),
 
                   // Income tab - pass the AsyncValue data
-                  _buildIncomesTab(recurringIncomes, colorScheme),
+                  _buildIncomesTab(recurringIncomes, colorScheme, selectedCurrency),
                 ],
               ),
             ),
@@ -211,12 +216,16 @@ class _RecurringTransactionsPageState
   Widget _buildExpensesTab(
     AsyncValue<List<dynamic>> recurringExpenses,
     shadcnui.ColorScheme colorScheme,
+    String? selectedCurrency,
   ) {
     return RefreshIndicator(
       onRefresh: _refresh,
       child: recurringExpenses.when(
         data: (expenses) {
-          if (expenses.isEmpty) {
+          final filtered = selectedCurrency == null
+              ? expenses
+              : expenses.where((e) => (e as RecurringTransaction).currency.toUpperCase() == selectedCurrency).toList();
+          if (filtered.isEmpty) {
             // Wrap in ListView to make it scrollable for RefreshIndicator
             return ListView(
               physics: const AlwaysScrollableScrollPhysics(),
@@ -235,9 +244,9 @@ class _RecurringTransactionsPageState
           return ListView.builder(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-            itemCount: expenses.length,
+            itemCount: filtered.length,
             itemBuilder: (context, index) {
-              final expense = expenses[index] as RecurringTransaction;
+              final expense = filtered[index] as RecurringTransaction;
               return RecurringTransactionCard(
                 transaction: expense,
                 onTap: () => _showTransactionDetails(expense),
@@ -255,12 +264,16 @@ class _RecurringTransactionsPageState
   Widget _buildIncomesTab(
     AsyncValue<List<dynamic>> recurringIncomes,
     shadcnui.ColorScheme colorScheme,
+    String? selectedCurrency,
   ) {
     return RefreshIndicator(
       onRefresh: _refresh,
       child: recurringIncomes.when(
         data: (incomes) {
-          if (incomes.isEmpty) {
+          final filtered = selectedCurrency == null
+              ? incomes
+              : incomes.where((e) => (e as RecurringTransaction).currency.toUpperCase() == selectedCurrency).toList();
+          if (filtered.isEmpty) {
             // Wrap in ListView to make it scrollable for RefreshIndicator
             return ListView(
               physics: const AlwaysScrollableScrollPhysics(),
@@ -279,9 +292,9 @@ class _RecurringTransactionsPageState
           return ListView.builder(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-            itemCount: incomes.length,
+            itemCount: filtered.length,
             itemBuilder: (context, index) {
-              final income = incomes[index] as RecurringTransaction;
+              final income = filtered[index] as RecurringTransaction;
               return RecurringTransactionCard(
                 transaction: income,
                 onTap: () => _showTransactionDetails(income),
@@ -397,17 +410,7 @@ class _RecurringTransactionsPageState
                   Icons.add,
                   color: Colors.white,
                   size: 24,
-                ),
-                 SizedBox(width: 8),
-                Text(
-                  isExpense ? context.l10n.addExpense : context.l10n.addIncome,
-                  style:  TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: -0.3,
-                  ),
-                ),
+                ),                
               ],
             ),
           ),

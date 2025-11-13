@@ -511,20 +511,24 @@ class RecurringTransactionSaveNotifier
           },
       };
 
+      final updates = <String, dynamic>{
+        'amount_cents': (amount * 100).round(),
+        'category': category,
+        'currency': currency,
+        'date': formattedAccountingDate, // Accounting date (today or past)
+        'is_recurring': true,
+        'recurrence_rule': recurrenceRule,
+      };
+      if (description != null && description.trim().isNotEmpty) {
+        updates['raw_text'] = description.trim();
+      }
+
       final response = await supabase.functions.invoke(
         'update-expense',
         body: {
           'userId': userId,
           'expenseId': expenseId,
-          'updates': {
-            'amount_cents': (amount * 100).round(),
-            'category': category,
-            'currency': currency,
-            'date': formattedAccountingDate, // Accounting date (today or past)
-            'raw_text': description ?? '',
-            'is_recurring': true,
-            'recurrence_rule': recurrenceRule,
-          },
+          'updates': updates,
         },
       );
 
@@ -604,21 +608,27 @@ class RecurringTransactionSaveNotifier
           },
       };
 
+      final updatesIncome = <String, dynamic>{
+        'amount_cents': (amount * 100).round(),
+        'category': category,
+        'currency': currency,
+        'date': formattedAccountingDate, // Accounting date (today or past)
+        'is_recurring': true,
+        'recurrence_rule': recurrenceRule,
+      };
+      if (description != null && description.trim().isNotEmpty) {
+        updatesIncome['raw_text'] = description.trim();
+      }
+      if (source != null && source.trim().isNotEmpty) {
+        updatesIncome['source'] = source.trim();
+      }
+
       final response = await supabase.functions.invoke(
         'update-expense',
         body: {
           'userId': userId,
           'expenseId': expenseId,
-          'updates': {
-            'amount_cents': (amount * 100).round(),
-            'category': category,
-            'currency': currency,
-            'date': formattedAccountingDate, // Accounting date (today or past)
-            'raw_text': description ?? '',
-            'source': source,
-            'is_recurring': true,
-            'recurrence_rule': recurrenceRule,
-          },
+          'updates': updatesIncome,
         },
       );
 

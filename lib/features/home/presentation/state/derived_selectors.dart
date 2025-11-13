@@ -62,8 +62,11 @@ final momTrendProvider = Provider<Map<String, double>>((ref) {
   // Add recurring expenses occurrence sums for each of the last 3 months
   recurringExpensesAV.when(
     data: (items) {
+      final now = DateTime.now();
       for (final item in items) {
         if (item.type != 'expense') continue;
+        // Only include active recurring transactions as of now
+        if (!_isActiveNow(item, now)) continue;
         if (setCurrency != null && item.currency.toUpperCase() != setCurrency) continue;
         for (final month in months) {
           final start = DateTime(month.year, month.month, 1);
@@ -158,6 +161,14 @@ bool _occursYearly(DateTime anchor, int interval, DateTime monthStart) {
 DateTime _minDate(DateTime a, DateTime? b) {
   if (b == null) return a;
   return a.isBefore(b) ? a : b;
+}
+
+bool _isActiveNow(RecurringTransaction item, DateTime now) {
+  final rule = item.recurrenceRule;
+  if (rule == null) return true;
+  final end = rule.endDate;
+  if (end == null) return true;
+  return !end.isBefore(now);
 }
 /// Budget runway gauge inputs (estimated days until budget consumed)
 class RunwayInfo {

@@ -26,6 +26,7 @@ import 'package:moneko/features/home/presentation/widgets/cashflow_sparkline_car
 import 'package:moneko/features/home/presentation/widgets/mom_trend_bar.dart';
 import 'package:moneko/features/home/presentation/widgets/savings_rate_tile.dart';
 import 'package:moneko/features/home/presentation/widgets/runway_gauge.dart';
+import 'package:moneko/features/home/presentation/widgets/currency_dropdown_button.dart';
 // Removed unused imports
 
 // ============================================================================
@@ -956,40 +957,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           // Left side:  Currency Button
-                          Row(
-                            children: [
-                              // Currency selector button
-                              GestureDetector(
-                                onTap: _showCurrencySelector,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: colorScheme.muted,
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        filterState.selectedCurrency ?? 'USD',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          color: colorScheme.foreground,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Icon(
-                                        Icons.arrow_drop_down,
-                                        color: colorScheme.foreground,
-                                        size: 18,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                          const CurrencyDropdownButton(),
                           // Right side: Date filter
                           GestureDetector(
                             onTap: _showDateRangeFilter,

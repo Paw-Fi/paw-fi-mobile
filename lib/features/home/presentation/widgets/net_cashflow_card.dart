@@ -48,7 +48,7 @@ Widget buildNetCashflowCard(
     final recurringExpenseThisMonth = recurringExpensesAV.maybeWhen(
       data: (items) {
         debugPrint('[NetCashflow] Recurring expenses loaded: count=${items.length}');
-        final sum = _sumRecurringForMonth(items, now);
+        final sum = _sumRecurringForMonth(items, now, selectedCurrency: selectedCurrency);
         debugPrint('[NetCashflow] Recurring expenses (this month) sum=$sum');
         return sum;
       },
@@ -60,7 +60,7 @@ Widget buildNetCashflowCard(
     final recurringIncomeThisMonth = recurringIncomesAV.maybeWhen(
       data: (items) {
         debugPrint('[NetCashflow] Recurring incomes loaded: count=${items.length}');
-        final sum = _sumRecurringForMonth(items, now);
+        final sum = _sumRecurringForMonth(items, now, selectedCurrency: selectedCurrency);
         debugPrint('[NetCashflow] Recurring incomes (this month) sum=$sum');
         return sum;
       },
@@ -152,11 +152,17 @@ String _netCashflowTitleForFilter(BuildContext context, DateRangeFilter filter) 
   return l10n.netCashflowThisMonth;
 }
 
-double _sumRecurringForMonth(List<RecurringTransaction> items, DateTime now) {
+double _sumRecurringForMonth(List<RecurringTransaction> items, DateTime now, {String? selectedCurrency}) {
   final monthStart = DateTime(now.year, now.month, 1);
   final monthEnd = DateTime(now.year, now.month + 1, 0);
   double sum = 0;
+  final currencyFilter = selectedCurrency?.toUpperCase();
   for (final item in items) {
+    // Only include active recurring transactions
+    if (!_isActiveNow(item, now)) continue;
+    if (currencyFilter != null && item.currency.toUpperCase() != currencyFilter) {
+      continue;
+    }
     final count = _occurrencesInMonth(item, monthStart, monthEnd);
     debugPrint('[NetCashflow] Item id=${item.id}, type=${item.type}, amount=${item.amount}, curr=${item.currency}, date=${item.date.toIso8601String()}, '
         'rule=${item.recurrenceRule != null ? '{freq=' + item.recurrenceRule!.frequency + ', anchor=' + item.recurrenceRule!.anchorDate.toIso8601String() + ', interval=' + (item.recurrenceRule!.interval?.toString() ?? 'null') + ', end=' + (item.recurrenceRule!.endDate?.toIso8601String() ?? 'null') + '}' : 'null'}, '
@@ -166,6 +172,14 @@ double _sumRecurringForMonth(List<RecurringTransaction> items, DateTime now) {
     }
   }
   return sum;
+}
+
+bool _isActiveNow(RecurringTransaction item, DateTime now) {
+  final rule = item.recurrenceRule;
+  if (rule == null) return true; // Treat as active if no rule present
+  final end = rule.endDate;
+  if (end == null) return true; // No end date -> never expires
+  return !end.isBefore(now); // Active if end date is not in the past
 }
 
 int _occurrencesInMonth(
