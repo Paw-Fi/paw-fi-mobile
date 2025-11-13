@@ -814,6 +814,8 @@
   "areYouSureYouWantToDeleteThisRecurringTransaction": "确定要删除此周期性交易吗？",
   "recurringTransactionDeleted": "周期性交易已删除",
   "transactionDeleted": "交易已删除",
+  "transactions": "交易",
+  "recentTransactions": "最近交易",
   "failedToDeleteRecurringTransaction": "删除周期性交易失败",
   "recurringTransactions": "周期性交易",
   "currencyIsManagedByHousehold": "家庭货币统一设置，无法在此更改",

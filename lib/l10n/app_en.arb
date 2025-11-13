@@ -876,6 +876,8 @@
   "areYouSureYouWantToDeleteThisRecurringTransaction": "Are you sure you want to delete this recurring transaction?",
   "recurringTransactionDeleted": "Recurring transaction deleted",
   "transactionDeleted": "Transaction deleted",
+  "transactions": "Transactions",
+  "recentTransactions": "Recent transactions",
   "failedToDeleteRecurringTransaction": "Failed to delete recurring transaction",
   "saveExpense": "Save Expense",
   "currencyIsManagedByHousehold": "Currency is managed by the household and cannot be changed",

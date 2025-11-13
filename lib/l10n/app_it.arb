@@ -847,6 +847,8 @@
   "areYouSureYouWantToDeleteThisRecurringTransaction": "Sei sicuro di voler eliminare questa transazione ricorrente?",
   "recurringTransactionDeleted": "Transazione ricorrente eliminata",
   "transactionDeleted": "Transazione eliminata",
+  "transactions": "Transazioni",
+  "recentTransactions": "Transazioni recenti",
   "failedToDeleteRecurringTransaction": "Impossibile eliminare la transazione ricorrente",
   "recurringTransactions": "Transazioni ricorrenti",
   "saveExpense": "Salva spesa",

@@ -898,6 +898,8 @@
   "areYouSureYouWantToDeleteThisRecurringTransaction": "確定要刪除此定期交易嗎？",
   "recurringTransactionDeleted": "定期交易已刪除",
   "transactionDeleted": "交易已刪除",
+  "transactions": "交易",
+  "recentTransactions": "最近交易",
   "failedToDeleteRecurringTransaction": "刪除定期交易失敗",
   "saveExpense": "儲存支出",
   "currencyIsManagedByHousehold": "幣別由家庭管理，無法變更",

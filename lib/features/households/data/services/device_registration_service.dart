@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show Color;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -145,7 +146,8 @@ class DeviceRegistrationService {
 
   /// Initialize local notifications for Android
   Future<void> _initializeLocalNotifications() async {
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    // Use monochrome adaptive icon from mipmap for status bar
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher_monochrome');
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: false,
       requestBadgePermission: false,
@@ -296,6 +298,9 @@ class DeviceRegistrationService {
       priority: Priority.high,
       playSound: true,
       enableVibration: true,
+      icon: '@mipmap/ic_launcher_monochrome',
+      color: Color(0xFF7458FF),
+      largeIcon: DrawableResourceAndroidBitmap('moneko_logo'),
     );
 
     const iosDetails = DarwinNotificationDetails(

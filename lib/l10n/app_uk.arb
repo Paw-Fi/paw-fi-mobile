@@ -822,6 +822,8 @@
   "areYouSureYouWantToDeleteThisRecurringTransaction": "Ви впевнені, що хочете видалити цю регулярну транзакцію?",
   "recurringTransactionDeleted": "Регулярну транзакцію видалено",
   "transactionDeleted": "Транзакцію видалено",
+  "transactions": "Транзакції",
+  "recentTransactions": "Останні транзакції",
   "failedToDeleteRecurringTransaction": "Не вдалося видалити регулярну транзакцію",
   "recurringTransactions": "Регулярні транзакції",
   "currencyIsManagedByHousehold": "Валюта керується домогосподарством і не може бути змінена",

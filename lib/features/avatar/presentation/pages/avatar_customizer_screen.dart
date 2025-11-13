@@ -10,7 +10,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:flutter_colorpicker/flutter_colorpicker.dart';
+//import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 // Uncomment for mobile (iOS/Android) - iOS-style color picker
 import 'package:ios_color_picker/show_ios_color_picker.dart';
 import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
@@ -604,7 +604,7 @@ class _AvatarCustomizerScreenState extends ConsumerState<AvatarCustomizerScreen>
       context: context,
     );
 
-    
+
   }
 
   // ignore: unused_element
