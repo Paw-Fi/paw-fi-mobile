@@ -198,7 +198,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       }
     } catch (e) {
       if (mounted) {
-        _showToast('Failed to capture photo: ${e.toString()}');
+        _showToast('${context.l10n.failedToCapturePhoto}: ${e.toString()}');
       }
     }
   }
@@ -479,7 +479,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       currency: incomes.first.currency,
       currencySymbol: incomes.first.currencySymbol,
       date: incomes.first.date,
-      description: combinedDescription.isNotEmpty ? combinedDescription : 'Income',
+      description: combinedDescription.isNotEmpty ? combinedDescription : context.l10n.income,
       localImagePath: imagePath,
     );
 

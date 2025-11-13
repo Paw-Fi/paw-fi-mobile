@@ -1075,5 +1075,13 @@
     }
   },
   "days": "일",
-  "hours": "시간"
+  "hours": "시간",
+  "confirmIncome": "소득 확인",
+  "saveIncome": "소득 저장",
+  "incomeSaved": "소득이 저장되었습니다",
+  "incomeSavedAndShared": "소득이 저장되고 공유되었습니다",
+  "addReceiptPhoto": "영수증 사진 추가",
+  "tapToTakePhoto": "탭해서 영수증 사진을 찍어주세요",
+  "atLeastOneMember": "최소 한 명의 멤버를 추가해야 합니다",
+  "memberMustHaveShare": "최소 한 명의 멤버의 분담액이 0보다 커야 합니다"
 }

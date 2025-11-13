@@ -1289,5 +1289,13 @@
     }
   },
   "days": "日",
-  "hours": "時間"
+  "hours": "時間",
+  "confirmIncome": "収入を確認",
+  "saveIncome": "収入を保存",
+  "incomeSaved": "収入が保存されました",
+  "incomeSavedAndShared": "収入が保存され共有されました",
+  "addReceiptPhoto": "レシート写真を追加",
+  "tapToTakePhoto": "タップしてレシートの写真を撮ってください",
+  "atLeastOneMember": "メンバーを少なくとも1人追加する必要があります",
+  "memberMustHaveShare": "少なくとも1人のメンバーの取り分を0より大きくしてください"
 }

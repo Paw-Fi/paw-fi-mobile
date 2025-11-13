@@ -1217,5 +1217,13 @@
     }
   },
   "days": "dagen",
-  "hours": "uren"
+  "hours": "uren",
+  "confirmIncome": "Inkomen bevestigen",
+  "saveIncome": "Inkomen opslaan",
+  "incomeSaved": "Inkomen opgeslagen",
+  "incomeSavedAndShared": "Inkomen opgeslagen en gedeeld",
+  "addReceiptPhoto": "Bonfoto toevoegen",
+  "tapToTakePhoto": "Maak een foto van je bon",
+  "atLeastOneMember": "Er moet minstens één lid zijn",
+  "memberMustHaveShare": "Minstens één lid moet een aandeel groter dan 0 hebben"
 }

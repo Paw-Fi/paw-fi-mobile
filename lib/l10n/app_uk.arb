@@ -1263,5 +1263,13 @@
     }
   },
   "days": "днів",
-  "hours": "годин"
+  "hours": "годин",
+  "confirmIncome": "Підтвердити дохід",
+  "saveIncome": "Зберегти дохід",
+  "incomeSaved": "Дохід збережено",
+  "incomeSavedAndShared": "Дохід збережено і поділено",
+  "addReceiptPhoto": "Додати фото чека",
+  "tapToTakePhoto": "Зробіть фото чека",
+  "atLeastOneMember": "Потрібен хоча б один учасник",
+  "memberMustHaveShare": "Хоча б один учасник повинен мати частку більше 0"
 }

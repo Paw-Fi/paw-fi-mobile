@@ -77,3 +77,5 @@ lib/l10n/app_localizations_vi.dart
 dotenv-dev
 
 dotenv-prod
+
+lib/l10n/app_localizations_ur.dart

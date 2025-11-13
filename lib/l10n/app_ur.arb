@@ -1,5 +1,5 @@
 {
-  "@@locale": "pks",
+  "@@locale": "ur",
   "appTitle": "Moneko",
   "noSpendingYet": "ابھی تک کوئی خرچ نہیں",
   "loginWelcomeBack": "دوبارہ خوش آمدید",
@@ -147,7 +147,6 @@
   "activity": "سرگرمی",
   "accountInformation": "اکاؤنٹ کی معلومات",
   "userId": "صارف آئی ڈی",
-  "email": "ای میل",
   "recentActivity": "حالیہ سرگرمی",
   "noActivityYet": "ابھی تک کوئی سرگرمی نہیں",
   "signOut": "سائن آؤٹ",
@@ -211,7 +210,6 @@
   "day": "دن",
   "@navigation": {},
   "close": "بند کریں",
-  "next": "اگلا",
   "done": "مکمل",
   "@runningBalanceSlides": {},
   "whatYouAreSeeing": "آپ کیا دیکھ رہے ہیں",
@@ -231,7 +229,6 @@
   "longTermWhyMattersDesc": "طویل افق بڑے خوابوں کو حقیقت بناتے ہیں۔ دیکھیں کہ کیا آپ کا ایمرجنسی فنڈ، سرمایہ کاری، یا بڑی خریداری ٹریک پر رہتی ہیں۔",
   "longTermMovesToConsiderDesc": "مستقبل کے فیصلوں کی ریہرسل کے لیے چارٹ کا استعمال کریں۔ آج کی چھوٹی تبدیلیاں بعد میں بڑی جیت میں بدل جاتی ہیں۔",
   "@categorySlides": {},
-  "overview": "جائزہ",
   "forMe": "میرے لیے",
   "forUs": "ہمارے لیے",
   "home": "ہوم",
@@ -244,7 +241,6 @@
   "updateBudget": "بجٹ اپ ڈیٹ کریں",
   "enterNewTotalDailyBudget": "نیا کل یومیہ بجٹ درج کریں۔",
   "budgetAmount": "بجٹ کی رقم",
-  "cancel": "منسوخ کریں",
   "save": "محفوظ کریں",
   "enterValidAmountGreaterThan0": "0 سے زیادہ درست رقم درج کریں",
   "updatingBudget": "بجٹ اپ ڈیٹ ہو رہا ہے۔۔۔",
@@ -681,7 +677,6 @@
   "selectHouseholdToConfigureSplit": "تقسیم سیٹ کرنے کے لیے گروپ منتخب کریں",
   "currencyCannotBeChangedWhenSharing": "گروپ کے ساتھ شیئر کرتے وقت کرنسی تبدیل نہیں کی جا سکتی",
   "failedToLoadImage": "تصویر لوڈ کرنے میں ناکامی",
-  "done": "مکمل",
   "createBudget": "بجٹ بنائیں",
   "budgetName": "بجٹ کا نام",
   "pleaseEnterABudgetName": "براہ کرم بجٹ کا نام درج کریں",
@@ -808,8 +803,6 @@
   "codeAutoFilledFromVerificationLink": "کوڈ تصدیقی لنک سے خود بخود بھر گیا",
   "verify": "تصدیق کریں",
   "verifying": "تصدیق کی جا رہی ہے۔۔۔",
-  "done": "مکمل",
-  "@avatarCustomizer": {},
   "avatarStudio": "اوتار اسٹوڈیو",
   "preview": "پیش منظر",
   "colors": "رنگ",
@@ -1040,7 +1033,6 @@
   "setupAutomaticIncomeTracking": "تنخوا، فریلنس کار، او منظم عواید لپاره خودکار آمدنی ټریکینگ سیٹاپ کےرے",
 
   "closeShareSheet": "شیئر شیٹ بند کریں",
-  "done": "ہو گیا",
   "invitationLinkCopiedToClipboard": "دعوت لنک کلپ بورڈ میں کاپی ہو گیا!",
   "joinMyHouseholdMessage": "میرے گھر \"{householdName}\" میں مونیکو پر شامل ہوں!\n\n{inviteUrl}",
   "@joinMyHouseholdMessage": {
@@ -1214,5 +1206,13 @@
     }
   },
   "days": "دن",
-  "hours": "گھنٹے"
+  "hours": "گھنٹے",
+  "confirmIncome": "آمدنی کی تصدیق کریں",
+  "saveIncome": "آمدنی محفوظ کریں",
+  "incomeSaved": "آمدنی محفوظ ہو گئی",
+  "incomeSavedAndShared": "آمدنی محفوظ اور شیئر ہو گئی",
+  "addReceiptPhoto": "رسید کی تصویر شامل کریں",
+  "tapToTakePhoto": "رسید کی تصویر لینے کے لیے ٹیپ کریں",
+  "atLeastOneMember": "کم از کم ایک رکن ضروری ہے",
+  "memberMustHaveShare": "کم از کم ایک رکن کا شیئر 0 سے زیادہ ہونا چاہیے"
 }

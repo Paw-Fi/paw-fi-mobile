@@ -55,7 +55,7 @@ Widget buildCategoryBreakdownCard(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Recent transactions',
+                context.l10n.recentTransactions,
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: colorScheme.foreground),
               ),
               const SizedBox(height: 8),
@@ -94,13 +94,12 @@ Widget buildCategoryBreakdownCard(
                                 }
                                 
                                 // Show success toast
-                                AppToast.success('Transaction deleted');
+                                AppToast.success(context.l10n.transactionDeleted);
                               } else {
-                                final error = res.data?['error'] ?? 'Failed to delete';
-                                AppToast.error(error);
+                                AppToast.error(context.l10n.anErrorOccurred);
                               }
                             } catch (err) {
-                              AppToast.error('Error: $err');
+                              AppToast.error('${context.l10n.error}: $err');
                             }
                           },
                           backgroundColor: const Color(0xFFFE4A49),
@@ -151,7 +150,7 @@ Widget buildCategoryBreakdownCard(
                   onPressed: () {
                     Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TransactionsPage()));
                   },
-                  child: const Text('See all'),
+                  child:  Text(context.l10n.viewAll),
                 ),
               ),
             ],

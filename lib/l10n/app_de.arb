@@ -1294,5 +1294,13 @@
     }
   },
   "days": "Tage",
-  "hours": "Stunden"
+  "hours": "Stunden",
+  "confirmIncome": "Einkommen bestätigen",
+  "saveIncome": "Einkommen speichern",
+  "incomeSaved": "Einkommen gespeichert",
+  "incomeSavedAndShared": "Einkommen gespeichert und geteilt",
+  "addReceiptPhoto": "Belegfoto hinzufügen",
+  "tapToTakePhoto": "Beleg fotografieren",
+  "atLeastOneMember": "Mindestens ein Mitglied erforderlich",
+  "memberMustHaveShare": "Mindestens ein Mitglied braucht einen Anteil > 0"
 }

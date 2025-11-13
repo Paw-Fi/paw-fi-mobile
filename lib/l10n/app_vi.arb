@@ -1288,5 +1288,13 @@
     }
   },
   "days": "ngày",
-  "hours": "giờ"
+  "hours": "giờ",
+  "confirmIncome": "Xác nhận thu nhập",
+  "saveIncome": "Lưu thu nhập",
+  "incomeSaved": "Thu nhập đã được lưu",
+  "incomeSavedAndShared": "Thu nhập đã được lưu và chia sẻ",
+  "addReceiptPhoto": "Thêm ảnh hóa đơn",
+  "tapToTakePhoto": "Nhấn để chụp ảnh biên lai",
+  "atLeastOneMember": "Cần có ít nhất một thành viên",
+  "memberMustHaveShare": "Ít nhất một thành viên phải có phần chia lớn hơn 0"
 }

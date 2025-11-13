@@ -1217,5 +1217,13 @@
     }
   },
   "days": "giorni",
-  "hours": "ore"
+  "hours": "ore",
+  "confirmIncome": "Conferma reddito",
+  "saveIncome": "Salva reddito",
+  "incomeSaved": "Reddito salvato",
+  "incomeSavedAndShared": "Reddito salvato e condiviso",
+  "addReceiptPhoto": "Aggiungi foto della ricevuta",
+  "tapToTakePhoto": "Scatta una foto della ricevuta",
+  "atLeastOneMember": "Serve almeno un membro",
+  "memberMustHaveShare": "Almeno un membro deve avere una quota superiore a 0"
 }

@@ -1287,8 +1287,8 @@ String _displayLocaleName(Locale locale) {
   // Ukrainian
   if (lc == 'uk' || lc == 'ua') return 'Українська';
 
-  // Pakistani
-  if ( lc == 'pks') return 'پکستانی';
+  // Pakistani (Urdu)
+  if (lc == 'ur') return 'پکستانی';
 
   // Italian
   if (lc == 'it') return 'Italiano';

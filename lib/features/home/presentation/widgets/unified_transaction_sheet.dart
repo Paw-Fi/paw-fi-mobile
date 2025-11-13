@@ -353,7 +353,7 @@ class _UnifiedTransactionSheetState
                 ),
                 Expanded(
                   child: Text(
-                    isNewExpense ? (isIncomeMode ? 'Confirm Income' : context.l10n.confirmExpense) : context.l10n.expenseDetails,
+                    isNewExpense ? (isIncomeMode ? context.l10n.confirmIncome : context.l10n.confirmExpense) : context.l10n.expenseDetails,
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
@@ -554,7 +554,7 @@ class _UnifiedTransactionSheetState
                                     Colors.white),
                               ),
                             )
-                          : Text(isIncomeMode ? 'Save Income' : context.l10n.saveExpense),
+                          : Text(isIncomeMode ? context.l10n.saveIncome : context.l10n.saveExpense),
                     ),
                   ),
 
@@ -1081,7 +1081,7 @@ class _UnifiedTransactionSheetState
             ),
             const SizedBox(height: 16),
             Text(
-              'Add Receipt Photo',
+              context.l10n.addReceiptPhoto,
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
@@ -1090,7 +1090,7 @@ class _UnifiedTransactionSheetState
             ),
             const SizedBox(height: 8),
             Text(
-              'Tap to take a photo of your receipt',
+              context.l10n.tapToTakePhoto,
               style: TextStyle(
                 fontSize: 14,
                 color: colorScheme.mutedForeground,
@@ -1752,7 +1752,7 @@ class _UnifiedTransactionSheetState
           if (saved != null) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(selectedHousehold != null ? 'Income saved and shared' : 'Income saved'),
+                content: Text(selectedHousehold != null ? context.l10n.incomeSavedAndShared : context.l10n.incomeSaved),
                 backgroundColor: shadcnui.Theme.of(context).colorScheme.primary,
                 duration: const Duration(seconds: 2),
                 behavior: SnackBarBehavior.floating,

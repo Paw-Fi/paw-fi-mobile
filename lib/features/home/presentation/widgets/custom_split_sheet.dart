@@ -484,7 +484,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
       case SplitType.amount:
         final includedCountAmt = _memberSplits.where((s) => s.includedInAmount).length;
         if (includedCountAmt == 0) {
-          error = 'At least one member must be included';
+          error = context.l10n.atLeastOneMember;
           break;
         }
         final totalSplit = _memberSplits.fold<double>(
@@ -503,7 +503,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
       case SplitType.percentage:
         final includedCountPct = _memberSplits.where((s) => s.includedInPercentage).length;
         if (includedCountPct == 0) {
-          error = 'At least one member must be included';
+          error = context.l10n.atLeastOneMember;
           break;
         }
         final totalPercent = _memberSplits.fold<double>(
@@ -518,7 +518,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
       case SplitType.shares:
         final totalShares = _memberSplits.fold<int>(0, (sum, s) => sum + (s.shares ?? 0));
         if (totalShares <= 0) {
-          error = 'At least one member must have a share greater than 0';
+          error = context.l10n.memberMustHaveShare;
         }
         break;
     }

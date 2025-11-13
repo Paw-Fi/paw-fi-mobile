@@ -1233,6 +1233,8 @@
   "income": "Income",
   "addIncome": "Add Income",
   "incomeAdded": "Income added successfully",
+  "incomeSaved": "Income saved",
+  "incomeSavedAndShared": "Income saved and shared",
   "noIncome": "No Income Yet",
   "noIncomeDescription": "Record your income to track your household's financial health",
   "totalIncome": "Total Income",
@@ -1353,5 +1355,11 @@
   "noRecurringExpenses": "No Recurring Expenses",
   "noRecurringIncome": "No Recurring Income",
   "setupAutomaticExpenseTracking": "Set up automatic expense tracking for subscriptions, bills, and regular payments",
-  "setupAutomaticIncomeTracking": "Set up automatic income tracking for salary, freelance work, and regular earnings"
+  "setupAutomaticIncomeTracking": "Set up automatic income tracking for salary, freelance work, and regular earnings",
+  "confirmIncome": "Confirm Income",
+  "saveIncome": "Save Income",
+  "addReceiptPhoto": "Add Receipt Photo",
+  "tapToTakePhoto": "Tap to take a photo of your receipt",
+  "atLeastOneMember": "At least one member must be included",
+  "memberMustHaveShare": "At least one member must have a share greater than 0"
 }
