@@ -7,6 +7,7 @@ import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/features/households/presentation/widgets/settle_up_sheet.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Settlement suggestions card with toggle for net vs detailed transfers
 class SettlementSuggestionsCard extends StatefulWidget {
@@ -25,7 +26,36 @@ class SettlementSuggestionsCard extends StatefulWidget {
 
 
 class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
+  static const String _prefsKey = 'moneko_settlement_express_netting';
   bool _netTransfers = true; // On by default
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNettingPreference();
+  }
+
+  Future<void> _loadNettingPreference() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final stored = prefs.getBool(_prefsKey);
+      if (stored != null && stored != _netTransfers && mounted) {
+        setState(() => _netTransfers = stored);
+      }
+    } catch (_) {
+      // ignore errors; keep default
+    }
+  }
+
+  Future<void> _saveNettingPreference(bool value) async {
+    setState(() => _netTransfers = value);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_prefsKey, value);
+    } catch (_) {
+      // ignore persistence errors
+    }
+  }
   @override
   Widget build(BuildContext context) {
     final colorScheme = shadcnui.Theme.of(context).colorScheme;
@@ -51,7 +81,7 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
               const SizedBox(width: 8),
               Switch.adaptive(
                 value: _netTransfers,
-                onChanged: (v) => setState(() => _netTransfers = v),
+                onChanged: (v) => _saveNettingPreference(v),
               ),
             ],
           ),
@@ -219,6 +249,22 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
             onTapOwed: (currentUserId != null && youAreOwedCents > 0)
                 ? () => _showOwedDetails(context, colorScheme, currentUserId!, detailedPairs)
                 : null,
+            onTapOwe: (currentUserId != null && youOweCents > 0)
+                ? () => _openSettleUpSheet(
+                      context,
+                      householdId: widget.summary.householdId,
+                      isExpress: _netTransfers,
+                      amountHintCents: youOweCents,
+                      splits: widget.splits,
+                    )
+                : null,
+            onTapOutstanding: () => _openSettleUpSheet(
+              context,
+              householdId: widget.summary.householdId,
+              isExpress: _netTransfers,
+              amountHintCents: null,
+              splits: widget.splits,
+            ),
           ),
           const SizedBox(height: 6),
           if (suggestions.isNotEmpty) _SectionLabel(title: _netTransfers ? 'Suggested net transfers' : 'Detailed pairwise dues', scheme: colorScheme),
@@ -241,6 +287,8 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
                             householdId: widget.summary.householdId,
                             specificMemberId: s.toUserId, // settle with receiver (payer of expenses)
                             amount: s.amountCents / 100.0,
+                            isExpressNetting: _netTransfers,
+                            splits: widget.splits,
                           ),
                         );
                       },
@@ -309,6 +357,34 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
   }
 }
 
+Future<void> _openSettleUpSheet(
+  BuildContext context, {
+  required String householdId,
+  required bool isExpress,
+  int? amountHintCents,
+  List<ExpenseSplitGroup>? splits,
+}) async {
+  await showModalBottomSheet<bool>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) {
+      return Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: SettleUpSheet(
+          householdId: householdId,
+          specificMemberId: null,
+          amount: amountHintCents != null ? (amountHintCents / 100.0) : null,
+          isExpressNetting: isExpress,
+          splits: splits,
+        ),
+      );
+    },
+  );
+}
+
 class _Balance {
   final String userId;
   final String userName;
@@ -338,6 +414,8 @@ class _StatsRow extends StatelessWidget {
   final int youAreOwedCents;
   final int impactedCount;
   final VoidCallback? onTapOwed;
+  final VoidCallback? onTapOutstanding;
+  final VoidCallback? onTapOwe;
   const _StatsRow({
     required this.scheme,
     required this.outstandingCents,
@@ -345,6 +423,8 @@ class _StatsRow extends StatelessWidget {
     required this.youAreOwedCents,
     required this.impactedCount,
     this.onTapOwed,
+    this.onTapOutstanding,
+    this.onTapOwe,
   });
 
   String _fmt(int cents) => (cents / 100).toStringAsFixed(2);
@@ -358,6 +438,7 @@ class _StatsRow extends StatelessWidget {
           value: _fmt(outstandingCents),
           scheme: scheme,
           tone: _TileTone.neutral,
+          onTap: onTapOutstanding,
         )),
         const SizedBox(width: 8),
         Expanded(child: _StatTile(
@@ -365,6 +446,7 @@ class _StatsRow extends StatelessWidget {
           value: _fmt(youOweCents),
           scheme: scheme,
           tone: _TileTone.warn,
+          onTap: onTapOwe,
         )),
         const SizedBox(width: 8),
         Expanded(child: _StatTile(
@@ -549,4 +631,3 @@ Map<String, int> _balancesFromPairs(List<_Suggestion> pairs) {
   }
   return b;
 }
-
