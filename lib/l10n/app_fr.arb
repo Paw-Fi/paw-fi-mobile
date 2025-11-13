@@ -821,6 +821,7 @@
   "deleteRecurringTransaction": "Supprimer la transaction récurrente",
   "areYouSureYouWantToDeleteThisRecurringTransaction": "Êtes-vous sûr de vouloir supprimer cette transaction récurrente ?",
   "recurringTransactionDeleted": "Transaction récurrente supprimée",
+  "transactionDeleted": "Transaction supprimée",
   "failedToDeleteRecurringTransaction": "Échec de la suppression de la transaction récurrente",
   "recurringTransactions": "Transactions récurrentes",
   "currencyIsManagedByHousehold": "La devise est gérée par le foyer et ne peut pas être modifiée.",

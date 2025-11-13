@@ -822,6 +822,7 @@
   "deleteRecurringTransaction": "Wiederkehrende Transaktion löschen",
   "areYouSureYouWantToDeleteThisRecurringTransaction": "Möchten Sie diese wiederkehrende Transaktion wirklich löschen?",
   "recurringTransactionDeleted": "Wiederkehrende Transaktion gelöscht",
+  "transactionDeleted": "Transaktion gelöscht",
   "failedToDeleteRecurringTransaction": "Löschen der wiederkehrenden Transaktion fehlgeschlagen",
   "saveExpense": "Ausgabe speichern",
   "currencyIsManagedByHousehold": "Die Währung wird vom Haushalt verwaltet und kann nicht geändert werden",

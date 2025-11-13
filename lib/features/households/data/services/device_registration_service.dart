@@ -24,6 +24,8 @@ class DeviceRegistrationService {
   static const String _androidChannelId = 'high_importance_channel';
   static const String _androidChannelName = 'High Importance Notifications';
   static const String _androidChannelDescription = 'Used for important notifications.';
+  static const String _updatesChannelId = 'household_updates'; // must match server channel_id
+  static const String _updatesChannelName = 'Household Updates';
 
   DeviceRegistrationService(
     this._supabase,
@@ -175,6 +177,21 @@ class DeviceRegistrationService {
           .resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>()
           ?.createNotificationChannel(channel);
+
+      // Ensure the FCM channel used by the server exists
+      const updatesChannel = AndroidNotificationChannel(
+        _updatesChannelId,
+        _updatesChannelName,
+        description: 'Household-related updates',
+        importance: Importance.high,
+        playSound: true,
+        enableVibration: true,
+      );
+
+      await _localNotifications
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(updatesChannel);
     }
   }
 
@@ -227,8 +244,11 @@ class DeviceRegistrationService {
     debugPrint('📬 Body: ${message.notification?.body}');
     debugPrint('📬 Data: ${message.data}');
 
-    // Show local notification when app is in foreground
-    _showLocalNotification(message);
+    // Android: show local notification when app is in foreground
+    // iOS already shows system banner via foreground presentation options
+    if (Platform.isAndroid) {
+      _showLocalNotification(message);
+    }
   }
 
   /// Handle background message opened (user tapped notification)

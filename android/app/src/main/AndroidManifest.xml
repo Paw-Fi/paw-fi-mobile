@@ -32,6 +32,10 @@
         android:label="Moneko"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- Default notification channel (used when FCM message has no channel_id) -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="@string/default_notification_channel_id" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

@@ -846,6 +846,7 @@
   "deleteRecurringTransaction": "Periodieke transactie verwijderen",
   "areYouSureYouWantToDeleteThisRecurringTransaction": "Weet je zeker dat je deze periodieke transactie wilt verwijderen?",
   "recurringTransactionDeleted": "Periodieke transactie verwijderd",
+  "transactionDeleted": "Transactie verwijderd",
   "failedToDeleteRecurringTransaction": "Kon periodieke transactie niet verwijderen",
   "saveExpense": "Uitgave opslaan",
   "currencyIsManagedByHousehold": "Valuta wordt beheerd door het huishouden en kan niet worden gewijzigd",

@@ -8,6 +8,7 @@ import 'package:moneko/features/onboarding/data/services/guest_goal_service.dart
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 
 part 'auth.g.dart';
 
@@ -209,6 +210,11 @@ class Auth extends _$Auth {
     _isLoading = true;
 
     try {
+      // Ensure device is unregistered on backend before auth session is cleared
+      try {
+        await ref.read(deviceRegistrationServiceProvider).unregisterDevice();
+      } catch (_) {}
+
       await supabase.auth.signOut();
     } on AuthException catch (error, stackTrace) {
       appLog('Sign out error: ${error.message}', name: 'Auth', error: error, stackTrace: stackTrace);

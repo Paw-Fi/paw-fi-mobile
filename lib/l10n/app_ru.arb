@@ -848,6 +848,7 @@
   "deleteRecurringTransaction": "Удалить регулярную транзакцию",
   "areYouSureYouWantToDeleteThisRecurringTransaction": "Вы уверены, что хотите удалить эту регулярную транзакцию?",
   "recurringTransactionDeleted": "Регулярная транзакция удалена",
+  "transactionDeleted": "Транзакция удалена",
   "failedToDeleteRecurringTransaction": "Не удалось удалить регулярную транзакцию",
   "recurringTransactions": "Регулярные транзакции",
   "currencyIsManagedByHousehold": "Валюта управляется домохозяйством и не может быть изменена",

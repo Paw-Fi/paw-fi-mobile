@@ -821,6 +821,7 @@
   "deleteRecurringTransaction": "Xóa Giao dịch Định kỳ",
   "areYouSureYouWantToDeleteThisRecurringTransaction": "Bạn có chắc muốn xóa giao dịch định kỳ này?",
   "recurringTransactionDeleted": "Đã xóa giao dịch định kỳ",
+  "transactionDeleted": "Giao dịch đã được xóa",
   "failedToDeleteRecurringTransaction": "Xóa giao dịch định kỳ thất bại",
   "saveExpense": "Lưu Chi tiêu",
   "currencyIsManagedByHousehold": "Tiền tệ được quản lý bởi nhóm và không thể thay đổi",

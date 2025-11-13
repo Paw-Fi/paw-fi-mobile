@@ -742,6 +742,7 @@
   "deleteRecurringTransaction": "정기 거래 삭제",
   "areYouSureYouWantToDeleteThisRecurringTransaction": "이 정기 거래를 삭제하시겠습니까?",
   "recurringTransactionDeleted": "정기 거래가 삭제되었습니다",
+  "transactionDeleted": "거래가 삭제되었습니다",
   "failedToDeleteRecurringTransaction": "정기 거래 삭제 실패",
   "recurringTransactions": "정기 거래",
   "currencyIsManagedByHousehold": "통화는 그룹에서 관리하며 변경할 수 없습니다.",

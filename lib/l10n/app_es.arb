@@ -816,6 +816,7 @@
   "deleteRecurringTransaction": "Eliminar transacción recurrente",
   "areYouSureYouWantToDeleteThisRecurringTransaction": "¿Estás seguro de que quieres eliminar esta transacción recurrente?",
   "recurringTransactionDeleted": "Transacción recurrente eliminada",
+  "transactionDeleted": "Transacción eliminada",
   "failedToDeleteRecurringTransaction": "No se pudo eliminar la transacción recurrente",
   "currencyIsManagedByHousehold": "La moneda la gestiona el grupo y no se puede cambiar",
   "editAmount": "Editar importe",

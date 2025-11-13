@@ -839,6 +839,7 @@
   "deleteRecurringTransaction": "متواتر لین دین حذف کریں",
   "areYouSureYouWantToDeleteThisRecurringTransaction": "کیا آپ واقعی یہ متواتر لین دین حذف کرنا چاہتے ہیں؟",
   "recurringTransactionDeleted": "متواتر لین دین حذف کر دیا گیا",
+  "transactionDeleted": "لین دین حذف کر دیا گیا",
   "failedToDeleteRecurringTransaction": "متواتر لین دین کو حذف نہیں کیا جا سکا",
   "recurringTransactions": "متواتر لین دین",
   "expenseSavedAndShared": "خرچ محفوظ اور شیئر ہو گیا{splitInfo}!",
