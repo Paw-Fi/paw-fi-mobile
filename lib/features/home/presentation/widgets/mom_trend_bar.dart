@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/state/derived_selectors.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
-import 'package:moneko/core/util/logger.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/utils/date_formatter.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';

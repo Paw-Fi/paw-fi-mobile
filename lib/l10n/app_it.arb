@@ -1270,5 +1270,36 @@
   "splitDetails": "Dettagli della ripartizione",
   "equalSplit": "DIVISIONE EQUA",
   "errorLoadingBudgets": "Errore nel caricamento dei budget",
-  "noSharedBudgetsYet": "Nessun budget condiviso al momento"
+  "noSharedBudgetsYet": "Nessun budget condiviso al momento",
+  "whoCanSeeThisExpense": "Chi può vedere questa spesa?",
+  "onlyVisibleToYou": "Visibile solo a te",
+  "chooseSpecificMembers": "Scegli membri specifici",
+  "selectMembers": "Seleziona membri",
+  "noMembersFound": "Nessun membro trovato",
+  "membersSelectedCount": "{count} selezionati",
+  "@membersSelectedCount": {"placeholders": {"count": {"type": "int"}}},
+  "noSplitsYet": "Ancora nessuna ripartizione",
+  "startSplittingExpensesWithYourHousehold": "Inizia a ripartire le spese con il tuo gruppo",
+  "minutesAgoShort": "{count} min fa",
+  "@minutesAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "hoursAgoShort": "{count} h fa",
+  "@hoursAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "daysAgoShort": "{count} g fa",
+  "@daysAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "weeksAgoShort": "{count} sett fa",
+  "@weeksAgoShort": {"placeholders": {"count": {"type": "int"}}}
+,
+  "errorLoadingActivity": "Errore nel caricamento delle attività",
+  "noRecentActivity": "Nessuna attività recente",
+  "viewAllExpenses": "Vedi tutte le spese",
+  "noPendingSplits": "Nessuna ripartizione in sospeso",
+  "pendingSettlement": "Regolazione in sospeso"
+  ,
+  "youreIn": "Sei dei nostri! 🎉",
+  "invitationError": "Errore invito",
+  "joiningHousehold": "Ingresso nel gruppo",
+  "processingInvitation": "Elaborazione dell’invito..."
+  ,
+  "noHouseholdsAvailableCreateOrJoin": "Nessun gruppo disponibile. Crea o unisciti prima a un gruppo.",
+  "selectHousehold": "Seleziona gruppo"
 }

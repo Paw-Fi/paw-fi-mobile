@@ -170,10 +170,10 @@ class _HouseholdInvitationSheetState
             children: [
               Text(
                 _accepted
-                    ? 'You\'re In! 🎉'
+                    ? context.l10n.youreIn
                     : _error != null
-                        ? 'Invitation Error'
-                        : 'Joining Household',
+                        ? context.l10n.invitationError
+                        : context.l10n.joiningHousehold,
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
@@ -196,7 +196,7 @@ class _HouseholdInvitationSheetState
             const SizedBox(height: 16),
             Center(
               child: Text(
-                'Processing invitation...',
+                context.l10n.processingInvitation,
                 style: TextStyle(
                   fontSize: 14,
                   color: colorScheme.mutedForeground,

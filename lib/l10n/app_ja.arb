@@ -1343,5 +1343,36 @@
   "splitDetails": "分割の詳細",
   "equalSplit": "均等割り",
   "errorLoadingBudgets": "予算の読み込みエラー",
-  "noSharedBudgetsYet": "共有予算はまだありません"
+  "noSharedBudgetsYet": "共有予算はまだありません",
+  "whoCanSeeThisExpense": "この支出を見られる人は？",
+  "onlyVisibleToYou": "自分だけが見られます",
+  "chooseSpecificMembers": "特定のメンバーを選択",
+  "selectMembers": "メンバーを選択",
+  "noMembersFound": "メンバーが見つかりません",
+  "membersSelectedCount": "{count} 件選択",
+  "@membersSelectedCount": {"placeholders": {"count": {"type": "int"}}},
+  "noSplitsYet": "まだ分割はありません",
+  "startSplittingExpensesWithYourHousehold": "世帯で支出の分割を始めましょう",
+  "minutesAgoShort": "{count}分前",
+  "@minutesAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "hoursAgoShort": "{count}時間前",
+  "@hoursAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "daysAgoShort": "{count}日前",
+  "@daysAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "weeksAgoShort": "{count}週間前",
+  "@weeksAgoShort": {"placeholders": {"count": {"type": "int"}}}
+,
+  "errorLoadingActivity": "アクティビティの読み込みエラー",
+  "noRecentActivity": "最近のアクティビティはありません",
+  "viewAllExpenses": "すべての支出を表示",
+  "noPendingSplits": "保留中の分割はありません",
+  "pendingSettlement": "精算待ち"
+  ,
+  "youreIn": "参加できました！🎉",
+  "invitationError": "招待のエラー",
+  "joiningHousehold": "世帯に参加中",
+  "processingInvitation": "招待を処理しています..."
+  ,
+  "noHouseholdsAvailableCreateOrJoin": "世帯がありません。まず世帯を作成するか参加してください。",
+  "selectHousehold": "世帯を選択"
 }

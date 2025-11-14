@@ -1270,5 +1270,36 @@
   "splitDetails": "Details van de verdeling",
   "equalSplit": "GELIJKE VERDELING",
   "errorLoadingBudgets": "Fout bij het laden van budgetten",
-  "noSharedBudgetsYet": "Nog geen gedeelde budgetten"
+  "noSharedBudgetsYet": "Nog geen gedeelde budgetten",
+  "whoCanSeeThisExpense": "Wie kan deze uitgave zien?",
+  "onlyVisibleToYou": "Alleen zichtbaar voor jou",
+  "chooseSpecificMembers": "Specifieke leden kiezen",
+  "selectMembers": "Leden selecteren",
+  "noMembersFound": "Geen leden gevonden",
+  "membersSelectedCount": "{count} geselecteerd",
+  "@membersSelectedCount": {"placeholders": {"count": {"type": "int"}}},
+  "noSplitsYet": "Nog geen verdelingen",
+  "startSplittingExpensesWithYourHousehold": "Begin uitgaven te verdelen met je huishouden",
+  "minutesAgoShort": "{count} min geleden",
+  "@minutesAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "hoursAgoShort": "{count} u geleden",
+  "@hoursAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "daysAgoShort": "{count} d geleden",
+  "@daysAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "weeksAgoShort": "{count} w geleden",
+  "@weeksAgoShort": {"placeholders": {"count": {"type": "int"}}}
+,
+  "errorLoadingActivity": "Fout bij het laden van de activiteit",
+  "noRecentActivity": "Geen recente activiteit",
+  "viewAllExpenses": "Alle uitgaven bekijken",
+  "noPendingSplits": "Geen openstaande verdelingen",
+  "pendingSettlement": "In afwachting van verrekening"
+  ,
+  "youreIn": "Je bent binnen! 🎉",
+  "invitationError": "Uitnodigingsfout",
+  "joiningHousehold": "Bezig met lid worden van het huishouden",
+  "processingInvitation": "Uitnodiging verwerken..."
+  ,
+  "noHouseholdsAvailableCreateOrJoin": "Geen huishoudens beschikbaar. Maak eerst een huishouden aan of word lid.",
+  "selectHousehold": "Huishouden selecteren"
 }

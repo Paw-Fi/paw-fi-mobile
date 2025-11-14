@@ -801,17 +801,6 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                 loading: () => const SizedBox.shrink(),
                 error: (e, st) => const SizedBox.shrink(),
                 data: (allExpenses) {
-                  // Filter expenses by date range and selected currency (spend only)
-                  final filteredExpenses = allExpenses.where((e) {
-                    final d = DateTime(e.date.year, e.date.month, e.date.day);
-                    final dateOk = !d.isBefore(from) && !d.isAfter(to);
-                    final rawCurrency = (e.currency ?? '').trim().toUpperCase();
-                    final currencyOk = rawCurrency.isEmpty || rawCurrency == selectedCurrency;
-                    final t = (e.type ?? 'expense').toLowerCase();
-                    final isSpend = t != 'income';
-                    return dateOk && currencyOk && isSpend;
-                  }).toList();
-
                   // Transactions for recent list (include income)
                   final filteredTransactions = allExpenses.where((e) {
                     final d = DateTime(e.date.year, e.date.month, e.date.day);

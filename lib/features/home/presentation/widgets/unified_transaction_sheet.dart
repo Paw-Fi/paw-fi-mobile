@@ -1796,6 +1796,7 @@ class _UnifiedTransactionSheetState
           // Save EXPENSE
           // Create updated expense with time
           final expenseWithTime = expense.copyWith(date: expenseDateTime);
+          final l10n = context.l10n;
 
           // Upload receipt image if available
           String? receiptUrl;
@@ -1825,7 +1826,7 @@ class _UnifiedTransactionSheetState
                 payerUserId: _isSharedWithHousehold ? _selectedPayerUserId : null,
               );
 
-        AppToast.success(context.l10n.expenseSaved);
+        AppToast.success(l10n.expenseSaved);
 
         // Ensure UI updates immediately and close sheet
         if (viewMode.mode == ViewMode.household && selectedHousehold != null) {

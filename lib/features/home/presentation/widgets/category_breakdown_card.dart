@@ -74,6 +74,7 @@ Widget buildCategoryBreakdownCard(
                       children: [
                         SlidableAction(
                           onPressed: (_) async {
+                            final l10n = context.l10n;
                             final uid = Supabase.instance.client.auth.currentUser?.id;
                             if (uid == null) return;
                             try {
@@ -94,12 +95,12 @@ Widget buildCategoryBreakdownCard(
                                 }
                                 
                                 // Show success toast
-                                AppToast.success(context.l10n.transactionDeleted);
+                                AppToast.success(l10n.transactionDeleted);
                               } else {
-                                AppToast.error(context.l10n.anErrorOccurred);
+                                AppToast.error(l10n.anErrorOccurred);
                               }
                             } catch (err) {
-                              AppToast.error('${context.l10n.error}: $err');
+                              AppToast.error('${l10n.error}: $err');
                             }
                           },
                           backgroundColor: const Color(0xFFFE4A49),

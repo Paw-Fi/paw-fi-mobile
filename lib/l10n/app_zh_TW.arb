@@ -1324,5 +1324,36 @@
   "splitDetails": "分攤明細",
   "equalSplit": "平均分攤",
   "errorLoadingBudgets": "載入預算錯誤",
-  "noSharedBudgetsYet": "尚無共享預算"
+  "noSharedBudgetsYet": "尚無共享預算",
+  "whoCanSeeThisExpense": "誰可以查看此支出？",
+  "onlyVisibleToYou": "僅你可見",
+  "chooseSpecificMembers": "選擇特定成員",
+  "selectMembers": "選擇成員",
+  "noMembersFound": "找不到成員",
+  "membersSelectedCount": "已選擇 {count} 位",
+  "@membersSelectedCount": {"placeholders": {"count": {"type": "int"}}},
+  "noSplitsYet": "尚無分攤",
+  "startSplittingExpensesWithYourHousehold": "開始與家庭分攤支出",
+  "minutesAgoShort": "{count} 分鐘前",
+  "@minutesAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "hoursAgoShort": "{count} 小時前",
+  "@hoursAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "daysAgoShort": "{count} 天前",
+  "@daysAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "weeksAgoShort": "{count} 週前",
+  "@weeksAgoShort": {"placeholders": {"count": {"type": "int"}}}
+,
+  "errorLoadingActivity": "載入活動錯誤",
+  "noRecentActivity": "尚無近期活動",
+  "viewAllExpenses": "檢視所有支出",
+  "noPendingSplits": "尚無待處理分攤",
+  "pendingSettlement": "待結清"
+  ,
+  "youreIn": "已加入！🎉",
+  "invitationError": "邀請錯誤",
+  "joiningHousehold": "正在加入家庭",
+  "processingInvitation": "正在處理邀請..."
+  ,
+  "noHouseholdsAvailableCreateOrJoin": "沒有可用的家庭。請先建立或加入家庭。",
+  "selectHousehold": "選擇家庭"
 }

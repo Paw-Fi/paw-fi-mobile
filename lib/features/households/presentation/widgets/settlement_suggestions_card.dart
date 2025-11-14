@@ -90,7 +90,7 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
       ),
     );
 
-    String _nameFor(String userId) {
+    String nameFor(String userId) {
       final fromMembers = widget.members?.firstWhere(
         (m) => m.userId == userId,
         orElse: () => HouseholdMember(
@@ -114,7 +114,7 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
       widget.from,
       widget.to,
       widget.currency,
-      _nameFor,
+      nameFor,
     );
     if (kDebugMode) {
       debugPrint('🔗 Detailed pairs (${detailedPairs.length}):');
@@ -171,7 +171,6 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
       // Fallback to balance signs when no split data
       final mySign = youNetBalance.sign;
       return balances.entries.where((e) => e.key != currentUserId && e.value.sign == -mySign).length;
-      return balances.entries.where((e) => e.key != currentUserId && e.value.sign == -mySign).length;
     }();
 
     List<_Suggestion> suggestions;
@@ -180,9 +179,9 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
       final under = <_Balance>[]; // payers
       netBalances.forEach((userId, amountCents) {
         if (amountCents > 0) {
-          over.add(_Balance(userId: userId, userName: _nameFor(userId), amount: amountCents.toDouble()));
+          over.add(_Balance(userId: userId, userName: nameFor(userId), amount: amountCents.toDouble()));
         } else if (amountCents < 0) {
-          under.add(_Balance(userId: userId, userName: _nameFor(userId), amount: (-amountCents).toDouble()));
+          under.add(_Balance(userId: userId, userName: nameFor(userId), amount: (-amountCents).toDouble()));
         }
       });
       over.sort((a,b)=>b.amount.compareTo(a.amount));
@@ -220,7 +219,7 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
         widget.from,
         widget.to,
         widget.currency,
-        _nameFor,
+        nameFor,
       );
       if (kDebugMode) {
         debugPrint('✅ Detailed suggestions (${suggestions.length})');
@@ -248,7 +247,7 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
             youAreOwedCents: youAreOwedCents,
             impactedCount: impactedCounterparties,
             onTapOwed: (currentUserId != null && youAreOwedCents > 0)
-                ? () => _showOwedDetails(context, colorScheme, currentUserId!, detailedPairs)
+                ? () => _showOwedDetails(context, colorScheme, currentUserId, detailedPairs)
                 : null,
             onTapOwe: (currentUserId != null && youOweCents > 0)
                 ? () => _openSettleUpSheet(
@@ -305,10 +304,10 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
 
   List<_Suggestion> _buildDetailedPairs(
     List<ExpenseSplitGroup>? splits,
-    List<ExpenseEntry>? _ignoredTransactions,
-    DateTime? _ignoredFrom,
-    DateTime? _ignoredTo,
-    String? _ignoredCurrency,
+    List<ExpenseEntry>? ignoredTransactions,
+    DateTime? ignoredFrom,
+    DateTime? ignoredTo,
+    String? ignoredCurrency,
     String Function(String) nameFor,
   ) {
     if (splits == null || splits.isEmpty) return const <_Suggestion>[];
@@ -333,7 +332,7 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
         if (line.userId == payer) continue; // payer doesn't owe themselves
         final amount = (line.amountCents ?? 0).abs();
         if (amount <= 0) continue;
-        final key = '${line.userId}->${payer}';
+        final key = '${line.userId}->$payer';
         pairMap[key] = (pairMap[key] ?? 0) + amount;
       }
     }
@@ -624,11 +623,4 @@ void _showOwedDetails(BuildContext context, shadcnui.ColorScheme scheme, String 
   );
 }
 
-Map<String, int> _balancesFromPairs(List<_Suggestion> pairs) {
-  final b = <String, int>{};
-  for (final s in pairs) {
-    b[s.fromUserId] = (b[s.fromUserId] ?? 0) - s.amountCents;
-    b[s.toUserId] = (b[s.toUserId] ?? 0) + s.amountCents;
-  }
-  return b;
-}
+// Removed unused helper _balancesFromPairs

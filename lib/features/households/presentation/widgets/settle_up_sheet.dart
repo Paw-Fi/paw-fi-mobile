@@ -197,7 +197,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                     ),
                     children: [
                       DropdownButtonFormField<String>(
-                        value: _selectedMemberId ?? widget.specificMemberId,
+                        initialValue: _selectedMemberId ?? widget.specificMemberId,
                         decoration: InputDecoration(
                           labelText: context.l10n.selectMember,
                           border: const OutlineInputBorder(),
@@ -273,7 +273,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                 : _youOweCents;
             final amountToShow = displayCents > 0
                 ? (displayCents / 100.0)
-                : (widget.amount != null ? widget.amount! : null);
+                : widget.amount;
             if (amountToShow == null) return const SizedBox.shrink();
             return Column(
               children: [

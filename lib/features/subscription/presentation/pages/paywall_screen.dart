@@ -84,7 +84,8 @@ class PaywallScreen extends ConsumerWidget {
     );
 
     try {
-      Navigator.of(context).pop();
+      final navigator = Navigator.of(context);
+      navigator.pop();
 
       if (!await launchUrl(
         Uri.parse(referralUrl),
@@ -93,7 +94,9 @@ class PaywallScreen extends ConsumerWidget {
         throw Exception('Could not open referral link');
       }
     } catch (e) {
-      Navigator.of(context).pop();
+      if (context.mounted) {
+        Navigator.of(context).pop();
+      }
       AppToast.error('Failed to open referral page: ${e.toString()}');
     }
   }
@@ -173,6 +176,7 @@ class PaywallScreen extends ConsumerWidget {
         throw Exception('No active session');
       }
 
+      final navigator = Navigator.of(context);
       final response = await supabase.functions.invoke(
         'create-checkout-session',
         body: {
@@ -183,7 +187,7 @@ class PaywallScreen extends ConsumerWidget {
         },
       );
 
-      Navigator.of(context).pop();
+      navigator.pop();
 
       if (response.data != null && response.data['checkoutUrl'] != null) {
         final checkoutUrl = response.data['checkoutUrl'] as String;
@@ -197,7 +201,9 @@ class PaywallScreen extends ConsumerWidget {
         throw Exception('No checkout URL received');
       }
     } catch (e) {
-      Navigator.of(context).pop();
+      if (context.mounted) {
+        Navigator.of(context).pop();
+      }
       AppToast.error('Failed to start trial: ${e.toString()}');
     }
   }

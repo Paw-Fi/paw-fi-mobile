@@ -1341,5 +1341,36 @@
   "splitDetails": "Chi tiết phân chia",
   "equalSplit": "CHIA ĐỀU",
   "errorLoadingBudgets": "Lỗi tải ngân sách",
-  "noSharedBudgetsYet": "Chưa có ngân sách dùng chung"
+  "noSharedBudgetsYet": "Chưa có ngân sách dùng chung",
+  "whoCanSeeThisExpense": "Ai có thể xem khoản chi này?",
+  "onlyVisibleToYou": "Chỉ mình bạn thấy",
+  "chooseSpecificMembers": "Chọn thành viên cụ thể",
+  "selectMembers": "Chọn thành viên",
+  "noMembersFound": "Không tìm thấy thành viên",
+  "membersSelectedCount": "Đã chọn {count}",
+  "@membersSelectedCount": {"placeholders": {"count": {"type": "int"}}},
+  "noSplitsYet": "Chưa có phân chia",
+  "startSplittingExpensesWithYourHousehold": "Bắt đầu phân chia chi phí với hộ gia đình",
+  "minutesAgoShort": "{count} phút trước",
+  "@minutesAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "hoursAgoShort": "{count} giờ trước",
+  "@hoursAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "daysAgoShort": "{count} ngày trước",
+  "@daysAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "weeksAgoShort": "{count} tuần trước",
+  "@weeksAgoShort": {"placeholders": {"count": {"type": "int"}}}
+,
+  "errorLoadingActivity": "Lỗi tải hoạt động",
+  "noRecentActivity": "Chưa có hoạt động gần đây",
+  "viewAllExpenses": "Xem tất cả chi tiêu",
+  "noPendingSplits": "Không có phân chia đang chờ",
+  "pendingSettlement": "Đang chờ thanh toán"
+  ,
+  "youreIn": "Bạn đã tham gia! 🎉",
+  "invitationError": "Lỗi lời mời",
+  "joiningHousehold": "Đang tham gia hộ gia đình",
+  "processingInvitation": "Đang xử lý lời mời..."
+  ,
+  "noHouseholdsAvailableCreateOrJoin": "Chưa có hộ gia đình. Hãy tạo hoặc tham gia trước.",
+  "selectHousehold": "Chọn hộ gia đình"
 }

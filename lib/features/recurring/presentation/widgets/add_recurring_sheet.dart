@@ -13,7 +13,6 @@ import 'package:moneko/core/ui/widgets/transaction_currency_picker.dart';
 import 'package:moneko/core/ui/widgets/transaction_frequency_picker.dart';
 import 'package:moneko/core/ui/widgets/transaction_date_picker.dart';
 import 'package:moneko/core/ui/widgets/transaction_selection_sheet.dart';
-import 'package:intl/intl.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/utils/date_formatter.dart';
 
@@ -65,6 +64,7 @@ class AddRecurringSheet extends HookConsumerWidget {
     final isLoading = useState<bool>(false);
 
     Future<void> handleSave() async {
+      final l10n = context.l10n;
       debugPrint('🔵 handleSave called');
       debugPrint('🔵 isEditing: $isEditing');
       debugPrint('🔵 existingTransaction: ${existingTransaction?.id}');
@@ -224,25 +224,29 @@ class AddRecurringSheet extends HookConsumerWidget {
             Navigator.of(context).pop();
             final successMsg = isExpense
                 ? (isEditing
-                    ? context.l10n.recurringExpenseUpdatedSuccessfully
-                    : context.l10n.recurringExpenseAddedSuccessfully)
+                    ? l10n.recurringExpenseUpdatedSuccessfully
+                    : l10n.recurringExpenseAddedSuccessfully)
                 : (isEditing
-                    ? context.l10n.recurringIncomeUpdatedSuccessfully
-                    : context.l10n.recurringIncomeAddedSuccessfully);
+                    ? l10n.recurringIncomeUpdatedSuccessfully
+                    : l10n.recurringIncomeAddedSuccessfully);
             _showSuccess(context, successMsg);
           }
         } else {
           debugPrint('🔴 Result is null - ${isEditing ? 'update' : 'save'} failed');
           final errMsg = isExpense
-              ? context.l10n.failedToUpdateRecurringExpense
-              : context.l10n.failedToUpdateRecurringIncome;
-          _showError(context, errMsg);
+              ? l10n.failedToUpdateRecurringExpense
+              : l10n.failedToUpdateRecurringIncome;
+          if (context.mounted) {
+            _showError(context, errMsg);
+          }
         }
       } catch (e, stackTrace) {
         debugPrint('❌ Exception caught: $e');
         debugPrint('Stack trace: $stackTrace');
         isLoading.value = false;
-        _showError(context, 'Error: ${e.toString()}');
+        if (context.mounted) {
+          _showError(context, 'Error: ${e.toString()}');
+        }
       }
     }
 

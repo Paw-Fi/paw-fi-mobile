@@ -1342,5 +1342,36 @@
   "splitDetails": "Detalles del reparto",
   "equalSplit": "REPARTO EQUITATIVO",
   "errorLoadingBudgets": "Error al cargar los presupuestos",
-  "noSharedBudgetsYet": "Aún no hay presupuestos compartidos"
+  "noSharedBudgetsYet": "Aún no hay presupuestos compartidos",
+  "whoCanSeeThisExpense": "¿Quién puede ver este gasto?",
+  "onlyVisibleToYou": "Solo tú puedes verlo",
+  "chooseSpecificMembers": "Elige miembros específicos",
+  "selectMembers": "Seleccionar miembros",
+  "noMembersFound": "No se encontraron miembros",
+  "membersSelectedCount": "{count} seleccionados",
+  "@membersSelectedCount": {"placeholders": {"count": {"type": "int"}}},
+  "noSplitsYet": "Aún no hay repartos",
+  "startSplittingExpensesWithYourHousehold": "Empieza a repartir gastos con tu hogar",
+  "minutesAgoShort": "hace {count} min",
+  "@minutesAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "hoursAgoShort": "hace {count} h",
+  "@hoursAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "daysAgoShort": "hace {count} d",
+  "@daysAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "weeksAgoShort": "hace {count} sem",
+  "@weeksAgoShort": {"placeholders": {"count": {"type": "int"}}}
+  ,
+  "errorLoadingActivity": "Error al cargar la actividad",
+  "noRecentActivity": "No hay actividad reciente",
+  "viewAllExpenses": "Ver todos los gastos",
+  "noPendingSplits": "No hay repartos pendientes",
+  "pendingSettlement": "Liquidación pendiente"
+  ,
+  "youreIn": "¡Ya estás dentro! 🎉",
+  "invitationError": "Error de invitación",
+  "joiningHousehold": "Uniéndote al hogar",
+  "processingInvitation": "Procesando invitación..."
+  ,
+  "noHouseholdsAvailableCreateOrJoin": "No hay hogares disponibles. Crea o únete a un hogar primero.",
+  "selectHousehold": "Seleccionar hogar"
 }

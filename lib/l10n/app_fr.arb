@@ -1341,5 +1341,36 @@
   "splitDetails": "Détails de la répartition",
   "equalSplit": "PARTAGE ÉGAL",
   "errorLoadingBudgets": "Erreur lors du chargement des budgets",
-  "noSharedBudgetsYet": "Aucun budget partagé pour le moment"
+  "noSharedBudgetsYet": "Aucun budget partagé pour le moment",
+  "whoCanSeeThisExpense": "Qui peut voir cette dépense ?",
+  "onlyVisibleToYou": "Visible uniquement pour toi",
+  "chooseSpecificMembers": "Choisir des membres spécifiques",
+  "selectMembers": "Sélectionner des membres",
+  "noMembersFound": "Aucun membre trouvé",
+  "membersSelectedCount": "{count} sélectionnés",
+  "@membersSelectedCount": {"placeholders": {"count": {"type": "int"}}},
+  "noSplitsYet": "Aucune répartition pour l’instant",
+  "startSplittingExpensesWithYourHousehold": "Commence à répartir les dépenses avec ton foyer",
+  "minutesAgoShort": "il y a {count} min",
+  "@minutesAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "hoursAgoShort": "il y a {count} h",
+  "@hoursAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "daysAgoShort": "il y a {count} j",
+  "@daysAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "weeksAgoShort": "il y a {count} sem",
+  "@weeksAgoShort": {"placeholders": {"count": {"type": "int"}}}
+,
+  "errorLoadingActivity": "Erreur lors du chargement de l’activité",
+  "noRecentActivity": "Aucune activité récente",
+  "viewAllExpenses": "Voir toutes les dépenses",
+  "noPendingSplits": "Aucune répartition en attente",
+  "pendingSettlement": "Règlement en attente"
+  ,
+  "youreIn": "C’est fait ! 🎉",
+  "invitationError": "Erreur d’invitation",
+  "joiningHousehold": "Rejoindre le foyer",
+  "processingInvitation": "Traitement de l’invitation..."
+  ,
+  "noHouseholdsAvailableCreateOrJoin": "Aucun foyer disponible. Crée ou rejoins d’abord un foyer.",
+  "selectHousehold": "Sélectionner un foyer"
 }

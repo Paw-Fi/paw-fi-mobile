@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import '../providers/household_providers.dart';
-import '../../../../../core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
+import '../../../../../core/l10n/l10n.dart';
 
 class RecentSplitsList extends ConsumerWidget {
   final String householdId;
@@ -28,7 +28,7 @@ class RecentSplitsList extends ConsumerWidget {
                   Icon(Icons.call_split, size: 48, color: colorScheme.muted),
                   const SizedBox(height: 12),
                   Text(
-                    'No splits yet',
+                    context.l10n.noSplitsYet,
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -37,7 +37,7 @@ class RecentSplitsList extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Start splitting expenses with your household',
+                    context.l10n.startSplittingExpensesWithYourHousehold,
                     textAlign: TextAlign.center,
                     style: TextStyle(color: colorScheme.mutedForeground),
                   ),
@@ -59,7 +59,7 @@ class RecentSplitsList extends ConsumerWidget {
                   child: const Icon(Icons.call_split, size: 20),
                 ),
                 title: Text(
-                  split.description ?? 'Split',
+                  split.description ?? context.l10n.split,
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     color: colorScheme.foreground,
@@ -70,7 +70,7 @@ class RecentSplitsList extends ConsumerWidget {
                   style: TextStyle(color: colorScheme.mutedForeground),
                 ),
                 trailing: Text(
-                  _formatDate(split.createdAt),
+                  _formatDate(context, split.createdAt),
                   style: TextStyle(
                     fontSize: 12,
                     color: colorScheme.mutedForeground,
@@ -103,19 +103,19 @@ class RecentSplitsList extends ConsumerWidget {
     return typeStr[0].toUpperCase() + typeStr.substring(1);
   }
 
-  String _formatDate(DateTime date) {
+  String _formatDate(BuildContext context, DateTime date) {
     final now = DateTime.now();
     final difference = now.difference(date);
 
     if (difference.inDays < 1) {
       if (difference.inHours < 1) {
-        return '${difference.inMinutes}m ago';
+        return context.l10n.minutesAgoShort(difference.inMinutes);
       }
-      return '${difference.inHours}h ago';
+      return context.l10n.hoursAgoShort(difference.inHours);
     } else if (difference.inDays < 7) {
-      return '${difference.inDays}d ago';
+      return context.l10n.daysAgoShort(difference.inDays);
     } else {
-      return '${(difference.inDays / 7).floor()}w ago';
+      return context.l10n.weeksAgoShort((difference.inDays / 7).floor());
     }
   }
 }

@@ -164,9 +164,11 @@ double _sumRecurringForMonth(List<RecurringTransaction> items, DateTime now, {St
       continue;
     }
     final count = _occurrencesInMonth(item, monthStart, monthEnd);
-    debugPrint('[NetCashflow] Item id=${item.id}, type=${item.type}, amount=${item.amount}, curr=${item.currency}, date=${item.date.toIso8601String()}, '
-        'rule=${item.recurrenceRule != null ? '{freq=' + item.recurrenceRule!.frequency + ', anchor=' + item.recurrenceRule!.anchorDate.toIso8601String() + ', interval=' + (item.recurrenceRule!.interval?.toString() ?? 'null') + ', end=' + (item.recurrenceRule!.endDate?.toIso8601String() ?? 'null') + '}' : 'null'}, '
-        'countThisMonth=$count');
+    final rule = item.recurrenceRule;
+    final ruleStr = rule != null
+        ? '{freq=${rule.frequency}, anchor=${rule.anchorDate.toIso8601String()}, interval=${rule.interval?.toString() ?? 'null'}, end=${rule.endDate?.toIso8601String() ?? 'null'}}'
+        : 'null';
+    debugPrint('[NetCashflow] Item id=${item.id}, type=${item.type}, amount=${item.amount}, curr=${item.currency}, date=${item.date.toIso8601String()}, rule=$ruleStr, countThisMonth=$count');
     if (count > 0) {
       sum += item.amount.abs() * count;
     }

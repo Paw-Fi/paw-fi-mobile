@@ -1336,5 +1336,36 @@
   "splitDetails": "分摊详情",
   "equalSplit": "平均分摊",
   "errorLoadingBudgets": "加载预算出错",
-  "noSharedBudgetsYet": "暂无共享预算"
+  "noSharedBudgetsYet": "暂无共享预算",
+  "whoCanSeeThisExpense": "谁可以查看此支出？",
+  "onlyVisibleToYou": "仅你可见",
+  "chooseSpecificMembers": "选择特定成员",
+  "selectMembers": "选择成员",
+  "noMembersFound": "未找到成员",
+  "membersSelectedCount": "已选择 {count} 个",
+  "@membersSelectedCount": {"placeholders": {"count": {"type": "int"}}},
+  "noSplitsYet": "暂无分摊",
+  "startSplittingExpensesWithYourHousehold": "开始与家庭一起分摊支出",
+  "minutesAgoShort": "{count} 分钟前",
+  "@minutesAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "hoursAgoShort": "{count} 小时前",
+  "@hoursAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "daysAgoShort": "{count} 天前",
+  "@daysAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "weeksAgoShort": "{count} 周前",
+  "@weeksAgoShort": {"placeholders": {"count": {"type": "int"}}}
+,
+  "errorLoadingActivity": "加载活动出错",
+  "noRecentActivity": "暂无近期活动",
+  "viewAllExpenses": "查看所有支出",
+  "noPendingSplits": "暂无待处理分摊",
+  "pendingSettlement": "待结算"
+  ,
+  "youreIn": "已加入！🎉",
+  "invitationError": "邀请错误",
+  "joiningHousehold": "正在加入家庭",
+  "processingInvitation": "正在处理邀请..."
+  ,
+  "noHouseholdsAvailableCreateOrJoin": "没有可用的家庭。请先创建或加入一个家庭。",
+  "selectHousehold": "选择家庭"
 }

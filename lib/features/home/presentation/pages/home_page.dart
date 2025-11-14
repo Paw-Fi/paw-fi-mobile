@@ -22,10 +22,7 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
-import 'package:moneko/features/home/presentation/widgets/cashflow_sparkline_card.dart';
 import 'package:moneko/features/home/presentation/widgets/mom_trend_bar.dart';
-import 'package:moneko/features/home/presentation/widgets/savings_rate_tile.dart';
-import 'package:moneko/features/home/presentation/widgets/runway_gauge.dart';
 import 'package:moneko/features/home/presentation/widgets/currency_dropdown_button.dart';
 // Removed unused imports
 
@@ -520,9 +517,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     showDateRangeFilter(context, colorScheme, height: 480);
   }
 
-  void _showCurrencySelector() {
-    showCurrencySelectorModal(context, ref);
-  }
+  // Removed unused _showCurrencySelector()
 
   Future<void> _showBudgetUpdateSheet() async {
     final analytics = ref.read(analyticsProvider);
@@ -1048,7 +1043,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                           // const SizedBox(width: 12),
                           const SizedBox(
                             width: 200,
-                            child: MoMTrendBar(),
+                            child:  MoMTrendBar(),
                           ),
                           // const SizedBox(width: 12),
                           // const SizedBox(

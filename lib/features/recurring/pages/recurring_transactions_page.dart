@@ -163,7 +163,7 @@ class _RecurringTransactionsPageState
                 tabs: [
                   Tab(
                     child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 12),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -175,7 +175,7 @@ class _RecurringTransactionsPageState
                   ),
                   Tab(
                     child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 12),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -403,14 +403,14 @@ class _RecurringTransactionsPageState
           borderRadius: BorderRadius.circular(16),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            child: Row(
+            child: const Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                 Icon(
+                Icon(
                   Icons.add,
                   color: Colors.white,
                   size: 24,
-                ),                
+                ),
               ],
             ),
           ),

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:isolate';
 import 'dart:ui' as ui;
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -14,7 +13,7 @@ import 'package:moneko/firebase_options.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/core/util/constants.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 
 /// Top-level background message handler for Firebase Cloud Messaging
 /// Must be a top-level function for iOS background execution
@@ -72,7 +71,7 @@ void main() {
         } catch (_) {}
       }
 
-      String _shortFingerprint(String s) {
+      String shortFingerprint(String s) {
         // Simple FNV-1a 32-bit hash for a short, repeatable ID
         int hash = 0x811C9DC5;
         for (final codeUnit in s.codeUnits) {
@@ -90,15 +89,15 @@ void main() {
       } catch (_) {}
 
       final now = DateTime.now();
-      final env = Constants.environment;
+      const env = Constants.environment;
       String route = '';
       try {
         // May throw if router not available in this context
         route = GoRouterState.of(details.context as BuildContext).uri.path;
       } catch (_) {}
 
-      final fid = 'E-${now.millisecondsSinceEpoch.toRadixString(36)}-${_shortFingerprint('$errorType|$topFrame')}';
-      final message = 'Something went wrong. Please restart the app.';
+      final fid = 'E-${now.millisecondsSinceEpoch.toRadixString(36)}-${shortFingerprint('$errorType|$topFrame')}';
+      const message = 'Something went wrong. Please restart the app.';
 
       return Directionality(
         textDirection: TextDirection.ltr,
@@ -118,10 +117,10 @@ void main() {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 12),
-                  Text(
+                  const Text(
                     message,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: Color(0xFFE5E7EB), fontSize: 14),
+                    style: TextStyle(color: Color(0xFFE5E7EB), fontSize: 14),
                   ),
                   const SizedBox(height: 20),
                   // Minimal diagnostic info for screenshots
