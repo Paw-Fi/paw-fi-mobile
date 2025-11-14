@@ -170,14 +170,14 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
               ),
               error: (e, _) => Padding(
                 padding: const EdgeInsets.only(top: 12, bottom: 24),
-                child: Text('Error loading members', style: TextStyle(color: colorScheme.destructive)),
+                child: Text(context.l10n.errorLoadingMembers, style: TextStyle(color: colorScheme.destructive)),
               ),
               data: (members) {
                 final items = members
                     .where((m) => m.userId != userId)
                     .map((m) => DropdownMenuItem<String>(
                           value: m.userId,
-                          child: Text(m.userName ?? m.userEmail ?? 'Member'),
+                          child: Text(m.userName ?? m.userEmail ?? context.l10n.member),
                         ))
                     .toList();
 
@@ -227,21 +227,21 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
               initiallyExpanded: false,
               tilePadding: const EdgeInsets.symmetric(horizontal: 0.0),
               childrenPadding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
-              title: Text('Breakdown', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: colorScheme.foreground)),
+              title: Text(context.l10n.breakdown, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: colorScheme.foreground)),
               children: [
                 Builder(builder: (_) {
                   final bothEmpty = _lineItems.isEmpty && _theyOweItems.isEmpty;
                   if (bothEmpty) {
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Text('No outstanding items', style: TextStyle(color: colorScheme.mutedForeground)),
+                      child: Text(context.l10n.noOutstandingItems, style: TextStyle(color: colorScheme.mutedForeground)),
                     );
                   }
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (_lineItems.isNotEmpty) ...[
-                        Text('You owe', style: TextStyle(fontSize: 12, color: colorScheme.mutedForeground)),
+                        Text(context.l10n.youOwe, style: TextStyle(fontSize: 12, color: colorScheme.mutedForeground)),
                         const SizedBox(height: 6),
                         ...List.generate(_lineItems.length, (i) => Padding(
                               padding: const EdgeInsets.symmetric(vertical: 6),
@@ -250,7 +250,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                         Divider(height: 12, color: colorScheme.border),
                       ],
                       if (widget.isExpressNetting && _theyOweItems.isNotEmpty) ...[
-                        Text('They owe you', style: TextStyle(fontSize: 12, color: colorScheme.mutedForeground)),
+                        Text(context.l10n.theyOweYou, style: TextStyle(fontSize: 12, color: colorScheme.mutedForeground)),
                         const SizedBox(height: 6),
                         ...List.generate(_theyOweItems.length, (i) => Padding(
                               padding: const EdgeInsets.symmetric(vertical: 6),
@@ -297,7 +297,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                                   color: colorScheme.primary.withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
-                                child: Text('Express netting', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: colorScheme.primary)),
+                                child: Text(context.l10n.expressNetting, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: colorScheme.primary)),
                               )
                             else
                               Container(
@@ -306,7 +306,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                                   color: colorScheme.muted.withValues(alpha: 0.5),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
-                                child: Text('Detailed settlement', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: colorScheme.mutedForeground)),
+                                child: Text(context.l10n.detailedSettlement, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: colorScheme.mutedForeground)),
                               ),
                             const SizedBox(height: 8),
                             Text(
@@ -329,7 +329,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                               Padding(
                                 padding: const EdgeInsets.only(top: 8),
                                 child: Text(
-                                  'This is a netting suggestion. Confirming will settle all your outstanding with this member.',
+                                  context.l10n.expressNettingHint,
                                   style: TextStyle(fontSize: 12, color: colorScheme.mutedForeground),
                                 ),
                               ),
@@ -355,14 +355,14 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
               Expanded(
                 child: shadcnui.SecondaryButton(
                   onPressed: _isProcessing ? null : () => Navigator.pop(context),
-                  child: const Text('Cancel'),
+                  child: Text(context.l10n.cancel),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: shadcnui.PrimaryButton(
                   onPressed: _isProcessing ? null : _confirmAndSettle,
-                  child: const Text('Settle'),
+                  child: Text(context.l10n.settle),
                 ),
               ),
             ],
@@ -375,8 +375,8 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
   }
 
   Future<bool> _showConfirm() async {
-    final title = 'Confirm settlement';
-    final msg = 'This will mark all your outstanding items with this member as settled.';
+    final title = context.l10n.confirmSettlement;
+    final msg = context.l10n.confirmSettlementMessage;
     final isCupertino = Theme.of(context).platform == TargetPlatform.iOS;
     if (isCupertino) {
       final res = await showCupertinoDialog<bool>(
@@ -388,8 +388,8 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
             child: Text(msg),
           ),
           actions: [
-            CupertinoDialogAction(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
-            CupertinoDialogAction(isDestructiveAction: true, onPressed: () => Navigator.pop(c, true), child: const Text('Settle')),
+            CupertinoDialogAction(onPressed: () => Navigator.pop(c, false), child: Text(context.l10n.cancel)),
+            CupertinoDialogAction(isDestructiveAction: true, onPressed: () => Navigator.pop(c, true), child: Text(context.l10n.settle)),
           ],
         ),
       );
@@ -398,11 +398,11 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
       final res = await showDialog<bool>(
         context: context,
         builder: (c) => AlertDialog(
-          title: const Text('Confirm settlement'),
+          title: Text(context.l10n.confirmSettlement),
           content: Text(msg),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
-            FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Settle')),
+            TextButton(onPressed: () => Navigator.pop(c, false), child: Text(context.l10n.cancel)),
+            FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(context.l10n.settle)),
           ],
         ),
       );
@@ -415,7 +415,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
     if (_selectedMemberId == null && widget.specificMemberId == null) {
       // Show error
       if (mounted) {
-        AppToast.info('Please select a member');
+        AppToast.info(context.l10n.pleaseSelectMember);
       }
       return;
     }
@@ -478,11 +478,11 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
 
       if (mounted) {
         Navigator.pop(context, true);
-        AppToast.success(count > 0 ? 'Settlement completed' : 'Nothing to settle');
+        AppToast.success(count > 0 ? context.l10n.settlementCompleted : context.l10n.nothingToSettle);
       }
     } catch (e) {
       if (mounted) {
-        AppToast.error('Error: $e');
+        AppToast.error('${context.l10n.error}: $e');
       }
     } finally {
       if (mounted) {
@@ -521,7 +521,7 @@ class _LineTile extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                item.description?.isNotEmpty == true ? item.description! : 'Expense',
+                item.description?.isNotEmpty == true ? item.description! : context.l10n.expense,
                 style: TextStyle(fontSize: 14, color: scheme.foreground),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,

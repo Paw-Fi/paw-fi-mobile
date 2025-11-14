@@ -4,6 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/household_providers.dart';
+import '../../../../../core/l10n/l10n.dart';
 import '../providers/selected_household_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/core/app/router.dart';
@@ -124,7 +125,7 @@ class _HouseholdInvitationSheetState
           debugPrint(
               '❌ [HouseholdInvitationSheet] Missing household ID in validation response');
           setState(() {
-            _error = 'Invalid invitation: missing household information';
+            _error = context.l10n.invalidInvitationMissingInfo;
             _isProcessing = false;
           });
         }
@@ -232,7 +233,7 @@ class _HouseholdInvitationSheetState
             const SizedBox(height: 24),
             shadcnui.PrimaryButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
+              child: Text(context.l10n.close),
             ),
           ],
 
@@ -251,8 +252,8 @@ class _HouseholdInvitationSheetState
                   Expanded(
                     child: Text(
                       _householdName != null
-                          ? 'You\'ve successfully joined $_householdName!'
-                          : 'You\'ve successfully joined the household!',
+                          ? context.l10n.joinedHouseholdWithName(_householdName!)
+                          : context.l10n.joinedHousehold,
                       style: TextStyle(
                         fontSize: 14,
                         color: colorScheme.foreground,
@@ -292,12 +293,12 @@ class _HouseholdInvitationSheetState
                   navCtx.go('/dashboard');
                 }
               },
-              child: const Text('View Household'),
+              child: Text(context.l10n.viewHousehold),
             ),
             const SizedBox(height: 12),
             shadcnui.OutlineButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
+              child: Text(context.l10n.close),
             ),
           ],
         ],

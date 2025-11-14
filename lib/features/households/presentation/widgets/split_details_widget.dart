@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import '../../../../../core/l10n/l10n.dart';
 // import '../../domain/entities/expense_split.dart';
 
 /// Widget to display split details in transaction detail sheets
@@ -36,7 +37,7 @@ class SplitDetailsWidget extends ConsumerWidget {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Split Details',
+                  context.l10n.splitDetails,
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -55,7 +56,7 @@ class SplitDetailsWidget extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
-                'EQUAL SPLIT',
+                context.l10n.equalSplit,
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -93,12 +94,12 @@ class SplitDetailsWidget extends ConsumerWidget {
               onPressed: () {
                 // Implement settle up flow
               },
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.check_circle_outline, size: 20),
-                  SizedBox(width: 8),
-                  Text('Mark as Settled'),
+                  const Icon(Icons.check_circle_outline, size: 20),
+                  const SizedBox(width: 8),
+                  Text(context.l10n.markAsSettled),
                 ],
               ),
             ),

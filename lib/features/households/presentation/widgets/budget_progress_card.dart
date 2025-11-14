@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import '../../domain/entities/shared_budget.dart';
+import '../../../../../core/l10n/l10n.dart';
 import '../providers/household_providers.dart';
 
 class BudgetProgressCard extends ConsumerWidget {
@@ -74,7 +75,7 @@ class BudgetProgressCard extends ConsumerWidget {
                   ),
                 ),
                 Text(
-                  _formatPeriod(budget.period),
+                  _formatPeriod(budget.period, context),
                   style: TextStyle(
                     fontSize: 14,
                     color: colorScheme.mutedForeground,
@@ -130,7 +131,7 @@ class BudgetProgressCard extends ConsumerWidget {
                 );
               },
               loading: () => const LinearProgressIndicator(),
-              error: (_, __) => Text('Error loading data', style: TextStyle(color: colorScheme.destructive)),
+              error: (_, __) => Text(context.l10n.errorLoadingData, style: TextStyle(color: colorScheme.destructive)),
             ),
           ],
         ),
@@ -138,16 +139,16 @@ class BudgetProgressCard extends ConsumerWidget {
     );
   }
 
-  String _formatPeriod(BudgetPeriod period) {
+  String _formatPeriod(BudgetPeriod period, BuildContext context) {
     switch (period) {
       case BudgetPeriod.daily:
-        return 'Daily';
+        return context.l10n.daily;
       case BudgetPeriod.weekly:
-        return 'Weekly';
+        return context.l10n.weekly;
       case BudgetPeriod.monthly:
-        return 'Monthly';
+        return context.l10n.monthly;
       case BudgetPeriod.yearly:
-        return 'Yearly';
+        return context.l10n.yearly;
     }
   }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import '../providers/household_providers.dart';
+import '../../../../../core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
 
 class RecentSplitsList extends ConsumerWidget {
@@ -91,7 +92,7 @@ class RecentSplitsList extends ConsumerWidget {
       error: (_, __) => Card(
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Text('Error loading splits', style: TextStyle(color: colorScheme.destructive)),
+          child: Text(context.l10n.errorLoadingSplits, style: TextStyle(color: colorScheme.destructive)),
         ),
       ),
     );

@@ -632,7 +632,7 @@
   "category": "Kategorie",
   "allMembers": "Alle Mitglieder",
   "balanceSummary": "Saldenübersicht",
-  "youAreOwed": "Man schuldet dir",
+  "youAreOwed": "Du erhältst",
   "youOwe": "Du schuldest",
   "youOweOthers": "Du schuldest anderen",
   "othersOweYou": "Andere schulden dir",
@@ -1307,5 +1307,50 @@
   "atLeastOneMember": "Mindestens ein Mitglied erforderlich",
   "memberMustHaveShare": "Mindestens ein Mitglied braucht einen Anteil > 0",
   "monthOverMonthSpending": "Monatliche Ausgabenentwicklung",
-  "last3Months": "Letzte 3 Monate"
+  "last3Months": "Letzte 3 Monate",
+
+  "breakdown": "Aufschlüsselung",
+  "noOutstandingItems": "Keine offenen Posten",
+  "theyOweYou": "Sie schulden dir",
+  "expressNetting": "Schnellabgleich",
+  "detailedSettlement": "Detaillierte Abrechnung",
+  "expressNettingHint": "Dies ist eine Netting-Empfehlung. Durch Bestätigen werden alle deine offenen Posten mit diesem Mitglied beglichen.",
+  "settle": "Begleichen",
+  "confirmSettlement": "Ausgleich bestätigen",
+  "confirmSettlementMessage": "Dadurch werden alle deine offenen Posten mit diesem Mitglied als beglichen markiert.",
+  "pleaseSelectMember": "Bitte wähle ein Mitglied aus",
+  "settlementCompleted": "Ausgleich abgeschlossen",
+  "nothingToSettle": "Nichts auszugleichen",
+  "expense": "Ausgabe",
+  "settlement": "Ausgleich",
+  "suggestedNetTransfers": "Vorgeschlagene Nettotransfers",
+  "detailedPairwiseDues": "Detaillierte Schulden zwischen Mitgliedern",
+  "outstanding": "Offen",
+  
+  "youAreOwedBy": "Du erhältst von",
+  "noOutstandingAmounts": "Keine offenen Beträge",
+  "groupFairnessTitle": "Gruppenfairness",
+  "groupFairness": "Gruppenfairness",
+  "groupFairnessExplanation": "Dies zeigt, wie gleichmäßig die Ausgaben unter den Haushaltsmitgliedern verteilt sind.\n\nEin höherer Prozentsatz bedeutet, dass alle ihren fairen Anteil beitragen. Ein niedrigerer Prozentsatz deutet darauf hin, dass einige Mitglieder mehr Ausgaben tragen als andere.\n\nStell es dir wie Teamarbeit vor – wenn alle gleich viel beitragen, ist der Fairness‑Wert hoch. Trägt eine Person den Großteil, sinkt er.\n\nDer „gleiche Anteil“ zeigt, was jede Person schulden würde, wenn alles gleich aufgeteilt wäre.",
+  "noMemberDataYet": "Keine Mitgliederdaten vorhanden",
+  "evenShare": "Gleicher Anteil: {amount}",
+  "@evenShare": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "viewHousehold": "Haushalt anzeigen",
+  "invalidInvitationMissingInfo": "Ungültige Einladung: fehlende Haushaltsinformationen",
+  "joinedHouseholdWithName": "Du bist {name} beigetreten!",
+  "@joinedHouseholdWithName": {"placeholders": {"name": {"type": "String"}}},
+  "joinedHousehold": "Du bist dem Haushalt beigetreten!",
+  "errorLoadingData": "Fehler beim Laden der Daten",
+  "errorLoadingSplits": "Fehler beim Laden der Aufteilungen",
+  "markAsSettled": "Als beglichen markieren",
+  "splitDetails": "Details zur Aufteilung",
+  "equalSplit": "GLEICHMÄSSIGE AUFTEILUNG",
+  "errorLoadingBudgets": "Fehler beim Laden der Budgets",
+  "noSharedBudgetsYet": "Noch keine gemeinsamen Budgets"
 }

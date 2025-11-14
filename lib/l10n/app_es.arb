@@ -1300,5 +1300,47 @@
   "atLeastOneMember": "Debe incluir al menos un miembro",
   "memberMustHaveShare": "Al menos un miembro debe tener una participación mayor que 0",
   "monthOverMonthSpending": "Gasto mes a mes",
-  "last3Months": "Últimos 3 meses"
+  "last3Months": "Últimos 3 meses",
+
+  "breakdown": "Desglose",
+  "noOutstandingItems": "No hay saldos pendientes",
+  "theyOweYou": "Te deben",
+  "expressNetting": "Compensación exprés",
+  "detailedSettlement": "Liquidación detallada",
+  "expressNettingHint": "Esta es una sugerencia de compensación. Al confirmar se liquidarán todos tus pendientes con este miembro.",
+  "settle": "Liquidar",
+  "confirmSettlement": "Confirmar liquidación",
+  "confirmSettlementMessage": "Esto marcará como liquidados todos tus pendientes con este miembro.",
+  "pleaseSelectMember": "Selecciona un miembro",
+  "settlementCompleted": "Liquidación completada",
+  "nothingToSettle": "Nada que liquidar",
+  "expense": "Gasto",
+  "settlement": "Liquidación",
+  "suggestedNetTransfers": "Transferencias netas sugeridas",
+  "detailedPairwiseDues": "Deudas detalladas entre miembros",
+  "outstanding": "Pendiente",
+  "youAreOwedBy": "Personas que te deben",
+  "noOutstandingAmounts": "No hay montos pendientes",
+  "groupFairnessTitle": "Equidad del grupo",
+  "groupFairness": "Equidad del grupo",
+  "groupFairnessExplanation": "Muestra qué tan equitativamente se reparten los gastos entre los miembros del hogar.\n\nUn porcentaje más alto significa que todos aportan su parte justa. Uno más bajo sugiere que algunas personas están cubriendo más gastos que otras.\n\nPiénsalo como un trabajo en equipo: cuando todos contribuyen por igual, la puntuación de equidad es alta. Cuando una persona carga con la mayor parte, baja.\n\nLa \"parte equitativa\" indica lo que debería aportar cada persona si todo se dividiera en partes iguales.",
+  "noMemberDataYet": "Aún no hay datos de miembros",
+  "evenShare": "Parte equitativa: {amount}",
+  "@evenShare": {
+    "placeholders": {
+      "amount": {"type": "String"}
+    }
+  },
+  "viewHousehold": "Ver el hogar",
+  "invalidInvitationMissingInfo": "Invitación inválida: faltan datos del hogar",
+  "joinedHouseholdWithName": "Te has unido a {name}.",
+  "@joinedHouseholdWithName": {"placeholders": {"name": {"type": "String"}}},
+  "joinedHousehold": "Te has unido al hogar.",
+  "errorLoadingData": "Error al cargar los datos",
+  "errorLoadingSplits": "Error al cargar los repartos",
+  "markAsSettled": "Marcar como liquidado",
+  "splitDetails": "Detalles del reparto",
+  "equalSplit": "REPARTO EQUITATIVO",
+  "errorLoadingBudgets": "Error al cargar los presupuestos",
+  "noSharedBudgetsYet": "Aún no hay presupuestos compartidos"
 }

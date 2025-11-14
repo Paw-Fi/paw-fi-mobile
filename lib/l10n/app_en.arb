@@ -1366,5 +1366,49 @@
   "atLeastOneMember": "At least one member must be included",
   "memberMustHaveShare": "At least one member must have a share greater than 0",
   "monthOverMonthSpending": "Month-over-month spending",
-  "last3Months": "Last 3 months"
+  "last3Months": "Last 3 months",
+
+  "breakdown": "Breakdown",
+  "noOutstandingItems": "No outstanding items",
+  "theyOweYou": "They owe you",
+  "expressNetting": "Express netting",
+  "detailedSettlement": "Detailed settlement",
+  "expressNettingHint": "This is a netting suggestion. Confirming will settle all your outstanding with this member.",
+  "settle": "Settle",
+  "confirmSettlement": "Confirm settlement",
+  "confirmSettlementMessage": "This will mark all your outstanding items with this member as settled.",
+  "pleaseSelectMember": "Please select a member",
+  "settlementCompleted": "Settlement completed",
+  "nothingToSettle": "Nothing to settle",
+  "expense": "Expense",
+  "settlement": "Settlement",
+  "suggestedNetTransfers": "Suggested net transfers",
+  "detailedPairwiseDues": "Detailed pairwise dues",
+  "outstanding": "Outstanding",
+  "youAreOwedBy": "You're owed by",
+  "noOutstandingAmounts": "No outstanding amounts",
+  "groupFairnessTitle": "Group Fairness",
+  "groupFairness": "Group fairness",
+  "groupFairnessExplanation": "This shows how evenly spending is distributed among household members.\n\nA higher percentage means everyone is contributing their fair share. A lower percentage suggests some members are covering more expenses than others.\n\nThink of it like a team effort — when everyone pitches in equally, the fairness score is high. When one person is carrying most of the load, it drops.\n\nThe \"even share\" tells you what each person would owe if everything was split equally.",
+  "noMemberDataYet": "No member data yet",
+  "evenShare": "Even share: {amount}",
+  "@evenShare": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "viewHousehold": "View Household",
+  "invalidInvitationMissingInfo": "Invalid invitation: missing household information",
+  "joinedHouseholdWithName": "You've successfully joined {name}!",
+  "@joinedHouseholdWithName": {"placeholders": {"name": {"type": "String"}}},
+  "joinedHousehold": "You've successfully joined the household!",
+  "errorLoadingData": "Error loading data",
+  "errorLoadingSplits": "Error loading splits",
+  "markAsSettled": "Mark as Settled",
+  "splitDetails": "Split Details",
+  "equalSplit": "EQUAL SPLIT",
+  "errorLoadingBudgets": "Error loading budgets",
+  "noSharedBudgetsYet": "No shared budgets yet"
 }

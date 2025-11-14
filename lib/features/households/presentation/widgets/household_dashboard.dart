@@ -12,6 +12,7 @@ import '../pages/household_expenses_page.dart';
 import '../../../home/presentation/models/expense_entry.dart';
 import '../../../home/presentation/widgets/unified_transaction_sheet.dart';
 import '../../../../shared/widgets/user_avatar.dart';
+import '../../../../../core/l10n/l10n.dart';
 
 /// Main household dashboard showing budgets, expenses, and splits
 class HouseholdDashboard extends ConsumerWidget {
@@ -178,7 +179,7 @@ class HouseholdDashboard extends ConsumerWidget {
       error: (error, stack) => Padding(
         padding: const EdgeInsets.all(16),
         child: Text(
-          'Error loading budgets',
+          context.l10n.errorLoadingBudgets,
           style: TextStyle(color: colorScheme.destructive),
           textAlign: TextAlign.center,
         ),
@@ -191,7 +192,7 @@ class HouseholdDashboard extends ConsumerWidget {
               builder: (context) => Column(
                 children: [
                   Text(
-                    'No shared budgets yet',
+                    context.l10n.noSharedBudgetsYet,
                     style: TextStyle(
                       fontSize: 15,
                       color: colorScheme.mutedForeground,
@@ -210,7 +211,7 @@ class HouseholdDashboard extends ConsumerWidget {
                         ),
                       );
                     },
-                    child: const Text('Create Budget'),
+                    child: Text(context.l10n.createBudget),
                   ),
                 ],
               ),

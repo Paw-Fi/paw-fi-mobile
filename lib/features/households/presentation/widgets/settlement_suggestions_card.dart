@@ -8,6 +8,7 @@ import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/features/households/presentation/widgets/settle_up_sheet.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../../core/l10n/l10n.dart';
 
 /// Settlement suggestions card with toggle for net vs detailed transfers
 class SettlementSuggestionsCard extends StatefulWidget {
@@ -74,10 +75,10 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text('Settlement', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: colorScheme.mutedForeground)),
+          Text(context.l10n.settlement, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: colorScheme.mutedForeground)),
           Row(
             children: [
-              Text('Express Netting', style: TextStyle(fontSize: 12, color: colorScheme.mutedForeground)),
+              Text(context.l10n.expressNetting, style: TextStyle(fontSize: 12, color: colorScheme.mutedForeground)),
               const SizedBox(width: 8),
               Switch.adaptive(
                 value: _netTransfers,
@@ -103,7 +104,7 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
         (mc) => mc.userId == userId,
         orElse: () => const MemberContribution(userId: '', totalSpentCents: 0, transactionCount: 0, splitCount: 0, balanceCents: 0),
       );
-      return fromSummary.userName ?? fromMembers?.userEmail ?? 'Member';
+      return fromSummary.userName ?? fromMembers?.userEmail ?? context.l10n.member;
     }
 
     // Compute detailed pairs once for stats and non-net list
@@ -267,7 +268,7 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
             ),
           ),
           const SizedBox(height: 6),
-          if (suggestions.isNotEmpty) _SectionLabel(title: _netTransfers ? 'Suggested net transfers' : 'Detailed pairwise dues', scheme: colorScheme),
+          if (suggestions.isNotEmpty) _SectionLabel(title: _netTransfers ? context.l10n.suggestedNetTransfers : context.l10n.detailedPairwiseDues, scheme: colorScheme),
           if (suggestions.isNotEmpty) const SizedBox(height: 4),
           ...suggestions.map((s) => Padding(
                 padding: const EdgeInsets.symmetric(vertical: 2),
@@ -434,7 +435,7 @@ class _StatsRow extends StatelessWidget {
     return Row(
       children: [
         Expanded(child: _StatTile(
-          label: 'Outstanding',
+          label: context.l10n.outstanding,
           value: _fmt(outstandingCents),
           scheme: scheme,
           tone: _TileTone.neutral,
@@ -442,7 +443,7 @@ class _StatsRow extends StatelessWidget {
         )),
         const SizedBox(width: 8),
         Expanded(child: _StatTile(
-          label: 'You owe',
+          label: context.l10n.youOwe,
           value: _fmt(youOweCents),
           scheme: scheme,
           tone: _TileTone.warn,
@@ -450,7 +451,7 @@ class _StatsRow extends StatelessWidget {
         )),
         const SizedBox(width: 8),
         Expanded(child: _StatTile(
-          label: "You're owed",
+          label: context.l10n.youAreOwed,
           value: _fmt(youAreOwedCents),
           scheme: scheme,
           tone: _TileTone.ok,
@@ -590,12 +591,12 @@ void _showOwedDetails(BuildContext context, shadcnui.ColorScheme scheme, String 
                 ),
               ),
               const SizedBox(height: 10),
-              Text("You're owed by", style: TextStyle(fontSize: 14, color: scheme.mutedForeground)),
+              Text(context.l10n.youAreOwedBy, style: TextStyle(fontSize: 14, color: scheme.mutedForeground)),
               const SizedBox(height: 8),
               if (owedToYou.isEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 24),
-                  child: Center(child: Text('No outstanding amounts', style: TextStyle(color: scheme.mutedForeground))),
+                  child: Center(child: Text(context.l10n.noOutstandingAmounts, style: TextStyle(color: scheme.mutedForeground))),
                 )
               else
                 ...owedToYou.map((s) => Padding(

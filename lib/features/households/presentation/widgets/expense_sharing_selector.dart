@@ -4,6 +4,7 @@ import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 // import '../../../home/presentation/models/expense_entry.dart';
 // import '../../domain/entities/household.dart';
 import '../../domain/entities/shared_budget.dart' show ShareScope;
+import '../../../../../core/l10n/l10n.dart';
 import '../providers/household_providers.dart';
 
 /// Widget for selecting expense sharing scope and members
@@ -390,7 +391,7 @@ class _MemberPickerSheetState extends ConsumerState<_MemberPickerSheet> {
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, _) => Center(
                 child: Text(
-                  'Error: $error',
+                  '${context.l10n.error}: $error',
                   style: TextStyle(color: colorScheme.destructive),
                 ),
               ),
@@ -402,7 +403,7 @@ class _MemberPickerSheetState extends ConsumerState<_MemberPickerSheet> {
               Expanded(
                 child: shadcnui.SecondaryButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
+                  child: Text(context.l10n.cancel),
                 ),
               ),
               const SizedBox(width: 12),
@@ -412,7 +413,7 @@ class _MemberPickerSheetState extends ConsumerState<_MemberPickerSheet> {
                     widget.onSelectionChanged(_selectedIds.toList());
                     Navigator.pop(context);
                   },
-                  child: const Text('Done'),
+                  child: Text(context.l10n.done),
                 ),
               ),
             ],

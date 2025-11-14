@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import '../../../../../core/l10n/l10n.dart';
 
 class GroupFairnessMeter extends StatelessWidget {
   final HouseholdSummary summary;
@@ -28,22 +29,17 @@ class GroupFairnessMeter extends StatelessWidget {
           children: [
             Icon(Icons.balance, color: colorScheme.primary, size: 24),
             const SizedBox(width: 12),
-            const Expanded(child: Text('Group Fairness')),
+            Expanded(child: Text(context.l10n.groupFairnessTitle)),
           ],
         ),
-        content: const Text(
-          'This shows how evenly spending is distributed among household members.\n\n'
-          'A higher percentage means everyone is contributing their fair share. '
-          'A lower percentage suggests some members are covering more expenses than others.\n\n'
-          'Think of it like a team effort - when everyone pitches in equally, the fairness score is high. '
-          'When one person is carrying most of the load, it drops.\n\n'
-          'The "even share" tells you what each person would owe if everything was split equally.',
-          style: TextStyle(fontSize: 15, height: 1.5),
+        content: Text(
+          context.l10n.groupFairnessExplanation,
+          style: const TextStyle(fontSize: 15, height: 1.5),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Got it'),
+            child: Text(context.l10n.gotIt),
           ),
         ],
       ),
@@ -79,7 +75,7 @@ class GroupFairnessMeter extends StatelessWidget {
           border: Border.all(color: colorScheme.border, width: 1),
         ),
         padding: const EdgeInsets.all(16),
-        child: const Text('No member data yet'),
+        child: Text(context.l10n.noMemberDataYet),
       );
     }
     final total = members.fold<int>(0, (s, m) => s + m.totalSpentCents);
@@ -91,7 +87,7 @@ class GroupFairnessMeter extends StatelessWidget {
           border: Border.all(color: colorScheme.border, width: 1),
         ),
         padding: const EdgeInsets.all(16),
-        child: const Text('No spending yet'),
+        child: Text(context.l10n.noSpendingYet),
       );
     }
     final evenShare = total / members.length;
@@ -116,7 +112,7 @@ class GroupFairnessMeter extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text('Group fairness', style: TextStyle(fontSize: 14, color: colorScheme.mutedForeground)),
+              Text(context.l10n.groupFairness, style: TextStyle(fontSize: 14, color: colorScheme.mutedForeground)),
               const SizedBox(width: 6),
               GestureDetector(
                 onTap: () => _showExplanation(context, colorScheme),
@@ -149,7 +145,7 @@ class GroupFairnessMeter extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Text('Even share: ${(evenShare / 100).toStringAsFixed(2)}', style: TextStyle(fontSize: 12, color: colorScheme.mutedForeground)),
+          Text(context.l10n.evenShare((evenShare / 100).toStringAsFixed(2)), style: TextStyle(fontSize: 12, color: colorScheme.mutedForeground)),
         ],
       ),
     );
@@ -170,4 +166,3 @@ class Math {
     return r;
   }
 }
-
