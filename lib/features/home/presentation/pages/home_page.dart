@@ -1067,21 +1067,19 @@ class _HomePageState extends ConsumerState<HomePage> {
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: GestureDetector(
-                        onTap: () {
+                      child: buildCategoryBreakdownCard(
+                        context,
+                        colorScheme,
+                        ref.watch(homeFilteredTransactionsProvider),
+                        analyticsData.contact,
+                        selectedCurrency: filterState.selectedCurrency,
+                        onViewAll: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
                               builder: (_) => const TransactionsPage(),
                             ),
                           );
                         },
-                        child: buildCategoryBreakdownCard(
-                          context, 
-                          colorScheme, 
-                          ref.watch(homeFilteredTransactionsProvider), 
-                          analyticsData.contact,
-                          selectedCurrency: filterState.selectedCurrency,
-                        ),
                       ),
                     ),
                   ),

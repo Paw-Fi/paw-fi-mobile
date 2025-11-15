@@ -541,7 +541,10 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                     ),
                   ),
                   data: (summary) {
-                    final hasBudget = (summary?.budgets ?? []).isNotEmpty;
+                    // hasBudget in summary is currency-filtered; but for navigation
+                    // we should consider any existing budget regardless of filter.
+                    final allBudgets = budgetsAsync.asData?.value ?? const [];
+                    final hasAnyBudget = allBudgets.isNotEmpty;
 
                     // Ensure "Spent by household" excludes income and respects date/currency
                     final allExpenses = expensesAsync.asData?.value ?? const <ExpenseEntry>[];
@@ -587,26 +590,29 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                       colorScheme,
                       fixedSummary,
                       onTap: () {
-                        if (hasBudget) {
-                          // Navigate to budget detail page
-                          final budgetsData = budgetsAsync.asData?.value ?? [];
-
-                          if (budgetsData.isNotEmpty) {
-                            final budget = budgetsData.first;
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => BudgetDetailPage(
-                                  budget: budget,
-                                  householdId: household.id,
-                                ),
-                              ),
-                            );
-                          }
-                        } else {
-                          // Navigate to create budget page
+                        // Prefer navigating to an existing budget. If none exist at all,
+                        // then open the create screen defaulted to the selected currency.
+                        if (hasAnyBudget) {
+                          // Try to find a budget matching the currently selected currency; otherwise fallback to first.
+                          final match = allBudgets.firstWhere(
+                            (b) => (b.currency as String?)?.toUpperCase() == selectedCurrency,
+                            orElse: () => allBudgets.first,
+                          );
                           Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (_) => CreateBudgetPage(householdId: household.id),
+                              builder: (_) => BudgetDetailPage(
+                                budget: match,
+                                householdId: household.id,
+                              ),
+                            ),
+                          );
+                        } else {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => CreateBudgetPage(
+                                householdId: household.id,
+                                initialCurrency: selectedCurrency,
+                              ),
                             ),
                           );
                         }
@@ -814,22 +820,20 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                   // This was a bug fix - previously used personal share which was incorrect
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: GestureDetector(
-                      onTap: () {
+                    child: buildCategoryBreakdownCard(
+                      context,
+                      colorScheme,
+                      filteredTransactions, // include income for recent list
+                      null,
+                      selectedCurrency: selectedCurrency,
+                      householdId: household.id,
+                      onViewAll: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
                             builder: (_) => HouseholdExpensesPage(household: household),
                           ),
                         );
                       },
-                      child: buildCategoryBreakdownCard(
-                        context,
-                        colorScheme,
-                        filteredTransactions, // include income for recent list
-                        null,
-                        selectedCurrency: selectedCurrency,
-                        householdId: household.id,
-                      ),
                     ),
                   );
                 },

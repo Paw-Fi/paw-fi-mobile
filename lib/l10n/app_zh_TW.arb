@@ -68,6 +68,8 @@
     }
   },
   "resendVerificationEmail": "重新傳送驗證 Email",
+  "continueWithWallet": "使用 Web3 錢包繼續",
+  "signingInWithWallet": "正在連線錢包...",
 
   "continueWithGoogle": "使用 Google 帳號繼續",
   "signingInWithGoogle": "正在使用 Google 登入...",
@@ -275,8 +277,9 @@
   "startLoggingExpensesToSeeCategories": "開始記錄支出以查看類別",
   "selectDateRange": "選取日期範圍",
   "addExpense": "新增支出",
-  "describeYourExpense": "描述您的支出 (例如：「漢堡 $80，咖啡 $55」)",
-  "enterExpenseDetails": "輸入支出詳情...",
+  "describeYourExpense": "描述支出或收入（每次僅一種類型）。",
+  "enterExpenseDetails": "「漢堡 5 元，咖啡 3 元」 • 「收到父母 100 元」",
+  "addEntry": "新增記錄",
   "freeFormText": "自由輸入",
   "takePhoto": "拍照",
   "recentTransactions": "最近的交易",

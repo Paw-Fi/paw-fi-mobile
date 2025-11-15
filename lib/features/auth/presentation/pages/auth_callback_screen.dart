@@ -40,6 +40,9 @@ class AuthCallbackScreen extends HookConsumerWidget {
               final createdAt = DateTime.parse(user.createdAt);
               final isNewUser = DateTime.now().difference(createdAt).inMinutes < 5;
 
+              // If user signed in with Web3 and has no email/phone, proceed normally.
+              // Linking can be handled elsewhere via profile settings if required.
+
               if (isNewUser) {
                 // New user - redirect to avatar customizer
                 context.go('/avatar');

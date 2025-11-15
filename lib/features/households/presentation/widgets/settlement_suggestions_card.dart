@@ -138,8 +138,11 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
       debugPrint('📊 Gross for current user: out=$grossOutForYou in=$grossInForYou');
     }
 
-    // Net values come from backend summary balances (authoritative)
-    final netBalances = balances;
+    // Net values – prefer recomputing from splits filtered by currency (ensures UI filter),
+    // fallback to backend summary balances when splits unavailable.
+    final Map<String, int> netBalances = (widget.splits != null && widget.splits!.isNotEmpty)
+        ? _buildNetBalancesFromSplits(widget.splits!, widget.currency)
+        : balances;
     final totalOutstandingNet = netBalances.values
         .where((v) => v > 0)
         .fold<int>(0, (acc, v) => acc + v);
@@ -147,7 +150,7 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
     final youOweNet = youNetBalance < 0 ? -youNetBalance : 0;
     final youAreOwedNet = youNetBalance > 0 ? youNetBalance : 0;
     if (kDebugMode) {
-      debugPrint('🧾 Net balances (summary): ${balances.map((k, v) => MapEntry(k, v))}');
+      debugPrint('🧾 Net balances (filtered): ${netBalances.map((k, v) => MapEntry(k, v))}');
       debugPrint('➡️ totalOutstandingNet=$totalOutstandingNet youNetBalance=$youNetBalance oweNet=$youOweNet owedNet=$youAreOwedNet');
     }
 
@@ -170,7 +173,7 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
       if (set.isNotEmpty) return set.length;
       // Fallback to balance signs when no split data
       final mySign = youNetBalance.sign;
-      return balances.entries.where((e) => e.key != currentUserId && e.value.sign == -mySign).length;
+      return netBalances.entries.where((e) => e.key != currentUserId && e.value.sign == -mySign).length;
     }();
 
     List<_Suggestion> suggestions;
@@ -307,7 +310,7 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
     List<ExpenseEntry>? ignoredTransactions,
     DateTime? ignoredFrom,
     DateTime? ignoredTo,
-    String? ignoredCurrency,
+    String? currency,
     String Function(String) nameFor,
   ) {
     if (splits == null || splits.isEmpty) return const <_Suggestion>[];
@@ -319,6 +322,17 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
       debugPrint('🧩 Building detailed pairs from ${splits.length} split groups');
     }
     for (final g in splits) {
+      // Filter by selected currency if provided
+      if (currency != null && currency.isNotEmpty) {
+        final groupCode = (g.currency).trim().toUpperCase();
+        final selectedCode = currency.trim().toUpperCase();
+        if (groupCode != selectedCode) {
+          if (kDebugMode) {
+            debugPrint('  • Skipping group ${g.id} due to currency filter: $groupCode != $selectedCode');
+          }
+          continue;
+        }
+      }
       final payer = g.payerUserId;
       final lines = g.splitLines ?? const <ExpenseSplitLine>[];
       if (kDebugMode) {
@@ -354,6 +368,31 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
 
     out.sort((a,b) => b.amountCents.compareTo(a.amountCents));
     return out;
+  }
+
+  // Build net balances from split groups filtered by currency
+  // Positive balance => should receive; Negative => should pay
+  Map<String, int> _buildNetBalancesFromSplits(List<ExpenseSplitGroup> splits, String? currency) {
+    final net = <String, int>{};
+    for (final g in splits) {
+      if (currency != null && currency.isNotEmpty) {
+        final groupCode = g.currency.trim().toUpperCase();
+        final selectedCode = currency.trim().toUpperCase();
+        if (groupCode != selectedCode) continue;
+      }
+      final payer = g.payerUserId;
+      final lines = g.splitLines ?? const <ExpenseSplitLine>[];
+      for (final line in lines) {
+        if (line.isSettled) continue;
+        if (line.userId == payer) continue;
+        final amount = (line.amountCents ?? 0).abs();
+        if (amount <= 0) continue;
+        // Payer should receive, participant should pay
+        net[payer] = (net[payer] ?? 0) + amount;
+        net[line.userId] = (net[line.userId] ?? 0) - amount;
+      }
+    }
+    return net;
   }
 }
 

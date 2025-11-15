@@ -5,7 +5,6 @@ import 'package:moneko/features/home/presentation/constants/category_constants.d
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
-import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
 import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -19,6 +18,7 @@ Widget buildCategoryBreakdownCard(
   UserContact? contact, {
   String? selectedCurrency,
   String? householdId,
+  required VoidCallback onViewAll,
 }) {
   // Recent transactions - show latest 5 by updatedAt (fallback to createdAt)
   final recent = expenses.toList()
@@ -148,9 +148,7 @@ Widget buildCategoryBreakdownCard(
               Align(
                 alignment: Alignment.center,
                 child: TextButton(
-                  onPressed: () {
-                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TransactionsPage()));
-                  },
+                  onPressed: onViewAll,
                   child:  Text(context.l10n.viewAll),
                 ),
               ),

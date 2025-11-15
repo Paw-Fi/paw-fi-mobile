@@ -382,7 +382,39 @@ class HouseholdService {
       throw Exception('User not authenticated');
     }
 
-    final data = {
+    // Gracefully handle uniqueness on (household_id, currency, period)
+    // If a budget already exists for that tuple, update it instead of failing insert.
+    // Note: We intentionally do NOT change period/currency when updating to avoid
+    // violating the unique index again.
+    final existing = await _supabase
+        .from('shared_budgets')
+        .select('id')
+        .eq('household_id', householdId)
+        .eq('currency', currency)
+        .eq('period', period)
+        .eq('is_active', true)
+        .maybeSingle();
+
+    if (existing != null && existing['id'] != null) {
+      // Update existing active budget for this (household, currency, period)
+      final response = await _supabase
+          .from('shared_budgets')
+          .update({
+            'name': name,
+            'amount_cents': amountCents,
+            'warn_threshold': warnThreshold ?? 0.8,
+            'alert_threshold': alertThreshold ?? 1.0,
+            'count_split_portion_only': countSplitPortionOnly ?? false,
+            // Keep budget_type/user_id unchanged to respect existing record semantics
+          })
+          .eq('id', existing['id'] as String)
+          .select()
+          .single();
+      return response;
+    }
+
+    // No existing budget: create a new one
+    final data = <String, dynamic>{
       'household_id': householdId,
       'name': name,
       'period': period,
@@ -392,6 +424,7 @@ class HouseholdService {
       'alert_threshold': alertThreshold ?? 1.0,
       'budget_type': budgetType ?? 'household',
       'count_split_portion_only': countSplitPortionOnly ?? false,
+      'is_active': true,
     };
 
     // Only add user_id for personal budgets
@@ -399,7 +432,11 @@ class HouseholdService {
       data['user_id'] = userId;
     }
 
-    final response = await _supabase.from('shared_budgets').insert(data).select().single();
+    final response = await _supabase
+        .from('shared_budgets')
+        .insert(data)
+        .select()
+        .single();
 
     return response;
   }

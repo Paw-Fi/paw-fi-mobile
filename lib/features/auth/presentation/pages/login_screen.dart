@@ -3,6 +3,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/auth/presentation/widgets/wallet_login_button.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/core/l10n/l10n.dart';
@@ -199,8 +200,13 @@ class LoginScreen extends HookConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          // Google Sign In
+                          // OAuth Sign In
                           GoogleLoginButton(
+                            redirectUrl: '/dashboard',
+                            disabled: isLoading.value,
+                          ),
+                          const SizedBox(height: 12),
+                          WalletLoginButton(
                             redirectUrl: '/dashboard',
                             disabled: isLoading.value,
                           ),

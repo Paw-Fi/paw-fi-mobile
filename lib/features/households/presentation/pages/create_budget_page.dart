@@ -13,10 +13,12 @@ import 'package:moneko/core/ui/widgets/transaction_selection_sheet.dart';
 /// Page for creating a new household budget
 class CreateBudgetPage extends HookConsumerWidget {
   final String householdId;
+  final String? initialCurrency;
 
   const CreateBudgetPage({
     super.key,
     required this.householdId,
+    this.initialCurrency,
   });
 
   @override
@@ -30,7 +32,7 @@ class CreateBudgetPage extends HookConsumerWidget {
     final warnThreshold = useState<double>(0.8);
     final alertThreshold = useState<double>(1.0);
     final isCreating = useState<bool>(false);
-    final selectedCurrency = useState<String>('USD');
+    final selectedCurrency = useState<String>((initialCurrency ?? 'USD').toUpperCase());
 
     Future<void> createBudget() async {
       // Validation

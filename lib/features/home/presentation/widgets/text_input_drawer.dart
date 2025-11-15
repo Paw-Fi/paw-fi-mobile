@@ -67,64 +67,104 @@ class _TextInputContentState extends ConsumerState<_TextInputContent> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
+    final scheme = widget.colorScheme;
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
+    final String dynamicTitle = context.l10n.addEntry;
+    final String placeholder = context.l10n.enterExpenseDetails;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: scheme.card,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, -6),
+          ),
+        ],
       ),
-      child: Container(
-        decoration: BoxDecoration(
-          color: widget.colorScheme.background,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 10,
+          bottom: bottomInset > 0 ? bottomInset : 20,
         ),
-        padding: const EdgeInsets.all(24.0),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Drag handle
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: scheme.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+
+            // Header row
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  context.l10n.addExpense,
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: widget.colorScheme.foreground,
+                Expanded(
+                  child: Text(
+                    dynamicTitle,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: scheme.foreground,
+                    ),
                   ),
                 ),
                 IconButton(
-                  icon: Icon(Icons.close, color: widget.colorScheme.foreground),
+                  icon: Icon(Icons.close, color: scheme.mutedForeground),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+
+            const SizedBox(height: 8),
+
+            // Guidance text
             Text(
               context.l10n.describeYourExpense,
               style: TextStyle(
                 fontSize: 14,
-                color: widget.colorScheme.mutedForeground,
+                color: scheme.mutedForeground,
               ),
             ),
-            const SizedBox(height: 16),
-            TextField(
+
+            const SizedBox(height: 12),
+
+            // Text area (shadcn)
+            shadcnui.TextField(
               controller: widget.textController,
               autofocus: true,
               maxLines: 4,
-              decoration: InputDecoration(
-                hintText: context.l10n.enterExpenseDetails,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: widget.colorScheme.border),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: widget.colorScheme.primary, width: 2),
+              placeholder: shadcnui.Text(
+                placeholder,
+                style: TextStyle(
+                  color: scheme.mutedForeground.withValues(alpha: 0.6),
                 ),
               ),
-              style: TextStyle(color: widget.colorScheme.foreground),
+              style: shadcnui.Theme.of(context).typography.base.copyWith(fontSize: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: scheme.border),
+              ),
             ),
-            const SizedBox(height: 24),
+
+            const SizedBox(height: 12),
+
+      
+            // Submit
             SizedBox(
               width: double.infinity,
               child: shadcnui.PrimaryButton(
@@ -138,10 +178,11 @@ class _TextInputContentState extends ConsumerState<_TextInputContent> {
                           valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                         ),
                       )
-                    : Text(context.l10n.addExpense),
+                    : Text(dynamicTitle),
               ),
             ),
-            const SizedBox(height: 16),
+
+            const SizedBox(height: 8),
           ],
         ),
       ),
