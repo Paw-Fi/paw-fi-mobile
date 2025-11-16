@@ -1,17 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/core/l10n/l10n.dart';
-import 'package:moneko/core/core.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher_string.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:moneko/core/util/constants.dart';
+import 'package:moneko/core/web/web3_auth.dart';
 
-/// Web3 Wallet Sign-In button using Supabase Auth (Wallet provider)
-/// Requires Supabase project to have Wallet Auth enabled and redirect URI whitelisted.
+/// Web3 Wallet Sign-In button using Supabase Auth (Web3 provider)
+/// 
+/// IMPORTANT: This button ONLY works on Flutter Web
+/// - Uses browser wallet extensions (MetaMask, Phantom, etc.)
+/// - Connects via JS interop to window.ethereum / window.solana
+/// - Calls Supabase JS SDK's signInWithWeb3() method
+/// 
+/// Requirements:
+/// 1. Enable Web3 providers in Supabase Dashboard → Authentication → Providers
+/// 2. Add redirect URLs in Supabase Dashboard → Authentication → URL Configuration
+/// 3. Install browser wallet extension (MetaMask for Ethereum, Phantom for Solana)
+/// 
+/// The button is hidden on mobile platforms.
 class WalletLoginButton extends HookConsumerWidget {
   final String? redirectUrl;
   final bool disabled;
@@ -24,6 +35,11 @@ class WalletLoginButton extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Hide button on mobile - Web3 auth only works on Flutter Web
+    if (!kIsWeb) {
+      return const SizedBox.shrink();
+    }
+
     final isLoading = useState(false);
     final error = useState<String?>(null);
 
@@ -32,79 +48,95 @@ class WalletLoginButton extends HookConsumerWidget {
       isLoading.value = true;
 
       try {
-        // Try Dart SDK Web3 API if available (2025+). Use dynamic to avoid
-        // compile-time errors on older versions.
-        final auth = supabase.auth as dynamic;
+        // Step 1: Ask user to choose blockchain
         final chain = await _pickChain(context);
         if (chain == null) {
           isLoading.value = false;
-          return;
+          return; // User cancelled
         }
 
-        final result = await auth.signInWithWeb3(
+        debugPrint('🔐 [Web3] Starting authentication for $chain');
+
+        // Step 2: Call web3SignIn from JS interop  
+        final sessionData = await web3SignIn(
           chain: chain,
           statement: 'I accept the Terms of Service at https://moneko.io/terms',
+          projectUrl: Constants.supabaseUrl,
+          anonKey: Constants.supabaseAnon,
         );
 
-        debugPrint('🔐 Web3 sign-in initiated: ${result != null ? "Success" : "Failed/Cancelled"}');
+        if (sessionData == null) {
+          throw Exception('No session data returned from Web3 sign-in');
+        }
 
-        // After Web3 sign-in, Supabase should set the current session.
-        // Route through the centralized callback screen to keep behavior
-        // consistent with OAuth providers.
-        if (supabase.auth.currentSession != null && (context.mounted)) {
-          final next = (redirectUrl ?? '/dashboard');
+        final walletAddress = sessionData['wallet_address']?.toString();
+        final chainFromJs = sessionData['chain']?.toString();
+
+        debugPrint(
+          '🔐 [Web3] Session tokens received. Wallet: $walletAddress, chain: $chainFromJs',
+        );
+
+        // Step 3: Set session in Supabase Flutter client
+        await _setSupabaseSession(sessionData);
+
+        debugPrint('🔐 [Web3] Session established in Flutter client');
+
+        // Step 3b: Persist wallet address as display name + users.wallet_address
+        if (walletAddress != null && walletAddress.isNotEmpty) {
+          final session = supabase.auth.currentSession;
+          final chain =
+              chainFromJs ?? session?.user.userMetadata?['chain']?.toString();
+
+          debugPrint(
+            '🔐 [Web3] Persisting wallet to profile. Wallet: $walletAddress, chain: $chain',
+          );
+
+          try {
+            await supabase.auth.updateUser(
+              UserAttributes(
+                data: {
+                  'full_name': walletAddress,
+                  'name': walletAddress,
+                  'wallet_address': walletAddress,
+                  if (chain != null) 'chain': chain,
+                },
+              ),
+            );
+          } catch (e) {
+            debugPrint('⚠️ [Web3] Failed to update auth metadata: $e');
+          }
+
+          try {
+            if (session != null) {
+              await supabase.from('users').upsert(
+                {
+                  'id': session.user.id,
+                  'full_name': walletAddress,
+                  'wallet_address': walletAddress,
+                  if (chain != null) 'chain': chain,
+                },
+                onConflict: 'id',
+              );
+            }
+          } catch (e) {
+            debugPrint('⚠️ [Web3] Failed to upsert users row: $e');
+          }
+        }
+
+        // Step 4: Navigate to callback screen (consistent with OAuth flow)
+        if (context.mounted) {
+          final next = redirectUrl ?? '/dashboard';
           final uri = Uri(path: '/auth/callback', queryParameters: {'next': next});
           context.go(uri.toString());
-          return; // Avoid resetting loading state here; navigation will replace screen
-        }
-
-        // If we reach here, no session was established
-        isLoading.value = false;
-        if (context.mounted) {
-          shadcnui.showToast(
-            context: context,
-            builder: (ctx, overlay) => shadcnui.Alert.destructive(
-              leading: const shadcnui.Icon(Icons.error_outline),
-              title: shadcnui.Text('Web3 sign-in failed or was canceled'),
-            ),
-          );
         }
       } catch (e) {
-        debugPrint('❌ Wallet OAuth error: $e');
-        final msg = e.toString();
-        if (msg.contains('NoSuchMethod') || msg.contains('signInWithWeb3')) {
-          // Fallback: open a DApp browser (MetaMask/Phantom) to a hosted Web3 login page
-          // that performs signInWithWeb3 with Supabase JS and deep-links back.
-          final selected = await _pickChain(context);
-          if (selected == null) {
-            isLoading.value = false;
-            return;
-          }
-          final supabaseUrl = Uri.encodeComponent(Constants.supabaseUrl);
-          final anonKey = Uri.encodeComponent(Constants.supabaseAnon);
-          final statement = Uri.encodeComponent('I accept the Terms of Service at https://moneko.io/terms');
-          final redirect = Uri.encodeComponent(DeepLinks.oauthCallback);
-          final baseDapp = 'https://moneko.io/web3-login.html?projectUrl=' + supabaseUrl +
-              '&anonKey=' + anonKey + '&chain=' + Uri.encodeComponent(selected) + '&statement=' + statement + '&redirect=' + redirect;
-
-          String walletLauncherUrl;
-          if (selected.toLowerCase() == 'solana') {
-            // Open in Phantom in-app browser
-            walletLauncherUrl = 'https://phantom.app/ul/browse/' + Uri.encodeComponent(baseDapp);
-          } else {
-            // Default to Ethereum via MetaMask in-app browser
-            walletLauncherUrl = 'https://metamask.app.link/dapp/' + Uri.encodeComponent(baseDapp);
-          }
-
-          final launched = await launchUrlString(walletLauncherUrl, mode: LaunchMode.externalApplication);
-          if (!launched && context.mounted) {
-            error.value = 'Web3 login requires a compatible wallet app (MetaMask/Phantom). Please install and try again.';
-          } else {
-            // Do not set error; user will complete flow in wallet and deep-link back.
-          }
-        } else {
-          error.value = msg.replaceAll('Exception: ', '').replaceAll('AuthException: ', '');
-        }
+        debugPrint('❌ [Web3] Authentication error: $e');
+        
+        if (!context.mounted) return;
+        
+        // Normalize error message for display
+        final errorMsg = _normalizeErrorMessage(e.toString());
+        error.value = errorMsg;
         isLoading.value = false;
       }
     }
@@ -128,6 +160,83 @@ class WalletLoginButton extends HookConsumerWidget {
         ],
       ],
     );
+  }
+
+  Future<void> _setSupabaseSession(Map<String, dynamic> sessionData) async {
+    final refreshToken = sessionData['refresh_token']?.toString();
+    if (refreshToken == null || refreshToken.isEmpty) {
+      throw Exception('Missing refresh token in Web3 session data');
+    }
+
+    try {
+      await supabase.auth.setSession(refreshToken);
+    } catch (e) {
+      throw Exception('Failed to set session in Supabase client: $e');
+    }
+    
+    // Verify session was set
+    if (supabase.auth.currentSession == null) {
+      throw Exception('Session not established after setSession call');
+    }
+  }
+
+  /// Normalize error messages for better UX
+  String _normalizeErrorMessage(String error) {
+    // Remove technical prefixes
+    String normalized = error
+        .replaceAll('Exception: ', '')
+        .replaceAll('Error: ', '')
+        .replaceAll('AuthException: ', '')
+        .replaceAll('AuthApiError: ', '');
+
+    final lowerError = normalized.toLowerCase();
+
+    // Map common errors to user-friendly messages
+    if (lowerError.contains('supabase js') && lowerError.contains('not available')) {
+      return 'Configuration error: Supabase JS SDK not loaded. Please refresh the page and try again.';
+    }
+
+    if (lowerError.contains('no ethereum wallet') ||
+        lowerError.contains('ethereum wallet detected')) {
+      return 'No Ethereum wallet detected. Please install MetaMask, Rainbow, or another Ethereum wallet extension.';
+    }
+
+    if (lowerError.contains('no solana wallet') ||
+        lowerError.contains('solana wallet detected')) {
+      return 'No Solana wallet detected. Please install Phantom, Solflare, or another Solana wallet extension.';
+    }
+
+    if (lowerError.contains('rejected') ||
+        lowerError.contains('denied') ||
+        lowerError.contains('cancelled') ||
+        lowerError.contains('canceled')) {
+      return 'You cancelled the wallet connection or signature. Please try again when ready.';
+    }
+
+    if (lowerError.contains('web3 provider') && lowerError.contains('disabled')) {
+      return 'Web3 authentication is disabled. Please contact support or enable Web3 providers (Ethereum/Solana) in Supabase Dashboard.';
+    }
+
+    if (lowerError.contains('signinwithweb3') || lowerError.contains('not found')) {
+      return 'Web3 authentication method not available. Please ensure you\'re using the latest Supabase version.';
+    }
+
+    if (lowerError.contains('network') || lowerError.contains('chain')) {
+      return 'Network error. Please check your wallet is connected to the correct network and try again.';
+    }
+
+    if (lowerError.contains('timeout')) {
+      return 'Request timed out. Please try again.';
+    }
+
+    if (lowerError.contains('rate limit')) {
+      return 'Too many attempts. Please wait a few minutes and try again.';
+    }
+
+    // Return cleaned error if no specific match
+    return normalized.length > 200
+        ? '${normalized.substring(0, 200)}...'
+        : normalized;
   }
 
   Future<String?> _pickChain(BuildContext context) async {

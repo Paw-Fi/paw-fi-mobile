@@ -50,9 +50,14 @@ class Auth extends _$Auth {
         }
       } catch (_) {}
 
-      // Migrate guest data on sign in
+      // On sign in, migrate guest data and sync Web3 profile (wallet address/name)
       if (data.event == AuthChangeEvent.signedIn && data.session != null) {
         _migrateGuestData(data.session!.user.id);
+        try {
+          await _syncWeb3Profile(data.session!);
+        } catch (e, st) {
+          appLog('Web3 profile sync failed: $e', name: 'Auth', error: e, stackTrace: st);
+        }
       }
     }, onError: (error) {
       // Handle auth stream errors gracefully
@@ -61,6 +66,63 @@ class Auth extends _$Auth {
         FirebaseCrashlytics.instance.recordError(error, null, fatal: false);
       } catch (_) {}
     });
+  }
+
+  /// Ensure Web3 logins set a reasonable display name and persist
+  /// wallet address to public.users. Safe no-op for non-Web3 accounts.
+  Future<void> _syncWeb3Profile(Session session) async {
+    try {
+      final user = session.user;
+      String? walletAddress;
+      String? chain;
+
+      // Extract from identities when available
+      try {
+        final identities = (user.identities as List?) ?? const [];
+        for (final id in identities) {
+          final idDyn = id as dynamic;
+          final provider = (idDyn.provider ?? idDyn['provider'])?.toString();
+          if (provider == 'web3' || provider == 'ethereum' || provider == 'solana') {
+            final data = (idDyn.identityData ?? idDyn['identity_data']) as Map?;
+            walletAddress = (data?['wallet_address'] ?? data?['address'] ?? data?['publicKey'])?.toString();
+            chain = (data?['chain'] ?? data?['network'])?.toString();
+            if (walletAddress != null && walletAddress!.isNotEmpty) break;
+          }
+        }
+      } catch (_) {}
+
+      // Fallback: user metadata (if JS flow saved it)
+      walletAddress ??= user.userMetadata?['wallet_address']?.toString();
+      chain ??= user.userMetadata?['chain']?.toString();
+
+      if (walletAddress == null || walletAddress.isEmpty) return; // Not a Web3 login
+
+      // If no name set, use wallet address as display name
+      final hasName = (user.userMetadata?['full_name']?.toString().trim().isNotEmpty == true) ||
+          (user.userMetadata?['name']?.toString().trim().isNotEmpty == true);
+      if (!hasName) {
+        try {
+          await supabase.auth.updateUser(
+            UserAttributes(data: {
+              'full_name': walletAddress,
+              'name': walletAddress,
+              'wallet_address': walletAddress,
+              if (chain != null) 'chain': chain,
+            }),
+          );
+        } catch (_) {}
+      }
+
+      // Upsert users row with wallet address
+      try {
+        await supabase.from('users').upsert({
+          'id': user.id,
+          'full_name': walletAddress,
+          'wallet_address': walletAddress,
+          if (chain != null) 'chain': chain,
+        }, onConflict: 'id');
+      } catch (_) {}
+    } catch (_) {}
   }
 
   /// Migrate guest goals and profiles to authenticated user
