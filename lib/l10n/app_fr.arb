@@ -65,6 +65,8 @@
     }
   },
   "resendVerificationEmail": "renvoyer l'e-mail de vérification",
+  "continueWithWallet": "Continuer avec le wallet Web3",
+  "signingInWithWallet": "Connexion au wallet...",
   "continueWithGoogle": "Continuer avec Google",
   "signingInWithGoogle": "Connexion avec Google...",
   "error": "Erreur",
@@ -260,8 +262,9 @@
   "startLoggingExpensesToSeeCategories": "Commencez à ajouter des dépenses pour voir les catégories.",
   "selectDateRange": "Choisir la période",
   "addExpense": "Ajouter une dépense",
-  "describeYourExpense": "Décrivez votre dépense (ex : \"5 pour un burger, 3 pour un café\")",
-  "enterExpenseDetails": "Saisir les détails de la dépense...",
+  "describeYourExpense": "Décris une dépense ou un revenu. Un seul type par saisie.",
+  "enterExpenseDetails": "\"5 pour un burger, 3 pour un café\" • \"reçu 100 de mes parents\"",
+  "addEntry": "Ajouter une entrée",
   "freeFormText": "Texte libre",
   "takePhoto": "Prendre une photo",
   "transactions": "Transactions",
@@ -809,12 +812,23 @@
   "stars": "Étoiles",
   "@unifiedTransactionSheet": {},
   "confirmExpense": "Confirmer la dépense",
-  "expenseDetails": "Détails de la dépense",
+  "expenseDetails": "Informations de la dépense",
   "details": "Détails",
   "currency": "Devise",
   "notes": "Notes",
   "receipt": "Reçu",
-  "saveExpense": "Enregistrer la dépense",
+  "@recurringTransactions": {},
+  "recurring": "Récurrent",
+  "manageYourRecurringTransactions": "Gérer les transactions récurrentes",
+  "errorLoadingData": "Erreur de chargement des données",
+  "deleteRecurringTransaction": "Supprimer la transaction récurrente",
+  "areYouSureYouWantToDeleteThisRecurringTransaction": "Êtes-vous sûr de vouloir supprimer cette transaction récurrente ?",
+  "recurringTransactionDeleted": "Transaction récurrente supprimée",
+  "transactionDeleted": "Transaction supprimée",
+  "transactions": "Transactions",
+  "recentTransactions": "Transactions récentes",
+  "failedToDeleteRecurringTransaction": "Échec de la suppression de la transaction récurrente",
+  "recurringTransactions": "Transactions récurrentes",
   "currencyIsManagedByHousehold": "La devise est gérée par le foyer et ne peut pas être modifiée.",
   "editAmount": "Modifier le montant",
   "amount": "Montant",
@@ -1202,5 +1216,164 @@
   "addContribution": "Ajouter une contribution",
   "contributionAmount": "Montant de la contribution",
   "contributionType": "Type",
-  "contributionAdded": "Contribution ajoutée avec succès"
+  "contributionAdded": "Contribution ajoutée avec succès",
+
+  "pleaseSelectCategory": "Veuillez sélectionner une catégorie",
+  "pleaseEnterAmount": "Veuillez entrer un montant",
+  "userNotAuthenticated": "Utilisateur non authentifié",
+  "recurringExpenseUpdatedSuccessfully": "Dépense récurrente mise à jour avec succès",
+  "recurringExpenseAddedSuccessfully": "Dépense récurrente ajoutée avec succès",
+  "recurringIncomeUpdatedSuccessfully": "Revenu récurrent mis à jour avec succès",
+  "recurringIncomeAddedSuccessfully": "Revenu récurrent ajouté avec succès",
+  "failedToUpdateRecurringExpense": "Échec de la mise à jour de la dépense récurrente",
+  "failedToAddRecurringExpense": "Échec de l'ajout de la dépense récurrente",
+  "failedToUpdateRecurringIncome": "Échec de la mise à jour du revenu récurrent",
+  "failedToAddRecurringIncome": "Échec de l'ajout du revenu récurrent",
+  "editRecurringExpense": "Modifier Dépense Récurrente",
+  "editRecurringIncome": "Modifier Revenu Récurrent",
+  "addRecurringExpense": "Ajouter Dépense Récurrente",
+  "addRecurringIncome": "Ajouter Revenu Récurrent",
+  "selectCategory": "Sélectionner une catégorie",
+  "frequency": "Fréquence",
+  "startDate": "Date de début",
+  "setEndDate": "Définir une date de fin",
+  "endDate": "Date de fin",
+  "selectEndDate": "Sélectionner la date de fin",
+  "descriptionOptional": "Description (Optionnel)",
+  "sourceOptional": "Source (Optionnel)",
+  "companyNameClientNameExample": "ex: Nom de l'entreprise, Nom du client",
+  "setReminder": "Définir un rappel",
+  "updateRecurringTransaction": "Mettre à jour la Transaction Récurrente",
+  "addRecurringTransaction": "Ajouter une Transaction Récurrente",
+  "youWillBeNotifiedBeforeEachOccurrence": "Vous serez notifié {value} {unit} avant chaque occurrence",
+  "@youWillBeNotifiedBeforeEachOccurrence": {
+    "placeholders": {
+      "value": {"type": "int"},
+      "unit": {"type": "String"}
+    }
+  },
+  "addReminder": "Ajouter un Rappel",
+  "ended": "Terminé",
+  "noRecurringExpenses": "Aucune Dépense Récurrente",
+  "noRecurringIncome": "Aucun Revenu Récurrent",
+  "setupAutomaticExpenseTracking": "Configurez le suivi automatique des dépenses pour les abonnements, les factures et les paiements réguliers",
+  "setupAutomaticIncomeTracking": "Configurez le suivi automatique des revenus pour le salaire, le travail freelance et les gains réguliers",
+  "biweekly": "Bihebdomadaire",
+  "oneTime": "Unique",
+  "custom": "Personnalisé",
+  "everyXDays": "Tous les {count} jours",
+  "@everyXDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXWeeks": "Toutes les {count} semaines",
+  "@everyXWeeks": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "every2Weeks": "Toutes les 2 semaines",
+  "everyXMonths": "Tous les {count} mois",
+  "@everyXMonths": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXYears": "Tous les {count} ans",
+  "@everyXYears": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "days": "jours",
+  "hours": "heures",
+  "confirmIncome": "Confirmer le revenu",
+  "saveIncome": "Enregistrer le revenu",
+  "incomeSaved": "Revenu enregistré",
+  "incomeSavedAndShared": "Revenu enregistré et partagé",
+  "addReceiptPhoto": "Ajouter une photo de reçu",
+  "tapToTakePhoto": "Prenez une photo de votre reçu",
+  "atLeastOneMember": "Au moins un membre doit être inclus",
+  "memberMustHaveShare": "Au moins un membre doit avoir une part supérieure à 0",
+  "monthOverMonthSpending": "Évolution des dépenses mensuelles",
+  "last3Months": "3 derniers mois",
+
+  "breakdown": "Ventilation",
+  "noOutstandingItems": "Aucun solde en attente",
+  "theyOweYou": "On te doit",
+  "expressNetting": "Compensation express",
+  "detailedSettlement": "Règlement détaillé",
+  "expressNettingHint": "Ceci est une suggestion de compensation. En confirmant, tous tes soldes en attente avec ce membre seront réglés.",
+  "settle": "Régler",
+  "confirmSettlement": "Confirmer le règlement",
+  "confirmSettlementMessage": "Cela marquera comme réglés tous tes éléments en attente avec ce membre.",
+  "pleaseSelectMember": "Sélectionnez un membre",
+  "settlementCompleted": "Règlement effectué",
+  "nothingToSettle": "Rien à régler",
+  "expense": "Dépense",
+  "settlement": "Règlement",
+  "suggestedNetTransfers": "Transferts nets suggérés",
+  "detailedPairwiseDues": "Dettes détaillées entre membres",
+  "outstanding": "En attente",
+  "youAreOwedBy": "Montants à recevoir de",
+  "noOutstandingAmounts": "Aucun montant en attente",
+  "groupFairnessTitle": "Équité du groupe",
+  "groupFairness": "Équité du groupe",
+  "groupFairnessExplanation": "Cela montre comment les dépenses sont réparties entre les membres du foyer.\n\nPlus le pourcentage est élevé, plus la contribution est équitable. Plus il est faible, plus certaines personnes couvrent de dépenses que d’autres.\n\nPensez‑y comme à un travail d’équipe : quand tout le monde contribue à parts égales, le score d’équité est élevé. Quand une personne supporte la majorité, il baisse.\n\nLa \"part égale\" indique ce que chacun paierait si tout était partagé équitablement.",
+  "noMemberDataYet": "Aucune donnée de membre pour le moment",
+  "evenShare": "Part égale : {amount}",
+  "@evenShare": {"placeholders": {"amount": {"type": "String"}}}
+,
+  "viewHousehold": "Voir le foyer",
+  "invalidInvitationMissingInfo": "Invitation invalide : il manque des informations sur le foyer",
+  "joinedHouseholdWithName": "Tu as rejoint {name} !",
+  "@joinedHouseholdWithName": {"placeholders": {"name": {"type": "String"}}},
+  "joinedHousehold": "Tu as rejoint le foyer !",
+  "errorLoadingData": "Erreur lors du chargement des données",
+  "errorLoadingSplits": "Erreur lors du chargement des répartitions",
+  "markAsSettled": "Marquer comme réglé",
+  "splitDetails": "Détails de la répartition",
+  "equalSplit": "PARTAGE ÉGAL",
+  "errorLoadingBudgets": "Erreur lors du chargement des budgets",
+  "noSharedBudgetsYet": "Aucun budget partagé pour le moment",
+  "whoCanSeeThisExpense": "Qui peut voir cette dépense ?",
+  "onlyVisibleToYou": "Visible uniquement pour toi",
+  "chooseSpecificMembers": "Choisir des membres spécifiques",
+  "selectMembers": "Sélectionner des membres",
+  "noMembersFound": "Aucun membre trouvé",
+  "membersSelectedCount": "{count} sélectionnés",
+  "@membersSelectedCount": {"placeholders": {"count": {"type": "int"}}},
+  "noSplitsYet": "Aucune répartition pour l’instant",
+  "startSplittingExpensesWithYourHousehold": "Commence à répartir les dépenses avec ton foyer",
+  "minutesAgoShort": "il y a {count} min",
+  "@minutesAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "hoursAgoShort": "il y a {count} h",
+  "@hoursAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "daysAgoShort": "il y a {count} j",
+  "@daysAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "weeksAgoShort": "il y a {count} sem",
+  "@weeksAgoShort": {"placeholders": {"count": {"type": "int"}}}
+,
+  "errorLoadingActivity": "Erreur lors du chargement de l’activité",
+  "noRecentActivity": "Aucune activité récente",
+  "viewAllExpenses": "Voir toutes les dépenses",
+  "noPendingSplits": "Aucune répartition en attente",
+  "pendingSettlement": "Règlement en attente"
+  ,
+  "youreIn": "C’est fait ! 🎉",
+  "invitationError": "Erreur d’invitation",
+  "joiningHousehold": "Rejoindre le foyer",
+  "processingInvitation": "Traitement de l’invitation..."
+  ,
+  "noHouseholdsAvailableCreateOrJoin": "Aucun foyer disponible. Crée ou rejoins d’abord un foyer.",
+  "selectHousehold": "Sélectionner un foyer"
 }

@@ -193,9 +193,17 @@ class SettingsPage extends HookConsumerWidget {
                   final initials = displayName.isNotEmpty
                       ? displayName.substring(0, 1).toUpperCase()
                       : (authState.email.isNotEmpty ? authState.email.substring(0, 1).toUpperCase() : 'U');
-                  final avatarUrl = (dbAvatarUrl != null && dbAvatarUrl.isNotEmpty)
-                      ? dbAvatarUrl
-                      : (authState.photoUrl != null && authState.photoUrl!.isNotEmpty ? authState.photoUrl : null);
+                  
+                  // Validate avatar URL before using it
+                  String? validatedAvatarUrl;
+                  if (dbAvatarUrl != null && 
+                      dbAvatarUrl.isNotEmpty && 
+                      dbAvatarUrl != 'SKIPPED' &&
+                      (dbAvatarUrl.startsWith('http://') || dbAvatarUrl.startsWith('https://'))) {
+                    validatedAvatarUrl = dbAvatarUrl;
+                  }
+                  
+                  final avatarUrl = validatedAvatarUrl ?? (authState.photoUrl != null && authState.photoUrl!.isNotEmpty ? authState.photoUrl : null);
 
                   return Stack(
                     clipBehavior: Clip.none,
@@ -678,12 +686,10 @@ class SettingsPage extends HookConsumerWidget {
                     await ref.read(deviceRegistrationServiceProvider).unregisterDevice();
                   } catch (_) {}
 
-                  // Sign out from auth first (this will trigger navigation to login)
-                  await ref.read(authProvider.notifier).signOut();
-
-                  // Clear all user-specific Riverpod state AFTER signing out
+                  // Clear all user-specific Riverpod state BEFORE signing out
                   // This prevents data from previous user appearing when new user logs in
-                  debugPrint('🧹 Clearing all user-specific Riverpod state after logout');
+                  // and ensures ref is still valid when we invalidate providers
+                  debugPrint('🧹 Clearing all user-specific Riverpod state before logout');
 
                   // Analytics and expenses
                   ref.invalidate(analyticsProvider);
@@ -716,6 +722,9 @@ class SettingsPage extends HookConsumerWidget {
                   ref.invalidate(userProfileProvider);
 
                   debugPrint('✅ All user-specific state cleared');
+
+                  // Sign out from auth last (this will trigger navigation to login)
+                  await ref.read(authProvider.notifier).signOut();
                 },
                 child: Text(context.l10n.signOut),
               ),
@@ -1278,11 +1287,14 @@ String _displayLocaleName(Locale locale) {
   // Ukrainian
   if (lc == 'uk' || lc == 'ua') return 'Українська';
 
-  // Pakistani
-  if ( lc == 'pks') return 'پکستانی';
+  // Pakistani (Urdu)
+  if (lc == 'ur') return 'پکستانی';
 
   // Italian
   if (lc == 'it') return 'Italiano';
+
+  // Vietnamese
+  if (lc == 'vi') return 'Tiếng Việt';
 
   // Chinese (handle various tags and legacy 'cn')
   if (lc == 'zh' || lc == 'cn') {

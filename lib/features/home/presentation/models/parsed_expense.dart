@@ -1,6 +1,8 @@
-// Data model for parsed (but not yet saved) expense from AI analysis
+// Data model for parsed (but not yet saved) transaction from AI analysis
 
 class ParsedExpense {
+  // true = income, false = expense
+  final bool isIncome;
   final double amount;
   final String category;
   final String currency;
@@ -10,6 +12,7 @@ class ParsedExpense {
   final String? localImagePath; // Local image path for display before upload
 
   ParsedExpense({
+    this.isIncome = false,
     required this.amount,
     required this.category,
     required this.currency,
@@ -21,6 +24,7 @@ class ParsedExpense {
 
   factory ParsedExpense.fromJson(Map<String, dynamic> json) {
     return ParsedExpense(
+      isIncome: (json['type']?.toString().toLowerCase() == 'income') || (json['isIncome'] == true),
       amount: (json['amount'] as num).toDouble(),
       category: json['category'] as String,
       currency: json['currency'] as String,
@@ -33,6 +37,7 @@ class ParsedExpense {
 
   Map<String, dynamic> toJson() {
     return {
+      'isIncome': isIncome,
       'amount': amount,
       'category': category,
       'currency': currency,
@@ -45,6 +50,7 @@ class ParsedExpense {
 
   // Create a copy with modified fields
   ParsedExpense copyWith({
+    bool? isIncome,
     double? amount,
     String? category,
     String? currency,
@@ -54,6 +60,7 @@ class ParsedExpense {
     String? localImagePath,
   }) {
     return ParsedExpense(
+      isIncome: isIncome ?? this.isIncome,
       amount: amount ?? this.amount,
       category: category ?? this.category,
       currency: currency ?? this.currency,

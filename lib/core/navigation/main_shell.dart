@@ -4,7 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/pages/home_page.dart';
 import 'package:moneko/features/insights/presentation/pages/insights_page.dart';
 import 'package:moneko/features/profile/presentation/pages/profile_page.dart';
-import 'package:moneko/features/goals/presentation/pages/goals_list_page.dart';
+import 'package:moneko/features/recurring/pages/recurring_transactions_page.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/auth/presentation/widgets/impersonation_banner.dart';
@@ -20,7 +20,7 @@ class MainShell extends HookConsumerWidget {
 
     final pages = [
       const HomePage(),
-      const GoalsListPage(),
+      const RecurringTransactionsPage(),
       const AnalyticsPage(),
       const ProfilePage(),
     ];
@@ -54,8 +54,8 @@ class MainShell extends HookConsumerWidget {
                 onTap: () => currentIndex.value = 0,
               ),
               _NavButton(
-                icon: currentIndex.value == 1 ? Icons.flag : Icons.flag_outlined,
-                label: context.l10n.goals,
+                icon: currentIndex.value == 1 ? Icons.repeat : Icons.repeat_outlined,
+                label: context.l10n.recurring,
                 isSelected: currentIndex.value == 1,
                 onTap: () => currentIndex.value = 1,
               ),

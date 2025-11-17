@@ -1,2 +1,0 @@
-/Users/charles/side-projects/stock invest edu/stock-invest-edu-app/android/app/.cxx/Debug/5f163x6d/arm64-v8a/CMakeFiles/edit_cache.dir
-/Users/charles/side-projects/stock invest edu/stock-invest-edu-app/android/app/.cxx/Debug/5f163x6d/arm64-v8a/CMakeFiles/rebuild_cache.dir

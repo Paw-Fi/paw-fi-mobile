@@ -194,6 +194,10 @@ GoRouter router(RouterRef ref) {
       if (isOnSplashPage) {
         // Redirect from splash to appropriate page
         if (isAuthenticated) {
+          // On web: skip paywall and go straight to dashboard
+          if (kIsWeb) {
+            return '/dashboard';
+          }
           if (!isSubscriptionLoaded) {
             // Wait for subscription to load
             return null;
@@ -217,8 +221,8 @@ GoRouter router(RouterRef ref) {
         return null;
       }
 
-      // Allow paywall page for authenticated users
-      if (isOnPaywallPage && isAuthenticated) {
+      // Allow paywall page for authenticated users (mobile only)
+      if (!kIsWeb && isOnPaywallPage && isAuthenticated) {
         return null;
       }
 
@@ -235,14 +239,19 @@ GoRouter router(RouterRef ref) {
         }
         // Check subscription status
         if (!hasSubscription) {
-          return '/paywall';
+          // On web: skip paywall and go straight to dashboard
+          return kIsWeb ? '/dashboard' : '/paywall';
         }
         return '/dashboard';
       }
 
       // If authenticated but no subscription and trying to access protected pages
       // Only redirect to paywall if subscription is confirmed loaded
-      if (isAuthenticated && isSubscriptionLoaded && !hasSubscription && !isOnPaywallPage) {
+      if (!kIsWeb &&
+          isAuthenticated &&
+          isSubscriptionLoaded &&
+          !hasSubscription &&
+          !isOnPaywallPage) {
         return '/paywall';
       }
 

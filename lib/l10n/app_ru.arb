@@ -65,6 +65,8 @@
     }
   },
   "resendVerificationEmail": "отправить код повторно",
+  "continueWithWallet": "Продолжить через Web3-кошелёк",
+  "signingInWithWallet": "Подключение кошелька...",
   "continueWithGoogle": "Войти через Google",
   "signingInWithGoogle": "Вход через Google...",
   "error": "Ошибка",
@@ -263,8 +265,9 @@
   "startLoggingExpensesToSeeCategories": "Начните записывать расходы, чтобы увидеть категории",
   "selectDateRange": "Выберите период",
   "addExpense": "Добавить расход",
-  "describeYourExpense": "Опишите расход (напр.: \"5 на бургер, 3 на кофе\")",
-  "enterExpenseDetails": "Введите детали расхода...",
+  "describeYourExpense": "Опишите расход или доход. Один тип на запись.",
+  "enterExpenseDetails": "\"5 на бургер, 3 на кофе\" • \"получил 100 от родителей\"",
+  "addEntry": "Добавить запись",
   "freeFormText": "Свободный текст",
   "takePhoto": "Сделать фото",
   "transactions": "операции",
@@ -635,7 +638,7 @@
   "category": "Категория",
   "allMembers": "Все участники",
   "balanceSummary": "Баланс",
-  "youAreOwed": "Вам должны",
+  
   "youOwe": "Вы должны",
   "youOweOthers": "Вы должны другим",
   "othersOweYou": "Другие должны вам",
@@ -841,7 +844,18 @@
   "currency": "Валюта",
   "notes": "Заметки",
   "receipt": "Чек",
-  "saveExpense": "Сохранить расход",
+  "@recurringTransactions": {},
+  "recurring": "Регулярные",
+  "manageYourRecurringTransactions": "Управление регулярными транзакциями",
+  "errorLoadingData": "Ошибка загрузки данных",
+  "deleteRecurringTransaction": "Удалить регулярную транзакцию",
+  "areYouSureYouWantToDeleteThisRecurringTransaction": "Вы уверены, что хотите удалить эту регулярную транзакцию?",
+  "recurringTransactionDeleted": "Регулярная транзакция удалена",
+  "transactionDeleted": "Транзакция удалена",
+  "transactions": "Транзакции",
+  "recentTransactions": "Недавние транзакции",
+  "failedToDeleteRecurringTransaction": "Не удалось удалить регулярную транзакцию",
+  "recurringTransactions": "Регулярные транзакции",
   "currencyIsManagedByHousehold": "Валюта управляется домохозяйством и не может быть изменена",
   "editAmount": "Изменить сумму",
   "amount": "Сумма",
@@ -992,6 +1006,48 @@
       }
     }
   },
+
+  "pleaseSelectCategory": "Выберите категорию",
+  "pleaseEnterAmount": "Введите сумму",
+  "userNotAuthenticated": "Пользователь не аутентифицирован",
+  "recurringExpenseUpdatedSuccessfully": "Периодический расход успешно обновлен",
+  "recurringExpenseAddedSuccessfully": "Периодический расход успешно добавлен",
+  "recurringIncomeUpdatedSuccessfully": "Периодический доход успешно обновлен",
+  "recurringIncomeAddedSuccessfully": "Периодический доход успешно добавлен",
+  "failedToUpdateRecurringExpense": "Не удалось обновить периодический расход",
+  "failedToAddRecurringExpense": "Не удалось добавить периодический расход",
+  "failedToUpdateRecurringIncome": "Не удалось обновить периодический доход",
+  "failedToAddRecurringIncome": "Не удалось добавить периодический доход",
+  "editRecurringExpense": "Редактировать Периодический Расход",
+  "editRecurringIncome": "Редактировать Периодический Доход",
+  "addRecurringExpense": "Добавить Периодический Расход",
+  "addRecurringIncome": "Добавить Периодический Доход",
+  "selectCategory": "Выбрать категорию",
+  "frequency": "Частота",
+  "startDate": "Дата начала",
+  "setEndDate": "Установить дату окончания",
+  "endDate": "Дата окончания",
+  "selectEndDate": "Выбрать дату окончания",
+  "descriptionOptional": "Описание (Необязательно)",
+  "sourceOptional": "Источник (Необязательно)",
+  "companyNameClientNameExample": "например, Название компании, Имя клиента",
+  "setReminder": "Установить напоминание",
+  "updateRecurringTransaction": "Обновить Периодическую Транзакцию",
+  "addRecurringTransaction": "Добавить Периодическую Транзакцию",
+  "youWillBeNotifiedBeforeEachOccurrence": "Вы будете уведомлены за {value} {unit} до каждого события",
+  "@youWillBeNotifiedBeforeEachOccurrence": {
+    "placeholders": {
+      "value": {"type": "int"},
+      "unit": {"type": "String"}
+    }
+  },
+  "addReminder": "Добавить Напоминание",
+  "ended": "Завершено",
+  "noRecurringExpenses": "Нет Периодических Расходов",
+  "noRecurringIncome": "Нет Периодических Доходов",
+  "setupAutomaticExpenseTracking": "Настройте автоматическое отслеживание расходов для подписок, счетов и регулярных платежей",
+  "setupAutomaticIncomeTracking": "Настройте автоматическое отслеживание доходов для зарплаты, фриланс-работы и регулярных доходов",
+
   "copyInvitationLink": "Копировать пригласительную ссылку",
   "copyInvitationLinkToClipboard": "Копировать пригласительную ссылку в буфер обмена",
   "copyLink": "Копировать ссылку",
@@ -1131,5 +1187,126 @@
   "addContribution": "Добавить взнос",
   "contributionAmount": "Сумма взноса",
   "contributionType": "Тип",
-  "contributionAdded": "Взнос успешно добавлен"
+  "contributionAdded": "Взнос добавлен",
+  "setupAutomaticExpenseTracking": "Настройте автоматический отслеживание расходов для подписок, счетов и регулярных платежей",
+  "setupAutomaticIncomeTracking": "Настройте автоматический отслеживание доходов для зарплаты, фриланса и регулярных доходов",
+  "biweekly": "Раз в две недели",
+  "oneTime": "Разово",
+  "custom": "Настроить",
+  "everyXDays": "Каждые {count} дней",
+  "@everyXDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXWeeks": "Каждые {count} недель",
+  "@everyXWeeks": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "every2Weeks": "Каждые 2 недели",
+  "everyXMonths": "Каждые {count} месяцев",
+  "@everyXMonths": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXYears": "Каждые {count} лет",
+  "@everyXYears": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "days": "дней",
+  "hours": "часов",
+  "confirmIncome": "Подтвердить доход",
+  "saveIncome": "Сохранить доход",
+  "incomeSaved": "Доход сохранен",
+  "incomeSavedAndShared": "Доход сохранён и распределён",
+  "addReceiptPhoto": "Добавить фото чека",
+  "tapToTakePhoto": "Сфотографируйте чек",
+  "atLeastOneMember": "Нужен хотя бы один участник",
+  "memberMustHaveShare": "Хотя бы один участник должен иметь долю больше 0",
+  "monthOverMonthSpending": "Помесячная динамика расходов",
+  "last3Months": "Последние 3 месяца",
+
+  "breakdown": "Разбивка",
+  "noOutstandingItems": "Нет непогашенных позиций",
+  "theyOweYou": "Вам должны",
+  "expressNetting": "Быстрый взаимозачёт",
+  "detailedSettlement": "Детальный расчет",
+  "expressNettingHint": "Это предложение по взаимозачёту. Подтверждение погасит все ваши задолженности с этим участником.",
+  "settle": "Погасить",
+  "confirmSettlement": "Подтвердить погашение",
+  "confirmSettlementMessage": "Это пометит все ваши незакрытые позиции с этим участником как погашенные.",
+  "pleaseSelectMember": "Пожалуйста, выберите участника",
+  "settlementCompleted": "Погашение завершено",
+  "nothingToSettle": "Нечего погашать",
+  "expense": "Расход",
+  "settlement": "Урегулирование",
+  "suggestedNetTransfers": "Предлагаемые нетто-переводы",
+  "detailedPairwiseDues": "Подробные долги между участниками",
+  "outstanding": "Непогашено",
+  "youAreOwed": "Вам должны",
+  "youAreOwedBy": "Вам должны от",
+  "noOutstandingAmounts": "Нет непогашенных сумм",
+  "groupFairnessTitle": "Справедливость группы",
+  "groupFairness": "Справедливость группы",
+  "groupFairnessExplanation": "Показывает, насколько равномерно расходы распределены между членами домохозяйства.\n\nБолее высокий процент означает, что все вносят свою справедливую долю. Более низкий — что некоторые оплачивают больше, чем другие.\n\nПредставьте это как командную работу: когда все вносят одинаково, показатель справедливости высокий. Когда кто‑то тянет основную нагрузку, он снижается.\n\n«Равная доля» показывает, сколько должен заплатить каждый при равном разделении.",
+  "noMemberDataYet": "Данных об участниках пока нет",
+  "evenShare": "Равная доля: {amount}",
+  "@evenShare": {"placeholders": {"amount": {"type": "String"}}}
+,
+  "viewHousehold": "Открыть домохозяйство",
+  "invalidInvitationMissingInfo": "Недействительное приглашение: отсутствует информация о домохозяйстве",
+  "joinedHouseholdWithName": "Вы успешно присоединились к {name}!",
+  "@joinedHouseholdWithName": {"placeholders": {"name": {"type": "String"}}},
+  "joinedHousehold": "Вы успешно присоединились к домохозяйству!",
+  "errorLoadingData": "Ошибка загрузки данных",
+  "errorLoadingSplits": "Ошибка загрузки распределений",
+  "markAsSettled": "Отметить как погашено",
+  "splitDetails": "Детали распределения",
+  "equalSplit": "РАВНОЕ ДЕЛЕНИЕ",
+  "errorLoadingBudgets": "Ошибка загрузки бюджетов",
+  "noSharedBudgetsYet": "Пока нет общих бюджетов",
+  "whoCanSeeThisExpense": "Кто может видеть этот расход?",
+  "onlyVisibleToYou": "Видно только вам",
+  "chooseSpecificMembers": "Выбрать конкретных участников",
+  "selectMembers": "Выбрать участников",
+  "noMembersFound": "Участники не найдены",
+  "membersSelectedCount": "{count} выбрано",
+  "@membersSelectedCount": {"placeholders": {"count": {"type": "int"}}},
+  "noSplitsYet": "Пока нет распределений",
+  "startSplittingExpensesWithYourHousehold": "Начните распределять расходы в вашем домохозяйстве",
+  "minutesAgoShort": "{count} мин назад",
+  "@minutesAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "hoursAgoShort": "{count} ч назад",
+  "@hoursAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "daysAgoShort": "{count} д назад",
+  "@daysAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "weeksAgoShort": "{count} нед назад",
+  "@weeksAgoShort": {"placeholders": {"count": {"type": "int"}}}
+,
+  "errorLoadingActivity": "Ошибка загрузки активности",
+  "noRecentActivity": "Нет недавней активности",
+  "viewAllExpenses": "Просмотреть все расходы",
+  "noPendingSplits": "Нет ожидающих распределений",
+  "pendingSettlement": "Ожидается погашение"
+  ,
+  "youreIn": "Готово! 🎉",
+  "invitationError": "Ошибка приглашения",
+  "joiningHousehold": "Присоединение к домохозяйству",
+  "processingInvitation": "Обрабатываем приглашение..."
+  ,
+  "noHouseholdsAvailableCreateOrJoin": "Нет доступных домохозяйств. Сначала создайте или присоединитесь к домохозяйству.",
+  "selectHousehold": "Выберите домохозяйство"
 }

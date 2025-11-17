@@ -208,10 +208,15 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
   }
   
   Widget _buildCategoryPicker(shadcnui.ColorScheme colorScheme) {
-    final categories = [
-      'food', 'transport', 'shopping', 'entertainment', 'bills',
-      'health', 'education', 'travel', 'groceries', 'other'
-    ];
+    final isIncome = (widget.expense.type ?? 'expense').toLowerCase() == 'income';
+    final baseCategories = isIncome ? getIncomeCategories() : getExpenseCategories();
+    final categories = () {
+      final current = (widget.currentValue?.toString().toLowerCase());
+      if (current != null && !baseCategories.contains(current)) {
+        return [...baseCategories, current];
+      }
+      return baseCategories;
+    }();
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

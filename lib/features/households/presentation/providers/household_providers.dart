@@ -59,8 +59,11 @@ class UserHouseholdsNotifier extends StateNotifier<AsyncValue<List<Household>>> 
   }
 
   Future<void> load() async {
+    if (!mounted) return;
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() => _repository.getUserHouseholds(_userId));
+    final result = await AsyncValue.guard(() => _repository.getUserHouseholds(_userId));
+    if (!mounted) return;
+    state = result;
   }
 
   Future<void> createHousehold({
@@ -103,17 +106,22 @@ class HouseholdMembersNotifier extends StateNotifier<AsyncValue<List<HouseholdMe
   }
 
   Future<void> load() async {
+    if (!mounted) return;
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() => _repository.getHouseholdMembers(_householdId));
+    final result = await AsyncValue.guard(() => _repository.getHouseholdMembers(_householdId));
+    if (!mounted) return;
+    state = result;
   }
 
   Future<void> removeMember(String memberId) async {
     await _repository.removeMember(memberId);
+    if (!mounted) return;
     await load();
   }
 
   Future<void> updateRole(String memberId, HouseholdRole role) async {
     await _repository.updateMemberRole(memberId, role);
+    if (!mounted) return;
     await load();
   }
 }
@@ -144,8 +152,11 @@ class HouseholdBudgetsNotifier extends StateNotifier<AsyncValue<List<SharedBudge
   }
 
   Future<void> load() async {
+    if (!mounted) return;
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() => _repository.getHouseholdBudgets(_householdId));
+    final result = await AsyncValue.guard(() => _repository.getHouseholdBudgets(_householdId));
+    if (!mounted) return;
+    state = result;
   }
 
   Future<void> createBudget({
@@ -169,6 +180,7 @@ class HouseholdBudgetsNotifier extends StateNotifier<AsyncValue<List<SharedBudge
       budgetType: budgetType,
       countSplitPortionOnly: countSplitPortionOnly,
     );
+    if (!mounted) return;
     await load();
   }
 }
@@ -199,8 +211,11 @@ class HouseholdInvitesNotifier extends StateNotifier<AsyncValue<List<HouseholdIn
   }
 
   Future<void> load() async {
+    if (!mounted) return;
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() => _repository.getHouseholdInvites(_householdId));
+    final result = await AsyncValue.guard(() => _repository.getHouseholdInvites(_householdId));
+    if (!mounted) return;
+    state = result;
   }
 
   Future<String> createInvite({
@@ -214,12 +229,14 @@ class HouseholdInvitesNotifier extends StateNotifier<AsyncValue<List<HouseholdIn
       personalMessage: personalMessage,
       expiresInDays: expiresInDays,
     );
+    if (!mounted) return token;
     await load();
     return token;
   }
 
   Future<void> revokeInvite({String? inviteId, String? token}) async {
     await _repository.revokeInvite(inviteId: inviteId, token: token);
+    if (!mounted) return;
     await load();
   }
 }
@@ -273,11 +290,14 @@ class SharingPrefsNotifier extends StateNotifier<AsyncValue<SharingPreferences?>
   }
 
   Future<void> load() async {
+    if (!mounted) return;
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() => _repository.getSharingPreferences(
+    final result = await AsyncValue.guard(() => _repository.getSharingPreferences(
           userId: _userId,
           householdId: _householdId,
         ));
+    if (!mounted) return;
+    state = result;
   }
 
   Future<void> updatePreferences({
@@ -298,6 +318,7 @@ class SharingPrefsNotifier extends StateNotifier<AsyncValue<SharingPreferences?>
       nudgeQuietHoursStart: nudgeQuietHoursStart,
       nudgeQuietHoursEnd: nudgeQuietHoursEnd,
     );
+    if (!mounted) return;
     await load();
   }
 }
@@ -414,10 +435,14 @@ final householdSplitsProvider =
 class HouseholdExpensesParams {
   final String householdId;
   final int limit;
+  final DateTime? startDate;  // NEW: Date filter
+  final DateTime? endDate;    // NEW: Date filter
 
   const HouseholdExpensesParams({
     required this.householdId,
-    this.limit = 10,
+    this.limit = 500,  // Increased default from 10 to 500 for better UX
+    this.startDate,
+    this.endDate,
   });
 
   @override
@@ -426,13 +451,21 @@ class HouseholdExpensesParams {
       other is HouseholdExpensesParams &&
           runtimeType == other.runtimeType &&
           householdId == other.householdId &&
-          limit == other.limit;
+          limit == other.limit &&
+          startDate == other.startDate &&
+          endDate == other.endDate;
 
   @override
-  int get hashCode => householdId.hashCode ^ limit.hashCode;
+  int get hashCode => householdId.hashCode ^ limit.hashCode ^ 
+                      (startDate?.hashCode ?? 0) ^ (endDate?.hashCode ?? 0);
 }
 
 /// Household expenses provider
+/// NOTE: Uses direct database query instead of backend endpoint because:
+/// 1. Needs user_id and contact_id for user enrichment (not returned by backend)
+/// 2. Needs to fetch and join with users table for display names
+/// 3. Backend endpoint is optimized for simple lists, not joined data
+/// The is_recurring filter is applied here to ensure data separation
 final householdExpensesProvider =
     FutureProvider.family<List<ExpenseEntry>, HouseholdExpensesParams>(
   (ref, params) async {
@@ -440,12 +473,24 @@ final householdExpensesProvider =
     try {
       // Fetch expenses (RLS allows: own or any with same household membership)
       // CRITICAL: Only fetch household expenses (split_group_id NOT NULL)
-      final expenses = await supabase
+      // ALSO: Exclude recurring transactions (is_recurring = true)
+      var expensesQuery = supabase
           .from('expenses')
-          .select('id, contact_id, user_id, household_id, date, amount_cents, currency, category, raw_text, receipt_image_url, created_at, split_group_id')
+          .select('id, contact_id, user_id, household_id, date, amount_cents, currency, category, raw_text, receipt_image_url, created_at, updated_at, split_group_id, type, is_recurring')
           .eq('household_id', params.householdId)
           .not('split_group_id', 'is', null) // Explicit filter for household expenses
-          .order('created_at', ascending: false)
+          .or('is_recurring.is.false,is_recurring.is.null'); // EXCLUDE recurring transactions
+      
+      // Apply date filters if provided
+      if (params.startDate != null) {
+        expensesQuery = expensesQuery.gte('date', params.startDate!.toIso8601String());
+      }
+      if (params.endDate != null) {
+        expensesQuery = expensesQuery.lte('date', params.endDate!.toIso8601String());
+      }
+      
+      final expenses = await expensesQuery
+          .order('updated_at', ascending: false)
           .limit(params.limit);
 
       final expensesList = (expenses as List).cast<Map<String, dynamic>>();

@@ -71,6 +71,8 @@ class CustomSplitEditor extends StatefulWidget {
   final double totalAmount;
   final String currencySymbol;
   final void Function(SplitType splitType, List<MemberSplit> splits)? onChanged;
+  final SplitType? initialSplitType;
+  final List<MemberSplit>? initialSplits;
 
   const CustomSplitEditor({
     super.key,
@@ -78,6 +80,8 @@ class CustomSplitEditor extends StatefulWidget {
     required this.totalAmount,
     required this.currencySymbol,
     this.onChanged,
+    this.initialSplitType,
+    this.initialSplits,
   });
 
   @override
@@ -102,7 +106,7 @@ class _CustomSplitSheet extends StatefulWidget {
 }
 
 class _CustomSplitEditorState extends State<CustomSplitEditor> {
-  SplitType _selectedType = SplitType.amount;
+  late SplitType _selectedType;
   late List<MemberSplit> _memberSplits;
   late List<TextEditingController> _controllers;
   String? _validationError;
@@ -112,7 +116,19 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
   @override
   void initState() {
     super.initState();
-    _initializeSplits();
+    // Initialize with provided values or defaults
+    _selectedType = widget.initialSplitType ?? SplitType.amount;
+    
+    if (widget.initialSplits != null) {
+      // Use provided initial splits
+      _memberSplits = List.from(widget.initialSplits!);
+      debugPrint('🔧 [SPLIT EDITOR] Initialized with provided splits: $_selectedType');
+    } else {
+      // Initialize with default equal splits
+      _initializeSplits();
+      debugPrint('🔧 [SPLIT EDITOR] Initialized with default equal splits');
+    }
+    
     _initializeControllers();
     // notify parent with initial state after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) => _queueNotify());
@@ -468,7 +484,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
       case SplitType.amount:
         final includedCountAmt = _memberSplits.where((s) => s.includedInAmount).length;
         if (includedCountAmt == 0) {
-          error = 'At least one member must be included';
+          error = context.l10n.atLeastOneMember;
           break;
         }
         final totalSplit = _memberSplits.fold<double>(
@@ -479,6 +495,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
           error = context.l10n.splitAmountsMustEqual(
             widget.currencySymbol,
             widget.totalAmount.toStringAsFixed(2),
+            widget.currencySymbol,
           );
         }
         break;
@@ -486,7 +503,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
       case SplitType.percentage:
         final includedCountPct = _memberSplits.where((s) => s.includedInPercentage).length;
         if (includedCountPct == 0) {
-          error = 'At least one member must be included';
+          error = context.l10n.atLeastOneMember;
           break;
         }
         final totalPercent = _memberSplits.fold<double>(
@@ -501,7 +518,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
       case SplitType.shares:
         final totalShares = _memberSplits.fold<int>(0, (sum, s) => sum + (s.shares ?? 0));
         if (totalShares <= 0) {
-          error = 'At least one member must have a share greater than 0';
+          error = context.l10n.memberMustHaveShare;
         }
         break;
     }

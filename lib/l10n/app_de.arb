@@ -65,6 +65,8 @@
     }
   },
   "resendVerificationEmail": "Bestätigungs-E-Mail erneut senden",
+  "continueWithWallet": "Mit dem Web3-Wallet fortfahren",
+  "signingInWithWallet": "Wallet wird verbunden...",
   "continueWithGoogle": "Mit Google fortfahren",
   "signingInWithGoogle": "Anmeldung mit Google läuft...",
   "error": "Fehler",
@@ -260,8 +262,9 @@
   "startLoggingExpensesToSeeCategories": "Erfasse Ausgaben, um Kategorien zu sehen",
   "selectDateRange": "Zeitraum auswählen",
   "addExpense": "Ausgabe hinzufügen",
-  "describeYourExpense": "Beschreibe deine Ausgabe (z. B. „5 für Burger, 3 für Kaffee“)",
-  "enterExpenseDetails": "Ausgabendetails eingeben...",
+  "describeYourExpense": "Gib deine Ausgabe oder Einnahme ein. Pro Eintrag nur ein Typ.",
+  "enterExpenseDetails": "\"5 für einen Burger, 3 für Kaffee\" • \"100 von den Eltern bekommen\"",
+  "addEntry": "Eintrag hinzufügen",
   "freeFormText": "Freitext",
   "takePhoto": "Foto aufnehmen",
   "transactions": "Transaktionen",
@@ -632,7 +635,7 @@
   "category": "Kategorie",
   "allMembers": "Alle Mitglieder",
   "balanceSummary": "Saldenübersicht",
-  "youAreOwed": "Man schuldet dir",
+  "youAreOwed": "Du erhältst",
   "youOwe": "Du schuldest",
   "youOweOthers": "Du schuldest anderen",
   "othersOweYou": "Andere schulden dir",
@@ -809,11 +812,23 @@
   "stars": "Sterne",
   "@unifiedTransactionSheet": {},
   "confirmExpense": "Ausgabe bestätigen",
-  "expenseDetails": "Ausgabendetails",
+  "expenseDetails": "Ausgaben­details",
   "details": "Details",
   "currency": "Währung",
   "notes": "Notizen",
   "receipt": "Beleg",
+  "@recurringTransactions": {},
+  "recurringTransactions": "Wiederkehrende Transaktionen",
+  "recurring": "Wiederkehrend",
+  "manageYourRecurringTransactions": "Wiederkehrende Transaktionen verwalten",
+  "errorLoadingData": "Fehler beim Laden der Daten",
+  "deleteRecurringTransaction": "Wiederkehrende Transaktion löschen",
+  "areYouSureYouWantToDeleteThisRecurringTransaction": "Möchten Sie diese wiederkehrende Transaktion wirklich löschen?",
+  "recurringTransactionDeleted": "Wiederkehrende Transaktion gelöscht",
+  "transactionDeleted": "Transaktion gelöscht",
+  "transactions": "Transaktionen",
+  "recentTransactions": "Letzte Transaktionen",
+  "failedToDeleteRecurringTransaction": "Löschen der wiederkehrenden Transaktion fehlgeschlagen",
   "saveExpense": "Ausgabe speichern",
   "currencyIsManagedByHousehold": "Die Währung wird vom Haushalt verwaltet und kann nicht geändert werden",
   "editAmount": "Betrag bearbeiten",
@@ -1202,5 +1217,174 @@
   "addContribution": "Beitrag hinzufügen",
   "contributionAmount": "Beitragsbetrag",
   "contributionType": "Typ",
-  "contributionAdded": "Beitrag erfolgreich hinzugefügt"
+  "contributionAdded": "Beitrag erfolgreich hinzugefügt",
+
+  "pleaseSelectCategory": "Bitte wählen Sie eine Kategorie",
+  "pleaseEnterAmount": "Bitte geben Sie einen Betrag ein",
+  "userNotAuthenticated": "Benutzer nicht authentifiziert",
+  "recurringExpenseUpdatedSuccessfully": "Wiederkehrende Ausgabe erfolgreich aktualisiert",
+  "recurringExpenseAddedSuccessfully": "Wiederkehrende Ausgabe erfolgreich hinzugefügt",
+  "recurringIncomeUpdatedSuccessfully": "Wiederkehrendes Einkommen erfolgreich aktualisiert",
+  "recurringIncomeAddedSuccessfully": "Wiederkehrendes Einkommen erfolgreich hinzugefügt",
+  "failedToUpdateRecurringExpense": "Fehler beim Aktualisieren der wiederkehrenden Ausgabe",
+  "failedToAddRecurringExpense": "Fehler beim Hinzufügen der wiederkehrenden Ausgabe",
+  "failedToUpdateRecurringIncome": "Fehler beim Aktualisieren des wiederkehrenden Einkommens",
+  "failedToAddRecurringIncome": "Fehler beim Hinzufügen des wiederkehrenden Einkommens",
+  "editRecurringExpense": "Wiederkehrende Ausgabe bearbeiten",
+  "editRecurringIncome": "Wiederkehrendes Einkommen bearbeiten",
+  "addRecurringExpense": "Wiederkehrende Ausgabe hinzufügen",
+  "addRecurringIncome": "Wiederkehrendes Einkommen hinzufügen",
+  "selectCategory": "Kategorie auswählen",
+  "frequency": "Häufigkeit",
+  "startDate": "Startdatum",
+  "setEndDate": "Enddatum festlegen",
+  "endDate": "Enddatum",
+  "selectEndDate": "Enddatum auswählen",
+  "descriptionOptional": "Beschreibung (Optional)",
+  "sourceOptional": "Quelle (Optional)",
+  "companyNameClientNameExample": "z.B. Firmenname, Kundenname",
+  "setReminder": "Erinnerung festlegen",
+  "updateRecurringTransaction": "Wiederkehrende Transaktion aktualisieren",
+  "addRecurringTransaction": "Wiederkehrende Transaktion hinzufügen",
+  "youWillBeNotifiedBeforeEachOccurrence": "Sie werden {value} {unit} vor jeder Wiederholung benachrichtigt",
+  "@youWillBeNotifiedBeforeEachOccurrence": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      },
+      "unit": {
+        "type": "String"
+      }
+    }
+  },
+  "addReminder": "Erinnerung hinzufügen",
+  "ended": "Beendet",
+  "noRecurringExpenses": "Keine wiederkehrenden Ausgaben",
+  "noRecurringIncome": "Kein wiederkehrendes Einkommen",
+  "setupAutomaticExpenseTracking": "Richten Sie automatische Ausgabenverfolgung für Abonnements, Rechnungen und regelmäßige Zahlungen ein",
+  "setupAutomaticIncomeTracking": "Richten Sie automatische Einkommensverfolgung für Gehalt, Freelancer-Arbeit und regelmäßige Einnahmen ein",
+  "biweekly": "Zweiwöchentlich",
+  "oneTime": "Einmalig",
+  "custom": "Benutzerdefiniert",
+  "everyXDays": "Alle {count} Tage",
+  "@everyXDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXWeeks": "Alle {count} Wochen",
+  "@everyXWeeks": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "every2Weeks": "Alle 2 Wochen",
+  "everyXMonths": "Alle {count} Monate",
+  "@everyXMonths": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXYears": "Alle {count} Jahre",
+  "@everyXYears": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "days": "Tage",
+  "hours": "Stunden",
+  "confirmIncome": "Einkommen bestätigen",
+  "saveIncome": "Einkommen speichern",
+  "incomeSaved": "Einkommen gespeichert",
+  "incomeSavedAndShared": "Einkommen gespeichert und geteilt",
+  "addReceiptPhoto": "Belegfoto hinzufügen",
+  "tapToTakePhoto": "Beleg fotografieren",
+  "atLeastOneMember": "Mindestens ein Mitglied erforderlich",
+  "memberMustHaveShare": "Mindestens ein Mitglied braucht einen Anteil > 0",
+  "monthOverMonthSpending": "Monatliche Ausgabenentwicklung",
+  "last3Months": "Letzte 3 Monate",
+
+  "breakdown": "Aufschlüsselung",
+  "noOutstandingItems": "Keine offenen Posten",
+  "theyOweYou": "Sie schulden dir",
+  "expressNetting": "Schnellabgleich",
+  "detailedSettlement": "Detaillierte Abrechnung",
+  "expressNettingHint": "Dies ist ein Vorschlag für einen Schnellabgleich. Durch Bestätigen werden alle deine offenen Posten mit diesem Mitglied beglichen.",
+  "settle": "Begleichen",
+  "confirmSettlement": "Ausgleich bestätigen",
+  "confirmSettlementMessage": "Dadurch werden alle deine offenen Posten mit diesem Mitglied als beglichen markiert.",
+  "pleaseSelectMember": "Bitte wähle ein Mitglied aus",
+  "settlementCompleted": "Ausgleich abgeschlossen",
+  "nothingToSettle": "Nichts auszugleichen",
+  "expense": "Ausgabe",
+  "settlement": "Ausgleich",
+  "suggestedNetTransfers": "Vorgeschlagene Nettotransfers",
+  "detailedPairwiseDues": "Detaillierte Schulden zwischen Mitgliedern",
+  "outstanding": "Offen",
+  
+  "youAreOwedBy": "Du erhältst von",
+  "noOutstandingAmounts": "Keine offenen Beträge",
+  "groupFairnessTitle": "Gruppenfairness",
+  "groupFairness": "Gruppenfairness",
+  "groupFairnessExplanation": "Dies zeigt, wie gleichmäßig die Ausgaben unter den Haushaltsmitgliedern verteilt sind.\n\nEin höherer Prozentsatz bedeutet, dass alle ihren fairen Anteil beitragen. Ein niedrigerer Prozentsatz deutet darauf hin, dass einige Mitglieder mehr Ausgaben tragen als andere.\n\nStell es dir wie Teamarbeit vor – wenn alle gleich viel beitragen, ist der Fairness‑Wert hoch. Trägt eine Person den Großteil, sinkt er.\n\nDer „gleiche Anteil“ zeigt, was jede Person schulden würde, wenn alles gleich aufgeteilt wäre.",
+  "noMemberDataYet": "Keine Mitgliederdaten vorhanden",
+  "evenShare": "Gleicher Anteil: {amount}",
+  "@evenShare": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "viewHousehold": "Haushalt anzeigen",
+  "invalidInvitationMissingInfo": "Ungültige Einladung: fehlende Haushaltsinformationen",
+  "joinedHouseholdWithName": "Du bist {name} beigetreten!",
+  "@joinedHouseholdWithName": {"placeholders": {"name": {"type": "String"}}},
+  "joinedHousehold": "Du bist dem Haushalt beigetreten!",
+  "errorLoadingData": "Fehler beim Laden der Daten",
+  "errorLoadingSplits": "Fehler beim Laden der Aufteilungen",
+  "markAsSettled": "Als beglichen markieren",
+  "splitDetails": "Details zur Aufteilung",
+  "equalSplit": "GLEICHMÄSSIGE AUFTEILUNG",
+  "errorLoadingBudgets": "Fehler beim Laden der Budgets",
+  "noSharedBudgetsYet": "Noch keine gemeinsamen Budgets",
+  "whoCanSeeThisExpense": "Wer kann diese Ausgabe sehen?",
+  "onlyVisibleToYou": "Nur für dich sichtbar",
+  "chooseSpecificMembers": "Bestimmte Mitglieder auswählen",
+  "selectMembers": "Mitglieder auswählen",
+  "noMembersFound": "Keine Mitglieder gefunden",
+  "membersSelectedCount": "{count} ausgewählt",
+  "@membersSelectedCount": {"placeholders": {"count": {"type": "int"}}},
+  "noSplitsYet": "Noch keine Aufteilungen",
+  "startSplittingExpensesWithYourHousehold": "Beginne, Ausgaben in deinem Haushalt aufzuteilen",
+  "minutesAgoShort": "vor {count} Min.",
+  "@minutesAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "hoursAgoShort": "vor {count} Std.",
+  "@hoursAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "daysAgoShort": "vor {count} Tg.",
+  "@daysAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "weeksAgoShort": "vor {count} Wo.",
+  "@weeksAgoShort": {"placeholders": {"count": {"type": "int"}}}
+  ,
+  "errorLoadingActivity": "Fehler beim Laden der Aktivitäten",
+  "noRecentActivity": "Keine aktuellen Aktivitäten",
+  "viewAllExpenses": "Alle Ausgaben anzeigen",
+  "noPendingSplits": "Keine ausstehenden Aufteilungen",
+  "pendingSettlement": "Ausstehende Abrechnung"
+  ,
+  "youreIn": "Du bist dabei! 🎉",
+  "invitationError": "Einladungsfehler",
+  "joiningHousehold": "Haushalt beitreten",
+  "processingInvitation": "Einladung wird verarbeitet..."
+  ,
+  "noHouseholdsAvailableCreateOrJoin": "Keine Haushalte verfügbar. Erstelle oder tritt zuerst einem Haushalt bei.",
+  "selectHousehold": "Haushalt auswählen"
 }

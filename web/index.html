@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="A new Flutter project.">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="moneko">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>moneko</title>
+  <link rel="manifest" href="manifest.json">
+
+  <!-- Supabase JS SDK for Web3 Authentication -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <script>
+    // Web3 Helper functions for Flutter JS interop
+    window.monekoWeb3Helper = {
+      hasSupabase: function() {
+        return typeof window.supabase !== 'undefined' && typeof window.supabase.createClient === 'function';
+      },
+      
+      connectEthereumWallet: async function() {
+        if (!window.ethereum) {
+          throw new Error('No Ethereum wallet detected. Please install MetaMask, Rainbow, or another Ethereum wallet extension.');
+        }
+        
+        // Handle multiple providers (EIP-6963)
+        let provider = window.ethereum;
+        if (Array.isArray(window.ethereum.providers)) {
+          // Prefer MetaMask
+          const metaMask = window.ethereum.providers.find(p => p.isMetaMask);
+          if (metaMask) provider = metaMask;
+        }
+
+        // Ensure wallet is on Ethereum mainnet (chainId 1 / 0x1)
+        try {
+          const currentChainId = await provider.request({ method: 'eth_chainId' });
+          if (currentChainId !== '0x1') {
+            try {
+              // Ask wallet to switch to Ethereum mainnet
+              await provider.request({
+                method: 'wallet_switchEthereumChain',
+                params: [{ chainId: '0x1' }]
+              });
+            } catch (switchError) {
+              // If chain is not added (e.g. some wallets), try adding it
+              if (switchError && switchError.code === 4902) {
+                try {
+                  await provider.request({
+                    method: 'wallet_addEthereumChain',
+                    params: [{
+                      chainId: '0x1',
+                      chainName: 'Ethereum Mainnet',
+                      nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+                      rpcUrls: ['https://mainnet.infura.io/v3/'],
+                      blockExplorerUrls: ['https://etherscan.io']
+                    }]
+                  });
+                } catch (addError) {
+                  console.warn('[Web3Helper] Failed to add Ethereum mainnet network:', addError);
+                }
+              } else {
+                console.warn('[Web3Helper] Failed to switch to Ethereum mainnet:', switchError);
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('[Web3Helper] Could not read/switch chainId:', e);
+        }
+
+        // Request accounts (after network is correct)
+        await provider.request({ method: 'eth_requestAccounts' });
+      },
+      
+      connectSolanaWallet: async function() {
+        // Try window.solana first (standard)
+        let solana = window.solana;
+        
+        // Try window.phantom.solana
+        if (!solana && window.phantom) {
+          solana = window.phantom.solana;
+        }
+        
+        // Try window.braveSolana
+        if (!solana) {
+          solana = window.braveSolana;
+        }
+        
+        if (!solana) {
+          throw new Error('No Solana wallet detected. Please install Phantom, Solflare, or another Solana wallet extension.');
+        }
+        
+        // Connect if not already connected
+        if (!solana.isConnected) {
+          await solana.connect();
+        }
+      },
+      
+      callSupabaseWeb3SignIn: async function(projectUrl, anonKey, chain, statement) {
+        if (!window.supabase || !window.supabase.createClient) {
+          throw new Error('Supabase JS SDK not available');
+        }
+        
+        const client = window.supabase.createClient(projectUrl, anonKey);
+        
+        // Get wallet address before signing
+        let walletAddress = null;
+        try {
+          if (chain === 'ethereum') {
+            const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+            walletAddress = accounts[0];
+          } else if (chain === 'solana') {
+            const wallet = window.solana || (window.phantom && window.phantom.solana);
+            walletAddress = wallet.publicKey?.toString();
+          }
+        } catch (e) {
+          console.warn('[Web3Helper] Could not get wallet address:', e);
+        }
+        
+        const result = await client.auth.signInWithWeb3({
+          chain: chain,
+          statement: statement
+        });
+        
+        if (result.error) {
+          throw new Error(result.error.message || 'Web3 sign-in failed');
+        }
+        
+        if (!result.data || !result.data.session) {
+          throw new Error('No session returned from Web3 sign-in');
+        }
+        
+        const session = result.data.session;
+        const user = session.user;
+        
+        console.log('[Web3Helper] User data:', user);
+        console.log('[Web3Helper] User identities:', user.identities);
+        
+        // Extract wallet address from identity data
+        if (user.identities && user.identities.length > 0) {
+          const web3Identity = user.identities[0];
+          walletAddress = web3Identity.identity_data?.wallet_address || walletAddress;
+          console.log('[Web3Helper] Wallet from identity:', walletAddress);
+        }
+        
+        return {
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+          expires_in: session.expires_in || 3600,
+          token_type: session.token_type || 'bearer',
+          wallet_address: walletAddress,
+          chain: chain
+        };
+      }
+    };
+    
+    console.log('[Moneko] Web3 helper initialized, Supabase available:', window.monekoWeb3Helper.hasSupabase());
+  </script>
+</head>
+<body>
+  <!-- Use Flutter's recommended bootstrapping for service workers -->
+  <script src="flutter.js" defer></script>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

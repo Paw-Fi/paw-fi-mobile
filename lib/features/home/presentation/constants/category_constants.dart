@@ -33,6 +33,7 @@ final Map<String, Color> categoryColors = {
   'transportation': const Color(0xFFEF4444),
   'health': const Color(0xFF14B8A6),
   'medical': const Color(0xFF0EA5E9),
+  'healthcare': const Color(0xFF14B8A6),
   'text': const Color(0xFF22D3EE),
   'education': const Color(0xFFA855F7),
   'tuition': const Color(0xFFA855F7),
@@ -49,6 +50,10 @@ final Map<String, Color> categoryColors = {
   'income': const Color(0xFF16A34A),
   'salary': const Color(0xFF15803D),
   'bonus': const Color(0xFF0F766E),
+  'refund': const Color(0xFF10B981),
+  'gift': const Color(0xFF34D399),
+  'rental': const Color(0xFF059669),
+  'freelance': const Color(0xFF10B981),
   'travel': const Color(0xFF0EA5E9),
   'flights': const Color(0xFF0284C7),
   'vacation': const Color(0xFF0EA5E9),
@@ -66,6 +71,7 @@ final Map<String, Color> categoryColors = {
   'entertainment_subscriptions': const Color(0xFF6366F1),
   'misc': const Color(0xFF9CA3AF),
   'uncategorized': const Color(0xFF9CA3AF),
+  'other': const Color(0xFF9CA3AF),
 };
 
 final Map<String, IconData> categoryIcons = {
@@ -84,6 +90,7 @@ final Map<String, IconData> categoryIcons = {
   'vacation': Icons.beach_access,
   'health': Icons.favorite,
   'medical': Icons.local_hospital,
+  'healthcare': Icons.local_hospital,
   'text': Icons.sms,
   'education': Icons.school,
   'tuition': Icons.school,
@@ -100,6 +107,10 @@ final Map<String, IconData> categoryIcons = {
   'income': Icons.attach_money,
   'salary': Icons.payments,
   'bonus': Icons.card_giftcard,
+  'refund': Icons.reply,
+  'gift': Icons.card_giftcard,
+  'rental': Icons.house_siding,
+  'freelance': Icons.computer,
   'pets': Icons.pets,
   'kids': Icons.child_friendly,
   'family': Icons.family_restroom,
@@ -113,6 +124,7 @@ final Map<String, IconData> categoryIcons = {
   'beauty': Icons.brush,
   'misc': Icons.widgets,
   'uncategorized': Icons.category,
+  'other': Icons.category,
 };
 
 Color getCategoryColor(String? category) {
@@ -166,6 +178,8 @@ String getCategoryTranslation(BuildContext context, String? category) {
       return l10n.categoryHealth;
     case 'medical':
       return l10n.categoryMedical;
+    case 'healthcare':
+      return l10n.categoryHealthcare;
     case 'text':
       return l10n.categoryText;
     case 'education':
@@ -206,6 +220,8 @@ String getCategoryTranslation(BuildContext context, String? category) {
       return l10n.categoryFamily;
     case 'gifts':
       return l10n.categoryGifts;
+    case 'gift':
+      return l10n.categoryGifts;
     case 'charity':
       return l10n.categoryCharity;
     case 'fees':
@@ -231,4 +247,28 @@ String getCategoryTranslation(BuildContext context, String? category) {
       final fallbackCategory = category ?? 'uncategorized';
       return fallbackCategory.substring(0, 1).toUpperCase() + fallbackCategory.substring(1);
   }
+}
+
+/// Income-only canonical categories for selection (must match BE)
+List<String> getIncomeCategories() {
+  return const [
+    'salary',
+    'freelance',
+    'investment',
+    'refund',
+    'gift',
+    'bonus',
+    'rental',
+    'other',
+  ];
+}
+
+/// Expense-only canonical categories (all allowed minus income-focused and umbrella 'income')
+List<String> getExpenseCategories() {
+  final incomeCats = {...getIncomeCategories(), 'income'};
+  final keys = categoryColors.keys
+      .where((k) => !incomeCats.contains(k))
+      .toList();
+  keys.sort((a, b) => a.compareTo(b));
+  return keys;
 }

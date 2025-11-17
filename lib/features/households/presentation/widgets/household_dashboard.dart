@@ -12,6 +12,7 @@ import '../pages/household_expenses_page.dart';
 import '../../../home/presentation/models/expense_entry.dart';
 import '../../../home/presentation/widgets/unified_transaction_sheet.dart';
 import '../../../../shared/widgets/user_avatar.dart';
+import '../../../../../core/l10n/l10n.dart';
 
 /// Main household dashboard showing budgets, expenses, and splits
 class HouseholdDashboard extends ConsumerWidget {
@@ -56,7 +57,7 @@ class HouseholdDashboard extends ConsumerWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Shared Household',
+                          context.l10n.household,
                           style: TextStyle(
                             fontSize: 13,
                             color: colorScheme.mutedForeground,
@@ -94,7 +95,7 @@ class HouseholdDashboard extends ConsumerWidget {
                 children: [
                   _QuickActionButton(
                     icon: Icons.people_outline,
-                    label: 'Members',
+                    label: context.l10n.members,
                     onTap: () {
                       Navigator.push(
                         context,
@@ -109,7 +110,7 @@ class HouseholdDashboard extends ConsumerWidget {
                   const SizedBox(width: 12),
                   _QuickActionButton(
                     icon: Icons.link,
-                    label: 'Invite',
+                    label: context.l10n.invite,
                     onTap: () {
                       Navigator.push(
                         context,
@@ -133,7 +134,7 @@ class HouseholdDashboard extends ConsumerWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
-            'Shared Budgets',
+            context.l10n.sharedBudgets,
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -143,7 +144,7 @@ class HouseholdDashboard extends ConsumerWidget {
         ),
         const SizedBox(height: 12),
 
-        _buildBudgetsSection(ref, colorScheme),
+        _buildBudgetsSection(context, ref, colorScheme),
 
         const SizedBox(height: 24),
 
@@ -151,7 +152,7 @@ class HouseholdDashboard extends ConsumerWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
-            'Recent Activity',
+            context.l10n.recentActivity,
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -161,13 +162,13 @@ class HouseholdDashboard extends ConsumerWidget {
         ),
         const SizedBox(height: 12),
 
-        _buildRecentActivity(ref, colorScheme),
+        _buildRecentActivity(context, ref, colorScheme),
 
       ],
     );
   }
 
-  Widget _buildBudgetsSection(WidgetRef ref, shadcnui.ColorScheme colorScheme) {
+  Widget _buildBudgetsSection(BuildContext context, WidgetRef ref, shadcnui.ColorScheme colorScheme) {
     final budgetsAsync = ref.watch(householdBudgetsProvider(household.id));
 
     return budgetsAsync.when(
@@ -178,7 +179,7 @@ class HouseholdDashboard extends ConsumerWidget {
       error: (error, stack) => Padding(
         padding: const EdgeInsets.all(16),
         child: Text(
-          'Error loading budgets',
+          context.l10n.errorLoadingBudgets,
           style: TextStyle(color: colorScheme.destructive),
           textAlign: TextAlign.center,
         ),
@@ -191,7 +192,7 @@ class HouseholdDashboard extends ConsumerWidget {
               builder: (context) => Column(
                 children: [
                   Text(
-                    'No shared budgets yet',
+                    context.l10n.noSharedBudgetsYet,
                     style: TextStyle(
                       fontSize: 15,
                       color: colorScheme.mutedForeground,
@@ -210,7 +211,7 @@ class HouseholdDashboard extends ConsumerWidget {
                         ),
                       );
                     },
-                    child: const Text('Create Budget'),
+                    child: Text(context.l10n.createBudget),
                   ),
                 ],
               ),
@@ -234,7 +235,7 @@ class HouseholdDashboard extends ConsumerWidget {
     );
   }
 
-  Widget _buildRecentActivity(WidgetRef ref, shadcnui.ColorScheme colorScheme) {
+  Widget _buildRecentActivity(BuildContext context, WidgetRef ref, shadcnui.ColorScheme colorScheme) {
     final expensesParams = HouseholdExpensesParams(householdId: household.id);
     final expensesAsync = ref.watch(householdExpensesProvider(expensesParams));
 
@@ -246,7 +247,7 @@ class HouseholdDashboard extends ConsumerWidget {
       error: (error, stack) => Padding(
         padding: const EdgeInsets.all(16),
         child: Text(
-          'Error loading activity',
+          context.l10n.errorLoadingActivity,
           style: TextStyle(color: colorScheme.destructive),
           textAlign: TextAlign.center,
         ),
@@ -263,7 +264,7 @@ class HouseholdDashboard extends ConsumerWidget {
               ),
               child: Center(
                 child: Text(
-                  'No recent activity',
+                  context.l10n.noRecentActivity,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 15,
@@ -307,7 +308,7 @@ class HouseholdDashboard extends ConsumerWidget {
                     },
                     child: Center(
                       child: Text(
-                        'View All Expenses',
+                        context.l10n.viewAllExpenses,
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -327,7 +328,7 @@ class HouseholdDashboard extends ConsumerWidget {
   }
 
   // ignore: unused_element
-  Widget _buildSplitsSection(WidgetRef ref, shadcnui.ColorScheme colorScheme) {
+  Widget _buildSplitsSection(BuildContext context, WidgetRef ref, shadcnui.ColorScheme colorScheme) {
     final splitsParams = HouseholdSplitsParams(householdId: household.id);
     final splitsAsync = ref.watch(householdSplitsProvider(splitsParams));
 
@@ -339,7 +340,7 @@ class HouseholdDashboard extends ConsumerWidget {
       error: (error, stack) => Padding(
         padding: const EdgeInsets.all(16),
         child: Text(
-          'Error loading splits',
+          context.l10n.errorLoadingSplits,
           style: TextStyle(color: colorScheme.destructive),
           textAlign: TextAlign.center,
         ),
@@ -356,7 +357,7 @@ class HouseholdDashboard extends ConsumerWidget {
               ),
               child: Center(
                 child: Text(
-                  'No pending splits',
+                  context.l10n.noPendingSplits,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 15,
@@ -512,7 +513,7 @@ class _SplitCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Expense Split',
+                  context.l10n.splitExpense,
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -521,7 +522,7 @@ class _SplitCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Pending settlement',
+                  context.l10n.pendingSettlement,
                   style: TextStyle(
                     fontSize: 14,
                     color: colorScheme.mutedForeground,
@@ -568,9 +569,9 @@ class _ExpenseActivityCard extends StatelessWidget {
 
     String dateText;
     if (expenseDate == today) {
-      dateText = 'Today';
+      dateText = context.l10n.today;
     } else if (expenseDate == yesterday) {
-      dateText = 'Yesterday';
+      dateText = context.l10n.yesterday;
     } else {
       dateText = '${expense.date.month}/${expense.date.day}/${expense.date.year}';
     }
@@ -586,7 +587,7 @@ class _ExpenseActivityCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  expense.category ?? 'Expense',
+                  expense.category ?? context.l10n.expense,
                   style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w600,
@@ -638,7 +639,7 @@ class _ExpenseActivityCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          'SPLIT',
+                          context.l10n.split,
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
@@ -654,14 +655,19 @@ class _ExpenseActivityCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          Text(
-            '\$${(expense.amountCents / 100).toStringAsFixed(2)}',
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w700,
-              color: colorScheme.foreground,
-            ),
-          ),
+          Builder(builder: (_) {
+            final isIncome = (expense.type ?? 'expense').toLowerCase() == 'income';
+            final sign = isIncome ? '+' : '-';
+            final txt = '$sign\${(expense.amountCents / 100).toStringAsFixed(2)}';
+            return Text(
+              txt,
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: isIncome ? const Color(0xFF10B981) : colorScheme.foreground,
+              ),
+            );
+          }),
         ],
       ),
     );

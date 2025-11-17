@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+// import 'package:moneko/core/theme/theme.dart'; // Unnecessary (covered by core.dart)
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -21,6 +21,8 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/features/home/presentation/widgets/mom_trend_bar.dart';
+// Removed unused imports
 
 // ============================================================================
 // HOME PAGE
@@ -124,6 +126,54 @@ class _HomePageState extends ConsumerState<HomePage> {
     super.dispose();
   }
 
+  /// Helper to get date range from current filter
+  Map<String, DateTime?> _getDateRangeFromFilter() {
+    final filter = ref.read(homeFilterProvider).dateRangeFilter;
+    final now = DateTime.now();
+    DateTime? startDate;
+    DateTime? endDate = now;
+    
+    switch (filter) {
+      case DateRangeFilter.today:
+        startDate = DateTime(now.year, now.month, now.day);
+        break;
+      case DateRangeFilter.yesterday:
+        final yesterday = now.subtract(const Duration(days: 1));
+        startDate = DateTime(yesterday.year, yesterday.month, yesterday.day);
+        endDate = DateTime(yesterday.year, yesterday.month, yesterday.day, 23, 59, 59);
+        break;
+      case DateRangeFilter.thisWeek:
+        // Start from Monday
+        final weekday = now.weekday;
+        startDate = now.subtract(Duration(days: weekday - 1));
+        break;
+      case DateRangeFilter.lastWeek:
+        final weekday = now.weekday;
+        final lastMonday = now.subtract(Duration(days: weekday + 6));
+        final lastSunday = now.subtract(Duration(days: weekday));
+        startDate = DateTime(lastMonday.year, lastMonday.month, lastMonday.day);
+        endDate = DateTime(lastSunday.year, lastSunday.month, lastSunday.day, 23, 59, 59);
+        break;
+      case DateRangeFilter.last30Days:
+        startDate = now.subtract(const Duration(days: 30));
+        break;
+      case DateRangeFilter.thisMonth:
+        startDate = DateTime(now.year, now.month, 1);
+        break;
+      case DateRangeFilter.allTime:
+        startDate = null;
+        endDate = null;
+        break;
+      case DateRangeFilter.custom:
+        // For custom, use filter's custom dates if available
+        startDate = null;
+        endDate = null;
+        break;
+    }
+    
+    return {'startDate': startDate, 'endDate': endDate};
+  }
+
   Future<void> _handleCameraCapture() async {
     debugPrint('🎥 Starting camera capture...');
     
@@ -144,7 +194,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       }
     } catch (e) {
       if (mounted) {
-        _showToast('Failed to capture photo: ${e.toString()}');
+        _showToast('${context.l10n.failedToCapturePhoto}: ${e.toString()}');
       }
     }
   }
@@ -195,9 +245,15 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
 
     try {
+      final locale = Localizations.localeOf(context);
+      final languageTag = locale.countryCode != null && locale.countryCode!.isNotEmpty
+          ? '${locale.languageCode}-${locale.countryCode!.toUpperCase()}'
+          : locale.languageCode;
+
       Map<String, dynamic> body = {
         'userId': user.uid,
         'date': DateTime.now().toIso8601String().split('T')[0],
+        'language': languageTag,
       };
       
       // Determine currency based on view mode
@@ -240,7 +296,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         };
       }
 
-      // Call analyze-expense endpoint (NEW: doesn't save yet)
+      // Call analyze-expense endpoint (NEW: doesn't save yet). Backend now classifies income vs expense.
       final response = await supabase.functions.invoke(
         'analyze-expense',
         body: body,
@@ -259,14 +315,38 @@ class _HomePageState extends ConsumerState<HomePage> {
         final responseData = response.data['data'];
         
         if (responseData != null && responseData['items'] != null) {
-          final items = responseData['items'] as List;
+          List items = List.from(responseData['items'] as List);
+          // Safety filter: drop total/subtotal rows when multiple items exist
+          if (items.length > 1) {
+            bool isTotalLike(dynamic it) {
+              final desc = (it is Map && it['description'] is String) ? (it['description'] as String) : '';
+              return RegExp(r'(sub\s*total|subtotal|grand\s*total|total)', caseSensitive: false).hasMatch(desc);
+            }
+            final filtered = items.where((it) => !isTotalLike(it)).toList();
+            if (filtered.isNotEmpty) items = filtered;
+            // Additional check: if any item equals sum of others, drop it
+            double amt(dynamic it) {
+              final a = (it is Map && it['amount'] != null) ? (it['amount'] as num).toDouble() : 0.0;
+              return a;
+            }
+            items = items.where((it) {
+              final others = items.where((x) => !identical(x, it)).toList();
+              final sumOthers = others.fold<double>(0.0, (s, x) => s + amt(x));
+              return (amt(it) - sumOthers).abs() > 1e-6;
+            }).toList();
+          }
           
           if (items.isNotEmpty) {
             // Parse ALL items from the response
-            final parsedExpenses = items.map((item) {
+            final parsed = items.map((item) {
+              final isIncome = (item['type']?.toString().toLowerCase() == 'income');
               return ParsedExpense(
+                isIncome: isIncome,
                 amount: (item['amount'] as num).toDouble(),
-                category: item['category'] as String,
+                // Normalize income categories to at least 'income' umbrella if model returns a granular one
+                category: (item['category'] as String?)?.isNotEmpty == true
+                    ? (isIncome ? (item['category'] as String) : item['category'] as String)
+                    : (isIncome ? 'income' : 'other'),
                 currency: item['currency'] as String,
                 currencySymbol: item['currencySymbol'] as String? ?? '\$',
                 date: DateTime.parse(item['date'] as String),
@@ -275,17 +355,26 @@ class _HomePageState extends ConsumerState<HomePage> {
               );
             }).toList();
 
-            // If only one expense, show single confirmation
-            if (parsedExpenses.length == 1) {
-              ref.read(pendingExpenseProvider.notifier).state = parsedExpenses[0];
+            // Partition by type to handle mixed cases robustly
+            final incomes = parsed.where((p) => p.isIncome).toList();
+            final expenses = parsed.where((p) => !p.isIncome).toList();
+
+            if (parsed.length == 1) {
+              ref.read(pendingExpenseProvider.notifier).state = parsed.first;
               showUnifiedTransactionSheet(
                 context,
-                newExpense: parsedExpenses[0],
+                newExpense: parsed.first,
                 localImagePath: imagePath,
               );
+            } else if (incomes.isNotEmpty && expenses.isNotEmpty) {
+              // We don't auto-merge mixed types. Ask user to submit separately.
+              _showToast('${context.l10n.failedToAnalyzeNoData} (mixed income and expense detected; please submit separately)');
+            } else if (incomes.isNotEmpty) {
+              // Multiple income items - combine into a single summarized income
+              _showMultiIncomeConfirmation(incomes, imagePath);
             } else {
-              // Multiple expenses - show list confirmation
-              _showMultiExpenseConfirmation(parsedExpenses, imagePath);
+              // Multiple expenses - combine existing behavior
+              _showMultiExpenseConfirmation(expenses, imagePath);
             }
           } else {
             _showToast(context.l10n.noExpenseInformationExtracted);
@@ -304,7 +393,29 @@ class _HomePageState extends ConsumerState<HomePage> {
       // Close processing modal
       Navigator.of(context, rootNavigator: true).pop();
 
-      _showToast('${context.l10n.failedToAnalyze}: ${e.toString()}');
+      String errorMessage;
+      // Check if exception has a 'details' property with an 'error' field
+      if (e.runtimeType.toString().contains('Exception') && 
+          e.toString().contains('status: 400') &&
+          e.toString().contains('details:')) {
+        // Parse the error from the exception string representation
+        final detailsMatch = RegExp(r'details: \{([^}]+)\}').firstMatch(e.toString());
+        if (detailsMatch != null) {
+          final detailsStr = detailsMatch.group(1) ?? '';
+          final errorMatch = RegExp(r'error: ([^,]+)').firstMatch(detailsStr);
+          if (errorMatch != null) {
+            errorMessage = errorMatch.group(1)?.replaceAll("'", '').trim() ?? context.l10n.failedToAnalyze;
+          } else {
+            errorMessage = context.l10n.failedToAnalyze;
+          }
+        } else {
+          errorMessage = context.l10n.failedToAnalyze;
+        }
+      } else {
+        errorMessage = e.toString();
+      }
+      
+      AppToast.error('${context.l10n.failedToAnalyze}: $errorMessage');
     }
   }
 
@@ -321,18 +432,18 @@ class _HomePageState extends ConsumerState<HomePage> {
         .reduce((a, b) => a.value > b.value ? a : b)
         .key;
     
-    // Build combined description with all items
-    final currencySymbol = expenses.first.currencySymbol;
-    final itemDescriptions = expenses.map((e) => 
-      '${e.description ?? e.category} $currencySymbol${e.amount.toStringAsFixed(2)}'
-    ).join(', ');
+    // Use AI-generated descriptions as-is - DO NOT append amounts (AI already includes them)
+    final itemDescriptions = expenses
+        .map((e) => e.description ?? e.category)
+        .where((s) => s.trim().isNotEmpty)
+        .join(', ');
     
     // Create single combined expense
     final combinedExpense = ParsedExpense(
       amount: totalAmount,
       category: mostCommonCategory,
       currency: expenses.first.currency,
-      currencySymbol: currencySymbol,
+      currencySymbol: expenses.first.currencySymbol,
       date: expenses.first.date,
       description: itemDescriptions,
       localImagePath: imagePath,
@@ -347,6 +458,35 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
+  void _showMultiIncomeConfirmation(List<ParsedExpense> incomes, String? imagePath) {
+    // Sum all income amounts and use AI-generated descriptions as-is
+    final totalAmount = incomes.fold<double>(0, (sum, inc) => sum + inc.amount);
+    
+    // Use AI-generated descriptions directly - DO NOT add prefixes or modify
+    final combinedDescription = incomes
+        .map((e) => e.description ?? e.category)
+        .where((s) => s.trim().isNotEmpty)
+        .join(', ');
+
+    final combined = ParsedExpense(
+      isIncome: true,
+      amount: totalAmount,
+      category: 'income',
+      currency: incomes.first.currency,
+      currencySymbol: incomes.first.currencySymbol,
+      date: incomes.first.date,
+      description: combinedDescription.isNotEmpty ? combinedDescription : context.l10n.income,
+      localImagePath: imagePath,
+    );
+
+    ref.read(pendingExpenseProvider.notifier).state = combined;
+    showUnifiedTransactionSheet(
+      context,
+      newExpense: combined,
+      localImagePath: imagePath,
+    );
+  }
+
   void _showTextInputDrawer() {
     showTextInputDrawer(
       context,
@@ -356,27 +496,6 @@ class _HomePageState extends ConsumerState<HomePage> {
         await _processExpense(text: text);
       },
     );
-  }
-
-  void _showJointAccountModal() {
-    // Simply switch to household mode
-    // The HouseholdHomeContent widget will handle loading, empty, and error states
-    final user = ref.read(authProvider);
-    
-    // ✅ CRITICAL: Invalidate households provider to force refresh when switching modes
-    debugPrint('🔄 Switching to household mode - invalidating userHouseholdsProvider');
-    ref.invalidate(userHouseholdsProvider(user.uid));
-    
-    ref.read(viewModeProvider.notifier).setMode(ViewMode.household);
-  }
-
-  void _showDateRangeFilter() {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
-    showDateRangeFilter(context, colorScheme, height: 480);
-  }
-
-  void _showCurrencySelector() {
-    showCurrencySelectorModal(context, ref);
   }
 
   Future<void> _showBudgetUpdateSheet() async {
@@ -616,6 +735,24 @@ class _HomePageState extends ConsumerState<HomePage> {
     final viewMode = ref.watch(viewModeProvider);
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
 
+    // Listen for date filter changes and reload analytics with date filters
+    ref.listen<HomeFilterState>(homeFilterProvider, (previous, next) {
+      if (previous?.dateRangeFilter != next.dateRangeFilter) {
+        debugPrint('🔄 Date filter changed: ${previous?.dateRangeFilter} → ${next.dateRangeFilter}');
+        
+        final dateRange = _getDateRangeFromFilter();
+        final startDate = dateRange['startDate'];
+        final endDate = dateRange['endDate'];
+        
+        debugPrint('🔄 Reloading analytics with date range: $startDate to $endDate');
+        ref.read(analyticsProvider.notifier).loadData(
+          user.uid,
+          startDate: startDate,
+          endDate: endDate,
+        );
+      }
+    });
+
     // Only show loading indicator if we've never loaded before
     // If we have data already, show it even if a refresh is in progress
     if (analyticsData.isLoading && !(analyticsData.hasLoadedOnce ?? false)) {
@@ -643,7 +780,14 @@ class _HomePageState extends ConsumerState<HomePage> {
                 ),
                 const SizedBox(height: 24),
                 shadcnui.PrimaryButton(
-                  onPressed: () => ref.read(analyticsProvider.notifier).refresh(user.uid),
+                  onPressed: () {
+                    final dateRange = _getDateRangeFromFilter();
+                    ref.read(analyticsProvider.notifier).refresh(
+                      user.uid,
+                      startDate: dateRange['startDate'],
+                      endDate: dateRange['endDate'],
+                    );
+                  },
                   child: Text(context.l10n.retry),
                 ),
               ],
@@ -672,174 +816,23 @@ class _HomePageState extends ConsumerState<HomePage> {
                   ref.invalidate(householdMembersProvider); // FIXED: Added member info refresh
                   debugPrint('✅ Invalidated: households, expenses, splits, budgets, summary, members');
                 } else {
-                  // In personal mode: refresh analytics
-                  ref.read(analyticsProvider.notifier).refresh(user.uid);
+                  // In personal mode: refresh analytics with current date filters
+                  final dateRange = _getDateRangeFromFilter();
+                  ref.read(analyticsProvider.notifier).refresh(
+                    user.uid,
+                    startDate: dateRange['startDate'],
+                    endDate: dateRange['endDate'],
+                  );
                 }
                 await Future.delayed(const Duration(milliseconds: 500));
               },
               child: CustomScrollView(
                 slivers: [
-                  // App Bar
                   SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            context.l10n.overview,
-                            style: TextStyle(
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                              color: colorScheme.foreground,
-                            ),
-                          ),
-                          // Account Type Switch (always visible)
-                          Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: colorScheme.muted,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                // Single
-                                GestureDetector(
-                                  onTap: viewMode.mode == ViewMode.personal
-                                      ? null
-                                      : () {
-                                          HapticFeedback.lightImpact();
-                                          SystemSound.play(SystemSoundType.click);
-                                          ref.read(viewModeProvider.notifier).setPersonalMode();
-                                        },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: viewMode.mode == ViewMode.personal
-                                          ? colorScheme.primary
-                                          : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    child: Text(
-                                      context.l10n.forMe,
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: viewMode.mode == ViewMode.personal
-                                            ? FontWeight.w600
-                                            : FontWeight.w500,
-                                        color: viewMode.mode == ViewMode.personal
-                                            ? colorScheme.buttonText
-                                            : colorScheme.mutedForeground,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                // Joint
-                                GestureDetector(
-                                  onTap: viewMode.mode == ViewMode.household
-                                      ? null
-                                      : () {
-                                          HapticFeedback.lightImpact();
-                                          SystemSound.play(SystemSoundType.click);
-                                          _showJointAccountModal();
-                                        },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: viewMode.mode == ViewMode.household
-                                          ? colorScheme.primary
-                                          : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    child: Text(
-                                      context.l10n.forUs,
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: viewMode.mode == ViewMode.household
-                                            ? FontWeight.w600
-                                            : FontWeight.w500,
-                                        color: viewMode.mode == ViewMode.household
-                                            ? colorScheme.buttonText
-                                            : colorScheme.mutedForeground,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+                    child: HomeHeaderSliver(
+                      title: context.l10n.overview,
                     ),
                   ),
-
-                  // Period Selector with Currency Button (shown in both modes; filters household content too)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          // Left side:  Currency Button
-                          Row(
-                            children: [
-                              // Currency selector button
-                              GestureDetector(
-                                onTap: _showCurrencySelector,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: colorScheme.muted,
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        filterState.selectedCurrency ?? 'USD',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          color: colorScheme.foreground,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Icon(
-                                        Icons.arrow_drop_down,
-                                        color: colorScheme.foreground,
-                                        size: 18,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          // Right side: Date filter
-                          GestureDetector(
-                            onTap: _showDateRangeFilter,
-                            child: Row(
-                              children: [
-                                Text(
-                                  filterState.dateRangeFilter.getLabel(context),
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: colorScheme.primary,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                               
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
                   // Switch between Personal and Household content
                   if (viewMode.mode == ViewMode.household)
@@ -848,18 +841,18 @@ class _HomePageState extends ConsumerState<HomePage> {
                     // Personal mode - show analytics content
                     // Spending Card with Line Chart
                     SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: buildSpendingCard(
-                        context,
-                        colorScheme, 
-                        filteredExpenses, 
-                        analyticsData.contact, 
-                        filterState.dateRangeFilter,
-                        selectedCurrency: filterState.selectedCurrency,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: buildSpendingCard(
+                          context,
+                          colorScheme,
+                          filteredExpenses,
+                          analyticsData.contact,
+                          filterState.dateRangeFilter,
+                          selectedCurrency: filterState.selectedCurrency,
+                        ),
                       ),
                     ),
-                  ),
 
                   const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
@@ -891,12 +884,33 @@ class _HomePageState extends ConsumerState<HomePage> {
                               context,
                               colorScheme, 
                               filteredBudgets, 
-                              filteredExpenses, 
+                              ref.watch(homeFilteredTransactionsProvider), 
                               analyticsData.contact,
                               filterState.dateRangeFilter,
                               selectedCurrency: filterState.selectedCurrency,
                             ),
                           ),
+                          const SizedBox(width: 12),
+                          // TODO: Add CashflowSparklineCard
+                          // const SizedBox(
+                          //   width: 200,
+                          //   child: CashflowSparklineCard(),
+                          // ),
+                          // const SizedBox(width: 12),
+                          const SizedBox(
+                            width: 200,
+                            child:  MoMTrendBar(),
+                          ),
+                          // const SizedBox(width: 12),
+                          // const SizedBox(
+                          //   width: 200,
+                          //   child: SavingsRateTile(),
+                          // ),
+                          // const SizedBox(width: 12),
+                          // const SizedBox(
+                          //   width: 200,
+                          //   child: RunwayGauge(),
+                          // ),
                           const SizedBox(width: 12),
                         ],
                       ),
@@ -909,21 +923,19 @@ class _HomePageState extends ConsumerState<HomePage> {
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: GestureDetector(
-                        onTap: () {
+                      child: buildCategoryBreakdownCard(
+                        context,
+                        colorScheme,
+                        ref.watch(homeFilteredTransactionsProvider),
+                        analyticsData.contact,
+                        selectedCurrency: filterState.selectedCurrency,
+                        onViewAll: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
                               builder: (_) => const TransactionsPage(),
                             ),
                           );
                         },
-                        child: buildCategoryBreakdownCard(
-                          context, 
-                          colorScheme, 
-                          filteredExpenses, 
-                          analyticsData.contact,
-                          selectedCurrency: filterState.selectedCurrency,
-                        ),
                       ),
                     ),
                   ),

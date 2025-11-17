@@ -43,6 +43,8 @@
   "termsAgreement": "By creating an account, you agree to our Terms of Service and Privacy Policy",
   "alreadyHaveAccount": "Already have an account?",
   "signInLower": "Sign in",
+  "continueWithWallet": "Continue with Web3 Wallet",
+  "signingInWithWallet": "Connecting wallet...",
 
   "verificationCodeSent": "Verification code sent successfully",
   "verifyYourEmail": "Verify Your Email",
@@ -279,8 +281,9 @@
   "startLoggingExpensesToSeeCategories": "Start logging expenses to see categories",
   "selectDateRange": "Select Date Range",
   "addExpense": "Add Expense",
-  "describeYourExpense": "Describe your expense (eg: \"5 for burger, 3 for coffee\")",
-  "enterExpenseDetails": "Enter expense details...",
+  "describeYourExpense": "Describe your expense or income. One type per entry.",
+  "enterExpenseDetails": "\"5 for burger, 3 for coffee\" • \"received 100 from parents\"",
+  "addEntry": "Add Entry",
   "freeFormText": "Free-form text",
   "takePhoto": "Take photo",
   "transactions": "transactions",
@@ -867,6 +870,18 @@
   "currency": "Currency",
   "notes": "Notes",
   "receipt": "Receipt",
+
+  "@recurringTransactions": {},
+  "recurring": "Recurring",
+  "manageYourRecurringTransactions": "Manage your recurring transactions",
+  "errorLoadingData": "Error Loading Data",
+  "deleteRecurringTransaction": "Delete Recurring Transaction",
+  "areYouSureYouWantToDeleteThisRecurringTransaction": "Are you sure you want to delete this recurring transaction?",
+  "recurringTransactionDeleted": "Recurring transaction deleted",
+  "transactionDeleted": "Transaction deleted",
+  "transactions": "Transactions",
+  "recentTransactions": "Recent transactions",
+  "failedToDeleteRecurringTransaction": "Failed to delete recurring transaction",
   "saveExpense": "Save Expense",
   "currencyIsManagedByHousehold": "Currency is managed by the household and cannot be changed",
   "editAmount": "Edit Amount",
@@ -1057,6 +1072,42 @@
   "weekly": "Weekly",
   "monthly": "Monthly",
   "yearly": "Yearly",
+  "biweekly": "Biweekly",
+  "oneTime": "One-time",
+  "custom": "Custom",
+  "everyXDays": "Every {count} days",
+  "@everyXDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXWeeks": "Every {count} weeks",
+  "@everyXWeeks": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "every2Weeks": "Every 2 weeks",
+  "everyXMonths": "Every {count} months",
+  "@everyXMonths": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXYears": "Every {count} years",
+  "@everyXYears": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "householdBudgetType": "Household Budget",
   "personalBudgetType": "Personal Budget",
 
@@ -1188,6 +1239,8 @@
   "income": "Income",
   "addIncome": "Add Income",
   "incomeAdded": "Income added successfully",
+  "incomeSaved": "Income saved",
+  "incomeSavedAndShared": "Income saved and shared",
   "noIncome": "No Income Yet",
   "noIncomeDescription": "Record your income to track your household's financial health",
   "totalIncome": "Total Income",
@@ -1223,6 +1276,8 @@
   "date": "Date",
   "time": "Time",
   "retry": "Retry",
+  "days": "days",
+  "hours": "hours",
 
   "@goalsFeature": {},
   "goals": "Goals",
@@ -1261,5 +1316,132 @@
   "addContribution": "Add Contribution",
   "contributionAmount": "Contribution Amount",
   "contributionType": "Type",
-  "contributionAdded": "Contribution added successfully"
+  "contributionAdded": "Contribution added successfully",
+
+  "pleaseSelectCategory": "Please select a category",
+  "pleaseEnterAmount": "Please enter an amount",
+  "userNotAuthenticated": "User not authenticated",
+  "recurringExpenseUpdatedSuccessfully": "Recurring expense updated successfully",
+  "recurringExpenseAddedSuccessfully": "Recurring expense added successfully",
+  "recurringIncomeUpdatedSuccessfully": "Recurring income updated successfully",
+  "recurringIncomeAddedSuccessfully": "Recurring income added successfully",
+  "failedToUpdateRecurringExpense": "Failed to update recurring expense",
+  "failedToAddRecurringExpense": "Failed to add recurring expense",
+  "failedToUpdateRecurringIncome": "Failed to update recurring income",
+  "failedToAddRecurringIncome": "Failed to add recurring income",
+  "editRecurringExpense": "Edit Recurring Expense",
+  "editRecurringIncome": "Edit Recurring Income",
+  "addRecurringExpense": "Add Recurring Expense",
+  "addRecurringIncome": "Add Recurring Income",
+  "selectCategory": "Select category",
+  "frequency": "Frequency",
+  "startDate": "Start Date",
+  "setEndDate": "Set end date",
+  "endDate": "End Date",
+  "selectEndDate": "Select end date",
+  "descriptionOptional": "Description (Optional)",
+  "sourceOptional": "Source (Optional)",
+  "companyNameClientNameExample": "e.g., Company name, Client name",
+  "setReminder": "Set reminder",
+  "updateRecurringTransaction": "Update Recurring Transaction",
+  "addRecurringTransaction": "Add Recurring Transaction",
+  "youWillBeNotifiedBeforeEachOccurrence": "You will be notified {value} {unit} before each occurrence",
+  "@youWillBeNotifiedBeforeEachOccurrence": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      },
+      "unit": {
+        "type": "String"
+      }
+    }
+  },
+  "addReminder": "Add Reminder",
+  "ended": "Ended",
+  "noRecurringExpenses": "No Recurring Expenses",
+  "noRecurringIncome": "No Recurring Income",
+  "setupAutomaticExpenseTracking": "Set up automatic expense tracking for subscriptions, bills, and regular payments",
+  "setupAutomaticIncomeTracking": "Set up automatic income tracking for salary, freelance work, and regular earnings",
+  "confirmIncome": "Confirm Income",
+  "saveIncome": "Save Income",
+  "addReceiptPhoto": "Add Receipt Photo",
+  "tapToTakePhoto": "Tap to take a photo of your receipt",
+  "atLeastOneMember": "At least one member must be included",
+  "memberMustHaveShare": "At least one member must have a share greater than 0",
+  "monthOverMonthSpending": "Month-over-month spending",
+  "last3Months": "Last 3 months",
+
+  "breakdown": "Breakdown",
+  "noOutstandingItems": "No outstanding items",
+  "theyOweYou": "They owe you",
+  "expressNetting": "Express netting",
+  "detailedSettlement": "Detailed settlement",
+  "expressNettingHint": "This is a netting suggestion. Confirming will settle all your outstanding with this member.",
+  "settle": "Settle",
+  "confirmSettlement": "Confirm settlement",
+  "confirmSettlementMessage": "This will mark all your outstanding items with this member as settled.",
+  "pleaseSelectMember": "Please select a member",
+  "settlementCompleted": "Settlement completed",
+  "nothingToSettle": "Nothing to settle",
+  "expense": "Expense",
+  "settlement": "Settlement",
+  "suggestedNetTransfers": "Suggested net transfers",
+  "detailedPairwiseDues": "Detailed pairwise dues",
+  "outstanding": "Outstanding",
+  "youAreOwedBy": "You're owed by",
+  "noOutstandingAmounts": "No outstanding amounts",
+  "groupFairnessTitle": "Group Fairness",
+  "groupFairness": "Group fairness",
+  "groupFairnessExplanation": "This shows how evenly spending is distributed among household members.\n\nA higher percentage means everyone is contributing their fair share. A lower percentage suggests some members are covering more expenses than others.\n\nThink of it like a team effort — when everyone pitches in equally, the fairness score is high. When one person is carrying most of the load, it drops.\n\nThe \"even share\" tells you what each person would owe if everything was split equally.",
+  "noMemberDataYet": "No member data yet",
+  "evenShare": "Even share: {amount}",
+  "@evenShare": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "viewHousehold": "View Household",
+  "invalidInvitationMissingInfo": "Invalid invitation: missing household information",
+  "joinedHouseholdWithName": "You've successfully joined {name}!",
+  "@joinedHouseholdWithName": {"placeholders": {"name": {"type": "String"}}},
+  "joinedHousehold": "You've successfully joined the household!",
+  "errorLoadingData": "Error loading data",
+  "errorLoadingSplits": "Error loading splits",
+  "markAsSettled": "Mark as Settled",
+  "splitDetails": "Split Details",
+  "equalSplit": "EQUAL SPLIT",
+  "errorLoadingBudgets": "Error loading budgets",
+  "noSharedBudgetsYet": "No shared budgets yet",
+  "whoCanSeeThisExpense": "Who can see this expense?",
+  "onlyVisibleToYou": "Only visible to you",
+  "chooseSpecificMembers": "Choose specific members",
+  "selectMembers": "Select Members",
+  "noMembersFound": "No members found",
+  "membersSelectedCount": "{count} selected",
+  "@membersSelectedCount": {"placeholders": {"count": {"type": "int"}}},
+  "noSplitsYet": "No splits yet",
+  "startSplittingExpensesWithYourHousehold": "Start splitting expenses with your household",
+  "minutesAgoShort": "{count}m ago",
+  "@minutesAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "hoursAgoShort": "{count}h ago",
+  "@hoursAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "daysAgoShort": "{count}d ago",
+  "@daysAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "weeksAgoShort": "{count}w ago",
+  "@weeksAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "errorLoadingActivity": "Error loading activity",
+  "noRecentActivity": "No recent activity",
+  "viewAllExpenses": "View All Expenses",
+  "noPendingSplits": "No pending splits",
+  "pendingSettlement": "Pending settlement"
+  ,
+  "youreIn": "You're in! 🎉",
+  "invitationError": "Invitation Error",
+  "joiningHousehold": "Joining Household",
+  "processingInvitation": "Processing invitation..."
+  ,
+  "noHouseholdsAvailableCreateOrJoin": "No households available. Create or join a household first.",
+  "selectHousehold": "Select Household"
 }

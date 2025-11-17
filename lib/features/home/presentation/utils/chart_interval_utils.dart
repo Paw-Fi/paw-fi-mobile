@@ -6,16 +6,15 @@ import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 String getChartIntervalTypeFromFilter(DateRangeFilter filter) {
   switch (filter) {
     case DateRangeFilter.today:
-      return 'hourly'; // 6 4-hour blocks for single day
     case DateRangeFilter.yesterday:
+      return 'hourly'; // Show hourly intervals for single day views
     case DateRangeFilter.thisWeek:
     case DateRangeFilter.lastWeek:
-      return 'daily'; // 7 days
     case DateRangeFilter.last30Days:
     case DateRangeFilter.thisMonth:
-      return 'daily'; // 7 days
+      return 'daily'; // Show daily intervals for week/month views
     case DateRangeFilter.allTime:
-      return 'yearly';
+      return 'yearly'; // Show yearly intervals for all-time view
     case DateRangeFilter.custom:
       return 'daily'; // Default to daily for custom ranges
   }
@@ -52,19 +51,21 @@ Map<DateTime, double> groupExpensesByInterval(
   List<ExpenseEntry> expenses,
   String intervalType,
 ) {
-  if (expenses.isEmpty) return {};
+  // Exclude income entries; this util is used for spending charts
+  final spendOnly = expenses.where((e) => (e.type ?? 'expense').toLowerCase() != 'income').toList();
+  if (spendOnly.isEmpty) return {};
 
   switch (intervalType) {
     case 'hourly':
-      return _groupByHourRanges(expenses);
+      return _groupByHourRanges(spendOnly);
     case 'daily':
-      return _groupBySevenDays(expenses);
+      return _groupBySevenDays(spendOnly);
     case 'monthly':
-      return _groupByMonthPairs(expenses);
+      return _groupByMonthPairs(spendOnly);
     case 'yearly':
-      return _groupBySevenYears(expenses);
+      return _groupBySevenYears(spendOnly);
     default:
-      return _groupBySevenDays(expenses);
+      return _groupBySevenDays(spendOnly);
   }
 }
 
@@ -108,26 +109,32 @@ Map<DateTime, double> _groupByHourRanges(List<ExpenseEntry> expenses) {
   return buckets;
 }
 
-/// Groups expenses into exactly 7 days
+/// Groups expenses into exactly 7 days going backwards from today
 Map<DateTime, double> _groupBySevenDays(List<ExpenseEntry> expenses) {
   if (expenses.isEmpty) return {};
   
   final Map<DateTime, double> buckets = {};
   
-  // Get date range from expenses
+  // Anchor the last bucket to "today" (local, date only)
   final sortedExpenses = expenses.toList()..sort((a, b) => a.date.compareTo(b.date));
-  final oldestDate = sortedExpenses.first.date;
-  final newestDate = sortedExpenses.last.date;
+  final oldestDate = DateTime(sortedExpenses.first.date.year, sortedExpenses.first.date.month, sortedExpenses.first.date.day);
+  final newestDate = DateTime(sortedExpenses.last.date.year, sortedExpenses.last.date.month, sortedExpenses.last.date.day);
+  final today = DateTime.now();
+  final todayOnly = DateTime(today.year, today.month, today.day);
+  
+  // If newest expense is in the future (unlikely), clamp to that day, otherwise to today
+  final endDate = newestDate.isAfter(todayOnly) ? newestDate : todayOnly;
   
   // Calculate day span
-  final daySpan = newestDate.difference(oldestDate).inDays + 1;
+  final daySpan = endDate.difference(oldestDate).inDays + 1;
   
-  // Create 7 evenly distributed buckets
-  final bucketSize = (daySpan / 7).ceil();
+  // Create 7 evenly distributed buckets going backwards from endDate
+  final bucketSize = (daySpan / 7).ceil().clamp(1, 999);
   
-  for (int i = 0; i < 7; i++) {
-    final bucketStart = DateTime(oldestDate.year, oldestDate.month, oldestDate.day).add(Duration(days: i * bucketSize));
-    buckets[bucketStart] = 0.0;
+  for (int i = 6; i >= 0; i--) {
+    final bucketStart = endDate.subtract(Duration(days: i * bucketSize));
+    final normalizedDate = DateTime(bucketStart.year, bucketStart.month, bucketStart.day);
+    buckets[normalizedDate] = 0.0;
   }
 
   // Fill buckets with expense data
@@ -136,8 +143,14 @@ Map<DateTime, double> _groupBySevenDays(List<ExpenseEntry> expenses) {
     
     // Find which bucket this expense belongs to
     DateTime? targetBucket;
-    for (final bucketDate in buckets.keys) {
-      final bucketEnd = bucketDate.add(Duration(days: bucketSize));
+    final sortedBuckets = buckets.keys.toList()..sort();
+    
+    for (int i = 0; i < sortedBuckets.length; i++) {
+      final bucketDate = sortedBuckets[i];
+      final bucketEnd = i < sortedBuckets.length - 1 
+          ? sortedBuckets[i + 1]
+          : bucketDate.add(Duration(days: bucketSize));
+      
       if ((expenseDate.isAtSameMomentAs(bucketDate) || expenseDate.isAfter(bucketDate)) && 
           expenseDate.isBefore(bucketEnd)) {
         targetBucket = bucketDate;
@@ -156,25 +169,37 @@ Map<DateTime, double> _groupBySevenDays(List<ExpenseEntry> expenses) {
 /// Groups expenses into 6 2-month pairs
 Map<DateTime, double> _groupByMonthPairs(List<ExpenseEntry> expenses) {
   if (expenses.isEmpty) return {};
-  
   final Map<DateTime, double> buckets = {};
-  
-  // Get the year from expenses
-  final year = expenses.first.date.year;
-  
-  // Create 6 2-month pair buckets (Jan-Feb, Mar-Apr, etc.)
-  for (int pairIndex = 0; pairIndex < 6; pairIndex++) {
-    final month = pairIndex * 2 + 1; // 1, 3, 5, 7, 9, 11
-    final key = DateTime(year, month);
-    buckets[key] = 0.0;
+
+  // Anchor the last bucket to the current month pair that includes "today"
+  final now = DateTime.now();
+  int pairStartMonth = (now.month % 2 == 0) ? now.month - 1 : now.month; // 1,3,5,7,9,11
+  int year = now.year;
+
+  // Build 6 pairs going back in time
+  final List<DateTime> keys = [];
+  for (int i = 5; i >= 0; i--) {
+    int month = pairStartMonth - (i * 2);
+    int y = year;
+    while (month <= 0) {
+      month += 12;
+      y -= 1;
+    }
+    keys.add(DateTime(y, month));
+  }
+  for (final k in keys) {
+    buckets[k] = 0.0;
   }
 
-  // Fill buckets with expense data
+  // Fill buckets with expense data into their corresponding month pair
   for (final expense in expenses) {
-    final month = expense.date.month;
-    final pairIndex = (month - 1) ~/ 2; // 0-1 -> 0, 2-3 -> 1, etc.
-    final key = DateTime(expense.date.year, pairIndex * 2 + 1);
-    buckets[key] = (buckets[key] ?? 0) + expense.amount.abs();
+    int m = expense.date.month;
+    int y = expense.date.year;
+    int startMonth = (m % 2 == 0) ? m - 1 : m;
+    final key = DateTime(y, startMonth);
+    if (buckets.containsKey(key)) {
+      buckets[key] = (buckets[key] ?? 0) + expense.amount.abs();
+    }
   }
 
   return buckets;
@@ -183,29 +208,23 @@ Map<DateTime, double> _groupByMonthPairs(List<ExpenseEntry> expenses) {
 /// Groups expenses into last 7 years
 Map<DateTime, double> _groupBySevenYears(List<ExpenseEntry> expenses) {
   if (expenses.isEmpty) return {};
-  
   final Map<DateTime, double> buckets = {};
-  
-  // Get the latest year from expenses
-  final sortedExpenses = expenses.toList()..sort((a, b) => b.date.compareTo(a.date));
-  final latestYear = sortedExpenses.first.date.year;
-  
-  // Create 7 year buckets going back from latest year
-  for (int i = 0; i < 7; i++) {
-    final year = latestYear - i;
-    final key = DateTime(year);
-    buckets[key] = 0.0;
+
+  // Anchor to current year for the last bucket
+  final currentYear = DateTime.now().year;
+  for (int i = 6; i >= 0; i--) {
+    final y = currentYear - (6 - i);
+    buckets[DateTime(y)] = 0.0;
   }
 
-  // Fill buckets with expense data
+  // Fill buckets with expense data if they fall into the 7-year window
   for (final expense in expenses) {
-    final year = expense.date.year;
-    final key = DateTime(year);
+    final y = expense.date.year;
+    final key = DateTime(y);
     if (buckets.containsKey(key)) {
       buckets[key] = (buckets[key] ?? 0) + expense.amount.abs();
     }
   }
-
   return buckets;
 }
 

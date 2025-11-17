@@ -184,61 +184,61 @@ class InvitationShareSheet extends StatelessWidget {
             const SizedBox(height: 24),
 
             // Action buttons
-            Row(
-              children: [
-                Expanded(
-                  child: Semantics(
-                    label: AppLocalizations.of(context)!.copyInvitationLinkToClipboard,
-                    button: true,
-                    child: shadcnui.OutlineButton(
-                      onPressed: () => _copyToClipboard(context, inviteUrl),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.copy, size: 20),
-                          const SizedBox(width: 8),
-                          Text(
-                            AppLocalizations.of(context)!.copyLink,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: -0.2,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Semantics(
-                    label: AppLocalizations.of(context)!.shareInvitationLink,
-                    button: true,
-                    child: shadcnui.PrimaryButton(
-                      onPressed: () => _shareInvite(context),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.share, size: 20),
-                          const SizedBox(width: 8),
-                          Text(
-                            AppLocalizations.of(context)!.share,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: -0.2,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            // Row(
+            //   children: [
+            //     Expanded(
+            //       child: Semantics(
+            //         label: AppLocalizations.of(context)!.copyInvitationLinkToClipboard,
+            //         button: true,
+            //         child: shadcnui.OutlineButton(
+            //           onPressed: () => _copyToClipboard(context, inviteUrl),
+            //           child: Row(
+            //             mainAxisAlignment: MainAxisAlignment.center,
+            //             children: [
+            //               const Icon(Icons.copy, size: 20),
+            //               const SizedBox(width: 8),
+            //               Text(
+            //                 AppLocalizations.of(context)!.copyLink,
+            //                 style: const TextStyle(
+            //                   fontSize: 15,
+            //                   fontWeight: FontWeight.w600,
+            //                   letterSpacing: -0.2,
+            //                 ),
+            //               ),
+            //             ],
+            //           ),
+            //         ),
+            //       ),
+            //     ),
+            //     const SizedBox(width: 12),
+            //     Expanded(
+            //       child: Semantics(
+            //         label: AppLocalizations.of(context)!.shareInvitationLink,
+            //         button: true,
+            //         child: shadcnui.PrimaryButton(
+            //           onPressed: () => _shareInvite(context),
+            //           child: Row(
+            //             mainAxisAlignment: MainAxisAlignment.center,
+            //             children: [
+            //               const Icon(Icons.share, size: 20),
+            //               const SizedBox(width: 8),
+            //               Text(
+            //                 AppLocalizations.of(context)!.share,
+            //                 style: const TextStyle(
+            //                   fontSize: 15,
+            //                   fontWeight: FontWeight.w600,
+            //                   letterSpacing: -0.2,
+            //                 ),
+            //               ),
+            //             ],
+            //           ),
+            //         ),
+            //       ),
+            //     ),
+            //   ],
+            // ),
 
-            const SizedBox(height: 16),
+            //const SizedBox(height: 16),
 
             // Done button
             Semantics(
@@ -275,6 +275,7 @@ class InvitationShareSheet extends StatelessWidget {
     AppToast.success(AppLocalizations.of(context)!.invitationLinkCopiedToClipboard);
   }
 
+  // ignore: unused_element
   void _shareInvite(BuildContext context) {
     Share.share(
       AppLocalizations.of(context)!.joinMyHouseholdMessage(householdName, inviteUrl),

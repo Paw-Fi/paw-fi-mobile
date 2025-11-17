@@ -65,6 +65,8 @@
     }
   },
   "resendVerificationEmail": "verificatiemail opnieuw verzenden",
+  "continueWithWallet": "Doorgaan met Web3-wallet",
+  "signingInWithWallet": "Wallet wordt verbonden...",
   "continueWithGoogle": "Doorgaan met Google",
   "signingInWithGoogle": "Inloggen met Google...",
   "error": "Fout",
@@ -260,8 +262,9 @@
   "startLoggingExpensesToSeeCategories": "Begin met het registreren van uitgaven om categorieën te zien",
   "selectDateRange": "Selecteer datumbereik",
   "addExpense": "Uitgave toevoegen",
-  "describeYourExpense": "Omschrijf je uitgave (bijv: \"5 voor burger, 3 voor koffie\")",
-  "enterExpenseDetails": "Voer uitgavedetails in...",
+  "describeYourExpense": "Voer je uitgave of inkomen in. Eén type per invoer.",
+  "enterExpenseDetails": "\"5 voor burger, 3 voor koffie\" • \"100 ontvangen van ouders\"",
+  "addEntry": "Invoer toevoegen",
   "freeFormText": "Vrije tekst",
   "takePhoto": "Maak foto",
   "transactions": "transacties",
@@ -832,12 +835,24 @@
   "accessories": "Accessoires",
   "stars": "Sterren",
   "@unifiedTransactionSheet": {},
-  "confirmExpense": "Bevestig uitgave",
-  "expenseDetails": "Uitgavedetails",
+  "confirmExpense": "Uitgave bevestigen",
+  "expenseDetails": "Uitgave­details",
   "details": "Details",
   "currency": "Valuta",
   "notes": "Notities",
   "receipt": "Bon",
+  "@recurringTransactions": {},
+  "recurringTransactions": "Periodieke transacties",
+  "recurring": "Periodiek",
+  "manageYourRecurringTransactions": "Periodieke transacties beheren",
+  "errorLoadingData": "Fout bij het laden van gegevens",
+  "deleteRecurringTransaction": "Periodieke transactie verwijderen",
+  "areYouSureYouWantToDeleteThisRecurringTransaction": "Weet je zeker dat je deze periodieke transactie wilt verwijderen?",
+  "recurringTransactionDeleted": "Periodieke transactie verwijderd",
+  "transactionDeleted": "Transactie verwijderd",
+  "transactions": "Transacties",
+  "recentTransactions": "Recente transacties",
+  "failedToDeleteRecurringTransaction": "Kon periodieke transactie niet verwijderen",
   "saveExpense": "Uitgave opslaan",
   "currencyIsManagedByHousehold": "Valuta wordt beheerd door het huishouden en kan niet worden gewijzigd",
   "editAmount": "Bedrag bewerken",
@@ -1129,5 +1144,165 @@
   "addContribution": "Bijdrage toevoegen",
   "contributionAmount": "Bijdragebedrag",
   "contributionType": "Type",
-  "contributionAdded": "Bijdrage succesvol toegevoegd"
+  "contributionAdded": "Bijdrage succesvol toegevoegd",
+
+  "pleaseSelectCategory": "Selecteer een categorie",
+  "pleaseEnterAmount": "Voer een bedrag in",
+  "userNotAuthenticated": "Gebruiker niet geauthenticeerd",
+  "recurringExpenseUpdatedSuccessfully": "Periodieke uitgave succesvol bijgewerkt",
+  "recurringExpenseAddedSuccessfully": "Periodieke uitgave succesvol toegevoegd",
+  "recurringIncomeUpdatedSuccessfully": "Periodieke inkomst succesvol bijgewerkt",
+  "recurringIncomeAddedSuccessfully": "Periodieke inkomst succesvol toegevoegd",
+  "failedToUpdateRecurringExpense": "Bijwerken van periodieke uitgave mislukt",
+  "failedToAddRecurringExpense": "Toevoegen van periodieke uitgave mislukt",
+  "failedToUpdateRecurringIncome": "Bijwerken van periodieke inkomst mislukt",
+  "failedToAddRecurringIncome": "Toevoegen van periodieke inkomst mislukt",
+  "editRecurringExpense": "Periodieke Uitgave Bewerken",
+  "editRecurringIncome": "Periodieke Inkomst Bewerken",
+  "addRecurringExpense": "Periodieke Uitgave Toevoegen",
+  "addRecurringIncome": "Periodieke Inkomst Toevoegen",
+  "selectCategory": "Selecteer categorie",
+  "frequency": "Frequentie",
+  "startDate": "Startdatum",
+  "setEndDate": "Einddatum instellen",
+  "endDate": "Einddatum",
+  "selectEndDate": "Selecteer einddatum",
+  "descriptionOptional": "Beschrijving (Optioneel)",
+  "sourceOptional": "Bron (Optioneel)",
+  "companyNameClientNameExample": "bv. Bedrijfsnaam, Klantnaam",
+  "setReminder": "Herinnering instellen",
+  "updateRecurringTransaction": "Periodieke Transactie Bijwerken",
+  "addRecurringTransaction": "Periodieke Transactie Toevoegen",
+  "youWillBeNotifiedBeforeEachOccurrence": "U wordt {value} {unit} voor elke gebeurtenis geïnformeerd",
+  "@youWillBeNotifiedBeforeEachOccurrence": {
+    "placeholders": {
+      "value": {"type": "int"},
+      "unit": {"type": "String"}
+    }
+  },
+  "addReminder": "Herinnering Toevoegen",
+  "ended": "Beëindigd",
+  "noRecurringExpenses": "Geen Periodieke Uitgaven",
+  "noRecurringIncome": "Geen Periodieke Inkomsten",
+  "setupAutomaticExpenseTracking": "Stel automatische uitgavetracking in voor abonnementen, rekeningen en regelmatige betalingen",
+  "setupAutomaticIncomeTracking": "Stel automatische inkomsten tracking in voor salaris, freelance werk en regelmatige inkomsten",
+  "biweekly": "Tweewekelijks",
+  "oneTime": "Eenmalig",
+  "custom": "Aangepast",
+  "everyXDays": "Elke {count} dagen",
+  "@everyXDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXWeeks": "Elke {count} weken",
+  "@everyXWeeks": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "every2Weeks": "Elke 2 weken",
+  "everyXMonths": "Elke {count} maanden",
+  "@everyXMonths": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXYears": "Elke {count} jaar",
+  "@everyXYears": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "days": "dagen",
+  "hours": "uren",
+  "confirmIncome": "Inkomen bevestigen",
+  "saveIncome": "Inkomen opslaan",
+  "incomeSaved": "Inkomen opgeslagen",
+  "incomeSavedAndShared": "Inkomen opgeslagen en gedeeld",
+  "addReceiptPhoto": "Bonfoto toevoegen",
+  "tapToTakePhoto": "Maak een foto van je bon",
+  "atLeastOneMember": "Er moet minstens één lid zijn",
+  "memberMustHaveShare": "Minstens één lid moet een aandeel groter dan 0 hebben",
+  "monthOverMonthSpending": "Maandelijkse uitgavenontwikkeling",
+  "last3Months": "Afgelopen 3 maanden",
+
+  "breakdown": "Uitsplitsing",
+  "noOutstandingItems": "Geen openstaande posten",
+  "theyOweYou": "Je krijgt geld",
+  "expressNetting": "Snelle verrekening",
+  "detailedSettlement": "Gedetailleerde verrekening",
+  "expressNettingHint": "Dit is een voorstel voor verrekening. Bevestigen verrekent al je openstaande posten met dit lid.",
+  "settle": "Verrekenen",
+  "confirmSettlement": "Verrekening bevestigen",
+  "confirmSettlementMessage": "Hiermee worden alle openstaande posten met dit lid als verrekend gemarkeerd.",
+  "pleaseSelectMember": "Selecteer een lid",
+  "settlementCompleted": "Verrekening voltooid",
+  "nothingToSettle": "Niets te verrekenen",
+  "expense": "Uitgave",
+  "settlement": "Verrekening",
+  "suggestedNetTransfers": "Voorgestelde nettotransfers",
+  "detailedPairwiseDues": "Gedetailleerde onderlinge schulden",
+  "outstanding": "Openstaand",
+  
+  "youAreOwedBy": "Je krijgt van",
+  "noOutstandingAmounts": "Geen openstaande bedragen",
+  "groupFairnessTitle": "Groepsgelijkheid",
+  "groupFairness": "Groepsgelijkheid",
+  "groupFairnessExplanation": "Dit laat zien hoe gelijkmatig de uitgaven over de huishoudleden zijn verdeeld.\n\nEen hoger percentage betekent dat iedereen zijn eerlijke deel bijdraagt. Een lager percentage suggereert dat sommige leden meer uitgaven dragen dan anderen.\n\nZie het als teamwerk: als iedereen gelijk bijdraagt, is de eerlijkheidsscore hoog. Draagt één persoon het meeste, dan daalt die.\n\nDe ‘gelijke bijdrage’ geeft aan wat ieder zou moeten betalen als alles eerlijk wordt verdeeld.",
+  "noMemberDataYet": "Nog geen ledendata",
+  "evenShare": "Gelijke bijdrage: {amount}",
+  "@evenShare": {"placeholders": {"amount": {"type": "String"}}}
+,
+  "viewHousehold": "Huishouden bekijken",
+  "invalidInvitationMissingInfo": "Ongeldige uitnodiging: huishoudgegevens ontbreken",
+  "joinedHouseholdWithName": "Je bent lid geworden van {name}!",
+  "@joinedHouseholdWithName": {"placeholders": {"name": {"type": "String"}}},
+  "joinedHousehold": "Je bent lid geworden van het huishouden!",
+  "errorLoadingData": "Fout bij het laden van gegevens",
+  "errorLoadingSplits": "Fout bij het laden van de verdelingen",
+  "markAsSettled": "Markeren als verrekend",
+  "splitDetails": "Details van de verdeling",
+  "equalSplit": "GELIJKE VERDELING",
+  "errorLoadingBudgets": "Fout bij het laden van budgetten",
+  "noSharedBudgetsYet": "Nog geen gedeelde budgetten",
+  "whoCanSeeThisExpense": "Wie kan deze uitgave zien?",
+  "onlyVisibleToYou": "Alleen zichtbaar voor jou",
+  "chooseSpecificMembers": "Specifieke leden kiezen",
+  "selectMembers": "Leden selecteren",
+  "noMembersFound": "Geen leden gevonden",
+  "membersSelectedCount": "{count} geselecteerd",
+  "@membersSelectedCount": {"placeholders": {"count": {"type": "int"}}},
+  "noSplitsYet": "Nog geen verdelingen",
+  "startSplittingExpensesWithYourHousehold": "Begin uitgaven te verdelen met je huishouden",
+  "minutesAgoShort": "{count} min geleden",
+  "@minutesAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "hoursAgoShort": "{count} u geleden",
+  "@hoursAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "daysAgoShort": "{count} d geleden",
+  "@daysAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "weeksAgoShort": "{count} w geleden",
+  "@weeksAgoShort": {"placeholders": {"count": {"type": "int"}}}
+,
+  "errorLoadingActivity": "Fout bij het laden van de activiteit",
+  "noRecentActivity": "Geen recente activiteit",
+  "viewAllExpenses": "Alle uitgaven bekijken",
+  "noPendingSplits": "Geen openstaande verdelingen",
+  "pendingSettlement": "In afwachting van verrekening"
+  ,
+  "youreIn": "Je bent binnen! 🎉",
+  "invitationError": "Uitnodigingsfout",
+  "joiningHousehold": "Bezig met lid worden van het huishouden",
+  "processingInvitation": "Uitnodiging verwerken..."
+  ,
+  "noHouseholdsAvailableCreateOrJoin": "Geen huishoudens beschikbaar. Maak eerst een huishouden aan of word lid.",
+  "selectHousehold": "Huishouden selecteren"
 }

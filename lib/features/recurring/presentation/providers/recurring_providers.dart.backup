@@ -1,0 +1,781 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/core.dart';
+import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
+
+// ============================================================================
+// STATE CLASSES WITH CACHING SUPPORT - SINGLE SOURCE OF TRUTH
+// ============================================================================
+
+/// Combined state class for ALL recurring transactions (single source of truth)
+/// Frontend will filter by type (expense/income) from this unified list
+class RecurringTransactionsState {
+  final AsyncValue<List<RecurringTransaction>> data;
+  final bool hasLoadedOnce;
+
+  RecurringTransactionsState({
+    required this.data,
+    this.hasLoadedOnce = false,
+  });
+
+  RecurringTransactionsState copyWith({
+    AsyncValue<List<RecurringTransaction>>? data,
+    bool? hasLoadedOnce,
+  }) {
+    return RecurringTransactionsState(
+      data: data ?? this.data,
+      hasLoadedOnce: hasLoadedOnce ?? this.hasLoadedOnce,
+    );
+  }
+}
+
+// ============================================================================
+// UNIFIED RECURRING TRANSACTIONS PROVIDER (SINGLE SOURCE OF TRUTH)
+// ============================================================================
+
+/// Unified recurring transactions provider - fetches ALL recurring transactions
+/// Frontend filters by type for expenses vs income views
+final recurringTransactionsProvider =
+    StateNotifierProvider<RecurringTransactionsNotifier, RecurringTransactionsState>(
+        (ref) {
+  return RecurringTransactionsNotifier(ref);
+});
+
+class RecurringTransactionsNotifier extends StateNotifier<RecurringTransactionsState> {
+  final Ref ref;
+
+  RecurringTransactionsNotifier(this.ref)
+      : super(RecurringTransactionsState(
+          data: const AsyncValue.loading(),
+          hasLoadedOnce: false,
+        ));
+
+  /// Load ALL recurring transactions (both expenses and income)
+  Future<void> loadRecurringTransactions(
+    String userId, {
+    String? householdId,
+    int limit = 100,
+    bool forceRefresh = false,
+  }) async {
+    // Skip loading if already loaded successfully (unless forced refresh)
+    if (state.hasLoadedOnce && !forceRefresh) {
+      debugPrint('📦 RecurringTransactions: Already loaded, skipping');
+      return;
+    }
+
+    debugPrint('🔄 RecurringTransactions: Loading for userId=$userId');
+    state = state.copyWith(data: const AsyncValue.loading());
+
+    try {
+      debugPrint('🌐 Calling list-recurring-transactions function...');
+      
+      final response = await supabase.functions.invoke(
+        'list-recurring-transactions',
+        body: {
+          'userId': userId,
+          'limit': limit,
+          if (householdId != null) 'householdId': householdId,
+        },
+      );
+
+      debugPrint('📡 Response status: ${response.status}');
+      debugPrint('📡 Response data type: ${response.data.runtimeType}');
+      debugPrint('📡 Response data: ${jsonEncode(response.data)}');
+
+      if (response.data['success'] == true) {
+        final data = response.data['data'] as List<dynamic>;
+        debugPrint('✅ Total recurring transactions returned: ${data.length}');
+        
+        if (data.isNotEmpty) {
+          debugPrint('🔍 First transaction: ${jsonEncode(data.first)}');
+        }
+        
+        final recurringList = data.map((e) {
+          try {
+            return RecurringTransaction.fromJson(e as Map<String, dynamic>);
+          } catch (parseError, parseSt) {
+            debugPrint('❌ Error parsing transaction: $parseError');
+            debugPrint('❌ Problematic item: ${jsonEncode(e)}');
+            debugPrint('❌ Stack trace: $parseSt');
+            rethrow;
+          }
+        }).toList();
+
+        debugPrint('✅ Successfully parsed ${recurringList.length} recurring transactions');
+        debugPrint('📊 Expenses: ${recurringList.where((t) => t.type == "expense").length}');
+        debugPrint('📊 Incomes: ${recurringList.where((t) => t.type == "income").length}');
+        
+        state = state.copyWith(
+          data: AsyncValue.data(recurringList),
+          hasLoadedOnce: true,
+        );
+      } else {
+        debugPrint('❌ Backend returned success=false: ${response.data['error']}');
+        state = state.copyWith(
+          data: AsyncValue.error(
+            response.data['error'] ?? 'Failed to load recurring transactions',
+            StackTrace.current,
+          ),
+        );
+      }
+    } catch (e, st) {
+      debugPrint('❌ Exception in loadRecurringTransactions: $e');
+      debugPrint('❌ Stack trace: $st');
+      state = state.copyWith(
+        data: AsyncValue.error(e, st),
+      );
+    }
+  }
+
+  /// Refresh recurring transactions list (always reloads from backend)
+  Future<void> refresh(String userId, {String? householdId}) async {
+    debugPrint('🔄 RecurringTransactions: Refresh requested');
+    await loadRecurringTransactions(
+      userId,
+      householdId: householdId,
+      forceRefresh: true,
+    );
+  }
+
+  /// Add a new recurring transaction to the cached list (optimistic update)
+  void addRecurring(RecurringTransaction transaction) {
+    debugPrint('➕ Adding recurring transaction: ${transaction.id}, type: ${transaction.type}');
+    state.data.whenData((transactions) {
+      final updated = [transaction, ...transactions];
+      state = state.copyWith(
+        data: AsyncValue.data(updated),
+      );
+      debugPrint('✅ Transaction added. New total: ${updated.length}');
+    });
+  }
+
+  /// Update an existing recurring transaction in the cached list
+  void updateRecurring(RecurringTransaction transaction) {
+    debugPrint('🔄 Updating recurring transaction: ${transaction.id}');
+    state.data.whenData((transactions) {
+      final updated = transactions.map((t) {
+        return t.id == transaction.id ? transaction : t;
+      }).toList();
+      state = state.copyWith(
+        data: AsyncValue.data(updated),
+      );
+      debugPrint('✅ Transaction updated');
+    });
+  }
+
+  /// Delete a recurring transaction (optimistic update + backend call)
+  Future<bool> deleteRecurring(String userId, String transactionId) async {
+    debugPrint('🗑️ Deleting recurring transaction: $transactionId');
+    
+    try {
+      // Optimistically remove from local state first
+      state.data.whenData((transactions) {
+        state = state.copyWith(
+          data: AsyncValue.data(
+            transactions.where((t) => t.id != transactionId).toList(),
+          ),
+        );
+        debugPrint('✅ Optimistically removed from local state');
+      });
+
+      // Call backend
+      final response = await supabase.functions.invoke(
+        'delete-expense',
+        body: {
+          'userId': userId,
+          'expenseId': transactionId,
+        },
+      );
+
+      if (response.data['success'] == true) {
+        debugPrint('✅ Backend delete successful');
+        return true;
+      } else {
+        debugPrint('❌ Backend delete failed, restoring state');
+        // If backend fails, reload to restore correct state
+        await refresh(userId);
+        return false;
+      }
+    } catch (e) {
+      debugPrint('❌ Exception during delete: $e');
+      // If error, reload to restore correct state
+      await refresh(userId);
+      return false;
+    }
+  }
+}
+
+// ============================================================================
+// FILTERED PROVIDERS - Filter from single source of truth
+// ============================================================================
+
+/// Provider for recurring expenses only (filtered from main provider)
+final recurringExpensesProvider = Provider<AsyncValue<List<RecurringTransaction>>>((ref) {
+  final allTransactions = ref.watch(recurringTransactionsProvider);
+  return allTransactions.data.when(
+    data: (transactions) {
+      final expenses = transactions.where((t) => t.type == 'expense').toList();
+      debugPrint('💸 Filtered expenses: ${expenses.length}');
+      return AsyncValue.data(expenses);
+    },
+    loading: () => const AsyncValue.loading(),
+    error: (error, stack) => AsyncValue.error(error, stack),
+  );
+});
+
+/// Provider for recurring incomes only (filtered from main provider)
+final recurringIncomesProvider = Provider<AsyncValue<List<RecurringTransaction>>>((ref) {
+  final allTransactions = ref.watch(recurringTransactionsProvider);
+  return allTransactions.data.when(
+    data: (transactions) {
+      final incomes = transactions.where((t) => t.type == 'income').toList();
+      debugPrint('💰 Filtered incomes: ${incomes.length}');
+      return AsyncValue.data(incomes);
+    },
+    loading: () => const AsyncValue.loading(),
+    error: (error, stack) => AsyncValue.error(error, stack),
+  );
+});
+
+  RecurringExpensesNotifier(this.ref)
+      : super(RecurringExpensesState(
+          data: const AsyncValue.loading(),
+          hasLoadedOnce: false,
+        ));
+
+  /// Load recurring expenses for a user (only if not already loaded)
+  /// Similar pattern to analyticsProvider - respects hasLoadedOnce flag
+  Future<void> loadRecurringExpenses(
+    String userId, {
+    String? householdId,
+    int limit = 50,
+    bool forceRefresh = false,
+  }) async {
+    // Skip loading if already loaded successfully (unless forced refresh)
+    if (state.hasLoadedOnce && !forceRefresh) {
+      return;
+    }
+
+    state = state.copyWith(data: const AsyncValue.loading());
+
+    try {
+      debugPrint('🔶 loadRecurringExpenses: Starting fetch for userId=$userId');
+      
+      final response = await supabase.functions.invoke(
+        'list-expenses',
+        body: {
+          'userId': userId,
+          'limit': limit,
+          'includeRecurring': true, // Only fetch recurring transactions
+          if (householdId != null) 'householdId': householdId,
+        },
+      );
+
+      debugPrint('🔶 Response status: ${response.status}');
+      debugPrint('🔶 Response data type: ${response.data.runtimeType}');
+      debugPrint('🔶 Response data: ${jsonEncode(response.data)}');
+
+      if (response.data['success'] == true) {
+        final data = response.data['data'] as List<dynamic>;
+        debugPrint('🔶 Total items returned: ${data.length}');
+        
+        // Filter for recurring expenses only
+        // Note: Backend doesn't always return 'type', but list-expenses returns expenses
+        // so we can safely assume all recurring items from this endpoint are expenses
+        final filtered = data.where((e) =>
+            (e['is_recurring'] == true || e['isRecurring'] == true)).toList();
+        
+        debugPrint('🔶 Filtered recurring items: ${filtered.length}');
+        debugPrint('🔶 First filtered item (if any): ${filtered.isNotEmpty ? jsonEncode(filtered.first) : "none"}');
+        
+        final recurringList = filtered
+            .map((e) {
+              try {
+                return RecurringTransaction.fromJson(e as Map<String, dynamic>);
+              } catch (parseError, parseSt) {
+                debugPrint('❌ Error parsing item: $parseError');
+                debugPrint('❌ Problematic item: ${jsonEncode(e)}');
+                debugPrint('❌ Stack trace: $parseSt');
+                rethrow;
+              }
+            })
+            .toList();
+
+        debugPrint('✅ Successfully parsed ${recurringList.length} recurring expenses');
+        
+        state = state.copyWith(
+          data: AsyncValue.data(recurringList),
+          hasLoadedOnce: true,
+        );
+      } else {
+        debugPrint('❌ Backend returned success=false: ${response.data['error']}');
+        state = state.copyWith(
+          data: AsyncValue.error(
+            response.data['error'] ?? 'Failed to load recurring expenses',
+            StackTrace.current,
+          ),
+        );
+      }
+    } catch (e, st) {
+      debugPrint('❌ Exception in loadRecurringExpenses: $e');
+      debugPrint('❌ Stack trace: $st');
+      state = state.copyWith(
+        data: AsyncValue.error(e, st),
+      );
+    }
+  }
+
+  /// Refresh recurring expenses list (always reloads from backend)
+  Future<void> refresh(String userId, {String? householdId}) async {
+    await loadRecurringExpenses(
+      userId,
+      householdId: householdId,
+      forceRefresh: true,
+    );
+  }
+
+  /// Add a new recurring expense to the cached list (optimistic update)
+  void addRecurringExpense(RecurringTransaction expense) {
+    state.data.whenData((expenses) {
+      final updated = [expense, ...expenses];
+      state = state.copyWith(
+        data: AsyncValue.data(updated),
+      );
+    });
+  }
+
+  /// Update an existing recurring expense in the cached list
+  void updateRecurringExpense(RecurringTransaction expense) {
+    state.data.whenData((expenses) {
+      final updated = expenses.map((e) {
+        return e.id == expense.id ? expense : e;
+      }).toList();
+      state = state.copyWith(
+        data: AsyncValue.data(updated),
+      );
+    });
+  }
+
+  /// Delete a recurring expense (optimistic update + backend call)
+  Future<bool> deleteRecurring(String userId, String expenseId) async {
+    try {
+      // Optimistically remove from local state first
+      state.data.whenData((expenses) {
+        state = state.copyWith(
+          data: AsyncValue.data(
+            expenses.where((e) => e.id != expenseId).toList(),
+          ),
+        );
+      });
+
+      // Call backend
+      final response = await supabase.functions.invoke(
+        'delete-expense',
+        body: {
+          'userId': userId,
+          'expenseId': expenseId,
+        },
+      );
+
+      if (response.data['success'] == true) {
+        return true;
+      } else {
+        // If backend fails, reload to restore correct state
+        await refresh(userId);
+        return false;
+      }
+    } catch (e) {
+      // If error, reload to restore correct state
+      await refresh(userId);
+      return false;
+    }
+  }
+}
+
+// ============================================================================
+// RECURRING INCOMES PROVIDER
+// ============================================================================
+
+/// Recurring incomes list provider with caching
+final recurringIncomesProvider =
+    StateNotifierProvider<RecurringIncomesNotifier, RecurringIncomesState>(
+        (ref) {
+  return RecurringIncomesNotifier(ref);
+});
+
+class RecurringIncomesNotifier extends StateNotifier<RecurringIncomesState> {
+  final Ref ref;
+
+  RecurringIncomesNotifier(this.ref)
+      : super(RecurringIncomesState(
+          data: const AsyncValue.loading(),
+          hasLoadedOnce: false,
+        ));
+
+  /// Load recurring incomes for a user (only if not already loaded)
+  Future<void> loadRecurringIncomes(
+    String userId, {
+    String? householdId,
+    int limit = 50,
+    bool forceRefresh = false,
+  }) async {
+    // Skip loading if already loaded successfully (unless forced refresh)
+    if (state.hasLoadedOnce && !forceRefresh) {
+      return;
+    }
+
+    state = state.copyWith(data: const AsyncValue.loading());
+
+    try {
+      debugPrint('🔷 loadRecurringIncomes: Starting fetch for userId=$userId');
+      
+      final response = await supabase.functions.invoke(
+        'list-income',
+        body: {
+          'userId': userId,
+          'limit': limit,
+          'includeRecurring': true, // Only fetch recurring transactions
+          if (householdId != null) 'householdId': householdId,
+        },
+      );
+
+      debugPrint('🔷 Response status: ${response.status}');
+      debugPrint('🔷 Response data type: ${response.data.runtimeType}');
+      debugPrint('🔷 Response data: ${jsonEncode(response.data)}');
+
+      if (response.data['success'] == true) {
+        final data = response.data['data'] as List<dynamic>;
+        debugPrint('🔷 Total items returned: ${data.length}');
+        
+        // Filter for recurring income only
+        final filtered = data.where((e) => 
+            e['is_recurring'] == true || e['isRecurring'] == true).toList();
+        
+        debugPrint('🔷 Filtered recurring items: ${filtered.length}');
+        debugPrint('🔷 First filtered item (if any): ${filtered.isNotEmpty ? jsonEncode(filtered.first) : "none"}');
+        
+        final recurringList = filtered
+            .map((e) {
+              try {
+                return RecurringTransaction.fromJson(e as Map<String, dynamic>);
+              } catch (parseError, parseSt) {
+                debugPrint('❌ Error parsing income item: $parseError');
+                debugPrint('❌ Problematic item: ${jsonEncode(e)}');
+                debugPrint('❌ Stack trace: $parseSt');
+                rethrow;
+              }
+            })
+            .toList();
+
+        debugPrint('✅ Successfully parsed ${recurringList.length} recurring incomes');
+
+        state = state.copyWith(
+          data: AsyncValue.data(recurringList),
+          hasLoadedOnce: true,
+        );
+      } else {
+        debugPrint('❌ Backend returned success=false: ${response.data['error']}');
+        state = state.copyWith(
+          data: AsyncValue.error(
+            response.data['error'] ?? 'Failed to load recurring income',
+            StackTrace.current,
+          ),
+        );
+      }
+    } catch (e, st) {
+      debugPrint('❌ Exception in loadRecurringIncomes: $e');
+      debugPrint('❌ Stack trace: $st');
+      state = state.copyWith(
+        data: AsyncValue.error(e, st),
+      );
+    }
+  }
+
+  /// Refresh recurring incomes list (always reloads from backend)
+  Future<void> refresh(String userId, {String? householdId}) async {
+    await loadRecurringIncomes(
+      userId,
+      householdId: householdId,
+      forceRefresh: true,
+    );
+  }
+
+  /// Add a new recurring income to the cached list (optimistic update)
+  void addRecurringIncome(RecurringTransaction income) {
+    state.data.whenData((incomes) {
+      final updated = [income, ...incomes];
+      state = state.copyWith(
+        data: AsyncValue.data(updated),
+      );
+    });
+  }
+
+  /// Update an existing recurring income in the cached list
+  void updateRecurringIncome(RecurringTransaction income) {
+    state.data.whenData((incomes) {
+      final updated = incomes.map((i) {
+        return i.id == income.id ? income : i;
+      }).toList();
+      state = state.copyWith(
+        data: AsyncValue.data(updated),
+      );
+    });
+  }
+
+  /// Delete a recurring income (optimistic update + backend call)
+  Future<bool> deleteRecurring(String userId, String incomeId) async {
+    try {
+      // Optimistically remove from local state first
+      state.data.whenData((incomes) {
+        state = state.copyWith(
+          data: AsyncValue.data(
+            incomes.where((i) => i.id != incomeId).toList(),
+          ),
+        );
+      });
+
+      // Call backend
+      final response = await supabase.functions.invoke(
+        'delete-expense', // Income uses same endpoint (expenses table)
+        body: {
+          'userId': userId,
+          'expenseId': incomeId,
+        },
+      );
+
+      if (response.data['success'] == true) {
+        return true;
+      } else {
+        // If backend fails, reload to restore correct state
+        await refresh(userId);
+        return false;
+      }
+    } catch (e) {
+      // If error, reload to restore correct state
+      await refresh(userId);
+      return false;
+    }
+  }
+}
+
+// ============================================================================
+// RECURRING TRANSACTION SAVE PROVIDER
+// ============================================================================
+
+/// Recurring transaction save provider (for both income and expense)
+final recurringTransactionSaveProvider = StateNotifierProvider<
+    RecurringTransactionSaveNotifier, AsyncValue<RecurringTransaction?>>((ref) {
+  return RecurringTransactionSaveNotifier(ref);
+});
+
+class RecurringTransactionSaveNotifier
+    extends StateNotifier<AsyncValue<RecurringTransaction?>> {
+  final Ref ref;
+
+  RecurringTransactionSaveNotifier(this.ref)
+      : super(const AsyncValue.data(null));
+
+  /// Save new recurring expense
+  Future<RecurringTransaction?> saveRecurringExpense({
+    required String userId,
+    required double amount,
+    required String category,
+    required String currency,
+    required DateTime startDate,
+    required String frequency,
+    DateTime? endDate,
+    int? interval,
+    String? description,
+    bool? hasReminder,
+    int? reminderValue,
+    String? reminderUnit,
+    String ownerType = 'me',
+    String privacyScope = 'full',
+    String? householdId,
+  }) async {
+    state = const AsyncValue.loading();
+
+    try {
+      // Build recurrence rule with optional reminder
+      final recurrenceRule = <String, dynamic>{
+        'frequency': frequency,
+        'anchor_date': startDate.toIso8601String(),
+        if (endDate != null) 'end_date': endDate.toIso8601String(),
+        if (interval != null) 'interval': interval,
+        if (hasReminder == true && reminderValue != null && reminderUnit != null)
+          'reminder': {
+            'enabled': true,
+            'value': reminderValue,
+            'unit': reminderUnit,
+          },
+      };
+
+      debugPrint('🔶 saveRecurringExpense: Building request body');
+      debugPrint('🔶 recurrenceRule: $recurrenceRule');
+      
+      final requestBody = {
+        'userId': userId,
+        'amount': amount,
+        'category': category,
+        'currency': currency,
+        'date': startDate.toIso8601String(),
+        'clientCreatedAt': DateTime.now().toIso8601String(),
+        if (description != null && description.isNotEmpty)
+          'description': description,
+        'ownerType': ownerType,
+        'privacyScope': privacyScope,
+        if (householdId != null) 'householdId': householdId,
+        'isRecurring': true,
+        'recurrence_rule': recurrenceRule,
+      };
+      
+      debugPrint('🔶 Request body: $requestBody');
+      debugPrint('🔶 Request body JSON: ${jsonEncode(requestBody)}');
+
+      final response = await supabase.functions.invoke(
+        'save-expense',
+        body: requestBody,
+      );
+
+      debugPrint('🔶 Response status: ${response.status}');
+      debugPrint('🔶 Response data: ${response.data}');
+      debugPrint('🔶 Response data type: ${response.data.runtimeType}');
+      debugPrint('🔶 Response data[success]: ${response.data['success']}');
+
+      if (response.data['success'] == true) {
+        debugPrint('✅ Success check passed!');
+        final expense = RecurringTransaction.fromJson(
+            response.data['data'] as Map<String, dynamic>);
+        state = AsyncValue.data(expense);
+
+        // Update cached list immediately (optimistic update)
+        ref
+            .read(recurringExpensesProvider.notifier)
+            .addRecurringExpense(expense);
+
+        return expense;
+      } else {
+        debugPrint('❌ Success check failed!');
+        state = AsyncValue.error(
+          response.data['error'] ?? 'Failed to save recurring expense',
+          StackTrace.current,
+        );
+        return null;
+      }
+    } catch (e, st) {
+      debugPrint('🔥 Exception caught in saveRecurringExpense: $e');
+      debugPrint('🔥 Stack trace: $st');
+      state = AsyncValue.error(e, st);
+      return null;
+    }
+  }
+
+  /// Save new recurring income
+  Future<RecurringTransaction?> saveRecurringIncome({
+    required String userId,
+    required double amount,
+    required String category,
+    required String currency,
+    required DateTime startDate,
+    required String frequency,
+    DateTime? endDate,
+    int? interval,
+    String? description,
+    String? source,
+    bool? hasReminder,
+    int? reminderValue,
+    String? reminderUnit,
+    String ownerType = 'me',
+    String privacyScope = 'full',
+    String? householdId,
+  }) async {
+    state = const AsyncValue.loading();
+
+    try {
+      // Build recurrence rule with optional reminder
+      final recurrenceRule = <String, dynamic>{
+        'frequency': frequency,
+        'anchor_date': startDate.toIso8601String(),
+        if (endDate != null) 'end_date': endDate.toIso8601String(),
+        if (interval != null) 'interval': interval,
+        if (hasReminder == true && reminderValue != null && reminderUnit != null)
+          'reminder': {
+            'enabled': true,
+            'value': reminderValue,
+            'unit': reminderUnit,
+          },
+      };
+
+      debugPrint('🔷 saveRecurringIncome: Building request body');
+      debugPrint('🔷 recurrenceRule: $recurrenceRule');
+      
+      final requestBody = {
+        'userId': userId,
+        'amount': amount,
+        'category': category,
+        'currency': currency,
+        'date': startDate.toIso8601String(),
+        'clientCreatedAt': DateTime.now().toIso8601String(),
+        if (description != null && description.isNotEmpty)
+          'description': description,
+        if (source != null && source.isNotEmpty) 'source': source,
+        'ownerType': ownerType,
+        'privacyScope': privacyScope,
+        if (householdId != null) 'householdId': householdId,
+        'isRecurring': true,
+        'recurrence_rule': recurrenceRule,
+      };
+      
+      debugPrint('🔷 Request body: $requestBody');
+      debugPrint('🔷 Request body JSON: ${jsonEncode(requestBody)}');
+
+      final response = await supabase.functions.invoke(
+        'save-income',
+        body: requestBody,
+      );
+
+      debugPrint('🔷 Response status: ${response.status}');
+      debugPrint('🔷 Response data: ${response.data}');
+      debugPrint('🔷 Response data type: ${response.data.runtimeType}');
+      debugPrint('🔷 Response data[success]: ${response.data['success']}');
+      debugPrint('🔷 Response data[success] type: ${response.data['success'].runtimeType}');
+
+      if (response.data['success'] == true) {
+        debugPrint('✅ Success check passed!');
+        final income = RecurringTransaction.fromJson(
+            response.data['data'] as Map<String, dynamic>);
+        state = AsyncValue.data(income);
+
+        // Update cached list immediately (optimistic update)
+        ref.read(recurringIncomesProvider.notifier).addRecurringIncome(income);
+
+        return income;
+      } else {
+        debugPrint('❌ Success check failed!');
+        state = AsyncValue.error(
+          response.data['error'] ?? 'Failed to save recurring income',
+          StackTrace.current,
+        );
+        return null;
+      }
+    } catch (e, st) {
+      debugPrint('🔥 Exception caught: $e');
+      debugPrint('🔥 Stack trace: $st');
+      state = AsyncValue.error(e, st);
+      return null;
+    }
+  }
+
+  /// Reset save state
+  void reset() {
+    state = const AsyncValue.data(null);
+  }
+}
+
+// ============================================================================
+// UI STATE PROVIDERS
+// ============================================================================
+
+/// Currently selected tab (expense or income)
+final selectedRecurringTabProvider = StateProvider<int>((ref) => 0);

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:isolate';
 import 'dart:ui' as ui;
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -14,6 +13,7 @@ import 'package:moneko/firebase_options.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/core/util/constants.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 
 /// Top-level background message handler for Firebase Cloud Messaging
 /// Must be a top-level function for iOS background execution
@@ -37,29 +37,41 @@ void main() {
 
     // Initialize Firebase and Crashlytics first
     await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-    const enableCrashlyticsInDebug = bool.fromEnvironment('ENABLE_CRASHLYTICS_DEBUG', defaultValue: false);
-    await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(!kDebugMode || enableCrashlyticsInDebug);
-    FirebaseCrashlytics.instance.log('startup: firebase_initialized');
+    
+    // Only initialize Crashlytics on non-web platforms
+    if (!kIsWeb) {
+      const enableCrashlyticsInDebug = bool.fromEnvironment('ENABLE_CRASHLYTICS_DEBUG', defaultValue: false);
+      await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(!kDebugMode || enableCrashlyticsInDebug);
+      FirebaseCrashlytics.instance.log('startup: firebase_initialized');
+    }
 
-    // Record Flutter framework errors as fatal in Crashlytics
-    FlutterError.onError = (FlutterErrorDetails details) {
-      FirebaseCrashlytics.instance.recordFlutterFatalError(details);
-      FlutterError.presentError(details);
-    };
+    // Record Flutter framework errors as fatal in Crashlytics (only on non-web)
+    if (!kIsWeb) {
+      FlutterError.onError = (FlutterErrorDetails details) {
+        FirebaseCrashlytics.instance.recordFlutterFatalError(details);
+        FlutterError.presentError(details);
+      };
+    } else {
+      FlutterError.onError = (FlutterErrorDetails details) {
+        FlutterError.presentError(details);
+      };
+    }
 
     // Show a friendly UI on build errors instead of a blank screen in release
     ErrorWidget.builder = (FlutterErrorDetails details) {
-      // Record non-fatal to Crashlytics as well
-      try {
-        FirebaseCrashlytics.instance.recordError(
-          details.exception,
-          details.stack ?? StackTrace.empty,
-          reason: 'ErrorWidget',
-          fatal: false,
-        );
-      } catch (_) {}
+      // Record non-fatal to Crashlytics as well (only on non-web)
+      if (!kIsWeb) {
+        try {
+          FirebaseCrashlytics.instance.recordError(
+            details.exception,
+            details.stack ?? StackTrace.empty,
+            reason: 'ErrorWidget',
+            fatal: false,
+          );
+        } catch (_) {}
+      }
 
-      String _shortFingerprint(String s) {
+      String shortFingerprint(String s) {
         // Simple FNV-1a 32-bit hash for a short, repeatable ID
         int hash = 0x811C9DC5;
         for (final codeUnit in s.codeUnits) {
@@ -77,15 +89,15 @@ void main() {
       } catch (_) {}
 
       final now = DateTime.now();
-      final env = Constants.environment;
+      const env = Constants.environment;
       String route = '';
       try {
         // May throw if router not available in this context
         route = GoRouterState.of(details.context as BuildContext).uri.path;
       } catch (_) {}
 
-      final fid = 'E-${now.millisecondsSinceEpoch.toRadixString(36)}-${_shortFingerprint('$errorType|$topFrame')}';
-      final message = 'Something went wrong. Please restart the app.';
+      final fid = 'E-${now.millisecondsSinceEpoch.toRadixString(36)}-${shortFingerprint('$errorType|$topFrame')}';
+      const message = 'Something went wrong. Please restart the app.';
 
       return Directionality(
         textDirection: TextDirection.ltr,
@@ -105,10 +117,10 @@ void main() {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 12),
-                  Text(
+                  const Text(
                     message,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: Color(0xFFE5E7EB), fontSize: 14),
+                    style: TextStyle(color: Color(0xFFE5E7EB), fontSize: 14),
                   ),
                   const SizedBox(height: 20),
                   // Minimal diagnostic info for screenshots
@@ -125,41 +137,53 @@ void main() {
       );
     };
 
-    // Record platform dispatcher errors
-    ui.PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
-      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-      return true; // handled
-    };
+    // Record platform dispatcher errors (only on non-web)
+    if (!kIsWeb) {
+      ui.PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
+        FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+        return true; // handled
+      };
+    }
 
-    // Catch isolate-level errors (e.g., background isolates)
-    final errorPort = RawReceivePort((dynamic pair) {
-      final List<dynamic> errorAndStackTrace = pair as List<dynamic>;
-      final Object err = errorAndStackTrace.first as Object;
-      final StackTrace st = errorAndStackTrace.last is StackTrace
-          ? (errorAndStackTrace.last as StackTrace)
-          : StackTrace.fromString(errorAndStackTrace.last.toString());
-      FirebaseCrashlytics.instance.recordError(err, st, fatal: true);
-    });
-    Isolate.current.addErrorListener(errorPort.sendPort);
+    // Catch isolate-level errors (e.g., background isolates) - only on non-web
+    if (!kIsWeb) {
+      final errorPort = RawReceivePort((dynamic pair) {
+        final List<dynamic> errorAndStackTrace = pair as List<dynamic>;
+        final Object err = errorAndStackTrace.first as Object;
+        final StackTrace st = errorAndStackTrace.last is StackTrace
+            ? (errorAndStackTrace.last as StackTrace)
+            : StackTrace.fromString(errorAndStackTrace.last.toString());
+        FirebaseCrashlytics.instance.recordError(err, st, fatal: true);
+      });
+      Isolate.current.addErrorListener(errorPort.sendPort);
+    }
 
-    // Register background message handler
-    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-    FirebaseCrashlytics.instance.log('startup: fcm_background_handler_registered');
+    // Register background message handler (only on non-web)
+    if (!kIsWeb) {
+      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+      FirebaseCrashlytics.instance.log('startup: fcm_background_handler_registered');
+    }
 
     // Initialize Supabase and other app dependencies (dotenv + Supabase)
     try {
       await initApp();
-      FirebaseCrashlytics.instance.log('startup: supabase_initialized');
+      if (!kIsWeb) {
+        FirebaseCrashlytics.instance.log('startup: supabase_initialized');
+      }
     } catch (e, s) {
       debugPrint('❌ initApp failed: $e');
       debugPrint(s.toString());
-      FirebaseCrashlytics.instance.recordError(e, s, reason: 'initApp failed', fatal: false);
+      if (!kIsWeb) {
+        FirebaseCrashlytics.instance.recordError(e, s, reason: 'initApp failed', fatal: false);
+      }
       // Continue; router/splash will still render and can show error UI later
     }
 
     // Initialize SharedPreferences for persistent state
     final sharedPreferences = await SharedPreferences.getInstance();
-    FirebaseCrashlytics.instance.log('startup: shared_prefs_ready');
+    if (!kIsWeb) {
+      FirebaseCrashlytics.instance.log('startup: shared_prefs_ready');
+    }
 
     runApp(
       ProviderScope(
@@ -170,9 +194,13 @@ void main() {
         child: const App(),
       ),
     );
-    FirebaseCrashlytics.instance.log('startup: runApp_called');
+    if (!kIsWeb) {
+      FirebaseCrashlytics.instance.log('startup: runApp_called');
+    }
   }, (error, stack) {
-    // Record uncaught zone errors as fatal
-    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    // Record uncaught zone errors as fatal (only on non-web)
+    if (!kIsWeb) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    }
   });
 }

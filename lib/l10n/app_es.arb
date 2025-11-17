@@ -65,6 +65,8 @@
     }
   },
   "resendVerificationEmail": "reenviar email de verificación",
+  "continueWithWallet": "Continuar con la wallet Web3",
+  "signingInWithWallet": "Conectando la wallet...",
   "continueWithGoogle": "Continuar con Google",
   "signingInWithGoogle": "Iniciando sesión con Google...",
   "error": "Error",
@@ -178,6 +180,7 @@
   "your18MonthHorizon": "Tu horizonte a 18 meses",
   "longTermIntro": "Esta proyección combina tus hábitos con supuestos de crecimiento moderado para que veas a dónde te llevan tus decisiones de hoy.",
   "@scenarioPlanning": {},
+  "scenarioPlanning": "Planificación de escenarios",
   "aiScenarioPlanning": "Planificación de escenarios (IA)",
   "askAiFinancialAdvisor": "Pregúntale a tu asesor financiero de IA si puedes permitirte un gasto futuro",
   "canI": "¿Puedo",
@@ -260,8 +263,9 @@
   "startLoggingExpensesToSeeCategories": "Empieza a registrar gastos para ver las categorías",
   "selectDateRange": "Seleccionar rango de fechas",
   "addExpense": "Añadir gasto",
-  "describeYourExpense": "Describe tu gasto (ej: \"5 en hamburguesa, 3 en café\")",
-  "enterExpenseDetails": "Introduce los detalles del gasto...",
+  "describeYourExpense": "Describe tu gasto o ingreso. Solo un tipo por registro.",
+  "enterExpenseDetails": "\"5 en hamburguesa, 3 en café\" • \"recibí 100 de mis padres\"",
+  "addEntry": "Agregar registro",
   "freeFormText": "Texto libre",
   "takePhoto": "Hacer foto",
   "transactions": "transacciones",
@@ -329,13 +333,9 @@
   "gotIt": "¡Entendido!",
   "confirmExpense": "Confirmar gasto",
   "expenseDetails": "Detalles del gasto",
-  "details": "Detalles",
   "category": "Categoría",
-  "currency": "Moneda",
   "date": "Fecha",
   "time": "Hora",
-  "notes": "Notas",
-  "receipt": "Recibo",
   "saveExpense": "Guardar gasto",
   "shareWithHousehold": "Compartir con el hogar",
   "loadingHouseholdMembers": "Cargando miembros del hogar...",
@@ -344,8 +344,6 @@
   "currencyCannotBeChanged": "No se puede cambiar la moneda al compartir con un hogar",
   "cannotEditOthersExpenses": "Solo puedes editar tus propios gastos",
   "failedToLoadImage": "Error al cargar la imagen",
-  "editAmount": "Editar importe",
-  "amount": "Importe",
   "editNotes": "Editar notas",
   "addANote": "Añade una nota...",
   "noMembersFoundInHousehold": "No se encontraron miembros en el hogar",
@@ -441,6 +439,7 @@
   "expires": "Caduca",
   "copyLink": "Copiar enlace",
   "@householdImagePicker": {},
+  "householdImagePicker": "Selector de imagen del hogar",
   "selectCoverImage": "Seleccionar imagen de portada",
   "failedToLoadImages": "Error al cargar imágenes",
   "takePhoto": "Hacer foto",
@@ -456,7 +455,6 @@
   "budgetName": "Nombre del presupuesto",
   "amount": "Importe",
   "period": "Período",
-  "currency": "Moneda",
   "alertThresholds": "Umbrales de alerta",
   "warningThreshold": "Umbral de aviso",
   "alertThreshold": "Umbral de alerta",
@@ -600,7 +598,6 @@
   "creating": "Creando...",
   "generatingInvite": "Generando invitación...",
   "pleaseSelectValidCurrency": "Por favor, selecciona una moneda válida para el grupo",
-  "details": "Detalles",
   "nameMaxLength": "El nombre debe tener menos de {max} caracteres",
   "@nameMaxLength": {
     "placeholders": {
@@ -814,7 +811,18 @@
   "currency": "Moneda",
   "notes": "Notas",
   "receipt": "Recibo",
-  "saveExpense": "Guardar gasto",
+  "@recurringTransactions": {},
+  "recurringTransactions": "Transacciones recurrentes",
+  "recurring": "Recurrente",
+  "manageYourRecurringTransactions": "Gestiona tus transacciones recurrentes",
+  "errorLoadingData": "Error al cargar datos",
+  "deleteRecurringTransaction": "Eliminar transacción recurrente",
+  "areYouSureYouWantToDeleteThisRecurringTransaction": "¿Estás seguro de que quieres eliminar esta transacción recurrente?",
+  "recurringTransactionDeleted": "Transacción recurrente eliminada",
+  "transactionDeleted": "Transacción eliminada",
+  "transactions": "Transacciones",
+  "recentTransactions": "Transacciones recientes",
+  "failedToDeleteRecurringTransaction": "No se pudo eliminar la transacción recurrente",
   "currencyIsManagedByHousehold": "La moneda la gestiona el grupo y no se puede cambiar",
   "editAmount": "Editar importe",
   "amount": "Importe",
@@ -1202,5 +1210,171 @@
   "addContribution": "Añadir contribución",
   "contributionAmount": "Cantidad de contribución",
   "contributionType": "Tipo",
-  "contributionAdded": "Contribución añadida correctamente"
+  "contributionAdded": "Contribución añadida con éxito",
+
+  "pleaseSelectCategory": "Por favor selecciona una categoría",
+  "pleaseEnterAmount": "Por favor ingresa un monto",
+  "userNotAuthenticated": "Usuario no autenticado",
+  "recurringExpenseUpdatedSuccessfully": "Gasto recurrente actualizado exitosamente",
+  "recurringExpenseAddedSuccessfully": "Gasto recurrente añadido exitosamente",
+  "recurringIncomeUpdatedSuccessfully": "Ingreso recurrente actualizado exitosamente",
+  "recurringIncomeAddedSuccessfully": "Ingreso recurrente añadido exitosamente",
+  "failedToUpdateRecurringExpense": "Error al actualizar gasto recurrente",
+  "failedToAddRecurringExpense": "Error al añadir gasto recurrente",
+  "failedToUpdateRecurringIncome": "Error al actualizar ingreso recurrente",
+  "failedToAddRecurringIncome": "Error al añadir ingreso recurrente",
+  "editRecurringExpense": "Editar Gasto Recurrente",
+  "editRecurringIncome": "Editar Ingreso Recurrente",
+  "addRecurringExpense": "Añadir Gasto Recurrente",
+  "addRecurringIncome": "Añadir Ingreso Recurrente",
+  "selectCategory": "Seleccionar categoría",
+  "frequency": "Frecuencia",
+  "startDate": "Fecha de inicio",
+  "setEndDate": "Establecer fecha de fin",
+  "endDate": "Fecha de fin",
+  "selectEndDate": "Seleccionar fecha de fin",
+  "descriptionOptional": "Descripción (Opcional)",
+  "sourceOptional": "Fuente (Opcional)",
+  "companyNameClientNameExample": "ej. Nombre de empresa, Nombre de cliente",
+  "setReminder": "Establecer recordatorio",
+  "updateRecurringTransaction": "Actualizar Transacción Recurrente",
+  "addRecurringTransaction": "Añadir Transacción Recurrente",
+  "youWillBeNotifiedBeforeEachOccurrence": "Serás notificado {value} {unit} antes de cada ocurrencia",
+  "@youWillBeNotifiedBeforeEachOccurrence": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      },
+      "unit": {
+        "type": "String"
+      }
+    }
+  },
+  "addReminder": "Añadir Recordatorio",
+  "ended": "Finalizado",
+  "noRecurringExpenses": "Sin Gastos Recurrentes",
+  "noRecurringIncome": "Sin Ingresos Recurrentes",
+  "setupAutomaticExpenseTracking": "Configura el seguimiento automático de gastos para suscripciones, facturas y pagos regulares",
+  "setupAutomaticIncomeTracking": "Configura el seguimiento automático de ingresos para salario, trabajo freelance y ganancias regulares",
+  "biweekly": "Quincenal",
+  "oneTime": "Una vez",
+  "custom": "Personalizado",
+  "everyXDays": "Cada {count} días",
+  "@everyXDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXWeeks": "Cada {count} semanas",
+  "@everyXWeeks": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "every2Weeks": "Cada 2 semanas",
+  "everyXMonths": "Cada {count} meses",
+  "@everyXMonths": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXYears": "Cada {count} años",
+  "@everyXYears": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "days": "días",
+  "hours": "horas",
+  "confirmIncome": "Confirmar ingreso",
+  "saveIncome": "Guardar ingreso",
+  "incomeSaved": "Ingreso guardado",
+  "incomeSavedAndShared": "Ingreso guardado y compartido",
+  "addReceiptPhoto": "Agregar foto del recibo",
+  "tapToTakePhoto": "Toma una foto del recibo",
+  "atLeastOneMember": "Debe incluir al menos un miembro",
+  "memberMustHaveShare": "Al menos un miembro debe tener una participación mayor que 0",
+  "monthOverMonthSpending": "Gasto mes a mes",
+  "last3Months": "Últimos 3 meses",
+
+  "breakdown": "Desglose",
+  "noOutstandingItems": "No hay saldos pendientes",
+  "theyOweYou": "Te deben",
+  "expressNetting": "Compensación exprés",
+  "detailedSettlement": "Liquidación detallada",
+  "expressNettingHint": "Esta es una sugerencia de compensación. Al confirmar se liquidarán todos tus pendientes con este miembro.",
+  "settle": "Liquidar",
+  "confirmSettlement": "Confirmar liquidación",
+  "confirmSettlementMessage": "Esto marcará como liquidados todos tus pendientes con este miembro.",
+  "pleaseSelectMember": "Selecciona un miembro",
+  "settlementCompleted": "Liquidación completada",
+  "nothingToSettle": "Nada que liquidar",
+  "expense": "Gasto",
+  "settlement": "Liquidación",
+  "suggestedNetTransfers": "Transferencias netas sugeridas",
+  "detailedPairwiseDues": "Deudas detalladas entre miembros",
+  "outstanding": "Pendiente",
+  "youAreOwedBy": "Personas que te deben",
+  "noOutstandingAmounts": "No hay montos pendientes",
+  "groupFairnessTitle": "Equidad del grupo",
+  "groupFairness": "Equidad del grupo",
+  "groupFairnessExplanation": "Muestra qué tan equitativamente se reparten los gastos entre los miembros del hogar.\n\nUn porcentaje más alto significa que todos aportan su parte justa. Uno más bajo sugiere que algunas personas están cubriendo más gastos que otras.\n\nPiénsalo como un trabajo en equipo: cuando todos contribuyen por igual, la puntuación de equidad es alta. Cuando una persona carga con la mayor parte, baja.\n\nLa \"parte equitativa\" indica lo que debería aportar cada persona si todo se dividiera en partes iguales.",
+  "noMemberDataYet": "Aún no hay datos de miembros",
+  "evenShare": "Parte equitativa: {amount}",
+  "@evenShare": {
+    "placeholders": {
+      "amount": {"type": "String"}
+    }
+  },
+  "viewHousehold": "Ver el hogar",
+  "invalidInvitationMissingInfo": "Invitación inválida: faltan datos del hogar",
+  "joinedHouseholdWithName": "Te has unido a {name}.",
+  "@joinedHouseholdWithName": {"placeholders": {"name": {"type": "String"}}},
+  "joinedHousehold": "Te has unido al hogar.",
+  "errorLoadingData": "Error al cargar los datos",
+  "errorLoadingSplits": "Error al cargar los repartos",
+  "markAsSettled": "Marcar como liquidado",
+  "splitDetails": "Detalles del reparto",
+  "equalSplit": "REPARTO EQUITATIVO",
+  "errorLoadingBudgets": "Error al cargar los presupuestos",
+  "noSharedBudgetsYet": "Aún no hay presupuestos compartidos",
+  "whoCanSeeThisExpense": "¿Quién puede ver este gasto?",
+  "onlyVisibleToYou": "Solo tú puedes verlo",
+  "chooseSpecificMembers": "Elige miembros específicos",
+  "selectMembers": "Seleccionar miembros",
+  "noMembersFound": "No se encontraron miembros",
+  "membersSelectedCount": "{count} seleccionados",
+  "@membersSelectedCount": {"placeholders": {"count": {"type": "int"}}},
+  "noSplitsYet": "Aún no hay repartos",
+  "startSplittingExpensesWithYourHousehold": "Empieza a repartir gastos con tu hogar",
+  "minutesAgoShort": "hace {count} min",
+  "@minutesAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "hoursAgoShort": "hace {count} h",
+  "@hoursAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "daysAgoShort": "hace {count} d",
+  "@daysAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "weeksAgoShort": "hace {count} sem",
+  "@weeksAgoShort": {"placeholders": {"count": {"type": "int"}}}
+  ,
+  "errorLoadingActivity": "Error al cargar la actividad",
+  "noRecentActivity": "No hay actividad reciente",
+  "viewAllExpenses": "Ver todos los gastos",
+  "noPendingSplits": "No hay repartos pendientes",
+  "pendingSettlement": "Liquidación pendiente"
+  ,
+  "youreIn": "¡Ya estás dentro! 🎉",
+  "invitationError": "Error de invitación",
+  "joiningHousehold": "Uniéndote al hogar",
+  "processingInvitation": "Procesando invitación..."
+  ,
+  "noHouseholdsAvailableCreateOrJoin": "No hay hogares disponibles. Crea o únete a un hogar primero.",
+  "selectHousehold": "Seleccionar hogar"
 }

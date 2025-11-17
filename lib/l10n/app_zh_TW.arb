@@ -68,6 +68,8 @@
     }
   },
   "resendVerificationEmail": "重新傳送驗證 Email",
+  "continueWithWallet": "使用 Web3 錢包繼續",
+  "signingInWithWallet": "正在連線錢包...",
 
   "continueWithGoogle": "使用 Google 帳號繼續",
   "signingInWithGoogle": "正在使用 Google 登入...",
@@ -154,7 +156,6 @@
   "activity": "活動",
   "accountInformation": "帳號資訊",
   "userId": "使用者 ID",
-  "email": "Email",
   "recentActivity": "近期活動",
   "noActivityYet": "目前沒有活動",
   "signOut": "登出",
@@ -226,7 +227,6 @@
 
   "@navigation": {},
   "close": "關閉",
-  "next": "下一步",
   "done": "完成",
 
   "@runningBalanceSlides": {},
@@ -250,7 +250,6 @@
   "longTermMovesToConsiderDesc": "使用圖表來演練未來的決策。今天的小調整將在未來累積成大勝利。",
 
   "@categorySlides": {},
-  "overview": "總覽",
   "forMe": "個人",
   "forUs": "共享",
   "home": "首頁",
@@ -263,7 +262,6 @@
   "updateBudget": "更新預算",
   "enterNewTotalDailyBudget": "輸入新的每日總預算。",
   "budgetAmount": "預算金額",
-  "cancel": "取消",
   "save": "儲存",
   "enterValidAmountGreaterThan0": "請輸入大於 0 的有效金額",
   "updatingBudget": "正在更新預算...",
@@ -279,10 +277,12 @@
   "startLoggingExpensesToSeeCategories": "開始記錄支出以查看類別",
   "selectDateRange": "選取日期範圍",
   "addExpense": "新增支出",
-  "describeYourExpense": "描述您的支出 (例如：「漢堡 $80，咖啡 $55」)",
-  "enterExpenseDetails": "輸入支出詳情...",
+  "describeYourExpense": "描述支出或收入（每次僅一種類型）。",
+  "enterExpenseDetails": "「漢堡 5 元，咖啡 3 元」 • 「收到父母 100 元」",
+  "addEntry": "新增記錄",
   "freeFormText": "自由輸入",
   "takePhoto": "拍照",
+  "recentTransactions": "最近的交易",
   "transactions": "交易",
   "negative": "負",
   "positive": "正",
@@ -371,7 +371,6 @@
   "errorLoadingMembers": "載入成員時發生錯誤：{error}",
   "noExpenseToSave": "沒有要儲存的支出",
   "expenseSavedAndShared": "支出已儲存並共享{splitInfo}！",
-  "expenseSaved": "支出已儲存！",
   "failedToSave": "儲存失敗：{error}",
   "failedToSyncCurrencyPreference": "同步幣別偏好失敗：{error}",
   "currencyUpdatedSuccessfully": "幣別更新成功",
@@ -723,7 +722,6 @@
 
   "failedToLoadImage": "載入圖片失敗",
 
-  "done": "完成",
 
   "createBudget": "建立預算",
   "budgetName": "預算名稱",
@@ -860,7 +858,6 @@
   "codeAutoFilledFromVerificationLink": "已從驗證連結自動填入驗證碼",
   "verify": "驗證",
   "verifying": "驗證中...",
-  "done": "完成",
 
   "@avatarCustomizer": {},
   "avatarStudio": "頭像工作室",
@@ -889,11 +886,24 @@
 
   "@unifiedTransactionSheet": {},
   "confirmExpense": "確認支出",
-  "expenseDetails": "支出詳情",
+  "expenseDetails": "支出明細",
   "details": "詳情",
-  "currency": "幣別",
+  "currency": "貨幣",
   "notes": "備註",
   "receipt": "收據",
+
+  "@recurringTransactions": {},
+  "recurringTransactions": "定期交易",
+  "recurring": "定期",
+  "manageYourRecurringTransactions": "管理定期交易",
+  "errorLoadingData": "資料載入失敗",
+  "deleteRecurringTransaction": "刪除定期交易",
+  "areYouSureYouWantToDeleteThisRecurringTransaction": "確定要刪除此定期交易嗎？",
+  "recurringTransactionDeleted": "定期交易已刪除",
+  "transactionDeleted": "交易已刪除",
+  "transactions": "交易",
+  "recentTransactions": "最近交易",
+  "failedToDeleteRecurringTransaction": "刪除定期交易失敗",
   "saveExpense": "儲存支出",
   "currencyIsManagedByHousehold": "幣別由家庭管理，無法變更",
   "editAmount": "編輯金額",
@@ -1057,7 +1067,6 @@
   "shareInvitationLink": "分享邀請連結",
   "share": "分享",
   "closeShareSheet": "關閉分享面板",
-  "done": "完成",
   "invitationLinkCopiedToClipboard": "邀請連結已複製到剪貼簿！",
   "joinMyHouseholdMessage": "來 Moneko 加入我的家庭 \"{householdName}\" 吧！\n\n{inviteUrl}",
   "@joinMyHouseholdMessage": {
@@ -1189,5 +1198,165 @@
   "addContribution": "新增貢獻",
   "contributionAmount": "貢獻金額",
   "contributionType": "類型",
-  "contributionAdded": "貢獻新增成功"
+  "contributionAdded": "貢獻新增成功",
+
+  "pleaseSelectCategory": "請選擇分類",
+  "pleaseEnterAmount": "請輸入金額",
+  "userNotAuthenticated": "用戶未認證",
+  "recurringExpenseUpdatedSuccessfully": "定期支出更新成功",
+  "recurringExpenseAddedSuccessfully": "定期支出已成功新增",
+  "recurringIncomeUpdatedSuccessfully": "定期收入已成功更新",
+  "recurringIncomeAddedSuccessfully": "定期收入已成功新增",
+  "failedToUpdateRecurringExpense": "無法更新定期支出",
+  "failedToAddRecurringExpense": "無法新增定期支出",
+  "failedToUpdateRecurringIncome": "無法更新定期收入",
+  "failedToAddRecurringIncome": "無法新增定期收入",
+  "editRecurringExpense": "編輯定期支出",
+  "editRecurringIncome": "編輯定期收入",
+  "addRecurringExpense": "新增定期支出",
+  "addRecurringIncome": "新增定期收入",
+  "selectCategory": "選擇類別",
+  "frequency": "頻率",
+  "startDate": "開始日期",
+  "setEndDate": "設定結束日期",
+  "endDate": "結束日期",
+  "selectEndDate": "選擇結束日期",
+  "descriptionOptional": "描述（選填）",
+  "sourceOptional": "來源（選填）",
+  "companyNameClientNameExample": "例如：公司名稱、客戶名稱",
+  "setReminder": "設定提醒",
+  "updateRecurringTransaction": "更新定期交易",
+  "addRecurringTransaction": "新增定期交易",
+  "youWillBeNotifiedBeforeEachOccurrence": "您將在每次發生前 {value} {unit} 收到通知",
+  "@youWillBeNotifiedBeforeEachOccurrence": {
+    "placeholders": {
+      "value": {"type": "int"},
+      "unit": {"type": "String"}
+    }
+  },
+  "addReminder": "新增提醒",
+  "ended": "已結束",
+  "noRecurringExpenses": "無定期支出",
+  "noRecurringIncome": "無定期收入",
+  "setupAutomaticExpenseTracking": "為訂閱、帳單和定期付款設置自動支出跟蹤",
+  "setupAutomaticIncomeTracking": "為薪資、自由職業和定期收入設置自動收入跟蹤",
+  "biweekly": "每兩週",
+  "oneTime": "一次性",
+  "custom": "自定義",
+  "everyXDays": "每{count}天",
+  "@everyXDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXWeeks": "每{count}週",
+  "@everyXWeeks": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "every2Weeks": "每2週",
+  "everyXMonths": "每{count}個月",
+  "@everyXMonths": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXYears": "每{count}年",
+  "@everyXYears": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "days": "天",
+  "hours": "小時",
+  "confirmIncome": "確認收入",
+  "saveIncome": "儲存收入",
+  "incomeSaved": "收入已儲存",
+  "incomeSavedAndShared": "收入已儲存並分享",
+  "addReceiptPhoto": "新增收據照片",
+  "tapToTakePhoto": "點擊拍攝收據照片",
+  "atLeastOneMember": "至少需要一個成員",
+  "memberMustHaveShare": "至少一個成員的份額必須大於0",
+  "monthOverMonthSpending": "每月支出趨勢",
+  "last3Months": "過去 3 個月",
+
+  "breakdown": "明細",
+  "noOutstandingItems": "沒有未結項目",
+  "theyOweYou": "他們欠你",
+  "expressNetting": "快速淨額結算",
+  "detailedSettlement": "詳細結算",
+  "expressNettingHint": "這是淨額結算建議。確認後，你與此成員的所有未結項目都會結清。",
+  "settle": "結算",
+  "confirmSettlement": "確認結算",
+  "confirmSettlementMessage": "這將把你與此成員的所有未結項目標記為已結清。",
+  "pleaseSelectMember": "請選擇成員",
+  "settlementCompleted": "結算完成",
+  "nothingToSettle": "無可結算項目",
+  "expense": "支出",
+  "settlement": "結算",
+  "suggestedNetTransfers": "建議的淨額轉帳",
+  "detailedPairwiseDues": "成員之間的明細欠款",
+  "outstanding": "未結",
+  
+  "youAreOwedBy": "應收自",
+  "noOutstandingAmounts": "沒有未結金額",
+  "groupFairnessTitle": "群組公平度",
+  "groupFairness": "群組公平度",
+  "groupFairnessExplanation": "顯示家庭成員之間支出分擔的均衡程度。\n\n百分比越高，表示大家分擔較為公平；越低則表示有人承擔較多支出。\n\n把它想成團隊合作：當大家平均付出時，公平度分數較高；若某個人承擔大部分，分數就會下降。\n\n「平均分攤」表示若完全平均分配，每個人應負擔的金額。",
+  "noMemberDataYet": "尚無成員資料",
+  "evenShare": "平均分攤：{amount}",
+  "@evenShare": {"placeholders": {"amount": {"type": "String"}}}
+,
+  "viewHousehold": "檢視家庭",
+  "invalidInvitationMissingInfo": "無效的邀請：缺少家庭資訊",
+  "joinedHouseholdWithName": "已成功加入 {name}！",
+  "@joinedHouseholdWithName": {"placeholders": {"name": {"type": "String"}}},
+  "joinedHousehold": "已成功加入此家庭！",
+  "errorLoadingData": "載入資料錯誤",
+  "errorLoadingSplits": "載入分攤錯誤",
+  "markAsSettled": "標記為已結清",
+  "splitDetails": "分攤明細",
+  "equalSplit": "平均分攤",
+  "errorLoadingBudgets": "載入預算錯誤",
+  "noSharedBudgetsYet": "尚無共享預算",
+  "whoCanSeeThisExpense": "誰可以查看此支出？",
+  "onlyVisibleToYou": "僅你可見",
+  "chooseSpecificMembers": "選擇特定成員",
+  "selectMembers": "選擇成員",
+  "noMembersFound": "找不到成員",
+  "membersSelectedCount": "已選擇 {count} 位",
+  "@membersSelectedCount": {"placeholders": {"count": {"type": "int"}}},
+  "noSplitsYet": "尚無分攤",
+  "startSplittingExpensesWithYourHousehold": "開始與家庭分攤支出",
+  "minutesAgoShort": "{count} 分鐘前",
+  "@minutesAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "hoursAgoShort": "{count} 小時前",
+  "@hoursAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "daysAgoShort": "{count} 天前",
+  "@daysAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "weeksAgoShort": "{count} 週前",
+  "@weeksAgoShort": {"placeholders": {"count": {"type": "int"}}}
+,
+  "errorLoadingActivity": "載入活動錯誤",
+  "noRecentActivity": "尚無近期活動",
+  "viewAllExpenses": "檢視所有支出",
+  "noPendingSplits": "尚無待處理分攤",
+  "pendingSettlement": "待結清"
+  ,
+  "youreIn": "已加入！🎉",
+  "invitationError": "邀請錯誤",
+  "joiningHousehold": "正在加入家庭",
+  "processingInvitation": "正在處理邀請..."
+  ,
+  "noHouseholdsAvailableCreateOrJoin": "沒有可用的家庭。請先建立或加入家庭。",
+  "selectHousehold": "選擇家庭"
 }

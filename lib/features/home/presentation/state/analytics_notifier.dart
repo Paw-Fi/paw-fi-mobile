@@ -8,7 +8,11 @@ import 'package:moneko/features/home/presentation/state/analytics_data.dart';
 class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
   AnalyticsNotifier() : super(AnalyticsData());
 
-  Future<void> loadData(String userId) async {
+  Future<void> loadData(
+    String userId, {
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
     // Set hasLoadedOnce immediately to prevent infinite retry loops
     state = state.copyWith(
       isLoading: true, 
@@ -89,66 +93,104 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
           .cast<String>()
           .toList();
 
-      // Fetch ALL PERSONAL expenses (exclude household expenses where split_group_id IS NOT NULL)
-      // Aggregate across ALL contact IDs to handle historical rows.
+      // Fetch ALL PERSONAL expenses using optimized edge function
+      // This uses list-expenses with proper filters instead of direct DB query
+      // EXCLUDE recurring transactions and household expenses
       List<ExpenseEntry> allExpenses = [];
       try {
-        dynamic expensesResponse;
-        if (contactIds.length <= 1) {
-          final contactId = contactIds.isNotEmpty ? contactIds.first : fetchedContact.id;
-          expensesResponse = await supabase
-              .from('expenses')
-              .select('id,contact_id,date,amount_cents,currency,category,created_at,raw_text,receipt_image_url,household_id,split_group_id')
-              .isFilter('split_group_id', null)
-              .eq('contact_id', contactId)
-              .order('date', ascending: true);
-        } else {
-          expensesResponse = await supabase
-              .from('expenses')
-              .select('id,contact_id,date,amount_cents,currency,category,created_at,raw_text,receipt_image_url,household_id,split_group_id')
-              .isFilter('split_group_id', null)
-              .inFilter('contact_id', contactIds)
-              .order('date', ascending: true);
-        }
+        final response = await supabase.functions.invoke(
+          'list-expenses',
+          body: {
+            'userId': userId,
+            'excludeRecurring': true,  // Exclude recurring transactions
+            'personalOnly': true,      // Only personal expenses (split_group_id IS NULL)
+            'limit': 10000,            // Safety limit (10K max)
+            if (startDate != null) 'startDate': startDate.toIso8601String(),
+            if (endDate != null) 'endDate': endDate.toIso8601String(),
+          },
+        );
 
-        allExpenses = (expensesResponse as List)
-            .map((e) => ExpenseEntry.fromJson(e as Map<String, dynamic>))
-            .toList();
+        if (response.data != null) {
+          final jsonData = response.data as Map<String, dynamic>;
+          final expensesData = jsonData['data'] as List<dynamic>?;
+          if (expensesData != null) {
+            allExpenses = expensesData
+                .map((e) => ExpenseEntry.fromJson(e as Map<String, dynamic>))
+                .toList();
+          }
+        }
       } catch (expenseError) {
-        // Handle errors gracefully and attempt a fallback using user_id if available
-        debugPrint('[Analytics] Error fetching expenses by contact_id: $expenseError');
+        // Handle errors gracefully with fallback
+        debugPrint('[Analytics] Error fetching expenses via edge function: $expenseError');
+        
+        // Fallback to direct DB query if edge function fails
         try {
-          final fallbackResponse = await supabase
+          var fallbackQuery = supabase
               .from('expenses')
-              .select('id,contact_id,date,amount_cents,currency,category,created_at,raw_text,receipt_image_url,household_id,split_group_id')
+              .select('id,contact_id,date,amount_cents,currency,category,created_at,raw_text,receipt_image_url,household_id,split_group_id,type,is_recurring')
               .eq('user_id', userId)
               .isFilter('split_group_id', null)
+              .or('is_recurring.is.false,is_recurring.is.null');
+          
+          // Apply date filters if provided
+          if (startDate != null) {
+            fallbackQuery = fallbackQuery.gte('date', startDate.toIso8601String());
+          }
+          if (endDate != null) {
+            fallbackQuery = fallbackQuery.lte('date', endDate.toIso8601String());
+          }
+          
+          final fallbackResponse = await fallbackQuery
+              .limit(10000)  // Safety limit
               .order('date', ascending: true);
+              
           allExpenses = (fallbackResponse as List)
               .map((e) => ExpenseEntry.fromJson(e as Map<String, dynamic>))
               .toList();
         } catch (fallbackError) {
-          debugPrint('[Analytics] Fallback fetch by user_id failed: $fallbackError');
+          debugPrint('[Analytics] Fallback fetch also failed: $fallbackError');
           allExpenses = [];
         }
       }
 
-      // Fetch ALL budgets (unfiltered) aggregated across all contact IDs
+      // Fetch budgets with date filters and safety limits
       List<DailyBudgetEntry> allBudgets = [];
       try {
         dynamic budgetsResponse;
         if (contactIds.length <= 1) {
           final contactId = contactIds.isNotEmpty ? contactIds.first : fetchedContact.id;
-          budgetsResponse = await supabase
+          var budgetQuery = supabase
               .from('daily_budgets')
               .select('id,contact_id,date,amount_cents,currency')
-              .eq('contact_id', contactId)
+              .eq('contact_id', contactId);
+          
+          // Apply date filters if provided
+          if (startDate != null) {
+            budgetQuery = budgetQuery.gte('date', startDate.toIso8601String());
+          }
+          if (endDate != null) {
+            budgetQuery = budgetQuery.lte('date', endDate.toIso8601String());
+          }
+          
+          budgetsResponse = await budgetQuery
+              .limit(10000)  // Safety limit
               .order('date', ascending: true);
         } else {
-          budgetsResponse = await supabase
+          var budgetQuery = supabase
               .from('daily_budgets')
               .select('id,contact_id,date,amount_cents,currency')
-              .inFilter('contact_id', contactIds)
+              .inFilter('contact_id', contactIds);
+          
+          // Apply date filters if provided
+          if (startDate != null) {
+            budgetQuery = budgetQuery.gte('date', startDate.toIso8601String());
+          }
+          if (endDate != null) {
+            budgetQuery = budgetQuery.lte('date', endDate.toIso8601String());
+          }
+          
+          budgetsResponse = await budgetQuery
+              .limit(10000)  // Safety limit
               .order('date', ascending: true);
         }
 
@@ -180,8 +222,8 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
     }
   }
 
-  void refresh(String userId) {
-    loadData(userId);
+  void refresh(String userId, {DateTime? startDate, DateTime? endDate}) {
+    loadData(userId, startDate: startDate, endDate: endDate);
   }
 
   void updatePreferredCurrency(String currency) {

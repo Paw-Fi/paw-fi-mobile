@@ -534,6 +534,14 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  flutter_colorpicker:
+    dependency: "direct main"
+    description:
+      name: flutter_colorpicker
+      sha256: "969de5f6f9e2a570ac660fb7b501551451ea2a1ab9e2097e89475f60e07816ea"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.0"
   flutter_dotenv:
     dependency: "direct main"
     description:
@@ -627,6 +635,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.4.9"
+  flutter_slidable:
+    dependency: "direct main"
+    description:
+      name: flutter_slidable
+      sha256: ea369262929d3cc6ebf9d8a00c196127966f117fe433a5e5cb47fb08008ca203
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.0.3"
   flutter_svg:
     dependency: "direct main"
     description:
@@ -885,14 +901,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.4"
-  ios_color_picker:
-    dependency: "direct main"
-    description:
-      name: ios_color_picker
-      sha256: d75ca85230ff618654b29982a9a08883603030f334e8323889d56c5f106edf07
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.0.2"
   jovial_misc:
     dependency: transitive
     description:
@@ -1450,14 +1458,6 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
-  smooth_page_indicator:
-    dependency: transitive
-    description:
-      name: smooth_page_indicator
-      sha256: b21ebb8bc39cf72d11c7cfd809162a48c3800668ced1c9da3aade13a32cf6c1c
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.2.1"
   source_gen:
     dependency: transitive
     description:
@@ -1554,14 +1554,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.10.3"
-  super_tooltip:
-    dependency: transitive
-    description:
-      name: super_tooltip
-      sha256: "06f734caa2ddb2313813dac2c939f096222beece9c146ec7d71e07e6e869bef2"
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.1.0"
   term_glyph:
     dependency: transitive
     description:
@@ -1739,7 +1731,7 @@ packages:
     source: hosted
     version: "1.1.0"
   web:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: web
       sha256: "868d88a33d8a87b18ffc05f9f030ba328ffefba92d6c127917a2ba740f9cfe4a"

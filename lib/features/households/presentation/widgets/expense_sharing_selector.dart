@@ -4,6 +4,7 @@ import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 // import '../../../home/presentation/models/expense_entry.dart';
 // import '../../domain/entities/household.dart';
 import '../../domain/entities/shared_budget.dart' show ShareScope;
+import '../../../../../core/l10n/l10n.dart';
 import '../providers/household_providers.dart';
 
 /// Widget for selecting expense sharing scope and members
@@ -47,7 +48,7 @@ class _ExpenseSharingSelectorState extends ConsumerState<ExpenseSharingSelector>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Who can see this expense?',
+          context.l10n.whoCanSeeThisExpense,
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
@@ -65,8 +66,8 @@ class _ExpenseSharingSelectorState extends ConsumerState<ExpenseSharingSelector>
           child: Column(
             children: [
               _SharingScopeOption(
-                title: 'Private',
-                subtitle: 'Only visible to you',
+                title: context.l10n.privacyPrivate,
+                subtitle: context.l10n.onlyVisibleToYou,
                 icon: Icons.lock,
                 isSelected: _scope == ShareScope.private,
                 onTap: () {
@@ -80,8 +81,8 @@ class _ExpenseSharingSelectorState extends ConsumerState<ExpenseSharingSelector>
               ),
               Divider(height: 1, color: colorScheme.border),
               _SharingScopeOption(
-                title: 'Household',
-                subtitle: 'Visible to all household members',
+                title: context.l10n.household,
+                subtitle: context.l10n.sharedWithAllHouseholdMembers,
                 icon: Icons.people,
                 isSelected: _scope == ShareScope.household,
                 onTap: () {
@@ -94,8 +95,8 @@ class _ExpenseSharingSelectorState extends ConsumerState<ExpenseSharingSelector>
               ),
               Divider(height: 1, color: colorScheme.border),
               _SharingScopeOption(
-                title: 'Custom',
-                subtitle: 'Choose specific members',
+                title: context.l10n.custom,
+                subtitle: context.l10n.chooseSpecificMembers,
                 icon: Icons.tune,
                 isSelected: _scope == ShareScope.custom,
                 onTap: () {
@@ -127,7 +128,7 @@ class _ExpenseSharingSelectorState extends ConsumerState<ExpenseSharingSelector>
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
-                        'No households available. Create or join a household first.',
+                        context.l10n.noHouseholdsAvailableCreateOrJoin,
                         style: TextStyle(
                           fontSize: 14,
                           color: colorScheme.mutedForeground,
@@ -138,9 +139,9 @@ class _ExpenseSharingSelectorState extends ConsumerState<ExpenseSharingSelector>
 
                   return DropdownButtonFormField<String>(
                     initialValue: _householdId,
-                    decoration: const InputDecoration(
-                      labelText: 'Select Household',
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      labelText: context.l10n.selectHousehold,
+                      border: const OutlineInputBorder(),
                     ),
                     items: households.map((household) {
                       return DropdownMenuItem(
@@ -158,7 +159,7 @@ class _ExpenseSharingSelectorState extends ConsumerState<ExpenseSharingSelector>
                   );
                 },
                 loading: () => const LinearProgressIndicator(),
-                error: (error, _) => Text('Error loading households', style: TextStyle(color: colorScheme.destructive)),
+                error: (error, _) => Text(context.l10n.errorLoadingHouseholds, style: TextStyle(color: colorScheme.destructive)),
               );
             },
             loading: () => const CircularProgressIndicator(),
@@ -176,7 +177,7 @@ class _ExpenseSharingSelectorState extends ConsumerState<ExpenseSharingSelector>
               children: [
                 const Icon(Icons.person_add, size: 20),
                 const SizedBox(width: 8),
-                Text(_memberIds.isEmpty ? 'Select Members' : '${_memberIds.length} members selected'),
+                Text(_memberIds.isEmpty ? context.l10n.selectMembers : context.l10n.membersSelectedCount(_memberIds.length)) ,
               ],
             ),
           ),
@@ -343,7 +344,7 @@ class _MemberPickerSheetState extends ConsumerState<_MemberPickerSheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Select Members',
+            context.l10n.selectMembers,
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -357,7 +358,7 @@ class _MemberPickerSheetState extends ConsumerState<_MemberPickerSheet> {
                 if (members.isEmpty) {
                   return Center(
                     child: Text(
-                      'No members found',
+                      context.l10n.noMembersFound,
                       style: TextStyle(color: colorScheme.mutedForeground),
                     ),
                   );
@@ -390,7 +391,7 @@ class _MemberPickerSheetState extends ConsumerState<_MemberPickerSheet> {
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, _) => Center(
                 child: Text(
-                  'Error: $error',
+                  '${context.l10n.error}: $error',
                   style: TextStyle(color: colorScheme.destructive),
                 ),
               ),
@@ -402,7 +403,7 @@ class _MemberPickerSheetState extends ConsumerState<_MemberPickerSheet> {
               Expanded(
                 child: shadcnui.SecondaryButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
+                  child: Text(context.l10n.cancel),
                 ),
               ),
               const SizedBox(width: 12),
@@ -412,7 +413,7 @@ class _MemberPickerSheetState extends ConsumerState<_MemberPickerSheet> {
                     widget.onSelectionChanged(_selectedIds.toList());
                     Navigator.pop(context);
                   },
-                  child: const Text('Done'),
+                  child: Text(context.l10n.done),
                 ),
               ),
             ],

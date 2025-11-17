@@ -65,6 +65,9 @@ class ExpenseSplitGroup {
   });
 
   factory ExpenseSplitGroup.fromJson(Map<String, dynamic> json) {
+    // Handle both 'expense_split_lines' (from Supabase nested query) and 'split_lines' (from direct JSON)
+    final linesData = json['expense_split_lines'] ?? json['split_lines'];
+    
     return ExpenseSplitGroup(
       id: json['id'] as String,
       householdId: json['household_id'] as String,
@@ -77,8 +80,8 @@ class ExpenseSplitGroup {
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
       payerEmail: json['payer_email'] as String?,
-      splitLines: json['split_lines'] != null
-          ? (json['split_lines'] as List)
+      splitLines: linesData != null
+          ? (linesData as List)
               .map((e) => ExpenseSplitLine.fromJson(e as Map<String, dynamic>))
               .toList()
           : null,

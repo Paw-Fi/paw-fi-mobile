@@ -3,7 +3,7 @@ import 'package:flutter/cupertino.dart';
 
 /// Fallback localization delegate for unsupported locales
 /// Provides English-based Material and Cupertino localizations
-/// for locales that don't have built-in support (like pks)
+/// for locales that don't have built-in support (like ur)
 class FallbackMaterialLocalizationDelegate
     extends LocalizationsDelegate<MaterialLocalizations> {
   const FallbackMaterialLocalizationDelegate();

@@ -345,7 +345,9 @@ class _SpendingCardState extends State<SpendingCard> {
   }
 
   double _getTotalSpent(List<ExpenseEntry> expenses) {
-    return widget.expenses.fold(0.0, (sum, e) => sum + e.amount.abs());
+    return widget.expenses
+        .where((e) => (e.type ?? 'expense').toLowerCase() != 'income')
+        .fold(0.0, (sum, e) => sum + e.amount.abs());
   }
 }
 

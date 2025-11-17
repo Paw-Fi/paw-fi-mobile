@@ -65,6 +65,8 @@
     }
   },
   "resendVerificationEmail": "認証メールを再送信",
+  "continueWithWallet": "Web3ウォレットで続行",
+  "signingInWithWallet": "ウォレットに接続しています...",
   "continueWithGoogle": "Googleで続ける",
   "signingInWithGoogle": "Googleでログインしています...",
   "error": "エラー",
@@ -260,10 +262,12 @@
   "startLoggingExpensesToSeeCategories": "支出を記録し始めると、カテゴリーが表示されます",
   "selectDateRange": "期間を選択",
   "addExpense": "支出を追加",
-  "describeYourExpense": "支出内容を説明してください（例：「バーガー 500円、コーヒー 300円」）",
-  "enterExpenseDetails": "支出の詳細を入力...",
+  "addEntry": "記録を追加",
+  "describeYourExpense": "支出または収入を記述してください。1回の記録につき1種類のみ。",
+  "enterExpenseDetails": "「バーガーに5円、コーヒーに3円」 • 「両親から100円を受け取った」",
   "freeFormText": "自由入力",
   "takePhoto": "写真を撮る",
+  "recentTransactions": "最近の取引",
   "transactions": "件",
   "negative": "マイナス",
   "positive": "プラス",
@@ -808,13 +812,24 @@
   "accessories": "アクセサリー",
   "stars": "星",
   "@unifiedTransactionSheet": {},
-  "confirmExpense": "支出の確認",
+  "confirmExpense": "支出を確認",
   "expenseDetails": "支出の詳細",
   "details": "詳細",
   "currency": "通貨",
   "notes": "メモ",
   "receipt": "レシート",
-  "saveExpense": "支出を保存",
+  "@recurringTransactions": {},
+  "recurring": "定期取引",
+  "manageYourRecurringTransactions": "定期取引を管理",
+  "errorLoadingData": "データの読み込みに失敗しました",
+  "deleteRecurringTransaction": "定期取引を削除",
+  "areYouSureYouWantToDeleteThisRecurringTransaction": "この定期取引を削除してもよろしいですか？",
+  "recurringTransactionDeleted": "定期取引が削除されました",
+  "transactionDeleted": "取引が削除されました",
+  "transactions": "取引",
+  "recentTransactions": "最近の取引",
+  "failedToDeleteRecurringTransaction": "定期取引の削除に失敗しました",
+  "recurringTransactions": "定期取引",
   "currencyIsManagedByHousehold": "通貨はグループによって管理されており、変更できません",
   "editAmount": "金額を編集",
   "amount": "金額",
@@ -1202,5 +1217,165 @@
   "addContribution": "貢献を追加",
   "contributionAmount": "貢献額",
   "contributionType": "タイプ",
-  "contributionAdded": "貢献が正常に追加されました"
+  "contributionAdded": "貢献が正常に追加されました",
+
+  "pleaseSelectCategory": "カテゴリを選択してください",
+  "pleaseEnterAmount": "金額を入力してください",
+  "userNotAuthenticated": "ユーザーが認証されていません",
+  "recurringExpenseUpdatedSuccessfully": "定期的な支出が正常に更新されました",
+  "recurringExpenseAddedSuccessfully": "定期的な支出が正常に追加されました",
+  "recurringIncomeUpdatedSuccessfully": "定期的な収入が正常に更新されました",
+  "recurringIncomeAddedSuccessfully": "定期的な収入が正常に追加されました",
+  "failedToUpdateRecurringExpense": "定期的な支出の更新に失敗しました",
+  "failedToAddRecurringExpense": "定期的な支出の追加に失敗しました",
+  "failedToUpdateRecurringIncome": "定期的な収入の更新に失敗しました",
+  "failedToAddRecurringIncome": "定期的な収入の追加に失敗しました",
+  "editRecurringExpense": "定期的な支出を編集",
+  "editRecurringIncome": "定期的な収入を編集",
+  "addRecurringExpense": "定期的な支出を追加",
+  "addRecurringIncome": "定期的な収入を追加",
+  "selectCategory": "カテゴリを選択",
+  "frequency": "頻度",
+  "startDate": "開始日",
+  "setEndDate": "終了日を設定",
+  "endDate": "終了日",
+  "selectEndDate": "終了日を選択",
+  "descriptionOptional": "説明（オプション）",
+  "sourceOptional": "ソース（オプション）",
+  "companyNameClientNameExample": "例：会社名、クライアント名",
+  "setReminder": "リマインダーを設定",
+  "updateRecurringTransaction": "定期的な取引を更新",
+  "addRecurringTransaction": "定期的な取引を追加",
+  "youWillBeNotifiedBeforeEachOccurrence": "各回発生の{value} {unit}前に通知されます",
+  "@youWillBeNotifiedBeforeEachOccurrence": {
+    "placeholders": {
+      "value": {"type": "int"},
+      "unit": {"type": "String"}
+    }
+  },
+  "addReminder": "リマインダーを追加",
+  "ended": "終了",
+  "noRecurringExpenses": "定期的な支出なし",
+  "noRecurringIncome": "定期的な収入なし",
+  "setupAutomaticExpenseTracking": "サブスクリプション、請求書、定期的な支払いのための自動支出追跡を設定",
+  "setupAutomaticIncomeTracking": "給与、フリーランス作業、定期的な収益のための自動収入追跡を設定",
+  "biweekly": "隔週",
+  "oneTime": "一回限り",
+  "custom": "カスタム",
+  "everyXDays": "{count}日ごと",
+  "@everyXDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXWeeks": "{count}週間ごと",
+  "@everyXWeeks": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "every2Weeks": "2週間ごと",
+  "everyXMonths": "{count}ヶ月ごと",
+  "@everyXMonths": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXYears": "{count}年ごと",
+  "@everyXYears": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "days": "日",
+  "hours": "時間",
+  "confirmIncome": "収入を確認",
+  "saveIncome": "収入を保存",
+  "incomeSaved": "収入が保存されました",
+  "incomeSavedAndShared": "収入が保存され共有されました",
+  "addReceiptPhoto": "レシート写真を追加",
+  "tapToTakePhoto": "タップしてレシートの写真を撮ってください",
+  "atLeastOneMember": "メンバーを少なくとも1人追加する必要があります",
+  "memberMustHaveShare": "少なくとも1人のメンバーの取り分を0より大きくしてください",
+  "monthOverMonthSpending": "月次の支出推移",
+  "last3Months": "過去3か月",
+
+  "breakdown": "内訳",
+  "noOutstandingItems": "未精算の項目はありません",
+  "theyOweYou": "あなたへの支払額",
+  "expressNetting": "かんたん相殺",
+  "detailedSettlement": "詳細精算",
+  "expressNettingHint": "これは相殺の提案です。確認すると、このメンバーとの未精算分がすべて精算されます。",
+  "settle": "精算する",
+  "confirmSettlement": "精算の確認",
+  "confirmSettlementMessage": "このメンバーとの未精算項目がすべて精算済みにマークされます。",
+  "pleaseSelectMember": "メンバーを選択してください",
+  "settlementCompleted": "精算が完了しました",
+  "nothingToSettle": "精算するものはありません",
+  "expense": "支出",
+  "settlement": "精算",
+  "suggestedNetTransfers": "提案されたネット精算",
+  "detailedPairwiseDues": "メンバーごとの精算明細",
+  "outstanding": "未精算",
+  
+  "youAreOwedBy": "あなたへの支払元",
+  "noOutstandingAmounts": "未精算の金額はありません",
+  "groupFairnessTitle": "グループの公平性",
+  "groupFairness": "グループの公平性",
+  "groupFairnessExplanation": "世帯メンバー間で支出がどれだけ均等に分担されているかを示します。\n\nパーセンテージが高いほど、全員が公平に負担していることを意味します。低い場合は、一部のメンバーが他より多く支出を負担していることを示します。\n\nチームワークのようなものです。みんなが同じくらい負担すると公平性スコアは高くなり、誰か一人の負担が大きいと下がります。\n\n「均等負担」は、すべてを均等に分けた場合に一人あたりが負担する金額を示します。",
+  "noMemberDataYet": "メンバーのデータはまだありません",
+  "evenShare": "均等負担: {amount}",
+  "@evenShare": {"placeholders": {"amount": {"type": "String"}}}
+,
+  "viewHousehold": "世帯を表示",
+  "invalidInvitationMissingInfo": "無効な招待です：世帯情報が不足しています",
+  "joinedHouseholdWithName": "{name} に参加しました！",
+  "@joinedHouseholdWithName": {"placeholders": {"name": {"type": "String"}}},
+  "joinedHousehold": "世帯に参加しました！",
+  "errorLoadingData": "データの読み込みエラー",
+  "errorLoadingSplits": "分割の読み込みエラー",
+  "markAsSettled": "精算済みにする",
+  "splitDetails": "分割の詳細",
+  "equalSplit": "均等割り",
+  "errorLoadingBudgets": "予算の読み込みエラー",
+  "noSharedBudgetsYet": "共有予算はまだありません",
+  "whoCanSeeThisExpense": "この支出を見られる人は？",
+  "onlyVisibleToYou": "自分だけが見られます",
+  "chooseSpecificMembers": "特定のメンバーを選択",
+  "selectMembers": "メンバーを選択",
+  "noMembersFound": "メンバーが見つかりません",
+  "membersSelectedCount": "{count} 件選択",
+  "@membersSelectedCount": {"placeholders": {"count": {"type": "int"}}},
+  "noSplitsYet": "まだ分割はありません",
+  "startSplittingExpensesWithYourHousehold": "世帯で支出の分割を始めましょう",
+  "minutesAgoShort": "{count}分前",
+  "@minutesAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "hoursAgoShort": "{count}時間前",
+  "@hoursAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "daysAgoShort": "{count}日前",
+  "@daysAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "weeksAgoShort": "{count}週間前",
+  "@weeksAgoShort": {"placeholders": {"count": {"type": "int"}}}
+,
+  "errorLoadingActivity": "アクティビティの読み込みエラー",
+  "noRecentActivity": "最近のアクティビティはありません",
+  "viewAllExpenses": "すべての支出を表示",
+  "noPendingSplits": "保留中の分割はありません",
+  "pendingSettlement": "精算待ち"
+  ,
+  "youreIn": "参加できました！🎉",
+  "invitationError": "招待のエラー",
+  "joiningHousehold": "世帯に参加中",
+  "processingInvitation": "招待を処理しています..."
+  ,
+  "noHouseholdsAvailableCreateOrJoin": "世帯がありません。まず世帯を作成するか参加してください。",
+  "selectHousehold": "世帯を選択"
 }

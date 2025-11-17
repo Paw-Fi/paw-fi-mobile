@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:moneko/core/core.dart';
@@ -7,6 +8,7 @@ import 'package:moneko/features/onboarding/data/services/guest_goal_service.dart
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 
 part 'auth.g.dart';
 
@@ -48,11 +50,79 @@ class Auth extends _$Auth {
         }
       } catch (_) {}
 
-      // Migrate guest data on sign in
+      // On sign in, migrate guest data and sync Web3 profile (wallet address/name)
       if (data.event == AuthChangeEvent.signedIn && data.session != null) {
         _migrateGuestData(data.session!.user.id);
+        try {
+          await _syncWeb3Profile(data.session!);
+        } catch (e, st) {
+          appLog('Web3 profile sync failed: $e', name: 'Auth', error: e, stackTrace: st);
+        }
       }
+    }, onError: (error) {
+      // Handle auth stream errors gracefully
+      appLog('Auth state change error: $error', name: 'Auth', error: error);
+      try {
+        FirebaseCrashlytics.instance.recordError(error, null, fatal: false);
+      } catch (_) {}
     });
+  }
+
+  /// Ensure Web3 logins set a reasonable display name and persist
+  /// wallet address to public.users. Safe no-op for non-Web3 accounts.
+  Future<void> _syncWeb3Profile(Session session) async {
+    try {
+      final user = session.user;
+      String? walletAddress;
+      String? chain;
+
+      // Extract from identities when available
+      try {
+        final identities = (user.identities as List?) ?? const [];
+        for (final id in identities) {
+          final idDyn = id as dynamic;
+          final provider = (idDyn.provider ?? idDyn['provider'])?.toString();
+          if (provider == 'web3' || provider == 'ethereum' || provider == 'solana') {
+            final data = (idDyn.identityData ?? idDyn['identity_data']) as Map?;
+            walletAddress = (data?['wallet_address'] ?? data?['address'] ?? data?['publicKey'])?.toString();
+            chain = (data?['chain'] ?? data?['network'])?.toString();
+            if (walletAddress != null && walletAddress!.isNotEmpty) break;
+          }
+        }
+      } catch (_) {}
+
+      // Fallback: user metadata (if JS flow saved it)
+      walletAddress ??= user.userMetadata?['wallet_address']?.toString();
+      chain ??= user.userMetadata?['chain']?.toString();
+
+      if (walletAddress == null || walletAddress.isEmpty) return; // Not a Web3 login
+
+      // If no name set, use wallet address as display name
+      final hasName = (user.userMetadata?['full_name']?.toString().trim().isNotEmpty == true) ||
+          (user.userMetadata?['name']?.toString().trim().isNotEmpty == true);
+      if (!hasName) {
+        try {
+          await supabase.auth.updateUser(
+            UserAttributes(data: {
+              'full_name': walletAddress,
+              'name': walletAddress,
+              'wallet_address': walletAddress,
+              if (chain != null) 'chain': chain,
+            }),
+          );
+        } catch (_) {}
+      }
+
+      // Upsert users row with wallet address
+      try {
+        await supabase.from('users').upsert({
+          'id': user.id,
+          'full_name': walletAddress,
+          'wallet_address': walletAddress,
+          if (chain != null) 'chain': chain,
+        }, onConflict: 'id');
+      } catch (_) {}
+    } catch (_) {}
   }
 
   /// Migrate guest goals and profiles to authenticated user
@@ -202,12 +272,37 @@ class Auth extends _$Auth {
     _isLoading = true;
 
     try {
+      // Ensure device is unregistered on backend before auth session is cleared
+      try {
+        await ref.read(deviceRegistrationServiceProvider).unregisterDevice();
+      } catch (_) {}
+
       await supabase.auth.signOut();
     } on AuthException catch (error, stackTrace) {
       appLog('Sign out error: ${error.message}', name: 'Auth', error: error, stackTrace: stackTrace);
+      
+      // Handle specific refresh token errors
+      if (error.message.contains('Refresh Token Not Found') || 
+          error.message.contains('Invalid Refresh Token')) {
+        // Token is already invalid, clear local state and proceed with logout
+        appLog('Refresh token already invalid, proceeding with logout', name: 'Auth');
+        return; // Don't rethrow, allow logout to complete
+      }
+      
+      rethrow;
+    } on SocketException catch (error, stackTrace) {
+      appLog('Network error during sign out: $error', name: 'Auth', error: error, stackTrace: stackTrace);
+      // For network errors during logout, still try to clear local state
+      try {
+        state = const AppUser(uid: '', email: '', displayName: null, photoUrl: null);
+      } catch (_) {}
       rethrow;
     } catch (error, stackTrace) {
       appLog('Unexpected sign out error', name: 'Auth', error: error, stackTrace: stackTrace);
+      // Clear local state even if sign out fails
+      try {
+        state = const AppUser(uid: '', email: '', displayName: null, photoUrl: null);
+      } catch (_) {}
       rethrow;
     } finally {
       _isLoading = false;

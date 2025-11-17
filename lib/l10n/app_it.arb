@@ -65,6 +65,8 @@
     }
   },
   "resendVerificationEmail": "rinvia l'email di verifica",
+  "continueWithWallet": "Continua con il wallet Web3",
+  "signingInWithWallet": "Connessione del wallet in corso...",
   "continueWithGoogle": "Continua con Google",
   "signingInWithGoogle": "Accesso con Google in corso...",
   "error": "Errore",
@@ -260,10 +262,12 @@
   "startLoggingExpensesToSeeCategories": "Inizia a registrare le spese per vedere le categorie",
   "selectDateRange": "Seleziona intervallo di date",
   "addExpense": "Aggiungi spesa",
-  "describeYourExpense": "Descrivi la tua spesa (es: \"5 per hamburger, 3 per caffè\")",
-  "enterExpenseDetails": "Inserisci i dettagli della spesa...",
+  "describeYourExpense": "Descrivi una spesa o un'entrata. Un solo tipo per voce.",
+  "enterExpenseDetails": "\"5 per hamburger, 3 per caffè\" • \"ho ricevuto 100 dai miei genitori\"",
+  "addEntry": "Aggiungi voce",
   "freeFormText": "Testo libero",
   "takePhoto": "Scatta foto",
+  "recentTransactions": "Transazioni recenti",
   "transactions": "transazioni",
   "negative": "Negativo",
   "positive": "Positivo",
@@ -632,7 +636,7 @@
   "category": "Categoria",
   "allMembers": "Tutti i membri",
   "balanceSummary": "Riepilogo saldi",
-  "youAreOwed": "Ti devono",
+  "youAreOwed": "Hai da ricevere",
   "youOwe": "Devi",
   "youOweOthers": "Devi agli altri",
   "othersOweYou": "Gli altri ti devono",
@@ -838,6 +842,18 @@
   "currency": "Valuta",
   "notes": "Note",
   "receipt": "Ricevuta",
+  "@recurringTransactions": {},
+  "recurring": "Ricorrente",
+  "manageYourRecurringTransactions": "Gestisci le transazioni ricorrenti",
+  "errorLoadingData": "Errore nel caricamento dei dati",
+  "deleteRecurringTransaction": "Elimina transazione ricorrente",
+  "areYouSureYouWantToDeleteThisRecurringTransaction": "Sei sicuro di voler eliminare questa transazione ricorrente?",
+  "recurringTransactionDeleted": "Transazione ricorrente eliminata",
+  "transactionDeleted": "Transazione eliminata",
+  "transactions": "Transazioni",
+  "recentTransactions": "Transazioni recenti",
+  "failedToDeleteRecurringTransaction": "Impossibile eliminare la transazione ricorrente",
+  "recurringTransactions": "Transazioni ricorrenti",
   "saveExpense": "Salva spesa",
   "currencyIsManagedByHousehold": "La valuta è gestita dal gruppo e non può essere modificata",
   "editAmount": "Modifica importo",
@@ -1129,5 +1145,164 @@
   "addContribution": "Aggiungi contributo",
   "contributionAmount": "Importo contributo",
   "contributionType": "Tipo",
-  "contributionAdded": "Contributo aggiunto con successo"
+  "contributionAdded": "Contributo aggiunto con successo",
+
+  "pleaseSelectCategory": "Seleziona una categoria",
+  "pleaseEnterAmount": "Inserisci un importo",
+  "userNotAuthenticated": "Utente non autenticato",
+  "recurringExpenseUpdatedSuccessfully": "Spesa ricorrente aggiornata con successo",
+  "recurringExpenseAddedSuccessfully": "Spesa ricorrente aggiunta con successo",
+  "recurringIncomeUpdatedSuccessfully": "Reddito ricorrente aggiornato con successo",
+  "recurringIncomeAddedSuccessfully": "Reddito ricorrente aggiunto con successo",
+  "failedToUpdateRecurringExpense": "Impossibile aggiornare la spesa ricorrente",
+  "failedToAddRecurringExpense": "Impossibile aggiungere la spesa ricorrente",
+  "failedToUpdateRecurringIncome": "Impossibile aggiornare il reddito ricorrente",
+  "failedToAddRecurringIncome": "Impossibile aggiungere il reddito ricorrente",
+  "editRecurringExpense": "Modifica Spesa Ricorrente",
+  "editRecurringIncome": "Modifica Reddito Ricorrente",
+  "addRecurringExpense": "Aggiungi Spesa Ricorrente",
+  "addRecurringIncome": "Aggiungi Reddito Ricorrente",
+  "selectCategory": "Seleziona categoria",
+  "frequency": "Frequenza",
+  "startDate": "Data di inizio",
+  "setEndDate": "Imposta data di fine",
+  "endDate": "Data di fine",
+  "selectEndDate": "Seleziona data di fine",
+  "descriptionOptional": "Descrizione (Opzionale)",
+  "sourceOptional": "Fonte (Opzionale)",
+  "companyNameClientNameExample": "es. Nome azienda, Nome cliente",
+  "setReminder": "Imposta promemoria",
+  "updateRecurringTransaction": "Aggiorna Transazione Ricorrente",
+  "addRecurringTransaction": "Aggiungi Transazione Ricorrente",
+  "youWillBeNotifiedBeforeEachOccurrence": "Sarai notificato {value} {unit} prima di ogni occorrenza",
+  "@youWillBeNotifiedBeforeEachOccurrence": {
+    "placeholders": {
+      "value": {"type": "int"},
+      "unit": {"type": "String"}
+    }
+  },
+  "addReminder": "Aggiungi Promemoria",
+  "ended": "Terminato",
+  "noRecurringExpenses": "Nessuna Spesa Ricorrente",
+  "noRecurringIncome": "Nessun Reddito Ricorrente",
+  "setupAutomaticExpenseTracking": "Configura il tracciamento automatico delle spese per abbonamenti, bollette e pagamenti regolari",
+  "setupAutomaticIncomeTracking": "Configura il tracciamento automatico dei redditi per stipendio, lavoro freelance e guadagni regolari",
+  "biweekly": "Bisettimanale",
+  "oneTime": "Una tantum",
+  "custom": "Personalizzato",
+  "everyXDays": "Ogni {count} giorni",
+  "@everyXDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXWeeks": "Ogni {count} settimane",
+  "@everyXWeeks": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "every2Weeks": "Ogni 2 settimane",
+  "everyXMonths": "Ogni {count} mesi",
+  "@everyXMonths": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXYears": "Ogni {count} anni",
+  "@everyXYears": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "days": "giorni",
+  "hours": "ore",
+  "confirmIncome": "Conferma reddito",
+  "saveIncome": "Salva reddito",
+  "incomeSaved": "Reddito salvato",
+  "incomeSavedAndShared": "Reddito salvato e condiviso",
+  "addReceiptPhoto": "Aggiungi foto della ricevuta",
+  "tapToTakePhoto": "Scatta una foto della ricevuta",
+  "atLeastOneMember": "Serve almeno un membro",
+  "memberMustHaveShare": "Almeno un membro deve avere una quota superiore a 0",
+  "monthOverMonthSpending": "Andamento delle spese mensili",
+  "last3Months": "Ultimi 3 mesi",
+
+  "breakdown": "Ripartizione",
+  "noOutstandingItems": "Nessun saldo in sospeso",
+  "theyOweYou": "Ti devono",
+  "expressNetting": "Compensazione rapida",
+  "detailedSettlement": "Regolazione dettagliata",
+  "expressNettingHint": "Questa è una proposta di compensazione. Confermando, verranno saldati tutti i tuoi sospesi con questo membro.",
+  "settle": "Salda",
+  "confirmSettlement": "Conferma regolazione",
+  "confirmSettlementMessage": "Questo segnerà come saldati tutti i tuoi elementi in sospeso con questo membro.",
+  "pleaseSelectMember": "Seleziona un membro",
+  "settlementCompleted": "Regolazione completata",
+  "nothingToSettle": "Niente da regolare",
+  "expense": "Spesa",
+  "settlement": "Regolazione",
+  "suggestedNetTransfers": "Trasferimenti netti suggeriti",
+  "detailedPairwiseDues": "Debiti dettagliati tra membri",
+  "outstanding": "In sospeso",
+  "youAreOwedBy": "Hai da ricevere da",
+  "noOutstandingAmounts": "Nessun importo in sospeso",
+  "groupFairnessTitle": "Equità del gruppo",
+  "groupFairness": "Equità del gruppo",
+  "groupFairnessExplanation": "Mostra quanto equamente sono distribuite le spese tra i membri del gruppo.\n\nUna percentuale più alta significa che tutti contribuiscono alla propria giusta parte. Una più bassa suggerisce che alcuni stanno coprendo più spese di altri.\n\nPensala come un lavoro di squadra: quando tutti contribuiscono in modo uniforme, il punteggio di equità è alto. Quando una persona sostiene la maggior parte, scende.\n\nLa \"quota equa\" indica quanto dovrebbe pagare ciascuno se tutto fosse diviso in parti uguali.",
+  "noMemberDataYet": "Nessun dato sui membri",
+  "evenShare": "Quota equa: {amount}",
+  "@evenShare": {"placeholders": {"amount": {"type": "String"}}}
+,
+  "viewHousehold": "Visualizza gruppo",
+  "invalidInvitationMissingInfo": "Invito non valido: mancano le informazioni sul gruppo",
+  "joinedHouseholdWithName": "Ti sei unito a {name}!",
+  "@joinedHouseholdWithName": {"placeholders": {"name": {"type": "String"}}},
+  "joinedHousehold": "Ti sei unito al gruppo!",
+  "errorLoadingData": "Errore nel caricamento dei dati",
+  "errorLoadingSplits": "Errore nel caricamento delle ripartizioni",
+  "markAsSettled": "Segna come saldato",
+  "splitDetails": "Dettagli della ripartizione",
+  "equalSplit": "DIVISIONE EQUA",
+  "errorLoadingBudgets": "Errore nel caricamento dei budget",
+  "noSharedBudgetsYet": "Nessun budget condiviso al momento",
+  "whoCanSeeThisExpense": "Chi può vedere questa spesa?",
+  "onlyVisibleToYou": "Visibile solo a te",
+  "chooseSpecificMembers": "Scegli membri specifici",
+  "selectMembers": "Seleziona membri",
+  "noMembersFound": "Nessun membro trovato",
+  "membersSelectedCount": "{count} selezionati",
+  "@membersSelectedCount": {"placeholders": {"count": {"type": "int"}}},
+  "noSplitsYet": "Ancora nessuna ripartizione",
+  "startSplittingExpensesWithYourHousehold": "Inizia a ripartire le spese con il tuo gruppo",
+  "minutesAgoShort": "{count} min fa",
+  "@minutesAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "hoursAgoShort": "{count} h fa",
+  "@hoursAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "daysAgoShort": "{count} g fa",
+  "@daysAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "weeksAgoShort": "{count} sett fa",
+  "@weeksAgoShort": {"placeholders": {"count": {"type": "int"}}}
+,
+  "errorLoadingActivity": "Errore nel caricamento delle attività",
+  "noRecentActivity": "Nessuna attività recente",
+  "viewAllExpenses": "Vedi tutte le spese",
+  "noPendingSplits": "Nessuna ripartizione in sospeso",
+  "pendingSettlement": "Regolazione in sospeso"
+  ,
+  "youreIn": "Sei dei nostri! 🎉",
+  "invitationError": "Errore invito",
+  "joiningHousehold": "Ingresso nel gruppo",
+  "processingInvitation": "Elaborazione dell’invito..."
+  ,
+  "noHouseholdsAvailableCreateOrJoin": "Nessun gruppo disponibile. Crea o unisciti prima a un gruppo.",
+  "selectHousehold": "Seleziona gruppo"
 }

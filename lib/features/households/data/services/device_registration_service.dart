@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show Color;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -24,6 +25,8 @@ class DeviceRegistrationService {
   static const String _androidChannelId = 'high_importance_channel';
   static const String _androidChannelName = 'High Importance Notifications';
   static const String _androidChannelDescription = 'Used for important notifications.';
+  static const String _updatesChannelId = 'household_updates'; // must match server channel_id
+  static const String _updatesChannelName = 'Household Updates';
 
   DeviceRegistrationService(
     this._supabase,
@@ -143,7 +146,8 @@ class DeviceRegistrationService {
 
   /// Initialize local notifications for Android
   Future<void> _initializeLocalNotifications() async {
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    // Use monochrome adaptive icon from mipmap for status bar
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher_monochrome');
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: false,
       requestBadgePermission: false,
@@ -175,6 +179,21 @@ class DeviceRegistrationService {
           .resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>()
           ?.createNotificationChannel(channel);
+
+      // Ensure the FCM channel used by the server exists
+      const updatesChannel = AndroidNotificationChannel(
+        _updatesChannelId,
+        _updatesChannelName,
+        description: 'Household-related updates',
+        importance: Importance.high,
+        playSound: true,
+        enableVibration: true,
+      );
+
+      await _localNotifications
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(updatesChannel);
     }
   }
 
@@ -227,8 +246,11 @@ class DeviceRegistrationService {
     debugPrint('📬 Body: ${message.notification?.body}');
     debugPrint('📬 Data: ${message.data}');
 
-    // Show local notification when app is in foreground
-    _showLocalNotification(message);
+    // Android: show local notification when app is in foreground
+    // iOS already shows system banner via foreground presentation options
+    if (Platform.isAndroid) {
+      _showLocalNotification(message);
+    }
   }
 
   /// Handle background message opened (user tapped notification)
@@ -276,6 +298,9 @@ class DeviceRegistrationService {
       priority: Priority.high,
       playSound: true,
       enableVibration: true,
+      icon: '@mipmap/ic_launcher_monochrome',
+      color: Color(0xFF7458FF),
+      largeIcon: DrawableResourceAndroidBitmap('moneko_logo'),
     );
 
     const iosDetails = DarwinNotificationDetails(
