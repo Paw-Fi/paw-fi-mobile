@@ -10,9 +10,9 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:flutter_colorpicker/flutter_colorpicker.dart';
+//import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 // Uncomment for mobile (iOS/Android) - iOS-style color picker
-//import 'package:ios_color_picker/show_ios_color_picker.dart';
+import 'package:ios_color_picker/show_ios_color_picker.dart';
 import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 
@@ -561,48 +561,48 @@ class _AvatarCustomizerScreenState extends ConsumerState<AvatarCustomizerScreen>
     // OPTION 1: Web Color Picker (flutter_colorpicker) - Works on all platforms
     // Use this for web builds or if you want a consistent UI across all platforms
     
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Select ${key} color'),
-          content: SingleChildScrollView(
-            child: ColorPicker(
-              pickerColor: current,
-              onColorChanged: (color) {
-                setState(() {
-                  _colors[key] = _colorToHex(color);
-                });
-              },
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Done'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        );
-      },
-    );
+    // showDialog(
+    //   context: context,
+    //   builder: (BuildContext context) {
+    //     return AlertDialog(
+    //       title: Text('Select ${key} color'),
+    //       content: SingleChildScrollView(
+    //         child: ColorPicker(
+    //           pickerColor: current,
+    //           onColorChanged: (color) {
+    //             setState(() {
+    //               _colors[key] = _colorToHex(color);
+    //             });
+    //           },
+    //         ),
+    //       ),
+    //       actions: <Widget>[
+    //         TextButton(
+    //           child: const Text('Done'),
+    //           onPressed: () {
+    //             Navigator.of(context).pop();
+    //           },
+    //         ),
+    //       ],
+    //     );
+    //   },
+    // );
     
     
     // OPTION 2: Mobile Color Picker (ios_color_picker) - Native iOS-style picker
     // Use this for iOS/Android builds to get the native color picker experience
     // NOTE: Requires uncommenting the ios_color_picker import at the top of this file
     
-    // final iosColorPickerController = IOSColorPickerController();
-    // iosColorPickerController.showIOSCustomColorPicker(
-    //   startingColor: current,
-    //   onColorChanged: (color) {
-    //     setState(() {
-    //       _colors[key] = _colorToHex(color);
-    //     });
-    //   },
-    //   context: context,
-    // );
+    final iosColorPickerController = IOSColorPickerController();
+    iosColorPickerController.showIOSCustomColorPicker(
+      startingColor: current,
+      onColorChanged: (color) {
+        setState(() {
+          _colors[key] = _colorToHex(color);
+        });
+      },
+      context: context,
+    );
 
 
   }
