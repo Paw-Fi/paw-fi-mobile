@@ -5,7 +5,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/household_providers.dart';
 import '../providers/selected_household_provider.dart';
 import '../pages/household_onboarding_page.dart';
-import '../widgets/household_selector.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
@@ -32,8 +31,6 @@ class HouseholdHomeContent extends ConsumerStatefulWidget {
 }
 
 class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
-  bool _isExpanded = false;
-
   /// Calculate user's personal share of household expenses
   ///
   /// This method is ONLY used for the "Spent by You" card to show what the current user
@@ -234,150 +231,6 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
           // UI
           return SliverList(
             delegate: SliverChildListDelegate([
-              // Header with custom expandable section
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _isExpanded = !_isExpanded;
-                    });
-                  },
-                  child: Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: Row(
-                            children: [
-                              AnimatedContainer(
-                                duration: const Duration(milliseconds: 350),
-                                curve: Curves.easeInOutCubic,
-                                width: _isExpanded ? 0 : 48,
-                                height: 48,
-                                margin: EdgeInsets.only(right: _isExpanded ? 0 : 12),
-                                child: AnimatedOpacity(
-                                  opacity: _isExpanded ? 0.0 : 1.0,
-                                  duration: const Duration(milliseconds: 250),
-                                  curve: Curves.easeInOut,
-                                  child: OverflowBox(
-                                    maxWidth: 48,
-                                    child: Container(
-                                      width: 48,
-                                      height: 48,
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(14),
-                                        border: Border.all(
-                                          color: colorScheme.border.withValues(alpha: 0.4),
-                                          width: 1.5,
-                                        ),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withValues(alpha: 0.06),
-                                            blurRadius: 8,
-                                            offset: const Offset(0, 2),
-                                          ),
-                                        ],
-                                      ),
-                                      clipBehavior: Clip.antiAlias,
-                                      child: household.coverImageUrl != null
-                                          ? Image.network(
-                                              household.coverImageUrl!,
-                                              fit: BoxFit.cover,
-                                              errorBuilder: (context, error, stack) => Container(
-                                                color: colorScheme.muted.withValues(alpha: 0.5),
-                                                child: Icon(
-                                                  Icons.home_rounded,
-                                                  size: 24,
-                                                  color: colorScheme.mutedForeground.withValues(alpha: 0.7),
-                                                ),
-                                              ),
-                                            )
-                                          : Container(
-                                              color: colorScheme.muted.withValues(alpha: 0.5),
-                                              child: Icon(
-                                                Icons.home_rounded,
-                                                size: 24,
-                                                color: colorScheme.mutedForeground.withValues(alpha: 0.7),
-                                              ),
-                                            ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                child: Text(
-                                  household.name,
-                                  style: TextStyle(
-                                    fontSize: 28,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: -0.5,
-                                    color: colorScheme.foreground,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              // Settings icon button
-                              Container(
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  color: colorScheme.muted.withValues(alpha: 0.4),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(10),
-                                    onTap: () {
-                                      Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (_) => HouseholdSettingsPage(householdId: household.id),
-                                        ),
-                                      );
-                                    },
-                                    child: Icon(
-                                      Icons.settings_outlined,
-                                      size: 20,
-                                      color: colorScheme.foreground.withValues(alpha: 0.7),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              AnimatedRotation(
-                                turns: _isExpanded ? 0.5 : 0,
-                                duration: const Duration(milliseconds: 300),
-                                curve: Curves.easeInOutCubic,
-                                child: Icon(
-                                  Icons.keyboard_arrow_down,
-                                  color: colorScheme.mutedForeground,
-                                  size: 24,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        AnimatedSize(
-                          duration: const Duration(milliseconds: 350),
-                          curve: Curves.easeInOutCubic,
-                          child: _isExpanded
-                              ? const Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    SizedBox(height: 8),
-                                    HouseholdSelector(),
-                                  ],
-                                )
-                              : const SizedBox.shrink(),
-                        ),
-                      ],
-                    ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
               // ═══════════════════════════════════════════════════════════════
               // "SPENT BY YOU" CARD
               // ═══════════════════════════════════════════════════════════════

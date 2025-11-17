@@ -9,7 +9,7 @@ import 'package:moneko/features/recurring/presentation/widgets/add_recurring_she
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
-import 'package:moneko/features/home/presentation/widgets/currency_dropdown_button.dart';
+import 'package:moneko/features/home/presentation/widgets/home_header_sliver.dart';
 
 /// Modern recurring transactions page with Apple-inspired design
 /// Features tabbed interface for expenses and income
@@ -90,39 +90,8 @@ class _RecurringTransactionsPageState
       body: SafeArea(
         child: Column(
           children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-              child: Row(
-                children: [                
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          context.l10n.recurring,
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w800,
-                            color: colorScheme.foreground,
-                            letterSpacing: -1,
-                          ),
-                        ),
-                        Text(
-                          context.l10n.manageYourRecurringTransactions,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w400,
-                            color: colorScheme.mutedForeground,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const CurrencyDropdownButton(),
-                ],
-              ),
+            HomeHeaderSliver(
+              title: context.l10n.recurring,
             ),
 
             // Tabs
@@ -378,23 +347,12 @@ class _RecurringTransactionsPageState
     final isExpense = selectedTab == 0;
 
     return Container(
+      width: 56,
+      height: 56,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            colorScheme.primary,
-            colorScheme.primary.withValues(alpha: 0.8),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: colorScheme.primary,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.primary.withValues(alpha: 0.4),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
+       
       ),
       child: Material(
         color: Colors.transparent,
@@ -402,14 +360,14 @@ class _RecurringTransactionsPageState
           onTap: () => _showAddSheet(isExpense ? 'expense' : 'income'),
           borderRadius: BorderRadius.circular(16),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            child: const Row(
+            padding: const EdgeInsets.all(8),
+            child:  Row(
               mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
                   Icons.add,
-                  color: Colors.white,
-                  size: 24,
+                color: colorScheme.primaryForeground,
                 ),
               ],
             ),

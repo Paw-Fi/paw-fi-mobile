@@ -32,11 +32,15 @@ class CurrencySelectorScreen extends ConsumerStatefulWidget {
 class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen> {
   bool _showAllCurrencies = false;
   List<String>? _customOrder;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  Map<String, int>? _currencyCounts;
 
   @override
   void initState() {
     super.initState();
     _loadCustomOrder();
+     _loadCurrencyCounts();
   }
 
   Future<void> _loadCustomOrder() async {
@@ -65,6 +69,44 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
     } catch (e) {
       debugPrint('Error saving currency order: $e');
     }
+  }
+
+  Future<void> _loadCurrencyCounts() async {
+    try {
+      final authState = ref.read(authProvider);
+      final userId = authState.uid;
+      if (userId.isEmpty) return;
+
+      final response = await supabase
+          .from('expenses')
+          .select('currency')
+          .eq('user_id', userId)
+          .not('currency', 'is', null)
+          .limit(10000);
+
+      final rows = response as List<dynamic>;
+      final counts = <String, int>{};
+
+      for (final row in rows) {
+        final data = row as Map<String, dynamic>;
+        final code = (data['currency'] as String?)?.toUpperCase();
+        if (code == null || code.isEmpty) continue;
+        counts[code] = (counts[code] ?? 0) + 1;
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _currencyCounts = counts;
+      });
+    } catch (e) {
+      debugPrint('Error loading currency counts: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   List<CurrencySummary> _applyCustomOrder(List<CurrencySummary> currencies) {
@@ -96,7 +138,8 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
     final filterState = ref.watch(homeFilterProvider);
     
     // Get all supported currencies from backend
-    final allSupportedCurrencies = getAvailableCurrencyOptions().keys.toList();
+    final currencyOptions = getAvailableCurrencyOptions();
+    final allSupportedCurrencies = currencyOptions.keys.toList();
     
     // Create a map of existing summaries for quick lookup
     final summaryMap = {for (var s in summaries) s.currencyCode: s};
@@ -112,36 +155,60 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
       );
     }).toList();
     
-    // Separate currencies into active (with transactions/budget) and inactive
-    var activeCurrencies = allCurrencySummaries.where((s) => 
-      s.transactionCount > 0 || s.totalBudget > 0
-    ).toList();
+    // Separate currencies into active (with transactions) and inactive
+    var activeCurrencies = allCurrencySummaries.where((s) {
+      final dbCount = _currencyCounts?[s.currencyCode];
+      final txCount = dbCount ?? s.transactionCount;
+      return txCount > 0;
+    }).toList();
     
-    var inactiveCurrencies = allCurrencySummaries.where((s) => 
-      s.transactionCount == 0 && s.totalBudget == 0
-    ).toList()..sort((a, b) => a.currencyCode.compareTo(b.currencyCode));
+    var inactiveCurrencies = allCurrencySummaries.where((s) {
+      final dbCount = _currencyCounts?[s.currencyCode];
+      final txCount = dbCount ?? s.transactionCount;
+      return txCount == 0;
+    }).toList()
+      ..sort((a, b) => a.currencyCode.compareTo(b.currencyCode));
     
     // Apply custom order
     activeCurrencies = _applyCustomOrder(activeCurrencies);
     inactiveCurrencies = _applyCustomOrder(inactiveCurrencies);
     
-    var visibleCurrencies = _showAllCurrencies 
-      ? [...activeCurrencies, ...inactiveCurrencies]
-      : activeCurrencies;
+    // Full ordered list (active + inactive)
+    final allOrderedCurrencies = <CurrencySummary>[
+      ...activeCurrencies,
+      ...inactiveCurrencies,
+    ];
+
+    // Apply search filter (by currency code or symbol)
+    final query = _searchQuery.trim().toLowerCase();
+    List<CurrencySummary> visibleCurrencies;
+    if (query.isNotEmpty) {
+      // When searching, bypass the "show all" toggle and search across all currencies
+      visibleCurrencies = allOrderedCurrencies.where((s) {
+        final code = s.currencyCode.toLowerCase();
+        final symbol = (currencyOptions[s.currencyCode] ?? '').toLowerCase();
+        return code.contains(query) || symbol.contains(query);
+      }).toList();
+    } else {
+      // Default behavior respecting the "show all currencies" toggle
+      visibleCurrencies = _showAllCurrencies
+          ? List<CurrencySummary>.from(allOrderedCurrencies)
+          : List<CurrencySummary>.from(activeCurrencies);
+    }
     
     // Always put selected currency at the top and ensure it's visible
     final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
     if (selectedCurrency != null) {
       final selectedIndex = visibleCurrencies.indexWhere(
-        (s) => s.currencyCode == selectedCurrency
+        (s) => s.currencyCode == selectedCurrency,
       );
       
       if (selectedIndex > 0) {
         // Move selected currency to the front
         final selected = visibleCurrencies.removeAt(selectedIndex);
         visibleCurrencies.insert(0, selected);
-      } else if (selectedIndex == -1) {
-        // Selected currency not in visible list, add it from inactive currencies
+      } else if (selectedIndex == -1 && query.isEmpty && _showAllCurrencies) {
+        // When showing all currencies and not searching, ensure the selected currency is visible
         final selectedFromInactive = inactiveCurrencies.firstWhere(
           (s) => s.currencyCode == selectedCurrency,
           orElse: () => allCurrencySummaries.firstWhere(
@@ -178,39 +245,99 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
         ),
       ),
       body: SafeArea(
-        child: ReorderableListView(
-          padding: const EdgeInsets.all(16),
-          onReorderStart: (index) {
-            // Provide haptic feedback when drag starts
-            HapticFeedback.mediumImpact();
-          },
-          onReorder: (oldIndex, newIndex) {
-            // Provide haptic feedback on successful reorder
-            HapticFeedback.lightImpact();
-            
-            // Adjust index if moving down
-            if (newIndex > oldIndex) {
-              newIndex -= 1;
-            }
-            
-            // Reorder the list
-            final reorderedList = List<CurrencySummary>.from(visibleCurrencies);
-            final item = reorderedList.removeAt(oldIndex);
-            reorderedList.insert(newIndex, item);
-            
-            // Save new order
-            final newOrder = reorderedList.map((s) => s.currencyCode).toList();
-            _saveCustomOrder(newOrder);
-          },
+        child: Column(
           children: [
-            // Individual currency cards
-            ...visibleCurrencies.map((summary) => Padding(
-              key: Key(summary.currencyCode),
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _CurrencyCard(
-                summary: summary,
-                isSelected: filterState.selectedCurrency?.toUpperCase() == summary.currencyCode,
-                onTap: () async {
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: TextField(
+                controller: _searchController,
+                onChanged: (value) {
+                  setState(() {
+                    _searchQuery = value;
+                  });
+                },
+                decoration: InputDecoration(
+                  prefixIcon: Icon(
+                    Icons.search,
+                    color: colorScheme.mutedForeground,
+                  ),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: Icon(
+                            Icons.clear,
+                            color: colorScheme.mutedForeground,
+                          ),
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() {
+                              _searchQuery = '';
+                            });
+                          },
+                        )
+                      : null,
+                  hintText: context.l10n.search,
+                  filled: true,
+                  fillColor: colorScheme.card,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: colorScheme.border,
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: colorScheme.border,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: colorScheme.primary,
+                      width: 1.5,
+                    ),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+              ),
+            ),
+            Expanded(
+              child: ReorderableListView(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                onReorderStart: (index) {
+                  // Provide haptic feedback when drag starts
+                  HapticFeedback.mediumImpact();
+                },
+                onReorder: (oldIndex, newIndex) {
+                  // Provide haptic feedback on successful reorder
+                  HapticFeedback.lightImpact();
+                  
+                  // Adjust index if moving down
+                  if (newIndex > oldIndex) {
+                    newIndex -= 1;
+                  }
+                  
+                  // Reorder the list
+                  final reorderedList = List<CurrencySummary>.from(visibleCurrencies);
+                  final item = reorderedList.removeAt(oldIndex);
+                  reorderedList.insert(newIndex, item);
+                  
+                  // Save new order
+                  final newOrder = reorderedList.map((s) => s.currencyCode).toList();
+                  _saveCustomOrder(newOrder);
+                },
+                children: [
+                  // Individual currency cards
+                  for (final summary in visibleCurrencies)
+                    Padding(
+                      key: Key(summary.currencyCode),
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _CurrencyCard(
+                        summary: summary,
+                        transactionCount:
+                            (_currencyCounts?[summary.currencyCode] ?? summary.transactionCount),
+                        isSelected: filterState.selectedCurrency?.toUpperCase() == summary.currencyCode,
+                        onTap: () async {
                   final authState = ref.read(authProvider);
                   final previousCurrency = filterState.selectedCurrency;
                   
@@ -291,44 +418,45 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
                         );
                       }
                     }
-                  }
-                },
-              ),
-            )),
-            
-            // Show all currencies toggle button - minimal Apple-style design
-            if (inactiveCurrencies.isNotEmpty)
-              GestureDetector(
-                key: const Key('show_all_toggle'),
-                onTap: () {
-                  setState(() {
-                    _showAllCurrencies = !_showAllCurrencies;
-                  });
-                },
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Center(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                       
-                        Text(
-                          _showAllCurrencies 
-                            ? context.l10n.showLessCurrencies
-                            : context.l10n.showAllCurrencies(inactiveCurrencies.length),
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w400,
-                            color: colorScheme.primary,
+                      }
+                        },
+                      ),
+                    ),
+                  
+                  // Show all currencies toggle button - minimal Apple-style design
+                  if (inactiveCurrencies.isNotEmpty)
+                    GestureDetector(
+                      key: const Key('show_all_toggle'),
+                      onTap: () {
+                        setState(() {
+                          _showAllCurrencies = !_showAllCurrencies;
+                        });
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Center(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                _showAllCurrencies 
+                                  ? context.l10n.showLessCurrencies
+                                  : context.l10n.showAllCurrencies(inactiveCurrencies.length),
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w400,
+                                  color: colorScheme.primary,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                       
-                      ],
+                      ),
                     ),
-                  ),
-                ),
+                ],
               ),
+            ),
           ],
         ),
       ),
@@ -402,11 +530,13 @@ class _CurrencyIcon extends StatelessWidget {
 /// Individual currency card widget
 class _CurrencyCard extends StatelessWidget {
   final CurrencySummary summary;
+  final int transactionCount;
   final bool isSelected;
   final VoidCallback onTap;
 
   const _CurrencyCard({
     required this.summary,
+    required this.transactionCount,
     required this.isSelected,
     required this.onTap,
   });
@@ -415,8 +545,6 @@ class _CurrencyCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = shadcnui.Theme.of(context).colorScheme;
     final currencySymbol = resolveCurrencySymbol(summary.currencyCode);
-    final netCashflow = summary.netCashflow;
-    final isPositive = summary.isPositive;
 
     return Material(
       color: Colors.transparent,
@@ -457,59 +585,18 @@ class _CurrencyCard extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               
-              // Data in compact layout
+              // Right side: transaction count only
               Expanded(
-                child: Row(
-                  children: [
-                    // Left column - Budget and Spent
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${context.l10n.budget}: ${formatCurrency(summary.totalBudget, summary.currencyCode)}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: colorScheme.mutedForeground,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '${context.l10n.spentLabel}: ${formatCurrency(summary.totalExpenses, summary.currencyCode)}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: colorScheme.mutedForeground,
-                            ),
-                          ),
-                        ],
-                      ),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    '$transactionCount ${transactionCount != 1 ? context.l10n.txns : context.l10n.txn}',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: colorScheme.mutedForeground,
                     ),
-                    
-                    // Right column - Net and transaction count
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            '${isPositive ? '+' : ''}${formatCurrency(netCashflow, summary.currencyCode)}',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: isPositive ? const Color(0xFF10B981) : const Color(0xFFEF4444),
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '${summary.transactionCount} ${summary.transactionCount != 1 ? context.l10n.txns : context.l10n.txn}',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: colorScheme.mutedForeground,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
               

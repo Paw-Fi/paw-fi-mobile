@@ -3,6 +3,10 @@ import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
+import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart'
+    show SplitType, MemberSplit;
 import 'package:intl/intl.dart';
 
 // ============================================================================
@@ -241,10 +245,29 @@ class RecurringTransactionsNotifier extends StateNotifier<RecurringTransactionsS
 /// Recurring expenses (filtered from unified provider)
 final recurringExpensesProvider = Provider<AsyncValue<List<RecurringTransaction>>>((ref) {
   final allTransactions = ref.watch(recurringTransactionsProvider);
+  final viewMode = ref.watch(viewModeProvider);
+  final selectedHousehold = ref.watch(selectedHouseholdProvider);
+
   return allTransactions.data.when(
     data: (transactions) {
-      final expenses = transactions.where((t) => t.type == 'expense').toList();
-      return AsyncValue.data(expenses);
+      final expenses = transactions.where((t) => t.type == 'expense');
+
+      final filtered = expenses.where((t) {
+        if (viewMode.mode == ViewMode.household) {
+          final selectedId = selectedHousehold.householdId;
+          if (selectedId != null) {
+            // In household mode with a selected household, only show that group's recurring items
+            return t.householdId == selectedId;
+          }
+          // Fallback: show all group-recurring items when no specific household is selected
+          return t.householdId != null;
+        } else {
+          // Personal mode: only show personal recurring items
+          return t.householdId == null;
+        }
+      }).toList();
+
+      return AsyncValue.data(filtered);
     },
     loading: () => const AsyncValue.loading(),
     error: (error, stack) => AsyncValue.error(error, stack),
@@ -254,10 +277,26 @@ final recurringExpensesProvider = Provider<AsyncValue<List<RecurringTransaction>
 /// Recurring incomes (filtered from unified provider)
 final recurringIncomesProvider = Provider<AsyncValue<List<RecurringTransaction>>>((ref) {
   final allTransactions = ref.watch(recurringTransactionsProvider);
+  final viewMode = ref.watch(viewModeProvider);
+  final selectedHousehold = ref.watch(selectedHouseholdProvider);
+
   return allTransactions.data.when(
     data: (transactions) {
-      final incomes = transactions.where((t) => t.type == 'income').toList();
-      return AsyncValue.data(incomes);
+      final incomes = transactions.where((t) => t.type == 'income');
+
+      final filtered = incomes.where((t) {
+        if (viewMode.mode == ViewMode.household) {
+          final selectedId = selectedHousehold.householdId;
+          if (selectedId != null) {
+            return t.householdId == selectedId;
+          }
+          return t.householdId != null;
+        } else {
+          return t.householdId == null;
+        }
+      }).toList();
+
+      return AsyncValue.data(filtered);
     },
     loading: () => const AsyncValue.loading(),
     error: (error, stack) => AsyncValue.error(error, stack),
@@ -297,6 +336,9 @@ class RecurringTransactionSaveNotifier
     String ownerType = 'me',
     String privacyScope = 'full',
     String? householdId,
+    SplitType? customSplitType,
+    List<MemberSplit>? customSplits,
+    String? payerUserId,
   }) async {
     state = const AsyncValue.loading();
 
@@ -331,22 +373,64 @@ class RecurringTransactionSaveNotifier
           },
       };
 
+      // Build request body so we can optionally attach custom split info
+      final Map<String, dynamic> requestBody = {
+        'userId': userId,
+        'amount': amount,
+        'category': category,
+        'currency': currency,
+        'date': formattedAccountingDate, // Accounting date (today or past)
+        'clientCreatedAt': DateTime.now().toIso8601String(),
+        if (description != null && description.isNotEmpty) 'description': description,
+        'ownerType': ownerType,
+        'privacyScope': privacyScope,
+        'isRecurring': true,
+        'recurrence_rule': recurrenceRule,
+      };
+
+      // Attach household + custom split configuration when provided
+      if (householdId != null) {
+        requestBody['householdId'] = householdId;
+
+        if (customSplitType != null && customSplits != null && customSplits.isNotEmpty) {
+          final splitTypeStr = customSplitType.toString().split('.').last;
+
+          requestBody['customSplits'] = {
+            'splitType': splitTypeStr,
+            'memberSplits': customSplits.map((split) {
+              final memberData = <String, dynamic>{
+                'userId': split.member.userId,
+              };
+
+              // Add the appropriate field based on split type
+              switch (customSplitType) {
+                case SplitType.amount:
+                  memberData['amount'] = split.amount;
+                  break;
+                case SplitType.percentage:
+                  memberData['percentage'] = split.percentage;
+                  break;
+                case SplitType.shares:
+                  memberData['shares'] = split.shares;
+                  break;
+                case SplitType.equal:
+                  // No additional data needed for equal splits
+                  break;
+              }
+
+              return memberData;
+            }).toList(),
+          };
+
+          if (payerUserId != null && payerUserId.isNotEmpty) {
+            requestBody['payerUserId'] = payerUserId;
+          }
+        }
+      }
+
       final response = await supabase.functions.invoke(
         'save-expense',
-        body: {
-          'userId': userId,
-          'amount': amount,
-          'category': category,
-          'currency': currency,
-          'date': formattedAccountingDate, // Accounting date (today or past)
-          'clientCreatedAt': DateTime.now().toIso8601String(),
-          if (description != null && description.isNotEmpty) 'description': description,
-          'ownerType': ownerType,
-          'privacyScope': privacyScope,
-          if (householdId != null) 'householdId': householdId,
-          'isRecurring': true,
-          'recurrence_rule': recurrenceRule,
-        },
+        body: requestBody,
       );
 
       if (response.data['success'] == true) {

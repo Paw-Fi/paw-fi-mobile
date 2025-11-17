@@ -32,6 +32,7 @@ const Map<String, String> currencyOptions = {
   'NZD': 'NZ\$',
   'PHP': '₱',
   'PLN': 'zł',
+  'PKR': '₨',
   'PYG': '₲',
   'RSD': 'Дин.',
   'RUB': '₽',

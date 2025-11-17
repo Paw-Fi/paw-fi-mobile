@@ -8,6 +8,7 @@ import 'package:moneko/core/ui/widgets/custom_text_field.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/core/ui/widgets/transaction_category_picker.dart';
 import 'package:moneko/core/ui/widgets/transaction_currency_picker.dart';
 import 'package:moneko/core/ui/widgets/transaction_frequency_picker.dart';
@@ -15,6 +16,11 @@ import 'package:moneko/core/ui/widgets/transaction_date_picker.dart';
 import 'package:moneko/core/ui/widgets/transaction_selection_sheet.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/utils/date_formatter.dart';
+import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/households/domain/entities/household.dart';
+import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
 
 /// Modern bottom sheet for adding/editing recurring transactions
 /// Apple-inspired design with clean animations and intuitive UX
@@ -45,32 +51,95 @@ class AddRecurringSheet extends HookConsumerWidget {
       text: existingTransaction?.source ?? '',
     );
 
+    // Rebuild when amount changes so splits can use the latest value
+    useListenable(amountController);
+    final currentAmountText = amountController.text;
+
     final selectedCategory = useState<String?>(existingTransaction?.category);
     final selectedFrequency = useState<String>(
       existingTransaction?.recurrenceRule?.frequency ?? 'monthly',
     );
+
+    // Default currency:
+    // - Edit: use the existing transaction's currency
+    // - Add: use the current home header selected currency (fallback to USD)
+    final homeFilterState = ref.read(homeFilterProvider);
+    final defaultCurrencyForNew =
+        homeFilterState.selectedCurrency?.toUpperCase() ?? 'USD';
     final selectedCurrency = useState<String>(
-      existingTransaction?.currency ?? 'USD',
+      existingTransaction?.currency ?? defaultCurrencyForNew,
     );
     final startDate = useState<DateTime>(
       existingTransaction?.recurrenceRule?.anchorDate ?? DateTime.now(),
     );
-    final hasEndDate = useState<bool>(existingTransaction?.recurrenceRule?.endDate != null);
-    final endDate = useState<DateTime?>(existingTransaction?.recurrenceRule?.endDate);
-    final customInterval = useState<int?>(existingTransaction?.recurrenceRule?.interval);
-    final hasReminder = useState<bool>(!isEditing); // Default to true for new transactions
-    final reminderValue = useState<int>(1);
-    final reminderUnit = useState<String>('days');
+    final hasEndDate = useState<bool>(
+      existingTransaction?.recurrenceRule?.endDate != null,
+    );
+    final endDate = useState<DateTime?>(
+      existingTransaction?.recurrenceRule?.endDate,
+    );
+    final customInterval = useState<int?>(
+      existingTransaction?.recurrenceRule?.interval,
+    );
+
+    // Reminder: on edit, initialize from recurrenceRule.reminder; on add, use defaults
+    final existingRule = existingTransaction?.recurrenceRule;
+    final hasReminder = useState<bool>(
+      isEditing ? (existingRule?.reminderEnabled ?? false) : true,
+    );
+    final reminderValue = useState<int>(
+      existingRule?.reminderValue ?? 1,
+    );
+    final reminderUnit = useState<String>(
+      existingRule?.reminderUnit ?? 'days',
+    );
     final isLoading = useState<bool>(false);
+
+    // View mode / household selection for default sharing behaviour
+    final viewMode = ref.watch(viewModeProvider);
+    final selectedHouseholdState = ref.watch(selectedHouseholdProvider);
+    final user = supabase.auth.currentUser;
+
+    // Sharing + split state (expenses only)
+    final isSharedWithHousehold = useState<bool>(
+      existingTransaction != null
+          ? (existingTransaction!.householdId != null)
+          : (viewMode.mode == ViewMode.household &&
+              selectedHouseholdState.householdId != null),
+    );
+    final selectedHouseholdId = useState<String?>(
+      existingTransaction?.householdId ??
+          (viewMode.mode == ViewMode.household
+              ? selectedHouseholdState.householdId
+              : null),
+    );
+    final selectedPayerUserId = useState<String?>(null);
+    final customSplitType = useState<SplitType?>(null);
+    final customSplits = useState<List<MemberSplit>?>(null);
+
+    final householdsAsync = user != null
+        ? ref.watch(userHouseholdsProvider(user.id))
+        : const AsyncValue<List<Household>>.data([]);
+
+    final membersAsync = (isSharedWithHousehold.value &&
+            selectedHouseholdId.value != null)
+        ? ref.watch(householdMembersProvider(selectedHouseholdId.value!))
+        : const AsyncValue<List<HouseholdMember>>.data([]);
+
+    // Parsed amount used for split editor defaults
+    final parsedAmount = double.tryParse(amountController.text.trim());
+    final hasAmountForSplit = parsedAmount != null && parsedAmount > 0;
+
+    // Whenever the amount changes, clear any previously configured custom splits
+    // so the split editor can re-initialize based on the new total.
+    useEffect(() {
+      customSplitType.value = null;
+      customSplits.value = null;
+      return null;
+    }, [currentAmountText]);
 
     Future<void> handleSave() async {
       final l10n = context.l10n;
-      debugPrint('🔵 handleSave called');
-      debugPrint('🔵 isEditing: $isEditing');
-      debugPrint('🔵 existingTransaction: ${existingTransaction?.id}');
-      debugPrint('🔵 selectedCategory: ${selectedCategory.value}');
-      debugPrint('🔵 amountText: ${amountController.text}');
-      
       if (selectedCategory.value == null) {
         debugPrint('🔴 Error: No category selected');
         _showError(context, context.l10n.pleaseSelectCategory);
@@ -79,48 +148,37 @@ class AddRecurringSheet extends HookConsumerWidget {
 
       final amountText = amountController.text.trim();
       if (amountText.isEmpty) {
-        debugPrint('🔴 Error: Amount is empty');
         _showError(context, context.l10n.pleaseEnterAmount);
         return;
       }
 
       final amount = double.tryParse(amountText);
       if (amount == null || amount <= 0) {
-        debugPrint('🔴 Error: Invalid amount');
         _showError(context, context.l10n.pleaseEnterValidAmount);
         return;
       }
 
-      debugPrint('✅ Validation passed, starting save...');
       isLoading.value = true;
 
       try {
         final user = supabase.auth.currentUser;
         if (user == null) {
-          debugPrint('🔴 User not authenticated');
           _showError(context, context.l10n.userNotAuthenticated);
           isLoading.value = false;
           return;
         }
 
-        debugPrint('👤 User ID: ${user.id}');
-        debugPrint('💰 Amount: $amount');
-        debugPrint('📂 Category: ${selectedCategory.value}');
-        debugPrint('💱 Currency: ${selectedCurrency.value}');
-        debugPrint('📅 Start Date: ${startDate.value}');
-        debugPrint('🔄 Frequency: ${selectedFrequency.value}');
-        debugPrint('📝 Description: ${descriptionController.text.trim()}');
-        debugPrint('🏢 Source: ${sourceController.text.trim()}');
-        debugPrint('📆 Has End Date: ${hasEndDate.value}');
-        debugPrint('🔚 End Date: ${endDate.value}');
-        debugPrint('⏱️ Interval: ${customInterval.value}');
-
         RecurringTransaction? result;
+
+        // Determine sharing/splitting configuration
+        final shareWithHousehold =
+            isSharedWithHousehold.value && selectedHouseholdId.value != null;
+        final activeHouseholdId =
+            shareWithHousehold ? selectedHouseholdId.value : null;
 
         if (isExpense) {
           if (isEditing) {
             // UPDATE existing expense
-            debugPrint('💸 Calling updateRecurringExpense...');
             result = await ref
                 .read(recurringTransactionSaveProvider.notifier)
                 .updateRecurringExpense(
@@ -139,10 +197,10 @@ class AddRecurringSheet extends HookConsumerWidget {
                   hasReminder: hasReminder.value,
                   reminderValue: hasReminder.value ? reminderValue.value : null,
                   reminderUnit: hasReminder.value ? reminderUnit.value : null,
+                  householdId: activeHouseholdId,
                 );
           } else {
             // CREATE new expense
-            debugPrint('💸 Calling saveRecurringExpense...');
             result = await ref
                 .read(recurringTransactionSaveProvider.notifier)
                 .saveRecurringExpense(
@@ -160,12 +218,19 @@ class AddRecurringSheet extends HookConsumerWidget {
                   hasReminder: hasReminder.value,
                   reminderValue: hasReminder.value ? reminderValue.value : null,
                   reminderUnit: hasReminder.value ? reminderUnit.value : null,
+                  householdId: activeHouseholdId,
+                  customSplitType:
+                      shareWithHousehold ? customSplitType.value : null,
+                  customSplits:
+                      shareWithHousehold ? customSplits.value : null,
+                  payerUserId: shareWithHousehold
+                      ? (selectedPayerUserId.value ?? user.id)
+                      : null,
                 );
           }
         } else {
           if (isEditing) {
             // UPDATE existing income
-            debugPrint('💵 Calling updateRecurringIncome...');
             result = await ref
                 .read(recurringTransactionSaveProvider.notifier)
                 .updateRecurringIncome(
@@ -187,10 +252,10 @@ class AddRecurringSheet extends HookConsumerWidget {
                   hasReminder: hasReminder.value,
                   reminderValue: hasReminder.value ? reminderValue.value : null,
                   reminderUnit: hasReminder.value ? reminderUnit.value : null,
+                  householdId: activeHouseholdId,
                 );
           } else {
             // CREATE new income
-            debugPrint('💵 Calling saveRecurringIncome...');
             result = await ref
                 .read(recurringTransactionSaveProvider.notifier)
                 .saveRecurringIncome(
@@ -211,15 +276,14 @@ class AddRecurringSheet extends HookConsumerWidget {
                   hasReminder: hasReminder.value,
                   reminderValue: hasReminder.value ? reminderValue.value : null,
                   reminderUnit: hasReminder.value ? reminderUnit.value : null,
+                  householdId: activeHouseholdId,
                 );
           }
         }
 
-        debugPrint('📊 Result: $result');
         isLoading.value = false;
 
         if (result != null) {
-          debugPrint('✅ ${isEditing ? 'Update' : 'Save'} successful!');
           if (context.mounted) {
             Navigator.of(context).pop();
             final successMsg = isExpense
@@ -232,7 +296,6 @@ class AddRecurringSheet extends HookConsumerWidget {
             _showSuccess(context, successMsg);
           }
         } else {
-          debugPrint('🔴 Result is null - ${isEditing ? 'update' : 'save'} failed');
           final errMsg = isExpense
               ? l10n.failedToUpdateRecurringExpense
               : l10n.failedToUpdateRecurringIncome;
@@ -241,8 +304,6 @@ class AddRecurringSheet extends HookConsumerWidget {
           }
         }
       } catch (e, stackTrace) {
-        debugPrint('❌ Exception caught: $e');
-        debugPrint('Stack trace: $stackTrace');
         isLoading.value = false;
         if (context.mounted) {
           _showError(context, 'Error: ${e.toString()}');
@@ -426,6 +487,57 @@ class AddRecurringSheet extends HookConsumerWidget {
                     ),
 
                     const SizedBox(height: 20),
+
+                    // Household sharing + split (expenses only)
+                    if (user != null) ...[
+                      householdsAsync.when(
+                        data: (households) {
+                          if (households.isEmpty) {
+                            return const SizedBox.shrink();
+                          }
+
+                          if (!isExpense) {
+                            // For income: only allow sharing toggle, no split editor
+                            return _buildSharingToggleOnly(
+                              context,
+                              colorScheme,
+                              households,
+                              isSharedWithHousehold,
+                              selectedHouseholdId,
+                            );
+                          }
+
+                          if (!hasAmountForSplit) {
+                            // Require an amount before configuring splits
+                            return Text(
+                              context.l10n.pleaseEnterAmount,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: colorScheme.mutedForeground,
+                              ),
+                            );
+                          }
+
+                          return _buildSharingAndSplitSection(
+                            context: context,
+                            colorScheme: colorScheme,
+                            households: households,
+                            isSharedWithHousehold: isSharedWithHousehold,
+                            selectedHouseholdId: selectedHouseholdId,
+                            membersAsync: membersAsync,
+                            selectedPayerUserId: selectedPayerUserId,
+                            customSplitType: customSplitType,
+                            customSplits: customSplits,
+                            amountController: amountController,
+                            currencySymbol: selectedCurrency.value,
+                          );
+                        },
+                        loading: () => const SizedBox.shrink(),
+                        error: (_, __) => const SizedBox.shrink(),
+                      ),
+
+                      const SizedBox(height: 20),
+                    ],
                 
                     _buildDetailCard(
                       colorScheme: colorScheme,
@@ -644,7 +756,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                             onTap: () async {
                               final result = await showTransactionSelectionSheet<String>(
                                 context: context,
-                                items: ['days', 'hours'],
+                                items: ['days'],
                                 getLabel: (unit) {
                                   if (unit == 'days') return context.l10n.days;
                                   if (unit == 'hours') return context.l10n.hours;
@@ -768,7 +880,6 @@ class AddRecurringSheet extends HookConsumerWidget {
                         onPressed: isLoading.value 
                             ? null 
                             : () {
-                                debugPrint('🟢 Save button pressed!');
                                 handleSave();
                               },
                         child: isLoading.value
@@ -863,12 +974,238 @@ class AddRecurringSheet extends HookConsumerWidget {
   }
 
   void _showError(BuildContext context, String message) {
-    debugPrint('🔴 _showError called: $message');
     AppToast.error(message);
   }
 
   void _showSuccess(BuildContext context, String message) {
-    debugPrint('✅ _showSuccess called: $message');
     AppToast.success(message);
+  }
+
+  /// Simple sharing toggle used for incomes (no split editor)
+  Widget _buildSharingToggleOnly(
+    BuildContext context,
+    shadcnui.ColorScheme colorScheme,
+    List<Household> households,
+    ValueNotifier<bool> isSharedWithHousehold,
+    ValueNotifier<String?> selectedHouseholdId,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: colorScheme.muted.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: colorScheme.border.withValues(alpha: 0.2),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              context.l10n.shareWithHousehold,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.foreground,
+              ),
+            ),
+          ),
+          Switch(
+            value: isSharedWithHousehold.value,
+            onChanged: (value) {
+              if (!value) {
+                isSharedWithHousehold.value = false;
+                return;
+              }
+              if (households.isEmpty) return;
+              isSharedWithHousehold.value = true;
+              selectedHouseholdId.value ??= households.first.id;
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Full sharing + split editor section for recurring expenses
+  Widget _buildSharingAndSplitSection({
+    required BuildContext context,
+    required shadcnui.ColorScheme colorScheme,
+    required List<Household> households,
+    required ValueNotifier<bool> isSharedWithHousehold,
+    required ValueNotifier<String?> selectedHouseholdId,
+    required AsyncValue<List<HouseholdMember>> membersAsync,
+    required ValueNotifier<String?> selectedPayerUserId,
+    required ValueNotifier<SplitType?> customSplitType,
+    required ValueNotifier<List<MemberSplit>?> customSplits,
+    required TextEditingController amountController,
+    required String currencySymbol,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Toggle + household dropdown
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: colorScheme.muted.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: colorScheme.border.withValues(alpha: 0.2),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      context.l10n.shareWithHousehold,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.foreground,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (isSharedWithHousehold.value)
+                      DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: selectedHouseholdId.value ?? households.first.id,
+                          isExpanded: true,
+                          icon: Icon(
+                            Icons.arrow_drop_down,
+                            color: colorScheme.foreground,
+                          ),
+                          items: households
+                              .map(
+                                (h) => DropdownMenuItem<String>(
+                                  value: h.id,
+                                  child: Text(
+                                    h.name,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (value) {
+                            if (value == null) return;
+                            selectedHouseholdId.value = value;
+                            // Reset splits when switching households
+                            customSplitType.value = null;
+                            customSplits.value = null;
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Switch(
+                value: isSharedWithHousehold.value,
+                onChanged: (value) {
+                  if (!value) {
+                    isSharedWithHousehold.value = false;
+                    selectedHouseholdId.value = null;
+                    customSplitType.value = null;
+                    customSplits.value = null;
+                    return;
+                  }
+                  if (households.isEmpty) return;
+                  isSharedWithHousehold.value = true;
+                  selectedHouseholdId.value ??= households.first.id;
+                },
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (isSharedWithHousehold.value)
+          membersAsync.when(
+            data: (members) {
+              if (members.isEmpty) {
+                return Text(
+                  context.l10n.selectHouseholdToConfigureSplit,
+                  style: TextStyle(color: colorScheme.mutedForeground),
+                );
+              }
+
+              final totalAmount =
+                  double.tryParse(amountController.text.trim()) ?? 0.0;
+              if (selectedPayerUserId.value == null && members.isNotEmpty) {
+                selectedPayerUserId.value = members.first.userId;
+              }
+
+              return Container(
+                decoration: BoxDecoration(
+                  color: colorScheme.muted.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  children: [
+                    Padding(
+                      padding:
+                          const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Who paid?',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.foreground,
+                              ),
+                            ),
+                          ),
+                          DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: selectedPayerUserId.value,
+                              items: members
+                                  .map(
+                                    (m) => DropdownMenuItem<String>(
+                                      value: m.userId,
+                                      child: Text(
+                                        m.userName ??
+                                            m.userEmail ??
+                                            'Member',
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (v) =>
+                                  selectedPayerUserId.value = v,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    CustomSplitEditor(
+                      key: ValueKey(
+                        'recurring_split_${selectedHouseholdId.value}_${members.length}_${(totalAmount * 100).round()}',
+                      ),
+                      members: members,
+                      totalAmount: totalAmount,
+                      currencySymbol: currencySymbol,
+                      initialSplitType: customSplitType.value,
+                      initialSplits: customSplits.value,
+                      onChanged: (splitType, splits) {
+                        customSplitType.value = splitType;
+                        customSplits.value = splits;
+                      },
+                    ),
+                  ],
+                ),
+              );
+            },
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+          ),
+      ],
+    );
   }
 }

@@ -317,15 +317,22 @@ class RecurrenceRule {
   final DateTime anchorDate;
   final DateTime? endDate;
   final int? interval; // For custom frequency (e.g., every 2 weeks)
+  final bool? reminderEnabled;
+  final int? reminderValue;
+  final String? reminderUnit;
 
   RecurrenceRule({
     required this.frequency,
     required this.anchorDate,
     this.endDate,
     this.interval,
+    this.reminderEnabled,
+    this.reminderValue,
+    this.reminderUnit,
   });
 
   factory RecurrenceRule.fromJson(Map<String, dynamic> json) {
+    final reminder = json['reminder'] as Map<String, dynamic>?;
     return RecurrenceRule(
       frequency: json['frequency'] as String,
       anchorDate: DateTime.parse(json['anchor_date'] as String),
@@ -333,6 +340,9 @@ class RecurrenceRule {
           ? DateTime.parse(json['end_date'] as String)
           : null,
       interval: json['interval'] as int?,
+      reminderEnabled: reminder?['enabled'] as bool?,
+      reminderValue: reminder?['value'] as int?,
+      reminderUnit: reminder?['unit'] as String?,
     );
   }
 
@@ -342,6 +352,14 @@ class RecurrenceRule {
       'anchor_date': anchorDate.toIso8601String(),
       'end_date': endDate?.toIso8601String(),
       'interval': interval,
+      if (reminderEnabled != null ||
+          reminderValue != null ||
+          reminderUnit != null)
+        'reminder': {
+          if (reminderEnabled != null) 'enabled': reminderEnabled,
+          if (reminderValue != null) 'value': reminderValue,
+          if (reminderUnit != null) 'unit': reminderUnit,
+        },
     };
   }
 
@@ -350,12 +368,18 @@ class RecurrenceRule {
     DateTime? anchorDate,
     DateTime? endDate,
     int? interval,
+    bool? reminderEnabled,
+    int? reminderValue,
+    String? reminderUnit,
   }) {
     return RecurrenceRule(
       frequency: frequency ?? this.frequency,
       anchorDate: anchorDate ?? this.anchorDate,
       endDate: endDate ?? this.endDate,
       interval: interval ?? this.interval,
+      reminderEnabled: reminderEnabled ?? this.reminderEnabled,
+      reminderValue: reminderValue ?? this.reminderValue,
+      reminderUnit: reminderUnit ?? this.reminderUnit,
     );
   }
 }

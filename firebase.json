@@ -29,7 +29,7 @@
     }
   },
   "hosting": {
-    "site": "moneko-app",
+    "site": "moneko",
      "public": "build/web",
     "ignore": [
       "firebase.json",

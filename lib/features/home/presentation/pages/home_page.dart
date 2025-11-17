@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 // import 'package:moneko/core/theme/theme.dart'; // Unnecessary (covered by core.dart)
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
@@ -23,7 +22,6 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/home/presentation/widgets/mom_trend_bar.dart';
-import 'package:moneko/features/home/presentation/widgets/currency_dropdown_button.dart';
 // Removed unused imports
 
 // ============================================================================
@@ -500,25 +498,6 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  void _showJointAccountModal() {
-    // Simply switch to household mode
-    // The HouseholdHomeContent widget will handle loading, empty, and error states
-    final user = ref.read(authProvider);
-    
-    // ✅ CRITICAL: Invalidate households provider to force refresh when switching modes
-    debugPrint('🔄 Switching to household mode - invalidating userHouseholdsProvider');
-    ref.invalidate(userHouseholdsProvider(user.uid));
-    
-    ref.read(viewModeProvider.notifier).setMode(ViewMode.household);
-  }
-
-  void _showDateRangeFilter() {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
-    showDateRangeFilter(context, colorScheme, height: 480);
-  }
-
-  // Removed unused _showCurrencySelector()
-
   Future<void> _showBudgetUpdateSheet() async {
     final analytics = ref.read(analyticsProvider);
     final contact = analytics.contact;
@@ -849,134 +828,11 @@ class _HomePageState extends ConsumerState<HomePage> {
               },
               child: CustomScrollView(
                 slivers: [
-                  // App Bar
                   SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            context.l10n.overview,
-                            style: TextStyle(
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                              color: colorScheme.foreground,
-                            ),
-                          ),
-                          // Account Type Switch (always visible)
-                          Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: colorScheme.muted,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                // Single
-                                GestureDetector(
-                                  onTap: viewMode.mode == ViewMode.personal
-                                      ? null
-                                      : () {
-                                          HapticFeedback.lightImpact();
-                                          SystemSound.play(SystemSoundType.click);
-                                          ref.read(viewModeProvider.notifier).setPersonalMode();
-                                        },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: viewMode.mode == ViewMode.personal
-                                          ? colorScheme.primary
-                                          : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    child: Text(
-                                      context.l10n.forMe,
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: viewMode.mode == ViewMode.personal
-                                            ? FontWeight.w600
-                                            : FontWeight.w500,
-                                        color: viewMode.mode == ViewMode.personal
-                                            ? colorScheme.buttonText
-                                            : colorScheme.mutedForeground,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                // Joint
-                                GestureDetector(
-                                  onTap: viewMode.mode == ViewMode.household
-                                      ? null
-                                      : () {
-                                          HapticFeedback.lightImpact();
-                                          SystemSound.play(SystemSoundType.click);
-                                          _showJointAccountModal();
-                                        },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: viewMode.mode == ViewMode.household
-                                          ? colorScheme.primary
-                                          : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    child: Text(
-                                      context.l10n.forUs,
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: viewMode.mode == ViewMode.household
-                                            ? FontWeight.w600
-                                            : FontWeight.w500,
-                                        color: viewMode.mode == ViewMode.household
-                                            ? colorScheme.buttonText
-                                            : colorScheme.mutedForeground,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+                    child: HomeHeaderSliver(
+                      title: context.l10n.overview,
                     ),
                   ),
-
-                  // Period Selector with Currency Button (shown in both modes; filters household content too)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          // Left side:  Currency Button
-                          const CurrencyDropdownButton(),
-                          // Right side: Date filter
-                          GestureDetector(
-                            onTap: _showDateRangeFilter,
-                            child: Row(
-                              children: [
-                                Text(
-                                  filterState.dateRangeFilter.getLabel(context),
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: colorScheme.primary,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                               
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
                   // Switch between Personal and Household content
                   if (viewMode.mode == ViewMode.household)
@@ -985,18 +841,18 @@ class _HomePageState extends ConsumerState<HomePage> {
                     // Personal mode - show analytics content
                     // Spending Card with Line Chart
                     SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: buildSpendingCard(
-                        context,
-                        colorScheme, 
-                        filteredExpenses, 
-                        analyticsData.contact, 
-                        filterState.dateRangeFilter,
-                        selectedCurrency: filterState.selectedCurrency,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: buildSpendingCard(
+                          context,
+                          colorScheme,
+                          filteredExpenses,
+                          analyticsData.contact,
+                          filterState.dateRangeFilter,
+                          selectedCurrency: filterState.selectedCurrency,
+                        ),
                       ),
                     ),
-                  ),
 
                   const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
