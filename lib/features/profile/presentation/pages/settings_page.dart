@@ -18,6 +18,7 @@ import 'package:go_router/go_router.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/app/locale_provider.dart';
 import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
+import 'package:moneko/features/profile/presentation/widgets/whatsapp_binding_card.dart';
 import 'package:moneko/features/income/presentation/providers/income_providers.dart';
 import 'package:moneko/features/goals/presentation/providers/goals_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
@@ -593,6 +594,9 @@ class SettingsPage extends HookConsumerWidget {
                 ),
               ),
             ),
+            const shadcnui.Gap(24),
+            // WhatsApp binding tile (same logic as ProfilePage)
+            buildWhatsAppBindingCard(context, ref),
             const shadcnui.Gap(24),
             Text(
               context.l10n.membership,

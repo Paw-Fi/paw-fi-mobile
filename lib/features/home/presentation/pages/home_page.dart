@@ -828,10 +828,8 @@ class _HomePageState extends ConsumerState<HomePage> {
               },
               child: CustomScrollView(
                 slivers: [
-                  SliverToBoxAdapter(
-                    child: HomeHeaderSliver(
-                      title: context.l10n.overview,
-                    ),
+                  const SliverToBoxAdapter(
+                    child: HomeHeaderSliver(),
                   ),
 
                   // Switch between Personal and Household content

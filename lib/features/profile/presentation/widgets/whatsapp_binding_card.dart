@@ -44,7 +44,7 @@ Widget buildWhatsAppBindingCard(BuildContext context, WidgetRef ref) {
         return InkWell(
           onTap: () => handleBindWhatsApp(),
           child: Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           decoration: BoxDecoration(
             color: colorScheme.card,
             borderRadius: BorderRadius.circular(16),
@@ -52,19 +52,12 @@ Widget buildWhatsAppBindingCard(BuildContext context, WidgetRef ref) {
           ),
           child: Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF25D366).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.check_circle,
-                  color: Color(0xFF25D366),
-                  size: 24,
-                ),
+              Icon(
+                Icons.chat_bubble_rounded,
+                color: const Color(0xFF25D366),
+                size: 22,
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
