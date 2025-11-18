@@ -1694,7 +1694,8 @@ class _UnifiedTransactionSheetState
       //   - Result: Blocked with error message "You can only edit your own expenses"
       // ═══════════════════════════════════════════════════════════════
       if (isExistingExpense) {
-        if (widget.existingExpense!.userId != user.uid) {
+        final ownerId = widget.existingExpense!.userId;
+        if (ownerId != null && ownerId.isNotEmpty && ownerId != user.uid) {
           setState(() => _isSaving = false);
           if (!mounted) return;
 
