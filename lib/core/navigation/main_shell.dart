@@ -7,8 +7,8 @@ import 'package:moneko/core/navigation/zoom_drawer_provider.dart';
 import 'package:moneko/features/auth/presentation/widgets/impersonation_banner.dart';
 import 'package:moneko/features/home/presentation/pages/home_page.dart';
 import 'package:moneko/features/insights/presentation/pages/insights_page.dart';
-import 'package:moneko/features/profile/presentation/pages/profile_page.dart';
 import 'package:moneko/features/recurring/pages/recurring_transactions_page.dart';
+import 'package:moneko/features/pockets/presentation/pages/pockets_page.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'main_menu_screen.dart';
 
@@ -26,7 +26,7 @@ class MainShell extends HookConsumerWidget {
       const HomePage(),
       const RecurringTransactionsPage(),
       const AnalyticsPage(),
-      const ProfilePage(),
+      const PocketsPage(),
     ];
 
     return ZoomDrawer(
@@ -55,8 +55,8 @@ class MainShell extends HookConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _NavButton(
-                  icon: currentIndex.value == 0 ? Icons.home : Icons.home_outlined,
-                  label: context.l10n.home,
+                  icon: currentIndex.value == 0 ? Icons.dashboard : Icons.dashboard_outlined,
+                  label: context.l10n.overview,
                   isSelected: currentIndex.value == 0,
                   onTap: () => currentIndex.value = 0,
                 ),
@@ -73,8 +73,8 @@ class MainShell extends HookConsumerWidget {
                   onTap: () => currentIndex.value = 2,
                 ),
                 _NavButton(
-                  icon: currentIndex.value == 3 ? Icons.person : Icons.person_outline,
-                  label: context.l10n.profile,
+                  icon: currentIndex.value == 3 ? Icons.account_balance_wallet : Icons.account_balance_wallet_outlined,
+                  label: 'Pockets',
                   isSelected: currentIndex.value == 3,
                   onTap: () => currentIndex.value = 3,
                 ),
