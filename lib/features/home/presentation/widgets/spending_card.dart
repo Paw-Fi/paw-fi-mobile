@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-
 /// Interactive spending card with swipeable chart and current point highlight
 class SpendingCard extends StatefulWidget {
-  final shadcnui.ColorScheme colorScheme;
+  final ColorScheme colorScheme;
   final List<ExpenseEntry> expenses;
   final UserContact? contact;
   final DateRangeFilter dateFilter;
@@ -255,7 +254,7 @@ class _SpendingCardState extends State<SpendingCard> {
                     lineTouchData: LineTouchData(
                       enabled: true,
                       touchTooltipData: LineTouchTooltipData(
-                        getTooltipColor: (touchedSpot) => widget.colorScheme.popover,
+                        getTooltipColor: (touchedSpot) => widget.colorScheme.surface,
                         tooltipBorder: BorderSide(color: widget.colorScheme.border),
                         getTooltipItems: (touchedSpots) {
                           return touchedSpots.map((spot) {
@@ -352,7 +351,7 @@ class _SpendingCardState extends State<SpendingCard> {
 }
 
 /// Legacy function wrapper for backward compatibility
-Widget buildSpendingCard(BuildContext context, shadcnui.ColorScheme colorScheme, List<ExpenseEntry> expenses, UserContact? contact, DateRangeFilter dateFilter, {String? selectedCurrency}) {
+Widget buildSpendingCard(BuildContext context, ColorScheme colorScheme, List<ExpenseEntry> expenses, UserContact? contact, DateRangeFilter dateFilter, {String? selectedCurrency}) {
   return SpendingCard(
     colorScheme: colorScheme,
     expenses: expenses,

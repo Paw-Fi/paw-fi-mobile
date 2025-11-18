@@ -9,6 +9,7 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/home/presentation/widgets/currency_selector_modal.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 
@@ -219,7 +220,7 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = shadcnui.Theme.of(context);
+    final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
     return Container(

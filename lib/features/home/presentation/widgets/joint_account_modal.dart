@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../households/presentation/providers/household_providers.dart';
 import '../state/analytics_provider.dart';
 import '../../../utils/currency.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/theme/app_theme.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
 /// Navigate to household screen (either overview or onboarding)
 void navigateToHousehold(BuildContext context, WidgetRef ref) async {
@@ -52,7 +54,7 @@ void navigateToHousehold(BuildContext context, WidgetRef ref) async {
 
 /// Show household onboarding modal (create or join)
 void showHouseholdOnboardingModal(BuildContext context, WidgetRef ref, String userId) {
-  final colorScheme = shadcnui.Theme.of(context).colorScheme;
+  final colorScheme = Theme.of(context).colorScheme;
 
   showDialog(
     context: context,
@@ -152,7 +154,7 @@ void showHouseholdOnboardingModal(BuildContext context, WidgetRef ref, String us
 
 /// Show create household dialog
 void _showCreateHouseholdDialog(BuildContext context, WidgetRef ref, String userId) {
-  final colorScheme = shadcnui.Theme.of(context).colorScheme;
+  final colorScheme = Theme.of(context).colorScheme;
   final nameController = TextEditingController();
 
   showDialog(
@@ -253,7 +255,7 @@ void _showCreateHouseholdDialog(BuildContext context, WidgetRef ref, String user
 }
 
 // Legacy function for backwards compatibility
-void showJointAccountModal(BuildContext context, shadcnui.ColorScheme colorScheme) {
+void showJointAccountModal(BuildContext context, ColorScheme colorScheme) {
   // This is deprecated, but kept for backwards compatibility
   // It will be removed once all references are updated
   showDialog(

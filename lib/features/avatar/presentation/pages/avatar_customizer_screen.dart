@@ -7,7 +7,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 //import 'package:flutter_colorpicker/flutter_colorpicker.dart';
@@ -15,7 +15,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:ios_color_picker/show_ios_color_picker.dart';
 import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
-
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/theme/app_theme.dart';
 class AvatarCustomizerScreen extends ConsumerStatefulWidget {
   const AvatarCustomizerScreen({super.key});
 
@@ -283,7 +284,7 @@ class _AvatarCustomizerScreenState extends ConsumerState<AvatarCustomizerScreen>
 
   @override
   Widget build(BuildContext context) {
-    final scheme = shadcnui.Theme.of(context).colorScheme;
+    final scheme = Theme.of(context).colorScheme;
     return shadcnui.DrawerOverlay(
       child: Scaffold(
         backgroundColor: scheme.background,
@@ -522,7 +523,7 @@ class _AvatarCustomizerScreenState extends ConsumerState<AvatarCustomizerScreen>
 
   // Compact color selector: tap to cycle palette
   Widget _colorControl(BuildContext context, String label, String key) {
-    final scheme = shadcnui.Theme.of(context).colorScheme;
+    final scheme = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: () => _openColorPicker(context, key),
       child: Container(

@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/auth/auth.dart';
-import 'package:moneko/features/onboarding/data/services/guest_goal_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -52,7 +51,6 @@ class Auth extends _$Auth {
 
       // On sign in, migrate guest data and sync Web3 profile (wallet address/name)
       if (data.event == AuthChangeEvent.signedIn && data.session != null) {
-        _migrateGuestData(data.session!.user.id);
         try {
           await _syncWeb3Profile(data.session!);
         } catch (e, st) {
@@ -123,40 +121,6 @@ class Auth extends _$Auth {
         }, onConflict: 'id');
       } catch (_) {}
     } catch (_) {}
-  }
-
-  /// Migrate guest goals and profiles to authenticated user
-  /// This matches the web's migration logic exactly
-  Future<void> _migrateGuestData(String userId) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final guestGoalService = GuestGoalService(prefs, supabase);
-
-      // Check if there's any guest data to migrate
-      final hasGuestData = await guestGoalService.hasGuestDataToMigrate();
-
-      if (!hasGuestData) {
-        appLog('No guest data to migrate for user $userId', name: 'Auth');
-        return;
-      }
-
-      appLog('Migrating guest data for user $userId...', name: 'Auth');
-
-      // Perform migration
-      final result = await guestGoalService.migrateGuestGoals(userId);
-
-      if (result.success) {
-        appLog(
-          'Successfully migrated guest data: ${result.migratedGoals} goals, ${result.migratedProfiles} profiles',
-          name: 'Auth',
-        );
-      } else {
-        appLog('Guest data migration completed with errors: ${result.errors}', name: 'Auth');
-      }
-    } catch (error, stackTrace) {
-      appLog('Error during guest data migration', name: 'Auth', error: error, stackTrace: stackTrace);
-      // Don't fail login if migration fails
-    }
   }
 
   /// Sign in with email and password

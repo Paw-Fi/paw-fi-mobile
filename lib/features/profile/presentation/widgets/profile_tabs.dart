@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/profile/presentation/widgets/profile_tab_content.dart';
+import 'package:moneko/core/theme/app_theme.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
 Widget buildNavigationTabs(BuildContext context, ValueNotifier<int> selectedTab) {
   return Row(
@@ -15,7 +17,7 @@ Widget buildNavigationTabs(BuildContext context, ValueNotifier<int> selectedTab)
 }
 
 Widget _buildTab(BuildContext context, String label, int index, ValueNotifier<int> selectedTab) {
-  final colorScheme = shadcnui.Theme.of(context).colorScheme;
+  final colorScheme = Theme.of(context).colorScheme;
   final isSelected = selectedTab.value == index;
   return GestureDetector(
     onTap: () => selectedTab.value = index,

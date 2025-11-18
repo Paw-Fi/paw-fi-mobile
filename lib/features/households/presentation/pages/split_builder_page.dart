@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import '../../domain/entities/expense_split.dart';
 import '../../domain/entities/household.dart';
 import '../providers/household_providers.dart';
-
+import 'package:moneko/core/theme/app_theme.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 /// Split Builder Page
 /// Interactive expense splitting tool
 class SplitBuilderPage extends ConsumerStatefulWidget {
@@ -47,7 +48,7 @@ class _SplitBuilderPageState extends ConsumerState<SplitBuilderPage> {
   @override
   Widget build(BuildContext context) {
     final membersAsync = ref.watch(householdMembersProvider(widget.householdId));
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       backgroundColor: colorScheme.background,
@@ -384,7 +385,7 @@ class _SplitPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Card(
       child: Padding(

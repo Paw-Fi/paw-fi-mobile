@@ -4,7 +4,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/income/presentation/providers/income_providers.dart';
 import 'package:moneko/features/income/presentation/pages/income_list_page.dart';
 import 'package:moneko/features/utils/currency.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/theme/app_theme.dart';
 
 /// Income summary card for dashboard
 /// Shows MTD/YTD income totals with navigation to full income list
@@ -15,7 +15,7 @@ class IncomeCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = shadcnui.Theme.of(context);
+    final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final incomeSummaryState = ref.watch(incomeSummaryProvider);
 

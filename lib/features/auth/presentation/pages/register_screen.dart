@@ -5,7 +5,9 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/auth/presentation/widgets/wallet_login_button.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'dart:async';
 import 'package:moneko/core/l10n/l10n.dart';
 
@@ -44,7 +46,7 @@ class _RegistrationFormView extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = shadcnui.Theme.of(context);
+    final theme = Theme.of(context);
     final fullNameController = useTextEditingController();
     final emailController = useTextEditingController();
     final passwordController = useTextEditingController();
@@ -181,7 +183,7 @@ class _RegistrationFormView extends HookConsumerWidget {
                       children: [
                         Text(
                           context.l10n.appTitle,
-                          style: theme.typography.h1.copyWith(
+                          style: TextStyle(
                             fontSize: 48,
                             fontWeight: FontWeight.bold,
                             letterSpacing: -1.5,
@@ -192,9 +194,10 @@ class _RegistrationFormView extends HookConsumerWidget {
                         const SizedBox(height: 8),
                         Text(
                           context.l10n.createYourAccount,
-                          style: theme.typography.large.copyWith(
-                            color: theme.colorScheme.mutedForeground,
+                          style: TextStyle(
                             fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: theme.colorScheme.mutedForeground,
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -259,9 +262,9 @@ class _RegistrationFormView extends HookConsumerWidget {
                                 padding: const EdgeInsets.symmetric(horizontal: 16),
                                 child: Text(
                                   context.l10n.orContinueWithEmail,
-                                  style: theme.typography.small.copyWith(
-                                    color: theme.colorScheme.mutedForeground,
+                                  style: TextStyle(
                                     fontSize: 13,
+                                    color: theme.colorScheme.mutedForeground,
                                   ),
                                 ),
                               ),
@@ -295,7 +298,11 @@ class _RegistrationFormView extends HookConsumerWidget {
                               ),
                             ),
                             enabled: !isLoading.value,
-                            style: theme.typography.base.copyWith(fontSize: 16),
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w400,
+                              color: theme.colorScheme.foreground,
+                            ),
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12),
@@ -322,7 +329,11 @@ class _RegistrationFormView extends HookConsumerWidget {
                               ),
                             ),
                             enabled: !isLoading.value,
-                            style: theme.typography.base.copyWith(fontSize: 16),
+                            style: TextStyle(
+  fontSize: 16,
+  fontWeight: FontWeight.w400,
+  color: theme.colorScheme.foreground,
+),
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12),
@@ -367,7 +378,11 @@ class _RegistrationFormView extends HookConsumerWidget {
                               ),
                             ],
                             enabled: !isLoading.value,
-                            style: theme.typography.base.copyWith(fontSize: 16),
+                            style: TextStyle(
+  fontSize: 16,
+  fontWeight: FontWeight.w400,
+  color: theme.colorScheme.foreground,
+),
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12),
@@ -384,9 +399,9 @@ class _RegistrationFormView extends HookConsumerWidget {
                           // Password requirements
                           Text(
                             context.l10n.passwordRequirementShort,
-                            style: theme.typography.small.copyWith(
-                              color: theme.colorScheme.mutedForeground,
+                            style: TextStyle(
                               fontSize: 12,
+                              color: theme.colorScheme.mutedForeground,
                             ),
                             textAlign: TextAlign.left,
                           ),
@@ -426,9 +441,9 @@ class _RegistrationFormView extends HookConsumerWidget {
                                     Expanded(
                                       child: Text(
                                         error.value!,
-                                        style: theme.typography.small.copyWith(
-                                          color: theme.colorScheme.destructive,
+                                        style: TextStyle(
                                           fontSize: 13,
+                                          color: theme.colorScheme.destructive,
                                         ),
                                       ),
                                     ),
@@ -481,10 +496,10 @@ class _RegistrationFormView extends HookConsumerWidget {
                                           )
                                         : Text(
                                             context.l10n.createAccount,
-                                            style: theme.typography.base.copyWith(
-                                              color: theme.colorScheme.primaryForeground,
+                                            style: TextStyle(
                                               fontSize: 16,
                                               fontWeight: FontWeight.w600,
+                                              color: theme.colorScheme.primaryForeground,
                                             ),
                                           ),
                                   ),
@@ -497,9 +512,9 @@ class _RegistrationFormView extends HookConsumerWidget {
                           // Terms
                           Text(
                             context.l10n.termsAgreement,
-                            style: theme.typography.small.copyWith(
-                              color: theme.colorScheme.mutedForeground,
+                            style: TextStyle(
                               fontSize: 12,
+                              color: theme.colorScheme.mutedForeground,
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -515,19 +530,19 @@ class _RegistrationFormView extends HookConsumerWidget {
                     children: [
                       Text(
                         '${context.l10n.alreadyHaveAccount} ',
-                        style: theme.typography.base.copyWith(
-                          color: theme.colorScheme.mutedForeground,
+                        style: TextStyle(
                           fontSize: 15,
+                          color: theme.colorScheme.mutedForeground,
                         ),
                       ),
                       GestureDetector(
                         onTap: isLoading.value ? null : () => context.go('/login'),
                         child: Text(
                           context.l10n.signInLower,
-                          style: theme.typography.base.copyWith(
-                            color: theme.colorScheme.primary,
+                          style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
+                            color: theme.colorScheme.primary,
                           ),
                         ),
                       ),
@@ -554,7 +569,7 @@ class _OTPVerificationView extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme =   shadcnui.Theme.of(context);
+    final theme =   Theme.of(context);
     final otpValue = useState<String>('');
     final error = useState<String?>(null);
     final isVerifying = useState(false);
@@ -684,13 +699,20 @@ class _OTPVerificationView extends HookConsumerWidget {
                   // Title
                   Text(
                     context.l10n.verifyYourEmail,
-                    style: theme.typography.h2,
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.foreground,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
                   Text(
                     context.l10n.verificationEmailSentTo(email),
-                    style: theme.typography.textMuted,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: theme.colorScheme.mutedForeground,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 32),
@@ -745,7 +767,10 @@ class _OTPVerificationView extends HookConsumerWidget {
                       children: [
                         Text(
                           context.l10n.didntReceiveTheCode,
-                          style: theme.typography.textMuted,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: theme.colorScheme.mutedForeground,
+                          ),
                           textAlign: TextAlign.center,
                         ),
                         TextButton(

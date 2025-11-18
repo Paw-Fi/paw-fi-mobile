@@ -22,7 +22,7 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/datetime.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/auth/auth.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
@@ -31,6 +31,7 @@ import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/widgets/transaction_category_picker.dart';
 import 'package:moneko/core/ui/widgets/transaction_currency_picker.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
 /// Format date with relative terms
 String _formatRelativeDate(DateTime date, BuildContext context) {
@@ -298,7 +299,7 @@ class _UnifiedTransactionSheetState
 
   @override
   Widget build(BuildContext context) {
-    final theme = shadcnui.Theme.of(context);
+    final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final user = ref.watch(authProvider);
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
@@ -598,7 +599,7 @@ class _UnifiedTransactionSheetState
   }
 
   Widget _buildSharingSection(
-    shadcnui.ColorScheme colorScheme,
+    ColorScheme colorScheme,
     List households,
     String? selectedHousehold,
     bool isIncomeMode,
@@ -874,7 +875,7 @@ class _UnifiedTransactionSheetState
   }
 
   Widget _buildDetailCard({
-    required shadcnui.ColorScheme colorScheme,
+    required ColorScheme colorScheme,
     required String label,
     required String value,
     required VoidCallback onTap,
@@ -952,7 +953,7 @@ class _UnifiedTransactionSheetState
   }
 
   Widget _buildNotesCard({
-    required shadcnui.ColorScheme colorScheme,
+    required ColorScheme colorScheme,
     required String notes,
     required VoidCallback onTap,
   }) {
@@ -987,7 +988,7 @@ class _UnifiedTransactionSheetState
   }
 
   Widget _buildReceiptCard({
-    required shadcnui.ColorScheme colorScheme,
+    required ColorScheme colorScheme,
     String? localImagePath,
     String? receiptImageUrl,
     VoidCallback? onAddPhoto,
@@ -1086,7 +1087,7 @@ class _UnifiedTransactionSheetState
     );
   }
 
-  Widget _buildReceiptPlaceholder(shadcnui.ColorScheme colorScheme, VoidCallback onAddPhoto) {
+  Widget _buildReceiptPlaceholder(ColorScheme colorScheme, VoidCallback onAddPhoto) {
     return InkWell(
       onTap: onAddPhoto,
       borderRadius: BorderRadius.circular(12),
@@ -1379,7 +1380,7 @@ class _UnifiedTransactionSheetState
   }
 
   void _handleEditDescription(String? currentDescription) async {
-      final colorScheme = shadcnui.Theme.of(context).colorScheme;
+      final colorScheme = Theme.of(context).colorScheme;
       final notePrefix = _generateNotePrefix();
       final initialDescription = () {
         if (currentDescription == null) return notePrefix;
@@ -1787,7 +1788,7 @@ class _UnifiedTransactionSheetState
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(selectedHousehold != null ? context.l10n.incomeSavedAndShared : context.l10n.incomeSaved),
-                backgroundColor: shadcnui.Theme.of(context).colorScheme.primary,
+                backgroundColor: Theme.of(context).colorScheme.primary,
                 duration: const Duration(seconds: 2),
                 behavior: SnackBarBehavior.floating,
               ),
@@ -1967,7 +1968,7 @@ class _UnifiedTransactionSheetState
   }
 
   Future<void> _handleDelete() async {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     
     // Show platform-specific confirmation dialog
     bool? confirmed;

@@ -1,17 +1,15 @@
-import 'package:flutter/material.dart' hide ThemeData, Colors;
+import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter/material.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
-/// Theme mode provider
+/// Theme mode provider based on Flutter's [ThemeMode]
 final themeModeProvider =
-    StateNotifierProvider<ThemeModeNotifier, shadcnui.ThemeMode>((ref) {
+    StateNotifierProvider<ThemeModeNotifier, ThemeMode>((ref) {
   return ThemeModeNotifier();
 });
 
-class ThemeModeNotifier extends StateNotifier<shadcnui.ThemeMode> {
-  ThemeModeNotifier() : super(shadcnui.ThemeMode.system) {
+class ThemeModeNotifier extends StateNotifier<ThemeMode> {
+  ThemeModeNotifier() : super(ThemeMode.system) {
     _loadThemeMode();
   }
 
@@ -24,45 +22,77 @@ class ThemeModeNotifier extends StateNotifier<shadcnui.ThemeMode> {
     if (stored == null) {
       final platformBrightness =
           WidgetsBinding.instance.platformDispatcher.platformBrightness;
-      final fallback = platformBrightness == Brightness.dark
-          ? shadcnui.ThemeMode.dark
-          : shadcnui.ThemeMode.light;
-      state = fallback;
+      state = platformBrightness == Brightness.dark
+          ? ThemeMode.dark
+          : ThemeMode.light;
       return;
     }
 
     state = _themeModeFromString(stored);
   }
 
-  Future<void> setThemeMode(shadcnui.ThemeMode mode) async {
+  Future<void> setThemeMode(ThemeMode mode) async {
     state = mode;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_storageKey, _themeModeToString(mode));
   }
 
-  shadcnui.ThemeMode _themeModeFromString(String value) {
+  ThemeMode _themeModeFromString(String value) {
     switch (value) {
       case 'dark':
-        return shadcnui.ThemeMode.dark;
+        return ThemeMode.dark;
       case 'light':
-        return shadcnui.ThemeMode.light;
+        return ThemeMode.light;
       case 'system':
-        return shadcnui.ThemeMode.system;
+        return ThemeMode.system;
       default:
-        return shadcnui.ThemeMode.light;
+        return ThemeMode.light;
     }
   }
 
-  String _themeModeToString(shadcnui.ThemeMode mode) {
+  String _themeModeToString(ThemeMode mode) {
     switch (mode) {
-      case shadcnui.ThemeMode.dark:
+      case ThemeMode.dark:
         return 'dark';
-      case shadcnui.ThemeMode.light:
+      case ThemeMode.light:
         return 'light';
-      case shadcnui.ThemeMode.system:
+      case ThemeMode.system:
         return 'system';
     }
   }
+}
+
+/// Additional semantic colors mapped onto Material [ColorScheme]
+extension AppColorScheme on ColorScheme {
+  /// Background for cards/surfaces
+  Color get card => surface;
+
+  /// Subtle border color
+  Color get border => outlineVariant;
+
+  /// Muted background surface
+  Color get muted => brightness == Brightness.dark
+      ? AppTheme.darkMuted
+      : const Color(0xFFF3F4F6);
+
+  /// Muted text color
+  Color get mutedForeground => brightness == Brightness.dark
+      ? AppTheme.darkMutedForeground
+      : AppTheme.lightMuted;
+
+  /// Primary foreground color (text/icon on primary)
+  Color get primaryForeground => onPrimary;
+
+  /// Secondary foreground color (text/icon on secondary)
+  Color get secondaryForeground => onSecondary;
+
+  /// Foreground text color for primary content
+  Color get foreground => brightness == Brightness.dark
+      ? AppTheme.darkForeground
+      : AppTheme.lightForeground;
+
+  /// Destructive color (mirrors shadcn destructive semantics)
+  Color get destructive => error;
 }
 
 /// Moneko app theme configuration matching web's Tailwind design system
@@ -95,45 +125,61 @@ class AppTheme {
   static const Color darkMutedForeground = Color(0xFF9CA3AF); // Muted text (lighter gray)
   static const Color darkButtonText = Color(0xFFFFFFFF); // Button text color (white)
 
-  /// Light theme matching web design
-  static shadcnui.ThemeData lightTheme() {
-    final colorScheme = shadcnui.ColorSchemes.blue(shadcnui.ThemeMode.light).copyWith(
-      primary: () => monekoSeed,
-      primaryForeground: () => const Color(0xFFFFFFFF), // Use Color directly instead of Colors.white
-      background: () => lightBackground,
-      foreground: () => lightForeground,
-      card: () => lightCardBg,
-      border: () => lightBorder,
-      muted: () => const Color(0xFFF3F4F6),
-      mutedForeground: () => lightMuted,
-      destructive: () => danger,
+  /// Light theme matching web design, expressed as Material [ThemeData]
+  static ThemeData lightTheme() {
+    final base = ColorScheme.fromSeed(
+      seedColor: monekoSeed,
+      brightness: Brightness.light,
     );
 
-    return shadcnui.ThemeData(
-      colorScheme: colorScheme,
-      radius: 10,
-      scaling: 1.0,
+    final scheme = base.copyWith(
+      primary: monekoPrimary,
+      onPrimary: lightButtonText,
+      secondary: monekoSecondary,
+      background: lightBackground,
+      surface: lightCardBg,
+      onBackground: lightForeground,
+      onSurface: lightForeground,
+      error: danger,
+      onError: lightButtonText,
+      outline: lightBorder,
+      outlineVariant: lightBorder,
+    );
+
+    return ThemeData(
+      useMaterial3: true,
+      colorScheme: scheme,
+      scaffoldBackgroundColor: lightBackground,
+      snackBarTheme: AppSnackBarStyles.build(scheme, isDark: false),
     );
   }
 
-  /// Dark theme matching web design
-  static shadcnui.ThemeData darkTheme() {
-    final colorScheme = shadcnui.ColorSchemes.blue(shadcnui.ThemeMode.dark).copyWith(
-      primary: () => const Color(0xFF8B70FF), // Lighter purple for dark mode
-      primaryForeground: () => const Color(0xFFFFFFFF), // White text on primary buttons
-      background: () => darkBackground,
-      foreground: () => darkForeground, // Bright white/light text for readability
-      card: () => darkCardBg,
-      border: () => darkBorder,
-      muted: () => darkMuted, // Dark background for input fields
-      mutedForeground: () => darkMutedForeground, // Light gray for muted text
-      destructive: () => const Color(0xFFFF7A7A), // Lighter red for dark mode
+  /// Dark theme matching web design, expressed as Material [ThemeData]
+  static ThemeData darkTheme() {
+    final base = ColorScheme.fromSeed(
+      seedColor: monekoSeed,
+      brightness: Brightness.dark,
     );
 
-    return shadcnui.ThemeData(
-      colorScheme: colorScheme,
-      radius: 10,
-      scaling: 1.0,
+    final scheme = base.copyWith(
+      primary: const Color(0xFF8B70FF),
+      onPrimary: darkButtonText,
+      secondary: monekoSecondary,
+      background: darkBackground,
+      surface: darkCardBg,
+      onBackground: darkForeground,
+      onSurface: darkForeground,
+      error: const Color(0xFFFF7A7A),
+      onError: darkButtonText,
+      outline: darkBorder,
+      outlineVariant: darkBorder,
+    );
+
+    return ThemeData(
+      useMaterial3: true,
+      colorScheme: scheme,
+      scaffoldBackgroundColor: darkBackground,
+      snackBarTheme: AppSnackBarStyles.build(scheme, isDark: true),
     );
   }
 
@@ -141,8 +187,8 @@ class AppTheme {
   static Color get monekoSeed => monekoPrimary;
 }
 
-/// Extension on ColorScheme to add button text color and input styles
-extension ColorSchemeExtension on shadcnui.ColorScheme {
+/// Extension on Material [ColorScheme] to add button text color and input styles
+extension ColorSchemeExtension on ColorScheme {
   /// Returns button text color based on theme
   /// White for both light and dark themes on primary buttons
   Color get buttonText {
@@ -152,13 +198,13 @@ extension ColorSchemeExtension on shadcnui.ColorScheme {
   /// Returns the appropriate text color for input fields
   /// Ensures text is always visible in both light and dark modes
   Color get inputTextColor {
-    return foreground; // Use foreground which is configured per theme
+    return onSurface; // Use onSurface which is configured per theme
   }
 
   /// Returns the appropriate color for input icons (prefix/suffix)
   /// Ensures icons are always visible
   Color get inputIconColor {
-    return foreground; // Use foreground for consistency
+    return onSurface; // Use onSurface for consistency
   }
 
   /// Returns the appropriate color for hint/placeholder text
@@ -180,7 +226,6 @@ extension ColorSchemeExtension on shadcnui.ColorScheme {
     return TextStyle(
       fontSize: 16,
       color: hintTextColor,
-      fontWeight: FontWeight.w400,
     );
   }
 }
@@ -192,24 +237,24 @@ class AppSurface {
   /// Compute a tinted surface for a status on top of the neutral `card` color.
   /// This produces elegant, subtle backgrounds that work for light/dark.
   static Color tintedBackground({
-    required shadcnui.ColorScheme scheme,
+    required ColorScheme scheme,
     required Color base,
     required bool isDark,
   }) {
     // Light: very light tint, Dark: slightly stronger tint for contrast.
     final t = isDark ? 0.16 : 0.08;
-    return Color.lerp(scheme.card, base, t) ?? scheme.card;
+    return Color.lerp(scheme.card, base, t) ?? scheme.surface;
   }
 
   /// Subtle hairline border that harmonizes with the status hue.
   static Color tintedBorder({
-    required shadcnui.ColorScheme scheme,
+    required ColorScheme scheme,
     required Color base,
     required bool isDark,
   }) {
     // Blend the base with the neutral border for a refined outline.
     final t = isDark ? 0.55 : 0.45;
-    return Color.lerp(scheme.border, base, t) ?? scheme.border;
+    return Color.lerp(scheme.border, base, t) ?? scheme.outline;
   }
 
   /// Action/accent color for links and buttons.
@@ -238,7 +283,7 @@ class AppSnackBarStyles {
   const AppSnackBarStyles._();
 
   static SnackBarThemeData build(
-    shadcnui.ColorScheme scheme, {
+    ColorScheme scheme, {
     required bool isDark,
   }) {
     final bg = AppSurface.tintedBackground(

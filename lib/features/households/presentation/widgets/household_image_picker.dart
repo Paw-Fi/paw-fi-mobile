@@ -7,7 +7,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/core.dart';
 import '../../../../core/utils/error_handler.dart';
@@ -23,7 +23,7 @@ class HouseholdImagePicker {
     required Function(String? imageUrl, File? imageFile) onImageSelected,
     String? currentImageUrl,
   }) async {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final imagePicker = ImagePicker();
 
     showModalBottomSheet(
@@ -175,7 +175,7 @@ class HouseholdImagePicker {
   }
 
   static Widget _buildActionTile({
-    required shadcnui.ColorScheme colorScheme,
+    required ColorScheme colorScheme,
     required IconData icon,
     required String label,
     required List<Color> gradientColors,
@@ -234,7 +234,7 @@ class HouseholdImagePicker {
   }
 
   static Widget _buildPresetTile({
-    required shadcnui.ColorScheme colorScheme,
+    required ColorScheme colorScheme,
     required String imageUrl,
     required bool isSelected,
     required VoidCallback onTap,

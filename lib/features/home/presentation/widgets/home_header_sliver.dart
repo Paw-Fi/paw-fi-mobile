@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
@@ -11,6 +12,7 @@ import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 /// Header for pages that includes:
 /// - Profile/Household cover photo
@@ -23,7 +25,7 @@ class HomeHeaderSliver extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final viewMode = ref.watch(viewModeProvider);
     final user = ref.watch(authProvider);
     final selectedHouseholdState = ref.watch(selectedHouseholdProvider);
@@ -35,64 +37,52 @@ class HomeHeaderSliver extends ConsumerWidget {
       child: Row(
         children: [
           Expanded(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
+            child: AdaptiveListTile(
               onTap: () => zoomController.toggle?.call(),
-              child: Row(
-                children: [
-                  _HeaderAvatarButton(
-                    user: user,
-                    viewMode: viewMode,
-                    householdsAsync: householdsAsync,
-                    selectedHouseholdState: selectedHouseholdState,
-                    colorScheme: colorScheme,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          viewMode.mode == ViewMode.personal
-                              ? (user.displayName?.isNotEmpty == true
-                                  ? user.displayName!
-                                  : user.email)
-                              : (selectedHouseholdState.household?.name ??
-                                  context.l10n.forUs),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.3,
-                            color: colorScheme.foreground,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          viewMode.mode == ViewMode.personal
-                              ? context.l10n.forMe
-                              : context.l10n.forUs,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: colorScheme.mutedForeground,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+              leading: _HeaderAvatarButton(
+                user: user,
+                viewMode: viewMode,
+                householdsAsync: householdsAsync,
+                selectedHouseholdState: selectedHouseholdState,
+                colorScheme: colorScheme,
+              ),
+              title: Text(
+                viewMode.mode == ViewMode.personal
+                    ? (user.displayName?.isNotEmpty == true
+                        ? user.displayName!
+                        : user.email)
+                    : (selectedHouseholdState.household?.name ??
+                        context.l10n.forUs),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.3,
+                  color: colorScheme.foreground,
+                ),
+              ),
+              subtitle: Text(
+                viewMode.mode == ViewMode.personal
+                    ? context.l10n.forMe
+                    : context.l10n.forUs,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: colorScheme.mutedForeground,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
           ),
           const SizedBox(width: 12),
-          _AccountTypeSwitch(
-            viewMode: viewMode,
-            colorScheme: colorScheme,
-            onPersonalSelected: () => _setPersonalMode(ref),
-            onHouseholdSelected: () => _switchToHouseholdMode(context, ref),
+          Flexible(
+            fit: FlexFit.loose,
+            child: _AccountTypeSwitch(
+              viewMode: viewMode,
+              colorScheme: colorScheme,
+              onPersonalSelected: () => _setPersonalMode(ref),
+              onHouseholdSelected: () => _switchToHouseholdMode(context, ref),
+            ),
           ),
         ],
       ),
@@ -130,7 +120,7 @@ class _HeaderAvatarButton extends StatelessWidget {
   final ViewModeState viewMode;
   final AsyncValue<List<Household>> householdsAsync;
   final SelectedHouseholdState selectedHouseholdState;
-  final shadcnui.ColorScheme colorScheme;
+  final ColorScheme colorScheme;
 
   @override
   Widget build(BuildContext context) {
@@ -252,69 +242,39 @@ class _AccountTypeSwitch extends StatelessWidget {
   });
 
   final ViewModeState viewMode;
-  final shadcnui.ColorScheme colorScheme;
+  final ColorScheme colorScheme;
   final VoidCallback onPersonalSelected;
   final VoidCallback onHouseholdSelected;
 
   @override
   Widget build(BuildContext context) {
+    final selectedIndex = viewMode.mode == ViewMode.personal ? 0 : 1;
+
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: colorScheme.muted,
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Personal
-          GestureDetector(
-            onTap: viewMode.mode == ViewMode.personal ? null : onPersonalSelected,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              decoration: BoxDecoration(
-                color: viewMode.mode == ViewMode.personal
-                    ? colorScheme.primary
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                context.l10n.forMe,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: viewMode.mode == ViewMode.personal ? FontWeight.w600 : FontWeight.w500,
-                  color: viewMode.mode == ViewMode.personal
-                      ? colorScheme.primaryForeground
-                      : colorScheme.mutedForeground,
-                ),
-              ),
-            ),
-          ),
-          // Household
-          GestureDetector(
-            onTap: viewMode.mode == ViewMode.household ? null : onHouseholdSelected,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              decoration: BoxDecoration(
-                color: viewMode.mode == ViewMode.household
-                    ? colorScheme.primary
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                context.l10n.forUs,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: viewMode.mode == ViewMode.household ? FontWeight.w600 : FontWeight.w500,
-                  color: viewMode.mode == ViewMode.household
-                      ? colorScheme.primaryForeground
-                      : colorScheme.mutedForeground,
-                ),
-              ),
-            ),
-          ),
-        ],
+      child: AdaptiveSegmentedControl(
+        labels: [
+          context.l10n.forMe,
+          context.l10n.forUs,
+        ],        
+        selectedIndex: selectedIndex,
+        color: colorScheme.primary,
+        onValueChanged: (index) {
+          if (index == selectedIndex) {
+            return;
+          }
+          if (index == 0) {
+            onPersonalSelected();
+          } else {
+            onHouseholdSelected();
+          }
+        },
       ),
     );
   }
 }
+

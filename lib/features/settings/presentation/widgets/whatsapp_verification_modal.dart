@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
 class WhatsAppVerificationModal extends StatefulWidget {
   final String? otpFromUrl;
@@ -97,7 +98,7 @@ class _WhatsAppVerificationModalState extends State<WhatsAppVerificationModal> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
       padding: EdgeInsets.only(
@@ -297,7 +298,7 @@ Future<void> showWhatsAppVerificationModal(
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     builder: (context) {
-      final colorScheme = shadcnui.Theme.of(context).colorScheme;
+      final colorScheme = Theme.of(context).colorScheme;
       return Container(
         decoration: BoxDecoration(
           color: colorScheme.card,

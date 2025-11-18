@@ -2,13 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import '../../domain/entities/shared_budget.dart';
 import '../providers/household_providers.dart';
 import '../../../../core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/ui/widgets/transaction_currency_picker.dart';
 import 'package:moneko/core/ui/widgets/transaction_selection_sheet.dart';
+import 'package:moneko/core/theme/app_theme.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
 /// Page for creating a new household budget
 class CreateBudgetPage extends HookConsumerWidget {
@@ -23,7 +25,7 @@ class CreateBudgetPage extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final nameController = useTextEditingController();
     final amountController = useTextEditingController();
     final selectedPeriod = useState<BudgetPeriod>(BudgetPeriod.monthly);

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
@@ -7,8 +7,10 @@ import 'package:moneko/features/insights/presentation/widgets/charts/charts.dart
 import 'package:moneko/features/insights/presentation/widgets/chart_legend.dart';
 import 'package:moneko/features/insights/presentation/widgets/insights_ui.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/core/theme/app_theme.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
-Widget buildLongTermProjectionTab(BuildContext context, shadcnui.ColorScheme colorScheme, AnalyticsData analyticsData, {String? selectedCurrency}) {
+Widget buildLongTermProjectionTab(BuildContext context, ColorScheme colorScheme, AnalyticsData analyticsData, {String? selectedCurrency}) {
   // Filter data by currency if selected
   var expenses = analyticsData.allExpenses;
   var budgets = analyticsData.allBudgets;
@@ -86,7 +88,7 @@ Widget buildLongTermProjectionTab(BuildContext context, shadcnui.ColorScheme col
   );
 }
 
-void _showLongTermGuide(BuildContext context, shadcnui.ColorScheme colorScheme) {
+void _showLongTermGuide(BuildContext context, ColorScheme colorScheme) {
   final slides = _longTermSlides(context);
   final controller = PageController();
   int currentPage = 0;
@@ -244,7 +246,7 @@ class _LongTermHelpSlide extends StatelessWidget {
     required this.bullets,
   });
 
-  final shadcnui.ColorScheme colorScheme;
+  final ColorScheme colorScheme;
   final String title;
   final String summary;
   final List<String> bullets;
@@ -297,7 +299,7 @@ class _LongTermSummaryPills extends StatelessWidget {
     this.selectedCurrency,
   });
 
-  final shadcnui.ColorScheme colorScheme;
+  final ColorScheme colorScheme;
   final List<ExpenseEntry> expenses;
   final String? selectedCurrency;
 

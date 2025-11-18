@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../../core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import '../providers/household_providers.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
+import 'package:moneko/core/theme/app_theme.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
 /// Bottom sheet for settling up balances
 class SettleUpSheet extends ConsumerStatefulWidget {
@@ -104,7 +106,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final membersAsync = ref.watch(householdMembersProvider(widget.householdId));
     final userId = Supabase.instance.client.auth.currentUser?.id;
 
@@ -509,7 +511,7 @@ enum _AmountTone { neutral, ok, warn }
 
 class _LineTile extends StatelessWidget {
   final _LineItem item;
-  final shadcnui.ColorScheme scheme;
+  final ColorScheme scheme;
   final _AmountTone tone;
   const _LineTile({required this.item, required this.scheme, this.tone = _AmountTone.neutral});
   @override

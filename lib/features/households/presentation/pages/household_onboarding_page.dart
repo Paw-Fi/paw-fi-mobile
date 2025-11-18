@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import '../widgets/onboarding_card.dart';
 import 'household_create_page.dart';
 import 'household_join_page.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/theme/app_theme.dart';
+
 
 /// Full-page household onboarding with flashcard carousel
 class HouseholdOnboardingPage extends StatefulWidget {
@@ -27,7 +30,7 @@ class _HouseholdOnboardingPageState extends State<HouseholdOnboardingPage> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
       color: colorScheme.background,

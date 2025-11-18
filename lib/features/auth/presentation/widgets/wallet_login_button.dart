@@ -4,12 +4,13 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:go_router/go_router.dart';
 import 'package:moneko/core/util/constants.dart';
 import 'package:moneko/core/web/web3_auth.dart';
-
+import 'package:moneko/core/theme/app_theme.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 /// Web3 Wallet Sign-In button using Supabase Auth (Web3 provider)
 /// 
 /// IMPORTANT: This button ONLY works on Flutter Web
@@ -244,7 +245,7 @@ class WalletLoginButton extends HookConsumerWidget {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
-        final scheme = shadcnui.Theme.of(ctx).colorScheme;
+        final scheme = Theme.of(ctx).colorScheme;
         return Container(
           decoration: BoxDecoration(
             color: scheme.card,

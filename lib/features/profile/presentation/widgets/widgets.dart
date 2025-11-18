@@ -5,4 +5,3 @@ export 'whatsapp_binding_card.dart';
 export 'profile_tabs.dart';
 export 'profile_tab_content.dart';
 export 'whatsapp_tutorial_modal.dart';
-export 'impersonation_card.dart';

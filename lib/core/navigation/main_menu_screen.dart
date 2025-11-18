@@ -10,8 +10,9 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/presentation/pages/household_settings_page.dart';
 import 'package:moneko/features/profile/presentation/pages/settings_page.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 /// Zoom drawer content focused on budgeting context:
 /// - Currency selector
@@ -24,25 +25,27 @@ class MainMenuScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authProvider);
     final viewMode = ref.watch(viewModeProvider);
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
-    return Container(
+    return Material(
       color: colorScheme.background,
-      padding: const EdgeInsets.fromLTRB(24, 48, 24, 32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Currency + household sections
-          const SizedBox(height: 24),
-          _CurrencySection(colorScheme: colorScheme),
-          const SizedBox(height: 16),
-          _DateRangeSection(colorScheme: colorScheme),
-          const SizedBox(height: 24),
-          if (viewMode.mode == ViewMode.household)
-            _HouseholdSection(colorScheme: colorScheme),
-          const Spacer(),
-          _ProfileRow(user: user, colorScheme: colorScheme),
-        ],
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(24, 48, 24, 32),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Currency + household sections
+            const SizedBox(height: 24),
+            _CurrencySection(colorScheme: colorScheme),
+            const SizedBox(height: 16),
+            _DateRangeSection(colorScheme: colorScheme),
+            const SizedBox(height: 24),
+            if (viewMode.mode == ViewMode.household)
+              _HouseholdSection(colorScheme: colorScheme),
+            const Spacer(),
+            _ProfileRow(user: user, colorScheme: colorScheme),
+          ],
+        ),
       ),
     );
   }
@@ -53,7 +56,7 @@ class _DateRangeSection extends ConsumerWidget {
     required this.colorScheme,
   });
 
-  final shadcnui.ColorScheme colorScheme;
+  final ColorScheme colorScheme;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -128,7 +131,7 @@ class _CurrencySection extends ConsumerWidget {
     required this.colorScheme,
   });
 
-  final shadcnui.ColorScheme colorScheme;
+  final ColorScheme colorScheme;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -176,7 +179,7 @@ class _HouseholdSection extends ConsumerWidget {
     required this.colorScheme,
   });
 
-  final shadcnui.ColorScheme colorScheme;
+  final ColorScheme colorScheme;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -317,7 +320,7 @@ class _ProfileRow extends StatelessWidget {
   });
 
   final AppUser user;
-  final shadcnui.ColorScheme colorScheme;
+  final ColorScheme colorScheme;
 
   @override
   Widget build(BuildContext context) {

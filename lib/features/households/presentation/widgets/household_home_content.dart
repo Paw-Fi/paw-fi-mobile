@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/household_providers.dart';
 import '../providers/selected_household_provider.dart';
@@ -13,14 +13,13 @@ import 'household_member_spending_card.dart';
 import '../pages/create_budget_page.dart';
 import '../pages/budget_detail_page.dart';
 import '../pages/household_expenses_page.dart';
-import '../pages/household_settings_page.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/income/presentation/providers/income_providers.dart';
 import 'package:moneko/features/households/presentation/widgets/group_fairness_meter.dart';
 import 'package:moneko/features/households/presentation/widgets/settlement_suggestions_card.dart';
-
+import 'package:moneko/core/theme/app_theme.dart';
 /// Household home content that handles loading, empty, and data states
 /// Returns Sliver widgets for use in CustomScrollView
 class HouseholdHomeContent extends ConsumerStatefulWidget {
@@ -122,7 +121,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
   @override
   Widget build(BuildContext context) {
     final ref = this.ref;
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final userId = Supabase.instance.client.auth.currentUser?.id;
 
     if (userId == null) {
@@ -758,7 +757,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
   }
 
   /// Full-page loading state with skeleton
-  Widget _buildLoadingState(shadcnui.ColorScheme colorScheme) {
+  Widget _buildLoadingState(ColorScheme colorScheme) {
     return Container(
       color: colorScheme.background,
       child: Center(
@@ -789,7 +788,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
 
   /// Error state with retry option
   Widget _buildErrorState(
-    shadcnui.ColorScheme colorScheme,
+    ColorScheme colorScheme,
     String title,
     String message,
   ) {

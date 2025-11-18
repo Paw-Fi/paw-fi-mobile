@@ -1,7 +1,8 @@
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/theme/app_theme.dart';
 
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -9,6 +10,7 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/ui/widgets/custom_text_field.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/features/home/presentation/widgets/category_picker_bottom_sheet.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 
@@ -24,7 +26,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final isEditing = existingEnvelope != null;
 
     final nameController = useTextEditingController(
@@ -290,34 +292,37 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                         ],
                       ),
                     const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final cat in allCategories)
-                          if (!selectedCategories.value.contains(cat))
-                            ActionChip(
-                              label: Text(
-                                getCategoryTranslation(context, cat),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: colorScheme.foreground,
-                                ),
-                              ),
-                              onPressed: () {
-                                selectedCategories.value = [
-                                  ...selectedCategories.value,
-                                  cat,
-                                ];
-                              },
-                            ),
-                      ],
+                    SizedBox(
+                      width: double.infinity,
+                      child: AdaptiveButton(
+                        onPressed: () {
+                          showModalBottomSheet<void>(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (sheetContext) {
+                              return CategoryPickerBottomSheet(
+                                allCategories: allCategories,
+                                selectedCategories:
+                                    selectedCategories.value,
+                                onChanged: (value) {
+                                  selectedCategories.value =
+                                      List<String>.from(value);
+                                },
+                              );
+                            },
+                          );
+                        },
+                        label: 'Choose categories',
+                        style: AdaptiveButtonStyle.filled,
+                      ),
                     ),
                     const SizedBox(height: 24),
                     SizedBox(
                       width: double.infinity,
-                      child: shadcnui.PrimaryButton(
+                      child: AdaptiveButton.child(
                         onPressed: isLoading.value ? null : handleSave,
+                        style: AdaptiveButtonStyle.filled,
                         child: isLoading.value
                             ? SizedBox(
                                 height: 18,
@@ -329,9 +334,11 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                   ),
                                 ),
                               )
-                            : Text(isEditing
-                                ? context.l10n.saveChanges
-                                : context.l10n.save),
+                            : Text(
+                                isEditing
+                                    ? context.l10n.saveChanges
+                                    : context.l10n.save,
+                              ),
                       ),
                     ),
                   ],

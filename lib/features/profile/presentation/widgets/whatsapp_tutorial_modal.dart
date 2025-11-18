@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/theme/app_theme.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
 class WhatsAppTutorialModal extends HookWidget {
   const WhatsAppTutorialModal({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final currentPage = useState(0);
     final pageController = usePageController();
 
@@ -217,7 +219,7 @@ class WhatsAppTutorialModal extends HookWidget {
   Widget _buildTutorialPage(
     BuildContext context,
     _TutorialStep step,
-    shadcnui.ColorScheme colorScheme,
+    ColorScheme colorScheme,
   ) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),

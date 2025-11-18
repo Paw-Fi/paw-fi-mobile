@@ -3,13 +3,14 @@ import 'package:flutter/material.dart' hide Card, Divider, Switch;
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/theme/app_theme.dart';
 
 class ReminderPage extends HookConsumerWidget {
   const ReminderPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final showUpcomingPaychecks = useState(true);
     final showUpcomingBills = useState(true);
 
@@ -206,7 +207,7 @@ class ReminderPage extends HookConsumerWidget {
   }
 
   Widget _buildExpandableSection({
-    required shadcnui.ColorScheme colorScheme,
+    required ColorScheme colorScheme,
     required String title,
     required ValueNotifier<bool> isExpanded,
     required Color color,
@@ -252,7 +253,7 @@ class ReminderPage extends HookConsumerWidget {
   }
 
   Widget _buildPaycheckCard({
-    required shadcnui.ColorScheme colorScheme,
+    required ColorScheme colorScheme,
     required String date,
     required String title,
     required String amount,

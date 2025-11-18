@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/theme/app_theme.dart';
 import '../../../../../core/l10n/l10n.dart';
 
 class GroupFairnessMeter extends StatelessWidget {
@@ -20,7 +20,7 @@ class GroupFairnessMeter extends StatelessWidget {
     this.currency,
   });
 
-  void _showExplanation(BuildContext context, shadcnui.ColorScheme colorScheme) {
+  void _showExplanation(BuildContext context, ColorScheme colorScheme) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -48,7 +48,7 @@ class GroupFairnessMeter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     
     // ═══════════════════════════════════════════════════════════════
     // CRITICAL: Use backend summary.memberContributions directly

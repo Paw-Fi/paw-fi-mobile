@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart' hide IconButton, Card, Divider, Switch, Chip;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/profile/presentation/widgets/widgets.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -12,7 +13,7 @@ class ProfilePage extends ConsumerWidget {
     final user = ref.watch(authProvider);
 
     return Scaffold(
-      backgroundColor: shadcnui.Theme.of(context).colorScheme.background,
+      backgroundColor: Theme.of(context).colorScheme.background,
       body: SafeArea(
         child: shadcnui.SingleChildScrollView(
           child: Padding(
@@ -22,8 +23,6 @@ class ProfilePage extends ConsumerWidget {
                 buildProfileHeader(context, ref),
                 const shadcnui.Gap(40),
                 buildProfileAvatarHeader(context, ref, user),
-                const shadcnui.Gap(32),
-                buildImpersonationCard(context, ref),
                 const shadcnui.Gap(16),
                 buildWhatsAppBindingCard(context, ref),
               ],

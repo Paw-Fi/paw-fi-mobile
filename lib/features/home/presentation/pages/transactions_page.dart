@@ -1,7 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:intl/intl.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
@@ -15,6 +15,7 @@ import '../widgets/unified_transaction_sheet.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
 // ============================================================================
 // TRANSACTIONS PAGE
@@ -181,7 +182,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final analyticsData = ref.watch(analyticsProvider);
 
     // Resolve base expenses source (household-specific or global analytics)
@@ -222,7 +223,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     return _buildMainScaffold(colorScheme, analyticsData.contact);
   }
 
-  Scaffold _buildMainScaffold(shadcnui.ColorScheme colorScheme, UserContact? contact) {
+  Scaffold _buildMainScaffold(ColorScheme colorScheme, UserContact? contact) {
     return Scaffold(
       backgroundColor: colorScheme.background,
       body: SafeArea(
@@ -475,7 +476,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     );
   }
 
-  Widget _buildChart(shadcnui.ColorScheme colorScheme, UserContact? contact) {
+  Widget _buildChart(ColorScheme colorScheme, UserContact? contact) {
     final spendOnly = filteredExpenses
         .where((e) => (e.type ?? 'expense').toLowerCase() != 'income')
         .toList();
@@ -609,7 +610,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     return value.toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), '');
   }
 
-  Widget _buildLineChart(shadcnui.ColorScheme colorScheme) {
+  Widget _buildLineChart(ColorScheme colorScheme) {
     // Group expenses using utility function
     final periodTotals = groupExpensesByInterval(filteredExpenses, chartIntervalType);
     final sortedDates = periodTotals.keys.toList()..sort();
@@ -725,7 +726,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     );
   }
 
-  Widget _buildBarChart(shadcnui.ColorScheme colorScheme) {
+  Widget _buildBarChart(ColorScheme colorScheme) {
     // Group expenses using utility function
     final barData = groupExpensesForBarChart(filteredExpenses, chartIntervalType);
 
@@ -850,7 +851,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     );
   }
 
-  Widget _buildTransactionItem(ExpenseEntry expense, shadcnui.ColorScheme colorScheme, UserContact? contact) {
+  Widget _buildTransactionItem(ExpenseEntry expense, ColorScheme colorScheme, UserContact? contact) {
     final category = expense.category ?? 'uncategorized';
     final categoryColor = getCategoryColor(category);
     final categoryIcon = getCategoryIcon(category);
@@ -933,7 +934,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   }
 
 
-  void _showFilterSheet(BuildContext context, shadcnui.ColorScheme colorScheme) {
+  void _showFilterSheet(BuildContext context, ColorScheme colorScheme) {
     showModalBottomSheet(
       context: context,
       backgroundColor: colorScheme.background,

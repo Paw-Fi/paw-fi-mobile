@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/widgets/currency_selector_modal.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 class CurrencyDropdownButton extends ConsumerWidget {
   final VoidCallback? onAfterSelect;
@@ -10,7 +11,7 @@ class CurrencyDropdownButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final code = ref.watch(homeFilterProvider).selectedCurrency ?? 'USD';
 
     return GestureDetector(

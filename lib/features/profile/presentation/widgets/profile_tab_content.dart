@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/profile/presentation/widgets/profile_helpers.dart';
+import 'package:moneko/core/theme/app_theme.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
 Widget buildOverviewTab(BuildContext context, user, WidgetRef ref) {
   return Column(
@@ -16,7 +18,7 @@ Widget buildOverviewTab(BuildContext context, user, WidgetRef ref) {
 }
 
 Widget buildInfoCard(BuildContext context, user) {
-  final colorScheme = shadcnui.Theme.of(context).colorScheme;
+  final colorScheme = Theme.of(context).colorScheme;
   return Container(
     padding: const EdgeInsets.all(24),
     decoration: BoxDecoration(
@@ -35,7 +37,7 @@ Widget buildInfoCard(BuildContext context, user) {
 }
 
 Widget buildInfoRow(BuildContext context, String label, String value, {Widget? trailing}) {
-  final colorScheme = shadcnui.Theme.of(context).colorScheme;
+  final colorScheme = Theme.of(context).colorScheme;
   return Row(
     mainAxisAlignment: MainAxisAlignment.spaceBetween,
     crossAxisAlignment: CrossAxisAlignment.center,
@@ -61,7 +63,7 @@ Widget buildInfoRow(BuildContext context, String label, String value, {Widget? t
 }
 
 Widget buildActivityTab(BuildContext context) {
-  final colorScheme = shadcnui.Theme.of(context).colorScheme;
+  final colorScheme = Theme.of(context).colorScheme;
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [

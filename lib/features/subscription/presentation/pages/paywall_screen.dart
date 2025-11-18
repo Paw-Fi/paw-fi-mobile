@@ -1,20 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:url_launcher/url_launcher.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import '../providers/subscription_provider.dart';
 import '../providers/referral_code_provider.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/theme/app_theme.dart';
 
 class PaywallScreen extends ConsumerWidget {
   const PaywallScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final hasReferralCodeAsync = ref.watch(referralCodeCheckerProvider);
     final user = ref.watch(authProvider);
 
@@ -50,7 +52,7 @@ class PaywallScreen extends ConsumerWidget {
             margin: const EdgeInsets.symmetric(horizontal: 32),
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
-              color: shadcnui.Theme.of(context).colorScheme.background,
+              color: Theme.of(context).colorScheme.background,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
@@ -67,13 +69,20 @@ class PaywallScreen extends ConsumerWidget {
                 const SizedBox(height: 24),
                 shadcnui.Text(
                   'Opening Referral Page...',
-                  style: shadcnui.Theme.of(context).typography.large,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).colorScheme.foreground,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
                 shadcnui.Text(
                   'Please wait',
-                  style: shadcnui.Theme.of(context).typography.base,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Theme.of(context).colorScheme.mutedForeground,
+                  ),
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -137,7 +146,7 @@ class PaywallScreen extends ConsumerWidget {
             margin: const EdgeInsets.symmetric(horizontal: 32),
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
-              color: shadcnui.Theme.of(context).colorScheme.background,
+              color: Theme.of(context).colorScheme.background,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
@@ -154,13 +163,20 @@ class PaywallScreen extends ConsumerWidget {
                 const SizedBox(height: 24),
                 shadcnui.Text(
                   'Starting your trial...',
-                  style: shadcnui.Theme.of(context).typography.large,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).colorScheme.foreground,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
                 shadcnui.Text(
                   'Please wait',
-                  style: shadcnui.Theme.of(context).typography.base,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Theme.of(context).colorScheme.mutedForeground,
+                  ),
                   textAlign: TextAlign.center,
                 ),
               ],

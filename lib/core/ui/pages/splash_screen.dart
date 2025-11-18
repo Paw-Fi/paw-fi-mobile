@@ -13,8 +13,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // final colorScheme = shadcnui.Theme.of(context).colorScheme;
-    // final brightness = shadcnui.Theme.of(context).brightness;
+    // final colorScheme = Theme.of(context).colorScheme;
+    // final brightness = Theme.of(context).brightness;
 
     return Scaffold(
       backgroundColor: Colors.black,

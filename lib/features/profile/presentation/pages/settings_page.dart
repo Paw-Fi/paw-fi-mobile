@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/l10n/app_localizations.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:url_launcher/url_launcher.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:app_settings/app_settings.dart';
@@ -23,6 +23,7 @@ import 'package:moneko/features/income/presentation/providers/income_providers.d
 import 'package:moneko/features/goals/presentation/providers/goals_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
 class SettingsPage extends HookConsumerWidget {
   const SettingsPage({super.key});
@@ -31,7 +32,7 @@ class SettingsPage extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final currentTheme = ref.watch(themeModeProvider);
     final isDarkMode = currentTheme == shadcnui.ThemeMode.dark;
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final authState = ref.watch(authProvider);
     final analyticsState = ref.watch(analyticsProvider);
     final contact = analyticsState.contact;
@@ -127,7 +128,7 @@ class SettingsPage extends HookConsumerWidget {
                   context: context,
                   isScrollControlled: true,
                   builder: (context) {
-                    final scheme = shadcnui.Theme.of(context).colorScheme;
+                    final scheme = Theme.of(context).colorScheme;
                     return SafeArea(
                       child: Padding(
                         padding: EdgeInsets.only(
@@ -527,7 +528,7 @@ class SettingsPage extends HookConsumerWidget {
                     onChanged: (value) {
                       ref
                           .read(themeModeProvider.notifier)
-                          .setThemeMode(value ? shadcnui.ThemeMode.dark : shadcnui.ThemeMode.light);
+                          .setThemeMode(value ? ThemeMode.dark : ThemeMode.light);
                     },
                   ),
                 ],
@@ -746,7 +747,7 @@ Future<void> _showEditNameSheet({
   required String initialName,
   required VoidCallback onUpdated,
 }) async {
-  final colorScheme = shadcnui.Theme.of(context).colorScheme;
+  final colorScheme = Theme.of(context).colorScheme;
   final controller = TextEditingController(text: initialName);
   final authState = ref.read(authProvider);
 
@@ -922,7 +923,7 @@ class _MembershipCard extends ConsumerWidget {
     required this.subscriptionAsync,
   });
 
-  final shadcnui.ColorScheme colorScheme;
+  final ColorScheme colorScheme;
   final AsyncValue<SubscriptionDetails?> subscriptionAsync;
 
   @override
@@ -1198,7 +1199,7 @@ class _MembershipCard extends ConsumerWidget {
     return null;
   }
 
-  Color _getRenewalInfoBackgroundColor(SubscriptionDetails? details, shadcnui.ColorScheme colorScheme) {
+  Color _getRenewalInfoBackgroundColor(SubscriptionDetails? details, ColorScheme colorScheme) {
     if (details == null) return colorScheme.muted.withValues(alpha: 0.1);
 
     if (details.isTrialing) {
@@ -1212,7 +1213,7 @@ class _MembershipCard extends ConsumerWidget {
     return colorScheme.muted.withValues(alpha: 0.1);
   }
 
-  Color _getRenewalInfoBorderColor(SubscriptionDetails? details, shadcnui.ColorScheme colorScheme) {
+  Color _getRenewalInfoBorderColor(SubscriptionDetails? details, ColorScheme colorScheme) {
     if (details == null) return colorScheme.border;
 
     if (details.isTrialing) {
@@ -1226,7 +1227,7 @@ class _MembershipCard extends ConsumerWidget {
     return colorScheme.border;
   }
 
-  Color _getRenewalInfoTextColor(SubscriptionDetails? details, shadcnui.ColorScheme colorScheme) {
+  Color _getRenewalInfoTextColor(SubscriptionDetails? details, ColorScheme colorScheme) {
     if (details == null) return colorScheme.mutedForeground;
 
     if (details.isTrialing) {

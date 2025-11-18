@@ -3,11 +3,13 @@
 
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import '../../domain/entities/shared_budget.dart';
 import '../providers/household_providers.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/theme/app_theme.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
 /// Budget Detail Page
 /// Shows complete budget information and allows editing
@@ -63,7 +65,7 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       backgroundColor: colorScheme.background,
@@ -261,7 +263,7 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
     required String label,
     required TextEditingController controller,
     required bool enabled,
-    required shadcnui.ColorScheme colorScheme,
+    required ColorScheme colorScheme,
     TextInputType? keyboardType,
     String? prefix,
     String? suffix,
@@ -301,7 +303,7 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
   Widget _buildReadOnlyField({
     required String label,
     required String value,
-    required shadcnui.ColorScheme colorScheme,
+    required ColorScheme colorScheme,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -415,7 +417,7 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
   }
 
   Future<void> _confirmDelete() async {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     
     final confirmed = await showDialog<bool>(
       context: context,

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
@@ -11,15 +11,15 @@ import 'package:intl/intl.dart';
 import 'dart:ui' as ui;
 import 'package:flutter/cupertino.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
-
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 /// Supported sentence word orders for arranging the scenario inputs
 enum _WordOrder { svo, sov, vso, v2 }
 
-Widget buildScenarioPlanningTab(BuildContext context, shadcnui.ColorScheme colorScheme, AnalyticsData analyticsData, {String? selectedCurrency}) {
+Widget buildScenarioPlanningTab(BuildContext context, ColorScheme colorScheme, AnalyticsData analyticsData, {String? selectedCurrency}) {
   return ScenarioPlanningTabContent(context: context, colorScheme: colorScheme, analyticsData: analyticsData, selectedCurrency: selectedCurrency);
 }
 
-void _showCategoryGuide(BuildContext context, shadcnui.ColorScheme colorScheme) {
+void _showCategoryGuide(BuildContext context, ColorScheme colorScheme) {
   final slides = _scenarioCategorySlides(context);
   final controller = PageController();
   int currentPage = 0;
@@ -177,7 +177,7 @@ class _ScenarioHelpSlide extends StatelessWidget {
     required this.bullets,
   });
 
-  final shadcnui.ColorScheme colorScheme;
+  final ColorScheme colorScheme;
   final String title;
   final String summary;
   final List<String> bullets;
@@ -225,7 +225,7 @@ class _ScenarioHelpSlide extends StatelessWidget {
 
 class ScenarioPlanningTabContent extends ConsumerStatefulWidget {
   final BuildContext context;
-  final shadcnui.ColorScheme colorScheme;
+  final ColorScheme colorScheme;
   final AnalyticsData analyticsData;
   final String? selectedCurrency;
 
@@ -496,7 +496,7 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
   Widget build(BuildContext context) {
     final bool isDark = widget.colorScheme.background == AppTheme.darkBackground;
     final user = ref.watch(authProvider);
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),

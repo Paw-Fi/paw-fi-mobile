@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
-import 'package:moneko/features/home/presentation/models/models.dart';
 
-Widget buildLongTermProjectionChart(BuildContext context, shadcnui.ColorScheme colorScheme, List<ExpenseEntry> expenses, List<DailyBudgetEntry> budgets) {
+import 'package:moneko/features/home/presentation/models/models.dart';
+import 'package:moneko/core/theme/app_theme.dart';
+Widget buildLongTermProjectionChart(BuildContext context, ColorScheme colorScheme, List<ExpenseEntry> expenses, List<DailyBudgetEntry> budgets) {
   // Calculate average monthly spend from historical data
   double avgMonthly = 0.0;
   

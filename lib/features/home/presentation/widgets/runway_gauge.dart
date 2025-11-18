@@ -3,7 +3,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/state/derived_selectors.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/utils/currency.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/util/logger.dart';
 
 class RunwayGauge extends ConsumerWidget {
@@ -11,7 +11,7 @@ class RunwayGauge extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final info = ref.watch(runwayProvider);
     final currencyCode = ref.watch(homeFilterProvider).selectedCurrency ?? 'USD';
     appLog('widget_viewed: runway_gauge');

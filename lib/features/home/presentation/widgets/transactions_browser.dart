@@ -1,7 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/models/user_contact.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
@@ -11,6 +11,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dart';
 import '../widgets/unified_transaction_sheet.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
 class TransactionsBrowser extends StatefulWidget {
   final List<ExpenseEntry> transactions;
@@ -140,7 +141,7 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       backgroundColor: colorScheme.background,
@@ -334,7 +335,7 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
   }
 
   Widget _buildChart(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final spendOnly = _filtered.where((e) => (e.type ?? 'expense').toLowerCase() != 'income').toList();
     final totalSpent = spendOnly.fold(0.0, (sum, e) => sum + e.amount.abs());
     // Determine base currency for display: prefer selectedCurrency else dominant currency in filtered set
@@ -428,7 +429,7 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
   }
 
   Widget _buildLineChart(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final periodTotals = groupExpensesByInterval(_filtered, _chartInterval);
     final sortedDates = periodTotals.keys.toList()..sort();
     if (sortedDates.isEmpty) {
@@ -506,7 +507,7 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
   }
 
   Widget _buildBarChart(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final barData = groupExpensesForBarChart(_filtered, _chartInterval);
     if (barData.periodTotals.isEmpty) {
       return Center(child: Text(context.l10n.noData, style: TextStyle(color: colorScheme.mutedForeground)));
@@ -595,7 +596,7 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
   }
 
   Widget _buildTransactionItem(BuildContext context, ExpenseEntry expense) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final category = expense.category ?? 'uncategorized';
     final categoryColor = getCategoryColor(category);
     final categoryIcon = getCategoryIcon(category);
@@ -651,7 +652,7 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
     );
   }
 
-  void _showFilterSheet(BuildContext context, shadcnui.ColorScheme colorScheme) {
+  void _showFilterSheet(BuildContext context, ColorScheme colorScheme) {
     showModalBottomSheet(
       context: context,
       backgroundColor: colorScheme.background,

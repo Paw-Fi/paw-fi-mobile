@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/utils/currency.dart';
@@ -10,7 +10,7 @@ import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
-
+import 'package:moneko/core/theme/app_theme.dart';
 /// Shows a full-screen currency selector modal and returns the selected currency code
 Future<String?> showCurrencySelectorModal(BuildContext context, WidgetRef ref) async {
   return Navigator.of(context).push<String>(
@@ -133,7 +133,7 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final summaries = ref.watch(currencySummariesProvider);
     final filterState = ref.watch(homeFilterProvider);
     
@@ -468,7 +468,7 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
 class _CurrencyIcon extends StatelessWidget {
   final String currencyCode;
   final String currencySymbol;
-  final shadcnui.ColorScheme colorScheme;
+  final ColorScheme colorScheme;
 
   const _CurrencyIcon({
     required this.currencyCode,
@@ -543,7 +543,7 @@ class _CurrencyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final currencySymbol = resolveCurrencySymbol(summary.currencyCode);
 
     return Material(

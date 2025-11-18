@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 // removed shared budgets UI from settings; budgets are managed elsewhere
@@ -16,7 +16,8 @@ import '../../../../core/config/storage_config.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/app/router.dart';
-
+import 'package:moneko/core/theme/app_theme.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 /// Household Settings Page
 /// Manage budgets, privacy preferences, and household settings
 class HouseholdSettingsPage extends ConsumerStatefulWidget {
@@ -50,7 +51,7 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage>
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       backgroundColor: colorScheme.background,
@@ -115,7 +116,7 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
   Widget build(BuildContext context) {
     final householdAsync = ref.watch(householdProvider(widget.householdId));
     final membersAsync = ref.watch(householdMembersProvider(widget.householdId));
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
 
     return householdAsync.when(
@@ -443,7 +444,7 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
     }
   }
 
-  shadcnui.ColorScheme get colorScheme => shadcnui.Theme.of(context).colorScheme;
+  ColorScheme get colorScheme => Theme.of(context).colorScheme;
 }
 
 /// Members Tab - Clean, minimal design
@@ -455,7 +456,7 @@ class _MembersTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final membersAsync = ref.watch(householdMembersProvider(householdId));
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
 
     return membersAsync.when(
@@ -590,7 +591,7 @@ class _MemberCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final isOwner = member.role == HouseholdRole.owner;
     
     final canManageThisMember = canManageMembers && (
@@ -792,7 +793,7 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final membersAsync = ref.watch(householdMembersProvider(widget.householdId));
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
 
@@ -912,7 +913,7 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
 
   // ignore: unused_element
   Widget _oldBuild(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final membersAsync = ref.watch(householdMembersProvider(widget.householdId));
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
 
@@ -1215,7 +1216,7 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
     String title,
     String subtitle,
   ) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
       child: Center(
@@ -1584,7 +1585,7 @@ class _InviteCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final isExpired = invite.expiresAt != null && invite.expiresAt!.isBefore(DateTime.now());
     final isPending = invite.status == InviteStatus.pending;
 

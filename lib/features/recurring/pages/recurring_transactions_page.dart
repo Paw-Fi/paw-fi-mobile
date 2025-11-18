@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
@@ -10,6 +10,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/widgets/home_header_sliver.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
 /// Modern recurring transactions page with Apple-inspired design
 /// Features tabbed interface for expenses and income
@@ -78,7 +79,7 @@ class _RecurringTransactionsPageState
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     // Watch the filtered providers (they derive from the unified provider)
     final recurringExpenses = ref.watch(recurringExpensesProvider);
@@ -190,7 +191,7 @@ class _RecurringTransactionsPageState
 
   Widget _buildExpensesSliver(
     AsyncValue<List<dynamic>> recurringExpenses,
-    shadcnui.ColorScheme colorScheme,
+    ColorScheme colorScheme,
     String? selectedCurrency,
   ) {
     return recurringExpenses.when(
@@ -241,7 +242,7 @@ class _RecurringTransactionsPageState
 
   Widget _buildIncomesSliver(
     AsyncValue<List<dynamic>> recurringIncomes,
-    shadcnui.ColorScheme colorScheme,
+    ColorScheme colorScheme,
     String? selectedCurrency,
   ) {
     return recurringIncomes.when(
@@ -300,7 +301,7 @@ class _RecurringTransactionsPageState
   }
 
   Widget _buildErrorSliver(String error, String type) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return SliverFillRemaining(
       hasScrollBody: false,
@@ -345,7 +346,7 @@ class _RecurringTransactionsPageState
     );
   }
 
-  Widget _buildFAB(shadcnui.ColorScheme colorScheme) {
+  Widget _buildFAB(ColorScheme colorScheme) {
     final selectedTab = ref.watch(selectedRecurringTabProvider);
     final isExpense = selectedTab == 0;
 

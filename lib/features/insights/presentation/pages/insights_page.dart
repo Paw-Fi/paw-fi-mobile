@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import '../widgets/tabs/tabs.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 // ============================================================================
 // ADVANCED ANALYTICS PAGE
@@ -33,7 +34,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> with SingleTicker
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final analyticsData = ref.watch(analyticsProvider);
     final filterState = ref.watch(homeFilterProvider);
 
@@ -112,7 +113,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> with SingleTicker
     );
   }
 
-  Widget _buildScenarioPlanningTabWithProvider(shadcnui.ColorScheme colorScheme, AnalyticsData analyticsData, String? selectedCurrency) {
+  Widget _buildScenarioPlanningTabWithProvider(ColorScheme colorScheme, AnalyticsData analyticsData, String? selectedCurrency) {
     return ProviderScope(
       overrides: const [
         // Override any providers if needed

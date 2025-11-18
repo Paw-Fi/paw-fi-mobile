@@ -3,6 +3,7 @@ import 'package:moneko/core/app/router.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
+
 enum AppToastType { info, success, warning, error }
 
 /// AppToast
@@ -128,7 +129,7 @@ class _ToastStyle {
   });
 
   static _ToastStyle of(BuildContext context, AppToastType type) {
-    final scheme = shadcnui.Theme.of(context).colorScheme;
+    final scheme = Theme.of(context).colorScheme;
     final brightness = Theme.of(context).brightness;
     final isDark = brightness == Brightness.dark;
 

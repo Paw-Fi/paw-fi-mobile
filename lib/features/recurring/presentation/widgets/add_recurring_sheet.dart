@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/ui/widgets/custom_text_field.dart';
@@ -21,6 +21,7 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
 /// Modern bottom sheet for adding/editing recurring transactions
 /// Apple-inspired design with clean animations and intuitive UX
@@ -36,7 +37,7 @@ class AddRecurringSheet extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final selectedType = useState<String>(type == 'income' ? 'income' : 'expense');
     final isExpense = selectedType.value == 'expense';
     final isEditing = existingTransaction != null;
@@ -905,7 +906,7 @@ class AddRecurringSheet extends HookConsumerWidget {
     );
   }
 
-  Widget _buildLabel(String text, shadcnui.ColorScheme colorScheme) {
+  Widget _buildLabel(String text, ColorScheme colorScheme) {
     return Text(
       text,
       style: TextStyle(
@@ -918,7 +919,7 @@ class AddRecurringSheet extends HookConsumerWidget {
   }
 
   Widget _buildDetailCard({
-    required shadcnui.ColorScheme colorScheme,
+    required ColorScheme colorScheme,
     required String label,
     required String value,
     required VoidCallback onTap,
@@ -984,7 +985,7 @@ class AddRecurringSheet extends HookConsumerWidget {
   /// Simple sharing toggle used for incomes (no split editor)
   Widget _buildSharingToggleOnly(
     BuildContext context,
-    shadcnui.ColorScheme colorScheme,
+    ColorScheme colorScheme,
     List<Household> households,
     ValueNotifier<bool> isSharedWithHousehold,
     ValueNotifier<String?> selectedHouseholdId,
@@ -1031,7 +1032,7 @@ class AddRecurringSheet extends HookConsumerWidget {
   /// Full sharing + split editor section for recurring expenses
   Widget _buildSharingAndSplitSection({
     required BuildContext context,
-    required shadcnui.ColorScheme colorScheme,
+    required ColorScheme colorScheme,
     required List<Household> households,
     required ValueNotifier<bool> isSharedWithHousehold,
     required ValueNotifier<String?> selectedHouseholdId,

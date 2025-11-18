@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:moneko/l10n/app_localizations.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:share_plus/share_plus.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import '../../core/household_constants.dart';
-
+import 'package:moneko/core/theme/app_theme.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 /// Invitation share sheet for sharing household invitation URLs
 ///
 /// Features:
@@ -27,7 +28,7 @@ class InvitationShareSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Semantics(
       label: AppLocalizations.of(context)!.shareInvitationForHousehold(householdName),

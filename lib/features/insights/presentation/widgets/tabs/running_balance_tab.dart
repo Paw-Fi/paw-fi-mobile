@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
@@ -7,8 +7,10 @@ import 'package:moneko/features/insights/presentation/widgets/charts/charts.dart
 import 'package:moneko/features/insights/presentation/widgets/chart_legend.dart';
 import 'package:moneko/features/insights/presentation/widgets/insights_ui.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/core/theme/app_theme.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
-Widget buildRunningBalanceTab(BuildContext context, shadcnui.ColorScheme colorScheme, AnalyticsData analyticsData, {String? selectedCurrency}) {
+Widget buildRunningBalanceTab(BuildContext context, ColorScheme colorScheme, AnalyticsData analyticsData, {String? selectedCurrency}) {
   // Filter data by currency if selected
   var expenses = analyticsData.allExpenses;
   var budgets = analyticsData.allBudgets;
@@ -88,7 +90,7 @@ Widget buildRunningBalanceTab(BuildContext context, shadcnui.ColorScheme colorSc
   );
 }
 
-void _showRunningBalanceInfoModal(BuildContext context, shadcnui.ColorScheme colorScheme) {
+void _showRunningBalanceInfoModal(BuildContext context, ColorScheme colorScheme) {
   final slides = _runningBalanceSlides(context);
 
   showDialog(
@@ -213,7 +215,7 @@ class _AllTimeSummaryPills extends StatelessWidget {
     this.selectedCurrency,
   });
 
-  final shadcnui.ColorScheme colorScheme;
+  final ColorScheme colorScheme;
   final List<ExpenseEntry> expenses;
   final List<DailyBudgetEntry> budgets;
   final String? selectedCurrency;
@@ -337,7 +339,7 @@ class _RunningBalanceInfoSlide extends StatelessWidget {
     required this.points,
   });
 
-  final shadcnui.ColorScheme colorScheme;
+  final ColorScheme colorScheme;
   final String title;
   final String summary;
   final List<String> points;

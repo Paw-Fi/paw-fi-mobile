@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/household_providers.dart';
 import '../../../../../core/l10n/l10n.dart';
 import '../providers/selected_household_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/core/app/router.dart';
-
+import 'package:moneko/core/theme/app_theme.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 class HouseholdInvitationSheet extends ConsumerStatefulWidget {
   final String token;
 
@@ -151,7 +152,7 @@ class _HouseholdInvitationSheetState
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
       padding: EdgeInsets.only(
@@ -319,7 +320,7 @@ Future<void> showHouseholdInvitationSheet(
     enableDrag: true,
     backgroundColor: Colors.transparent,
     builder: (context) {
-      final colorScheme = shadcnui.Theme.of(context).colorScheme;
+      final colorScheme = Theme.of(context).colorScheme;
       return Container(
         decoration: BoxDecoration(
           color: colorScheme.card,

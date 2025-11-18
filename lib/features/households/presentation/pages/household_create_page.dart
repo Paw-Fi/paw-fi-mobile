@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import '../../../../core/utils/error_handler.dart';
@@ -14,7 +14,8 @@ import '../../../home/presentation/state/analytics_provider.dart';
 import '../../../home/presentation/state/home_filter_provider.dart';
 import '../../../utils/currency.dart';
 import '../../../../core/l10n/l10n.dart';
-
+import 'package:moneko/core/theme/app_theme.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 /// Modern page for creating a new household with image upload
 class HouseholdCreatePage extends ConsumerStatefulWidget {
   const HouseholdCreatePage({super.key});
@@ -81,7 +82,7 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final isLoading = _isCreating || _isGeneratingInvite || _isUploadingImage;
 
     return Scaffold(
@@ -125,7 +126,7 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
     );
   }
 
-  Widget _buildInviteMessageInput(shadcnui.ColorScheme colorScheme, bool isLoading) {
+  Widget _buildInviteMessageInput(ColorScheme colorScheme, bool isLoading) {
     return Semantics(
       label: context.l10n.invitationPersonalMessageInput,
       textField: true,
@@ -178,7 +179,7 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
 
   // Currency selector removed intentionally — currency is resolved from providers
 
-  Widget _buildHeader(shadcnui.ColorScheme colorScheme) {
+  Widget _buildHeader(ColorScheme colorScheme) {
     return Semantics(
       label: context.l10n.createHouseholdPage,
       header: true,
@@ -216,7 +217,7 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
     );
   }
 
-  Widget _buildCoverImageSection(shadcnui.ColorScheme colorScheme, bool isLoading) {
+  Widget _buildCoverImageSection(ColorScheme colorScheme, bool isLoading) {
     return Semantics(
       label: HouseholdConstants.coverImageSemanticLabel,
       child: Column(
@@ -331,7 +332,7 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
     );
   }
 
-  Widget _buildNameInput(shadcnui.ColorScheme colorScheme, bool isLoading) {
+  Widget _buildNameInput(ColorScheme colorScheme, bool isLoading) {
     return Semantics(
       label: context.l10n.householdNameInput,
       textField: true,
@@ -421,7 +422,7 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
     );
   }
 
-  Widget _buildExpirationSelector(shadcnui.ColorScheme colorScheme, bool isLoading) {
+  Widget _buildExpirationSelector(ColorScheme colorScheme, bool isLoading) {
     return Semantics(
       label: context.l10n.invitationExpirationSelector,
       child: Column(
@@ -491,7 +492,7 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
     );
   }
 
-  Widget _buildInfoCard(shadcnui.ColorScheme colorScheme) {
+  Widget _buildInfoCard(ColorScheme colorScheme) {
     return Semantics(
       label: context.l10n.householdInformation,
       readOnly: true,
@@ -529,7 +530,7 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
     );
   }
 
-  Widget _buildBottomActions(shadcnui.ColorScheme colorScheme, bool isLoading) {
+  Widget _buildBottomActions(ColorScheme colorScheme, bool isLoading) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(

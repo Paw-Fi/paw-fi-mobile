@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/theme/app_theme.dart';
 
 /// A modern, compact metric pill with icon, label and value.
 /// Designed to replace plain text summaries with a glanceable UI.
@@ -13,7 +13,7 @@ class MetricPill extends StatelessWidget {
     this.tint,
   });
 
-  final shadcnui.ColorScheme colorScheme;
+  final ColorScheme colorScheme;
   final IconData icon;
   final String label;
   final String value;
@@ -82,7 +82,7 @@ class MetricPill extends StatelessWidget {
 class InsightsSectionCard extends StatelessWidget {
   const InsightsSectionCard({super.key, required this.colorScheme, required this.child});
 
-  final shadcnui.ColorScheme colorScheme;
+  final ColorScheme colorScheme;
   final Widget child;
 
   @override

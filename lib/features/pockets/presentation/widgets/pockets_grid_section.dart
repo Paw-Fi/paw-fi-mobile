@@ -1,7 +1,7 @@
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
-
+import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/pockets/presentation/widgets/edit_pocket_envelope_sheet.dart';
@@ -15,7 +15,7 @@ class PocketsGridSection extends ConsumerWidget {
   });
 
   final PocketsScopeParams scopeParams;
-  final shadcnui.ColorScheme colorScheme;
+  final ColorScheme colorScheme;
   final bool isPersonalMode;
 
   @override
@@ -135,16 +135,18 @@ class PocketsGridSection extends ConsumerWidget {
           Row(
             children: [
               Expanded(
-                child: OutlinedButton(
+                child: AdaptiveButton(
                   onPressed: notifier.revertChanges,
-                  child: const Text('Revert'),
+                  label: 'Revert',
+                  style: AdaptiveButtonStyle.bordered,
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: shadcnui.PrimaryButton(
+                child: AdaptiveButton(
                   onPressed: notifier.saveChanges,
-                  child: const Text('Save changes'),
+                  label: 'Save changes',
+                  style: AdaptiveButtonStyle.filled,
                 ),
               ),
             ],
@@ -165,7 +167,7 @@ class _PocketsHeaderCard extends StatelessWidget {
 
   final double totalBudget;
   final double totalSpent;
-  final shadcnui.ColorScheme colorScheme;
+  final ColorScheme colorScheme;
   final ValueChanged<double> onTotalChanged;
 
   @override
@@ -242,11 +244,10 @@ class _PocketsHeaderCard extends StatelessWidget {
               ),
             ),
           ),
-          Slider(
+          AdaptiveSlider(
             value: sliderValue,
             min: sliderMin,
             max: sliderMax,
-            activeColor: colorScheme.primary,
             onChanged: onTotalChanged,
           ),
           Text(
@@ -269,7 +270,7 @@ class _AddEnvelopeCard extends StatelessWidget {
     required this.onTap,
   });
 
-  final shadcnui.ColorScheme colorScheme;
+  final ColorScheme colorScheme;
   final VoidCallback onTap;
 
   @override
@@ -357,7 +358,7 @@ class _PocketCard extends StatelessWidget {
   });
 
   final PocketEnvelope pocket;
-  final shadcnui.ColorScheme colorScheme;
+  final ColorScheme colorScheme;
   final double maxBudget;
   final ValueChanged<double> onLimitChanged;
   final VoidCallback? onTap;
@@ -371,21 +372,21 @@ class _PocketCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-        color: colorScheme.card,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 6,
-            offset: const Offset(0, 3),
+          color: colorScheme.card,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 6,
+              offset: const Offset(0, 3),
+            ),
+          ],
+          border: Border.all(
+            color: colorScheme.border.withValues(alpha: 0.7),
+            width: 1,
           ),
-        ],
-        border: Border.all(
-          color: colorScheme.border.withValues(alpha: 0.7),
-          width: 1,
         ),
-      ),
-      child: Column(
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
@@ -487,25 +488,13 @@ class _PocketCard extends StatelessWidget {
                 children: [
                   SizedBox(
                     height: 20,
-                    child: SliderTheme(
-                      data: SliderTheme.of(context).copyWith(
-                        trackHeight: 2,
-                        thumbShape: const RoundSliderThumbShape(
-                          enabledThumbRadius: 6,
-                        ),
-                        overlayShape: const RoundSliderOverlayShape(
-                          overlayRadius: 14,
-                        ),
-                      ),
-                      child: Slider(
-                        value: pocket.limit
-                            .clamp(0, maxBudget > 0 ? maxBudget : pocket.limit)
-                            .toDouble(),
-                        min: 0,
-                        max: maxBudget > 0 ? maxBudget : pocket.limit,
-                        activeColor: statusColor,
-                        onChanged: onLimitChanged,
-                      ),
+                    child: AdaptiveSlider(
+                      value: pocket.limit
+                          .clamp(0, maxBudget > 0 ? maxBudget : pocket.limit)
+                          .toDouble(),
+                      min: 0,
+                      max: maxBudget > 0 ? maxBudget : pocket.limit,
+                      onChanged: onLimitChanged,
                     ),
                   ),
                   Text(

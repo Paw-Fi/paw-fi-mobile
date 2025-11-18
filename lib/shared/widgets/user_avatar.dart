@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/theme/app_theme.dart';
+
 
 /// User avatar widget with fallback to initials
 /// 
@@ -80,7 +81,7 @@ class UserAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final avatarSize = _getSize();
     final fontSize = _getFontSize(avatarSize);
     final initials = _getInitials(name);
@@ -131,7 +132,7 @@ class UserAvatar extends StatelessWidget {
     );
   }
 
-  Widget _buildInitials(shadcnui.ColorScheme colorScheme, String initials, double fontSize) {
+  Widget _buildInitials(ColorScheme colorScheme, String initials, double fontSize) {
     return Center(
       child: Text(
         initials,

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/utils/currency.dart';
@@ -9,7 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// Member spending breakdown card with progress bars
 Widget buildHouseholdMemberSpendingCard(
   BuildContext context,
-  shadcnui.ColorScheme colorScheme,
+  ColorScheme colorScheme,
   HouseholdSummary? summary, {
   List<HouseholdMember>? members,
   String? householdId,
@@ -323,7 +323,7 @@ Future<bool> _canSendReminder(String householdId, String targetUserId) async {
 /// Show reminder modal to send a nudge to a household member
 void _showReminderModal(
   BuildContext context,
-  shadcnui.ColorScheme colorScheme,
+  ColorScheme colorScheme,
   String targetUserId,
   String targetUserName,
   String householdId,
@@ -346,7 +346,7 @@ void _showReminderModal(
 
 /// Stateful widget for reminder modal content with loading state
 class _ReminderModalContent extends StatefulWidget {
-  final shadcnui.ColorScheme colorScheme;
+  final ColorScheme colorScheme;
   final String targetUserId;
   final String targetUserName;
   final String householdId;

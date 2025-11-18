@@ -8,7 +8,10 @@ import 'package:moneko/features/income/presentation/providers/income_providers.d
 import 'package:moneko/features/income/presentation/constants/income_categories.dart';
 import 'package:moneko/features/income/presentation/widgets/income_entry_sheet.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
+
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 
 class IncomeListPage extends ConsumerStatefulWidget {
@@ -49,7 +52,7 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = shadcnui.Theme.of(context);
+    final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final incomeListState = ref.watch(incomeListProvider);
     final user = ref.watch(authProvider);
@@ -112,7 +115,7 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
     );
   }
 
-  Widget _buildEmptyState(shadcnui.ColorScheme colorScheme) {
+  Widget _buildEmptyState(ColorScheme colorScheme) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -155,7 +158,7 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
 
   Widget _buildIncomeCard(
     IncomeEntry income,
-    shadcnui.ColorScheme colorScheme,
+    ColorScheme colorScheme,
     String currentUserId,
   ) {
     final isOwner = income.id.contains(currentUserId); // Simplified check

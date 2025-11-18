@@ -1,8 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 /// Generic selection sheet for picking from a list of items
 /// Shows platform-specific UI (Cupertino for iOS, Material for Android)
@@ -83,7 +84,7 @@ Future<T?> showTransactionSelectionSheet<T>({
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (context) {
-        final scheme = shadcnui.Theme.of(context).colorScheme;
+        final scheme = Theme.of(context).colorScheme;
         return Container(
           decoration: BoxDecoration(
             color: scheme.card,

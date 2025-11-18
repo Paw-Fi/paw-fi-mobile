@@ -4,11 +4,12 @@ import 'package:moneko/features/households/domain/entities/household_summary.dar
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/features/households/presentation/widgets/settle_up_sheet.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../../core/l10n/l10n.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 /// Settlement suggestions card with toggle for net vs detailed transfers
 class SettlementSuggestionsCard extends StatefulWidget {
@@ -59,7 +60,7 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
   }
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
     if (kDebugMode) {
       debugPrint('🧮 Settlement: net=$_netTransfers currentUser=$currentUserId');
@@ -447,7 +448,7 @@ class _Suggestion {
 }
 
 class _StatsRow extends StatelessWidget {
-  final shadcnui.ColorScheme scheme;
+  final ColorScheme scheme;
   final int outstandingCents;
   final int youOweCents;
   final int youAreOwedCents;
@@ -506,7 +507,7 @@ enum _TileTone { neutral, ok, warn }
 class _StatTile extends StatelessWidget {
   final String label;
   final String value;
-  final shadcnui.ColorScheme scheme;
+  final ColorScheme scheme;
   final _TileTone tone;
   final String? badge;
   final VoidCallback? onTap;
@@ -557,7 +558,7 @@ class _StatTile extends StatelessWidget {
 
 class _SectionLabel extends StatelessWidget {
   final String title;
-  final shadcnui.ColorScheme scheme;
+  final ColorScheme scheme;
   const _SectionLabel({required this.title, required this.scheme});
   @override
   Widget build(BuildContext context) {
@@ -570,7 +571,7 @@ class _SectionLabel extends StatelessWidget {
 
 class _SuggestionTile extends StatelessWidget {
   final _Suggestion s;
-  final shadcnui.ColorScheme scheme;
+  final ColorScheme scheme;
   const _SuggestionTile({required this.s, required this.scheme});
 
   @override
@@ -598,7 +599,7 @@ class _SuggestionTile extends StatelessWidget {
   }
 }
 
-void _showOwedDetails(BuildContext context, shadcnui.ColorScheme scheme, String currentUserId, List<_Suggestion> pairs) {
+void _showOwedDetails(BuildContext context, ColorScheme scheme, String currentUserId, List<_Suggestion> pairs) {
   final owedToYou = pairs.where((s) => s.toUserId == currentUserId).toList()
     ..sort((a,b)=>b.amountCents.compareTo(a.amountCents));
   showModalBottomSheet(

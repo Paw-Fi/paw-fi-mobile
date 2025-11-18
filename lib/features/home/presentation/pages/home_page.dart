@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 // import 'package:moneko/core/theme/theme.dart'; // Unnecessary (covered by core.dart)
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
@@ -22,7 +22,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/home/presentation/widgets/mom_trend_bar.dart';
-// Removed unused imports
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
 // ============================================================================
 // HOME PAGE
@@ -208,7 +208,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     // Show processing modal
     if (!mounted) return;
     
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -504,7 +504,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     final user = ref.read(authProvider);
     final filterState = ref.read(homeFilterProvider);
 
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     
     // Determine the currency for the budget update
     final selectedCurrency = filterState.selectedCurrency ?? contact?.preferredCurrency;
@@ -526,7 +526,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (sheetContext) {
-        final sheetColorScheme = shadcnui.Theme.of(sheetContext).colorScheme;
+        final sheetColorScheme = Theme.of(sheetContext).colorScheme;
         return Padding(
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 24,
@@ -619,7 +619,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) {
-        final dialogScheme = shadcnui.Theme.of(dialogContext).colorScheme;
+        final dialogScheme = Theme.of(dialogContext).colorScheme;
         return PopScope(
           canPop: false,
           child: Center(
@@ -726,7 +726,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final analyticsData = ref.watch(analyticsProvider);
     final filterState = ref.watch(homeFilterProvider);
     final filteredExpenses = ref.watch(homeFilteredExpensesProvider);
@@ -985,7 +985,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  Widget _buildExpandableFAB(shadcnui.ColorScheme colorScheme) {
+  Widget _buildExpandableFAB(ColorScheme colorScheme) {
     return ExpandableFab(
       key: _fabKey,
       distance: 90,

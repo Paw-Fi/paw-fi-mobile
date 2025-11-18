@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/theme/app_theme.dart';
 
 void showTextInputDrawer(
   BuildContext parentContext,
   TextEditingController textController,
   Function(String text) onSubmit,
 ) {
-  final colorScheme = shadcnui.Theme.of(parentContext).colorScheme;
+  final colorScheme = Theme.of(parentContext).colorScheme;
 
   showModalBottomSheet(
     context: parentContext,
@@ -27,7 +29,7 @@ void showTextInputDrawer(
 class _TextInputContent extends ConsumerStatefulWidget {
   final BuildContext parentContext;
   final TextEditingController textController;
-  final shadcnui.ColorScheme colorScheme;
+  final ColorScheme colorScheme;
   final Function(String text) onSubmit;
 
   const _TextInputContent({
@@ -153,7 +155,11 @@ class _TextInputContentState extends ConsumerState<_TextInputContent> {
                   color: scheme.mutedForeground.withValues(alpha: 0.6),
                 ),
               ),
-              style: shadcnui.Theme.of(context).typography.base.copyWith(fontSize: 16),
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w400,
+                color: scheme.foreground,
+              ),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),

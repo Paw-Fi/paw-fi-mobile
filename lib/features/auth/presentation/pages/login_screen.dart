@@ -5,15 +5,16 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/auth/presentation/widgets/wallet_login_button.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
-import 'package:moneko/core/l10n/l10n.dart';
 
+import 'package:moneko/core/l10n/l10n.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/theme/app_theme.dart';
 class LoginScreen extends HookConsumerWidget {
   const LoginScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = shadcnui.Theme.of(context);
+    final theme = Theme.of(context);
     final emailController = useTextEditingController();
     final passwordController = useTextEditingController();
     final showPassword = useState(false);
@@ -154,7 +155,7 @@ class LoginScreen extends HookConsumerWidget {
                       children: [
                         Text(
                           context.l10n.appTitle,
-                          style: theme.typography.h1.copyWith(
+                          style: TextStyle(
                             fontSize: 48,
                             fontWeight: FontWeight.bold,
                             letterSpacing: -1.5,
@@ -165,7 +166,7 @@ class LoginScreen extends HookConsumerWidget {
                         const SizedBox(height: 8),
                         Text(
                           context.l10n.loginWelcomeBack,
-                          style: theme.typography.large.copyWith(
+                          style: TextStyle(
                             color: theme.colorScheme.mutedForeground,
                             fontSize: 16,
                           ),
@@ -232,7 +233,7 @@ class LoginScreen extends HookConsumerWidget {
                                 padding: const EdgeInsets.symmetric(horizontal: 16),
                                 child: Text(
                                   context.l10n.orContinueWithEmail,
-                                  style: theme.typography.small.copyWith(
+                                  style: TextStyle(
                                     color: theme.colorScheme.mutedForeground,
                                     fontSize: 13,
                                   ),
@@ -268,7 +269,11 @@ class LoginScreen extends HookConsumerWidget {
                               ),
                             ),
                             enabled: !isLoading.value,
-                            style: theme.typography.base.copyWith(fontSize: 16),
+                            style: TextStyle(
+  fontSize: 16,
+  fontWeight: FontWeight.w400,
+  color: theme.colorScheme.foreground,
+),
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12),
@@ -313,7 +318,11 @@ class LoginScreen extends HookConsumerWidget {
                               ),
                             ],
                             enabled: !isLoading.value,
-                            style: theme.typography.base.copyWith(fontSize: 16),
+                            style: TextStyle(
+  fontSize: 16,
+  fontWeight: FontWeight.w400,
+  color: theme.colorScheme.foreground,
+),
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12),
@@ -336,7 +345,7 @@ class LoginScreen extends HookConsumerWidget {
                                 padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
                                 child: Text(
                                   context.l10n.forgotPassword,
-                                  style: theme.typography.small.copyWith(
+                                  style: TextStyle(
                                     color: theme.colorScheme.primary,
                                     fontSize: 14,
                                     fontWeight: FontWeight.w500,
@@ -381,7 +390,7 @@ class LoginScreen extends HookConsumerWidget {
                                     Expanded(
                                       child: Text(
                                         error.value!,
-                                        style: theme.typography.small.copyWith(
+                                        style: TextStyle(
                                           color: theme.colorScheme.destructive,
                                           fontSize: 13,
                                         ),
@@ -436,7 +445,7 @@ class LoginScreen extends HookConsumerWidget {
                                           )
                                         : Text(
                                             context.l10n.signIn,
-                                            style: theme.typography.base.copyWith(
+                                            style: TextStyle(
                                               color: theme.colorScheme.primaryForeground,
                                               fontSize: 16,
                                               fontWeight: FontWeight.w600,
@@ -459,7 +468,7 @@ class LoginScreen extends HookConsumerWidget {
                     children: [
                       Text(
                         '${context.l10n.newToMoneko} ',
-                        style: theme.typography.base.copyWith(
+                        style: TextStyle(
                           color: theme.colorScheme.mutedForeground,
                           fontSize: 15,
                         ),
@@ -468,7 +477,7 @@ class LoginScreen extends HookConsumerWidget {
                         onTap: isLoading.value ? null : () => context.go('/register'),
                         child: Text(
                           context.l10n.createAccount,
-                          style: theme.typography.base.copyWith(
+                          style: TextStyle(
                             color: theme.colorScheme.primary,
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
@@ -490,7 +499,7 @@ class LoginScreen extends HookConsumerWidget {
 class _ResetPasswordDialog extends HookWidget {
   @override
   Widget build(BuildContext context) {
-    final theme = shadcnui.Theme.of(context);
+    final theme = Theme.of(context);
     final emailController = useTextEditingController();
 
     return shadcnui.AlertDialog(
@@ -501,7 +510,10 @@ class _ResetPasswordDialog extends HookWidget {
         children: [
           shadcnui.Text(
             'Enter your email and we will send you a password reset link.',
-            style: theme.typography.textMuted,
+            style: TextStyle(
+              fontSize: 14,
+              color: theme.colorScheme.mutedForeground,
+            ),
           ),
           const SizedBox(height: 16),
           shadcnui.FormField(

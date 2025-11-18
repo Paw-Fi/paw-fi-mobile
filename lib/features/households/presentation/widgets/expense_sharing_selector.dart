@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 // import '../../../home/presentation/models/expense_entry.dart';
 // import '../../domain/entities/household.dart';
@@ -41,7 +42,7 @@ class _ExpenseSharingSelectorState extends ConsumerState<ExpenseSharingSelector>
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final userId = ref.watch(currentUserIdProvider);
 
     return Column(
@@ -258,7 +259,7 @@ class _SharingScopeOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return InkWell(
       onTap: onTap,
@@ -334,7 +335,7 @@ class _MemberPickerSheetState extends ConsumerState<_MemberPickerSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final membersAsync = ref.watch(householdMembersProvider(widget.householdId));
 
     return Container(

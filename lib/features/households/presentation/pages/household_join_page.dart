@@ -2,14 +2,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/utils/error_handler.dart';
 import '../../core/household_constants.dart';
 import '../providers/household_providers.dart';
 import '../providers/selected_household_provider.dart';
 import '../../../../core/l10n/l10n.dart';
-
+import 'package:moneko/core/theme/app_theme.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 /// Modern page for joining a household via invitation URL
 ///
 /// Features:
@@ -113,7 +114,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final canGoBack = _state != JoinPageState.joining;
 
     return Scaffold(
@@ -140,7 +141,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
     );
   }
 
-  Widget _buildHeader(shadcnui.ColorScheme colorScheme, bool canGoBack) {
+  Widget _buildHeader(ColorScheme colorScheme, bool canGoBack) {
     return Semantics(
       label: HouseholdConstants.joinPageHeaderLabel,
       header: true,
@@ -179,7 +180,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
     );
   }
 
-  Widget _buildContent(shadcnui.ColorScheme colorScheme) {
+  Widget _buildContent(ColorScheme colorScheme) {
     switch (_state) {
       case JoinPageState.input:
       case JoinPageState.validating:
@@ -195,7 +196,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
     }
   }
 
-  Widget _buildInputForm(shadcnui.ColorScheme colorScheme) {
+  Widget _buildInputForm(ColorScheme colorScheme) {
     final isValidating = _state == JoinPageState.validating;
 
     return SingleChildScrollView(
@@ -233,7 +234,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
     );
   }
 
-  Widget _buildHeroSection(shadcnui.ColorScheme colorScheme) {
+  Widget _buildHeroSection(ColorScheme colorScheme) {
     return Semantics(
       label: HouseholdConstants.joinHeroLabel,
       readOnly: true,
@@ -283,7 +284,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
     );
   }
 
-  Widget _buildInstructionsCard(shadcnui.ColorScheme colorScheme) {
+  Widget _buildInstructionsCard(ColorScheme colorScheme) {
     return Semantics(
       label: HouseholdConstants.joinInstructionsLabel,
       readOnly: true,
@@ -322,7 +323,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
     );
   }
 
-  Widget _buildUrlInput(shadcnui.ColorScheme colorScheme, bool isValidating) {
+  Widget _buildUrlInput(ColorScheme colorScheme, bool isValidating) {
     return Semantics(
       label: HouseholdConstants.inviteLinkInputLabel,
       textField: true,
@@ -492,7 +493,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
     );
   }
 
-  Widget _buildContinueButton(shadcnui.ColorScheme colorScheme, bool isValidating) {
+  Widget _buildContinueButton(ColorScheme colorScheme, bool isValidating) {
     return Semantics(
       label: isValidating
           ? HouseholdConstants.validatingButtonLabel
@@ -544,7 +545,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
     );
   }
 
-  Widget _buildPreview(shadcnui.ColorScheme colorScheme) {
+  Widget _buildPreview(ColorScheme colorScheme) {
     final householdName = _invitePreview?['household']?['name'] ?? context.l10n.household;
     final inviterEmail = _invitePreview?['inviter']?['email'] ??
         _invitePreview?['inviter']?['full_name'] ?? context.l10n.unknown;
@@ -652,7 +653,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
   }
 
   Widget _buildHouseholdPreviewCard(
-    shadcnui.ColorScheme colorScheme,
+    ColorScheme colorScheme,
     String householdName,
     String inviterEmail,
     String? coverImageUrl,
@@ -790,7 +791,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
     );
   }
 
-  Widget _buildExpirationCard(shadcnui.ColorScheme colorScheme, String expiresAt) {
+  Widget _buildExpirationCard(ColorScheme colorScheme, String expiresAt) {
     final expirationDate = DateTime.tryParse(expiresAt);
     final daysUntilExpiry = expirationDate?.difference(DateTime.now()).inDays;
     final isExpiringSoon = daysUntilExpiry != null && daysUntilExpiry <= 2;
@@ -851,7 +852,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
     );
   }
 
-  Widget _buildBenefitsCard(shadcnui.ColorScheme colorScheme) {
+  Widget _buildBenefitsCard(ColorScheme colorScheme) {
     final benefits = [
       {'icon': Icons.account_balance_wallet_rounded, 'text': context.l10n.viewSharedBudgetsAndExpenses},
       {'icon': Icons.insights_rounded, 'text': context.l10n.trackHouseholdFinancialHealth},
@@ -932,7 +933,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
     );
   }
 
-  Widget _buildPersonalMessageCard(shadcnui.ColorScheme colorScheme, String message) {
+  Widget _buildPersonalMessageCard(ColorScheme colorScheme, String message) {
     return Semantics(
       label: context.l10n.personalMessageFromInviter,
       readOnly: true,
@@ -978,7 +979,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
     );
   }
 
-  Widget _buildJoining(shadcnui.ColorScheme colorScheme) {
+  Widget _buildJoining(ColorScheme colorScheme) {
     return Semantics(
       label: HouseholdConstants.joiningHouseholdLabel,
       liveRegion: true,
@@ -1017,7 +1018,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
     );
   }
 
-  Widget _buildSuccess(shadcnui.ColorScheme colorScheme) {
+  Widget _buildSuccess(ColorScheme colorScheme) {
     return Semantics(
       label: HouseholdConstants.joinSuccessLabel,
       liveRegion: true,
@@ -1090,7 +1091,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
     );
   }
 
-  Widget _buildError(shadcnui.ColorScheme colorScheme) {
+  Widget _buildError(ColorScheme colorScheme) {
     return Semantics(
       label: context.l10n.errorWithMessage(_errorMessage ?? context.l10n.anUnexpectedErrorOccurred),
       liveRegion: true,
