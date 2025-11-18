@@ -76,10 +76,16 @@ class _AppState extends ConsumerState<App> {
       cupertinoLightTheme: const CupertinoThemeData(
         brightness: Brightness.light,
         primaryColor: AppTheme.monekoPrimary,
+        // Match Material light background (near-white) for all iOS scaffolds
+        scaffoldBackgroundColor: AppTheme.lightBackground,
+        barBackgroundColor: AppTheme.lightBackground,
       ),
       cupertinoDarkTheme: const CupertinoThemeData(
         brightness: Brightness.dark,
         primaryColor: Color(0xFF8B70FF),
+        // Match Material dark background so dark mode is consistently black-ish
+        scaffoldBackgroundColor: AppTheme.darkBackground,
+        barBackgroundColor: AppTheme.darkBackground,
       ),
       localizationsDelegates: const [
         ...AppLocalizations.localizationsDelegates,

@@ -318,17 +318,8 @@ class _SpendingCardState extends State<SpendingCard> {
                             );
                           },
                         ),
-                        belowBarData: BarAreaData(
-                          show: true,
-                          gradient: LinearGradient(
-                            colors: [
-                              AppTheme.monekoPrimary.withValues(alpha: 0.28),
-                              AppTheme.monekoPrimary.withValues(alpha: 0.0),
-                            ],
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                          ),
-                        ),
+                        // No under-chart fill so the card uses the theme card background only
+                        belowBarData: BarAreaData(show: false),
                       ),
                     ],
                     minY: 0,

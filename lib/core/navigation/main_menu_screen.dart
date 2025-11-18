@@ -44,6 +44,7 @@ class MainMenuScreen extends ConsumerWidget {
               _HouseholdSection(colorScheme: colorScheme),
             const Spacer(),
             _ProfileRow(user: user, colorScheme: colorScheme),
+             const SizedBox(height: 100),
           ],
         ),
       ),

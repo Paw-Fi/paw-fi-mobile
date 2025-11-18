@@ -107,7 +107,7 @@ class AppTheme {
   static const Color info = monekoPrimary; // brand primary for neutral/info
 
   // Light theme colors
-  static const Color lightBackground = Color(0xFFF9FAFB); // --moneko-background
+  static const Color lightBackground = Color(0xFFFFFFFF); // --moneko-background (light, pure white)
   static const Color lightForeground = Color(0xFF1F2937); // --moneko-foreground
   static const Color lightCardBg = Color(0xFFFFFFFF); // --card-bg
   static const Color lightInputBg = Color(0xFFFFFFFF); // --input-bg
@@ -116,7 +116,7 @@ class AppTheme {
   static const Color lightButtonText = Color(0xFFFFFFFF); // Button text color (white)
 
   // Dark theme colors
-  static const Color darkBackground = Color(0xFF0A0E1A); // --moneko-background (dark)
+  static const Color darkBackground = Color(0xFF000000); // --moneko-background (dark, pure black)
   static const Color darkForeground = Color(0xFFF1F5F9); // --moneko-foreground (dark) - bright for text
   static const Color darkCardBg = Color(0xFF111827); // --card-bg (dark)
   static const Color darkInputBg = Color(0xFF1F2937); // --input-bg (dark)

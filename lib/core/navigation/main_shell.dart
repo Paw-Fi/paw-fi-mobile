@@ -30,51 +30,51 @@ class MainShell extends HookConsumerWidget {
       const PocketsPage(),
     ];
 
-    return ZoomDrawer(
-      controller: zoomController,
-      menuScreen: const MainMenuScreen(),
-      mainScreen: AdaptiveScaffold(
-        body: Column(
+    return AdaptiveScaffold(
+      body: ZoomDrawer(
+        controller: zoomController,
+        menuScreen: const MainMenuScreen(),
+        mainScreen: Column(
           children: [
             const ImpersonationBanner(),
             Expanded(child: pages[currentIndex.value]),
           ],
         ),
-        bottomNavigationBar: AdaptiveBottomNavigationBar(
-          useNativeBottomBar: true,
-          items: [
-            AdaptiveNavigationDestination(
-              icon: 'house.fill',
-              label: context.l10n.overview,
-            ),
-            AdaptiveNavigationDestination(
-              icon: 'repeat',
-              label: context.l10n.recurring,
-            ),
-            AdaptiveNavigationDestination(
-              icon: 'chart.bar.fill',
-              label: context.l10n.insights,
-            ),
-            AdaptiveNavigationDestination(
-              icon: 'wallet.pass',
-              label: "Pockets",
-            ),
-          ],
-          selectedIndex: currentIndex.value,
-          onTap: (index) {
-            debugPrint('🔄 Switching to index $index');
-            currentIndex.value = index;
-          },         
-          
-        ),
+        borderRadius: 24.0,
+        showShadow: true,
+        angle: -12.0,
+        mainScreenTapClose: true,
+        menuBackgroundColor: colorScheme.card,
+        drawerShadowsBackgroundColor: Colors.black.withOpacity(0.2),
+        slideWidth: MediaQuery.of(context).size.width * 0.85,
       ),
-      borderRadius: 24.0,
-      showShadow: true,
-      angle: -12.0,
-      mainScreenTapClose: true,
-      menuBackgroundColor: colorScheme.card,
-      drawerShadowsBackgroundColor: Colors.black.withOpacity(0.2),
-      slideWidth: MediaQuery.of(context).size.width * 0.85,
+      bottomNavigationBar: AdaptiveBottomNavigationBar(
+        useNativeBottomBar: true,
+        items: [
+          AdaptiveNavigationDestination(
+            icon: 'house.fill',
+            label: context.l10n.overview,
+          ),
+          AdaptiveNavigationDestination(
+            icon: 'repeat',
+            label: context.l10n.recurring,
+          ),
+          AdaptiveNavigationDestination(
+            icon: 'chart.bar.fill',
+            label: context.l10n.insights,
+          ),
+          AdaptiveNavigationDestination(
+            icon: 'wallet.pass',
+            label: 'Pockets',
+          ),
+        ],
+        selectedIndex: currentIndex.value,
+        onTap: (index) {
+          debugPrint('🔄 Switching to index $index');
+          currentIndex.value = index;
+        },
+      ),
     );
   }
 }
+
