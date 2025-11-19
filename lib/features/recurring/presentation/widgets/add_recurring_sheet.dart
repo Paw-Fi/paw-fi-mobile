@@ -145,19 +145,19 @@ class AddRecurringSheet extends HookConsumerWidget {
       final l10n = context.l10n;
       if (selectedCategory.value == null) {
         debugPrint('🔴 Error: No category selected');
-        _showError(context, context.l10n.pleaseSelectCategory);
+        AppToast.error(context, context.l10n.pleaseSelectCategory);
         return;
       }
 
       final amountText = amountController.text.trim();
       if (amountText.isEmpty) {
-        _showError(context, context.l10n.pleaseEnterAmount);
+        AppToast.error(context, context.l10n.pleaseEnterAmount);
         return;
       }
 
       final amount = double.tryParse(amountText);
       if (amount == null || amount <= 0) {
-        _showError(context, context.l10n.pleaseEnterValidAmount);
+        AppToast.error(context, context.l10n.pleaseEnterValidAmount);
         return;
       }
 
@@ -166,7 +166,7 @@ class AddRecurringSheet extends HookConsumerWidget {
       try {
         final user = supabase.auth.currentUser;
         if (user == null) {
-          _showError(context, context.l10n.userNotAuthenticated);
+          AppToast.error(context, context.l10n.userNotAuthenticated);
           isLoading.value = false;
           return;
         }
@@ -307,20 +307,20 @@ class AddRecurringSheet extends HookConsumerWidget {
                 : (isEditing
                     ? l10n.recurringIncomeUpdatedSuccessfully
                     : l10n.recurringIncomeAddedSuccessfully);
-            _showSuccess(context, successMsg);
+            AppToast.success(context, successMsg);
           }
         } else {
           final errMsg = isExpense
               ? l10n.failedToUpdateRecurringExpense
               : l10n.failedToUpdateRecurringIncome;
           if (context.mounted) {
-            _showError(context, errMsg);
+            AppToast.error(context, errMsg);
           }
         }
       } catch (e, stackTrace) {
         isLoading.value = false;
         if (context.mounted) {
-          _showError(context, 'Error: ${e.toString()}');
+          AppToast.error(context, 'Error: ${e.toString()}');
         }
       }
     }
@@ -960,14 +960,6 @@ class AddRecurringSheet extends HookConsumerWidget {
         ),
       ),
     );
-  }
-
-  void _showError(BuildContext context, String message) {
-    AppToast.error(message);
-  }
-
-  void _showSuccess(BuildContext context, String message) {
-    AppToast.success(message);
   }
 
   /// Simple sharing toggle used for incomes (no split editor)

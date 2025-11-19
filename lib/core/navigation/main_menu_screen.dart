@@ -424,23 +424,3 @@ class _ProfileRow extends StatelessWidget {
     );
   }
 }
-
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Text(
-      title,
-      style: TextStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.w600,
-        color: colorScheme.mutedForeground,
-        letterSpacing: 0.5,
-      ),
-    );
-  }
-}

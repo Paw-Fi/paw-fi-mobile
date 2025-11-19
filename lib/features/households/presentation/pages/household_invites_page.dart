@@ -45,7 +45,7 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
-        AppToast.error('${context.l10n.errorLoadingInvites}: $e');
+        AppToast.error(context, '${context.l10n.errorLoadingInvites}: $e');
       }
     }
   }
@@ -243,17 +243,17 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
       await _loadInvites();
 
       if (mounted) {
-        AppToast.success(context.l10n.invitationCreatedSuccessfully);
+        AppToast.success(context, context.l10n.invitationCreatedSuccessfully);
 
         // Automatically copy the invite link
         final inviteUrl = 'https://moneko.io/invites/$token';
         Clipboard.setData(ClipboardData(text: inviteUrl));
 
-        AppToast.success(context.l10n.inviteLinkCopiedToClipboard);
+        AppToast.success(context, context.l10n.inviteLinkCopiedToClipboard);
       }
     } catch (e) {
       if (mounted) {
-        AppToast.error('${context.l10n.errorCreatingInvite}: $e');
+        AppToast.error(context, '${context.l10n.errorCreatingInvite}: $e');
       }
     }
   }
@@ -262,7 +262,7 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
     final inviteUrl = 'https://moneko.io/invites/${invite.token}';
     Clipboard.setData(ClipboardData(text: inviteUrl));
 
-    AppToast.success(context.l10n.inviteLinkCopiedToClipboard);
+    AppToast.success(context, context.l10n.inviteLinkCopiedToClipboard);
   }
 
   Future<void> _revokeInvite(HouseholdInvite invite) async {
@@ -292,11 +292,11 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
         await _loadInvites();
 
         if (mounted) {
-          AppToast.success(context.l10n.invitationRevoked);
+          AppToast.success(context, context.l10n.invitationRevoked);
         }
       } catch (e) {
         if (mounted) {
-          AppToast.error('${context.l10n.errorRevokingInvite}: $e');
+          AppToast.error(context, '${context.l10n.errorRevokingInvite}: $e');
         }
       }
     }

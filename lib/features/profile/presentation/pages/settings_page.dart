@@ -58,7 +58,7 @@ class SettingsPage extends HookConsumerWidget {
           );
 
           if (context.mounted) {
-            AppToast.info(context.l10n.enableNotificationsInSettings);
+            AppToast.info(context, context.l10n.enableNotificationsInSettings);
           }
         } else if (status.isGranted) {
           try {
@@ -126,6 +126,7 @@ class SettingsPage extends HookConsumerWidget {
                             AdaptiveButton(
                               onPressed: () {
                                 AppToast.success(
+                                  context,
                                   'Hello from bottom sheet!',
                                 );
                               },
@@ -656,7 +657,7 @@ Future<void> _saveName(
   final newName = controller.text.trim();
   if (newName.isEmpty || newName.length < 2) {
     setState(() {});
-    AppToast.info('Please enter a valid name');
+    AppToast.info(ctx, 'Please enter a valid name');
     return;
   }
 
@@ -678,10 +679,10 @@ Future<void> _saveName(
 
     if (!ctx.mounted) return;
     Navigator.of(ctx).pop();
-    AppToast.success('Profile updated');
+    AppToast.success(ctx, 'Profile updated');
   } catch (e) {
     if (ctx.mounted) {
-      AppToast.error('Failed to update: $e');
+      AppToast.error(ctx, 'Failed to update: $e');
     }
   }
 }
@@ -870,6 +871,7 @@ class _MembershipCard extends ConsumerWidget {
                       } else {
                         if (context.mounted) {
                           AppToast.error(
+                            context,
                             context.l10n.couldNotOpenMembershipPage,
                           );
                         }

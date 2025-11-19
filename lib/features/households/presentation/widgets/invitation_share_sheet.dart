@@ -273,7 +273,7 @@ class InvitationShareSheet extends StatelessWidget {
 
     if (!context.mounted) return;
     // Use AppToast to ensure visibility above this bottom sheet
-    AppToast.success(AppLocalizations.of(context)!.invitationLinkCopiedToClipboard);
+    AppToast.success(context, AppLocalizations.of(context)!.invitationLinkCopiedToClipboard);
   }
 
   // ignore: unused_element

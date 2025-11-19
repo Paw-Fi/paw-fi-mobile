@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:moneko/core/app/router.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 
 enum AppToastType { info, success, warning, error }
@@ -27,15 +26,13 @@ class AppToast {
   }
 
   static void show(
+    BuildContext context,
     String message, {
     AppToastType type = AppToastType.info,
     Duration duration = const Duration(seconds: 3),
-  }) {
-    final ctx = rootNavigatorKey.currentContext;
-    if (ctx == null) return;
-
+  }) { 
     AdaptiveSnackBar.show(
-      ctx,
+      context,
       message: message,
       type: _mapType(type),
       duration: duration,
@@ -44,17 +41,15 @@ class AppToast {
 
   /// Show a toast with an action button (e.g., Retry)
   static void action(
+    BuildContext context,
     String message, {
     required String actionLabel,
     required VoidCallback onPressed,
     AppToastType type = AppToastType.info,
     Duration duration = const Duration(seconds: 4),
   }) {
-    final ctx = rootNavigatorKey.currentContext;
-    if (ctx == null) return;
-
     AdaptiveSnackBar.show(
-      ctx,
+      context,
       message: message,
       type: _mapType(type),
       duration: duration,
@@ -63,15 +58,15 @@ class AppToast {
     );
   }
 
-  static void info(String message, {Duration duration = const Duration(seconds: 3)}) =>
-      show(message, type: AppToastType.info, duration: duration);
+  static void info(BuildContext context, String message, {Duration duration = const Duration(seconds: 3)}) =>
+      show(context, message, type: AppToastType.info, duration: duration);
 
-  static void success(String message, {Duration duration = const Duration(seconds: 3)}) =>
-      show(message, type: AppToastType.success, duration: duration);
+  static void success(BuildContext context, String message, {Duration duration = const Duration(seconds: 3)}) =>
+      show(context, message, type: AppToastType.success, duration: duration);
 
-  static void warning(String message, {Duration duration = const Duration(seconds: 3)}) =>
-      show(message, type: AppToastType.warning, duration: duration);
+  static void warning(BuildContext context, String message, {Duration duration = const Duration(seconds: 3)}) =>
+      show(context, message, type: AppToastType.warning, duration: duration);
 
-  static void error(String message, {Duration duration = const Duration(seconds: 4)}) =>
-      show(message, type: AppToastType.error, duration: duration);
+  static void error(BuildContext context, String message, {Duration duration = const Duration(seconds: 4)}) =>
+      show(context, message, type: AppToastType.error, duration: duration);
 }

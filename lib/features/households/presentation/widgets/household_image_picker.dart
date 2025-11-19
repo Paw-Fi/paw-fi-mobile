@@ -433,6 +433,6 @@ class HouseholdImagePicker {
   }
 
   static void _showError(BuildContext context, String message) {
-    AppToast.error(message);
+    AppToast.error(context, message);
   }
 }

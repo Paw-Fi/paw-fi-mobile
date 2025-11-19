@@ -392,6 +392,7 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
                       if (context.mounted) {
                         // Use AppToast with action so message appears above any bottom sheet
                         AppToast.action(
+                          context,
                           'Failed to sync currency preference: $error',
                           actionLabel: 'Retry',
                           type: AppToastType.warning,
@@ -410,9 +411,9 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
                               await service.setSelectedCurrency(summary.currencyCode);
                               ref.read(homeFilterProvider.notifier).setSelectedCurrency(summary.currencyCode);
                               ref.read(analyticsProvider.notifier).updatePreferredCurrency(summary.currencyCode);
-                              AppToast.success('Currency updated successfully');
+                              AppToast.success(context, 'Currency updated successfully');
                             } catch (retryError) {
-                              AppToast.error('Retry failed: $retryError');
+                              AppToast.error(context, 'Retry failed: $retryError');
                             }
                           },
                         );

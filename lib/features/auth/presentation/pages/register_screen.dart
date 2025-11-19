@@ -655,7 +655,7 @@ class _OTPVerificationView extends HookConsumerWidget {
         resendCooldown.value = 60;
 
         if (context.mounted) {
-          AppToast.success(context.l10n.verificationCodeSent);
+          AppToast.success(context, context.l10n.verificationCodeSent);
         }
       } catch (e) {
         String errorMessage = e.toString().replaceAll('Exception: ', '').replaceAll('AuthException: ', '');

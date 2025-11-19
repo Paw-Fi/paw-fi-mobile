@@ -106,7 +106,7 @@ class PaywallScreen extends ConsumerWidget {
       if (context.mounted) {
         Navigator.of(context).pop();
       }
-      AppToast.error('Failed to open referral page: ${e.toString()}');
+      AppToast.error(context, 'Failed to open referral page: ${e.toString()}');
     }
   }
 
@@ -121,7 +121,7 @@ class PaywallScreen extends ConsumerWidget {
         throw Exception('Could not open Discord link');
       }
     } catch (e) {
-      AppToast.error('Failed to open Discord: ${e.toString()}');
+      AppToast.error(context, 'Failed to open Discord: ${e.toString()}');
     }
   }
 
@@ -130,7 +130,7 @@ class PaywallScreen extends ConsumerWidget {
 
     if (user.isEmpty) {
       // Use global AppToast so it appears above any modal sheet
-      AppToast.info('Please log in to continue');
+      AppToast.info(context, 'Please log in to continue');
       return;
     }
 
@@ -220,7 +220,7 @@ class PaywallScreen extends ConsumerWidget {
       if (context.mounted) {
         Navigator.of(context).pop();
       }
-      AppToast.error('Failed to start trial: ${e.toString()}');
+      AppToast.error(context, 'Failed to start trial: ${e.toString()}');
     }
   }
 
@@ -232,7 +232,7 @@ class PaywallScreen extends ConsumerWidget {
       }
     } catch (e) {
       if (context.mounted) {
-        AppToast.error('Failed to logout: ${e.toString()}');
+        AppToast.error(context, 'Failed to logout: ${e.toString()}');
       }
     }
   }

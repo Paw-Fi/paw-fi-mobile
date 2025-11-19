@@ -82,6 +82,7 @@ class AuthCallbackScreen extends HookConsumerWidget {
               if (context.mounted) {
                 context.go('/login');
                 AppToast.error(
+                  context,
                   'Authentication session could not be established',
                 );
               }
@@ -92,6 +93,7 @@ class AuthCallbackScreen extends HookConsumerWidget {
           if (context.mounted) {
             context.go('/login');
             AppToast.error(
+              context,
               'An unexpected error occurred during authentication',
             );
           }

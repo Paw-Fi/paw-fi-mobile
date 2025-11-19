@@ -1214,6 +1214,7 @@
   "userNotAuthenticated": "用户未认证",
   "recurringExpenseUpdatedSuccessfully": "定期支出更新成功",
   "recurringExpenseAddedSuccessfully": "定期支出已成功添加",
+  "expenseUpdatedSuccessfully": "支出更新成功",
   "recurringIncomeUpdatedSuccessfully": "定期收入已成功更新",
   "recurringIncomeAddedSuccessfully": "定期收入已成功添加",
   "failedToUpdateRecurringExpense": "无法更新定期支出",

@@ -297,7 +297,7 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
 
     if (mounted) {
       Navigator.of(context).pop();
-      AppToast.success(l10n.goalCreated);
+      AppToast.success(context, l10n.goalCreated);
     }
   }
 }

@@ -618,7 +618,7 @@ class _ReminderModalContentState extends State<_ReminderModalContent> {
           Navigator.of(context).pop();
         }
         if (widget.parentContext.mounted) {
-          AppToast.warning(widget.parentContext.l10n.pleaseWait24HoursBeforeSendingAnotherReminder(widget.targetUserName));
+          AppToast.warning(widget.parentContext, widget.parentContext.l10n.pleaseWait24HoursBeforeSendingAnotherReminder(widget.targetUserName));
         }
         return;
       }
@@ -638,7 +638,7 @@ class _ReminderModalContentState extends State<_ReminderModalContent> {
       }
       if (response.status == 200) {
         if (widget.parentContext.mounted) {
-          AppToast.success(widget.parentContext.l10n.reminderSentToName(widget.targetUserName));
+          AppToast.success(widget.parentContext, widget.parentContext.l10n.reminderSentToName(widget.targetUserName));
         }
       } else {
         throw Exception('Failed to send reminder');
@@ -649,7 +649,7 @@ class _ReminderModalContentState extends State<_ReminderModalContent> {
         Navigator.of(context).pop();
       }
       if (widget.parentContext.mounted) {
-        AppToast.error(widget.parentContext.l10n.failedToSendReminderTryAgain);
+        AppToast.error(widget.parentContext, widget.parentContext.l10n.failedToSendReminderTryAgain);
       }
     } finally {
       if (mounted) {

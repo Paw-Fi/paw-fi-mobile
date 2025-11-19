@@ -364,7 +364,7 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
 
   Future<void> _saveChanges(Household household) async {
     if (_nameController.text.trim().isEmpty) {
-      _showError(context.l10n.pleaseEnterHouseholdName);
+      AppToast.error(context, context.l10n.pleaseEnterHouseholdName);
       return;
     }
 
@@ -400,11 +400,11 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
       }
 
       if (mounted) {
-        AppToast.success(context.l10n.householdUpdatedSuccessfully);
+        AppToast.success(context, context.l10n.householdUpdatedSuccessfully);
       }
     } catch (e) {
       if (mounted) {
-        _showError('${context.l10n.failedToUpdateHousehold}: $e');
+        AppToast.error(context, '${context.l10n.failedToUpdateHousehold}: $e');
       }
     } finally {
       if (mounted) {
@@ -436,12 +436,6 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
     } catch (e) {
       debugPrint('Error uploading image: $e');
       rethrow;
-    }
-  }
-
-  void _showError(String message) {
-    if (mounted) {
-      AppToast.error(message);
     }
   }
 
@@ -567,7 +561,7 @@ class _MembersTab extends ConsumerWidget {
   Future<void> _updateMemberRole(BuildContext context, WidgetRef ref, HouseholdMember member, HouseholdRole role) async {
     await ref.read(householdMembersProvider(householdId).notifier).updateRole(member.id, role);
     if (context.mounted) {
-      AppToast.success('${context.l10n.updatedMemberRole} ${member.userName ?? member.userEmail}');
+      AppToast.success(context, '${context.l10n.updatedMemberRole} ${member.userName ?? member.userEmail}');
     }
   }
 }
@@ -787,7 +781,7 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        AppToast.error('${context.l10n.errorLoadingInvites}: $e');
+        AppToast.error(context, '${context.l10n.errorLoadingInvites}: $e');
       }
     }
   }
@@ -1452,17 +1446,17 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
       await _loadInvites();
 
       if (mounted) {
-        AppToast.success(context.l10n.invitationCreatedSuccessfully);
+        AppToast.success(context, context.l10n.invitationCreatedSuccessfully);
 
         // Auto-copy invite link
         final inviteUrl = 'https://moneko.io/invites/$token';
         Clipboard.setData(ClipboardData(text: inviteUrl));
 
-        AppToast.success(context.l10n.inviteLinkCopiedToClipboard);
+        AppToast.success(context, context.l10n.inviteLinkCopiedToClipboard);
       }
     } catch (e) {
       if (mounted) {
-        AppToast.error('${context.l10n.errorCreatingInvite}: $e');
+        AppToast.error(context, '${context.l10n.errorCreatingInvite}: $e');
       }
     }
   }
@@ -1471,7 +1465,7 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
     final inviteUrl = 'https://moneko.io/invites/${invite.token}';
     Clipboard.setData(ClipboardData(text: inviteUrl));
 
-    AppToast.success(context.l10n.inviteLinkCopiedToClipboard);
+    AppToast.success(context, context.l10n.inviteLinkCopiedToClipboard);
   }
 
   Future<void> _revokeInvite(HouseholdInvite invite) async {
@@ -1531,13 +1525,13 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
         final navCtx = rootNavigatorKey.currentContext;
         if (navCtx != null && navCtx.mounted) {
           _hideBlockingLoader(navCtx);
-          AppToast.success(l10n.invitationRevoked);
+          AppToast.success(context, context.l10n.invitationRevoked);
         }
       } catch (e) {
         final navCtx = rootNavigatorKey.currentContext;
         if (navCtx != null && navCtx.mounted) {
           _hideBlockingLoader(navCtx);
-          AppToast.error('${l10n.errorRevokingInvite}: $e');
+          AppToast.error(context, '${context.l10n.errorRevokingInvite}: $e');
         }
       }
     }

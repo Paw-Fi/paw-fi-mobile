@@ -46,7 +46,7 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
     );
 
     if (success && mounted) {
-      AppToast.success(context.l10n.incomeAcknowledged);
+      AppToast.success(context, context.l10n.incomeAcknowledged);
     }
   }
 

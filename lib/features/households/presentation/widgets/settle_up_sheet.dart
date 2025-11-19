@@ -417,7 +417,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
     if (_selectedMemberId == null && widget.specificMemberId == null) {
       // Show error
       if (mounted) {
-        AppToast.info(context.l10n.pleaseSelectMember);
+        AppToast.info(context, context.l10n.pleaseSelectMember);
       }
       return;
     }
@@ -480,11 +480,11 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
 
       if (mounted) {
         Navigator.pop(context, true);
-        AppToast.success(count > 0 ? context.l10n.settlementCompleted : context.l10n.nothingToSettle);
+        AppToast.success(context, count > 0 ? context.l10n.settlementCompleted : context.l10n.nothingToSettle);
       }
     } catch (e) {
       if (mounted) {
-        AppToast.error('${context.l10n.error}: $e');
+        AppToast.error(context, '${context.l10n.error}: $e');
       }
     } finally {
       if (mounted) {

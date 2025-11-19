@@ -821,6 +821,6 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
   void _showErrorSnackbar(String message) {
     if (!mounted) return;
     // Prefer AppToast over SnackBar so message is visible above bottom sheet
-    AppToast.error(message, duration: const Duration(seconds: 4));
+    AppToast.error(context, message, duration: const Duration(seconds: 4));
   }
 }

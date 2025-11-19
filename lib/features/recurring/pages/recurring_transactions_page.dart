@@ -379,9 +379,9 @@ class _RecurringTransactionsPageState
 
       if (mounted) {
         if (success) {
-          AppToast.success(context.l10n.recurringTransactionDeleted);
+          AppToast.success(context, context.l10n.recurringTransactionDeleted);
         } else {
-          AppToast.error(context.l10n.failedToDeleteRecurringTransaction);
+          AppToast.error(context, context.l10n.failedToDeleteRecurringTransaction);
         }
       }
     }

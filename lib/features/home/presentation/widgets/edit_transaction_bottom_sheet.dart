@@ -574,12 +574,12 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
       
       if (!mounted) return;
       // Prefer AppToast over SnackBar for visibility above sheets
-      AppToast.success('${_getLabel()} updated successfully');
+      AppToast.success(context, '${_getLabel()} updated successfully');
     } else {
       final error = ref.read(transactionEditProvider).error;
       setState(() => _error = error);
       
-      AppToast.error(error ?? 'Failed to update');
+      AppToast.error(context, error ?? 'Failed to update');
     }
   }
   

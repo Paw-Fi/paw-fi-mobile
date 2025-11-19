@@ -102,7 +102,7 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
     final amount = double.tryParse(amountText);
 
     if (amount == null || amount <= 0) {
-      _showError(context.l10n.enterValidAmountGreaterThan0);
+       AppToast.error(context, context.l10n.enterValidAmountGreaterThan0);
       return;
     }
 
@@ -144,13 +144,13 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
 
       if (income != null && mounted) {
         Navigator.of(context).pop();
-        _showSuccess(context.l10n.incomeAdded);
+        AppToast.success(context, context.l10n.incomeAdded);
       } else if (mounted) {
-        _showError('Failed to save income');
+         AppToast.error(context, 'Failed to save income');
       }
     } catch (e) {
       if (mounted) {
-        _showError(e.toString());
+         AppToast.error(context, e.toString());
       }
     } finally {
       if (mounted) {
@@ -159,14 +159,6 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
         });
       }
     }
-  }
-
-  void _showError(String message) {
-    AppToast.error(message);
-  }
-
-  void _showSuccess(String message) {
-    AppToast.success(message);
   }
 
   String _getCategoryLabel(String category) {

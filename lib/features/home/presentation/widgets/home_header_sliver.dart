@@ -33,7 +33,7 @@ class HomeHeaderSliver extends ConsumerWidget {
     final zoomController = ref.read(zoomDrawerControllerProvider);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 5, 16, 5),
+      padding: const EdgeInsets.fromLTRB(0, 5, 16, 5),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -99,7 +99,8 @@ class HomeHeaderSliver extends ConsumerWidget {
 
     // Switch to household mode and invalidate households so data is refreshed.
     final user = ref.read(authProvider);
-    debugPrint('🔄 Switching to household mode - invalidating userHouseholdsProvider');
+    debugPrint(
+        '🔄 Switching to household mode - invalidating userHouseholdsProvider');
     ref.invalidate(userHouseholdsProvider(user.uid));
     ref.read(viewModeProvider.notifier).setMode(ViewMode.household);
   }
@@ -126,7 +127,7 @@ class _HeaderAvatarButton extends StatelessWidget {
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
       width: 44,
-      height: 44,     
+      height: 44,
       child: ClipOval(
         child: _buildContent(),
       ),
@@ -135,31 +136,37 @@ class _HeaderAvatarButton extends StatelessWidget {
 
   Widget _buildContent() {
     if (viewMode.mode == ViewMode.personal) {
-      return FutureBuilder<Map<String, dynamic>?> (
+      return FutureBuilder<Map<String, dynamic>?>(
         future: Supabase.instance.client
             .from('users')
             .select('avatar_url')
             .eq('id', user.uid)
             .maybeSingle(),
         builder: (context, snapshot) {
-          final dbAvatarUrl = snapshot.data != null ? snapshot.data!['avatar_url'] as String? : null;
+          final dbAvatarUrl = snapshot.data != null
+              ? snapshot.data!['avatar_url'] as String?
+              : null;
 
           String? validatedAvatarUrl;
           if (dbAvatarUrl != null &&
               dbAvatarUrl.isNotEmpty &&
               dbAvatarUrl != 'SKIPPED' &&
-              (dbAvatarUrl.startsWith('http://') || dbAvatarUrl.startsWith('https://'))) {
+              (dbAvatarUrl.startsWith('http://') ||
+                  dbAvatarUrl.startsWith('https://'))) {
             validatedAvatarUrl = dbAvatarUrl;
           }
 
           final avatarUrl = validatedAvatarUrl ??
-              (user.photoUrl != null && user.photoUrl!.isNotEmpty ? user.photoUrl : null);
+              (user.photoUrl != null && user.photoUrl!.isNotEmpty
+                  ? user.photoUrl
+                  : null);
 
           if (avatarUrl != null) {
             return Image.network(
               avatarUrl,
               fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => _fallbackPersonalAvatar(),
+              errorBuilder: (context, error, stackTrace) =>
+                  _fallbackPersonalAvatar(),
             );
           }
 
@@ -181,7 +188,8 @@ class _HeaderAvatarButton extends StatelessWidget {
           return Image.network(
             household.coverImageUrl!,
             fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => _fallbackHouseholdAvatar(),
+            errorBuilder: (context, error, stackTrace) =>
+                _fallbackHouseholdAvatar(),
           );
         }
         return _fallbackHouseholdAvatar();
@@ -216,7 +224,6 @@ class _HeaderAvatarButton extends StatelessWidget {
   }
 }
 
-
 class _AccountTypeSwitch extends StatelessWidget {
   const _AccountTypeSwitch({
     required this.viewMode,
@@ -243,7 +250,8 @@ class _AccountTypeSwitch extends StatelessWidget {
         children: [
           // Personal
           GestureDetector(
-            onTap: viewMode.mode == ViewMode.personal ? null : onPersonalSelected,
+            onTap:
+                viewMode.mode == ViewMode.personal ? null : onPersonalSelected,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
               decoration: BoxDecoration(
@@ -256,7 +264,9 @@ class _AccountTypeSwitch extends StatelessWidget {
                 context.l10n.forMe,
                 style: TextStyle(
                   fontSize: 13,
-                  fontWeight: viewMode.mode == ViewMode.personal ? FontWeight.w600 : FontWeight.w500,
+                  fontWeight: viewMode.mode == ViewMode.personal
+                      ? FontWeight.w600
+                      : FontWeight.w500,
                   color: viewMode.mode == ViewMode.personal
                       ? colorScheme.primaryForeground
                       : colorScheme.mutedForeground,
@@ -266,7 +276,9 @@ class _AccountTypeSwitch extends StatelessWidget {
           ),
           // Household
           GestureDetector(
-            onTap: viewMode.mode == ViewMode.household ? null : onHouseholdSelected,
+            onTap: viewMode.mode == ViewMode.household
+                ? null
+                : onHouseholdSelected,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
               decoration: BoxDecoration(
@@ -279,7 +291,9 @@ class _AccountTypeSwitch extends StatelessWidget {
                 context.l10n.forUs,
                 style: TextStyle(
                   fontSize: 13,
-                  fontWeight: viewMode.mode == ViewMode.household ? FontWeight.w600 : FontWeight.w500,
+                  fontWeight: viewMode.mode == ViewMode.household
+                      ? FontWeight.w600
+                      : FontWeight.w500,
                   color: viewMode.mode == ViewMode.household
                       ? colorScheme.primaryForeground
                       : colorScheme.mutedForeground,

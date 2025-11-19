@@ -520,10 +520,6 @@ class _ScenarioPlanningTabContentState
     super.dispose();
   }
 
-  void _showToast(String message) {
-    // For custom trailing controls, consider AppToast.action
-    AppToast.info(message);
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -660,8 +656,7 @@ class _ScenarioPlanningTabContentState
                                         ? ''
                                         : _formatLocalizedDate(_scenarioDate!);
                                     if (q.isEmpty || d.isEmpty) {
-                                      _showToast(context
-                                          .l10n.enterQuestionAndPickDate);
+                                       AppToast.info(context, context.l10n.enterQuestionAndPickDate);
                                       return;
                                     }
 
@@ -776,7 +771,7 @@ class _ScenarioPlanningTabContentState
                                       setState(() {
                                         _scenarioLoading = false;
                                       });
-                                      _showToast(context.l10n
+                                       AppToast.info(context, context.l10n
                                           .analysisFailed(e.toString()));
                                     }
                                   },

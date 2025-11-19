@@ -116,7 +116,7 @@ class HouseholdMembersPage extends ConsumerWidget {
   Future<void> _updateMemberRole(BuildContext context, WidgetRef ref, HouseholdMember member, HouseholdRole role) async {
     await ref.read(householdMembersProvider(householdId).notifier).updateRole(member.id, role);
     if (context.mounted) {
-      AppToast.success('${context.l10n.updatedMemberRole} ${member.userName ?? member.userEmail} to ${role.toJson()}');
+      AppToast.success(context, '${context.l10n.updatedMemberRole} ${member.userName ?? member.userEmail} to ${role.toJson()}');
     }
   }
 }

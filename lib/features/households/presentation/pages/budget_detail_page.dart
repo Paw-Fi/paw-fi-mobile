@@ -403,7 +403,7 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
 
       if (mounted) {
         Navigator.pop(context, true); // Return true to indicate success
-        AppToast.success(context.l10n.budgetUpdatedSuccessfully);
+        AppToast.success(context, context.l10n.budgetUpdatedSuccessfully);
       }
     } catch (error) {
       if (mounted) {
@@ -457,7 +457,7 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
 
       if (mounted) {
         Navigator.pop(context, true); // Return true to indicate success
-        AppToast.success(context.l10n.budgetDeletedSuccessfully);
+        AppToast.success(context, context.l10n.budgetDeletedSuccessfully);
       }
     } catch (error) {
       if (mounted) {
@@ -468,6 +468,6 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
   }
 
   void _showError(String message) {
-    AppToast.error(message);
+    AppToast.error(context, message);
   }
 }

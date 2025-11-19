@@ -439,7 +439,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         errorMessage = e.toString();
       }
 
-      AppToast.error('${context.l10n.failedToAnalyze}: $errorMessage');
+      AppToast.error(context, '${context.l10n.failedToAnalyze}: $errorMessage');
     }
   }
 
@@ -749,7 +749,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   void _showToast(String message) {
-    AppToast.info(message);
+    AppToast.info(context, message);
   }
 
   double _totalBudgetAmount(List<DailyBudgetEntry> budgets) {
@@ -839,7 +839,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       );
     }
 
-    return Scaffold(
+    return AdaptiveScaffold(
       body: Stack(
         children: [
           RefreshIndicator(

@@ -31,10 +31,10 @@ Widget buildWhatsAppBindingCard(BuildContext context, WidgetRef ref) {
         if (launched && context.mounted) {
           Navigator.of(context).pop(true); // Return true to refresh status
         } else if (!launched) {
-          AppToast.error('Unable to open WhatsApp link. Please install a browser or WhatsApp.');
+          AppToast.error(context, 'Unable to open WhatsApp link. Please install a browser or WhatsApp.');
         }
       } catch (_) {
-        AppToast.error('Could not launch WhatsApp link.');
+        AppToast.error(context, 'Could not launch WhatsApp link.');
       }
     }
 

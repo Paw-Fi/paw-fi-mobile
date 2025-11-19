@@ -97,12 +97,12 @@ Widget buildCategoryBreakdownCard(
                                 }
                                 
                                 // Show success toast
-                                AppToast.success(l10n.transactionDeleted);
+                                AppToast.success(context, l10n.transactionDeleted);
                               } else {
-                                AppToast.error(l10n.anErrorOccurred);
+                                AppToast.error(context, l10n.anErrorOccurred);
                               }
                             } catch (err) {
-                              AppToast.error('${l10n.error}: $err');
+                              AppToast.error(context, '${l10n.error}: $err');
                             }
                           },
                           backgroundColor: const Color(0xFFFE4A49),

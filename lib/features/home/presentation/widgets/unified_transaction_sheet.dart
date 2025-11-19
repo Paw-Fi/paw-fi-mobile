@@ -295,7 +295,7 @@ class _UnifiedTransactionSheetState
     } catch (e) {
       debugPrint('❌ Error capturing photo: $e');
       if (mounted) {
-        AppToast.error('Failed to capture photo: $e');
+        AppToast.error(context, 'Failed to capture photo: $e');
       }
     }
   }
@@ -959,7 +959,7 @@ class _UnifiedTransactionSheetState
     return GestureDetector(
       onTap: disabled
           ? () {
-              AppToast.info(context.l10n.currencyIsManagedByHousehold);
+              AppToast.info(context, context.l10n.currencyIsManagedByHousehold);
             }
           : onTap,
       child: Container(
@@ -1009,7 +1009,7 @@ class _UnifiedTransactionSheetState
 
   Future<void> _handleEditCurrency(String currentCurrency) async {
     if (_isSharedWithHousehold) {
-      AppToast.info(context.l10n.currencyCannotBeChangedWhenSharing);
+      AppToast.info(context, context.l10n.currencyCannotBeChangedWhenSharing);
       return;
     }
 
@@ -1804,7 +1804,7 @@ class _UnifiedTransactionSheetState
           setState(() => _isSaving = false);
           if (!mounted) return;
 
-          AppToast.error(context.l10n.cannotEditOthersExpenses);
+          AppToast.error(context, context.l10n.cannotEditOthersExpenses);
           return;
         }
       }
@@ -1951,7 +1951,7 @@ class _UnifiedTransactionSheetState
                     _isSharedWithHousehold ? _selectedPayerUserId : null,
               );
 
-          AppToast.success(l10n.expenseSaved);
+          AppToast.success(context, context.l10n.expenseSaved);
 
           // Ensure UI updates immediately and close sheet
           if (viewMode.mode == ViewMode.household &&
@@ -2098,7 +2098,7 @@ class _UnifiedTransactionSheetState
           // Close the sheet so when user reopens it, they see fresh data
           Navigator.of(context).pop();
 
-          AppToast.success('Expense updated successfully');
+          AppToast.success(context, context.l10n.expenseUpdatedSuccessfully);
         } else {
           throw Exception('Failed to update expense');
         }
@@ -2107,7 +2107,7 @@ class _UnifiedTransactionSheetState
       debugPrint('❌ Error saving expense: $error');
       if (!mounted) return;
 
-      AppToast.error('Failed to save: ${error.toString()}');
+      AppToast.error(context, context.l10n.failedToSave(""));
     } finally {
       if (mounted) {
         setState(() => _isSaving = false);
@@ -2242,13 +2242,12 @@ class _UnifiedTransactionSheetState
 
       Navigator.of(context).pop();
 
-      AppToast.success(context.l10n.expenseDeletedSuccessfully);
+      AppToast.success(context, context.l10n.expenseDeletedSuccessfully);
     } catch (error) {
       debugPrint('❌ Error deleting expense: $error');
       if (!mounted) return;
 
-      AppToast.error(
-          '${context.l10n.failedToDeleteExpense}: ${error.toString()}');
+      AppToast.error(context, context.l10n.failedToDeleteExpense);
     } finally {
       if (mounted) {
         setState(() => _isDeleting = false);

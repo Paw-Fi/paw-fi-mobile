@@ -418,7 +418,7 @@ class _AvatarCustomizerScreenState
     } catch (e) {
       if (!mounted) return;
       // Use AppToast so the error is visible above any bottom sheet/overlay
-      AppToast.error('${context.l10n.failedToSaveAvatar}: $e');
+      AppToast.error(context, '${context.l10n.failedToSaveAvatar}: $e');
     } finally {
       if (mounted) {
         setState(() {

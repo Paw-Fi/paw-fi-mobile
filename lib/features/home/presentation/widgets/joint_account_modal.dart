@@ -17,7 +17,7 @@ void navigateToHousehold(BuildContext context, WidgetRef ref) async {
   final userId = Supabase.instance.client.auth.currentUser?.id;
 
   if (userId == null) {
-    AppToast.info(context.l10n.userNotLoggedIn);
+    AppToast.info(context, context.l10n.userNotLoggedIn);
     return;
   }
 
@@ -48,7 +48,7 @@ void navigateToHousehold(BuildContext context, WidgetRef ref) async {
     },
     error: (error, stack) {
       // Show error message
-      AppToast.error(context.l10n.errorLoadingHouseholds);
+      AppToast.error(context, context.l10n.errorLoadingHouseholds);
     },
   );
 }
@@ -135,7 +135,7 @@ void showHouseholdOnboardingModal(BuildContext context, WidgetRef ref, String us
               child: AdaptiveButton(
                 onPressed: () {
                   Navigator.of(context).pop();
-                  AppToast.info(context.l10n.pleaseUseInvitationLink);
+                  AppToast.info(context, context.l10n.pleaseUseInvitationLink);
                 },
                 style: AdaptiveButtonStyle.bordered,
                 label: context.l10n.joinWithInvite,
@@ -208,7 +208,7 @@ void _showCreateHouseholdDialog(BuildContext context, WidgetRef ref, String user
                   child: AdaptiveButton(
                     onPressed: () async {
                       if (nameController.text.isEmpty) {
-                        AppToast.info(context.l10n.pleaseEnterHouseholdName);
+                        AppToast.info(context, context.l10n.pleaseEnterHouseholdName);
                         return;
                       }
 
@@ -235,7 +235,7 @@ void _showCreateHouseholdDialog(BuildContext context, WidgetRef ref, String user
                         }
                       } catch (e) {
                         if (context.mounted) {
-                          AppToast.error(context.l10n.errorCreatingHousehold);
+                          AppToast.error(context, context.l10n.errorCreatingHousehold);
                         }
                       }
                     },

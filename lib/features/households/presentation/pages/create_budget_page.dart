@@ -95,7 +95,7 @@ class CreateBudgetPage extends HookConsumerWidget {
         debugPrint('✅ Budget created successfully');
         
         if (context.mounted) {
-          AppToast.success(context.l10n.budgetCreatedSuccessfully);
+          AppToast.success(context, context.l10n.budgetCreatedSuccessfully);
           Navigator.pop(context);
         }
       } catch (e, stackTrace) {
@@ -569,7 +569,7 @@ class CreateBudgetPage extends HookConsumerWidget {
 
   void _showError(BuildContext context, String message) {
     if (context.mounted) {
-      AppToast.error(message);
+      AppToast.error(context, message);
     }
   }
 }

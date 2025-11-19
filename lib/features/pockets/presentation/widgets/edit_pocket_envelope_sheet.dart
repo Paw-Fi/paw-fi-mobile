@@ -101,29 +101,29 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
       final amountText = amountController.text.trim();
 
       if (name.isEmpty) {
-        AppToast.info('Please enter a name');
+        AppToast.info(context, 'Please enter a name');
         return;
       }
 
       if (amountText.isEmpty) {
-        AppToast.info(l10n.pleaseEnterAmount);
+        AppToast.info(context, l10n.pleaseEnterAmount);
         return;
       }
 
       final amount = double.tryParse(amountText);
       if (amount == null || amount <= 0) {
-        AppToast.info(l10n.pleaseEnterValidAmount);
+        AppToast.info(context, l10n.pleaseEnterValidAmount);
         return;
       }
 
       if (selectedCategories.value.isEmpty) {
-        AppToast.info(l10n.pleaseSelectCategory);
+        AppToast.info(context, l10n.pleaseSelectCategory);
         return;
       }
 
       final user = ref.read(authProvider);
       if (user.uid.isEmpty) {
-        AppToast.info(l10n.userNotAuthenticated);
+        AppToast.info(context, l10n.userNotAuthenticated);
         return;
       }
 
@@ -131,7 +131,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
       final householdId = scopeParams.householdId;
 
       if (isHousehold && householdId == null) {
-        AppToast.info('Select a household first');
+        AppToast.info(context, 'Select a household first');
         return;
       }
 
@@ -195,11 +195,11 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           Navigator.of(context).pop();
           final message =
               isEditing ? l10n.budgetUpdated : l10n.budgetCreatedSuccessfully;
-          AppToast.info(message);
+          AppToast.info(context, message);
         }
       } catch (e) {
         if (context.mounted) {
-          AppToast.info('Failed to save envelope: ${e.toString()}');
+          AppToast.info(context, 'Failed to save envelope: ${e.toString()}');
         }
       } finally {
         isLoading.value = false;
@@ -243,11 +243,11 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
 
         if (context.mounted) {
           Navigator.of(context).pop();
-          AppToast.info('Envelope deleted');
+          AppToast.info(context, 'Envelope deleted');
         }
       } catch (e) {
         if (context.mounted) {
-          AppToast.info('Failed to delete envelope: ${e.toString()}');
+          AppToast.info(context, 'Failed to delete envelope: ${e.toString()}');
         }
       } finally {
         isLoading.value = false;

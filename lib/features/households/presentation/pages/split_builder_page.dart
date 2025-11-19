@@ -243,12 +243,12 @@ class _SplitBuilderPageState extends ConsumerState<SplitBuilderPage> {
       await repository.computeSplit(request);
 
       if (mounted) {
-        AppToast.success('Split created successfully!');
+        AppToast.success(context, 'Split created successfully!');
         Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
-        AppToast.error('Error creating split: $e');
+        AppToast.error(context, 'Error creating split: $e');
       }
     }
   }

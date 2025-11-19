@@ -251,7 +251,7 @@ class GoalCard extends ConsumerWidget {
         );
 
     if (context.mounted) {
-      AppToast.success(l10n.goalAcknowledged);
+      AppToast.success(context, l10n.goalAcknowledged);
     }
   }
 }

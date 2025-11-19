@@ -103,9 +103,10 @@ class LoginScreen extends HookConsumerWidget {
 
       try {
         await ref.read(authProvider.notifier).resetPassword(email);
-        AppToast.success(context.l10n.passwordResetEmailSent);
+        AppToast.success(context, context.l10n.passwordResetEmailSent);
       } catch (e) {
         AppToast.error(
+          context,
           e.toString().replaceAll('Exception: ', ''),
         );
       }

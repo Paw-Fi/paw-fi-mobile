@@ -51,7 +51,7 @@ class _TextInputContentState extends ConsumerState<_TextInputContent> {
     final text = widget.textController.text.trim();
     if (text.isEmpty) {
       // Use AppToast to ensure message is visible above the bottom sheet
-      AppToast.info(context.l10n.pleaseEnterExpenseDetails);
+      AppToast.info(widget.parentContext, widget.parentContext.l10n.pleaseEnterExpenseDetails);
       return;
     }
 
