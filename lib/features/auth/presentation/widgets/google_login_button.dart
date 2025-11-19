@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -62,15 +63,14 @@ class GoogleLoginButton extends HookConsumerWidget {
       children: [
         SizedBox(
           width: double.infinity,
-          child: AdaptiveButton.child(
+          child:PrimaryAdaptiveButton(
             onPressed: (isLoading.value || disabled) ? null : handleGoogleLogin,
-            style: AdaptiveButtonStyle.bordered,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if(!isLoading.value)
-                const Icon(Icons.g_mobiledata, size: 30,color: Colors.white,),
+                const Icon(Icons.g_mobiledata, size: 26,color: Colors.white,),
                  if(!isLoading.value)
                 const SizedBox(width: 8),
                 Text(

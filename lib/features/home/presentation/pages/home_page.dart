@@ -963,7 +963,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             ),
       floatingActionButton: _shouldShowFAB(viewMode, householdsAsync)
           ? Padding(
-              padding: const EdgeInsets.only(bottom: 60, right: 16),
+              padding: PlatformInfo.isIOS26OrHigher()?const EdgeInsets.only(bottom: 60, right: 6):const EdgeInsets.all(0),
               child: _buildExpandableFAB(colorScheme),
             )
           : null,

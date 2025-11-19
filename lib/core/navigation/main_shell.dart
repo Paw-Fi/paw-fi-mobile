@@ -1,5 +1,6 @@
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_zoom_drawer/flutter_zoom_drawer.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -67,19 +68,35 @@ class MainShell extends HookConsumerWidget {
         useNativeBottomBar: true,
         items: [
           AdaptiveNavigationDestination(
-            icon: 'house.fill',
+            icon: PlatformInfo.isIOS26OrHigher()
+                ? 'house.fill'
+                : PlatformInfo.isIOS
+                    ? CupertinoIcons.home
+                    : Icons.home_outlined,
             label: context.l10n.overview,
           ),
           AdaptiveNavigationDestination(
-            icon: 'repeat',
+            icon: PlatformInfo.isIOS26OrHigher()
+                ? 'repeat'
+                : PlatformInfo.isIOS
+                    ? CupertinoIcons.repeat
+                    : Icons.repeat,
             label: context.l10n.recurring,
           ),
           AdaptiveNavigationDestination(
-            icon: 'chart.bar.fill',
+            icon: PlatformInfo.isIOS26OrHigher()
+                ? 'chart.bar.fill'
+                : PlatformInfo.isIOS
+                    ? CupertinoIcons.chart_bar_alt_fill
+                    : Icons.bar_chart,
             label: context.l10n.insights,
           ),
           AdaptiveNavigationDestination(
-            icon: 'wallet.pass',
+            icon: PlatformInfo.isIOS26OrHigher()
+                ? 'wallet.pass'
+                : PlatformInfo.isIOS
+                    ? CupertinoIcons.creditcard
+                    : Icons.account_balance_wallet_outlined,
             label: 'Pockets',
           ),
         ],
