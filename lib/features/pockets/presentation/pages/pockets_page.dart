@@ -65,18 +65,17 @@ class PocketsPage extends ConsumerWidget {
       ref.invalidate(pocketsProvider(scope));
     }
 
-    return Scaffold(
-      backgroundColor: colorScheme.appBackground,
+    return AdaptiveScaffold(
       body: Stack(
-        children: [         
+        children: [
           RefreshIndicator(
             onRefresh: refresh,
             child: CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [               
+              slivers: [
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
+                    padding: const EdgeInsets.fromLTRB(20, 2, 20, 20),
                     child: PocketsGridSection(
                       scopeParams: pocketsScopeParams,
                       colorScheme: colorScheme,
@@ -91,54 +90,63 @@ class PocketsPage extends ConsumerWidget {
             Positioned(
               left: 16,
               right: 16,
-              bottom: 24,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: colorScheme.card.withOpacity(0.92),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: colorScheme.border.withValues(alpha: 0.6),
-                        width: 1,
+              top: 0,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 16),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
                       ),
-                    ),
-                    child: Row(
-                      children: [
-                        AdaptiveButton(
-                          onPressed: pocketsNotifier.revertChanges,
-                          style: AdaptiveButtonStyle.plain,
-                          label: 'Revert',
+                      decoration: BoxDecoration(
+                        color: colorScheme.card.withOpacity(0.92),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: colorScheme.border.withValues(alpha: 0.6),
+                          width: 1,
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            remaining >= 0
-                                ? 'Remaining: ${remaining.toStringAsFixed(0)}'
-                                : 'Over budget: ${remaining.abs().toStringAsFixed(0)}',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: remaining >= 0
-                                  ? colorScheme.mutedForeground
-                                  : colorScheme.destructive,
+                      ),
+                      child: Row(
+                        children: [
+                          Flexible(
+                            fit: FlexFit.loose,
+                            child: AdaptiveButton(
+                              onPressed: pocketsNotifier.revertChanges,
+                              style: AdaptiveButtonStyle.plain,
+                              label: 'Revert',
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        AdaptiveButton(
-                          onPressed: pocketsNotifier.saveChanges,
-                          style: AdaptiveButtonStyle.filled,
-                          label: 'Save',
-                        ),
-                      ],
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              remaining >= 0
+                                  ? 'Remaining: ${remaining.toStringAsFixed(0)}'
+                                  : 'Over budget: ${remaining.abs().toStringAsFixed(0)}',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: remaining >= 0
+                                    ? colorScheme.mutedForeground
+                                    : colorScheme.destructive,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Flexible(
+                            fit: FlexFit.loose,
+                            child: AdaptiveButton(
+                              onPressed: pocketsNotifier.saveChanges,
+                              style: AdaptiveButtonStyle.filled,
+                              label: 'Save',
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),

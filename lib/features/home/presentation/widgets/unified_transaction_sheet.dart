@@ -18,6 +18,7 @@ import 'package:moneko/features/home/presentation/state/analytics_provider.dart'
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/datetime.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
@@ -48,10 +49,12 @@ String _formatRelativeDate(DateTime date, BuildContext context) {
     return context.l10n.yesterday;
   } else if (dateOnly.isAfter(today.subtract(const Duration(days: 7)))) {
     // Use localized date formatter for day names
-    return DateFormat.EEEE(Localizations.localeOf(context).toString()).format(localDate);
+    return DateFormat.EEEE(Localizations.localeOf(context).toString())
+        .format(localDate);
   } else {
     // Use localized date formatter for full date
-    return DateFormat.yMMMMd(Localizations.localeOf(context).toString()).format(localDate);
+    return DateFormat.yMMMMd(Localizations.localeOf(context).toString())
+        .format(localDate);
   }
 }
 
@@ -65,8 +68,8 @@ void showUnifiedTransactionSheet(
   UserContact? contact,
   String? localImagePath,
 }) {
-  assert(existingExpense != null || newExpense != null, 
-    'Must provide either existingExpense or newExpense');
+  assert(existingExpense != null || newExpense != null,
+      'Must provide either existingExpense or newExpense');
 
   showModalBottomSheet(
     context: context,
@@ -115,7 +118,7 @@ class _UnifiedTransactionSheetState
   String? _membersError;
   List<HouseholdMember>? _householdMembers;
   String? _selectedPayerUserId;
-  
+
   // Local edits (accumulated until save)
   double? _editedAmount;
   String? _editedCategory;
@@ -124,45 +127,56 @@ class _UnifiedTransactionSheetState
   String? _editedDescription;
 
   /// Get localized category name
-  String _getLocalizedCategory(String category) => getCategoryTranslation(context, category);
+  String _getLocalizedCategory(String category) =>
+      getCategoryTranslation(context, category);
 
   @override
   void initState() {
     super.initState();
-    
+
     // DEBUG: Log expense ID for deep link testing
     if (widget.existingExpense != null) {
-      debugPrint('💸 [DEEP LINK TEST] Expense sheet opened for: ${widget.existingExpense!.id}');
-      debugPrint('🔗 [DEEP LINK TEST] Test with: moneko://expense/${widget.existingExpense!.id}');
+      debugPrint(
+          '💸 [DEEP LINK TEST] Expense sheet opened for: ${widget.existingExpense!.id}');
+      debugPrint(
+          '🔗 [DEEP LINK TEST] Test with: moneko://expense/${widget.existingExpense!.id}');
     }
-    
+
     // Initialize time from existing expense or now
     if (widget.existingExpense != null) {
       final dateTime = toLocalTime(widget.existingExpense!.createdAt);
       _selectedTime = TimeOfDay(hour: dateTime.hour, minute: dateTime.minute);
-      
+
       // DEBUG: Log expense details for household sharing
-      debugPrint('🏠 [HOUSEHOLD SHARE] Expense ID: ${widget.existingExpense!.id}');
-      debugPrint('🏠 [HOUSEHOLD SHARE] householdId: ${widget.existingExpense!.householdId}');
-      debugPrint('🏠 [HOUSEHOLD SHARE] splitGroupId: ${widget.existingExpense!.splitGroupId}');
-      
+      debugPrint(
+          '🏠 [HOUSEHOLD SHARE] Expense ID: ${widget.existingExpense!.id}');
+      debugPrint(
+          '🏠 [HOUSEHOLD SHARE] householdId: ${widget.existingExpense!.householdId}');
+      debugPrint(
+          '🏠 [HOUSEHOLD SHARE] splitGroupId: ${widget.existingExpense!.splitGroupId}');
+
       // Initialize share state from existing expense (shared if linked to a household or has a split group)
       _isSharedWithHousehold = widget.existingExpense!.householdId != null ||
-                               widget.existingExpense!.splitGroupId != null;
-      
-      debugPrint('🏠 [HOUSEHOLD SHARE] _isSharedWithHousehold set to: $_isSharedWithHousehold');
-      
+          widget.existingExpense!.splitGroupId != null;
+
+      debugPrint(
+          '🏠 [HOUSEHOLD SHARE] _isSharedWithHousehold set to: $_isSharedWithHousehold');
+
       // If expense is shared with a household, initialize the household selection and load members
-      if (_isSharedWithHousehold && widget.existingExpense!.householdId != null) {
-        debugPrint('🏠 [HOUSEHOLD SHARE] Initializing household selection: ${widget.existingExpense!.householdId}');
+      if (_isSharedWithHousehold &&
+          widget.existingExpense!.householdId != null) {
+        debugPrint(
+            '🏠 [HOUSEHOLD SHARE] Initializing household selection: ${widget.existingExpense!.householdId}');
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            ref.read(selectedHouseholdForSharingProvider.notifier).state = widget.existingExpense!.householdId;
+            ref.read(selectedHouseholdForSharingProvider.notifier).state =
+                widget.existingExpense!.householdId;
             _loadMembers(widget.existingExpense!.householdId!);
-            
+
             // Load existing split configuration if expense has a split group
             if (widget.existingExpense!.splitGroupId != null) {
-              _loadExistingSplitConfiguration(widget.existingExpense!.splitGroupId!);
+              _loadExistingSplitConfiguration(
+                  widget.existingExpense!.splitGroupId!);
             }
           }
         });
@@ -178,7 +192,8 @@ class _UnifiedTransactionSheetState
         WidgetsBinding.instance.addPostFrameCallback((_) {
           final selected = ref.read(selectedHouseholdProvider).householdId;
           if (selected != null) {
-            ref.read(selectedHouseholdForSharingProvider.notifier).state = selected;
+            ref.read(selectedHouseholdForSharingProvider.notifier).state =
+                selected;
             _loadMembers(selected);
           }
         });
@@ -249,7 +264,8 @@ class _UnifiedTransactionSheetState
   // Generate note prefix like "I spent $XX on category"
   String _generateNotePrefix() {
     final pending = ref.read(pendingExpenseProvider);
-    final isIncomeMode = (isNewExpense && (pending?.isIncome ?? widget.newExpense!.isIncome));
+    final isIncomeMode =
+        (isNewExpense && (pending?.isIncome ?? widget.newExpense!.isIncome));
     final displayAmount = (pending?.amount ?? amount);
     final displayCategory = (pending?.category ?? category);
     if (isIncomeMode) {
@@ -307,13 +323,20 @@ class _UnifiedTransactionSheetState
     final selectedHousehold = ref.watch(selectedHouseholdForSharingProvider);
 
     // For new expenses, use pending expense provider
-    final pendingExpense = isNewExpense ? ref.watch(pendingExpenseProvider) : null;
-    
+    final pendingExpense =
+        isNewExpense ? ref.watch(pendingExpenseProvider) : null;
+
     // Use pending expense if available (for new expenses only), otherwise use local/initial
-    final displayAmount = isNewExpense && pendingExpense != null ? pendingExpense.amount : amount;
-    final displayCategory = isNewExpense && pendingExpense != null ? pendingExpense.category : category;
-    final displayDate = isNewExpense && pendingExpense != null ? pendingExpense.date : date;
-    final displayDescription = isNewExpense && pendingExpense != null ? pendingExpense.description : description;
+    final displayAmount =
+        isNewExpense && pendingExpense != null ? pendingExpense.amount : amount;
+    final displayCategory = isNewExpense && pendingExpense != null
+        ? pendingExpense.category
+        : category;
+    final displayDate =
+        isNewExpense && pendingExpense != null ? pendingExpense.date : date;
+    final displayDescription = isNewExpense && pendingExpense != null
+        ? pendingExpense.description
+        : description;
 
     // Income mode for display (for new or existing items)
     final isIncomeMode = isNewExpense
@@ -344,7 +367,8 @@ class _UnifiedTransactionSheetState
 
           // Header
           Padding(
-            padding: const EdgeInsets.only(left: 8, top: 4, bottom: 8, right: 16),
+            padding:
+                const EdgeInsets.only(left: 8, top: 4, bottom: 8, right: 16),
             child: Row(
               children: [
                 IconButton(
@@ -356,7 +380,11 @@ class _UnifiedTransactionSheetState
                 ),
                 Expanded(
                   child: Text(
-                    isNewExpense ? (isIncomeMode ? context.l10n.confirmIncome : context.l10n.confirmExpense) : context.l10n.expenseDetails,
+                    isNewExpense
+                        ? (isIncomeMode
+                            ? context.l10n.confirmIncome
+                            : context.l10n.confirmExpense)
+                        : context.l10n.expenseDetails,
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
@@ -389,7 +417,9 @@ class _UnifiedTransactionSheetState
                           style: TextStyle(
                             fontSize: 48,
                             fontWeight: FontWeight.w700,
-                            color: isIncomeMode ? const Color(0xFF10B981) : colorScheme.foreground,
+                            color: isIncomeMode
+                                ? const Color(0xFF10B981)
+                                : colorScheme.foreground,
                             letterSpacing: -1.5,
                           ),
                         ),
@@ -489,7 +519,9 @@ class _UnifiedTransactionSheetState
                   const SizedBox(height: 32),
 
                   // Notes Section - always show for new expenses with prefix
-                  if (isNewExpense || (displayDescription != null && displayDescription.isNotEmpty)) ...[
+                  if (isNewExpense ||
+                      (displayDescription != null &&
+                          displayDescription.isNotEmpty)) ...[
                     Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
@@ -502,43 +534,52 @@ class _UnifiedTransactionSheetState
                       ),
                     ),
                     const SizedBox(height: 16),
-                  _buildNotesCard(
-                    colorScheme: colorScheme,
-                    notes: (() {
-                      // Prefer AI-provided description when it matches the UI language;
-                      // otherwise fall back to a localized, minimal description.
-                      final locale = Localizations.localeOf(context);
-                      final desc = displayDescription;
-                      String? effective = desc;
-                      if (effective != null) {
-                        final isReceipt = effective.trimLeft().toLowerCase().startsWith('receipt:');
-                        if (isReceipt) effective = null;
-                      }
-                      if (locale.languageCode.startsWith('zh')) {
-                        final hasCJK = effective != null && RegExp(r'[\u4E00-\u9FFF]').hasMatch(effective);
-                        if (!hasCJK) {
-                          // Use localized category name as a safe fallback
-                          effective = getCategoryTranslation(context, displayCategory);
+                    _buildNotesCard(
+                      colorScheme: colorScheme,
+                      notes: (() {
+                        // Prefer AI-provided description when it matches the UI language;
+                        // otherwise fall back to a localized, minimal description.
+                        final locale = Localizations.localeOf(context);
+                        final desc = displayDescription;
+                        String? effective = desc;
+                        if (effective != null) {
+                          final isReceipt = effective
+                              .trimLeft()
+                              .toLowerCase()
+                              .startsWith('receipt:');
+                          if (isReceipt) effective = null;
                         }
-                      }
-                      // Final fallback
-                      return effective ?? getCategoryTranslation(context, displayCategory);
-                    })(),
-                    onTap: () => _handleEditDescription(displayDescription),
-                  ),
+                        if (locale.languageCode.startsWith('zh')) {
+                          final hasCJK = effective != null &&
+                              RegExp(r'[\u4E00-\u9FFF]').hasMatch(effective);
+                          if (!hasCJK) {
+                            // Use localized category name as a safe fallback
+                            effective = getCategoryTranslation(
+                                context, displayCategory);
+                          }
+                        }
+                        // Final fallback
+                        return effective ??
+                            getCategoryTranslation(context, displayCategory);
+                      })(),
+                      onTap: () => _handleEditDescription(displayDescription),
+                    ),
                     const SizedBox(height: 32),
                   ],
 
                   // Receipt Section - Always show (with placeholder if no image)
                   () {
-                    debugPrint('🖼️ Checking receipt display: effectiveImagePath=$effectiveImagePath');
+                    debugPrint(
+                        '🖼️ Checking receipt display: effectiveImagePath=$effectiveImagePath');
                     return Container();
                   }(),
                   _buildReceiptCard(
                     colorScheme: colorScheme,
-                    localImagePath: isNewExpense ? effectiveImagePath : _localImagePath,
+                    localImagePath:
+                        isNewExpense ? effectiveImagePath : _localImagePath,
                     receiptImageUrl: isNewExpense ? null : receiptImageUrl,
-                    onAddPhoto: effectiveImagePath == null ? _handleAddPhoto : null,
+                    onAddPhoto:
+                        effectiveImagePath == null ? _handleAddPhoto : null,
                   ),
                   const SizedBox(height: 32),
 
@@ -579,8 +620,7 @@ class _UnifiedTransactionSheetState
                                 height: 20,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  valueColor:
-                                      AlwaysStoppedAnimation<Color>(
+                                  valueColor: AlwaysStoppedAnimation<Color>(
                                     colorScheme.destructive,
                                   ),
                                 ),
@@ -613,7 +653,9 @@ class _UnifiedTransactionSheetState
     bool isIncomeMode,
   ) {
     // Auto-select first household when sharing is enabled but no selection exists yet
-    if (_isSharedWithHousehold && households.isNotEmpty && selectedHousehold == null) {
+    if (_isSharedWithHousehold &&
+        households.isNotEmpty &&
+        selectedHousehold == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         final firstId = households.first.id;
@@ -649,7 +691,9 @@ class _UnifiedTransactionSheetState
                     _isSharedWithHousehold = value;
                     if (!value) {
                       // Clear household selection and custom splits
-                      ref.read(selectedHouseholdForSharingProvider.notifier).state = null;
+                      ref
+                          .read(selectedHouseholdForSharingProvider.notifier)
+                          .state = null;
                       _customSplitType = null;
                       _customSplits = null;
                       _householdMembers = null;
@@ -657,7 +701,9 @@ class _UnifiedTransactionSheetState
                       _isLoadingMembers = false;
                     } else if (households.isNotEmpty) {
                       // Auto-select first household when toggling on
-                      ref.read(selectedHouseholdForSharingProvider.notifier).state = households.first.id;
+                      ref
+                          .read(selectedHouseholdForSharingProvider.notifier)
+                          .state = households.first.id;
                       _loadMembers(households.first.id);
                     }
                   });
@@ -665,7 +711,7 @@ class _UnifiedTransactionSheetState
               ),
             ],
           ),
-          
+
           // Show household dropdown only when toggle is ON
           if (_isSharedWithHousehold && households.isNotEmpty) ...[
             const SizedBox(height: 16),
@@ -679,7 +725,8 @@ class _UnifiedTransactionSheetState
                 child: DropdownButton<String>(
                   value: selectedHousehold ?? households.first.id,
                   isExpanded: true,
-                  icon: Icon(Icons.arrow_drop_down, color: colorScheme.foreground),
+                  icon: Icon(Icons.arrow_drop_down,
+                      color: colorScheme.foreground),
                   style: TextStyle(
                     fontSize: 14,
                     color: colorScheme.foreground,
@@ -699,14 +746,17 @@ class _UnifiedTransactionSheetState
                                 width: 32,
                                 height: 32,
                                 fit: BoxFit.cover,
-                                errorBuilder: (context, error, stack) => Container(
+                                errorBuilder: (context, error, stack) =>
+                                    Container(
                                   width: 32,
                                   height: 32,
                                   decoration: BoxDecoration(
                                     color: colorScheme.muted,
                                     borderRadius: BorderRadius.circular(6),
                                   ),
-                                  child: Icon(Icons.home_rounded, size: 16, color: colorScheme.mutedForeground),
+                                  child: Icon(Icons.home_rounded,
+                                      size: 16,
+                                      color: colorScheme.mutedForeground),
                                 ),
                               ),
                             )
@@ -737,7 +787,9 @@ class _UnifiedTransactionSheetState
                   }).toList(),
                   onChanged: (value) {
                     if (value != null) {
-                      ref.read(selectedHouseholdForSharingProvider.notifier).state = value;
+                      ref
+                          .read(selectedHouseholdForSharingProvider.notifier)
+                          .state = value;
                       // Reset custom splits when changing household
                       setState(() {
                         _customSplitType = null;
@@ -770,12 +822,14 @@ class _UnifiedTransactionSheetState
                           height: 18,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation(colorScheme.primary),
+                            valueColor:
+                                AlwaysStoppedAnimation(colorScheme.primary),
                           ),
                         ),
                         const SizedBox(width: 10),
                         Text(context.l10n.loadingHouseholdMembers,
-                            style: TextStyle(color: colorScheme.mutedForeground)),
+                            style:
+                                TextStyle(color: colorScheme.mutedForeground)),
                       ],
                     ),
                   );
@@ -789,7 +843,8 @@ class _UnifiedTransactionSheetState
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.error_outline, color: colorScheme.destructive, size: 18),
+                        Icon(Icons.error_outline,
+                            color: colorScheme.destructive, size: 18),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -815,64 +870,76 @@ class _UnifiedTransactionSheetState
                   );
                 }
 
-                final pendingExpense = isNewExpense ? ref.read(pendingExpenseProvider) : null;
+                final pendingExpense =
+                    isNewExpense ? ref.read(pendingExpenseProvider) : null;
                 final currentAmount = pendingExpense?.amount ?? amount;
 
                 // Ensure default payer selection
                 _selectedPayerUserId ??= ref.read(authProvider).uid;
 
-            // For income mode, we hide the custom split editor entirely
-            if (isIncomeMode) {
-              return const SizedBox();
-            }
-            return Container(
-              decoration: BoxDecoration(
-                color: colorScheme.muted.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                children: [
-                  // Who paid selector
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'Who paid?',
-                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: colorScheme.foreground),
-                          ),
-                        ),
-                        DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _selectedPayerUserId,
-                            items: _householdMembers!.map((m) => DropdownMenuItem<String>(
-                              value: m.userId,
-                              child: Text(m.userName ?? m.userEmail ?? 'Member', overflow: TextOverflow.ellipsis),
-                            )).toList(),
-                            onChanged: (v) => setState(() => _selectedPayerUserId = v),
-                          ),
-                        ),
-                      ],
-                    ),
+                // For income mode, we hide the custom split editor entirely
+                if (isIncomeMode) {
+                  return const SizedBox();
+                }
+                return Container(
+                  decoration: BoxDecoration(
+                    color: colorScheme.muted.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  const SizedBox(height: 8),
-                  CustomSplitEditor(
-                    key: ValueKey('split_${_customSplitType}_${_customSplits?.length}'),
-                    members: _householdMembers!,
-                    totalAmount: currentAmount,
-                    currencySymbol: currencySymbol,
-                    initialSplitType: _customSplitType,
-                    initialSplits: _customSplits,
-                    onChanged: (splitType, splits) {
-                      setState(() {
-                        _customSplitType = splitType;
-                        _customSplits = splits;
-                      });
-                    },
+                  child: Column(
+                    children: [
+                      // Who paid selector
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Who paid?',
+                                style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: colorScheme.foreground),
+                              ),
+                            ),
+                            DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: _selectedPayerUserId,
+                                items: _householdMembers!
+                                    .map((m) => DropdownMenuItem<String>(
+                                          value: m.userId,
+                                          child: Text(
+                                              m.userName ??
+                                                  m.userEmail ??
+                                                  'Member',
+                                              overflow: TextOverflow.ellipsis),
+                                        ))
+                                    .toList(),
+                                onChanged: (v) =>
+                                    setState(() => _selectedPayerUserId = v),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      CustomSplitEditor(
+                        key: ValueKey(
+                            'split_${_customSplitType}_${_customSplits?.length}'),
+                        members: _householdMembers!,
+                        totalAmount: currentAmount,
+                        currencySymbol: currencySymbol,
+                        initialSplitType: _customSplitType,
+                        initialSplits: _customSplits,
+                        onChanged: (splitType, splits) {
+                          setState(() {
+                            _customSplitType = splitType;
+                            _customSplits = splits;
+                          });
+                        },
+                      ),
+                    ],
                   ),
-                ],
-              ),
                 );
               },
             ),
@@ -909,7 +976,9 @@ class _UnifiedTransactionSheetState
                     label,
                     style: TextStyle(
                       fontSize: 13,
-                      color: disabled ? colorScheme.mutedForeground.withValues(alpha: 0.6) : colorScheme.mutedForeground,
+                      color: disabled
+                          ? colorScheme.mutedForeground.withValues(alpha: 0.6)
+                          : colorScheme.mutedForeground,
                       fontWeight: FontWeight.w400,
                     ),
                   ),
@@ -918,14 +987,20 @@ class _UnifiedTransactionSheetState
                     value,
                     style: TextStyle(
                       fontSize: 15,
-                      color: disabled ? colorScheme.mutedForeground : colorScheme.foreground,
+                      color: disabled
+                          ? colorScheme.mutedForeground
+                          : colorScheme.foreground,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
               ),
             ),
-            Icon(Icons.chevron_right, color: disabled ? colorScheme.mutedForeground.withValues(alpha: 0.4) : colorScheme.mutedForeground, size: 18),
+            Icon(Icons.chevron_right,
+                color: disabled
+                    ? colorScheme.mutedForeground.withValues(alpha: 0.4)
+                    : colorScheme.mutedForeground,
+                size: 18),
           ],
         ),
       ),
@@ -1004,7 +1079,7 @@ class _UnifiedTransactionSheetState
     // Show receipt title if there's an image or add photo option
     final hasImage = localImagePath != null || receiptImageUrl != null;
     final canAddPhoto = onAddPhoto != null;
-    
+
     if (!hasImage && !canAddPhoto) {
       return const SizedBox(); // No image and no way to add one
     }
@@ -1027,10 +1102,12 @@ class _UnifiedTransactionSheetState
           ),
           const SizedBox(height: 16),
         ],
-        
+
         // Image or placeholder
         GestureDetector(
-          onTap: hasImage ? () => _showFullScreenImage(localImagePath, receiptImageUrl) : null,
+          onTap: hasImage
+              ? () => _showFullScreenImage(localImagePath, receiptImageUrl)
+              : null,
           child: Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
@@ -1042,7 +1119,8 @@ class _UnifiedTransactionSheetState
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: localImagePath != null
-                  ? Image.file(File(localImagePath), fit: BoxFit.cover, height: 200)
+                  ? Image.file(File(localImagePath),
+                      fit: BoxFit.cover, height: 200)
                   : receiptImageUrl != null
                       ? Image.network(
                           receiptImageUrl,
@@ -1055,7 +1133,8 @@ class _UnifiedTransactionSheetState
                               color: colorScheme.muted,
                               child: Center(
                                 child: CircularProgressIndicator(
-                                  value: loadingProgress.expectedTotalBytes != null
+                                  value: loadingProgress.expectedTotalBytes !=
+                                          null
                                       ? loadingProgress.cumulativeBytesLoaded /
                                           loadingProgress.expectedTotalBytes!
                                       : null,
@@ -1095,7 +1174,8 @@ class _UnifiedTransactionSheetState
     );
   }
 
-  Widget _buildReceiptPlaceholder(ColorScheme colorScheme, VoidCallback onAddPhoto) {
+  Widget _buildReceiptPlaceholder(
+      ColorScheme colorScheme, VoidCallback onAddPhoto) {
     return InkWell(
       onTap: onAddPhoto,
       borderRadius: BorderRadius.circular(12),
@@ -1195,7 +1275,8 @@ class _UnifiedTransactionSheetState
 
   void _handleEditCategory(String currentCategory) async {
     final isIncomeMode = isNewExpense
-        ? (ref.read(pendingExpenseProvider)?.isIncome ?? widget.newExpense!.isIncome)
+        ? (ref.read(pendingExpenseProvider)?.isIncome ??
+            widget.newExpense!.isIncome)
         : ((widget.existingExpense?.type?.toLowerCase() == 'income'));
 
     final result = await showCategoryPicker(
@@ -1203,7 +1284,7 @@ class _UnifiedTransactionSheetState
       currentCategory: currentCategory,
       isIncome: isIncomeMode,
     );
-    
+
     if (result != null) {
       if (isNewExpense) {
         final current = ref.read(pendingExpenseProvider);
@@ -1220,91 +1301,92 @@ class _UnifiedTransactionSheetState
   }
 
   void _handleEditDate(DateTime currentDate) async {
-      DateTime? result;
-      
-      if (Platform.isIOS) {
-        // Use Cupertino date picker for iOS
-        result = await showCupertinoModalPopup<DateTime>(
-          context: context,
-          builder: (context) {
-            DateTime tempDate = currentDate;
-            return Container(
-              height: 300,
-              color: CupertinoColors.systemBackground.resolveFrom(context),
-              child: Column(
-                children: [
-                  // Header with Done button
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(
-                          color: CupertinoColors.separator.resolveFrom(context),
-                          width: 0.5,
-                        ),
+    DateTime? result;
+
+    if (Platform.isIOS) {
+      // Use Cupertino date picker for iOS
+      result = await showCupertinoModalPopup<DateTime>(
+        context: context,
+        builder: (context) {
+          DateTime tempDate = currentDate;
+          return Container(
+            height: 300,
+            color: CupertinoColors.systemBackground.resolveFrom(context),
+            child: Column(
+              children: [
+                // Header with Done button
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: CupertinoColors.separator.resolveFrom(context),
+                        width: 0.5,
                       ),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        CupertinoButton(
-                          padding: EdgeInsets.zero,
-                          onPressed: () => Navigator.pop(context),
-                          child: Text(context.l10n.cancel),
-                        ),
-                        CupertinoButton(
-                          padding: EdgeInsets.zero,
-                          onPressed: () => Navigator.pop(context, tempDate),
-                          child: Text(context.l10n.done),
-                        ),
-                      ],
-                    ),
                   ),
-                  // Date picker
-                  Expanded(
-                    child: CupertinoDatePicker(
-                      mode: CupertinoDatePickerMode.date,
-                      initialDateTime: currentDate,
-                      minimumDate: DateTime(2020),
-                      maximumDate: DateTime.now(),
-                      onDateTimeChanged: (DateTime value) {
-                        tempDate = value;
-                      },
-                    ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        onPressed: () => Navigator.pop(context),
+                        child: Text(context.l10n.cancel),
+                      ),
+                      CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        onPressed: () => Navigator.pop(context, tempDate),
+                        child: Text(context.l10n.done),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            );
-          },
-        );
-      } else {
-        // Use Material date picker for Android
-        result = await showDatePicker(
-          context: context,
-          initialDate: currentDate,
-          firstDate: DateTime(2020),
-          lastDate: DateTime.now(),
-        );
-      }
-      
-      if (result != null) {
-        if (isNewExpense) {
-          final current = ref.read(pendingExpenseProvider);
-          if (current != null) {
-            ref.read(pendingExpenseProvider.notifier).state =
-                current.copyWith(date: result);
-          }
-        } else {
-          setState(() {
-            _editedDate = result;
-          });
+                ),
+                // Date picker
+                Expanded(
+                  child: CupertinoDatePicker(
+                    mode: CupertinoDatePickerMode.date,
+                    initialDateTime: currentDate,
+                    minimumDate: DateTime(2020),
+                    maximumDate: DateTime.now(),
+                    onDateTimeChanged: (DateTime value) {
+                      tempDate = value;
+                    },
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    } else {
+      // Use Material date picker for Android
+      result = await showDatePicker(
+        context: context,
+        initialDate: currentDate,
+        firstDate: DateTime(2020),
+        lastDate: DateTime.now(),
+      );
+    }
+
+    if (result != null) {
+      if (isNewExpense) {
+        final current = ref.read(pendingExpenseProvider);
+        if (current != null) {
+          ref.read(pendingExpenseProvider.notifier).state =
+              current.copyWith(date: result);
         }
+      } else {
+        setState(() {
+          _editedDate = result;
+        });
       }
+    }
   }
 
   void _handleEditTime() async {
     TimeOfDay? result;
-    
+
     if (Platform.isIOS) {
       // Use Cupertino time picker for iOS
       final now = DateTime.now();
@@ -1315,7 +1397,7 @@ class _UnifiedTransactionSheetState
         _selectedTime.hour,
         _selectedTime.minute,
       );
-      
+
       final dateTime = await showCupertinoModalPopup<DateTime>(
         context: context,
         builder: (context) {
@@ -1327,7 +1409,8 @@ class _UnifiedTransactionSheetState
               children: [
                 // Header with Done button
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
                     border: Border(
                       bottom: BorderSide(
@@ -1368,7 +1451,7 @@ class _UnifiedTransactionSheetState
           );
         },
       );
-      
+
       if (dateTime != null) {
         result = TimeOfDay(hour: dateTime.hour, minute: dateTime.minute);
       }
@@ -1379,7 +1462,7 @@ class _UnifiedTransactionSheetState
         initialTime: _selectedTime,
       );
     }
-    
+
     if (result != null) {
       setState(() {
         _selectedTime = result!;
@@ -1388,177 +1471,181 @@ class _UnifiedTransactionSheetState
   }
 
   void _handleEditDescription(String? currentDescription) async {
-      final colorScheme = Theme.of(context).colorScheme;
-      final notePrefix = _generateNotePrefix();
-      final initialDescription = () {
-        if (currentDescription == null) return notePrefix;
-        final trimmed = currentDescription.trimLeft();
-        final isReceipt = trimmed.toLowerCase().startsWith('receipt:');
-        return isReceipt ? notePrefix : currentDescription;
-      }();
-      final controller = TextEditingController(text: initialDescription);
+    final colorScheme = Theme.of(context).colorScheme;
+    final notePrefix = _generateNotePrefix();
+    final initialDescription = () {
+      if (currentDescription == null) return notePrefix;
+      final trimmed = currentDescription.trimLeft();
+      final isReceipt = trimmed.toLowerCase().startsWith('receipt:');
+      return isReceipt ? notePrefix : currentDescription;
+    }();
+    final controller = TextEditingController(text: initialDescription);
 
-      String? result;
-      if (Platform.isIOS) {
-        result = await showCupertinoModalPopup<String>(
-          context: context,
-          builder: (context) {
-            return Container(
-              padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-              color: CupertinoColors.systemBackground.resolveFrom(context),
-              child: SafeArea(
-                top: false,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+    String? result;
+    if (Platform.isIOS) {
+      result = await showCupertinoModalPopup<String>(
+        context: context,
+        builder: (context) {
+          return Container(
+            padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom),
+            color: CupertinoColors.systemBackground.resolveFrom(context),
+            child: SafeArea(
+              top: false,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 10, bottom: 6),
+                    width: 32,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: CupertinoColors.separator.resolveFrom(context),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        CupertinoButton(
+                          padding: EdgeInsets.zero,
+                          onPressed: () => Navigator.pop(context),
+                          child: Text(context.l10n.cancel),
+                        ),
+                        Text(context.l10n.editNotes,
+                            style: const TextStyle(
+                                fontSize: 17, fontWeight: FontWeight.w600)),
+                        CupertinoButton(
+                          padding: EdgeInsets.zero,
+                          onPressed: () =>
+                              Navigator.pop(context, controller.text),
+                          child: Text(context.l10n.save),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    child: CupertinoTextField(
+                      controller: controller,
+                      placeholder: context.l10n.addANote,
+                      maxLines: 4,
+                      autofocus: true,
+                      padding: const EdgeInsets.all(12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    } else {
+      result = await showModalBottomSheet<String>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => Container(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          decoration: BoxDecoration(
+            color: colorScheme.card,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 10, bottom: 6),
+                width: 32,
+                height: 4,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: colorScheme.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+                child: Text(
+                  context.l10n.editNotes,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.foreground,
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: TextField(
+                  controller: controller,
+                  decoration: InputDecoration(
+                    hintText: context.l10n.addANote,
+                    filled: true,
+                    fillColor: colorScheme.muted.withValues(alpha: 0.1),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  maxLines: 4,
+                  autofocus: true,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) => FocusScope.of(context).unfocus(),
+                  onTapOutside: (_) => FocusScope.of(context).unfocus(),
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: colorScheme.foreground,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+                child: Row(
                   children: [
-                    Container(
-                      margin: const EdgeInsets.only(top: 10, bottom: 6),
-                      width: 32,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: CupertinoColors.separator.resolveFrom(context),
-                        borderRadius: BorderRadius.circular(2),
+                    Expanded(
+                      child: AdaptiveButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: AdaptiveButtonStyle.plain,
+                        label: context.l10n.cancel,
                       ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          CupertinoButton(
-                            padding: EdgeInsets.zero,
-                            onPressed: () => Navigator.pop(context),
-                            child: Text(context.l10n.cancel),
-                          ),
-                          Text(context.l10n.editNotes, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
-                          CupertinoButton(
-                            padding: EdgeInsets.zero,
-                            onPressed: () => Navigator.pop(context, controller.text),
-                            child: Text(context.l10n.save),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                      child: CupertinoTextField(
-                        controller: controller,
-                        placeholder: context.l10n.addANote,
-                        maxLines: 4,
-                        autofocus: true,
-                        padding: const EdgeInsets.all(12),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: AdaptiveButton(
+                        onPressed: () =>
+                            Navigator.pop(context, controller.text),
+                        label: context.l10n.save,
                       ),
                     ),
                   ],
                 ),
               ),
-            );
-          },
-        );
-      } else {
-        result = await showModalBottomSheet<String>(
-          context: context,
-          isScrollControlled: true,
-          backgroundColor: Colors.transparent,
-          builder: (context) => Container(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).viewInsets.bottom,
-            ),
-            decoration: BoxDecoration(
-              color: colorScheme.card,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  margin: const EdgeInsets.only(top: 10, bottom: 6),
-                  width: 32,
-                  height: 4,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: colorScheme.border,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
-                  child: Text(
-                    context.l10n.editNotes,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: colorScheme.foreground,
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: TextField(
-                    controller: controller,
-                    decoration: InputDecoration(
-                      hintText: context.l10n.addANote,
-                      filled: true,
-                      fillColor: colorScheme.muted.withValues(alpha: 0.1),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                    maxLines: 4,
-                    autofocus: true,
-                    textInputAction: TextInputAction.done,
-                    onSubmitted: (_) => FocusScope.of(context).unfocus(),
-                    onTapOutside: (_) => FocusScope.of(context).unfocus(),
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: colorScheme.foreground,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: AdaptiveButton(
-                          onPressed: () => Navigator.pop(context),
-                          style: AdaptiveButtonStyle.plain,
-                          label: context.l10n.cancel,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: AdaptiveButton(
-                          onPressed: () =>
-                              Navigator.pop(context, controller.text),
-                          label: context.l10n.save,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+            ],
           ),
-        );
-      }
-      
-      if (result != null) {
-        if (isNewExpense) {
-          final current = ref.read(pendingExpenseProvider);
-          if (current != null) {
-            ref.read(pendingExpenseProvider.notifier).state =
-                current.copyWith(description: result);
-          }
-        } else {
-          setState(() {
-            _editedDescription = result;
-          });
+        ),
+      );
+    }
+
+    if (result != null) {
+      if (isNewExpense) {
+        final current = ref.read(pendingExpenseProvider);
+        if (current != null) {
+          ref.read(pendingExpenseProvider.notifier).state =
+              current.copyWith(description: result);
         }
+      } else {
+        setState(() {
+          _editedDescription = result;
+        });
       }
+    }
   }
 
   Future<void> _loadMembers(String householdId) async {
@@ -1611,70 +1698,77 @@ class _UnifiedTransactionSheetState
 
   /// Load existing split configuration from database
   Future<void> _loadExistingSplitConfiguration(String splitGroupId) async {
-    debugPrint('🔄 [LOAD SPLIT] Loading existing split configuration for: $splitGroupId');
-    
+    debugPrint(
+        '🔄 [LOAD SPLIT] Loading existing split configuration for: $splitGroupId');
+
     try {
       final householdId = widget.existingExpense!.householdId;
       if (householdId == null) return;
-      
+
       // Load splits for this household
       final splitsAsync = await ref.read(householdSplitsProvider(
         HouseholdSplitsParams(householdId: householdId),
       ).future);
-      
+
       // Find the split group for this expense
       final splitGroup = splitsAsync.firstWhere(
         (g) => g.id == splitGroupId,
         orElse: () => throw Exception('Split group not found'),
       );
-      
+
       debugPrint('🔄 [LOAD SPLIT] Found split group: ${splitGroup.splitType}');
-      debugPrint('🔄 [LOAD SPLIT] Split lines: ${splitGroup.splitLines?.length ?? 0}');
-      
+      debugPrint(
+          '🔄 [LOAD SPLIT] Split lines: ${splitGroup.splitLines?.length ?? 0}');
+
       if (splitGroup.splitLines == null || splitGroup.splitLines!.isEmpty) {
         debugPrint('⚠️ [LOAD SPLIT] No split lines found');
         return;
       }
-      
+
       // Wait for members to load first
       while (_householdMembers == null && _isLoadingMembers) {
         await Future.delayed(const Duration(milliseconds: 100));
       }
-      
+
       if (_householdMembers == null) {
         debugPrint('⚠️ [LOAD SPLIT] Members not loaded');
         return;
       }
-      
+
       // Convert split lines to MemberSplit objects
       final memberSplits = <MemberSplit>[];
       for (final member in _householdMembers!) {
         final splitLine = splitGroup.splitLines!.firstWhere(
           (line) => line.userId == member.userId,
-          orElse: () => throw Exception('Split line not found for member ${member.userId}'),
+          orElse: () => throw Exception(
+              'Split line not found for member ${member.userId}'),
         );
-        
+
         memberSplits.add(MemberSplit(
           member: member,
-          amount: splitLine.amountCents != null ? splitLine.amountCents! / 100.0 : null,
+          amount: splitLine.amountCents != null
+              ? splitLine.amountCents! / 100.0
+              : null,
           percentage: splitLine.percentage,
           shares: splitLine.shares,
           includedInAmount: true,
           includedInPercentage: true,
         ));
-        
-        debugPrint('🔄 [LOAD SPLIT] Member ${member.userName ?? member.userEmail}: amountCents=${splitLine.amountCents}');
+
+        debugPrint(
+            '🔄 [LOAD SPLIT] Member ${member.userName ?? member.userEmail}: amountCents=${splitLine.amountCents}');
       }
-      
+
       if (mounted) {
         // Map ExpenseSplitGroup.SplitType to CustomSplitSheet.SplitType
         final uiSplitType = _mapSplitType(splitGroup.splitType);
-        
+
         setState(() {
           _customSplitType = uiSplitType;
           _customSplits = memberSplits;
         });
-        debugPrint('✅ [LOAD SPLIT] Initialized split editor with existing configuration: $uiSplitType');
+        debugPrint(
+            '✅ [LOAD SPLIT] Initialized split editor with existing configuration: $uiSplitType');
       }
     } catch (error) {
       debugPrint('❌ [LOAD SPLIT] Error loading split configuration: $error');
@@ -1738,33 +1832,38 @@ class _UnifiedTransactionSheetState
           final saved = await ref.read(incomeSaveProvider.notifier).saveIncome(
                 userId: user.uid,
                 amount: expense.amount,
-                category: expense.category.isNotEmpty ? expense.category : 'income',
+                category:
+                    expense.category.isNotEmpty ? expense.category : 'income',
                 currency: expense.currency,
                 date: expenseDateTime,
                 description: expense.description,
-                householdId: _isSharedWithHousehold ? selectedHousehold : null,  // ✅ FIX: Only pass if toggle is ON
+                householdId: _isSharedWithHousehold
+                    ? selectedHousehold
+                    : null, // ✅ FIX: Only pass if toggle is ON
               );
 
           // Reset state
           ref.read(pendingExpenseProvider.notifier).state = null;
           ref.read(selectedHouseholdForSharingProvider.notifier).state = null;
-        // Upload receipt image if available
-        // Priority: 1) expense.localImagePath (from ParsedExpense), 2) widget.localImagePath (fallback)
-        String? receiptUrl;
-        final imagePathToUpload = expense.localImagePath ?? widget.localImagePath;
+          // Upload receipt image if available
+          // Priority: 1) expense.localImagePath (from ParsedExpense), 2) widget.localImagePath (fallback)
+          String? receiptUrl;
+          final imagePathToUpload =
+              expense.localImagePath ?? widget.localImagePath;
 
-        if (imagePathToUpload != null) {
-          debugPrint('📤 Uploading receipt image: $imagePathToUpload');
-          receiptUrl = await ref
-              .read(expenseSaveNotifierProvider.notifier)
-              .uploadReceiptImage(File(imagePathToUpload), user.uid);
-          debugPrint('📤 Receipt upload result: $receiptUrl');
-        } else {
-          debugPrint('📤 No local image path to upload');
-        }
+          if (imagePathToUpload != null) {
+            debugPrint('📤 Uploading receipt image: $imagePathToUpload');
+            receiptUrl = await ref
+                .read(expenseSaveNotifierProvider.notifier)
+                .uploadReceiptImage(File(imagePathToUpload), user.uid);
+            debugPrint('📤 Receipt upload result: $receiptUrl');
+          } else {
+            debugPrint('📤 No local image path to upload');
+          }
 
           // Ensure UI updates immediately
-          if (viewMode.mode == ViewMode.household && selectedHousehold != null) {
+          if (viewMode.mode == ViewMode.household &&
+              selectedHousehold != null) {
             final homeFilter = ref.watch(homeFilterProvider);
             final dateRange = getDateRangeFromFilter(
               homeFilter.dateRangeFilter,
@@ -1772,7 +1871,8 @@ class _UnifiedTransactionSheetState
               homeFilter.customEndDate,
             );
             ref.invalidate(householdExpensesProvider(
-              HouseholdExpensesParams(householdId: selectedHousehold, limit: 500),
+              HouseholdExpensesParams(
+                  householdId: selectedHousehold, limit: 500),
             ));
             ref.invalidate(householdSplitsProvider(
               HouseholdSplitsParams(householdId: selectedHousehold),
@@ -1787,8 +1887,16 @@ class _UnifiedTransactionSheetState
               ),
             ));
             ref.invalidate(householdMembersProvider(selectedHousehold));
+
+            ref.invalidate(pocketsProvider(PocketsScopeParams(
+              scope: PocketsScopeType.household,
+              householdId: selectedHousehold,
+            )));
           } else {
             ref.read(analyticsProvider.notifier).refresh(user.uid);
+            ref.invalidate(pocketsProvider(const PocketsScopeParams(
+              scope: PocketsScopeType.personal,
+            )));
           }
 
           if (!mounted) return;
@@ -1797,7 +1905,9 @@ class _UnifiedTransactionSheetState
           if (saved != null) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(selectedHousehold != null ? context.l10n.incomeSavedAndShared : context.l10n.incomeSaved),
+                content: Text(selectedHousehold != null
+                    ? context.l10n.incomeSavedAndShared
+                    : context.l10n.incomeSaved),
                 backgroundColor: Theme.of(context).colorScheme.primary,
                 duration: const Duration(seconds: 2),
                 behavior: SnackBarBehavior.floating,
@@ -1831,46 +1941,59 @@ class _UnifiedTransactionSheetState
           // Save expense with time and custom splits (if configured)
           await ref.read(expenseSaveNotifierProvider.notifier).saveExpense(
                 expense: expenseWithTime,
-                householdId: _isSharedWithHousehold ? selectedHousehold : null,  // ✅ FIX: Only pass if toggle is ON
+                householdId: _isSharedWithHousehold
+                    ? selectedHousehold
+                    : null, // ✅ FIX: Only pass if toggle is ON
                 receiptImageUrl: receiptUrl,
                 customSplitType: _customSplitType,
                 customSplits: _customSplits,
-                payerUserId: _isSharedWithHousehold ? _selectedPayerUserId : null,
+                payerUserId:
+                    _isSharedWithHousehold ? _selectedPayerUserId : null,
               );
 
-        AppToast.success(l10n.expenseSaved);
+          AppToast.success(l10n.expenseSaved);
 
-        // Ensure UI updates immediately and close sheet
-        if (viewMode.mode == ViewMode.household && selectedHousehold != null) {
-          final homeFilter = ref.watch(homeFilterProvider);
-          final dateRange = getDateRangeFromFilter(
-            homeFilter.dateRangeFilter,
-            homeFilter.customStartDate,
-            homeFilter.customEndDate,
-          );
-          ref.invalidate(householdExpensesProvider(
-            HouseholdExpensesParams(householdId: selectedHousehold, limit: 500),
-          ));
-          ref.invalidate(householdSplitsProvider(
-            HouseholdSplitsParams(householdId: selectedHousehold),
-          ));
-          ref.invalidate(householdBudgetsProvider(selectedHousehold));
-          ref.invalidate(householdSummaryProvider(
-            HouseholdSummaryParams(
+          // Ensure UI updates immediately and close sheet
+          if (viewMode.mode == ViewMode.household &&
+              selectedHousehold != null) {
+            final homeFilter = ref.watch(homeFilterProvider);
+            final dateRange = getDateRangeFromFilter(
+              homeFilter.dateRangeFilter,
+              homeFilter.customStartDate,
+              homeFilter.customEndDate,
+            );
+            ref.invalidate(householdExpensesProvider(
+              HouseholdExpensesParams(
+                  householdId: selectedHousehold, limit: 500),
+            ));
+            ref.invalidate(householdSplitsProvider(
+              HouseholdSplitsParams(householdId: selectedHousehold),
+            ));
+            ref.invalidate(householdBudgetsProvider(selectedHousehold));
+            ref.invalidate(householdSummaryProvider(
+              HouseholdSummaryParams(
+                householdId: selectedHousehold,
+                currency: homeFilter.selectedCurrency ?? 'USD',
+                startDate: dateRange['from']!.toIso8601String(),
+                endDate: dateRange['to']!.toIso8601String(),
+              ),
+            ));
+            ref.invalidate(householdMembersProvider(selectedHousehold));
+
+            ref.invalidate(pocketsProvider(PocketsScopeParams(
+              scope: PocketsScopeType.household,
               householdId: selectedHousehold,
-              currency: homeFilter.selectedCurrency ?? 'USD',
-              startDate: dateRange['from']!.toIso8601String(),
-              endDate: dateRange['to']!.toIso8601String(),
-            ),
-          ));
-          ref.invalidate(householdMembersProvider(selectedHousehold));
-        } else {
-          ref.read(analyticsProvider.notifier).refresh(user.uid);
-        }
+            )));
+          } else {
+            ref.read(analyticsProvider.notifier).refresh(user.uid);
+            ref.invalidate(pocketsProvider(const PocketsScopeParams(
+              scope: PocketsScopeType.personal,
+            )));
+          }
 
-        if (!mounted) return;
-        Navigator.of(context).pop();
-      }
+          if (!mounted) return;
+          Navigator.of(context).pop();
+        }
       } else {
         // EXISTING EXPENSE: Build updates map from local edits
         final Map<String, dynamic> updates = {};
@@ -1878,19 +2001,19 @@ class _UnifiedTransactionSheetState
         if (_editedAmount != null) {
           updates['amount_cents'] = (_editedAmount! * 100).round();
         }
-        
+
         if (_editedCategory != null) {
           updates['category'] = _editedCategory;
         }
-        
+
         if (_editedCurrency != null) {
           updates['currency'] = _editedCurrency;
         }
-        
+
         if (_editedDescription != null) {
           updates['raw_text'] = _editedDescription;
         }
-        
+
         // Handle date and time updates separately
         final finalDate = _editedDate ?? widget.existingExpense!.date;
         final expenseDateTime = DateTime(
@@ -1900,21 +2023,22 @@ class _UnifiedTransactionSheetState
           _selectedTime.hour,
           _selectedTime.minute,
         );
-        
+
         // Backend expects date in YYYY-MM-DD format (local date)
         updates['date'] = DateFormat('yyyy-MM-dd').format(finalDate);
-        
+
         // Send full datetime as created_at in UTC to preserve timezone consistency
         updates['created_at'] = expenseDateTime.toUtc().toIso8601String();
 
         // Handle receipt image upload for existing expenses
         if (_localImagePath != null) {
-          debugPrint('📤 Uploading new receipt image for existing expense: $_localImagePath');
+          debugPrint(
+              '📤 Uploading new receipt image for existing expense: $_localImagePath');
           final receiptUrl = await ref
               .read(expenseSaveNotifierProvider.notifier)
               .uploadReceiptImage(File(_localImagePath!), user.uid);
           debugPrint('📤 New receipt upload result: $receiptUrl');
-          
+
           if (receiptUrl != null) {
             updates['receipt_image_url'] = receiptUrl;
           }
@@ -1941,25 +2065,39 @@ class _UnifiedTransactionSheetState
           // transactionEditNotifier already refreshes analyticsProvider (line 92)
           // and household providers if expense has householdId (lines 94-110)
           // We add explicit invalidation here to ensure immediate UI update in BOTH modes
-          
+
           if (viewMode.mode == ViewMode.household) {
             // In household mode: Ensure all household providers are invalidated
             // This guarantees the UI updates immediately when viewing household expenses
-            debugPrint('🔄 [UI REFRESH] Invalidating household providers after expense update');
+            debugPrint(
+                '🔄 [UI REFRESH] Invalidating household providers after expense update');
             ref.invalidate(householdExpensesProvider);
             ref.invalidate(householdSplitsProvider);
             ref.invalidate(householdBudgetsProvider);
             ref.invalidate(householdSummaryProvider);
             ref.invalidate(householdMembersProvider);
+
+            final currentHouseholdId =
+                ref.read(selectedHouseholdProvider).householdId;
+            if (currentHouseholdId != null) {
+              ref.invalidate(pocketsProvider(PocketsScopeParams(
+                scope: PocketsScopeType.household,
+                householdId: currentHouseholdId,
+              )));
+            }
           } else {
             // In personal mode: Force refresh of analytics data to ensure UI updates immediately
-            debugPrint('🔄 [UI REFRESH] Refreshing analytics data after expense update');
+            debugPrint(
+                '🔄 [UI REFRESH] Refreshing analytics data after expense update');
             ref.read(analyticsProvider.notifier).refresh(user.uid);
+            ref.invalidate(pocketsProvider(const PocketsScopeParams(
+              scope: PocketsScopeType.personal,
+            )));
           }
-          
+
           // Close the sheet so when user reopens it, they see fresh data
           Navigator.of(context).pop();
-          
+
           AppToast.success('Expense updated successfully');
         } else {
           throw Exception('Failed to update expense');
@@ -1979,10 +2117,10 @@ class _UnifiedTransactionSheetState
 
   Future<void> _handleDelete() async {
     final colorScheme = Theme.of(context).colorScheme;
-    
+
     // Show platform-specific confirmation dialog
     bool? confirmed;
-    
+
     if (Platform.isIOS) {
       // iOS-style dialog
       confirmed = await showCupertinoDialog<bool>(
@@ -2012,7 +2150,8 @@ class _UnifiedTransactionSheetState
         builder: (context) => AlertDialog(
           title: Row(
             children: [
-              Icon(Icons.warning_rounded, color: colorScheme.destructive, size: 24),
+              Icon(Icons.warning_rounded,
+                  color: colorScheme.destructive, size: 24),
               const SizedBox(width: 12),
               Text(context.l10n.deleteExpense),
             ],
@@ -2035,7 +2174,8 @@ class _UnifiedTransactionSheetState
                 foregroundColor: colorScheme.destructive,
                 backgroundColor: colorScheme.destructive.withValues(alpha: 0.1),
               ),
-              child: Text(context.l10n.delete, style: const TextStyle(fontWeight: FontWeight.w600)),
+              child: Text(context.l10n.delete,
+                  style: const TextStyle(fontWeight: FontWeight.w600)),
             ),
           ],
           shape: RoundedRectangleBorder(
@@ -2051,7 +2191,7 @@ class _UnifiedTransactionSheetState
 
     try {
       final user = ref.read(authProvider);
-      
+
       debugPrint('🗑️ Deleting expense: ${widget.existingExpense!.id}');
 
       // Call delete API
@@ -2071,11 +2211,15 @@ class _UnifiedTransactionSheetState
 
       // Refresh analytics data (personal expenses)
       await ref.read(analyticsProvider.notifier).loadData(user.uid);
+      ref.invalidate(pocketsProvider(const PocketsScopeParams(
+        scope: PocketsScopeType.personal,
+      )));
 
       // If this was a household expense, invalidate household providers
       final householdId = widget.existingExpense!.householdId;
       if (householdId != null) {
-        debugPrint('🔄 Invalidating household providers for household: $householdId');
+        debugPrint(
+            '🔄 Invalidating household providers for household: $householdId');
 
         // Invalidate household list to update counts
         ref.invalidate(userHouseholdsProvider(user.uid));
@@ -2085,6 +2229,11 @@ class _UnifiedTransactionSheetState
         ref.invalidate(householdExpensesProvider);
         ref.invalidate(householdSplitsProvider);
         ref.invalidate(householdBudgetsProvider);
+
+        ref.invalidate(pocketsProvider(PocketsScopeParams(
+          scope: PocketsScopeType.household,
+          householdId: householdId,
+        )));
 
         debugPrint('✅ Invalidated household providers');
       }
@@ -2098,7 +2247,8 @@ class _UnifiedTransactionSheetState
       debugPrint('❌ Error deleting expense: $error');
       if (!mounted) return;
 
-      AppToast.error('${context.l10n.failedToDeleteExpense}: ${error.toString()}');
+      AppToast.error(
+          '${context.l10n.failedToDeleteExpense}: ${error.toString()}');
     } finally {
       if (mounted) {
         setState(() => _isDeleting = false);
@@ -2122,7 +2272,8 @@ class _FullScreenImageViewer extends StatefulWidget {
 }
 
 class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
-  final TransformationController _transformationController = TransformationController();
+  final TransformationController _transformationController =
+      TransformationController();
 
   @override
   void dispose() {

@@ -36,12 +36,15 @@ void main() {
     WidgetsFlutterBinding.ensureInitialized();
 
     // Initialize Firebase and Crashlytics first
-    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-    
+    await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform);
+
     // Only initialize Crashlytics on non-web platforms
     if (!kIsWeb) {
-      const enableCrashlyticsInDebug = bool.fromEnvironment('ENABLE_CRASHLYTICS_DEBUG', defaultValue: false);
-      await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(!kDebugMode || enableCrashlyticsInDebug);
+      const enableCrashlyticsInDebug =
+          bool.fromEnvironment('ENABLE_CRASHLYTICS_DEBUG', defaultValue: false);
+      await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(
+          !kDebugMode || enableCrashlyticsInDebug);
       FirebaseCrashlytics.instance.log('startup: firebase_initialized');
     }
 
@@ -84,7 +87,8 @@ void main() {
       String errorType = details.exception.runtimeType.toString();
       String topFrame = '';
       try {
-        final lines = (details.stack ?? StackTrace.current).toString().split('\n');
+        final lines =
+            (details.stack ?? StackTrace.current).toString().split('\n');
         if (lines.isNotEmpty) topFrame = lines.first.trim();
       } catch (_) {}
 
@@ -96,7 +100,8 @@ void main() {
         route = GoRouterState.of(details.context as BuildContext).uri.path;
       } catch (_) {}
 
-      final fid = 'E-${now.millisecondsSinceEpoch.toRadixString(36)}-${shortFingerprint('$errorType|$topFrame')}';
+      final fid =
+          'E-${now.millisecondsSinceEpoch.toRadixString(36)}-${shortFingerprint('$errorType|$topFrame')}';
       const message = 'Something went wrong. Please restart the app.';
 
       return Directionality(
@@ -113,7 +118,10 @@ void main() {
                   const SizedBox(height: 8),
                   const Text(
                     'Moneko encountered an error',
-                    style: TextStyle(color: Color(0xFFFFFFFF), fontSize: 18, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                        color: Color(0xFFFFFFFF),
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 12),
@@ -126,7 +134,8 @@ void main() {
                   // Minimal diagnostic info for screenshots
                   Text(
                     'ID: $fid\nEnv: $env\nRoute: ${route.isEmpty ? '-' : route}\nType: $errorType\nTop: ${topFrame.isEmpty ? '-' : topFrame}',
-                    style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 12, height: 1.4),
+                    style: const TextStyle(
+                        color: Color(0xFF9CA3AF), fontSize: 12, height: 1.4),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -139,7 +148,8 @@ void main() {
 
     // Record platform dispatcher errors (only on non-web)
     if (!kIsWeb) {
-      ui.PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
+      ui.PlatformDispatcher.instance.onError =
+          (Object error, StackTrace stack) {
         FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
         return true; // handled
       };
@@ -160,8 +170,10 @@ void main() {
 
     // Register background message handler (only on non-web)
     if (!kIsWeb) {
-      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-      FirebaseCrashlytics.instance.log('startup: fcm_background_handler_registered');
+      FirebaseMessaging.onBackgroundMessage(
+          _firebaseMessagingBackgroundHandler);
+      FirebaseCrashlytics.instance
+          .log('startup: fcm_background_handler_registered');
     }
 
     // Initialize Supabase and other app dependencies (dotenv + Supabase)
@@ -174,7 +186,8 @@ void main() {
       debugPrint('❌ initApp failed: $e');
       debugPrint(s.toString());
       if (!kIsWeb) {
-        FirebaseCrashlytics.instance.recordError(e, s, reason: 'initApp failed', fatal: false);
+        FirebaseCrashlytics.instance
+            .recordError(e, s, reason: 'initApp failed', fatal: false);
       }
       // Continue; router/splash will still render and can show error UI later
     }

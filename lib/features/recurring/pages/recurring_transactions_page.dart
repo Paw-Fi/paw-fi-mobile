@@ -23,7 +23,6 @@ class RecurringTransactionsPage extends ConsumerStatefulWidget {
 
 class _RecurringTransactionsPageState
     extends ConsumerState<RecurringTransactionsPage> {
-
   @override
   void initState() {
     super.initState();
@@ -73,8 +72,7 @@ class _RecurringTransactionsPageState
     final recurringIncomes = ref.watch(recurringIncomesProvider);
     final selectedCurrency =
         ref.watch(homeFilterProvider).selectedCurrency?.toUpperCase();
-    return Scaffold(
-      backgroundColor: colorScheme.appBackground,
+    return AdaptiveScaffold(
       body: RefreshIndicator(
         onRefresh: _refresh,
         child: AdaptiveTabBarView(
@@ -228,7 +226,7 @@ class _RecurringTransactionsPageState
       error: (error, _) => _buildErrorSliver(error.toString(), 'income'),
     );
   }
- 
+
   Widget _buildLoadingSliver() {
     return const SliverFillRemaining(
       hasScrollBody: false,
@@ -294,7 +292,6 @@ class _RecurringTransactionsPageState
       decoration: BoxDecoration(
         color: colorScheme.primary,
         borderRadius: BorderRadius.circular(16),
-       
       ),
       child: Material(
         color: Colors.transparent,
@@ -303,13 +300,13 @@ class _RecurringTransactionsPageState
           borderRadius: BorderRadius.circular(16),
           child: Container(
             padding: const EdgeInsets.all(8),
-            child:  Row(
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
                   Icons.add,
-                color: colorScheme.primaryForeground,
+                  color: colorScheme.primaryForeground,
                 ),
               ],
             ),
@@ -365,7 +362,8 @@ class _RecurringTransactionsPageState
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: Text(context.l10n.delete, style: const TextStyle(color: Colors.red)),
+            child: Text(context.l10n.delete,
+                style: const TextStyle(color: Colors.red)),
           ),
         ],
       ),

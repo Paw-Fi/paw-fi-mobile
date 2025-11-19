@@ -1,3 +1,4 @@
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -44,7 +45,7 @@ class MainMenuScreen extends ConsumerWidget {
               _HouseholdSection(colorScheme: colorScheme),
             const Spacer(),
             _ProfileRow(user: user, colorScheme: colorScheme),
-             const SizedBox(height: 80),
+            if (PlatformInfo.isIOS26OrHigher()) const SizedBox(height: 80),
           ],
         ),
       ),
@@ -77,8 +78,7 @@ class _DateRangeSection extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 10),
-        GestureDetector
-          (
+        GestureDetector(
           onTap: () {
             showDateRangeFilter(context, colorScheme);
           },
@@ -125,7 +125,6 @@ class _DateRangeSection extends ConsumerWidget {
     );
   }
 }
-
 
 class _CurrencySection extends ConsumerWidget {
   const _CurrencySection({
@@ -215,8 +214,7 @@ class _HouseholdSection extends ConsumerWidget {
                 itemCount: households.length,
                 itemBuilder: (context, index) {
                   final household = households[index];
-                  final bool isSelected =
-                      selectedState.householdId != null &&
+                  final bool isSelected = selectedState.householdId != null &&
                       selectedState.householdId == household.id;
 
                   return Padding(
@@ -451,4 +449,3 @@ class _ProfileRow extends StatelessWidget {
     );
   }
 }
-

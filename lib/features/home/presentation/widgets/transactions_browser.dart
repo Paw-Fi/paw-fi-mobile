@@ -60,7 +60,9 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
     // Currency
     final setCurrency = widget.selectedCurrency?.toUpperCase();
     if (setCurrency != null && setCurrency.isNotEmpty) {
-      expenses = expenses.where((e) => (e.currency ?? '').toUpperCase() == setCurrency).toList();
+      expenses = expenses
+          .where((e) => (e.currency ?? '').toUpperCase() == setCurrency)
+          .toList();
     }
 
     // Period (relative)
@@ -99,12 +101,18 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
 
     // Category
     if (_selectedCategory != 'all') {
-      expenses = expenses.where((e) => (e.category ?? 'uncategorized').toLowerCase() == _selectedCategory).toList();
+      expenses = expenses
+          .where((e) =>
+              (e.category ?? 'uncategorized').toLowerCase() ==
+              _selectedCategory)
+          .toList();
     }
 
     // Type
     if (_selectedType != 'all') {
-      expenses = expenses.where((e) => (e.type ?? 'expense').toLowerCase() == _selectedType).toList();
+      expenses = expenses
+          .where((e) => (e.type ?? 'expense').toLowerCase() == _selectedType)
+          .toList();
     }
 
     expenses.sort((a, b) => b.date.compareTo(a.date));
@@ -143,180 +151,187 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Scaffold(
-      backgroundColor: colorScheme.appBackground,
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: widget.onRefresh,
-          child: CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Row(
-                    children: [
-                      if (widget.onBack != null) ...[
-                        IconButton(
-                          onPressed: widget.onBack,
-                          icon: Icon(Icons.chevron_left, color: colorScheme.foreground, size: 28),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                        ),
-                        const SizedBox(width: 12),
-                      ],
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              widget.title,
-                              style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: colorScheme.foreground),
-                            ),
-                            Text(
-                              '${_filtered.length} ${context.l10n.transactions.toLowerCase()}',
-                              style: TextStyle(fontSize: 14, color: colorScheme.mutedForeground),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // Search + filter trigger
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Container(
-                          decoration: BoxDecoration(color: colorScheme.muted, borderRadius: BorderRadius.circular(12)),
-                          child: TextField(
-                            controller: _searchController,
-                            onChanged: (v) => setState(() => _searchQuery = v),
-                            style: TextStyle(color: colorScheme.foreground),
-                            decoration: InputDecoration(
-                              hintText: context.l10n.search,
-                              hintStyle: TextStyle(color: colorScheme.mutedForeground),
-                              prefixIcon: Icon(Icons.search, color: colorScheme.mutedForeground),
-                              border: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      IconButton(
-                        icon: Icon(Icons.tune, color: _selectedCategory != 'all' ? colorScheme.primary : colorScheme.mutedForeground),
-                        onPressed: () => _showFilterSheet(context, colorScheme),
-                      )
-                    ],
-                  ),
-                ),
-              ),
-
-              const SliverToBoxAdapter(child: SizedBox(height: 16)),
-
-              // Period chips
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: ['1W','1M','6M','1Y','All'].map((period) {
-                        final isSelected = _selectedPeriod == period;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8.0),
-                          child: GestureDetector(
-                            onTap: () => setState(() => _selectedPeriod = period),
+    return AdaptiveScaffold(
+      appBar: AdaptiveAppBar(
+        title: (widget.title),
+      ),
+      body: Material(
+        child: SafeArea(
+          child: RefreshIndicator(
+            onRefresh: widget.onRefresh,
+            child: Padding(
+              padding: EdgeInsets.only(
+                  top: PlatformInfo.isIOS26OrHigher() ? 16.0 : 0),
+              child: CustomScrollView(
+                slivers: [
+                  // Search + filter trigger
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Row(
+                        children: [
+                          Expanded(
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                               decoration: BoxDecoration(
-                                color: isSelected ? colorScheme.primary : colorScheme.muted,
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                _periodText(context, period),
-                                style: TextStyle(
-                                  color: isSelected ? Colors.white : colorScheme.foreground,
-                                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                                  color: colorScheme.muted,
+                                  borderRadius: BorderRadius.circular(12)),
+                              child: TextField(
+                                controller: _searchController,
+                                onChanged: (v) =>
+                                    setState(() => _searchQuery = v),
+                                style: TextStyle(color: colorScheme.foreground),
+                                decoration: InputDecoration(
+                                  hintText: context.l10n.search,
+                                  hintStyle: TextStyle(
+                                      color: colorScheme.mutedForeground),
+                                  prefixIcon: Icon(Icons.search,
+                                      color: colorScheme.mutedForeground),
+                                  border: InputBorder.none,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 12),
                                 ),
                               ),
                             ),
                           ),
-                        );
-                      }).toList(),
+                          const SizedBox(width: 12),
+                          IconButton(
+                            icon: Icon(Icons.tune,
+                                color: _selectedCategory != 'all'
+                                    ? colorScheme.primary
+                                    : colorScheme.mutedForeground),
+                            onPressed: () =>
+                                _showFilterSheet(context, colorScheme),
+                          )
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ),
 
-              const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
-              // Chart
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: _buildChart(context),
-                ),
-              ),
-
-              const SliverToBoxAdapter(child: SizedBox(height: 16)),
-
-              // Type chips
-              if (widget.showTypeChips)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
-                    child: Wrap(
-                      spacing: 8,
-                      children: [
-                        for (final type in const ['all','expense','income'])
-                          ChoiceChip(
-                            label: Text(type[0].toUpperCase() + type.substring(1)),
-                            selected: _selectedType == type,
-                            onSelected: (v) { if (v) setState(() => _selectedType = type); },
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-
-              const SliverToBoxAdapter(child: SizedBox(height: 8)),
-
-              // List
-              _filtered.isEmpty
-                  ? SliverToBoxAdapter(
-                      child: Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(48.0),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.receipt_long_outlined, size: 64, color: colorScheme.mutedForeground),
-                              const SizedBox(height: 16),
-                              Text(context.l10n.noTransactionsFound, style: TextStyle(fontSize: 16, color: colorScheme.mutedForeground)),
-                            ],
-                          ),
+                  // Period chips
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children:
+                              ['1W', '1M', '6M', '1Y', 'All'].map((period) {
+                            final isSelected = _selectedPeriod == period;
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8.0),
+                              child: GestureDetector(
+                                onTap: () =>
+                                    setState(() => _selectedPeriod = period),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 24, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? colorScheme.primary
+                                        : colorScheme.muted,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    _periodText(context, period),
+                                    style: TextStyle(
+                                      color: isSelected
+                                          ? Colors.white
+                                          : colorScheme.foreground,
+                                      fontWeight: isSelected
+                                          ? FontWeight.w600
+                                          : FontWeight.normal,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
                         ),
                       ),
-                    )
-                  : SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          final expense = _filtered[index];
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                            child: _buildTransactionItem(context, expense),
-                          );
-                        },
-                        childCount: _filtered.length,
+                    ),
+                  ),
+
+                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
+
+                  // Chart
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: _buildChart(context),
+                    ),
+                  ),
+
+                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
+
+                  // Type chips
+                  if (widget.showTypeChips)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16.0, vertical: 8),
+                        child: Wrap(
+                          spacing: 8,
+                          children: [
+                            for (final type in const [
+                              'all',
+                              'expense',
+                              'income'
+                            ])
+                              ChoiceChip(
+                                label: Text(
+                                    type[0].toUpperCase() + type.substring(1)),
+                                selected: _selectedType == type,
+                                onSelected: (v) {
+                                  if (v) setState(() => _selectedType = type);
+                                },
+                              ),
+                          ],
+                        ),
                       ),
                     ),
-            ],
+
+                  const SliverToBoxAdapter(child: SizedBox(height: 8)),
+
+                  // List
+                  _filtered.isEmpty
+                      ? SliverToBoxAdapter(
+                          child: Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(48.0),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.receipt_long_outlined,
+                                      size: 64,
+                                      color: colorScheme.mutedForeground),
+                                  const SizedBox(height: 16),
+                                  Text(context.l10n.noTransactionsFound,
+                                      style: TextStyle(
+                                          fontSize: 16,
+                                          color: colorScheme.mutedForeground)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        )
+                      : SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                            (context, index) {
+                              final expense = _filtered[index];
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16.0),
+                                child: _buildTransactionItem(context, expense),
+                              );
+                            },
+                            childCount: _filtered.length,
+                          ),
+                        ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -325,18 +340,26 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
 
   String _periodText(BuildContext context, String p) {
     switch (p) {
-      case '1W': return context.l10n.thisWeek;
-      case '1M': return context.l10n.last30Days;
-      case '6M': return context.l10n.last6Months;
-      case '1Y': return context.l10n.thisYear;
-      case 'All': return context.l10n.allTime;
-      default: return p;
+      case '1W':
+        return context.l10n.thisWeek;
+      case '1M':
+        return context.l10n.last30Days;
+      case '6M':
+        return context.l10n.last6Months;
+      case '1Y':
+        return context.l10n.thisYear;
+      case 'All':
+        return context.l10n.allTime;
+      default:
+        return p;
     }
   }
 
   Widget _buildChart(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final spendOnly = _filtered.where((e) => (e.type ?? 'expense').toLowerCase() != 'income').toList();
+    final spendOnly = _filtered
+        .where((e) => (e.type ?? 'expense').toLowerCase() != 'income')
+        .toList();
     final totalSpent = spendOnly.fold(0.0, (sum, e) => sum + e.amount.abs());
     // Determine base currency for display: prefer selectedCurrency else dominant currency in filtered set
     String baseCurrency = (widget.selectedCurrency ?? '').toUpperCase();
@@ -347,7 +370,8 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
           final code = (e.currency ?? 'USD').toUpperCase();
           counts[code] = (counts[code] ?? 0) + 1;
         }
-        baseCurrency = counts.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
+        baseCurrency =
+            counts.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
       } else {
         baseCurrency = 'USD';
       }
@@ -365,10 +389,18 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(context.l10n.spent, style: TextStyle(fontSize: 14, color: colorScheme.mutedForeground)),
+          Text(context.l10n.spent,
+              style:
+                  TextStyle(fontSize: 14, color: colorScheme.mutedForeground)),
           const SizedBox(height: 8),
-          Text(displayText, style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: colorScheme.foreground)),
-          Text(_periodLabel(context), style: TextStyle(fontSize: 12, color: colorScheme.mutedForeground)),
+          Text(displayText,
+              style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.foreground)),
+          Text(_periodLabel(context),
+              style:
+                  TextStyle(fontSize: 12, color: colorScheme.mutedForeground)),
           const SizedBox(height: 20),
           AspectRatio(
             aspectRatio: 1.1,
@@ -376,8 +408,12 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
               controller: _chartPageController,
               onPageChanged: (idx) => setState(() => _currentChartIndex = idx),
               children: [
-                Padding(padding: const EdgeInsets.only(right: 8), child: _buildLineChart(context)),
-                Padding(padding: const EdgeInsets.only(right: 8), child: _buildBarChart(context)),
+                Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: _buildLineChart(context)),
+                Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: _buildBarChart(context)),
               ],
             ),
           ),
@@ -386,13 +422,17 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: List.generate(2, (index) {
               return GestureDetector(
-                onTap: () => _chartPageController.animateToPage(index, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut),
+                onTap: () => _chartPageController.animateToPage(index,
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut),
                 child: Container(
                   width: _currentChartIndex == index ? 24 : 8,
                   height: 8,
                   margin: const EdgeInsets.symmetric(horizontal: 4),
                   decoration: BoxDecoration(
-                    color: _currentChartIndex == index ? colorScheme.primary : colorScheme.muted,
+                    color: _currentChartIndex == index
+                        ? colorScheme.primary
+                        : colorScheme.muted,
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
@@ -433,7 +473,9 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
     final periodTotals = groupExpensesByInterval(_filtered, _chartInterval);
     final sortedDates = periodTotals.keys.toList()..sort();
     if (sortedDates.isEmpty) {
-      return Center(child: Text(context.l10n.noData, style: TextStyle(color: colorScheme.mutedForeground)));
+      return Center(
+          child: Text(context.l10n.noData,
+              style: TextStyle(color: colorScheme.mutedForeground)));
     }
     double cumulative = 0;
     final cumulativeData = sortedDates.map((date) {
@@ -449,26 +491,36 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
             show: true,
             drawVerticalLine: false,
             horizontalInterval: cumulative > 0 ? cumulative / 4 : 100,
-            getDrawingHorizontalLine: (value) => FlLine(color: colorScheme.border.withValues(alpha: 0.3), strokeWidth: 1, dashArray: [5, 5]),
+            getDrawingHorizontalLine: (value) => FlLine(
+                color: colorScheme.border.withValues(alpha: 0.3),
+                strokeWidth: 1,
+                dashArray: [5, 5]),
           ),
           titlesData: FlTitlesData(
-            leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            leftTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
             rightTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
                 reservedSize: 50,
-                getTitlesWidget: (value, meta) => Text(_formatYAxisValue(value), style: TextStyle(fontSize: 10, color: colorScheme.mutedForeground)),
+                getTitlesWidget: (value, meta) => Text(_formatYAxisValue(value),
+                    style: TextStyle(
+                        fontSize: 10, color: colorScheme.mutedForeground)),
               ),
             ),
-            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
                 interval: 1,
                 getTitlesWidget: (value, meta) {
-                  if (value.toInt() >= sortedDates.length) return const SizedBox();
+                  if (value.toInt() >= sortedDates.length)
+                    return const SizedBox();
                   final date = sortedDates[value.toInt()];
-                  return Text(formatDateForInterval(date, _chartInterval), style: TextStyle(fontSize: 10, color: colorScheme.mutedForeground));
+                  return Text(formatDateForInterval(date, _chartInterval),
+                      style: TextStyle(
+                          fontSize: 10, color: colorScheme.mutedForeground));
                 },
               ),
             ),
@@ -484,15 +536,23 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
                 show: true,
                 getDotPainter: (spot, percent, barData, index) {
                   if (index == cumulativeData.length - 1) {
-                    return FlDotCirclePainter(radius: 7, color: AppTheme.danger, strokeWidth: 3, strokeColor: Colors.white);
+                    return FlDotCirclePainter(
+                        radius: 7,
+                        color: AppTheme.danger,
+                        strokeWidth: 3,
+                        strokeColor: Colors.white);
                   }
-                  return FlDotCirclePainter(radius: 0, color: Colors.transparent);
+                  return FlDotCirclePainter(
+                      radius: 0, color: Colors.transparent);
                 },
               ),
               belowBarData: BarAreaData(
                 show: true,
                 gradient: LinearGradient(
-                  colors: [AppTheme.monekoPrimary.withValues(alpha: 0.28), AppTheme.monekoPrimary.withValues(alpha: 0.0)],
+                  colors: [
+                    AppTheme.monekoPrimary.withValues(alpha: 0.28),
+                    AppTheme.monekoPrimary.withValues(alpha: 0.0)
+                  ],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                 ),
@@ -510,22 +570,30 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
     final colorScheme = Theme.of(context).colorScheme;
     final barData = groupExpensesForBarChart(_filtered, _chartInterval);
     if (barData.periodTotals.isEmpty) {
-      return Center(child: Text(context.l10n.noData, style: TextStyle(color: colorScheme.mutedForeground)));
+      return Center(
+          child: Text(context.l10n.noData,
+              style: TextStyle(color: colorScheme.mutedForeground)));
     }
-    final maxValue = barData.periodTotals.values.reduce((a, b) => a > b ? a : b);
+    final maxValue =
+        barData.periodTotals.values.reduce((a, b) => a > b ? a : b);
 
     double chartMaxY;
     double interval;
     if (maxValue <= 0) {
-      chartMaxY = 10; interval = 2;
+      chartMaxY = 10;
+      interval = 2;
     } else if (maxValue <= 50) {
-      chartMaxY = ((maxValue / 10).ceil() * 10).toDouble(); interval = chartMaxY / 5;
+      chartMaxY = ((maxValue / 10).ceil() * 10).toDouble();
+      interval = chartMaxY / 5;
     } else if (maxValue <= 100) {
-      chartMaxY = ((maxValue / 20).ceil() * 20).toDouble(); interval = chartMaxY / 5;
+      chartMaxY = ((maxValue / 20).ceil() * 20).toDouble();
+      interval = chartMaxY / 5;
     } else if (maxValue <= 500) {
-      chartMaxY = ((maxValue / 100).ceil() * 100).toDouble(); interval = chartMaxY / 5;
+      chartMaxY = ((maxValue / 100).ceil() * 100).toDouble();
+      interval = chartMaxY / 5;
     } else if (maxValue <= 1000) {
-      chartMaxY = ((maxValue / 200).ceil() * 200).toDouble(); interval = chartMaxY / 5;
+      chartMaxY = ((maxValue / 200).ceil() * 200).toDouble();
+      interval = chartMaxY / 5;
     } else {
       final magnitude = (maxValue / 5).ceilToDouble();
       final powerOf10 = pow(10, (log(magnitude) / ln10).floor());
@@ -551,13 +619,15 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
                   toY: value,
                   color: const Color(0xFF10B981),
                   width: 40,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(4)),
                 ),
               ],
             );
           }).toList(),
           titlesData: FlTitlesData(
-            leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            leftTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
             rightTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
@@ -567,18 +637,24 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
                   if ((value % interval).abs() > 0.01) return const SizedBox();
                   return Padding(
                     padding: const EdgeInsets.only(left: 4),
-                    child: Text(_formatYAxisValue(value), style: TextStyle(fontSize: 10, color: colorScheme.mutedForeground)),
+                    child: Text(_formatYAxisValue(value),
+                        style: TextStyle(
+                            fontSize: 10, color: colorScheme.mutedForeground)),
                   );
                 },
               ),
             ),
-            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
                 getTitlesWidget: (value, meta) {
-                  if (value.toInt() >= barData.sortedPeriods.length) return const SizedBox();
-                  return Text(barData.sortedPeriods[value.toInt()], style: TextStyle(fontSize: 10, color: colorScheme.mutedForeground));
+                  if (value.toInt() >= barData.sortedPeriods.length)
+                    return const SizedBox();
+                  return Text(barData.sortedPeriods[value.toInt()],
+                      style: TextStyle(
+                          fontSize: 10, color: colorScheme.mutedForeground));
                 },
               ),
             ),
@@ -587,7 +663,10 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
             show: true,
             drawVerticalLine: false,
             horizontalInterval: interval,
-            getDrawingHorizontalLine: (value) => FlLine(color: colorScheme.border.withValues(alpha: 0.3), strokeWidth: 1, dashArray: [5, 5]),
+            getDrawingHorizontalLine: (value) => FlLine(
+                color: colorScheme.border.withValues(alpha: 0.3),
+                strokeWidth: 1,
+                dashArray: [5, 5]),
           ),
           borderData: FlBorderData(show: false),
         ),
@@ -603,7 +682,8 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
     final dateFormat = DateFormat('MMM d, yyyy');
 
     return GestureDetector(
-      onTap: () => showUnifiedTransactionSheet(context, existingExpense: expense, contact: widget.contact),
+      onTap: () => showUnifiedTransactionSheet(context,
+          existingExpense: expense, contact: widget.contact),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
@@ -617,7 +697,9 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
             Container(
               width: 48,
               height: 48,
-              decoration: BoxDecoration(color: categoryColor.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(
+                  color: categoryColor.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12)),
               child: Icon(categoryIcon, color: categoryColor, size: 24),
             ),
             const SizedBox(width: 12),
@@ -627,23 +709,34 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
                 children: [
                   Text(
                     getCategoryTranslation(context, category),
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: colorScheme.foreground),
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.foreground),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     dateFormat.format(expense.date),
-                    style: TextStyle(fontSize: 14, color: colorScheme.mutedForeground),
+                    style: TextStyle(
+                        fontSize: 14, color: colorScheme.mutedForeground),
                   ),
                 ],
               ),
             ),
             Builder(builder: (_) {
-            final isIncome = (expense.type ?? 'expense').toLowerCase() == 'income';
+              final isIncome =
+                  (expense.type ?? 'expense').toLowerCase() == 'income';
               final sign = isIncome ? '+' : '-';
-            final txt = '$sign${formatCurrency(expense.amount.abs(), expense.currency ?? (widget.selectedCurrency ?? 'USD'))}';
+              final txt =
+                  '$sign${formatCurrency(expense.amount.abs(), expense.currency ?? (widget.selectedCurrency ?? 'USD'))}';
               return Text(
                 txt,
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isIncome ? const Color(0xFF10B981) : colorScheme.foreground),
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: isIncome
+                        ? const Color(0xFF10B981)
+                        : colorScheme.foreground),
               );
             }),
           ],
@@ -656,7 +749,8 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
     showModalBottomSheet(
       context: context,
       backgroundColor: colorScheme.appBackground,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
@@ -669,12 +763,23 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(context.l10n.filterTransactions, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: colorScheme.foreground)),
-                      IconButton(icon: Icon(Icons.close, color: colorScheme.foreground), onPressed: () => Navigator.pop(context)),
+                      Text(context.l10n.filterTransactions,
+                          style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.foreground)),
+                      IconButton(
+                          icon:
+                              Icon(Icons.close, color: colorScheme.foreground),
+                          onPressed: () => Navigator.pop(context)),
                     ],
                   ),
                   const SizedBox(height: 24),
-                  Text(context.l10n.category, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: colorScheme.foreground)),
+                  Text(context.l10n.category,
+                      style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.foreground)),
                   const SizedBox(height: 12),
                   Wrap(
                     spacing: 8,
@@ -687,15 +792,29 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
                           setModalState(() {});
                         },
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
                           decoration: BoxDecoration(
-                            color: isSelected ? colorScheme.primary : colorScheme.muted,
+                            color: isSelected
+                                ? colorScheme.primary
+                                : colorScheme.muted,
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: isSelected ? colorScheme.primary : colorScheme.border),
+                            border: Border.all(
+                                color: isSelected
+                                    ? colorScheme.primary
+                                    : colorScheme.border),
                           ),
                           child: Text(
-                            category.toLowerCase() == 'all' ? context.l10n.allCategories : getCategoryTranslation(context, category),
-                            style: TextStyle(color: isSelected ? Colors.white : colorScheme.foreground, fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal),
+                            category.toLowerCase() == 'all'
+                                ? context.l10n.allCategories
+                                : getCategoryTranslation(context, category),
+                            style: TextStyle(
+                                color: isSelected
+                                    ? Colors.white
+                                    : colorScheme.foreground,
+                                fontWeight: isSelected
+                                    ? FontWeight.w600
+                                    : FontWeight.normal),
                           ),
                         ),
                       );

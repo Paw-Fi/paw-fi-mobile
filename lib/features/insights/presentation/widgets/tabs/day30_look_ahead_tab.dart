@@ -8,19 +8,23 @@ import 'package:moneko/features/insights/presentation/widgets/chart_legend.dart'
 import 'package:moneko/features/insights/presentation/widgets/insights_ui.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 
-Widget build30DayLookAheadTab(BuildContext context, ColorScheme colorScheme, AnalyticsData analyticsData, {String? selectedCurrency}) {
+Widget build30DayLookAheadTab(
+    BuildContext context, ColorScheme colorScheme, AnalyticsData analyticsData,
+    {String? selectedCurrency}) {
   // Filter data by currency if selected
   var expenses = analyticsData.allExpenses;
   var budgets = analyticsData.allBudgets;
-  
+
   if (selectedCurrency != null) {
     final currency = selectedCurrency.toUpperCase();
-    expenses = expenses.where((e) => e.currency?.toUpperCase() == currency).toList();
-    budgets = budgets.where((b) => b.currency?.toUpperCase() == currency).toList();
+    expenses =
+        expenses.where((e) => e.currency?.toUpperCase() == currency).toList();
+    budgets =
+        budgets.where((b) => b.currency?.toUpperCase() == currency).toList();
   }
-  
+
   return SingleChildScrollView(
     padding: const EdgeInsets.all(16),
     child: Column(
@@ -52,7 +56,8 @@ Widget build30DayLookAheadTab(BuildContext context, ColorScheme colorScheme, Ana
                           size: 18,
                           color: colorScheme.mutedForeground,
                         ),
-                        onPressed: () => _showThirtyDayGuide(context, colorScheme),
+                        onPressed: () =>
+                            _showThirtyDayGuide(context, colorScheme),
                       );
                     },
                   ),
@@ -69,20 +74,27 @@ Widget build30DayLookAheadTab(BuildContext context, ColorScheme colorScheme, Ana
               const SizedBox(height: 24),
               SizedBox(
                 height: 250,
-                child: build30DayProjectionChart(context, colorScheme, expenses, budgets),
+                child: build30DayProjectionChart(
+                    context, colorScheme, expenses, budgets),
               ),
               const SizedBox(height: 16),
               buildChartLegend(
                 colorScheme,
                 [
-                  {'label': context.l10n.projectedSpendingLegend, 'color': const Color(0xFF10B981)},
+                  {
+                    'label': context.l10n.projectedSpendingLegend,
+                    'color': const Color(0xFF10B981)
+                  },
                 ],
               ),
             ],
           ),
         ),
         const SizedBox(height: 8),
-        _ThirtyDaySummaryPills(colorScheme: colorScheme, expenses: expenses, selectedCurrency: selectedCurrency),
+        _ThirtyDaySummaryPills(
+            colorScheme: colorScheme,
+            expenses: expenses,
+            selectedCurrency: selectedCurrency),
       ],
     ),
   );
@@ -99,95 +111,109 @@ void _showThirtyDayGuide(BuildContext context, ColorScheme colorScheme) {
     builder: (dialogContext) {
       return StatefulBuilder(
         builder: (context, setState) {
-          return Dialog(
-            backgroundColor: colorScheme.card,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420, maxHeight: 520),
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            context.l10n.peek30DaysAhead,
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w600,
-                              color: colorScheme.foreground,
+          return Theme(
+            data: Theme.of(context),
+            child: Dialog(
+              backgroundColor: colorScheme.card,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+              child: ConstrainedBox(
+                constraints:
+                    const BoxConstraints(maxWidth: 420, maxHeight: 520),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              context.l10n.peek30DaysAhead,
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.foreground,
+                              ),
                             ),
                           ),
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.close, color: colorScheme.mutedForeground),
-                          onPressed: () => Navigator.of(dialogContext).pop(),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      context.l10n.thirtyDayForecastDesc,
-                      style: TextStyle(color: colorScheme.mutedForeground, fontSize: 14),
-                    ),
-                    const SizedBox(height: 24),
-                    Expanded(
-                      child: PageView.builder(
-                        controller: controller,
-                        itemCount: slides.length,
-                        onPageChanged: (index) => setState(() => currentPage = index),
-                        itemBuilder: (context, index) {
-                          final slide = slides[index];
-                          return _InsightsHelpSlide(
-                            colorScheme: colorScheme,
-                            title: slide.title,
-                            summary: slide.summary,
-                            bullets: slide.points,
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(slides.length, (index) {
-                        final active = index == currentPage;
-                        return AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          height: 8,
-                          width: active ? 20 : 8,
-                          decoration: BoxDecoration(
-                            color: active ? colorScheme.primary : colorScheme.muted,
-                            borderRadius: BorderRadius.circular(8),
+                          IconButton(
+                            icon: Icon(Icons.close,
+                                color: colorScheme.mutedForeground),
+                            onPressed: () => Navigator.of(dialogContext).pop(),
                           ),
-                        );
-                      }),
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        TextButton(
-                          onPressed: () => Navigator.of(dialogContext).pop(),
-                          child: Text(context.l10n.close),
-                        ),
-                        const Spacer(),
-                        shadcnui.PrimaryButton(
-                          onPressed: () {
-                            if (currentPage < slides.length - 1) {
-                              controller.nextPage(duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
-                              setState(() => currentPage += 1);
-                            } else {
-                              Navigator.of(dialogContext).pop();
-                            }
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        context.l10n.thirtyDayForecastDesc,
+                        style: TextStyle(
+                            color: colorScheme.mutedForeground, fontSize: 14),
+                      ),
+                      const SizedBox(height: 24),
+                      Expanded(
+                        child: PageView.builder(
+                          controller: controller,
+                          itemCount: slides.length,
+                          onPageChanged: (index) =>
+                              setState(() => currentPage = index),
+                          itemBuilder: (context, index) {
+                            final slide = slides[index];
+                            return _InsightsHelpSlide(
+                              colorScheme: colorScheme,
+                              title: slide.title,
+                              summary: slide.summary,
+                              bullets: slide.points,
+                            );
                           },
-                          child: Text(currentPage < slides.length - 1 ? context.l10n.next : context.l10n.done),
                         ),
-                      ],
-                    ),
-                  ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(slides.length, (index) {
+                          final active = index == currentPage;
+                          return AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            height: 8,
+                            width: active ? 20 : 8,
+                            decoration: BoxDecoration(
+                              color: active
+                                  ? colorScheme.primary
+                                  : colorScheme.muted,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          );
+                        }),
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.of(dialogContext).pop(),
+                            child: Text(context.l10n.close),
+                          ),
+                          const Spacer(),
+                          PrimaryAdaptiveButton(
+                            onPressed: () {
+                              if (currentPage < slides.length - 1) {
+                                controller.nextPage(
+                                    duration: const Duration(milliseconds: 250),
+                                    curve: Curves.easeOut);
+                                setState(() => currentPage += 1);
+                              } else {
+                                Navigator.of(dialogContext).pop();
+                              }
+                            },
+                            child: Text(currentPage < slides.length - 1
+                                ? context.l10n.next
+                                : context.l10n.done),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -199,7 +225,8 @@ void _showThirtyDayGuide(BuildContext context, ColorScheme colorScheme) {
 }
 
 class _InsightsHelpSlideData {
-  const _InsightsHelpSlideData({required this.title, required this.summary, required this.points});
+  const _InsightsHelpSlideData(
+      {required this.title, required this.summary, required this.points});
 
   final String title;
   final String summary;
@@ -210,7 +237,8 @@ List<_InsightsHelpSlideData> _thirtyDaySlides(BuildContext context) {
   return [
     _InsightsHelpSlideData(
       title: 'What the forecast shows',
-      summary: 'We blend the past 30 days of spending and income to sketch an average week ahead. It smooths out one-off splurges so you can see the usual rhythm.',
+      summary:
+          'We blend the past 30 days of spending and income to sketch an average week ahead. It smooths out one-off splurges so you can see the usual rhythm.',
       points: [
         context.l10n.greenLineExpected,
         context.l10n.spikesHighlight,
@@ -219,7 +247,8 @@ List<_InsightsHelpSlideData> _thirtyDaySlides(BuildContext context) {
     ),
     _InsightsHelpSlideData(
       title: 'Why it matters',
-      summary: 'Forward-looking budgets help you stay proactive. Seeing big days ahead lets you set aside cash instead of scrambling later.',
+      summary:
+          'Forward-looking budgets help you stay proactive. Seeing big days ahead lets you set aside cash instead of scrambling later.',
       points: [
         context.l10n.spotExpensivePatterns,
         context.l10n.catchQuieterWeeks,
@@ -228,7 +257,8 @@ List<_InsightsHelpSlideData> _thirtyDaySlides(BuildContext context) {
     ),
     _InsightsHelpSlideData(
       title: 'How to play it smart',
-      summary: 'Treat it like a friendly nudge, not a strict rulebook. Adjust your plan with tiny moves that feel doable.',
+      summary:
+          'Treat it like a friendly nudge, not a strict rulebook. Adjust your plan with tiny moves that feel doable.',
       points: [
         context.l10n.bigSpikeComing,
         context.l10n.forecastDipping,
@@ -269,7 +299,8 @@ class _InsightsHelpSlide extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             summary,
-            style: TextStyle(fontSize: 14, height: 1.4, color: colorScheme.mutedForeground),
+            style: TextStyle(
+                fontSize: 14, height: 1.4, color: colorScheme.mutedForeground),
           ),
           const SizedBox(height: 16),
           ...bullets.map(
@@ -278,12 +309,16 @@ class _InsightsHelpSlide extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.auto_awesome, size: 18, color: colorScheme.primary),
+                  Icon(Icons.auto_awesome,
+                      size: 18, color: colorScheme.primary),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       bullet,
-                      style: TextStyle(fontSize: 14, height: 1.4, color: colorScheme.foreground),
+                      style: TextStyle(
+                          fontSize: 14,
+                          height: 1.4,
+                          color: colorScheme.foreground),
                     ),
                   ),
                 ],
@@ -312,13 +347,16 @@ class _ThirtyDaySummaryPills extends StatelessWidget {
     if (expenses.isEmpty) return const SizedBox.shrink();
     final now = DateTime.now();
     final thirtyDaysAgo = now.subtract(const Duration(days: 30));
-    final recent = expenses.where((e) => e.date.isAfter(thirtyDaysAgo) && e.date.isBefore(now)).toList();
+    final recent = expenses
+        .where((e) => e.date.isAfter(thirtyDaysAgo) && e.date.isBefore(now))
+        .toList();
     final total = recent.fold<double>(0, (s, e) => s + e.amount);
     final avgDaily = recent.isEmpty ? 0.0 : total / 30.0;
     final code = selectedCurrency ?? 'USD';
     final totalTxt = formatCurrency(total.abs(), code);
     final avgTxt = formatCurrency(avgDaily.abs(), code);
-    final span = '${thirtyDaysAgo.year}-${thirtyDaysAgo.month.toString().padLeft(2, '0')}-${thirtyDaysAgo.day.toString().padLeft(2, '0')} → ${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    final span =
+        '${thirtyDaysAgo.year}-${thirtyDaysAgo.month.toString().padLeft(2, '0')}-${thirtyDaysAgo.day.toString().padLeft(2, '0')} → ${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
 
     return Wrap(
       spacing: 10,

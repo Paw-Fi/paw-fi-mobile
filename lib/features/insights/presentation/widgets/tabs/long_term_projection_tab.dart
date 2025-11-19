@@ -8,19 +8,23 @@ import 'package:moneko/features/insights/presentation/widgets/chart_legend.dart'
 import 'package:moneko/features/insights/presentation/widgets/insights_ui.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 
-Widget buildLongTermProjectionTab(BuildContext context, ColorScheme colorScheme, AnalyticsData analyticsData, {String? selectedCurrency}) {
+Widget buildLongTermProjectionTab(
+    BuildContext context, ColorScheme colorScheme, AnalyticsData analyticsData,
+    {String? selectedCurrency}) {
   // Filter data by currency if selected
   var expenses = analyticsData.allExpenses;
   var budgets = analyticsData.allBudgets;
-  
+
   if (selectedCurrency != null) {
     final currency = selectedCurrency.toUpperCase();
-    expenses = expenses.where((e) => e.currency?.toUpperCase() == currency).toList();
-    budgets = budgets.where((b) => b.currency?.toUpperCase() == currency).toList();
+    expenses =
+        expenses.where((e) => e.currency?.toUpperCase() == currency).toList();
+    budgets =
+        budgets.where((b) => b.currency?.toUpperCase() == currency).toList();
   }
-  
+
   return SingleChildScrollView(
     padding: const EdgeInsets.all(16),
     child: Column(
@@ -52,7 +56,8 @@ Widget buildLongTermProjectionTab(BuildContext context, ColorScheme colorScheme,
                           size: 18,
                           color: colorScheme.mutedForeground,
                         ),
-                        onPressed: () => _showLongTermGuide(context, colorScheme),
+                        onPressed: () =>
+                            _showLongTermGuide(context, colorScheme),
                       );
                     },
                   ),
@@ -69,20 +74,27 @@ Widget buildLongTermProjectionTab(BuildContext context, ColorScheme colorScheme,
               const SizedBox(height: 24),
               SizedBox(
                 height: 250,
-                child: buildLongTermProjectionChart(context, colorScheme, expenses, budgets),
+                child: buildLongTermProjectionChart(
+                    context, colorScheme, expenses, budgets),
               ),
               const SizedBox(height: 16),
               buildChartLegend(
                 colorScheme,
                 [
-                  {'label': context.l10n.month18ProjectionLegend, 'color': const Color(0xFF10B981)},
+                  {
+                    'label': context.l10n.month18ProjectionLegend,
+                    'color': const Color(0xFF10B981)
+                  },
                 ],
               ),
             ],
           ),
         ),
         const SizedBox(height: 8),
-        _LongTermSummaryPills(colorScheme: colorScheme, expenses: expenses, selectedCurrency: selectedCurrency),
+        _LongTermSummaryPills(
+            colorScheme: colorScheme,
+            expenses: expenses,
+            selectedCurrency: selectedCurrency),
       ],
     ),
   );
@@ -99,95 +111,109 @@ void _showLongTermGuide(BuildContext context, ColorScheme colorScheme) {
     builder: (dialogContext) {
       return StatefulBuilder(
         builder: (context, setState) {
-          return Dialog(
-            backgroundColor: colorScheme.card,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420, maxHeight: 520),
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            context.l10n.your18MonthHorizon,
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w600,
-                              color: colorScheme.foreground,
+          return Theme(
+            data: Theme.of(context),
+            child: Dialog(
+              backgroundColor: colorScheme.card,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+              child: ConstrainedBox(
+                constraints:
+                    const BoxConstraints(maxWidth: 420, maxHeight: 520),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              context.l10n.your18MonthHorizon,
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.foreground,
+                              ),
                             ),
                           ),
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.close, color: colorScheme.mutedForeground),
-                          onPressed: () => Navigator.of(dialogContext).pop(),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      context.l10n.longTermIntro,
-                      style: TextStyle(color: colorScheme.mutedForeground, fontSize: 14),
-                    ),
-                    const SizedBox(height: 24),
-                    Expanded(
-                      child: PageView.builder(
-                        controller: controller,
-                        itemCount: slides.length,
-                        onPageChanged: (index) => setState(() => currentPage = index),
-                        itemBuilder: (context, index) {
-                          final slide = slides[index];
-                          return _LongTermHelpSlide(
-                            colorScheme: colorScheme,
-                            title: slide.title,
-                            summary: slide.summary,
-                            bullets: slide.points,
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(slides.length, (index) {
-                        final active = index == currentPage;
-                        return AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          height: 8,
-                          width: active ? 20 : 8,
-                          decoration: BoxDecoration(
-                            color: active ? colorScheme.primary : colorScheme.muted,
-                            borderRadius: BorderRadius.circular(8),
+                          IconButton(
+                            icon: Icon(Icons.close,
+                                color: colorScheme.mutedForeground),
+                            onPressed: () => Navigator.of(dialogContext).pop(),
                           ),
-                        );
-                      }),
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        TextButton(
-                          onPressed: () => Navigator.of(dialogContext).pop(),
-                          child: Text(context.l10n.close),
-                        ),
-                        const Spacer(),
-                        shadcnui.PrimaryButton(
-                          onPressed: () {
-                            if (currentPage < slides.length - 1) {
-                              controller.nextPage(duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
-                              setState(() => currentPage += 1);
-                            } else {
-                              Navigator.of(dialogContext).pop();
-                            }
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        context.l10n.longTermIntro,
+                        style: TextStyle(
+                            color: colorScheme.mutedForeground, fontSize: 14),
+                      ),
+                      const SizedBox(height: 24),
+                      Expanded(
+                        child: PageView.builder(
+                          controller: controller,
+                          itemCount: slides.length,
+                          onPageChanged: (index) =>
+                              setState(() => currentPage = index),
+                          itemBuilder: (context, index) {
+                            final slide = slides[index];
+                            return _LongTermHelpSlide(
+                              colorScheme: colorScheme,
+                              title: slide.title,
+                              summary: slide.summary,
+                              bullets: slide.points,
+                            );
                           },
-                          child: Text(currentPage < slides.length - 1 ? context.l10n.next : context.l10n.done),
                         ),
-                      ],
-                    ),
-                  ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(slides.length, (index) {
+                          final active = index == currentPage;
+                          return AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            height: 8,
+                            width: active ? 20 : 8,
+                            decoration: BoxDecoration(
+                              color: active
+                                  ? colorScheme.primary
+                                  : colorScheme.muted,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          );
+                        }),
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.of(dialogContext).pop(),
+                            child: Text(context.l10n.close),
+                          ),
+                          const Spacer(),
+                          PrimaryAdaptiveButton(
+                            onPressed: () {
+                              if (currentPage < slides.length - 1) {
+                                controller.nextPage(
+                                    duration: const Duration(milliseconds: 250),
+                                    curve: Curves.easeOut);
+                                setState(() => currentPage += 1);
+                              } else {
+                                Navigator.of(dialogContext).pop();
+                              }
+                            },
+                            child: Text(currentPage < slides.length - 1
+                                ? context.l10n.next
+                                : context.l10n.done),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -199,7 +225,8 @@ void _showLongTermGuide(BuildContext context, ColorScheme colorScheme) {
 }
 
 class _LongTermSlideData {
-  const _LongTermSlideData({required this.title, required this.summary, required this.points});
+  const _LongTermSlideData(
+      {required this.title, required this.summary, required this.points});
 
   final String title;
   final String summary;
@@ -260,12 +287,16 @@ class _LongTermHelpSlide extends StatelessWidget {
         children: [
           Text(
             title,
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: colorScheme.foreground),
+            style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.foreground),
           ),
           const SizedBox(height: 12),
           Text(
             summary,
-            style: TextStyle(fontSize: 14, height: 1.4, color: colorScheme.mutedForeground),
+            style: TextStyle(
+                fontSize: 14, height: 1.4, color: colorScheme.mutedForeground),
           ),
           const SizedBox(height: 16),
           ...bullets.map(
@@ -279,7 +310,10 @@ class _LongTermHelpSlide extends StatelessWidget {
                   Expanded(
                     child: Text(
                       bullet,
-                      style: TextStyle(fontSize: 14, height: 1.4, color: colorScheme.foreground),
+                      style: TextStyle(
+                          fontSize: 14,
+                          height: 1.4,
+                          color: colorScheme.foreground),
                     ),
                   ),
                 ],

@@ -39,6 +39,7 @@ class PocketsState {
     required this.editing,
     required this.explicitIds,
     required this.totalBudget,
+    required this.unallocatedSpend,
   });
 
   final bool isLoading;
@@ -47,6 +48,7 @@ class PocketsState {
   final List<PocketEnvelope> editing;
   final Set<String> explicitIds; // pockets directly adjusted by user
   final double totalBudget;
+  final double unallocatedSpend;
 
   bool get hasChanges {
     if (saved.length != editing.length) return true;
@@ -60,8 +62,7 @@ class PocketsState {
     return false;
   }
 
-  double get totalSpent =>
-      editing.fold<double>(0, (sum, p) => sum + p.spent);
+  double get totalSpent => editing.fold<double>(0, (sum, p) => sum + p.spent);
 
   PocketsState copyWith({
     bool? isLoading,
@@ -70,6 +71,7 @@ class PocketsState {
     List<PocketEnvelope>? editing,
     Set<String>? explicitIds,
     double? totalBudget,
+    double? unallocatedSpend,
     bool clearError = false,
   }) {
     return PocketsState(
@@ -79,6 +81,7 @@ class PocketsState {
       editing: editing ?? this.editing,
       explicitIds: explicitIds ?? this.explicitIds,
       totalBudget: totalBudget ?? this.totalBudget,
+      unallocatedSpend: unallocatedSpend ?? this.unallocatedSpend,
     );
   }
 
@@ -89,6 +92,7 @@ class PocketsState {
         editing: [],
         explicitIds: {},
         totalBudget: 0,
+        unallocatedSpend: 0,
       );
 }
 
@@ -105,6 +109,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     try {
       final authUser = ref.read(authProvider);
       final filter = ref.read(homeFilterProvider);
+      final selectedCurrency = filter.selectedCurrency ?? 'USD';
       final range = getDateRangeFromFilter(
         filter.dateRangeFilter,
         filter.customStartDate,
@@ -120,8 +125,9 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
 
       final baseQuery = supabase
           .from('budget_envelopes')
-          .select('id,name,monthly_target_cents,household_id')
-          .eq('user_id', authUser.uid);
+          .select('id,name,monthly_target_cents,household_id,currency')
+          .eq('user_id', authUser.uid)
+          .eq('currency', selectedCurrency);
 
       final envelopesRes = isHousehold
           ? (householdId == null
@@ -129,7 +135,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
               : await baseQuery.eq('household_id', householdId).order('name'))
           : await baseQuery.isFilter('household_id', null).order('name');
 
-      final envRows = (envelopesRes as List?)?.cast<Map<String, dynamic>>() ?? [];
+      final envRows =
+          (envelopesRes as List?)?.cast<Map<String, dynamic>>() ?? [];
       if (envRows.isEmpty) {
         state = PocketsState(
           isLoading: false,
@@ -138,6 +145,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           editing: const [],
           explicitIds: <String>{},
           totalBudget: 0,
+          unallocatedSpend: 0,
         );
         return;
       }
@@ -150,8 +158,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           .select('envelope_id, spent_cents')
           .inFilter('envelope_id', envIds)
           .eq('period_month', periodMonth);
-      final spendRows =
-          (spendRes as List?)?.cast<Map<String, dynamic>>() ?? [];
+      final spendRows = (spendRes as List?)?.cast<Map<String, dynamic>>() ?? [];
       final spentById = <String, double>{};
       for (final row in spendRows) {
         final id = row['envelope_id'] as String;
@@ -167,17 +174,33 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         final limit = monthlyTargetCents / 100.0;
         final spent = spentById[id] ?? 0;
         final hhId = row['household_id'] as String?;
+        final currency = row['currency'] as String? ?? selectedCurrency;
+
         return PocketEnvelope(
           id: id,
           name: name,
           limit: limit,
           spent: spent,
+          currency: currency,
           householdId: hhId,
           lastUpdated: DateTime.now(),
         );
       }).toList();
 
       final totalBudget = pockets.fold<double>(0, (sum, p) => sum + p.limit);
+      final totalEnvelopeSpend =
+          pockets.fold<double>(0, (sum, p) => sum + p.spent);
+
+      // Fetch total monthly spend for the user to calculate unallocated
+      final totalMonthlySpend =
+          await supabase.rpc<num>('get_monthly_total_spend', params: {
+        'p_user_id': authUser.uid,
+        'p_currency': selectedCurrency,
+        'p_month': periodMonth,
+      }).then((val) => val.toDouble());
+
+      final unallocatedSpend =
+          math.max(0.0, totalMonthlySpend - totalEnvelopeSpend);
 
       state = PocketsState(
         isLoading: false,
@@ -186,6 +209,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         editing: pockets.map((p) => p.copyWith()).toList(),
         explicitIds: <String>{},
         totalBudget: totalBudget,
+        unallocatedSpend: unallocatedSpend,
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -196,9 +220,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     if (newTotal <= 0 || state.editing.isEmpty) return;
     final oldTotal = state.totalBudget == 0 ? newTotal : state.totalBudget;
     final ratio = newTotal / oldTotal;
-    final updated = state.editing
-        .map((p) => p.copyWith(limit: p.limit * ratio))
-        .toList();
+    final updated =
+        state.editing.map((p) => p.copyWith(limit: p.limit * ratio)).toList();
     state = state.copyWith(
       editing: updated,
       totalBudget: newTotal,
@@ -281,9 +304,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       final editing = state.editing;
       for (final p in editing) {
         final cents = (p.limit * 100).round();
-        await supabase
-            .from('budget_envelopes')
-            .update(<String, dynamic>{
+        await supabase.from('budget_envelopes').update(<String, dynamic>{
           'monthly_target_cents': cents,
           'updated_at': DateTime.now().toIso8601String(),
         }).eq('id', p.id);
