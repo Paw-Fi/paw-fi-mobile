@@ -101,9 +101,7 @@ class CategoryPickerBottomSheet extends HookWidget {
                   controller: searchController,
                   placeholder: 'Search',
                   prefixIcon: Icon(
-                    PlatformInfo.isIOS
-                        ? CupertinoIcons.search
-                        : Icons.search,
+                    PlatformInfo.isIOS ? CupertinoIcons.search : Icons.search,
                   ),
                   suffixIcon: searchQuery.value.isNotEmpty
                       ? IconButton(
@@ -211,22 +209,19 @@ class _CategoryPickerHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        AdaptiveButton.icon(
-          onPressed: onClose,
-          icon: PlatformInfo.isIOS ? CupertinoIcons.xmark : Icons.close,
-        ),
-        const Spacer(),
-        Text(
-          title,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-        ),
-        const Spacer(),
-        const SizedBox(width: 48),
-      ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          const Spacer(),
+          const Spacer(),
+          AdaptiveButton(
+            style: AdaptiveButtonStyle.plain,
+            onPressed: onClose,
+            label: 'Done',
+          ),
+        ],
+      ),
     );
   }
 }

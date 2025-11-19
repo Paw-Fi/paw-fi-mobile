@@ -24,6 +24,7 @@ import 'package:moneko/features/income/presentation/providers/income_providers.d
 import 'package:moneko/features/goals/presentation/providers/goals_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+
 class SettingsPage extends HookConsumerWidget {
   const SettingsPage({super.key});
 
@@ -37,7 +38,8 @@ class SettingsPage extends HookConsumerWidget {
     final contact = analyticsState.contact;
     final subscriptionAsync = ref.watch(subscriptionManagementProvider);
 
-    final selectedCurrency = useState<String?>(contact?.preferredCurrency?.toUpperCase());
+    final selectedCurrency =
+        useState<String?>(contact?.preferredCurrency?.toUpperCase());
     final nameReloadKey = useState(0);
 
     useEffect(() {
@@ -45,14 +47,11 @@ class SettingsPage extends HookConsumerWidget {
       return null;
     }, [contact?.preferredCurrency]);
 
-
     Future<void> handleNotificationToggle() async {
       try {
-        // User wants to enable notifications
         final status = await Permission.notification.status;
 
         if (status.isDenied || status.isPermanentlyDenied) {
-          // Permission was denied, open Moneko's notification settings page specifically
           await AppSettings.openAppSettings(
             type: AppSettingsType.notification,
             asAnotherTask: true,
@@ -62,17 +61,14 @@ class SettingsPage extends HookConsumerWidget {
             AppToast.info(context.l10n.enableNotificationsInSettings);
           }
         } else if (status.isGranted) {
-          // Already granted, re-initialize device registration
           try {
             await ref.read(deviceRegistrationServiceProvider).initialize();
           } catch (e) {
             debugPrint('Error initializing notifications: $e');
           }
         } else {
-          // Request permission
           final newStatus = await Permission.notification.request();
           if (newStatus.isGranted) {
-            // Initialize device registration
             try {
               await ref.read(deviceRegistrationServiceProvider).initialize();
             } catch (e) {
@@ -85,7 +81,6 @@ class SettingsPage extends HookConsumerWidget {
       }
     }
 
-    // final currencies = getAvailableCurrencyOptions(); // reserved for future currency picker
     final selectedLocale = ref.watch(localeProvider);
     const supportedLocales = AppLocalizations.supportedLocales;
     final dropdownValue = _coerceToSupported(selectedLocale, supportedLocales);
@@ -108,8 +103,7 @@ class SettingsPage extends HookConsumerWidget {
                           left: 16,
                           right: 16,
                           top: 16,
-                          bottom:
-                              16 + MediaQuery.of(context).viewInsets.bottom,
+                          bottom: 16 + MediaQuery.of(context).viewInsets.bottom,
                         ),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
@@ -126,15 +120,13 @@ class SettingsPage extends HookConsumerWidget {
                             const SizedBox(height: 8),
                             Text(
                               'Press to show a global AppToast above this sheet.',
-                              style:
-                                  TextStyle(color: scheme.mutedForeground),
+                              style: TextStyle(color: scheme.mutedForeground),
                             ),
                             const SizedBox(height: 16),
                             AdaptiveButton(
                               onPressed: () {
-                                
                                 AppToast.success(
-                                  'Hello from ello from  ello from  ello from bottom sheet!',
+                                  'Hello from bottom sheet!',
                                 );
                               },
                               label: 'Show Toast',
@@ -146,177 +138,179 @@ class SettingsPage extends HookConsumerWidget {
                   },
                 );
               },
-              child: const Icon(Icons.bug_report),     
+              child: const Icon(Icons.bug_report),
             )
           : null,
       body: Material(
         color: colorScheme.appBackground,
         child: SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
             child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: FutureBuilder<Map<String, dynamic>?>(
-                  key: ValueKey('avatar-${nameReloadKey.value}'),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Avatar Section
+                Center(
+                  child: FutureBuilder<Map<String, dynamic>?>(
+                    key: ValueKey('avatar-${nameReloadKey.value}'),
+                    future: Supabase.instance.client
+                        .from('users')
+                        .select('full_name, avatar_url')
+                        .eq('id', authState.uid)
+                        .maybeSingle(),
+                    builder: (context, snapshot) {
+                      final dbName = snapshot.data != null
+                          ? snapshot.data!['full_name'] as String?
+                          : null;
+                      final dbAvatarUrl = snapshot.data != null
+                          ? snapshot.data!['avatar_url'] as String?
+                          : null;
+
+                      final displayName = (dbName?.trim().isNotEmpty == true)
+                          ? dbName!.trim()
+                          : (authState.displayName?.trim().isNotEmpty == true
+                              ? authState.displayName!.trim()
+                              : 'User');
+                      final initials = displayName.isNotEmpty
+                          ? displayName.substring(0, 1).toUpperCase()
+                          : (authState.email.isNotEmpty
+                              ? authState.email.substring(0, 1).toUpperCase()
+                              : 'U');
+
+                      String? validatedAvatarUrl;
+                      if (dbAvatarUrl != null &&
+                          dbAvatarUrl.isNotEmpty &&
+                          dbAvatarUrl != 'SKIPPED' &&
+                          (dbAvatarUrl.startsWith('http://') ||
+                              dbAvatarUrl.startsWith('https://'))) {
+                        validatedAvatarUrl = dbAvatarUrl;
+                      }
+
+                      final avatarUrl = validatedAvatarUrl ??
+                          (authState.photoUrl != null &&
+                                  authState.photoUrl!.isNotEmpty
+                              ? authState.photoUrl
+                              : null);
+
+                      return Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          GestureDetector(
+                            onTap: () => context.push('/avatar'),
+                            child: Container(
+                              width: 104,
+                              height: 104,
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: avatarUrl != null
+                                    ? null
+                                    : const LinearGradient(
+                                        colors: [
+                                          Color(0xFF7458FF),
+                                          Color(0xFF836DFF),
+                                        ],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: colorScheme.primary
+                                        .withValues(alpha: 0.25),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ],
+                              ),
+                              child: ClipOval(
+                                child: avatarUrl != null
+                                    ? Image.network(
+                                        avatarUrl,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) =>
+                                            _InitialsAvatar(initials: initials),
+                                      )
+                                    : _InitialsAvatar(initials: initials),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            bottom: -2,
+                            right: -2,
+                            child: Material(
+                              color: colorScheme.primary,
+                              shape: const CircleBorder(),
+                              child: InkWell(
+                                onTap: () => context.push('/avatar'),
+                                customBorder: const CircleBorder(),
+                                child: Container(
+                                  width: 36,
+                                  height: 36,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: colorScheme.appBackground,
+                                      width: 3,
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    Icons.edit,
+                                    size: 18,
+                                    color: colorScheme.primaryForeground,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 32),
+
+                // Profile Section
+                _SectionHeader(title: context.l10n.fullName),
+                const SizedBox(height: 12),
+                FutureBuilder<Map<String, dynamic>?>(
+                  key: ValueKey('name-${nameReloadKey.value}'),
                   future: Supabase.instance.client
                       .from('users')
-                      .select('full_name, avatar_url')
+                      .select('full_name')
                       .eq('id', authState.uid)
                       .maybeSingle(),
                   builder: (context, snapshot) {
                     final dbName = snapshot.data != null
                         ? snapshot.data!['full_name'] as String?
                         : null;
-                    final dbAvatarUrl = snapshot.data != null
-                        ? snapshot.data!['avatar_url'] as String?
-                        : null;
-          
-                    final displayName = (dbName?.trim().isNotEmpty == true)
+                    final currentName = (dbName?.trim().isNotEmpty == true)
                         ? dbName!.trim()
                         : (authState.displayName?.trim().isNotEmpty == true
                             ? authState.displayName!.trim()
-                            : 'User');
-                    final initials = displayName.isNotEmpty
-                        ? displayName.substring(0, 1).toUpperCase()
-                        : (authState.email.isNotEmpty
-                            ? authState.email
-                                .substring(0, 1)
-                                .toUpperCase()
-                            : 'U');
-          
-                    String? validatedAvatarUrl;
-                    if (dbAvatarUrl != null &&
-                        dbAvatarUrl.isNotEmpty &&
-                        dbAvatarUrl != 'SKIPPED' &&
-                        (dbAvatarUrl.startsWith('http://') ||
-                            dbAvatarUrl.startsWith('https://'))) {
-                      validatedAvatarUrl = dbAvatarUrl;
-                    }
-          
-                    final avatarUrl = validatedAvatarUrl ??
-                        (authState.photoUrl != null &&
-                                authState.photoUrl!.isNotEmpty
-                            ? authState.photoUrl
-                            : null);
-          
-                    return Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        GestureDetector(
-                          onTap: () => context.push('/avatar'),
-                          child: Container(
-                            width: 104,
-                            height: 104,
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: avatarUrl != null
-                                  ? null
-                                  : const LinearGradient(
-                                      colors: [
-                                        Color(0xFF7458FF),
-                                        Color(0xFF836DFF),
-                                      ],
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                    ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: colorScheme.primary
-                                      .withValues(alpha: 0.25),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 6),
-                                ),
-                              ],
-                            ),
-                            child: ClipOval(
-                              child: avatarUrl != null
-                                  ? Image.network(
-                                      avatarUrl,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) =>
-                                          _InitialsAvatar(initials: initials),
-                                    )
-                                  : _InitialsAvatar(initials: initials),
-                            ),
-                          ),
+                            : '');
+
+                    return AdaptiveListTile(
+                      leading: Icon(
+                        Icons.person_outline,
+                        size: 20,
+                        color: colorScheme.mutedForeground,
+                      ),
+                      title: Text(
+                        currentName.isEmpty
+                            ? context.l10n.fullName
+                            : currentName,
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: colorScheme.foreground,
+                          fontWeight: FontWeight.w500,
                         ),
-                        Positioned(
-                          bottom: -2,
-                          right: -2,
-                          child: Material(
-                            color: colorScheme.primary,
-                            shape: const CircleBorder(),
-                            child: InkWell(
-                              onTap: () => context.push('/avatar'),
-                              customBorder: const CircleBorder(),
-                              child: Container(
-                                width: 36,
-                                height: 36,
-                                alignment: Alignment.center,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: colorScheme.appBackground,
-                                    width: 3,
-                                  ),
-                                ),
-                                child: Icon(
-                                  Icons.edit,
-                                  size: 18,
-                                  color: colorScheme.primaryForeground,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                context.l10n.fullName,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.foreground,
-                  letterSpacing: -0.2,
-                ),
-              ),
-              const SizedBox(height: 16),
-              FutureBuilder<Map<String, dynamic>?>(
-                key: ValueKey('name-${nameReloadKey.value}'),
-                future: Supabase.instance.client
-                    .from('users')
-                    .select('full_name')
-                    .eq('id', authState.uid)
-                    .maybeSingle(),
-                builder: (context, snapshot) {
-                  final dbName = snapshot.data != null
-                      ? snapshot.data!['full_name'] as String?
-                      : null;
-                  final currentName = (dbName?.trim().isNotEmpty == true)
-                      ? dbName!.trim()
-                      : (authState.displayName?.trim().isNotEmpty == true
-                          ? authState.displayName!.trim()
-                          : '');
-          
-                  return Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 16,
-                    ),
-                    decoration: BoxDecoration(
-                      color: colorScheme.card,
-                      borderRadius: BorderRadius.circular(16),
-                      border:
-                          Border.all(color: colorScheme.border, width: 1),
-                    ),
-                    child: InkWell(
+                      ),
+                      trailing: Icon(
+                        Icons.chevron_right,
+                        size: 18,
+                        color: colorScheme.mutedForeground,
+                      ),
                       onTap: () => _showEditNameSheet(
                         context: context,
                         ref: ref,
@@ -326,261 +320,225 @@ class SettingsPage extends HookConsumerWidget {
                           ref.invalidate(userProfileProvider(authState.uid));
                         },
                       ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.person_outline,
-                            size: 20,
-                            color: colorScheme.mutedForeground,
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Text(
-                              currentName.isEmpty
-                                  ? context.l10n.fullName
-                                  : currentName,
-                              style: TextStyle(
-                                fontSize: 15,
-                                color: colorScheme.foreground,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                          Icon(
-                            Icons.chevron_right,
-                            size: 18,
-                            color: colorScheme.mutedForeground,
-                          ),
-                        ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 24),
+
+                // Language Section
+                _SectionHeader(title: context.l10n.language),
+                const SizedBox(height: 12),
+                AdaptiveCard(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.language,
+                        size: 20,
+                        color: colorScheme.mutedForeground,
                       ),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 32),
-              Text(
-                context.l10n.language,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.foreground,
-                  letterSpacing: -0.2,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: colorScheme.card,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: colorScheme.border, width: 1),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.language,
-                      size: 20,
-                      color: colorScheme.mutedForeground,
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<Locale?>(
-                          isExpanded: true,
-                          value: dropdownValue,
-                          items: [
-                            DropdownMenuItem<Locale?>(
-                              value: null,
-                              child: Text(
-                                context.l10n.systemDefault,
-                                style: TextStyle(
-                                  color: colorScheme.foreground,
-                                ),
-                              ),
-                            ),
-                            ...supportedLocales.map(
-                              (locale) => DropdownMenuItem<Locale?>(
-                                value: locale,
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<Locale?>(
+                            isExpanded: true,
+                            value: dropdownValue,
+                            items: [
+                              DropdownMenuItem<Locale?>(
+                                value: null,
                                 child: Text(
-                                  _displayLocaleName(locale),
+                                  context.l10n.systemDefault,
                                   style: TextStyle(
                                     color: colorScheme.foreground,
                                   ),
                                 ),
                               ),
-                            ),
-                          ],
-                          onChanged: (value) async {
-                            if (value == null) {
-                              await ref
-                                  .read(localeProvider.notifier)
-                                  .setSystem();
-                            } else {
-                              await ref
-                                  .read(localeProvider.notifier)
-                                  .setLocale(value);
-                            }
-                          },
+                              ...supportedLocales.map(
+                                (locale) => DropdownMenuItem<Locale?>(
+                                  value: locale,
+                                  child: Text(
+                                    _displayLocaleName(locale),
+                                    style: TextStyle(
+                                      color: colorScheme.foreground,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                            onChanged: (value) async {
+                              if (value == null) {
+                                await ref
+                                    .read(localeProvider.notifier)
+                                    .setSystem();
+                              } else {
+                                await ref
+                                    .read(localeProvider.notifier)
+                                    .setLocale(value);
+                              }
+                            },
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 32),
-              Text(
-                context.l10n.appearance,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.foreground,
-                  letterSpacing: -0.2,
-                ),
-              ),
-              const SizedBox(height: 16),
-              AdaptiveListTile(
-                leading: Icon(
-                  Icons.dark_mode_outlined,
-                  size: 20,
-                  color: colorScheme.mutedForeground,
-                ),
-                title: Text(
-                  context.l10n.darkMode,
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: colorScheme.foreground,
-                    fontWeight: FontWeight.w500,
+                    ],
                   ),
                 ),
-                trailing: AdaptiveSwitch(
-                  value: isDarkMode,
-                  onChanged: (value) {
-                    ref
-                        .read(themeModeProvider.notifier)
-                        .setThemeMode(
-                          value ? ThemeMode.dark : ThemeMode.light,
-                        );
-                  },
-                ),
-              ),
-              const SizedBox(height: 32),
-              Text(
-                context.l10n.notifications,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.foreground,
-                  letterSpacing: -0.2,
-                ),
-              ),
-              const SizedBox(height: 16),
-              AdaptiveListTile(
-                leading: Icon(
-                  Icons.notifications_outlined,
-                  size: 20,
-                  color: colorScheme.mutedForeground,
-                ),
-                title: Text(
-                  context.l10n.pushNotifications,
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: colorScheme.foreground,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                subtitle: Text(
-                  context.l10n.receiveAlertsAndUpdates,
-                  style: TextStyle(
-                    fontSize: 12,
+                const SizedBox(height: 24),
+
+                // Appearance Section
+                _SectionHeader(title: context.l10n.appearance),
+                const SizedBox(height: 12),
+                AdaptiveListTile(
+                  leading: Icon(
+                    Icons.dark_mode_outlined,
+                    size: 20,
                     color: colorScheme.mutedForeground,
                   ),
+                  title: Text(
+                    context.l10n.darkMode,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: colorScheme.foreground,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  trailing: AdaptiveSwitch(
+                    value: isDarkMode,
+                    onChanged: (value) {
+                      ref.read(themeModeProvider.notifier).setThemeMode(
+                            value ? ThemeMode.dark : ThemeMode.light,
+                          );
+                    },
+                  ),
                 ),
-                trailing: Icon(
-                  Icons.open_in_new,
-                  size: 16,
-                  color: colorScheme.mutedForeground,
+                const SizedBox(height: 24),
+
+                // Notifications Section
+                _SectionHeader(title: context.l10n.notifications),
+                const SizedBox(height: 12),
+                AdaptiveListTile(
+                  leading: Icon(
+                    Icons.notifications_outlined,
+                    size: 20,
+                    color: colorScheme.mutedForeground,
+                  ),
+                  title: Text(
+                    context.l10n.pushNotifications,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: colorScheme.foreground,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  subtitle: Text(
+                    context.l10n.receiveAlertsAndUpdates,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: colorScheme.mutedForeground,
+                    ),
+                  ),
+                  trailing: Icon(
+                    Icons.open_in_new,
+                    size: 16,
+                    color: colorScheme.mutedForeground,
+                  ),
+                  onTap: () => handleNotificationToggle(),
                 ),
-                onTap: () => handleNotificationToggle(),
-              ),
-              const SizedBox(height: 32),
-              buildWhatsAppBindingCard(context, ref),
-              const SizedBox(height: 32),
-              Text(
-                context.l10n.membership,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.foreground,
-                  letterSpacing: -0.2,
+                const SizedBox(height: 24),
+
+                // WhatsApp Binding
+                buildWhatsAppBindingCard(context, ref),
+                const SizedBox(height: 24),
+
+                // Membership Section
+                _SectionHeader(title: context.l10n.membership),
+                const SizedBox(height: 12),
+                _MembershipCard(
+                  colorScheme: colorScheme,
+                  subscriptionAsync: subscriptionAsync,
                 ),
-              ),
-              const SizedBox(height: 16),
-              _MembershipCard(
-                colorScheme: colorScheme,
-                subscriptionAsync: subscriptionAsync,
-              ),
-              const SizedBox(height: 32),
-              // Logout Button
-              SizedBox(
-                width: double.infinity,
-                child: AdaptiveButton(
-                  onPressed: () async {
-                    try {
-                      await ref
-                          .read(deviceRegistrationServiceProvider)
-                          .unregisterDevice();
-                    } catch (_) {}
-          
-                    debugPrint(
-                      '🧹 Clearing all user-specific Riverpod state before logout',
-                    );
-          
-                    // Analytics and expenses
-                    ref.invalidate(analyticsProvider);
-          
-                    // Households
-                    ref.invalidate(userHouseholdsProvider);
-                    ref.invalidate(householdExpensesProvider);
-                    ref.invalidate(householdSplitsProvider);
-                    ref.invalidate(householdBudgetsProvider);
-                    ref.invalidate(householdSummaryProvider);
-                    ref.invalidate(householdMembersProvider);
-                    ref.invalidate(selectedHouseholdProvider);
-          
-                    // View mode and filters
-                    ref.invalidate(viewModeProvider);
-                    ref.invalidate(homeFilterProvider);
-          
-                    // Income
-                    ref.invalidate(incomeSummaryProvider);
-                    ref.invalidate(incomeListProvider);
-          
-                    // Goals
-                    ref.invalidate(goalsListProvider);
-                    ref.invalidate(goalSummaryProvider);
-          
-                    // Subscription
-                    ref.invalidate(subscriptionManagementProvider);
-          
-                    // User profile
-                    ref.invalidate(userProfileProvider);
-          
-                    debugPrint('✅ All user-specific state cleared');
-          
-                    // Sign out from auth last (this will trigger navigation to login)
-                    await ref.read(authProvider.notifier).signOut();
-                  },
-                  label: context.l10n.signOut,
-                  color: colorScheme.destructive,
+                const SizedBox(height: 32),
+
+                // Sign Out Button
+                SizedBox(
+                  width: double.infinity,
+                  child: AdaptiveButton(
+                    onPressed: () async {
+                      try {
+                        await ref
+                            .read(deviceRegistrationServiceProvider)
+                            .unregisterDevice();
+                      } catch (_) {}
+
+                      debugPrint(
+                        '🧹 Clearing all user-specific Riverpod state before logout',
+                      );
+
+                      // Analytics and expenses
+                      ref.invalidate(analyticsProvider);
+
+                      // Households
+                      ref.invalidate(userHouseholdsProvider);
+                      ref.invalidate(householdExpensesProvider);
+                      ref.invalidate(householdSplitsProvider);
+                      ref.invalidate(householdBudgetsProvider);
+                      ref.invalidate(householdSummaryProvider);
+                      ref.invalidate(householdMembersProvider);
+                      ref.invalidate(selectedHouseholdProvider);
+
+                      // View mode and filters
+                      ref.invalidate(viewModeProvider);
+                      ref.invalidate(homeFilterProvider);
+
+                      // Income
+                      ref.invalidate(incomeSummaryProvider);
+                      ref.invalidate(incomeListProvider);
+
+                      // Goals
+                      ref.invalidate(goalsListProvider);
+                      ref.invalidate(goalSummaryProvider);
+
+                      // Subscription
+                      ref.invalidate(subscriptionManagementProvider);
+
+                      // User profile
+                      ref.invalidate(userProfileProvider);
+
+                      debugPrint('✅ All user-specific state cleared');
+
+                      // Sign out from auth last (this will trigger navigation to login)
+                      await ref.read(authProvider.notifier).signOut();
+                    },
+                    label: context.l10n.signOut,
+                    color: colorScheme.destructive,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-                ),
         ),
+      ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Text(
+      title,
+      style: TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        color: colorScheme.mutedForeground,
+        letterSpacing: 0.5,
       ),
     );
   }
@@ -601,102 +559,87 @@ Future<void> _showEditNameSheet({
     isScrollControlled: true,
     backgroundColor: colorScheme.card,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
     builder: (ctx) {
-      String? errorText;
       return StatefulBuilder(
         builder: (ctx, setState) {
           return Padding(
-              padding: EdgeInsets.only(
-                left: 20,
-                right: 20,
-                top: 16,
-                bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          AppLocalizations.of(ctx)!.fullName,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: colorScheme.foreground,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        icon: Icon(
-                          Icons.close,
-                          color: colorScheme.mutedForeground,
-                        ),
-                        onPressed: () => Navigator.of(ctx).pop(),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: controller,
-                    autofocus: true,
-                    decoration: InputDecoration(
-                      hintText: AppLocalizations.of(ctx)!.fullName,
-                      errorText: errorText,
-                      filled: true,
-                      fillColor: colorScheme.appBackground,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: colorScheme.border),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: colorScheme.border),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: colorScheme.primary),
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 20,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Row(
+                  children: [
+                    const Spacer(),
+                    Text(
+                      AppLocalizations.of(ctx)!.fullName,
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.foreground,
                       ),
                     ),
-                    textInputAction: TextInputAction.done,
-                    onSubmitted: (_) async =>
-                        await _saveName(ctx, ref, controller, authState.uid, setState, onUpdated),
+                    const Spacer(),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Text Field
+                AdaptiveTextField(
+                  controller: controller,
+                  placeholder: AppLocalizations.of(ctx)!.fullName,
+                  autofocus: true,
+                  onSubmitted: (_) async => await _saveName(
+                    ctx,
+                    ref,
+                    controller,
+                    authState.uid,
+                    setState,
+                    onUpdated,
                   ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextButton(
-                          onPressed: () => Navigator.of(ctx).pop(),
-                          child: Text(AppLocalizations.of(ctx)!.cancel),
-                        ),
+                ),
+                const SizedBox(height: 20),
+
+                // Action Buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: AdaptiveButton(
+                        style: AdaptiveButtonStyle.plain,
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        label: AppLocalizations.of(ctx)!.cancel,
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: AdaptiveButton(
-                          onPressed: () async {
-                            await _saveName(
-                              ctx,
-                              ref,
-                              controller,
-                              authState.uid,
-                              setState,
-                              onUpdated,
-                            );
-                          },
-                          label: AppLocalizations.of(ctx)!.save,
-                        ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: AdaptiveButton(
+                        onPressed: () async {
+                          await _saveName(
+                            ctx,
+                            ref,
+                            controller,
+                            authState.uid,
+                            setState,
+                            onUpdated,
+                          );
+                        },
+                        label: AppLocalizations.of(ctx)!.save,
                       ),
-                    ],
-                  ),
-                ],
-              ),
-            );
-          },
-        
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
       );
     },
   );
@@ -712,15 +655,13 @@ Future<void> _saveName(
 ) async {
   final newName = controller.text.trim();
   if (newName.isEmpty || newName.length < 2) {
-    setState(() {}); // keep UI responsive; validation shown via snackbar below
-    // Developer note: prefer AppToast over SnackBar to ensure visibility above bottom sheets
-    AppToast.info('Please enter a valid name'); // concise default copy
+    setState(() {});
+    AppToast.info('Please enter a valid name');
     return;
   }
 
   try {
     setState(() {});
-    // Update Supabase Auth metadata (both keys for cross-platform consistency)
     await Supabase.instance.client.auth.updateUser(
       UserAttributes(data: {
         'full_name': newName,
@@ -728,13 +669,11 @@ Future<void> _saveName(
       }),
     );
 
-    // Update public users table
-    await Supabase.instance.client
-        .from('users')
-        .update({'full_name': newName, 'updated_at': DateTime.now().toIso8601String()})
-        .eq('id', userId);
+    await Supabase.instance.client.from('users').update({
+      'full_name': newName,
+      'updated_at': DateTime.now().toIso8601String()
+    }).eq('id', userId);
 
-    // Invalidate Riverpod-derived profile data and notify
     onUpdated();
 
     if (!ctx.mounted) return;
@@ -774,6 +713,7 @@ class _InitialsAvatar extends StatelessWidget {
     );
   }
 }
+
 class _MembershipCard extends ConsumerWidget {
   const _MembershipCard({
     required this.colorScheme,
@@ -785,13 +725,8 @@ class _MembershipCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: BoxDecoration(
-        color: colorScheme.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colorScheme.border, width: 1),
-      ),
+    return AdaptiveCard(
+      padding: const EdgeInsets.all(16),
       child: subscriptionAsync.when(
         loading: () => Row(
           children: [
@@ -852,20 +787,19 @@ class _MembershipCard extends ConsumerWidget {
           ],
         ),
         data: (subscriptionDetails) {
-          // Get localized display names
           final plan = _getLocalizedPlanName(subscriptionDetails, context);
           final status = _getLocalizedStatusName(subscriptionDetails, context);
-          final renewalInfo = _getLocalizedRenewalInfo(subscriptionDetails, context);
+          final renewalInfo =
+              _getLocalizedRenewalInfo(subscriptionDetails, context);
           final isActive = subscriptionDetails?.hasActiveSubscription ?? false;
           final isTrialing = subscriptionDetails?.isTrialing ?? false;
           final isCanceled = subscriptionDetails?.isCanceled ?? false;
           final isPastDue = subscriptionDetails?.isPastDue ?? false;
           final isLifetime = subscriptionDetails?.isLifetime ?? false;
 
-          // Determine icon and color based on subscription state
           IconData icon;
           Color iconColor;
-          
+
           if (isPastDue) {
             icon = Icons.warning_outlined;
             iconColor = AppTheme.danger;
@@ -950,12 +884,12 @@ class _MembershipCard extends ConsumerWidget {
                 ],
               ),
               if (renewalInfo != null) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
+                    horizontal: 12,
+                    vertical: 8,
                   ),
                   decoration: BoxDecoration(
                     color: _getRenewalInfoBackgroundColor(
@@ -963,13 +897,6 @@ class _MembershipCard extends ConsumerWidget {
                       colorScheme,
                     ),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: _getRenewalInfoBorderColor(
-                        subscriptionDetails,
-                        colorScheme,
-                      ),
-                      width: 1,
-                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -982,7 +909,7 @@ class _MembershipCard extends ConsumerWidget {
                           colorScheme,
                         ),
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 8),
                       Text(
                         renewalInfo,
                         style: TextStyle(
@@ -1005,7 +932,8 @@ class _MembershipCard extends ConsumerWidget {
     );
   }
 
-  String _getLocalizedPlanName(SubscriptionDetails? details, BuildContext context) {
+  String _getLocalizedPlanName(
+      SubscriptionDetails? details, BuildContext context) {
     if (details == null || details.subscription?.plan == null) {
       return context.l10n.freePlan;
     }
@@ -1024,7 +952,8 @@ class _MembershipCard extends ConsumerWidget {
     }
   }
 
-  String _getLocalizedStatusName(SubscriptionDetails? details, BuildContext context) {
+  String _getLocalizedStatusName(
+      SubscriptionDetails? details, BuildContext context) {
     if (details == null || details.subscription?.plan == null) {
       return context.l10n.freePlanStatus;
     }
@@ -1035,7 +964,9 @@ class _MembershipCard extends ConsumerWidget {
 
     switch (details.subscription!.status?.toLowerCase()) {
       case 'active':
-        return details.isLifetime ? context.l10n.activeLifetimeStatus : context.l10n.activeStatus;
+        return details.isLifetime
+            ? context.l10n.activeLifetimeStatus
+            : context.l10n.activeStatus;
       case 'canceled':
         return context.l10n.canceledStatus;
       case 'past_due':
@@ -1047,7 +978,8 @@ class _MembershipCard extends ConsumerWidget {
     }
   }
 
-  String? _getLocalizedRenewalInfo(SubscriptionDetails? details, BuildContext context) {
+  String? _getLocalizedRenewalInfo(
+      SubscriptionDetails? details, BuildContext context) {
     if (details == null || details.subscription == null || details.isLifetime) {
       return null;
     }
@@ -1067,7 +999,9 @@ class _MembershipCard extends ConsumerWidget {
       }
     }
 
-    if (status == 'active' && details.daysUntilNextPayment != null && details.daysUntilNextPayment! > 0) {
+    if (status == 'active' &&
+        details.daysUntilNextPayment != null &&
+        details.daysUntilNextPayment! > 0) {
       return context.l10n.renewsInDays(details.daysUntilNextPayment!);
     }
 
@@ -1086,7 +1020,8 @@ class _MembershipCard extends ConsumerWidget {
     return null;
   }
 
-  Color _getRenewalInfoBackgroundColor(SubscriptionDetails? details, ColorScheme colorScheme) {
+  Color _getRenewalInfoBackgroundColor(
+      SubscriptionDetails? details, ColorScheme colorScheme) {
     if (details == null) return colorScheme.muted.withValues(alpha: 0.1);
 
     if (details.isTrialing) {
@@ -1100,21 +1035,8 @@ class _MembershipCard extends ConsumerWidget {
     return colorScheme.muted.withValues(alpha: 0.1);
   }
 
-  Color _getRenewalInfoBorderColor(SubscriptionDetails? details, ColorScheme colorScheme) {
-    if (details == null) return colorScheme.border;
-
-    if (details.isTrialing) {
-      return AppTheme.warning.withValues(alpha: 0.3);
-    } else if (details.isCanceled || details.isPastDue) {
-      return AppTheme.danger.withValues(alpha: 0.3);
-    } else if (details.isActive) {
-      return AppTheme.success.withValues(alpha: 0.3);
-    }
-
-    return colorScheme.border;
-  }
-
-  Color _getRenewalInfoTextColor(SubscriptionDetails? details, ColorScheme colorScheme) {
+  Color _getRenewalInfoTextColor(
+      SubscriptionDetails? details, ColorScheme colorScheme) {
     if (details == null) return colorScheme.mutedForeground;
 
     if (details.isTrialing) {
@@ -1149,54 +1071,25 @@ String _displayLocaleName(Locale locale) {
   final lc = locale.languageCode.toLowerCase();
   final cc = (locale.countryCode ?? '').toUpperCase();
 
-  // German
   if (lc == 'de') return 'Deutsch';
-  
-  // English
   if (lc == 'en') return 'English';
-  
-  // Spanish
   if (lc == 'es') return 'Español';
-  
-  // French
   if (lc == 'fr') return 'Français';
-  
-  // Japanese
   if (lc == 'ja' || lc == 'jp') return '日本語';
-  
-  // Korean
   if (lc == 'ko' || lc == 'kr') return '한국어';
-  
-  // Dutch
   if (lc == 'nl') return 'Nederlands';
-  
-  // Urdu (Pakistan)
   if (lc == 'ur' || lc == 'pk') return 'اردو';
-  
-  // Russian
   if (lc == 'ru') return 'Русский';
-  
-  // Ukrainian
   if (lc == 'uk' || lc == 'ua') return 'Українська';
-
-  // Pakistani (Urdu)
-  if (lc == 'ur') return 'پکستانی';
-
-  // Italian
   if (lc == 'it') return 'Italiano';
-
-  // Vietnamese
   if (lc == 'vi') return 'Tiếng Việt';
 
-  // Chinese (handle various tags and legacy 'cn')
   if (lc == 'zh' || lc == 'cn') {
-    // Simplified for CN or script Hans (if present via other configs)
     if (cc == 'CN' || cc.isEmpty) return '简体中文';
     if (cc == 'TW' || cc == 'HK' || cc == 'MO') return '繁體中文';
     return '中文';
   }
 
-  // Fallback: show native name if easy mapping is known; otherwise show BCP-47-ish label
   if (locale.countryCode != null && locale.countryCode!.isNotEmpty) {
     return '${locale.languageCode}_${locale.countryCode}';
   }
@@ -1205,14 +1098,13 @@ String _displayLocaleName(Locale locale) {
 
 Locale? _coerceToSupported(Locale? selected, List<Locale> supported) {
   if (selected == null) return null;
-  // exact match
   for (final l in supported) {
     if (l.languageCode.toLowerCase() == selected.languageCode.toLowerCase() &&
-        (l.countryCode ?? '').toUpperCase() == (selected.countryCode ?? '').toUpperCase()) {
+        (l.countryCode ?? '').toUpperCase() ==
+            (selected.countryCode ?? '').toUpperCase()) {
       return l;
     }
   }
-  // language-only match
   for (final l in supported) {
     if (l.languageCode.toLowerCase() == selected.languageCode.toLowerCase()) {
       return l;

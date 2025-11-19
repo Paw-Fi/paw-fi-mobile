@@ -18,21 +18,6 @@ import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 
-const _presetColors = [
-  '#FF3B30', // Red
-  '#FF9500', // Orange
-  '#FFCC00', // Yellow
-  '#34C759', // Green
-  '#00C7BE', // Teal
-  '#30B0C7', // Cyan
-  '#32ADE6', // Blue
-  '#007AFF', // Royal Blue
-  '#5856D6', // Purple
-  '#AF52DE', // Magenta
-  '#FF2D55', // Pink
-  '#A2845E', // Brown
-];
-
 const _presetIcons = [
   'shopping_bag',
   'restaurant',
@@ -438,136 +423,97 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: SizedBox(
-                            height: 44,
-                            child: ListView.separated(
-                              scrollDirection: Axis.horizontal,
-                              itemCount: _presetColors.length,
-                              separatorBuilder: (_, __) =>
-                                  const SizedBox(width: 12),
-                              itemBuilder: (context, index) {
-                                final colorHex = _presetColors[index];
-                                final color = Color(int.parse(
-                                        colorHex.substring(1, 7),
-                                        radix: 16) +
-                                    0xFF000000);
-                                final isSelected =
-                                    selectedColor.value == colorHex;
+                    GestureDetector(
+                      onTap: () {
+                        final currentColor = selectedColor.value != null
+                            ? Color(int.parse(
+                                    selectedColor.value!.substring(1, 7),
+                                    radix: 16) +
+                                0xFF000000)
+                            : const Color(0xFF007AFF); // Default blue
 
-                                return GestureDetector(
-                                  onTap: () => selectedColor.value = colorHex,
-                                  child: Container(
-                                    width: 44,
-                                    height: 44,
-                                    decoration: BoxDecoration(
-                                      color: color,
-                                      shape: BoxShape.circle,
-                                      border: isSelected
-                                          ? Border.all(
-                                              color: colorScheme.foreground,
-                                              width: 2,
-                                            )
-                                          : null,
-                                    ),
-                                    child: isSelected
-                                        ? Icon(
-                                            Icons.check,
-                                            color: ThemeData
-                                                        .estimateBrightnessForColor(
-                                                            color) ==
-                                                    Brightness.dark
-                                                ? Colors.white
-                                                : Colors.black,
-                                            size: 20,
-                                          )
-                                        : null,
+                        if (PlatformInfo.isIOS) {
+                          // iOS: Use native iOS color picker
+                          final iosColorPickerController =
+                              IOSColorPickerController();
+                          iosColorPickerController.showIOSCustomColorPicker(
+                            startingColor: currentColor,
+                            onColorChanged: (color) {
+                              String two(int n) =>
+                                  n.toRadixString(16).padLeft(2, '0');
+                              int toByte(double x) =>
+                                  (x * 255.0).round() & 0xff;
+                              final hex =
+                                  '#${two(toByte(color.r))}${two(toByte(color.g))}${two(toByte(color.b))}';
+                              selectedColor.value = hex;
+                            },
+                            context: context,
+                          );
+                        } else {
+                          // Android/Other: Use flutter_colorpicker
+                          showDialog(
+                            context: context,
+                            builder: (BuildContext dialogContext) {
+                              return AlertDialog(
+                                title: const Text('Select color'),
+                                content: SingleChildScrollView(
+                                  child: ColorPicker(
+                                    pickerColor: currentColor,
+                                    onColorChanged: (color) {
+                                      String two(int n) =>
+                                          n.toRadixString(16).padLeft(2, '0');
+                                      int toByte(double x) =>
+                                          (x * 255.0).round() & 0xff;
+                                      final hex =
+                                          '#${two(toByte(color.r))}${two(toByte(color.g))}${two(toByte(color.b))}';
+                                      selectedColor.value = hex;
+                                    },
                                   ),
-                                );
-                              },
+                                ),
+                                actions: <Widget>[
+                                  TextButton(
+                                    child: const Text('Done'),
+                                    onPressed: () {
+                                      Navigator.of(dialogContext).pop();
+                                    },
+                                  ),
+                                ],
+                              );
+                            },
+                          );
+                        }
+                      },
+                      child: Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          color: selectedColor.value != null
+                              ? Color(int.parse(
+                                      selectedColor.value!.substring(1, 7),
+                                      radix: 16) +
+                                  0xFF000000)
+                              : const Color(0xFF007AFF),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: colorScheme.border,
+                            width: 2,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
                             ),
+                          ],
+                        ),
+                        child: Center(
+                          child: Icon(
+                            Icons.colorize,
+                            color: Colors.white.withOpacity(0.8),
+                            size: 24,
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        GestureDetector(
-                          onTap: () {
-                            final currentColor = selectedColor.value != null
-                                ? Color(int.parse(
-                                        selectedColor.value!.substring(1, 7),
-                                        radix: 16) +
-                                    0xFF000000)
-                                : Colors.blue;
-
-                            if (PlatformInfo.isIOS) {
-                              // iOS: Use native iOS color picker
-                              final iosColorPickerController =
-                                  IOSColorPickerController();
-                              iosColorPickerController.showIOSCustomColorPicker(
-                                startingColor: currentColor,
-                                onColorChanged: (color) {
-                                  String two(int n) =>
-                                      n.toRadixString(16).padLeft(2, '0');
-                                  int toByte(double x) =>
-                                      (x * 255.0).round() & 0xff;
-                                  final hex =
-                                      '#${two(toByte(color.r))}${two(toByte(color.g))}${two(toByte(color.b))}';
-                                  selectedColor.value = hex;
-                                },
-                                context: context,
-                              );
-                            } else {
-                              // Android/Other: Use flutter_colorpicker
-                              showDialog(
-                                context: context,
-                                builder: (BuildContext dialogContext) {
-                                  return AlertDialog(
-                                    title: const Text('Select color'),
-                                    content: SingleChildScrollView(
-                                      child: ColorPicker(
-                                        pickerColor: currentColor,
-                                        onColorChanged: (color) {
-                                          String two(int n) => n
-                                              .toRadixString(16)
-                                              .padLeft(2, '0');
-                                          int toByte(double x) =>
-                                              (x * 255.0).round() & 0xff;
-                                          final hex =
-                                              '#${two(toByte(color.r))}${two(toByte(color.g))}${two(toByte(color.b))}';
-                                          selectedColor.value = hex;
-                                        },
-                                      ),
-                                    ),
-                                    actions: <Widget>[
-                                      TextButton(
-                                        child: const Text('Done'),
-                                        onPressed: () {
-                                          Navigator.of(dialogContext).pop();
-                                        },
-                                      ),
-                                    ],
-                                  );
-                                },
-                              );
-                            }
-                          },
-                          child: Container(
-                            width: 44,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              color: colorScheme.card,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: colorScheme.border),
-                            ),
-                            child: Icon(
-                              Icons.colorize,
-                              color: colorScheme.primary,
-                              size: 20,
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                     const SizedBox(height: 20),
                     Text(

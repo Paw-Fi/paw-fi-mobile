@@ -34,12 +34,12 @@ class MainShell extends HookConsumerWidget {
 
     final currentPage = pages[currentIndex.value];
 
-    return AdaptiveScaffold(  
+    return AdaptiveScaffold(
       body: ZoomDrawer(
         controller: zoomController,
         menuScreen: const MainMenuScreen(),
         mainScreen: Material(
-          color: colorScheme.appBackground,          
+          color: colorScheme.appBackground,
           child: Column(
             children: [
               SafeArea(
@@ -69,10 +69,10 @@ class MainShell extends HookConsumerWidget {
         items: [
           AdaptiveNavigationDestination(
             icon: PlatformInfo.isIOS26OrHigher()
-                ? 'house.fill'
+                ? 'square.grid.2x2.fill'
                 : PlatformInfo.isIOS
-                    ? CupertinoIcons.home
-                    : Icons.home_outlined,
+                    ? CupertinoIcons.square_grid_2x2_fill
+                    : Icons.dashboard,
             label: context.l10n.overview,
           ),
           AdaptiveNavigationDestination(
@@ -109,4 +109,3 @@ class MainShell extends HookConsumerWidget {
     );
   }
 }
-

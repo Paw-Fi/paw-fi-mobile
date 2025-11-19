@@ -31,11 +31,10 @@ class MainMenuScreen extends ConsumerWidget {
     return Material(
       color: colorScheme.card,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(24, 48, 24, 32),
+        padding: const EdgeInsets.fromLTRB(20, 48, 20, 32),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Currency + household sections
             const SizedBox(height: 24),
             _CurrencySection(colorScheme: colorScheme),
             const SizedBox(height: 16),
@@ -323,128 +322,124 @@ class _ProfileRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.card,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: colorScheme.border.withValues(alpha: 0.7),
-          width: 1,
+    return AdaptiveListTile(
+      leading: SizedBox(
+        width: 40,
+        height: 40,
+        child: FutureBuilder<Map<String, dynamic>?>(
+          future: Supabase.instance.client
+              .from('users')
+              .select('avatar_url')
+              .eq('id', user.uid)
+              .maybeSingle(),
+          builder: (context, snapshot) {
+            final dbAvatarUrl = snapshot.data != null
+                ? snapshot.data!['avatar_url'] as String?
+                : null;
+
+            String? validatedAvatarUrl;
+            if (dbAvatarUrl != null &&
+                dbAvatarUrl.isNotEmpty &&
+                dbAvatarUrl != 'SKIPPED' &&
+                (dbAvatarUrl.startsWith('http://') ||
+                    dbAvatarUrl.startsWith('https://'))) {
+              validatedAvatarUrl = dbAvatarUrl;
+            }
+
+            final avatarUrl = validatedAvatarUrl ??
+                (user.photoUrl != null && user.photoUrl!.isNotEmpty
+                    ? user.photoUrl
+                    : null);
+
+            return Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: colorScheme.border.withValues(alpha: 0.6),
+                  width: 1.2,
+                ),
+              ),
+              child: ClipOval(
+                child: avatarUrl != null
+                    ? Image.network(
+                        avatarUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: colorScheme.muted.withValues(alpha: 0.5),
+                          alignment: Alignment.center,
+                          child: Icon(
+                            Icons.person_rounded,
+                            color: colorScheme.mutedForeground
+                                .withValues(alpha: 0.8),
+                          ),
+                        ),
+                      )
+                    : Container(
+                        color: colorScheme.muted.withValues(alpha: 0.5),
+                        alignment: Alignment.center,
+                        child: Icon(
+                          Icons.person_rounded,
+                          color: colorScheme.mutedForeground
+                              .withValues(alpha: 0.8),
+                        ),
+                      ),
+              ),
+            );
+          },
         ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 40,
-            height: 40,
-            child: FutureBuilder<Map<String, dynamic>?>(
-              future: Supabase.instance.client
-                  .from('users')
-                  .select('avatar_url')
-                  .eq('id', user.uid)
-                  .maybeSingle(),
-              builder: (context, snapshot) {
-                final dbAvatarUrl = snapshot.data != null
-                    ? snapshot.data!['avatar_url'] as String?
-                    : null;
-
-                String? validatedAvatarUrl;
-                if (dbAvatarUrl != null &&
-                    dbAvatarUrl.isNotEmpty &&
-                    dbAvatarUrl != 'SKIPPED' &&
-                    (dbAvatarUrl.startsWith('http://') ||
-                        dbAvatarUrl.startsWith('https://'))) {
-                  validatedAvatarUrl = dbAvatarUrl;
-                }
-
-                final avatarUrl = validatedAvatarUrl ??
-                    (user.photoUrl != null && user.photoUrl!.isNotEmpty
-                        ? user.photoUrl
-                        : null);
-
-                return Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: colorScheme.border.withValues(alpha: 0.6),
-                      width: 1.2,
-                    ),
-                  ),
-                  child: ClipOval(
-                    child: avatarUrl != null
-                        ? Image.network(
-                            avatarUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
-                              color: colorScheme.muted.withValues(alpha: 0.5),
-                              alignment: Alignment.center,
-                              child: Icon(
-                                Icons.person_rounded,
-                                color: colorScheme.mutedForeground
-                                    .withValues(alpha: 0.8),
-                              ),
-                            ),
-                          )
-                        : Container(
-                            color: colorScheme.muted.withValues(alpha: 0.5),
-                            alignment: Alignment.center,
-                            child: Icon(
-                              Icons.person_rounded,
-                              color: colorScheme.mutedForeground
-                                  .withValues(alpha: 0.8),
-                            ),
-                          ),
-                  ),
-                );
-              },
+      title: Text(
+        user.displayName?.isNotEmpty == true ? user.displayName! : user.email,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          color: colorScheme.foreground,
+        ),
+      ),
+      subtitle: Text(
+        user.email,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 13,
+          color: colorScheme.mutedForeground,
+        ),
+      ),
+      trailing: IconButton(
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const SettingsPage(),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  user.displayName?.isNotEmpty == true
-                      ? user.displayName!
-                      : user.email,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.foreground,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  user.email,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: colorScheme.mutedForeground,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const SettingsPage(),
-                ),
-              );
-            },
-            icon: Icon(
-              Icons.settings_outlined,
-              size: 20,
-              color: colorScheme.mutedForeground,
-            ),
-          ),
-        ],
+          );
+        },
+        icon: Icon(
+          Icons.settings_outlined,
+          size: 20,
+          color: colorScheme.mutedForeground,
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Text(
+      title,
+      style: TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        color: colorScheme.mutedForeground,
+        letterSpacing: 0.5,
       ),
     );
   }
