@@ -7,8 +7,8 @@ import 'package:moneko/features/auth/presentation/widgets/wallet_login_button.da
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 class LoginScreen extends HookConsumerWidget {
   const LoginScreen({super.key});
 
@@ -103,25 +103,11 @@ class LoginScreen extends HookConsumerWidget {
 
       try {
         await ref.read(authProvider.notifier).resetPassword(email);
-        if (context.mounted) {
-          shadcnui.showToast(
-            context: context,
-            builder: (context, overlay) => shadcnui.Alert(
-              leading: const shadcnui.Icon(Icons.check_circle),
-              title: shadcnui.Text(context.l10n.passwordResetEmailSent),
-            ),
-          );
-        }
+        AppToast.success(context.l10n.passwordResetEmailSent);
       } catch (e) {
-        if (context.mounted) {
-          shadcnui.showToast(
-            context: context,
-            builder: (context, overlay) => shadcnui.Alert.destructive(
-              leading: const shadcnui.Icon(Icons.error),
-              title: shadcnui.Text(e.toString().replaceAll('Exception: ', '')),
-            ),
-          );
-        }
+        AppToast.error(
+          e.toString().replaceAll('Exception: ', ''),
+        );
       }
     }
 
@@ -257,24 +243,7 @@ class LoginScreen extends HookConsumerWidget {
                           const SizedBox(height: 24),
 
                           // Email Field with focus animation
-                          shadcnui.TextField(
-                            controller: emailController,
-                            focusNode: emailFocusNode,
-                            keyboardType: TextInputType.emailAddress,
-                            textInputAction: TextInputAction.next,
-                            placeholder: shadcnui.Text(
-                              context.l10n.emailAddress,
-                              style: TextStyle(
-                                color: theme.colorScheme.mutedForeground.withValues(alpha: 0.6),
-                              ),
-                            ),
-                            enabled: !isLoading.value,
-                            style: TextStyle(
-  fontSize: 16,
-  fontWeight: FontWeight.w400,
-  color: theme.colorScheme.foreground,
-),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                          Container(
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
@@ -284,46 +253,34 @@ class LoginScreen extends HookConsumerWidget {
                                 width: emailHasFocus.value ? 2 : 1,
                               ),
                             ),
+                            child: TextField(
+                              controller: emailController,
+                              focusNode: emailFocusNode,
+                              keyboardType: TextInputType.emailAddress,
+                              textInputAction: TextInputAction.next,
+                              enabled: !isLoading.value,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w400,
+                                color: theme.colorScheme.foreground,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: context.l10n.emailAddress,
+                                hintStyle: TextStyle(
+                                  color: theme.colorScheme.mutedForeground.withValues(alpha: 0.6),
+                                ),
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 16,
+                                ),
+                              ),
+                            ),
                           ),
                           const SizedBox(height: 16),
 
                           // Password Field with focus animation
-                          shadcnui.TextField(
-                            controller: passwordController,
-                            focusNode: passwordFocusNode,
-                            obscureText: !showPassword.value,
-                            textInputAction: TextInputAction.done,
-                            onSubmitted: (_) => handleSignIn(),
-                            placeholder: shadcnui.Text(
-                              context.l10n.password,
-                              style: TextStyle(
-                                color: theme.colorScheme.mutedForeground.withValues(alpha: 0.6),
-                              ),
-                            ),
-                            features: [
-                              shadcnui.InputTrailingFeature(
-                                GestureDetector(
-                                  onTap: () => showPassword.value = !showPassword.value,
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(right: 12),
-                                    child: Icon(
-                                      showPassword.value
-                                          ? Icons.visibility_off_outlined
-                                          : Icons.visibility_outlined,
-                                      color: theme.colorScheme.mutedForeground,
-                                      size: 20,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                            enabled: !isLoading.value,
-                            style: TextStyle(
-  fontSize: 16,
-  fontWeight: FontWeight.w400,
-  color: theme.colorScheme.foreground,
-),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                          Container(
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
@@ -331,6 +288,40 @@ class LoginScreen extends HookConsumerWidget {
                                     ? theme.colorScheme.primary
                                     : theme.colorScheme.border,
                                 width: passwordHasFocus.value ? 2 : 1,
+                              ),
+                            ),
+                            child: TextField(
+                              controller: passwordController,
+                              focusNode: passwordFocusNode,
+                              obscureText: !showPassword.value,
+                              textInputAction: TextInputAction.done,
+                              onSubmitted: (_) => handleSignIn(),
+                              enabled: !isLoading.value,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w400,
+                                color: theme.colorScheme.foreground,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: context.l10n.password,
+                                hintStyle: TextStyle(
+                                  color: theme.colorScheme.mutedForeground.withValues(alpha: 0.6),
+                                ),
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 16,
+                                ),
+                                suffixIcon: IconButton(
+                                  onPressed: () => showPassword.value = !showPassword.value,
+                                  icon: Icon(
+                                    showPassword.value
+                                        ? Icons.visibility_off_outlined
+                                        : Icons.visibility_outlined,
+                                    color: theme.colorScheme.mutedForeground,
+                                    size: 20,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
@@ -502,13 +493,13 @@ class _ResetPasswordDialog extends HookWidget {
     final theme = Theme.of(context);
     final emailController = useTextEditingController();
 
-    return shadcnui.AlertDialog(
-      title: shadcnui.Text(context.l10n.resetYourPassword),
+    return AlertDialog(
+      title: Text(context.l10n.resetYourPassword),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          shadcnui.Text(
+          Text(
             'Enter your email and we will send you a password reset link.',
             style: TextStyle(
               fontSize: 14,
@@ -516,25 +507,24 @@ class _ResetPasswordDialog extends HookWidget {
             ),
           ),
           const SizedBox(height: 16),
-          shadcnui.FormField(
-            key: const shadcnui.FormKey('reset-email'),
-            label: shadcnui.Text(context.l10n.email),
-            child: shadcnui.TextField(
-              controller: emailController,
-              keyboardType: TextInputType.emailAddress,
-              placeholder: shadcnui.Text(context.l10n.exampleEmail),
+          TextField(
+            controller: emailController,
+            keyboardType: TextInputType.emailAddress,
+            decoration: InputDecoration(
+              labelText: context.l10n.email,
+              hintText: context.l10n.exampleEmail,
             ),
           ),
         ],
       ),
       actions: [
-        shadcnui.OutlineButton(
+        TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: shadcnui.Text(context.l10n.cancel),
+          child: Text(context.l10n.cancel),
         ),
-        shadcnui.PrimaryButton(
+        TextButton(
           onPressed: () => Navigator.of(context).pop(emailController.text.trim()),
-          child: shadcnui.Text(context.l10n.sendResetLink),
+          child: Text(context.l10n.sendResetLink),
         ),
       ],
     );

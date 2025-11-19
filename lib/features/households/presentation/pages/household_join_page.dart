@@ -10,7 +10,7 @@ import '../providers/household_providers.dart';
 import '../providers/selected_household_provider.dart';
 import '../../../../core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 /// Modern page for joining a household via invitation URL
 ///
 /// Features:
@@ -502,45 +502,38 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
       enabled: !isValidating,
       child: SizedBox(
         height: 56,
-        child: isValidating
-            ? shadcnui.PrimaryButton(
-                onPressed: null,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          colorScheme.primaryForeground.withValues(alpha: 0.5),
-                        ),
-                      ),
+        child: AdaptiveButton.child(
+          onPressed: isValidating ? null : _validateInvite,
+          style: AdaptiveButtonStyle.filled,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (isValidating) ...[
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      colorScheme.primaryForeground.withValues(alpha: 0.5),
                     ),
-                    const SizedBox(width: 12),
-                    Text(
-                      context.l10n.validating,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: -0.3,
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            : shadcnui.PrimaryButton(
-                onPressed: _validateInvite,
-                child: Text(
-                  context.l10n.continueAction,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: -0.3,
                   ),
                 ),
+                const SizedBox(width: 12),
+              ],
+              Text(
+                isValidating
+                    ? context.l10n.validating
+                    : context.l10n.continueAction,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.3,
+                ),
               ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -594,8 +587,9 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
             button: true,
             child: SizedBox(
               height: 56,
-              child: shadcnui.PrimaryButton(
+              child: AdaptiveButton.child(
                 onPressed: _acceptInvite,
+                style: AdaptiveButtonStyle.filled,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -626,7 +620,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
             button: true,
             child: SizedBox(
               height: 48,
-              child: shadcnui.OutlineButton(
+              child: AdaptiveButton.child(
                 onPressed: () {
                   if (!mounted) return;
                   setState(() {
@@ -637,6 +631,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
                   _animationController.reset();
                   _animationController.forward();
                 },
+                style: AdaptiveButtonStyle.bordered,
                 child: Text(
                   context.l10n.cancel,
                   style: const TextStyle(
@@ -1070,10 +1065,11 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
               child: SizedBox(
                 width: double.infinity,
                 height: 56,
-                child: shadcnui.PrimaryButton(
+                child: AdaptiveButton.child(
                   onPressed: () {
                     Navigator.of(context).popUntil((route) => route.isFirst);
                   },
+                  style: AdaptiveButtonStyle.filled,
                   child: Text(
                     context.l10n.goToHousehold,
                     style: const TextStyle(
@@ -1160,7 +1156,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
               button: true,
               child: SizedBox(
                 height: 56,
-                child: shadcnui.PrimaryButton(
+                child: AdaptiveButton.child(
                   onPressed: () {
                     if (!mounted) return;
                     setState(() {
@@ -1171,6 +1167,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
                     _animationController.reset();
                     _animationController.forward();
                   },
+                  style: AdaptiveButtonStyle.filled,
                   child: Text(
                     context.l10n.tryAgain,
                     style: const TextStyle(
@@ -1191,8 +1188,9 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
               button: true,
               child: SizedBox(
                 height: 48,
-                child: shadcnui.OutlineButton(
+                child: AdaptiveButton.child(
                   onPressed: () => Navigator.pop(context),
+                  style: AdaptiveButtonStyle.bordered,
                   child: Text(
                     context.l10n.cancel,
                     style: const TextStyle(

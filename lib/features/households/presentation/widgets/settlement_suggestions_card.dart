@@ -1,3 +1,4 @@
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
@@ -81,7 +82,7 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
             children: [
               Text(context.l10n.expressNetting, style: TextStyle(fontSize: 12, color: colorScheme.mutedForeground)),
               const SizedBox(width: 8),
-              Switch.adaptive(
+              AdaptiveSwitch(
                 value: _netTransfers,
                 onChanged: (v) => _saveNettingPreference(v),
               ),

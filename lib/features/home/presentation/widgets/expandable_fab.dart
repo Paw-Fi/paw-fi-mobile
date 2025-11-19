@@ -80,7 +80,12 @@ class ExpandableFabState extends State<ExpandableFab>
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox.expand(
+    // Use a fixed-size box instead of SizedBox.expand to avoid infinite
+    // BoxConstraints when used in adaptive layouts.
+    final extent = 56 + widget.distance;
+    return SizedBox(
+      width: extent,
+      height: extent,
       child: Stack(
         alignment: Alignment.bottomRight,
         clipBehavior: Clip.none,

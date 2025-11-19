@@ -4,7 +4,7 @@ import '../widgets/onboarding_card.dart';
 import 'household_create_page.dart';
 import 'household_join_page.dart';
 import 'package:moneko/core/l10n/l10n.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
 
@@ -90,8 +90,9 @@ class _HouseholdOnboardingPageState extends State<HouseholdOnboardingPage> {
                   SizedBox(
                     width: double.infinity,
                     height: 56,
-                    child: shadcnui.PrimaryButton(
+                    child: AdaptiveButton.child(
                       onPressed: _navigateToCreate,
+                      style: AdaptiveButtonStyle.filled,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -116,8 +117,9 @@ class _HouseholdOnboardingPageState extends State<HouseholdOnboardingPage> {
                   SizedBox(
                     width: double.infinity,
                     height: 56,
-                    child: shadcnui.OutlineButton(
+                    child: AdaptiveButton.child(
                       onPressed: _navigateToJoin,
+                      style: AdaptiveButtonStyle.bordered,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [

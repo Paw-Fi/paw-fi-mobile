@@ -65,7 +65,7 @@ class ThemeModeNotifier extends StateNotifier<ThemeMode> {
 /// Additional semantic colors mapped onto Material [ColorScheme]
 extension AppColorScheme on ColorScheme {
   /// Background for cards/surfaces
-  Color get card => surface;
+  Color get card => brightness == Brightness.dark ? AppTheme.darkBackground : AppTheme.lightBackground;
 
   /// Subtle border color
   Color get border => outlineVariant;

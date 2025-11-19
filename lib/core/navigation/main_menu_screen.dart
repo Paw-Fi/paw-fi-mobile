@@ -28,7 +28,7 @@ class MainMenuScreen extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Material(
-      color: colorScheme.background,
+      color: colorScheme.surface,
       child: Container(
         padding: const EdgeInsets.fromLTRB(24, 48, 24, 32),
         child: Column(
@@ -44,7 +44,7 @@ class MainMenuScreen extends ConsumerWidget {
               _HouseholdSection(colorScheme: colorScheme),
             const Spacer(),
             _ProfileRow(user: user, colorScheme: colorScheme),
-             const SizedBox(height: 100),
+             const SizedBox(height: 80),
           ],
         ),
       ),

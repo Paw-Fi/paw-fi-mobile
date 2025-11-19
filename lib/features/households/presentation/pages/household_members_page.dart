@@ -8,7 +8,7 @@ import '../utils/household_ui_utils.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 /// Household Members Management Page
 /// View members, update roles, remove members
 class HouseholdMembersPage extends ConsumerWidget {
@@ -77,9 +77,10 @@ class HouseholdMembersPage extends ConsumerWidget {
                 style: TextStyle(color: colorScheme.destructive),
               ),
               const SizedBox(height: 8),
-              shadcnui.OutlineButton(
+              AdaptiveButton(
                 onPressed: () => ref.read(householdMembersProvider(householdId).notifier).load(),
-                child: Text(context.l10n.retry),
+                style: AdaptiveButtonStyle.bordered,
+                label: context.l10n.retry,
               ),
             ],
           ),

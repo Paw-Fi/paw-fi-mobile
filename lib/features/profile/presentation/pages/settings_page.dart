@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 
 import 'package:url_launcher/url_launcher.dart';
@@ -23,15 +24,13 @@ import 'package:moneko/features/income/presentation/providers/income_providers.d
 import 'package:moneko/features/goals/presentation/providers/goals_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
-
 class SettingsPage extends HookConsumerWidget {
   const SettingsPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentTheme = ref.watch(themeModeProvider);
-    final isDarkMode = currentTheme == shadcnui.ThemeMode.dark;
+    final isDarkMode = currentTheme == ThemeMode.dark;
     final colorScheme = Theme.of(context).colorScheme;
     final authState = ref.watch(authProvider);
     final analyticsState = ref.watch(analyticsProvider);
@@ -51,23 +50,16 @@ class SettingsPage extends HookConsumerWidget {
       try {
         // User wants to enable notifications
         final status = await Permission.notification.status;
-        
+
         if (status.isDenied || status.isPermanentlyDenied) {
           // Permission was denied, open Moneko's notification settings page specifically
           await AppSettings.openAppSettings(
             type: AppSettingsType.notification,
             asAnotherTask: true,
           );
-          
-          // Show info dialog
+
           if (context.mounted) {
-            shadcnui.showToast(
-              context: context,
-              builder: (context, overlay) => shadcnui.Alert(
-                leading: const Icon(Icons.info_outline),
-                title: shadcnui.Text(context.l10n.enableNotificationsInSettings),
-              ),
-            );
+            AppToast.info(context.l10n.enableNotificationsInSettings);
           }
         } else if (status.isGranted) {
           // Already granted, re-initialize device registration
@@ -98,31 +90,13 @@ class SettingsPage extends HookConsumerWidget {
     const supportedLocales = AppLocalizations.supportedLocales;
     final dropdownValue = _coerceToSupported(selectedLocale, supportedLocales);
 
-    return Scaffold(
-      backgroundColor: colorScheme.background,
-      appBar: AppBar(
-        backgroundColor: colorScheme.background,
-        elevation: 0,
-        leading: shadcnui.IconButton(
-          variance: shadcnui.ButtonVariance.ghost,
-          icon: Icon(Icons.arrow_back, color: colorScheme.foreground),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Text(
-          context.l10n.settings,
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            color: colorScheme.foreground,
-          ),
-        ),
+    return AdaptiveScaffold(
+      appBar: AdaptiveAppBar(
+        title: context.l10n.settings,
+        useNativeToolbar: true,
       ),
-      // Developer: quick test entry to verify AppToast (shadcn toast) shows above bottom sheets.
-      // Use AppToast instead of SnackBar for global, z-index-safe messages.
       floatingActionButton: kDebugMode
-          ? FloatingActionButton.extended(
-              icon: const Icon(Icons.bug_report),
-              label: const Text('Toast Test'),
+          ? AdaptiveFloatingActionButton(
               onPressed: () {
                 showModalBottomSheet(
                   context: context,
@@ -135,7 +109,8 @@ class SettingsPage extends HookConsumerWidget {
                           left: 16,
                           right: 16,
                           top: 16,
-                          bottom: 16 + MediaQuery.of(context).viewInsets.bottom,
+                          bottom:
+                              16 + MediaQuery.of(context).viewInsets.bottom,
                         ),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
@@ -152,15 +127,18 @@ class SettingsPage extends HookConsumerWidget {
                             const SizedBox(height: 8),
                             Text(
                               'Press to show a global AppToast above this sheet.',
-                              style: TextStyle(color: scheme.mutedForeground),
+                              style:
+                                  TextStyle(color: scheme.mutedForeground),
                             ),
                             const SizedBox(height: 16),
-                            shadcnui.PrimaryButton(
+                            AdaptiveButton(
                               onPressed: () {
-                                // Use AppToast to ensure visibility above bottom sheets
-                                AppToast.success('Hello from ello from  ello from  ello from bottom sheet!');
+                                
+                                AppToast.success(
+                                  'Hello from ello from  ello from  ello from bottom sheet!',
+                                );
                               },
-                              child: const Text('Show Toast'),
+                              label: 'Show Toast',
                             ),
                           ],
                         ),
@@ -169,14 +147,16 @@ class SettingsPage extends HookConsumerWidget {
                   },
                 );
               },
+              child: const Icon(Icons.bug_report),     
             )
           : null,
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
-        child: Column(
+      body: Material(
+        color: colorScheme.background,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Profile Avatar with edit (pencil) overlay
             Center(
               child: FutureBuilder<Map<String, dynamic>?>(
                 key: ValueKey('avatar-${nameReloadKey.value}'),
@@ -186,26 +166,40 @@ class SettingsPage extends HookConsumerWidget {
                     .eq('id', authState.uid)
                     .maybeSingle(),
                 builder: (context, snapshot) {
-                  final dbName = snapshot.data != null ? snapshot.data!['full_name'] as String? : null;
-                  final dbAvatarUrl = snapshot.data != null ? snapshot.data!['avatar_url'] as String? : null;
+                  final dbName = snapshot.data != null
+                      ? snapshot.data!['full_name'] as String?
+                      : null;
+                  final dbAvatarUrl = snapshot.data != null
+                      ? snapshot.data!['avatar_url'] as String?
+                      : null;
 
                   final displayName = (dbName?.trim().isNotEmpty == true)
                       ? dbName!.trim()
-                      : (authState.displayName?.trim().isNotEmpty == true ? authState.displayName!.trim() : 'User');
+                      : (authState.displayName?.trim().isNotEmpty == true
+                          ? authState.displayName!.trim()
+                          : 'User');
                   final initials = displayName.isNotEmpty
                       ? displayName.substring(0, 1).toUpperCase()
-                      : (authState.email.isNotEmpty ? authState.email.substring(0, 1).toUpperCase() : 'U');
-                  
-                  // Validate avatar URL before using it
+                      : (authState.email.isNotEmpty
+                          ? authState.email
+                              .substring(0, 1)
+                              .toUpperCase()
+                          : 'U');
+
                   String? validatedAvatarUrl;
-                  if (dbAvatarUrl != null && 
-                      dbAvatarUrl.isNotEmpty && 
+                  if (dbAvatarUrl != null &&
+                      dbAvatarUrl.isNotEmpty &&
                       dbAvatarUrl != 'SKIPPED' &&
-                      (dbAvatarUrl.startsWith('http://') || dbAvatarUrl.startsWith('https://'))) {
+                      (dbAvatarUrl.startsWith('http://') ||
+                          dbAvatarUrl.startsWith('https://'))) {
                     validatedAvatarUrl = dbAvatarUrl;
                   }
-                  
-                  final avatarUrl = validatedAvatarUrl ?? (authState.photoUrl != null && authState.photoUrl!.isNotEmpty ? authState.photoUrl : null);
+
+                  final avatarUrl = validatedAvatarUrl ??
+                      (authState.photoUrl != null &&
+                              authState.photoUrl!.isNotEmpty
+                          ? authState.photoUrl
+                          : null);
 
                   return Stack(
                     clipBehavior: Clip.none,
@@ -221,13 +215,17 @@ class SettingsPage extends HookConsumerWidget {
                             gradient: avatarUrl != null
                                 ? null
                                 : const LinearGradient(
-                                    colors: [Color(0xFF7458FF), Color(0xFF836DFF)],
+                                    colors: [
+                                      Color(0xFF7458FF),
+                                      Color(0xFF836DFF),
+                                    ],
                                     begin: Alignment.topLeft,
                                     end: Alignment.bottomRight,
                                   ),
                             boxShadow: [
                               BoxShadow(
-                                color: colorScheme.primary.withValues(alpha: 0.25),
+                                color: colorScheme.primary
+                                    .withValues(alpha: 0.25),
                                 blurRadius: 12,
                                 offset: const Offset(0, 6),
                               ),
@@ -238,7 +236,8 @@ class SettingsPage extends HookConsumerWidget {
                                 ? Image.network(
                                     avatarUrl,
                                     fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => _InitialsAvatar(initials: initials),
+                                    errorBuilder: (_, __, ___) =>
+                                        _InitialsAvatar(initials: initials),
                                   )
                                 : _InitialsAvatar(initials: initials),
                           ),
@@ -259,9 +258,16 @@ class SettingsPage extends HookConsumerWidget {
                               alignment: Alignment.center,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                border: Border.all(color: colorScheme.background, width: 3),
+                                border: Border.all(
+                                  color: colorScheme.background,
+                                  width: 3,
+                                ),
                               ),
-                              child: Icon(Icons.edit, size: 18, color: colorScheme.primaryForeground),
+                              child: Icon(
+                                Icons.edit,
+                                size: 18,
+                                color: colorScheme.primaryForeground,
+                              ),
                             ),
                           ),
                         ),
@@ -271,8 +277,7 @@ class SettingsPage extends HookConsumerWidget {
                 },
               ),
             ),
-            const shadcnui.Gap(24),
-            // Full name (tap to edit)
+            const SizedBox(height: 24),
             Text(
               context.l10n.fullName,
               style: TextStyle(
@@ -282,7 +287,7 @@ class SettingsPage extends HookConsumerWidget {
                 letterSpacing: -0.2,
               ),
             ),
-            const shadcnui.Gap(16),
+            const SizedBox(height: 16),
             FutureBuilder<Map<String, dynamic>?>(
               key: ValueKey('name-${nameReloadKey.value}'),
               future: Supabase.instance.client
@@ -291,17 +296,25 @@ class SettingsPage extends HookConsumerWidget {
                   .eq('id', authState.uid)
                   .maybeSingle(),
               builder: (context, snapshot) {
-                final dbName = snapshot.data != null ? snapshot.data!['full_name'] as String? : null;
+                final dbName = snapshot.data != null
+                    ? snapshot.data!['full_name'] as String?
+                    : null;
                 final currentName = (dbName?.trim().isNotEmpty == true)
                     ? dbName!.trim()
-                    : (authState.displayName?.trim().isNotEmpty == true ? authState.displayName!.trim() : '');
+                    : (authState.displayName?.trim().isNotEmpty == true
+                        ? authState.displayName!.trim()
+                        : '');
 
                 return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 16,
+                  ),
                   decoration: BoxDecoration(
                     color: colorScheme.card,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: colorScheme.border, width: 1),
+                    border:
+                        Border.all(color: colorScheme.border, width: 1),
                   ),
                   child: InkWell(
                     onTap: () => _showEditNameSheet(
@@ -309,7 +322,6 @@ class SettingsPage extends HookConsumerWidget {
                       ref: ref,
                       initialName: currentName,
                       onUpdated: () {
-                        // Force refetch and invalidate user profile provider for consumers
                         nameReloadKey.value++;
                         ref.invalidate(userProfileProvider(authState.uid));
                       },
@@ -321,27 +333,22 @@ class SettingsPage extends HookConsumerWidget {
                           size: 20,
                           color: colorScheme.mutedForeground,
                         ),
-                        const shadcnui.Gap(16),
+                        const SizedBox(width: 16),
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                          
-                              Text(
-                                currentName.isNotEmpty ? currentName : '—',
-                                 style: TextStyle(
-                                  fontSize: 15,
-                                  color: colorScheme.foreground,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
+                          child: Text(
+                            currentName.isEmpty
+                                ? context.l10n.fullName
+                                : currentName,
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: colorScheme.foreground,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
                         Icon(
-                          Icons.edit,
-                          size: 16,
+                          Icons.chevron_right,
+                          size: 18,
                           color: colorScheme.mutedForeground,
                         ),
                       ],
@@ -350,8 +357,7 @@ class SettingsPage extends HookConsumerWidget {
                 );
               },
             ),
-            const shadcnui.Gap(24),
-            // Language
+            const SizedBox(height: 32),
             Text(
               context.l10n.language,
               style: TextStyle(
@@ -361,9 +367,12 @@ class SettingsPage extends HookConsumerWidget {
                 letterSpacing: -0.2,
               ),
             ),
-            const shadcnui.Gap(16),
+            const SizedBox(height: 16),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical:4),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 12,
+              ),
               decoration: BoxDecoration(
                 color: colorScheme.card,
                 borderRadius: BorderRadius.circular(16),
@@ -372,122 +381,56 @@ class SettingsPage extends HookConsumerWidget {
               child: Row(
                 children: [
                   Icon(
-                    Icons.language_outlined,
+                    Icons.language,
                     size: 20,
                     color: colorScheme.mutedForeground,
                   ),
-                  const shadcnui.Gap(16),
+                  const SizedBox(width: 16),
                   Expanded(
-                    child: Text(
-                      context.l10n.language,
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: colorScheme.foreground,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                  DropdownButtonHideUnderline(
-                    child: DropdownButton<Locale?>(
-                      value: dropdownValue,
-                      alignment: Alignment.centerRight,
-                      dropdownColor: colorScheme.card,
-                      icon: Icon(Icons.keyboard_arrow_down_rounded, color: colorScheme.mutedForeground),
-                      items: [
-                        DropdownMenuItem<Locale?>(
-                          value: null,
-                          child: Text(
-                            context.l10n.systemDefault,
-                            style: TextStyle(color: colorScheme.foreground),
-                          ),
-                        ),
-                        ...AppLocalizations.supportedLocales.map((locale) {
-                          return DropdownMenuItem<Locale?>(
-                            value: locale,
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<Locale?>(
+                        isExpanded: true,
+                        value: dropdownValue,
+                        items: [
+                          DropdownMenuItem<Locale?>(
+                            value: null,
                             child: Text(
-                              _displayLocaleName(locale),
-                              style: TextStyle(color: colorScheme.foreground),
+                              context.l10n.systemDefault,
+                              style: TextStyle(
+                                color: colorScheme.foreground,
+                              ),
                             ),
-                          );
-                        }).toList(),
-                      ],
-                      onChanged: (value) async {
-                        final previous = ref.read(localeProvider);
-                        final auth = ref.read(authProvider);
-                        try {
+                          ),
+                          ...supportedLocales.map(
+                            (locale) => DropdownMenuItem<Locale?>(
+                              value: locale,
+                              child: Text(
+                                _displayLocaleName(locale),
+                                style: TextStyle(
+                                  color: colorScheme.foreground,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                        onChanged: (value) async {
                           if (value == null) {
-                            await ref.read(localeProvider.notifier).setSystem();
+                            await ref
+                                .read(localeProvider.notifier)
+                                .setSystem();
                           } else {
-                            final lc = value.languageCode.toLowerCase();
-                            final cc = (value.countryCode ?? '').toUpperCase();
-                            final normalized = lc == 'cn'
-                                ? const Locale('zh')
-                                : (lc == 'zh' && cc.isEmpty)
-                                    ? const Locale('zh')
-                                    : value;
-                            await ref.read(localeProvider.notifier).setLocale(normalized);
+                            await ref
+                                .read(localeProvider.notifier)
+                                .setLocale(value);
                           }
-
-                          // Persist preference to backend (same flow as currency)
-                          if (auth.uid.isNotEmpty) {
-                            final selected = ref.read(localeProvider);
-                            final langCode = selected?.languageCode.toLowerCase();
-
-                            try {
-                              final resp = await Supabase.instance.client.functions.invoke(
-                                'update-preferred-language',
-                                body: {
-                                  'userId': auth.uid,
-                                  'language': langCode,
-                                },
-                              );
-                              if (resp.status >= 400) {
-                                throw Exception('Request failed (${resp.status})');
-                              }
-                              final payload = resp.data as Map<String, dynamic>?;
-                              if (payload == null || payload['ok'] != true) {
-                                throw Exception(payload?['error'] ?? 'Unable to update language');
-                              }
-                            } catch (e) {
-                              // Rollback locale on failure
-                              if (previous == null) {
-                                await ref.read(localeProvider.notifier).setSystem();
-                              } else {
-                                await ref.read(localeProvider.notifier).setLocale(previous);
-                              }
-                              if (context.mounted) {
-                                // Prefer AppToast (top-center) to avoid being hidden by bottom sheets
-                                AppToast.action(
-                                  'Failed to sync language preference: $e',
-                                  actionLabel: 'Retry',
-                                  type: AppToastType.warning,
-                                  onPressed: () async {
-                                    try {
-                                      final sel = ref.read(localeProvider);
-                                      final code = sel?.languageCode.toLowerCase();
-                                      final retry = await Supabase.instance.client.functions.invoke(
-                                        'update-preferred-language',
-                                        body: {
-                                          'userId': auth.uid,
-                                          'language': code,
-                                        },
-                                      );
-                                      if (retry.status >= 400) throw Exception('Retry failed');
-                                      AppToast.success('Language updated successfully');
-                                    } catch (_) {/* swallow */}
-                                  },
-                                );
-                              }
-                            }
-                          }
-                        } catch (_) {}
-                      },
+                        },
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
-            const shadcnui.Gap(24),
+            const SizedBox(height: 32),
             Text(
               context.l10n.appearance,
               style: TextStyle(
@@ -497,44 +440,33 @@ class SettingsPage extends HookConsumerWidget {
                 letterSpacing: -0.2,
               ),
             ),
-            const shadcnui.Gap(16),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              decoration: BoxDecoration(
-                color: colorScheme.card,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: colorScheme.border, width: 1),
+            const SizedBox(height: 16),
+            AdaptiveListTile(
+              leading: Icon(
+                Icons.dark_mode_outlined,
+                size: 20,
+                color: colorScheme.mutedForeground,
               ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.dark_mode_outlined,
-                    size: 20,
-                    color: colorScheme.mutedForeground,
-                  ),
-                  const shadcnui.Gap(16),
-                  Expanded(
-                    child: Text(
-                      context.l10n.darkMode,
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: colorScheme.foreground,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                  shadcnui.Switch(
-                    value: isDarkMode,
-                    onChanged: (value) {
-                      ref
-                          .read(themeModeProvider.notifier)
-                          .setThemeMode(value ? ThemeMode.dark : ThemeMode.light);
-                    },
-                  ),
-                ],
+              title: Text(
+                context.l10n.darkMode,
+                style: TextStyle(
+                  fontSize: 15,
+                  color: colorScheme.foreground,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              trailing: AdaptiveSwitch(
+                value: isDarkMode,
+                onChanged: (value) {
+                  ref
+                      .read(themeModeProvider.notifier)
+                      .setThemeMode(
+                        value ? ThemeMode.dark : ThemeMode.light,
+                      );
+                },
               ),
             ),
-            const shadcnui.Gap(24),
+            const SizedBox(height: 32),
             Text(
               context.l10n.notifications,
               style: TextStyle(
@@ -544,61 +476,38 @@ class SettingsPage extends HookConsumerWidget {
                 letterSpacing: -0.2,
               ),
             ),
-            const shadcnui.Gap(16),
-            InkWell(
-              onTap: () => handleNotificationToggle(),
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                decoration: BoxDecoration(
-                  color: colorScheme.card,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: colorScheme.border, width: 1),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.notifications_outlined,
-                      size: 20,
-                      color: colorScheme.mutedForeground,
-                    ),
-                    const shadcnui.Gap(16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            context.l10n.pushNotifications,
-                            style: TextStyle(
-                              fontSize: 15,
-                              color: colorScheme.foreground,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const shadcnui.Gap(2),
-                          Text(
-                            context.l10n.receiveAlertsAndUpdates,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: colorScheme.mutedForeground,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Icon(
-                      Icons.open_in_new,
-                      size: 16,
-                      color: colorScheme.mutedForeground,
-                    ),
-                  ],
+            const SizedBox(height: 16),
+            AdaptiveListTile(
+              leading: Icon(
+                Icons.notifications_outlined,
+                size: 20,
+                color: colorScheme.mutedForeground,
+              ),
+              title: Text(
+                context.l10n.pushNotifications,
+                style: TextStyle(
+                  fontSize: 15,
+                  color: colorScheme.foreground,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
+              subtitle: Text(
+                context.l10n.receiveAlertsAndUpdates,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: colorScheme.mutedForeground,
+                ),
+              ),
+              trailing: Icon(
+                Icons.open_in_new,
+                size: 16,
+                color: colorScheme.mutedForeground,
+              ),
+              onTap: () => handleNotificationToggle(),
             ),
-            const shadcnui.Gap(24),
-            // WhatsApp binding tile (same logic as ProfilePage)
+            const SizedBox(height: 32),
             buildWhatsAppBindingCard(context, ref),
-            const shadcnui.Gap(24),
+            const SizedBox(height: 32),
             Text(
               context.l10n.membership,
               style: TextStyle(
@@ -608,93 +517,26 @@ class SettingsPage extends HookConsumerWidget {
                 letterSpacing: -0.2,
               ),
             ),
-            const shadcnui.Gap(16),
+            const SizedBox(height: 16),
             _MembershipCard(
               colorScheme: colorScheme,
               subscriptionAsync: subscriptionAsync,
             ),
-            const shadcnui.Gap(32),
-            // Developer tools (commented out)
-            // Text(
-            //   'Developer',
-            //   style: TextStyle(
-            //     fontSize: 18,
-            //     fontWeight: FontWeight.w600,
-            //     color: colorScheme.foreground,
-            //     letterSpacing: -0.2,
-            //   ),
-            // ),
-            // const shadcnui.Gap(12),
-            // SizedBox(
-            //   width: double.infinity,
-            //   child: shadcnui.DestructiveButton(
-            //     onPressed: () async {
-            //       final confirmed = await showDialog<bool>(
-            //         context: context,
-            //         builder: (ctx) {
-            //           return AlertDialog(
-            //             title: const Text('Crashlytics Test Crash'),
-            //             content: const Text('This will intentionally crash the app to verify Crashlytics reporting. Continue?'),
-            //             actions: [
-            //               TextButton(
-            //                 onPressed: () => Navigator.of(ctx).pop(false),
-            //                 child: const Text('Cancel'),
-            //               ),
-            //               TextButton(
-            //                 onPressed: () => Navigator.of(ctx).pop(true),
-            //                 child: const Text('Crash Now'),
-            //               ),
-            //             ],
-            //           );
-            //         },
-            //       );
-            //       if (confirmed == true) {
-            //         FirebaseCrashlytics.instance.log('manual_test_crash: user triggered from settings');
-            //         FirebaseCrashlytics.instance.crash();
-            //       }
-            //     },
-            //     child: const Text('Crash Test (Crashlytics)'),
-            //   ),
-            // ),
-            // const shadcnui.Gap(12),
-            // SizedBox(
-            //   width: double.infinity,
-            //   child: shadcnui.PrimaryButton(
-            //     onPressed: () {
-            //       throw Exception('Test exception thrown from SettingsPage');
-            //     },
-            //     child: const Text('Throw Test Exception (Zone)'),
-            //   ),
-            // ),
-            // const shadcnui.Gap(12),
-            // SizedBox(
-            //   width: double.infinity,
-            //   child: shadcnui.PrimaryButton(
-            //     onPressed: () async {
-            //       try {
-            //         throw StateError('Non-fatal test error from SettingsPage');
-            //       } catch (e, s) {
-            //         FirebaseCrashlytics.instance.recordError(e, s, fatal: false, reason: 'Manual non-fatal test');
-            //       }
-            //     },
-            //     child: const Text('Send Non‑fatal Error'),
-            //   ),
-            // ),
-            const shadcnui.Gap(32),
+            const SizedBox(height: 32),
             // Logout Button
             SizedBox(
               width: double.infinity,
-              child: shadcnui.DestructiveButton(
+              child: AdaptiveButton(
                 onPressed: () async {
-                  // Best-effort: unregister device and clear local token before auth is cleared
                   try {
-                    await ref.read(deviceRegistrationServiceProvider).unregisterDevice();
+                    await ref
+                        .read(deviceRegistrationServiceProvider)
+                        .unregisterDevice();
                   } catch (_) {}
 
-                  // Clear all user-specific Riverpod state BEFORE signing out
-                  // This prevents data from previous user appearing when new user logs in
-                  // and ensures ref is still valid when we invalidate providers
-                  debugPrint('🧹 Clearing all user-specific Riverpod state before logout');
+                  debugPrint(
+                    '🧹 Clearing all user-specific Riverpod state before logout',
+                  );
 
                   // Analytics and expenses
                   ref.invalidate(analyticsProvider);
@@ -731,11 +573,13 @@ class SettingsPage extends HookConsumerWidget {
                   // Sign out from auth last (this will trigger navigation to login)
                   await ref.read(authProvider.notifier).signOut();
                 },
-                child: Text(context.l10n.signOut),
+                label: context.l10n.signOut,
+                color: colorScheme.error,
               ),
             ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -763,83 +607,95 @@ Future<void> _showEditNameSheet({
       return StatefulBuilder(
         builder: (ctx, setState) {
           return Padding(
-            padding: EdgeInsets.only(
-              left: 20,
-              right: 20,
-              top: 16,
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        AppLocalizations.of(ctx)!.fullName,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.foreground,
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 16,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          AppLocalizations.of(ctx)!.fullName,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.foreground,
+                          ),
                         ),
                       ),
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.close, color: colorScheme.mutedForeground),
-                      onPressed: () => Navigator.of(ctx).pop(),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: controller,
-                  autofocus: true,
-                  decoration: InputDecoration(
-                    hintText: AppLocalizations.of(ctx)!.fullName,
-                    errorText: errorText,
-                    filled: true,
-                    fillColor: colorScheme.background,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: colorScheme.border),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: colorScheme.border),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: colorScheme.primary),
-                    ),
-                  ),
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) async => await _saveName(ctx, ref, controller, authState.uid, setState, onUpdated),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: shadcnui.OutlineButton(
+                      IconButton(
+                        icon: Icon(
+                          Icons.close,
+                          color: colorScheme.mutedForeground,
+                        ),
                         onPressed: () => Navigator.of(ctx).pop(),
-                        child: Text(AppLocalizations.of(ctx)!.cancel),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: controller,
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      hintText: AppLocalizations.of(ctx)!.fullName,
+                      errorText: errorText,
+                      filled: true,
+                      fillColor: colorScheme.background,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: colorScheme.border),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: colorScheme.border),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: colorScheme.primary),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: shadcnui.PrimaryButton(
-                        onPressed: () async {
-                          await _saveName(ctx, ref, controller, authState.uid, setState, onUpdated);
-                        },
-                        child: Text(AppLocalizations.of(ctx)!.save),
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) async =>
+                        await _saveName(ctx, ref, controller, authState.uid, setState, onUpdated),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          onPressed: () => Navigator.of(ctx).pop(),
+                          child: Text(AppLocalizations.of(ctx)!.cancel),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          );
-        },
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: AdaptiveButton(
+                          onPressed: () async {
+                            await _saveName(
+                              ctx,
+                              ref,
+                              controller,
+                              authState.uid,
+                              setState,
+                              onUpdated,
+                            );
+                          },
+                          label: AppLocalizations.of(ctx)!.save,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        
       );
     },
   );
@@ -943,7 +799,7 @@ class _MembershipCard extends ConsumerWidget {
               size: 20,
               color: colorScheme.mutedForeground,
             ),
-            const shadcnui.Gap(16),
+            const SizedBox(width: 16),
             Expanded(
               child: Text(
                 context.l10n.loading,
@@ -971,7 +827,7 @@ class _MembershipCard extends ConsumerWidget {
               size: 20,
               color: colorScheme.destructive,
             ),
-            const shadcnui.Gap(16),
+            const SizedBox(width: 16),
             Expanded(
               child: Text(
                 context.l10n.failedToLoadMembership,
@@ -982,9 +838,12 @@ class _MembershipCard extends ConsumerWidget {
                 ),
               ),
             ),
-            shadcnui.IconButton(
-              variance: shadcnui.ButtonVariance.ghost,
-              icon: Icon(Icons.refresh, size: 16, color: colorScheme.mutedForeground),
+            IconButton(
+              icon: Icon(
+                Icons.refresh,
+                size: 16,
+                color: colorScheme.mutedForeground,
+              ),
               onPressed: () {
                 ref.read(subscriptionManagementProvider.notifier).refresh();
               },
@@ -1032,7 +891,7 @@ class _MembershipCard extends ConsumerWidget {
                     size: 20,
                     color: iconColor,
                   ),
-                  const shadcnui.Gap(16),
+                  const SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1045,17 +904,19 @@ class _MembershipCard extends ConsumerWidget {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const shadcnui.Gap(2),
+                        const SizedBox(height: 2),
                         Text(
                           status,
                           style: TextStyle(
                             fontSize: 13,
-                            color: isPastDue 
-                                ? AppTheme.danger 
-                                : isTrialing 
-                                    ? AppTheme.warning 
+                            color: isPastDue
+                                ? AppTheme.danger
+                                : isTrialing
+                                    ? AppTheme.warning
                                     : colorScheme.mutedForeground,
-                            fontWeight: isPastDue || isTrialing ? FontWeight.w500 : FontWeight.normal,
+                            fontWeight: isPastDue || isTrialing
+                                ? FontWeight.w500
+                                : FontWeight.normal,
                           ),
                         ),
                       ],
@@ -1063,30 +924,49 @@ class _MembershipCard extends ConsumerWidget {
                   ),
                   InkWell(
                     onTap: () async {
-                      final url = Uri.parse('https://moneko.io/dashboard/user-settings/membership');
+                      final url = Uri.parse(
+                        'https://moneko.io/dashboard/user-settings/membership',
+                      );
                       if (await canLaunchUrl(url)) {
-                        await launchUrl(url, mode: LaunchMode.externalApplication);
+                        await launchUrl(
+                          url,
+                          mode: LaunchMode.externalApplication,
+                        );
                       } else {
                         if (context.mounted) {
-                          AppToast.error(context.l10n.couldNotOpenMembershipPage);
+                          AppToast.error(
+                            context.l10n.couldNotOpenMembershipPage,
+                          );
                         }
                       }
                     },
-                    child:  Icon(Icons.open_in_new, size: 16, color: colorScheme.mutedForeground),)
-                
+                    child: Icon(
+                      Icons.open_in_new,
+                      size: 16,
+                      color: colorScheme.mutedForeground,
+                    ),
+                  ),
                 ],
               ),
-              // Show renewal/expiry information
               if (renewalInfo != null) ...[
-                const shadcnui.Gap(8),
+                const SizedBox(height: 8),
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
-                    color: _getRenewalInfoBackgroundColor(subscriptionDetails, colorScheme),
+                    color: _getRenewalInfoBackgroundColor(
+                      subscriptionDetails,
+                      colorScheme,
+                    ),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: _getRenewalInfoBorderColor(subscriptionDetails, colorScheme),
+                      color: _getRenewalInfoBorderColor(
+                        subscriptionDetails,
+                        colorScheme,
+                      ),
                       width: 1,
                     ),
                   ),
@@ -1096,14 +976,20 @@ class _MembershipCard extends ConsumerWidget {
                       Icon(
                         _getRenewalInfoIcon(subscriptionDetails),
                         size: 14,
-                        color: _getRenewalInfoTextColor(subscriptionDetails, colorScheme),
+                        color: _getRenewalInfoTextColor(
+                          subscriptionDetails,
+                          colorScheme,
+                        ),
                       ),
-                      const shadcnui.Gap(6),
+                      const SizedBox(width: 6),
                       Text(
                         renewalInfo,
                         style: TextStyle(
                           fontSize: 12,
-                          color: _getRenewalInfoTextColor(subscriptionDetails, colorScheme),
+                          color: _getRenewalInfoTextColor(
+                            subscriptionDetails,
+                            colorScheme,
+                          ),
                           fontWeight: FontWeight.w500,
                         ),
                       ),

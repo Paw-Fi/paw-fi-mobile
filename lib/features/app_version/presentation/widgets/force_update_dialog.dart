@@ -1,8 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
 class ForceUpdateDialog extends StatelessWidget {
   final String currentVersion;
@@ -94,25 +94,10 @@ class ForceUpdateDialog extends StatelessWidget {
               // Update button
               SizedBox(
                 width: double.infinity,
-                child: shadcnui.PrimaryButton(
+                child: AdaptiveButton(
                   onPressed: _openStore,
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 4),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                    
-                        Text(
-                          'Update now',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  label: 'Update now',
+                  style: AdaptiveButtonStyle.filled,
                 ),
               ),
             ],

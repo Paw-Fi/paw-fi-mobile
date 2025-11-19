@@ -1,6 +1,5 @@
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/app/router.dart';
 import 'package:moneko/core/app/locale_provider.dart';
@@ -12,6 +11,7 @@ import 'package:moneko/features/app_version/presentation/widgets/version_check_w
 import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/core/ui/pages/splash_screen.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 class App extends ConsumerStatefulWidget {
   const App({super.key});
@@ -89,8 +89,9 @@ class _AppState extends ConsumerState<App> {
       ),
       localizationsDelegates: const [
         ...AppLocalizations.localizationsDelegates,
-        FallbackMaterialLocalizationDelegate(),
-        FallbackCupertinoLocalizationDelegate(),
+       GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate, // Important!
+        DefaultWidgetsLocalizations.delegate,
       ],
       supportedLocales: AppLocalizations.supportedLocales,
       locale: locale,

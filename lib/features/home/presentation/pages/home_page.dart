@@ -22,7 +22,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/home/presentation/widgets/mom_trend_bar.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 
 // ============================================================================
 // HOME PAGE
@@ -579,7 +579,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: shadcnui.PrimaryButton(
+                        child: AdaptiveButton(
                           onPressed: () {
                             final normalizedInput = rawAmountInput.replaceAll(',', '').trim();
                             final parsed = double.tryParse(normalizedInput);
@@ -594,7 +594,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                             FocusScope.of(sheetContext).unfocus();
                             Navigator.of(sheetContext).pop(parsed);
                           },
-                          child: Text(context.l10n.save),
+                          label: context.l10n.save,
                         ),
                       ),
                     ],
@@ -756,50 +756,54 @@ class _HomePageState extends ConsumerState<HomePage> {
     // Only show loading indicator if we've never loaded before
     // If we have data already, show it even if a refresh is in progress
     if (analyticsData.isLoading && !(analyticsData.hasLoadedOnce ?? false)) {
-      return Scaffold(
-        backgroundColor: colorScheme.background,
-        body: const Center(child: CircularProgressIndicator()),
+      return AdaptiveScaffold(
+        body: Container(
+          color: colorScheme.background,
+          child: const Center(child: CircularProgressIndicator()),
+        ),
       );
     }
 
     if (analyticsData.error != null) {
-      return Scaffold(
-        backgroundColor: colorScheme.background,
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.error_outline, size: 64, color: colorScheme.destructive),
-                const SizedBox(height: 16),
-                Text(
-                  analyticsData.error!,
-                  style: TextStyle(color: colorScheme.foreground),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 24),
-                shadcnui.PrimaryButton(
-                  onPressed: () {
-                    final dateRange = _getDateRangeFromFilter();
-                    ref.read(analyticsProvider.notifier).refresh(
-                      user.uid,
-                      startDate: dateRange['startDate'],
-                      endDate: dateRange['endDate'],
-                    );
-                  },
-                  child: Text(context.l10n.retry),
-                ),
-              ],
+      return AdaptiveScaffold(
+        body: Container(
+          color: colorScheme.background,
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline, size: 64, color: colorScheme.destructive),
+                  const SizedBox(height: 16),
+                  Text(
+                    analyticsData.error!,
+                    style: TextStyle(color: colorScheme.foreground),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  AdaptiveButton(
+                    onPressed: () {
+                      final dateRange = _getDateRangeFromFilter();
+                      ref.read(analyticsProvider.notifier).refresh(
+                        user.uid,
+                        startDate: dateRange['startDate'],
+                        endDate: dateRange['endDate'],
+                      );
+                    },
+                    label: context.l10n.retry,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
       );
     }
 
-    return Scaffold(
-      backgroundColor: colorScheme.background,
-      body: Stack(
+    return AdaptiveScaffold(
+      body: Material(
+        child: Stack(
         children: [
           SafeArea(
             child: RefreshIndicator(
@@ -964,6 +968,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           ),
         ],
       ),
+    ),
       floatingActionButton: _shouldShowFAB(viewMode, householdsAsync)
           ? _buildExpandableFAB(colorScheme)
           : null,

@@ -31,7 +31,7 @@ import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/widgets/transaction_category_picker.dart';
 import 'package:moneko/core/ui/widgets/transaction_currency_picker.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 
 /// Format date with relative terms
 String _formatRelativeDate(DateTime date, BuildContext context) {
@@ -544,7 +544,7 @@ class _UnifiedTransactionSheetState
                   // Save Button (for both new and existing expenses)
                   SizedBox(
                     width: double.infinity,
-                    child: shadcnui.PrimaryButton(
+                    child: AdaptiveButton.child(
                       onPressed: _isSaving ? null : _handleSave,
                       child: _isSaving
                           ? const SizedBox(
@@ -553,10 +553,15 @@ class _UnifiedTransactionSheetState
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
                                 valueColor: AlwaysStoppedAnimation<Color>(
-                                    Colors.white),
+                                  Colors.white,
+                                ),
                               ),
                             )
-                          : Text(isIncomeMode ? context.l10n.saveIncome : context.l10n.saveExpense),
+                          : Text(
+                              isIncomeMode
+                                  ? context.l10n.saveIncome
+                                  : context.l10n.saveExpense,
+                            ),
                     ),
                   ),
 
@@ -565,7 +570,7 @@ class _UnifiedTransactionSheetState
                     const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,
-                      child: shadcnui.OutlineButton(
+                      child: AdaptiveButton.child(
                         onPressed: _isDeleting ? null : _handleDelete,
                         child: _isDeleting
                             ? SizedBox(
@@ -573,8 +578,10 @@ class _UnifiedTransactionSheetState
                                 height: 20,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                      colorScheme.destructive),
+                                  valueColor:
+                                      AlwaysStoppedAnimation<Color>(
+                                    colorScheme.destructive,
+                                  ),
                                 ),
                               )
                             : Text(
@@ -1515,16 +1522,18 @@ class _UnifiedTransactionSheetState
                   child: Row(
                     children: [
                       Expanded(
-                        child: shadcnui.OutlineButton(
+                        child: AdaptiveButton(
                           onPressed: () => Navigator.pop(context),
-                          child: Text(context.l10n.cancel),
+                          style: AdaptiveButtonStyle.plain,
+                          label: context.l10n.cancel,
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: shadcnui.PrimaryButton(
-                          onPressed: () => Navigator.pop(context, controller.text),
-                          child: Text(context.l10n.save),
+                        child: AdaptiveButton(
+                          onPressed: () =>
+                              Navigator.pop(context, controller.text),
+                          label: context.l10n.save,
                         ),
                       ),
                     ],

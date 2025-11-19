@@ -10,7 +10,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/widgets/home_header_sliver.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 
 /// Modern recurring transactions page with Apple-inspired design
 /// Features tabbed interface for expenses and income
@@ -335,9 +335,9 @@ class _RecurringTransactionsPageState
                 ),
               ),
               const SizedBox(height: 24),
-              shadcnui.PrimaryButton(
+              AdaptiveButton(
                 onPressed: _refresh,
-                child: Text(context.l10n.retry),
+                label: context.l10n.retry,
               ),
             ],
           ),

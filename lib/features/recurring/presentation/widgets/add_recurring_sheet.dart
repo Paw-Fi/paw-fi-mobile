@@ -21,7 +21,7 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 
 /// Modern bottom sheet for adding/editing recurring transactions
 /// Apple-inspired design with clean animations and intuitive UX
@@ -604,14 +604,12 @@ class AddRecurringSheet extends HookConsumerWidget {
                         ),
                         child: Row(
                           children: [
-                            shadcnui.Checkbox(
-                              state: hasEndDate.value
-                                  ? shadcnui.CheckboxState.checked
-                                  : shadcnui.CheckboxState.unchecked,
-                              onChanged: (state) {
-                                hasEndDate.value =
-                                    state == shadcnui.CheckboxState.checked;
-                                if (!hasEndDate.value) {
+                            AdaptiveCheckbox(
+                              value: hasEndDate.value,
+                              onChanged: (value) {
+                                final checked = value ?? false;
+                                hasEndDate.value = checked;
+                                if (!checked) {
                                   endDate.value = null;
                                 }
                               },
@@ -697,13 +695,10 @@ class AddRecurringSheet extends HookConsumerWidget {
                         ),
                         child: Row(
                           children: [
-                            shadcnui.Checkbox(
-                              state: hasReminder.value
-                                  ? shadcnui.CheckboxState.checked
-                                  : shadcnui.CheckboxState.unchecked,
-                              onChanged: (state) {
-                                hasReminder.value =
-                                    state == shadcnui.CheckboxState.checked;
+                            AdaptiveCheckbox(
+                              value: hasReminder.value,
+                              onChanged: (value) {
+                                hasReminder.value = value ?? false;
                               },
                             ),
                             const SizedBox(width: 12),
@@ -877,9 +872,9 @@ class AddRecurringSheet extends HookConsumerWidget {
                     const SizedBox(height: 24),
                     SizedBox(
                       width: double.infinity,
-                      child: shadcnui.PrimaryButton(
-                        onPressed: isLoading.value 
-                            ? null 
+                      child: AdaptiveButton.child(
+                        onPressed: isLoading.value
+                            ? null
                             : () {
                                 handleSave();
                               },
@@ -890,10 +885,15 @@ class AddRecurringSheet extends HookConsumerWidget {
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
                                   valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.white),
+                                    Colors.white,
+                                  ),
                                 ),
                               )
-                            : Text(isEditing ? context.l10n.updateRecurringTransaction : context.l10n.addRecurringTransaction),
+                            : Text(
+                                isEditing
+                                    ? context.l10n.updateRecurringTransaction
+                                    : context.l10n.addRecurringTransaction,
+                              ),
                       ),
                     ),
                   ],

@@ -17,7 +17,7 @@ import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/app/router.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 /// Household Settings Page
 /// Manage budgets, privacy preferences, and household settings
 class HouseholdSettingsPage extends ConsumerStatefulWidget {
@@ -321,8 +321,9 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
 
             // Save Button
             if (canEdit)
-              shadcnui.PrimaryButton(
+              AdaptiveButton.child(
                 onPressed: _isSaving ? null : () => _saveChanges(household),
+                style: AdaptiveButtonStyle.filled,
                 child: _isSaving
                     ? const SizedBox(
                         width: 20,

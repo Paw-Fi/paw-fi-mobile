@@ -15,7 +15,7 @@ import '../widgets/unified_transaction_sheet.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 
 // ============================================================================
 // TRANSACTIONS PAGE
@@ -1015,7 +1015,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                   Row(
                     children: [
                       Expanded(
-                        child: shadcnui.OutlineButton(
+                        child: AdaptiveButton(
                           onPressed: () {
                             setState(() {
                               selectedCategory = 'all';
@@ -1025,14 +1025,15 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                             });
                             Navigator.pop(context);
                           },
-                          child: Text(context.l10n.reset),
+                          style: AdaptiveButtonStyle.bordered,
+                          label: context.l10n.reset,
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: shadcnui.PrimaryButton(
+                        child: AdaptiveButton(
                           onPressed: () => Navigator.pop(context),
-                          child: Text(context.l10n.apply),
+                          label: context.l10n.apply,
                         ),
                       ),
                     ],

@@ -15,7 +15,7 @@ import '../../../home/presentation/state/home_filter_provider.dart';
 import '../../../utils/currency.dart';
 import '../../../../core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 /// Modern page for creating a new household with image upload
 class HouseholdCreatePage extends ConsumerStatefulWidget {
   const HouseholdCreatePage({super.key});
@@ -550,8 +550,9 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
           width: double.infinity,
           height: 56,
           child: isLoading
-              ? shadcnui.PrimaryButton(
+              ? AdaptiveButton.child(
                   onPressed: null,
+                  style: AdaptiveButtonStyle.filled,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -581,8 +582,9 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
                     ],
                   ),
                 )
-              : shadcnui.PrimaryButton(
+              : AdaptiveButton.child(
                   onPressed: _createHousehold,
+                  style: AdaptiveButtonStyle.filled,
                   child: Text(
                     context.l10n.createHousehold,
                     style: const TextStyle(

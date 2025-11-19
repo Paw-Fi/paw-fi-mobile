@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 enum SplitType { equal, amount, percentage, shares }
 
 class MemberSplit {
@@ -675,19 +675,11 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
           if (showCheckbox)
             Padding(
               padding: const EdgeInsets.only(right: 0),
-              child: shadcnui.Theme(
-                data: shadcnui.Theme.of(context).copyWith(
-                  radius: () => 0.8,
-                ),
-                child: shadcnui.Checkbox(
-                  state: isIncluded
-                      ? shadcnui.CheckboxState.checked
-                      : shadcnui.CheckboxState.unchecked,
-                  onChanged: (state) => _setMemberIncludedAt(
-                    index,
-                    state == shadcnui.CheckboxState.checked
-                  ),
-                ),
+              child: AdaptiveCheckbox(
+                value: isIncluded,
+                onChanged: (value) {
+                  _setMemberIncludedAt(index, value ?? false);
+                },
               ),
             ),
 

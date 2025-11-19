@@ -3,7 +3,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
 void showTextInputDrawer(
@@ -144,26 +144,31 @@ class _TextInputContentState extends ConsumerState<_TextInputContent> {
 
             const SizedBox(height: 12),
 
-            // Text area (shadcn)
-            shadcnui.TextField(
+            // Text area
+            TextField(
               controller: widget.textController,
               autofocus: true,
               maxLines: 4,
-              placeholder: shadcnui.Text(
-                placeholder,
-                style: TextStyle(
-                  color: scheme.mutedForeground.withValues(alpha: 0.6),
-                ),
-              ),
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w400,
                 color: scheme.foreground,
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: scheme.border),
+              decoration: InputDecoration(
+                hintText: placeholder,
+                hintStyle: TextStyle(
+                  color: scheme.mutedForeground.withValues(alpha: 0.6),
+                ),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: scheme.border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: scheme.foreground),
+                ),
               ),
             ),
 
@@ -173,7 +178,7 @@ class _TextInputContentState extends ConsumerState<_TextInputContent> {
             // Submit
             SizedBox(
               width: double.infinity,
-              child: shadcnui.PrimaryButton(
+              child: AdaptiveButton.child(
                 onPressed: _isProcessing ? null : _processExpense,
                 child: _isProcessing
                     ? const SizedBox(
@@ -181,7 +186,8 @@ class _TextInputContentState extends ConsumerState<_TextInputContent> {
                         height: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
                         ),
                       )
                     : Text(dynamicTitle),

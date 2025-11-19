@@ -9,7 +9,7 @@ import '../providers/selected_household_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/core/app/router.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 class HouseholdInvitationSheet extends ConsumerStatefulWidget {
   final String token;
 
@@ -232,8 +232,9 @@ class _HouseholdInvitationSheetState
               ),
             ),
             const SizedBox(height: 24),
-            shadcnui.PrimaryButton(
+            AdaptiveButton.child(
               onPressed: () => Navigator.of(context).pop(),
+              style: AdaptiveButtonStyle.filled,
               child: Text(context.l10n.close),
             ),
           ],
@@ -265,7 +266,7 @@ class _HouseholdInvitationSheetState
               ),
             ),
             const SizedBox(height: 24),
-            shadcnui.PrimaryButton(
+            AdaptiveButton.child(
               onPressed: () async {
                 final userId = Supabase.instance.client.auth.currentUser?.id;
                 final householdId = _householdId;
@@ -294,11 +295,13 @@ class _HouseholdInvitationSheetState
                   navCtx.go('/dashboard');
                 }
               },
+              style: AdaptiveButtonStyle.filled,
               child: Text(context.l10n.viewHousehold),
             ),
             const SizedBox(height: 12),
-            shadcnui.OutlineButton(
+            AdaptiveButton.child(
               onPressed: () => Navigator.of(context).pop(),
+              style: AdaptiveButtonStyle.bordered,
               child: Text(context.l10n.close),
             ),
           ],

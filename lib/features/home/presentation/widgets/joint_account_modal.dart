@@ -8,7 +8,7 @@ import '../../../utils/currency.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 
 /// Navigate to household screen (either overview or onboarding)
 void navigateToHousehold(BuildContext context, WidgetRef ref) async {
@@ -110,7 +110,7 @@ void showHouseholdOnboardingModal(BuildContext context, WidgetRef ref, String us
             SizedBox(
               width: double.infinity,
               height: 44,
-              child: shadcnui.PrimaryButton(
+              child: AdaptiveButton.child(
                 onPressed: () {
                   Navigator.of(context).pop();
                   _showCreateHouseholdDialog(context, ref, userId);
@@ -131,18 +131,13 @@ void showHouseholdOnboardingModal(BuildContext context, WidgetRef ref, String us
             SizedBox(
               width: double.infinity,
               height: 44,
-              child: shadcnui.OutlineButton(
+              child: AdaptiveButton(
                 onPressed: () {
                   Navigator.of(context).pop();
                   AppToast.info(context.l10n.pleaseUseInvitationLink);
                 },
-                child: Text(
-                  context.l10n.joinWithInvite,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                style: AdaptiveButtonStyle.bordered,
+                label: context.l10n.joinWithInvite,
               ),
             ),
           ],
@@ -201,14 +196,15 @@ void _showCreateHouseholdDialog(BuildContext context, WidgetRef ref, String user
             Row(
               children: [
                 Expanded(
-                  child: shadcnui.OutlineButton(
+                  child: AdaptiveButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Cancel'),
+                    style: AdaptiveButtonStyle.plain,
+                    label: 'Cancel',
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: shadcnui.PrimaryButton(
+                  child: AdaptiveButton(
                     onPressed: () async {
                       if (nameController.text.isEmpty) {
                         AppToast.info(context.l10n.pleaseEnterHouseholdName);
@@ -242,7 +238,7 @@ void _showCreateHouseholdDialog(BuildContext context, WidgetRef ref, String user
                         }
                       }
                     },
-                    child: const Text('Create'),
+                    label: 'Create',
                   ),
                 ),
               ],
@@ -306,15 +302,9 @@ void showJointAccountModal(BuildContext context, ColorScheme colorScheme) {
             SizedBox(
               width: double.infinity,
               height: 44,
-              child: shadcnui.PrimaryButton(
+              child: AdaptiveButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: Text(
-                  context.l10n.gotIt,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                label: context.l10n.gotIt,
               ),
             ),
           ],

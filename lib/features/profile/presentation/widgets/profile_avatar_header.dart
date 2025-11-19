@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
 Widget buildProfileAvatarHeader(BuildContext context, WidgetRef ref, user) {
   final colorScheme = Theme.of(context).colorScheme;
@@ -71,7 +70,7 @@ Widget buildProfileAvatarHeader(BuildContext context, WidgetRef ref, user) {
           ),
             ),
           ),
-          const shadcnui.Gap(20),
+          const SizedBox(height: 20),
           Text(
             displayName,
             style: TextStyle(
@@ -81,7 +80,7 @@ Widget buildProfileAvatarHeader(BuildContext context, WidgetRef ref, user) {
               letterSpacing: -0.3,
             ),
           ),
-          const shadcnui.Gap(8),
+          const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -93,11 +92,21 @@ Widget buildProfileAvatarHeader(BuildContext context, WidgetRef ref, user) {
                   fontWeight: FontWeight.w400,
                 ),
               ),
-              const shadcnui.Gap(8),
-              shadcnui.PrimaryBadge(
+              const SizedBox(width: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppTheme.monekoPrimary,
+                  borderRadius: BorderRadius.circular(999),
+                ),
                 child: Text(
                   context.l10n.proBadge,
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ],

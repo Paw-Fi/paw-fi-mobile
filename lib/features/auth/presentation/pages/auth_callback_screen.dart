@@ -1,5 +1,4 @@
-import 'package:flutter/widgets.dart';
-import 'package:flutter/material.dart' show Icons, Theme;
+import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -7,7 +6,8 @@ import 'package:moneko/core/core.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 
 /// OAuth callback handler - matches web's /auth/callback route
 /// Handles the redirect from Google OAuth flow
@@ -81,12 +81,8 @@ class AuthCallbackScreen extends HookConsumerWidget {
               // Session establishment failed
               if (context.mounted) {
                 context.go('/login');
-                shadcnui.showToast(
-                  context: context,
-                  builder: (context, overlay) => const shadcnui.Alert.destructive(
-                    leading: Icon(Icons.error),
-                    title: Text('Authentication session could not be established'),
-                  ),
+                AppToast.error(
+                  'Authentication session could not be established',
                 );
               }
             }
@@ -95,12 +91,8 @@ class AuthCallbackScreen extends HookConsumerWidget {
           debugPrint('OAuth callback processing error: $error');
           if (context.mounted) {
             context.go('/login');
-            shadcnui.showToast(
-              context: context,
-              builder: (context, overlay) => const shadcnui.Alert.destructive(
-                leading: Icon(Icons.error),
-                title: Text('An unexpected error occurred during authentication'),
-              ),
+            AppToast.error(
+              'An unexpected error occurred during authentication',
             );
           }
         }
@@ -112,12 +104,12 @@ class AuthCallbackScreen extends HookConsumerWidget {
       return null;
     }, []);
 
-    return shadcnui.Scaffold(
-      child: Center(
+    return AdaptiveScaffold(
+      body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const shadcnui.CircularProgressIndicator(),
+            const CircularProgressIndicator(),
             const SizedBox(height: 16),
             Text(
               'Completing authentication...',

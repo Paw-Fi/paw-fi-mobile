@@ -11,7 +11,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dart';
 import '../widgets/unified_transaction_sheet.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 
 class TransactionsBrowser extends StatefulWidget {
   final List<ExpenseEntry> transactions;
@@ -705,7 +705,7 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
                   Row(
                     children: [
                       Expanded(
-                        child: shadcnui.OutlineButton(
+                        child: AdaptiveButton(
                           onPressed: () {
                             setState(() {
                               _selectedCategory = 'all';
@@ -714,14 +714,15 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
                             });
                             Navigator.pop(context);
                           },
-                          child: Text(context.l10n.reset),
+                          style: AdaptiveButtonStyle.bordered,
+                          label: context.l10n.reset,
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: shadcnui.PrimaryButton(
+                        child: AdaptiveButton(
                           onPressed: () => Navigator.pop(context),
-                          child: Text(context.l10n.apply),
+                          label: context.l10n.apply,
                         ),
                       ),
                     ],

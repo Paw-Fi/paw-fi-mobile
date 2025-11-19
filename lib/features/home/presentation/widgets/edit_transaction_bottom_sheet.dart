@@ -12,7 +12,7 @@ import 'package:moneko/features/utils/currency_flags.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 
 /// Generic bottom sheet for editing transaction fields
 class EditTransactionBottomSheet extends ConsumerStatefulWidget {
@@ -136,14 +136,15 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
           Row(
             children: [
               Expanded(
-                child: shadcnui.SecondaryButton(
+                child: AdaptiveButton(
                   onPressed: isLoading ? null : () => Navigator.pop(context),
-                  child: const Text('Cancel'),
+                  style: AdaptiveButtonStyle.plain,
+                  label: 'Cancel',
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: shadcnui.PrimaryButton(
+                child: AdaptiveButton.child(
                   onPressed: isLoading ? null : _handleSave,
                   child: isLoading
                       ? const SizedBox(
