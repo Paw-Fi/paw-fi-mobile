@@ -25,9 +25,9 @@ class HouseholdMembersPage extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.appBackground,
       appBar: AppBar(
-        backgroundColor: colorScheme.background,
+        backgroundColor: colorScheme.appBackground,
         elevation: 0,
         title: Text(
           context.l10n.members,

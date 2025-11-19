@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/household_providers.dart';
@@ -232,9 +233,8 @@ class _HouseholdInvitationSheetState
               ),
             ),
             const SizedBox(height: 24),
-            AdaptiveButton.child(
+           PrimaryAdaptiveButton(
               onPressed: () => Navigator.of(context).pop(),
-              style: AdaptiveButtonStyle.filled,
               child: Text(context.l10n.close),
             ),
           ],
@@ -266,7 +266,7 @@ class _HouseholdInvitationSheetState
               ),
             ),
             const SizedBox(height: 24),
-            AdaptiveButton.child(
+            PrimaryAdaptiveButton(
               onPressed: () async {
                 final userId = Supabase.instance.client.auth.currentUser?.id;
                 final householdId = _householdId;
@@ -295,7 +295,6 @@ class _HouseholdInvitationSheetState
                   navCtx.go('/dashboard');
                 }
               },
-              style: AdaptiveButtonStyle.filled,
               child: Text(context.l10n.viewHousehold),
             ),
             const SizedBox(height: 12),

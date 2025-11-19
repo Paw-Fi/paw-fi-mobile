@@ -13,6 +13,7 @@ import 'package:moneko/features/home/presentation/constants/category_constants.d
 import 'package:moneko/features/home/presentation/widgets/category_picker_bottom_sheet.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 
 class EditPocketEnvelopeSheet extends HookConsumerWidget {
   const EditPocketEnvelopeSheet({
@@ -183,7 +184,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
         maxHeight: MediaQuery.of(context).size.height * 0.85,
       ),
       decoration: BoxDecoration(
-        color: colorScheme.background,
+        color: colorScheme.appBackground,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: SafeArea(
@@ -320,9 +321,8 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                     const SizedBox(height: 24),
                     SizedBox(
                       width: double.infinity,
-                      child: AdaptiveButton.child(
+                      child: PrimaryAdaptiveButton(
                         onPressed: isLoading.value ? null : handleSave,
-                        style: AdaptiveButtonStyle.filled,
                         child: isLoading.value
                             ? SizedBox(
                                 height: 18,

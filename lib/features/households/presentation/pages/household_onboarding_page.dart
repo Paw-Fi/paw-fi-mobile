@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 
 import '../widgets/onboarding_card.dart';
 import 'household_create_page.dart';
@@ -33,7 +34,7 @@ class _HouseholdOnboardingPageState extends State<HouseholdOnboardingPage> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
-      color: colorScheme.background,
+      color: colorScheme.appBackground,
       child: SafeArea(
         child: Column(
           children: [
@@ -90,9 +91,8 @@ class _HouseholdOnboardingPageState extends State<HouseholdOnboardingPage> {
                   SizedBox(
                     width: double.infinity,
                     height: 56,
-                    child: AdaptiveButton.child(
+                    child: PrimaryAdaptiveButton(
                       onPressed: _navigateToCreate,
-                      style: AdaptiveButtonStyle.filled,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [

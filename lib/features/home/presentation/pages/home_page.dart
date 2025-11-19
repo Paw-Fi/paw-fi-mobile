@@ -218,7 +218,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           child: Container(
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
-              color: colorScheme.background,
+              color: colorScheme.appBackground,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
@@ -758,7 +758,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     if (analyticsData.isLoading && !(analyticsData.hasLoadedOnce ?? false)) {
       return AdaptiveScaffold(
         body: Container(
-          color: colorScheme.background,
+          color: colorScheme.appBackground,
           child: const Center(child: CircularProgressIndicator()),
         ),
       );
@@ -767,7 +767,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     if (analyticsData.error != null) {
       return AdaptiveScaffold(
         body: Container(
-          color: colorScheme.background,
+          color: colorScheme.appBackground,
           child: Center(
             child: Padding(
               padding: const EdgeInsets.all(24.0),
@@ -802,176 +802,170 @@ class _HomePageState extends ConsumerState<HomePage> {
     }
 
     return Scaffold(
-      body: Material(
-        color: colorScheme.appBackground,
-        child: Stack(
-        children: [
-          SafeArea(
-            child: RefreshIndicator(
-              onRefresh: () async {
-                // Refresh based on current view mode
-                if (viewMode.mode == ViewMode.household) {
-                  // In household mode: invalidate ALL household-related providers
-                  debugPrint('🔄 Pull-to-refresh: Refreshing household data');
-                  ref.invalidate(userHouseholdsProvider(user.uid));
-                  ref.invalidate(householdExpensesProvider);
-                  ref.invalidate(householdSplitsProvider);
-                  ref.invalidate(householdBudgetsProvider);
-                  ref.invalidate(householdSummaryProvider);
-                  ref.invalidate(householdMembersProvider); // FIXED: Added member info refresh
-                  debugPrint('✅ Invalidated: households, expenses, splits, budgets, summary, members');
-                } else {
-                  // In personal mode: refresh analytics with current date filters
-                  final dateRange = _getDateRangeFromFilter();
-                  ref.read(analyticsProvider.notifier).refresh(
-                    user.uid,
-                    startDate: dateRange['startDate'],
-                    endDate: dateRange['endDate'],
-                  );
-                }
-                await Future.delayed(const Duration(milliseconds: 500));
-              },
-              child: CustomScrollView(
-                slivers: [
-                  const SliverToBoxAdapter(
-                    child: HomeHeaderSliver(),
+      body: Stack(
+      children: [
+        RefreshIndicator(
+          onRefresh: () async {
+            // Refresh based on current view mode
+            if (viewMode.mode == ViewMode.household) {
+              // In household mode: invalidate ALL household-related providers
+              debugPrint('🔄 Pull-to-refresh: Refreshing household data');
+              ref.invalidate(userHouseholdsProvider(user.uid));
+              ref.invalidate(householdExpensesProvider);
+              ref.invalidate(householdSplitsProvider);
+              ref.invalidate(householdBudgetsProvider);
+              ref.invalidate(householdSummaryProvider);
+              ref.invalidate(householdMembersProvider); // FIXED: Added member info refresh
+              debugPrint('✅ Invalidated: households, expenses, splits, budgets, summary, members');
+            } else {
+              // In personal mode: refresh analytics with current date filters
+              final dateRange = _getDateRangeFromFilter();
+              ref.read(analyticsProvider.notifier).refresh(
+                user.uid,
+                startDate: dateRange['startDate'],
+                endDate: dateRange['endDate'],
+              );
+            }
+            await Future.delayed(const Duration(milliseconds: 500));
+          },
+          child: CustomScrollView(
+            slivers: [
+              // Content only: header is provided globally in MainShell
+              if (viewMode.mode == ViewMode.household)
+                const HouseholdHomeContent()
+              else ...[
+                // Personal mode - show analytics content
+                // Spending Card with Line Chart
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: buildSpendingCard(
+                      context,
+                      colorScheme,
+                      filteredExpenses,
+                      analyticsData.contact,
+                      filterState.dateRangeFilter,
+                      selectedCurrency: filterState.selectedCurrency,
+                    ),
                   ),
-
-                  // Switch between Personal and Household content
-                  if (viewMode.mode == ViewMode.household)
-                    const HouseholdHomeContent()
-                  else ...[
-                    // Personal mode - show analytics content
-                    // Spending Card with Line Chart
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        child: buildSpendingCard(
+                ),
+              
+              const SliverToBoxAdapter(child: SizedBox(height: 16)),
+              
+              // Budget and Net Cashflow Cards (Horizontal Scroll)
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: 180,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    children: [
+                      SizedBox(
+                        width: 200,
+                        child: buildBudgetCard(
                           context,
                           colorScheme,
+                          filteredBudgets,
                           filteredExpenses,
+                          analyticsData.contact,
+                          filterState.dateRangeFilter,
+                          onTap: _showBudgetUpdateSheet,
+                          selectedCurrency: filterState.selectedCurrency,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      SizedBox(
+                        width: 200,
+                        child: buildNetCashflowCard(
+                          context,
+                          colorScheme, 
+                          filteredBudgets, 
+                          ref.watch(homeFilteredTransactionsProvider), 
                           analyticsData.contact,
                           filterState.dateRangeFilter,
                           selectedCurrency: filterState.selectedCurrency,
                         ),
                       ),
-                    ),
-
-                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
-
-                  // Budget and Net Cashflow Cards (Horizontal Scroll)
-                  SliverToBoxAdapter(
-                    child: SizedBox(
-                      height: 180,
-                      child: ListView(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        children: [
-                          SizedBox(
-                            width: 200,
-                            child: buildBudgetCard(
-                              context,
-                              colorScheme,
-                              filteredBudgets,
-                              filteredExpenses,
-                              analyticsData.contact,
-                              filterState.dateRangeFilter,
-                              onTap: _showBudgetUpdateSheet,
-                              selectedCurrency: filterState.selectedCurrency,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          SizedBox(
-                            width: 200,
-                            child: buildNetCashflowCard(
-                              context,
-                              colorScheme, 
-                              filteredBudgets, 
-                              ref.watch(homeFilteredTransactionsProvider), 
-                              analyticsData.contact,
-                              filterState.dateRangeFilter,
-                              selectedCurrency: filterState.selectedCurrency,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          // TODO: Add CashflowSparklineCard
-                          // const SizedBox(
-                          //   width: 200,
-                          //   child: CashflowSparklineCard(),
-                          // ),
-                          // const SizedBox(width: 12),
-                          const SizedBox(
-                            width: 200,
-                            child:  MoMTrendBar(),
-                          ),
-                          // const SizedBox(width: 12),
-                          // const SizedBox(
-                          //   width: 200,
-                          //   child: SavingsRateTile(),
-                          // ),
-                          // const SizedBox(width: 12),
-                          // const SizedBox(
-                          //   width: 200,
-                          //   child: RunwayGauge(),
-                          // ),
-                          const SizedBox(width: 12),
-                        ],
+                      const SizedBox(width: 12),
+                      // TODO: Add CashflowSparklineCard
+                      // const SizedBox(
+                      //   width: 200,
+                      //   child: CashflowSparklineCard(),
+                      // ),
+                      // const SizedBox(width: 12),
+                      const SizedBox(
+                        width: 200,
+                        child:  MoMTrendBar(),
                       ),
-                    ),
+                      // const SizedBox(width: 12),
+                      // const SizedBox(
+                      //   width: 200,
+                      //   child: SavingsRateTile(),
+                      // ),
+                      // const SizedBox(width: 12),
+                      // const SizedBox(
+                      //   width: 200,
+                      //   child: RunwayGauge(),
+                      // ),
+                      const SizedBox(width: 12),
+                    ],
                   ),
-
-                  const SliverToBoxAdapter(child: SizedBox(height: 16)),            
-
-                  // Category Breakdown
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: buildCategoryBreakdownCard(
-                        context,
-                        colorScheme,
-                        ref.watch(homeFilteredTransactionsProvider),
-                        analyticsData.contact,
-                        selectedCurrency: filterState.selectedCurrency,
-                        onViewAll: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const TransactionsPage(),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-
-                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: buildSpendingBreakdownChart(
-                        context,
-                        colorScheme, 
-                        filteredExpenses,
-                        filteredBudgets,
-                        analyticsData.contact, 
-                        filterState.dateRangeFilter,
-                        selectedCurrency: filterState.selectedCurrency,
-                      ),
-                    ),
-                  ),
-
-
-
-                  const SliverToBoxAdapter(child: SizedBox(height: 24)),
-                  ], // end of else block for Personal mode
-                ],
+                ),
               ),
-            ),
+              
+              const SliverToBoxAdapter(child: SizedBox(height: 16)),            
+              
+              // Category Breakdown
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: buildCategoryBreakdownCard(
+                    context,
+                    colorScheme,
+                    ref.watch(homeFilteredTransactionsProvider),
+                    analyticsData.contact,
+                    selectedCurrency: filterState.selectedCurrency,
+                    onViewAll: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const TransactionsPage(),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              
+              const SliverToBoxAdapter(child: SizedBox(height: 16)),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: buildSpendingBreakdownChart(
+                    context,
+                    colorScheme, 
+                    filteredExpenses,
+                    filteredBudgets,
+                    analyticsData.contact, 
+                    filterState.dateRangeFilter,
+                    selectedCurrency: filterState.selectedCurrency,
+                  ),
+                ),
+              ),
+              
+              
+              
+              const SliverToBoxAdapter(child: SizedBox(height: 24)),
+              ], // end of else block for Personal mode
+            ],
           ),
-        ],
-      ),
-    ),
+        ),
+      ],
+            ),
       floatingActionButton: _shouldShowFAB(viewMode, householdsAsync)
-          ? _buildExpandableFAB(colorScheme)
+          ? Padding(
+              padding: const EdgeInsets.only(bottom: 60, right: 16),
+              child: _buildExpandableFAB(colorScheme),
+            )
           : null,
     );
   }

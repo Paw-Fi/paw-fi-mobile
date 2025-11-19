@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../households/presentation/providers/household_providers.dart';
@@ -67,7 +68,7 @@ void showHouseholdOnboardingModal(BuildContext context, WidgetRef ref, String us
           maxWidth: 400,
         ),
         decoration: BoxDecoration(
-          color: colorScheme.background,
+          color: colorScheme.appBackground,
           borderRadius: BorderRadius.circular(20),
         ),
         padding: const EdgeInsets.all(24),
@@ -110,7 +111,7 @@ void showHouseholdOnboardingModal(BuildContext context, WidgetRef ref, String us
             SizedBox(
               width: double.infinity,
               height: 44,
-              child: AdaptiveButton.child(
+              child: PrimaryAdaptiveButton(
                 onPressed: () {
                   Navigator.of(context).pop();
                   _showCreateHouseholdDialog(context, ref, userId);
@@ -163,7 +164,7 @@ void _showCreateHouseholdDialog(BuildContext context, WidgetRef ref, String user
           maxWidth: 400,
         ),
         decoration: BoxDecoration(
-          color: colorScheme.background,
+          color: colorScheme.appBackground,
           borderRadius: BorderRadius.circular(20),
         ),
         padding: const EdgeInsets.all(24),
@@ -265,7 +266,7 @@ void showJointAccountModal(BuildContext context, ColorScheme colorScheme) {
           maxWidth: 400,
         ),
         decoration: BoxDecoration(
-          color: colorScheme.background,
+          color: colorScheme.appBackground,
           borderRadius: BorderRadius.circular(20),
         ),
         padding: const EdgeInsets.all(24),

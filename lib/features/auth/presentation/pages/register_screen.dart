@@ -11,6 +11,7 @@ import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'dart:async';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 
 // State provider to store registered email for OTP verification
 final registeredEmailProvider = StateProvider<String?>((ref) => null);
@@ -155,7 +156,7 @@ class _RegistrationFormView extends HookConsumerWidget {
     }
 
     return Scaffold(
-      backgroundColor: theme.colorScheme.background,
+      backgroundColor: theme.colorScheme.appBackground,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -778,11 +779,10 @@ class _OTPVerificationView extends HookConsumerWidget {
                   // Verify Button
                   SizedBox(
                     width: double.infinity,
-                    child: AdaptiveButton.child(
+                    child: PrimaryAdaptiveButton(
                       onPressed: (isVerifying.value || otpValue.value.length != 6)
                           ? null
                           : handleVerifyOtp,
-                      style: AdaptiveButtonStyle.filled,
                       child: isVerifying.value
                           ? const SizedBox(
                               width: 20,

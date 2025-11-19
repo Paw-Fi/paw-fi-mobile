@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
@@ -86,7 +87,7 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
     final isLoading = _isCreating || _isGeneratingInvite || _isUploadingImage;
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.appBackground,
       body: SafeArea(
         child: Column(
           children: [
@@ -302,7 +303,7 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: colorScheme.background,
+                            color: colorScheme.appBackground,
                             width: 3,
                           ),
                         ),
@@ -534,7 +535,7 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: colorScheme.background,
+        color: colorScheme.appBackground,
         border: Border(
           top: BorderSide(
             color: colorScheme.border.withValues(alpha: 0.08),
@@ -550,9 +551,8 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
           width: double.infinity,
           height: 56,
           child: isLoading
-              ? AdaptiveButton.child(
+              ? PrimaryAdaptiveButton(
                   onPressed: null,
-                  style: AdaptiveButtonStyle.filled,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -582,9 +582,8 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
                     ],
                   ),
                 )
-              : AdaptiveButton.child(
+              : PrimaryAdaptiveButton(
                   onPressed: _createHousehold,
-                  style: AdaptiveButtonStyle.filled,
                   child: Text(
                     context.l10n.createHousehold,
                     style: const TextStyle(

@@ -51,9 +51,9 @@ class _SplitBuilderPageState extends ConsumerState<SplitBuilderPage> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.appBackground,
       appBar: AppBar(
-        backgroundColor: colorScheme.background,
+        backgroundColor: colorScheme.appBackground,
         elevation: 0,
         title: Text(
           'Split Expense',

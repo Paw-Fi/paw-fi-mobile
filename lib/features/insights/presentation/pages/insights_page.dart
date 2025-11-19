@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
@@ -17,20 +18,7 @@ class AnalyticsPage extends ConsumerStatefulWidget {
   ConsumerState<AnalyticsPage> createState() => _AnalyticsPageState();
 }
 
-class _AnalyticsPageState extends ConsumerState<AnalyticsPage> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 4, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
+class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
 
   @override
   Widget build(BuildContext context) {
@@ -39,75 +27,45 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> with SingleTicker
     final filterState = ref.watch(homeFilterProvider);
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: () async {
-            // Analytics data refresh will be handled by analyticsProvider
-            await Future.delayed(const Duration(milliseconds: 500));
-          },
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text(
-                  context.l10n.insights,
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: colorScheme.foreground,
-                  ),
-                ),
-              ),
-
-              // Tabs
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: colorScheme.muted,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: TabBar(
-                  controller: _tabController,
-                  indicator: BoxDecoration(
-                    color: colorScheme.primary,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  indicatorSize: TabBarIndicatorSize.tab,
-                  dividerColor: Colors.transparent,
-                  labelColor: Colors.white,
-                  unselectedLabelColor: colorScheme.foreground,
-                  labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                  unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-                  labelPadding: EdgeInsets.zero,
-                  tabs: [
-                    Tab(text: context.l10n.runningTab),
-                    Tab(text: context.l10n.day30Tab),
-                    Tab(text: context.l10n.longTermTab),
-                    Tab(text: context.l10n.scenarioTab),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Tab Views
-              Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    buildRunningBalanceTab(context, colorScheme, analyticsData, selectedCurrency: filterState.selectedCurrency),
-                    build30DayLookAheadTab(context, colorScheme, analyticsData, selectedCurrency: filterState.selectedCurrency),
-                    buildLongTermProjectionTab(context, colorScheme, analyticsData, selectedCurrency: filterState.selectedCurrency),
-                    _buildScenarioPlanningTabWithProvider(colorScheme, analyticsData, filterState.selectedCurrency),
-                  ],
-                ),
-              ),
-            ],
-          ),
+      backgroundColor: colorScheme.appBackground,
+      body: RefreshIndicator(
+        onRefresh: () async {
+          // Analytics data refresh will be handled by analyticsProvider
+          await Future.delayed(const Duration(milliseconds: 500));
+        },
+        child: AdaptiveTabBarView(
+          tabs: [
+            context.l10n.runningTab,
+            context.l10n.day30Tab,
+            context.l10n.longTermTab,
+            context.l10n.scenarioTab,
+          ],
+          children: [
+            buildRunningBalanceTab(
+              context,
+              colorScheme,
+              analyticsData,
+              selectedCurrency: filterState.selectedCurrency,
+            ),
+            build30DayLookAheadTab(
+              context,
+              colorScheme,
+              analyticsData,
+              selectedCurrency: filterState.selectedCurrency,
+            ),
+            buildLongTermProjectionTab(
+              context,
+              colorScheme,
+              analyticsData,
+              selectedCurrency: filterState.selectedCurrency,
+            ),
+            _buildScenarioPlanningTabWithProvider(
+              colorScheme,
+              analyticsData,
+              filterState.selectedCurrency,
+            ),
+          ],
+          onTabChanged: (_) {},
         ),
       ),
     );

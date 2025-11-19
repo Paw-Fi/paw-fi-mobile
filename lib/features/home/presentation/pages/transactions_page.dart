@@ -192,11 +192,11 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       ));
       return expensesAsync.when(
         loading: () => Scaffold(
-          backgroundColor: colorScheme.background,
+          backgroundColor: colorScheme.appBackground,
           body: const Center(child: CircularProgressIndicator()),
         ),
         error: (e, st) => Scaffold(
-          backgroundColor: colorScheme.background,
+          backgroundColor: colorScheme.appBackground,
           body: Center(
             child: Padding(
               padding: const EdgeInsets.all(24.0),
@@ -225,7 +225,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
   Scaffold _buildMainScaffold(ColorScheme colorScheme, UserContact? contact) {
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.appBackground,
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {
@@ -937,7 +937,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   void _showFilterSheet(BuildContext context, ColorScheme colorScheme) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.appBackground,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),

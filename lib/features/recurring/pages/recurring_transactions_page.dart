@@ -9,7 +9,6 @@ import 'package:moneko/features/recurring/presentation/widgets/add_recurring_she
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
-import 'package:moneko/features/home/presentation/widgets/home_header_sliver.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 
 /// Modern recurring transactions page with Apple-inspired design
@@ -23,25 +22,15 @@ class RecurringTransactionsPage extends ConsumerStatefulWidget {
 }
 
 class _RecurringTransactionsPageState
-    extends ConsumerState<RecurringTransactionsPage>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+    extends ConsumerState<RecurringTransactionsPage> {
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(_handleTabChange);
-
     // Load initial data (only if not already loaded)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadData();
     });
-  }
-
-  void _handleTabChange() {
-    ref.read(selectedRecurringTabProvider.notifier).state =
-        _tabController.index;
   }
 
   /// Load data only if it hasn't been loaded before (respects caching)
@@ -72,8 +61,6 @@ class _RecurringTransactionsPageState
 
   @override
   void dispose() {
-    _tabController.removeListener(_handleTabChange);
-    _tabController.dispose();
     super.dispose();
   }
 
@@ -86,106 +73,57 @@ class _RecurringTransactionsPageState
     final recurringIncomes = ref.watch(recurringIncomesProvider);
     final selectedCurrency =
         ref.watch(homeFilterProvider).selectedCurrency?.toUpperCase();
-    final selectedTab = ref.watch(selectedRecurringTabProvider);
-
     return Scaffold(
-      backgroundColor: colorScheme.background,
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _refresh,
-          child: CustomScrollView(
-            slivers: [
-              const SliverToBoxAdapter(
-                child: HomeHeaderSliver(),
+      backgroundColor: colorScheme.appBackground,
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        child: AdaptiveTabBarView(
+          tabs: [
+            context.l10n.expenses,
+            context.l10n.income,
+          ],
+          children: [
+            _buildRecurringTabView(
+              colorScheme,
+              _buildExpensesSliver(
+                recurringExpenses,
+                colorScheme,
+                selectedCurrency,
               ),
-              SliverToBoxAdapter(
-                child: Column(
-                  children: [
-                    Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 20),
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: colorScheme.muted,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: TabBar(
-                        controller: _tabController,
-                        indicator: BoxDecoration(
-                          color: colorScheme.background,
-                          borderRadius: BorderRadius.circular(10),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        indicatorSize: TabBarIndicatorSize.tab,
-                        dividerColor: Colors.transparent,
-                        labelColor: colorScheme.foreground,
-                        unselectedLabelColor: colorScheme.mutedForeground,
-                        labelStyle: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: -0.3,
-                        ),
-                        unselectedLabelStyle: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        labelPadding: EdgeInsets.zero,
-                        tabs: [
-                          Tab(
-                            child: Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 12),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(context.l10n.expenses),
-                                ],
-                              ),
-                            ),
-                          ),
-                          Tab(
-                            child: Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 12),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(context.l10n.income),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                  ],
-                ),
+            ),
+            _buildRecurringTabView(
+              colorScheme,
+              _buildIncomesSliver(
+                recurringIncomes,
+                colorScheme,
+                selectedCurrency,
               ),
-              if (selectedTab == 0)
-                _buildExpensesSliver(
-                  recurringExpenses,
-                  colorScheme,
-                  selectedCurrency,
-                )
-              else
-                _buildIncomesSliver(
-                  recurringIncomes,
-                  colorScheme,
-                  selectedCurrency,
-                ),
-            ],
-          ),
+            ),
+          ],
+          onTabChanged: (index) {
+            ref.read(selectedRecurringTabProvider.notifier).state = index;
+          },
         ),
       ),
 
       // Floating action button
       floatingActionButton: _buildFAB(colorScheme),
+    );
+  }
+
+  Widget _buildRecurringTabView(
+    ColorScheme colorScheme,
+    Widget sliver,
+  ) {
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        // Header is now provided globally in MainShell; add spacing only
+        const SliverToBoxAdapter(
+          child: SizedBox(height: 20),
+        ),
+        sliver,
+      ],
     );
   }
 

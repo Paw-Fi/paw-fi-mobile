@@ -21,7 +21,7 @@ class PaywallScreen extends ConsumerWidget {
     final user = ref.watch(authProvider);
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.appBackground,
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () => _handleRefresh(ref, context),
@@ -52,7 +52,7 @@ class PaywallScreen extends ConsumerWidget {
             margin: const EdgeInsets.symmetric(horizontal: 32),
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.background,
+              color: Theme.of(context).colorScheme.appBackground,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
@@ -146,7 +146,7 @@ class PaywallScreen extends ConsumerWidget {
             margin: const EdgeInsets.symmetric(horizontal: 32),
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.background,
+              color: Theme.of(context).colorScheme.appBackground,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(

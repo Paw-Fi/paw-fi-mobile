@@ -68,9 +68,9 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.appBackground,
       appBar: AppBar(
-        backgroundColor: colorScheme.background,
+        backgroundColor: colorScheme.appBackground,
         elevation: 0,
         title: Text(
           _isEditing ? context.l10n.editBudget : context.l10n.budgetDetails,

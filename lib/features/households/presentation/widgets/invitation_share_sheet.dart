@@ -36,7 +36,7 @@ class InvitationShareSheet extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: colorScheme.background,
+          color: colorScheme.appBackground,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(

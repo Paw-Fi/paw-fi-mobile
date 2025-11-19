@@ -227,7 +227,7 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
     }
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.appBackground,
       appBar: AppBar(
         backgroundColor: colorScheme.card,
         elevation: 0,

@@ -4,7 +4,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
-import 'package:moneko/core/ui/widgets/custom_text_field.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
@@ -22,6 +21,7 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 
 /// Modern bottom sheet for adding/editing recurring transactions
 /// Apple-inspired design with clean animations and intuitive UX
@@ -318,7 +318,7 @@ class AddRecurringSheet extends HookConsumerWidget {
             0.85, // Limit to 85% of screen height
       ),
       decoration: BoxDecoration(
-        color: colorScheme.background,
+        color: colorScheme.appBackground,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: SafeArea(
@@ -367,69 +367,16 @@ class AddRecurringSheet extends HookConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Type toggle
-                    Row(
-                      children: [
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () => selectedType.value = 'expense',
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              decoration: BoxDecoration(
-                                color: isExpense
-                                    ? colorScheme.background
-                                    : colorScheme.muted.withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: isExpense
-                                      ? colorScheme.primary.withValues(alpha: 0.4)
-                                      : colorScheme.border.withValues(alpha: 0.2),
-                                ),
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                context.l10n.expenses,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  color: isExpense
-                                      ? colorScheme.foreground
-                                      : colorScheme.mutedForeground,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () => selectedType.value = 'income',
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              decoration: BoxDecoration(
-                                color: !isExpense
-                                    ? colorScheme.background
-                                    : colorScheme.muted.withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: !isExpense
-                                      ? colorScheme.primary.withValues(alpha: 0.4)
-                                      : colorScheme.border.withValues(alpha: 0.2),
-                                ),
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                context.l10n.income,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  color: !isExpense
-                                      ? colorScheme.foreground
-                                      : colorScheme.mutedForeground,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
+                    // Type toggle (adaptive segmented control)
+                    AdaptiveSegmentedControl(
+                      labels: [
+                        context.l10n.expenses,
+                        context.l10n.income,
                       ],
+                      selectedIndex: isExpense ? 0 : 1,
+                      onValueChanged: (index) {
+                        selectedType.value = index == 0 ? 'expense' : 'income';
+                      },
                     ),
 
                     const SizedBox(height: 20),
@@ -437,11 +384,12 @@ class AddRecurringSheet extends HookConsumerWidget {
                     // Amount input
                     _buildLabel(context.l10n.amount, colorScheme),
                     const SizedBox(height: 8),
-                    CustomTextField(
+                    AdaptiveTextField(
                       controller: amountController,
-                      keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true),
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
                       placeholder: '0.00',
+                      textAlign: TextAlign.end,
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
@@ -659,7 +607,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                     // Description
                     _buildLabel(context.l10n.descriptionOptional, colorScheme),
                     const SizedBox(height: 8),
-                    CustomTextField(
+                    AdaptiveTextField(
                       controller: descriptionController,
                       placeholder: context.l10n.addANote,
                       maxLines: 2,
@@ -670,9 +618,10 @@ class AddRecurringSheet extends HookConsumerWidget {
                       const SizedBox(height: 20),
                       _buildLabel(context.l10n.sourceOptional, colorScheme),
                       const SizedBox(height: 8),
-                      CustomTextField(
+                      AdaptiveTextField(
                         controller: sourceController,
-                        placeholder: context.l10n.companyNameClientNameExample,
+                        placeholder:
+                            context.l10n.companyNameClientNameExample,
                       ),
                     ],
 
@@ -729,8 +678,10 @@ class AddRecurringSheet extends HookConsumerWidget {
                           // Build UI components
                           final valueInput = SizedBox(
                             width: 80,
-                            child: CustomTextField(
-                              initialValue: reminderValue.value.toString(),
+                            child: AdaptiveTextField(
+                              controller: TextEditingController(
+                                text: reminderValue.value.toString(),
+                              ),
                               keyboardType: TextInputType.number,
                               placeholder: '1',
                               textAlign: TextAlign.center,
@@ -872,7 +823,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                     const SizedBox(height: 24),
                     SizedBox(
                       width: double.infinity,
-                      child: AdaptiveButton.child(
+                      child: PrimaryAdaptiveButton(
                         onPressed: isLoading.value
                             ? null
                             : () {
@@ -990,16 +941,10 @@ class AddRecurringSheet extends HookConsumerWidget {
     ValueNotifier<bool> isSharedWithHousehold,
     ValueNotifier<String?> selectedHouseholdId,
   ) {
-    return Container(
+    return AdaptiveCard(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: colorScheme.muted.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: colorScheme.border.withValues(alpha: 0.2),
-          width: 1,
-        ),
-      ),
+      borderRadius: BorderRadius.circular(12),
+      color: colorScheme.card,
       child: Row(
         children: [
           Expanded(
@@ -1012,7 +957,7 @@ class AddRecurringSheet extends HookConsumerWidget {
               ),
             ),
           ),
-          Switch(
+          AdaptiveSwitch(
             value: isSharedWithHousehold.value,
             onChanged: (value) {
               if (!value) {

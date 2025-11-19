@@ -114,9 +114,9 @@ class CreateBudgetPage extends HookConsumerWidget {
     }
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.appBackground,
       appBar: AppBar(
-        backgroundColor: colorScheme.background,
+        backgroundColor: colorScheme.appBackground,
         elevation: 0,
         title: Text(
           context.l10n.createBudget,

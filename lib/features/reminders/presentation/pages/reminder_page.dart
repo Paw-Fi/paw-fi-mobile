@@ -15,7 +15,7 @@ class ReminderPage extends HookConsumerWidget {
     final showUpcomingBills = useState(true);
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.appBackground,
       
       body: Stack(
         children: [
@@ -147,7 +147,7 @@ class ReminderPage extends HookConsumerWidget {
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
                 child: Container(
-                  color: colorScheme.background.withValues(alpha: 0.3),
+                  color: colorScheme.appBackground.withValues(alpha: 0.3),
                   child: Center(
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),

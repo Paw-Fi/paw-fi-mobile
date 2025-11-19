@@ -8,6 +8,7 @@ import 'package:moneko/features/home/presentation/state/transaction_edit_state.d
 import 'package:moneko/features/home/presentation/state/transaction_edit_notifier.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/currency_flags.dart';
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
@@ -144,7 +145,7 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: AdaptiveButton.child(
+                child: PrimaryAdaptiveButton(
                   onPressed: isLoading ? null : _handleSave,
                   child: isLoading
                       ? const SizedBox(

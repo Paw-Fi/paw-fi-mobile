@@ -94,38 +94,47 @@ extension AppColorScheme on ColorScheme {
       : AppTheme.lightForeground;
 
   /// Destructive color (mirrors shadcn destructive semantics)
-  Color get destructive => error;
+  Color get destructive => brightness == Brightness.dark ? AppTheme.darkDanger : AppTheme.danger;
 }
 
 /// Moneko app theme configuration matching web's Tailwind design system
 class AppTheme {
   // Moneko brand colors from web (app.css)
-  static const Color monekoPrimary = Color(0xFF7458FF); // --moneko-primary
-  static const Color monekoSecondary = Color(0xFF836DFF); // --moneko-secondary
-  static const Color iconColor = Color(0xFFAA76FF); // --icon
-  static const Color success = Color(0xFF16CDA2); // --success
-  static const Color warning = Color(0xFFFFC219); // --warning
-  static const Color danger = Color(0xFFFF6060); // --danger
-  static const Color info = monekoPrimary; // brand primary for neutral/info
+static const Color monekoPrimary = Color(0xFF7458FF); // --moneko-primary
+static const Color monekoSecondary = Color(0xFF836DFF); // --moneko-secondary
+static const Color iconColor = Color(0xFFAA76FF); // --icon
+static const Color success = Color(0xFF16CDA2); // --success
+static const Color warning = Color(0xFFFFC219); // --warning
+static const Color danger = Color(0xFFFF6060); // --danger
+static const Color info = monekoPrimary; // brand primary for neutral/info
 
-  // Light theme colors
-  static const Color lightBackground = Color(0xFFF9FAFB); // --moneko-background
-  static const Color lightForeground = Color(0xFF1F2937); // --moneko-foreground
-  static const Color lightCardBg = Color(0xFFFFFFFF); // --card-bg
-  static const Color lightInputBg = Color(0xFFFFFFFF); // --input-bg
-  static const Color lightBorder = Color(0xFFE5E7EB); // --subtle-border
-  static const Color lightMuted = Color(0xFF6B7280); // --muted-foreground-color
-  static const Color lightButtonText = Color(0xFFFFFFFF); // Button text color (white)
+// Light theme colors
+static const Color lightBackground = Color(0xFFF9FAFB); // --moneko-background
+static const Color lightForeground = Color(0xFF1F2937); // --moneko-foreground
+static const Color lightCardBg = Color(0xFFFFFFFF); // --card-bg
+static const Color lightInputBg = Color(0xFFFFFFFF); // --input-bg
+static const Color lightBorder = Color(0xFFE5E7EB); // --subtle-border
+static const Color lightMuted = Color(0xFF6B7280); // --muted-foreground-color
+static const Color lightButtonText = Color(0xFFFFFFFF); // Button text color (white)
 
-  // Dark theme colors
-  static const Color darkBackground = Color(0xFF0A0E1A); // --moneko-background (dark)
-  static const Color darkForeground = Color(0xFFF1F5F9); // --moneko-foreground (dark) - bright for text
-  static const Color darkCardBg = Color(0xFF111827); // --card-bg (dark)
-  static const Color darkInputBg = Color(0xFF1F2937); // --input-bg (dark)
-  static const Color darkBorder = Color(0xFF374151); // --subtle-border (dark)
-  static const Color darkMuted = Color(0xFF374151); // Muted background (darker for inputs)
-  static const Color darkMutedForeground = Color(0xFF9CA3AF); // Muted text (lighter gray)
-  static const Color darkButtonText = Color(0xFFFFFFFF); // Button text color (white)
+// Dark theme colors
+static const Color darkBackground = Color(0xFF0A0E1A); // --moneko-background (dark)
+static const Color darkForeground = Color(0xFFF1F5F9); // --moneko-foreground (dark)
+static const Color darkCardBg = Color(0xFF111827); // --card-bg (dark)
+static const Color darkInputBg = Color(0xFF1F2937); // --input-bg (dark)
+static const Color darkBorder = Color(0xFF374151); // --subtle-border (dark)
+static const Color darkMuted = Color(0xFF374151); // muted background (dark)
+static const Color darkMutedForeground = Color(0xFF9CA3AF); // muted text (dark)
+static const Color darkButtonText = Color(0xFFFFFFFF); // button text (white)
+
+// Dark mode semantic colors (suggested)
+static const Color darkSuccess = Color(0xFF0FB894); // deeper variant
+
+static const Color darkWarning = Color(0xFFE19A00); // richer toasted amber
+
+static const Color darkDanger = Color(0xFFD93C3C); // deeper red
+
+static const Color darkInfo = Color(0xFF7A72FF); // slightly brighter version
 
   /// Light theme matching web design, expressed as Material [ThemeData]
   static ThemeData lightTheme() {

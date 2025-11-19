@@ -759,7 +759,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
   /// Full-page loading state with skeleton
   Widget _buildLoadingState(ColorScheme colorScheme) {
     return Container(
-      color: colorScheme.background,
+      color: colorScheme.appBackground,
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -793,7 +793,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
     String message,
   ) {
     return Container(
-      color: colorScheme.background,
+      color: colorScheme.appBackground,
       padding: const EdgeInsets.all(32),
       child: Center(
         child: Column(

@@ -38,7 +38,7 @@ class HouseholdImagePicker {
             height: MediaQuery.of(context).size.height * 0.75,
             padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
             decoration: BoxDecoration(
-              color: colorScheme.background,
+              color: colorScheme.appBackground,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
             ),
             child: Column(

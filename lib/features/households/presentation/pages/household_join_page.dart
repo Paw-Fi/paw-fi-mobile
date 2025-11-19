@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/utils/error_handler.dart';
@@ -118,7 +119,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
     final canGoBack = _state != JoinPageState.joining;
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.appBackground,
       body: SafeArea(
         child: Column(
           children: [
@@ -329,7 +330,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
       textField: true,
       child: Container(
         decoration: BoxDecoration(
-          color: colorScheme.background,
+          color: colorScheme.appBackground,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: colorScheme.border.withValues(alpha: 0.12),
@@ -502,9 +503,8 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
       enabled: !isValidating,
       child: SizedBox(
         height: 56,
-        child: AdaptiveButton.child(
+        child: PrimaryAdaptiveButton(
           onPressed: isValidating ? null : _validateInvite,
-          style: AdaptiveButtonStyle.filled,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -587,9 +587,8 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
             button: true,
             child: SizedBox(
               height: 56,
-              child: AdaptiveButton.child(
+              child: PrimaryAdaptiveButton(
                 onPressed: _acceptInvite,
-                style: AdaptiveButtonStyle.filled,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -1065,11 +1064,10 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
               child: SizedBox(
                 width: double.infinity,
                 height: 56,
-                child: AdaptiveButton.child(
+                child: PrimaryAdaptiveButton(
                   onPressed: () {
                     Navigator.of(context).popUntil((route) => route.isFirst);
                   },
-                  style: AdaptiveButtonStyle.filled,
                   child: Text(
                     context.l10n.goToHousehold,
                     style: const TextStyle(
@@ -1156,7 +1154,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
               button: true,
               child: SizedBox(
                 height: 56,
-                child: AdaptiveButton.child(
+                child: PrimaryAdaptiveButton(
                   onPressed: () {
                     if (!mounted) return;
                     setState(() {
@@ -1167,7 +1165,6 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
                     _animationController.reset();
                     _animationController.forward();
                   },
-                  style: AdaptiveButtonStyle.filled,
                   child: Text(
                     context.l10n.tryAgain,
                     style: const TextStyle(

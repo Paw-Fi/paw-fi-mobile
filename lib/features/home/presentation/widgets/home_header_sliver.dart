@@ -33,12 +33,12 @@ class HomeHeaderSliver extends ConsumerWidget {
     final zoomController = ref.read(zoomDrawerControllerProvider);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 5, 16, 20),
+      padding: const EdgeInsets.fromLTRB(16, 5, 16, 5),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Expanded(
-            child: AdaptiveListTile(
-              backgroundColor: colorScheme.appBackground,
+            child: ListTile(
               onTap: () => zoomController.toggle?.call(),
               leading: _HeaderAvatarButton(
                 user: user,
@@ -76,14 +76,11 @@ class HomeHeaderSliver extends ConsumerWidget {
             ),
           ),
           const SizedBox(width: 12),
-          Flexible(
-            fit: FlexFit.loose,
-            child: _AccountTypeSwitch(
-              viewMode: viewMode,
-              colorScheme: colorScheme,
-              onPersonalSelected: () => _setPersonalMode(ref),
-              onHouseholdSelected: () => _switchToHouseholdMode(context, ref),
-            ),
+          _AccountTypeSwitch(
+            viewMode: viewMode,
+            colorScheme: colorScheme,
+            onPersonalSelected: () => _setPersonalMode(ref),
+            onHouseholdSelected: () => _switchToHouseholdMode(context, ref),
           ),
         ],
       ),
@@ -129,21 +126,7 @@ class _HeaderAvatarButton extends StatelessWidget {
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
       width: 44,
-      height: 44,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: colorScheme.border.withValues(alpha: 0.5),
-          width: 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      height: 44,     
       child: ClipOval(
         child: _buildContent(),
       ),
@@ -249,29 +232,63 @@ class _AccountTypeSwitch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final selectedIndex = viewMode.mode == ViewMode.personal ? 0 : 1;
-
     return Container(
-      padding: const EdgeInsets.all(4),    
-      child: AdaptiveSegmentedControl(
-        labels: [
-          context.l10n.forMe,
-          context.l10n.forUs,
-        ],        
-        selectedIndex: selectedIndex,
-        color: colorScheme.primary,
-        onValueChanged: (index) {
-          if (index == selectedIndex) {
-            return;
-          }
-          if (index == 0) {
-            onPersonalSelected();
-          } else {
-            onHouseholdSelected();
-          }
-        },
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: colorScheme.muted,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Personal
+          GestureDetector(
+            onTap: viewMode.mode == ViewMode.personal ? null : onPersonalSelected,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+              decoration: BoxDecoration(
+                color: viewMode.mode == ViewMode.personal
+                    ? colorScheme.primary
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                context.l10n.forMe,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: viewMode.mode == ViewMode.personal ? FontWeight.w600 : FontWeight.w500,
+                  color: viewMode.mode == ViewMode.personal
+                      ? colorScheme.primaryForeground
+                      : colorScheme.mutedForeground,
+                ),
+              ),
+            ),
+          ),
+          // Household
+          GestureDetector(
+            onTap: viewMode.mode == ViewMode.household ? null : onHouseholdSelected,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+              decoration: BoxDecoration(
+                color: viewMode.mode == ViewMode.household
+                    ? colorScheme.primary
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                context.l10n.forUs,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: viewMode.mode == ViewMode.household ? FontWeight.w600 : FontWeight.w500,
+                  color: viewMode.mode == ViewMode.household
+                      ? colorScheme.primaryForeground
+                      : colorScheme.mutedForeground,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
-

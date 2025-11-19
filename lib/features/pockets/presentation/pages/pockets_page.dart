@@ -1,8 +1,11 @@
+import 'dart:ui';
+
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
+import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/auth/auth.dart';
-import 'package:moneko/features/home/presentation/widgets/home_header_sliver.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
@@ -23,6 +26,15 @@ class PocketsPage extends ConsumerWidget {
             scope: PocketsScopeType.household,
             householdId: selectedHouseholdState.householdId,
           );
+
+    final pocketsState = ref.watch(pocketsProvider(pocketsScopeParams));
+    final pocketsNotifier =
+        ref.read(pocketsProvider(pocketsScopeParams).notifier);
+
+    final hasChanges = pocketsState.hasChanges;
+    final totalBudget = pocketsState.totalBudget;
+    final totalSpent = pocketsState.totalSpent;
+    final remaining = totalBudget - totalSpent;
 
     Future<void> refresh() async {
       final user = ref.read(authProvider);
@@ -54,32 +66,112 @@ class PocketsPage extends ConsumerWidget {
     }
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: refresh,
-          child: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              const SliverToBoxAdapter(child: HomeHeaderSliver()),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      PocketsGridSection(
-                        scopeParams: pocketsScopeParams,
-                        colorScheme: colorScheme,
-                        isPersonalMode: viewMode.mode == ViewMode.personal,
+      backgroundColor: colorScheme.appBackground,
+      body: Stack(
+        children: [         
+          RefreshIndicator(
+            onRefresh: refresh,
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [               
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
+                    child: PocketsGridSection(
+                      scopeParams: pocketsScopeParams,
+                      colorScheme: colorScheme,
+                      isPersonalMode: viewMode.mode == ViewMode.personal,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (hasChanges)
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 24,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colorScheme.card.withOpacity(0.92),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: colorScheme.border.withValues(alpha: 0.6),
+                        width: 1,
                       ),
-                    ],
+                    ),
+                    child: Row(
+                      children: [
+                        AdaptiveButton(
+                          onPressed: pocketsNotifier.revertChanges,
+                          style: AdaptiveButtonStyle.plain,
+                          label: 'Revert',
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            remaining >= 0
+                                ? 'Remaining: ${remaining.toStringAsFixed(0)}'
+                                : 'Over budget: ${remaining.abs().toStringAsFixed(0)}',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: remaining >= 0
+                                  ? colorScheme.mutedForeground
+                                  : colorScheme.destructive,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        AdaptiveButton(
+                          onPressed: pocketsNotifier.saveChanges,
+                          style: AdaptiveButtonStyle.filled,
+                          label: 'Save',
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PocketsGlowCircle extends StatelessWidget {
+  const _PocketsGlowCircle({
+    required this.color,
+  });
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 260,
+      height: 260,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color.withOpacity(0.16),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.28),
+            blurRadius: 80,
+            spreadRadius: 40,
           ),
-        ),
+        ],
       ),
     );
   }

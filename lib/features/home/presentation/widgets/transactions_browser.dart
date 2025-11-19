@@ -144,7 +144,7 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.appBackground,
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: widget.onRefresh,
@@ -655,7 +655,7 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
   void _showFilterSheet(BuildContext context, ColorScheme colorScheme) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.appBackground,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) {
         return StatefulBuilder(

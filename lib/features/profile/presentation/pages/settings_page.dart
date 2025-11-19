@@ -150,7 +150,7 @@ class SettingsPage extends HookConsumerWidget {
             )
           : null,
       body: Material(
-        color: colorScheme.background,
+        color: colorScheme.appBackground,
         child: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
@@ -259,7 +259,7 @@ class SettingsPage extends HookConsumerWidget {
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   border: Border.all(
-                                    color: colorScheme.background,
+                                    color: colorScheme.appBackground,
                                     width: 3,
                                   ),
                                 ),
@@ -574,7 +574,7 @@ class SettingsPage extends HookConsumerWidget {
                     await ref.read(authProvider.notifier).signOut();
                   },
                   label: context.l10n.signOut,
-                  color: colorScheme.error,
+                  color: colorScheme.destructive,
                 ),
               ),
             ],
@@ -647,7 +647,7 @@ Future<void> _showEditNameSheet({
                       hintText: AppLocalizations.of(ctx)!.fullName,
                       errorText: errorText,
                       filled: true,
-                      fillColor: colorScheme.background,
+                      fillColor: colorScheme.appBackground,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(color: colorScheme.border),

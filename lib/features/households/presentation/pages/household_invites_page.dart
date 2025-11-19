@@ -55,9 +55,9 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.appBackground,
       appBar: AppBar(
-        backgroundColor: colorScheme.background,
+        backgroundColor: colorScheme.appBackground,
         elevation: 0,
         title: Text(
           context.l10n.invitations,

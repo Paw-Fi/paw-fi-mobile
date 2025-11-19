@@ -28,7 +28,7 @@ void showDateRangeFilter(
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    backgroundColor: colorScheme.background,
+    backgroundColor: colorScheme.appBackground,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),

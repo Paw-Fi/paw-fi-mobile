@@ -45,7 +45,7 @@ void showScenarioResultSheet(
           maxHeight: MediaQuery.of(context).size.height * 0.85,
         ),
         decoration: BoxDecoration(
-          color: colorScheme.background,
+          color: colorScheme.appBackground,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(

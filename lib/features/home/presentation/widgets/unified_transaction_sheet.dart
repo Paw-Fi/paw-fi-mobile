@@ -32,6 +32,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/widgets/transaction_category_picker.dart';
 import 'package:moneko/core/ui/widgets/transaction_currency_picker.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 
 /// Format date with relative terms
 String _formatRelativeDate(DateTime date, BuildContext context) {
@@ -544,7 +545,7 @@ class _UnifiedTransactionSheetState
                   // Save Button (for both new and existing expenses)
                   SizedBox(
                     width: double.infinity,
-                    child: AdaptiveButton.child(
+                    child: PrimaryAdaptiveButton(
                       onPressed: _isSaving ? null : _handleSave,
                       child: _isSaving
                           ? const SizedBox(
@@ -570,7 +571,7 @@ class _UnifiedTransactionSheetState
                     const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,
-                      child: AdaptiveButton.child(
+                      child: PrimaryAdaptiveButton(
                         onPressed: _isDeleting ? null : _handleDelete,
                         child: _isDeleting
                             ? SizedBox(

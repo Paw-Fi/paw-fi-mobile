@@ -314,7 +314,7 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
         context: context,
         barrierDismissible: true,
         builder: (ctx) {
-          final bg = widget.colorScheme.background;
+          final bg = widget.colorScheme.appBackground;
           return Material(
             color: Colors.transparent,
             child: Container(
@@ -494,7 +494,7 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = widget.colorScheme.background == AppTheme.darkBackground;
+    final bool isDark = widget.colorScheme.appBackground == AppTheme.darkBackground;
     final user = ref.watch(authProvider);
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -626,7 +626,7 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
                                           child: Container(
                                             padding: const EdgeInsets.all(32),
                                             decoration: BoxDecoration(
-                                              color: colorScheme.background,
+                                              color: colorScheme.appBackground,
                                               borderRadius: BorderRadius.circular(12),
                                             ),
                                             child: Column(

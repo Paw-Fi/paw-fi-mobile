@@ -28,7 +28,7 @@ class MainMenuScreen extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Material(
-      color: colorScheme.surface,
+      color: colorScheme.card,
       child: Container(
         padding: const EdgeInsets.fromLTRB(24, 48, 24, 32),
         child: Column(

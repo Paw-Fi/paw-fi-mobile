@@ -58,9 +58,9 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
     final user = ref.watch(authProvider);
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.appBackground,
       appBar: AppBar(
-        backgroundColor: colorScheme.background,
+        backgroundColor: colorScheme.appBackground,
         elevation: 0,
         title: Text(
           context.l10n.income,

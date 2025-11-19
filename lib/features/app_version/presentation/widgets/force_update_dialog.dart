@@ -48,7 +48,7 @@ class ForceUpdateDialog extends StatelessWidget {
     return PopScope(
       canPop: false, // Prevent dismissing with back button
       child: Dialog(
-        backgroundColor: colorScheme.background,
+        backgroundColor: colorScheme.appBackground,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),

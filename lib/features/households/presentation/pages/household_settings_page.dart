@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 // removed shared budgets UI from settings; budgets are managed elsewhere
 import '../../domain/entities/household.dart';
@@ -54,9 +55,9 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage>
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.appBackground,
       appBar: AppBar(
-        backgroundColor: colorScheme.background,
+        backgroundColor: colorScheme.appBackground,
         elevation: 0,
         title: Text(
           context.l10n.householdSettings,
@@ -321,9 +322,8 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
 
             // Save Button
             if (canEdit)
-              AdaptiveButton.child(
+              PrimaryAdaptiveButton(
                 onPressed: _isSaving ? null : () => _saveChanges(household),
-                style: AdaptiveButtonStyle.filled,
                 child: _isSaving
                     ? const SizedBox(
                         width: 20,

@@ -52,22 +52,13 @@ class PocketsGridSection extends ConsumerWidget {
       );
     }
 
-    final title = isPersonalMode ? 'My pockets' : 'Household pockets';
     final totalBudget = state.totalBudget;
     final totalSpent = state.totalSpent;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.3,
-            color: colorScheme.foreground,
-          ),
-        ),
+     
         const SizedBox(height: 12),
         _PocketsHeaderCard(
           totalBudget: totalBudget,
@@ -130,28 +121,6 @@ class PocketsGridSection extends ConsumerWidget {
             );
           },
         ),
-        if (state.hasChanges) ...[
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: AdaptiveButton(
-                  onPressed: notifier.revertChanges,
-                  label: 'Revert',
-                  style: AdaptiveButtonStyle.bordered,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: AdaptiveButton(
-                  onPressed: notifier.saveChanges,
-                  label: 'Save changes',
-                  style: AdaptiveButtonStyle.filled,
-                ),
-              ),
-            ],
-          ),
-        ],
       ],
     );
   }

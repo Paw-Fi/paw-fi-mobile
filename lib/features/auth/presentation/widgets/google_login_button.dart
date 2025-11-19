@@ -69,7 +69,9 @@ class GoogleLoginButton extends HookConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.g_mobiledata, size: 24),
+                if(!isLoading.value)
+                const Icon(Icons.g_mobiledata, size: 30,color: Colors.white,),
+                 if(!isLoading.value)
                 const SizedBox(width: 8),
                 Text(
                   isLoading.value
