@@ -38,6 +38,7 @@ class HomeHeaderSliver extends ConsumerWidget {
         children: [
           Expanded(
             child: AdaptiveListTile(
+              backgroundColor: colorScheme.appBackground,
               onTap: () => zoomController.toggle?.call(),
               leading: _HeaderAvatarButton(
                 user: user,
@@ -251,11 +252,7 @@ class _AccountTypeSwitch extends StatelessWidget {
     final selectedIndex = viewMode.mode == ViewMode.personal ? 0 : 1;
 
     return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: colorScheme.muted,
-        borderRadius: BorderRadius.circular(20),
-      ),
+      padding: const EdgeInsets.all(4),    
       child: AdaptiveSegmentedControl(
         labels: [
           context.l10n.forMe,

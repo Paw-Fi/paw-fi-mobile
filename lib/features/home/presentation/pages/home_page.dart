@@ -801,8 +801,9 @@ class _HomePageState extends ConsumerState<HomePage> {
       );
     }
 
-    return AdaptiveScaffold(
+    return Scaffold(
       body: Material(
+        color: colorScheme.appBackground,
         child: Stack(
         children: [
           SafeArea(

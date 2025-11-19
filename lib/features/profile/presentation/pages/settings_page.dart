@@ -93,7 +93,6 @@ class SettingsPage extends HookConsumerWidget {
     return AdaptiveScaffold(
       appBar: AdaptiveAppBar(
         title: context.l10n.settings,
-        useNativeToolbar: true,
       ),
       floatingActionButton: kDebugMode
           ? AdaptiveFloatingActionButton(
@@ -152,434 +151,436 @@ class SettingsPage extends HookConsumerWidget {
           : null,
       body: Material(
         color: colorScheme.background,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
-          child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: FutureBuilder<Map<String, dynamic>?>(
-                key: ValueKey('avatar-${nameReloadKey.value}'),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+            child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: FutureBuilder<Map<String, dynamic>?>(
+                  key: ValueKey('avatar-${nameReloadKey.value}'),
+                  future: Supabase.instance.client
+                      .from('users')
+                      .select('full_name, avatar_url')
+                      .eq('id', authState.uid)
+                      .maybeSingle(),
+                  builder: (context, snapshot) {
+                    final dbName = snapshot.data != null
+                        ? snapshot.data!['full_name'] as String?
+                        : null;
+                    final dbAvatarUrl = snapshot.data != null
+                        ? snapshot.data!['avatar_url'] as String?
+                        : null;
+          
+                    final displayName = (dbName?.trim().isNotEmpty == true)
+                        ? dbName!.trim()
+                        : (authState.displayName?.trim().isNotEmpty == true
+                            ? authState.displayName!.trim()
+                            : 'User');
+                    final initials = displayName.isNotEmpty
+                        ? displayName.substring(0, 1).toUpperCase()
+                        : (authState.email.isNotEmpty
+                            ? authState.email
+                                .substring(0, 1)
+                                .toUpperCase()
+                            : 'U');
+          
+                    String? validatedAvatarUrl;
+                    if (dbAvatarUrl != null &&
+                        dbAvatarUrl.isNotEmpty &&
+                        dbAvatarUrl != 'SKIPPED' &&
+                        (dbAvatarUrl.startsWith('http://') ||
+                            dbAvatarUrl.startsWith('https://'))) {
+                      validatedAvatarUrl = dbAvatarUrl;
+                    }
+          
+                    final avatarUrl = validatedAvatarUrl ??
+                        (authState.photoUrl != null &&
+                                authState.photoUrl!.isNotEmpty
+                            ? authState.photoUrl
+                            : null);
+          
+                    return Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        GestureDetector(
+                          onTap: () => context.push('/avatar'),
+                          child: Container(
+                            width: 104,
+                            height: 104,
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: avatarUrl != null
+                                  ? null
+                                  : const LinearGradient(
+                                      colors: [
+                                        Color(0xFF7458FF),
+                                        Color(0xFF836DFF),
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: colorScheme.primary
+                                      .withValues(alpha: 0.25),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
+                            ),
+                            child: ClipOval(
+                              child: avatarUrl != null
+                                  ? Image.network(
+                                      avatarUrl,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) =>
+                                          _InitialsAvatar(initials: initials),
+                                    )
+                                  : _InitialsAvatar(initials: initials),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          bottom: -2,
+                          right: -2,
+                          child: Material(
+                            color: colorScheme.primary,
+                            shape: const CircleBorder(),
+                            child: InkWell(
+                              onTap: () => context.push('/avatar'),
+                              customBorder: const CircleBorder(),
+                              child: Container(
+                                width: 36,
+                                height: 36,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: colorScheme.background,
+                                    width: 3,
+                                  ),
+                                ),
+                                child: Icon(
+                                  Icons.edit,
+                                  size: 18,
+                                  color: colorScheme.primaryForeground,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                context.l10n.fullName,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.foreground,
+                  letterSpacing: -0.2,
+                ),
+              ),
+              const SizedBox(height: 16),
+              FutureBuilder<Map<String, dynamic>?>(
+                key: ValueKey('name-${nameReloadKey.value}'),
                 future: Supabase.instance.client
                     .from('users')
-                    .select('full_name, avatar_url')
+                    .select('full_name')
                     .eq('id', authState.uid)
                     .maybeSingle(),
                 builder: (context, snapshot) {
                   final dbName = snapshot.data != null
                       ? snapshot.data!['full_name'] as String?
                       : null;
-                  final dbAvatarUrl = snapshot.data != null
-                      ? snapshot.data!['avatar_url'] as String?
-                      : null;
-
-                  final displayName = (dbName?.trim().isNotEmpty == true)
+                  final currentName = (dbName?.trim().isNotEmpty == true)
                       ? dbName!.trim()
                       : (authState.displayName?.trim().isNotEmpty == true
                           ? authState.displayName!.trim()
-                          : 'User');
-                  final initials = displayName.isNotEmpty
-                      ? displayName.substring(0, 1).toUpperCase()
-                      : (authState.email.isNotEmpty
-                          ? authState.email
-                              .substring(0, 1)
-                              .toUpperCase()
-                          : 'U');
-
-                  String? validatedAvatarUrl;
-                  if (dbAvatarUrl != null &&
-                      dbAvatarUrl.isNotEmpty &&
-                      dbAvatarUrl != 'SKIPPED' &&
-                      (dbAvatarUrl.startsWith('http://') ||
-                          dbAvatarUrl.startsWith('https://'))) {
-                    validatedAvatarUrl = dbAvatarUrl;
-                  }
-
-                  final avatarUrl = validatedAvatarUrl ??
-                      (authState.photoUrl != null &&
-                              authState.photoUrl!.isNotEmpty
-                          ? authState.photoUrl
-                          : null);
-
-                  return Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      GestureDetector(
-                        onTap: () => context.push('/avatar'),
-                        child: Container(
-                          width: 104,
-                          height: 104,
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: avatarUrl != null
-                                ? null
-                                : const LinearGradient(
-                                    colors: [
-                                      Color(0xFF7458FF),
-                                      Color(0xFF836DFF),
-                                    ],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: colorScheme.primary
-                                    .withValues(alpha: 0.25),
-                                blurRadius: 12,
-                                offset: const Offset(0, 6),
-                              ),
-                            ],
-                          ),
-                          child: ClipOval(
-                            child: avatarUrl != null
-                                ? Image.network(
-                                    avatarUrl,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) =>
-                                        _InitialsAvatar(initials: initials),
-                                  )
-                                : _InitialsAvatar(initials: initials),
-                          ),
-                        ),
+                          : '');
+          
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 16,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colorScheme.card,
+                      borderRadius: BorderRadius.circular(16),
+                      border:
+                          Border.all(color: colorScheme.border, width: 1),
+                    ),
+                    child: InkWell(
+                      onTap: () => _showEditNameSheet(
+                        context: context,
+                        ref: ref,
+                        initialName: currentName,
+                        onUpdated: () {
+                          nameReloadKey.value++;
+                          ref.invalidate(userProfileProvider(authState.uid));
+                        },
                       ),
-                      Positioned(
-                        bottom: -2,
-                        right: -2,
-                        child: Material(
-                          color: colorScheme.primary,
-                          shape: const CircleBorder(),
-                          child: InkWell(
-                            onTap: () => context.push('/avatar'),
-                            customBorder: const CircleBorder(),
-                            child: Container(
-                              width: 36,
-                              height: 36,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: colorScheme.background,
-                                  width: 3,
-                                ),
-                              ),
-                              child: Icon(
-                                Icons.edit,
-                                size: 18,
-                                color: colorScheme.primaryForeground,
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.person_outline,
+                            size: 20,
+                            color: colorScheme.mutedForeground,
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Text(
+                              currentName.isEmpty
+                                  ? context.l10n.fullName
+                                  : currentName,
+                              style: TextStyle(
+                                fontSize: 15,
+                                color: colorScheme.foreground,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ),
-                        ),
+                          Icon(
+                            Icons.chevron_right,
+                            size: 18,
+                            color: colorScheme.mutedForeground,
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   );
                 },
               ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              context.l10n.fullName,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: colorScheme.foreground,
-                letterSpacing: -0.2,
+              const SizedBox(height: 32),
+              Text(
+                context.l10n.language,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.foreground,
+                  letterSpacing: -0.2,
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            FutureBuilder<Map<String, dynamic>?>(
-              key: ValueKey('name-${nameReloadKey.value}'),
-              future: Supabase.instance.client
-                  .from('users')
-                  .select('full_name')
-                  .eq('id', authState.uid)
-                  .maybeSingle(),
-              builder: (context, snapshot) {
-                final dbName = snapshot.data != null
-                    ? snapshot.data!['full_name'] as String?
-                    : null;
-                final currentName = (dbName?.trim().isNotEmpty == true)
-                    ? dbName!.trim()
-                    : (authState.displayName?.trim().isNotEmpty == true
-                        ? authState.displayName!.trim()
-                        : '');
-
-                return Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 16,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colorScheme.card,
-                    borderRadius: BorderRadius.circular(16),
-                    border:
-                        Border.all(color: colorScheme.border, width: 1),
-                  ),
-                  child: InkWell(
-                    onTap: () => _showEditNameSheet(
-                      context: context,
-                      ref: ref,
-                      initialName: currentName,
-                      onUpdated: () {
-                        nameReloadKey.value++;
-                        ref.invalidate(userProfileProvider(authState.uid));
-                      },
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: colorScheme.card,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: colorScheme.border, width: 1),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.language,
+                      size: 20,
+                      color: colorScheme.mutedForeground,
                     ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.person_outline,
-                          size: 20,
-                          color: colorScheme.mutedForeground,
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Text(
-                            currentName.isEmpty
-                                ? context.l10n.fullName
-                                : currentName,
-                            style: TextStyle(
-                              fontSize: 15,
-                              color: colorScheme.foreground,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                        Icon(
-                          Icons.chevron_right,
-                          size: 18,
-                          color: colorScheme.mutedForeground,
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 32),
-            Text(
-              context.l10n.language,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: colorScheme.foreground,
-                letterSpacing: -0.2,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 12,
-              ),
-              decoration: BoxDecoration(
-                color: colorScheme.card,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: colorScheme.border, width: 1),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.language,
-                    size: 20,
-                    color: colorScheme.mutedForeground,
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<Locale?>(
-                        isExpanded: true,
-                        value: dropdownValue,
-                        items: [
-                          DropdownMenuItem<Locale?>(
-                            value: null,
-                            child: Text(
-                              context.l10n.systemDefault,
-                              style: TextStyle(
-                                color: colorScheme.foreground,
-                              ),
-                            ),
-                          ),
-                          ...supportedLocales.map(
-                            (locale) => DropdownMenuItem<Locale?>(
-                              value: locale,
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<Locale?>(
+                          isExpanded: true,
+                          value: dropdownValue,
+                          items: [
+                            DropdownMenuItem<Locale?>(
+                              value: null,
                               child: Text(
-                                _displayLocaleName(locale),
+                                context.l10n.systemDefault,
                                 style: TextStyle(
                                   color: colorScheme.foreground,
                                 ),
                               ),
                             ),
-                          ),
-                        ],
-                        onChanged: (value) async {
-                          if (value == null) {
-                            await ref
-                                .read(localeProvider.notifier)
-                                .setSystem();
-                          } else {
-                            await ref
-                                .read(localeProvider.notifier)
-                                .setLocale(value);
-                          }
-                        },
+                            ...supportedLocales.map(
+                              (locale) => DropdownMenuItem<Locale?>(
+                                value: locale,
+                                child: Text(
+                                  _displayLocaleName(locale),
+                                  style: TextStyle(
+                                    color: colorScheme.foreground,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                          onChanged: (value) async {
+                            if (value == null) {
+                              await ref
+                                  .read(localeProvider.notifier)
+                                  .setSystem();
+                            } else {
+                              await ref
+                                  .read(localeProvider.notifier)
+                                  .setLocale(value);
+                            }
+                          },
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 32),
-            Text(
-              context.l10n.appearance,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: colorScheme.foreground,
-                letterSpacing: -0.2,
-              ),
-            ),
-            const SizedBox(height: 16),
-            AdaptiveListTile(
-              leading: Icon(
-                Icons.dark_mode_outlined,
-                size: 20,
-                color: colorScheme.mutedForeground,
-              ),
-              title: Text(
-                context.l10n.darkMode,
-                style: TextStyle(
-                  fontSize: 15,
-                  color: colorScheme.foreground,
-                  fontWeight: FontWeight.w500,
+                  ],
                 ),
               ),
-              trailing: AdaptiveSwitch(
-                value: isDarkMode,
-                onChanged: (value) {
-                  ref
-                      .read(themeModeProvider.notifier)
-                      .setThemeMode(
-                        value ? ThemeMode.dark : ThemeMode.light,
-                      );
-                },
-              ),
-            ),
-            const SizedBox(height: 32),
-            Text(
-              context.l10n.notifications,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: colorScheme.foreground,
-                letterSpacing: -0.2,
-              ),
-            ),
-            const SizedBox(height: 16),
-            AdaptiveListTile(
-              leading: Icon(
-                Icons.notifications_outlined,
-                size: 20,
-                color: colorScheme.mutedForeground,
-              ),
-              title: Text(
-                context.l10n.pushNotifications,
+              const SizedBox(height: 32),
+              Text(
+                context.l10n.appearance,
                 style: TextStyle(
-                  fontSize: 15,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
                   color: colorScheme.foreground,
-                  fontWeight: FontWeight.w500,
+                  letterSpacing: -0.2,
                 ),
               ),
-              subtitle: Text(
-                context.l10n.receiveAlertsAndUpdates,
-                style: TextStyle(
-                  fontSize: 12,
+              const SizedBox(height: 16),
+              AdaptiveListTile(
+                leading: Icon(
+                  Icons.dark_mode_outlined,
+                  size: 20,
                   color: colorScheme.mutedForeground,
                 ),
+                title: Text(
+                  context.l10n.darkMode,
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: colorScheme.foreground,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                trailing: AdaptiveSwitch(
+                  value: isDarkMode,
+                  onChanged: (value) {
+                    ref
+                        .read(themeModeProvider.notifier)
+                        .setThemeMode(
+                          value ? ThemeMode.dark : ThemeMode.light,
+                        );
+                  },
+                ),
               ),
-              trailing: Icon(
-                Icons.open_in_new,
-                size: 16,
-                color: colorScheme.mutedForeground,
+              const SizedBox(height: 32),
+              Text(
+                context.l10n.notifications,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.foreground,
+                  letterSpacing: -0.2,
+                ),
               ),
-              onTap: () => handleNotificationToggle(),
-            ),
-            const SizedBox(height: 32),
-            buildWhatsAppBindingCard(context, ref),
-            const SizedBox(height: 32),
-            Text(
-              context.l10n.membership,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: colorScheme.foreground,
-                letterSpacing: -0.2,
+              const SizedBox(height: 16),
+              AdaptiveListTile(
+                leading: Icon(
+                  Icons.notifications_outlined,
+                  size: 20,
+                  color: colorScheme.mutedForeground,
+                ),
+                title: Text(
+                  context.l10n.pushNotifications,
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: colorScheme.foreground,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                subtitle: Text(
+                  context.l10n.receiveAlertsAndUpdates,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: colorScheme.mutedForeground,
+                  ),
+                ),
+                trailing: Icon(
+                  Icons.open_in_new,
+                  size: 16,
+                  color: colorScheme.mutedForeground,
+                ),
+                onTap: () => handleNotificationToggle(),
               ),
-            ),
-            const SizedBox(height: 16),
-            _MembershipCard(
-              colorScheme: colorScheme,
-              subscriptionAsync: subscriptionAsync,
-            ),
-            const SizedBox(height: 32),
-            // Logout Button
-            SizedBox(
-              width: double.infinity,
-              child: AdaptiveButton(
-                onPressed: () async {
-                  try {
-                    await ref
-                        .read(deviceRegistrationServiceProvider)
-                        .unregisterDevice();
-                  } catch (_) {}
-
-                  debugPrint(
-                    '🧹 Clearing all user-specific Riverpod state before logout',
-                  );
-
-                  // Analytics and expenses
-                  ref.invalidate(analyticsProvider);
-
-                  // Households
-                  ref.invalidate(userHouseholdsProvider);
-                  ref.invalidate(householdExpensesProvider);
-                  ref.invalidate(householdSplitsProvider);
-                  ref.invalidate(householdBudgetsProvider);
-                  ref.invalidate(householdSummaryProvider);
-                  ref.invalidate(householdMembersProvider);
-                  ref.invalidate(selectedHouseholdProvider);
-
-                  // View mode and filters
-                  ref.invalidate(viewModeProvider);
-                  ref.invalidate(homeFilterProvider);
-
-                  // Income
-                  ref.invalidate(incomeSummaryProvider);
-                  ref.invalidate(incomeListProvider);
-
-                  // Goals
-                  ref.invalidate(goalsListProvider);
-                  ref.invalidate(goalSummaryProvider);
-
-                  // Subscription
-                  ref.invalidate(subscriptionManagementProvider);
-
-                  // User profile
-                  ref.invalidate(userProfileProvider);
-
-                  debugPrint('✅ All user-specific state cleared');
-
-                  // Sign out from auth last (this will trigger navigation to login)
-                  await ref.read(authProvider.notifier).signOut();
-                },
-                label: context.l10n.signOut,
-                color: colorScheme.error,
+              const SizedBox(height: 32),
+              buildWhatsAppBindingCard(context, ref),
+              const SizedBox(height: 32),
+              Text(
+                context.l10n.membership,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.foreground,
+                  letterSpacing: -0.2,
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 16),
+              _MembershipCard(
+                colorScheme: colorScheme,
+                subscriptionAsync: subscriptionAsync,
+              ),
+              const SizedBox(height: 32),
+              // Logout Button
+              SizedBox(
+                width: double.infinity,
+                child: AdaptiveButton(
+                  onPressed: () async {
+                    try {
+                      await ref
+                          .read(deviceRegistrationServiceProvider)
+                          .unregisterDevice();
+                    } catch (_) {}
+          
+                    debugPrint(
+                      '🧹 Clearing all user-specific Riverpod state before logout',
+                    );
+          
+                    // Analytics and expenses
+                    ref.invalidate(analyticsProvider);
+          
+                    // Households
+                    ref.invalidate(userHouseholdsProvider);
+                    ref.invalidate(householdExpensesProvider);
+                    ref.invalidate(householdSplitsProvider);
+                    ref.invalidate(householdBudgetsProvider);
+                    ref.invalidate(householdSummaryProvider);
+                    ref.invalidate(householdMembersProvider);
+                    ref.invalidate(selectedHouseholdProvider);
+          
+                    // View mode and filters
+                    ref.invalidate(viewModeProvider);
+                    ref.invalidate(homeFilterProvider);
+          
+                    // Income
+                    ref.invalidate(incomeSummaryProvider);
+                    ref.invalidate(incomeListProvider);
+          
+                    // Goals
+                    ref.invalidate(goalsListProvider);
+                    ref.invalidate(goalSummaryProvider);
+          
+                    // Subscription
+                    ref.invalidate(subscriptionManagementProvider);
+          
+                    // User profile
+                    ref.invalidate(userProfileProvider);
+          
+                    debugPrint('✅ All user-specific state cleared');
+          
+                    // Sign out from auth last (this will trigger navigation to login)
+                    await ref.read(authProvider.notifier).signOut();
+                  },
+                  label: context.l10n.signOut,
+                  color: colorScheme.error,
+                ),
+              ),
+            ],
+          ),
+                ),
         ),
-      ),
       ),
     );
   }
