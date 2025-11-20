@@ -844,6 +844,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       body: Stack(
         children: [
           RefreshIndicator(
+            edgeOffset: getTopPadding(context),
             onRefresh: () async {
               // Refresh based on current view mode
               if (viewMode.mode == ViewMode.household) {

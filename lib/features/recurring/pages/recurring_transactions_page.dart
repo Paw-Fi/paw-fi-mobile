@@ -75,10 +75,11 @@ class _RecurringTransactionsPageState
         ref.watch(homeFilterProvider).selectedCurrency?.toUpperCase();
     return AdaptiveScaffold(
       body: RefreshIndicator(
+        edgeOffset: getTopPadding(context),
         onRefresh: _refresh,
         child: Padding(
           padding: EdgeInsets.only(
-            top:getTopPadding(context),
+            top: getTopPadding(context),
             bottom: getBottomPadding(),
           ),
           child: AdaptiveTabBarView(

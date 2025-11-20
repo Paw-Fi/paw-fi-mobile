@@ -11,6 +11,7 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dart';
+import 'package:moneko/features/utils/sub_page_top_padding.dart';
 import '../widgets/unified_transaction_sheet.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -240,8 +241,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       body: SafeArea(
         child: Material(
           child: Padding(
-            padding:
-                EdgeInsets.only(top: PlatformInfo.isIOS26OrHigher() ? 60.0 : 0),
+            padding: EdgeInsets.only(top: getSubPageTopPadding(context)),
             child: RefreshIndicator(
               onRefresh: () async {
                 if (widget.householdId != null) {

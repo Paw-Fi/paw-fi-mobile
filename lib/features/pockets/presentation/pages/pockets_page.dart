@@ -64,30 +64,43 @@ class PocketsPage extends ConsumerWidget {
       ref.invalidate(pocketsProvider(scope));
     }
 
+    // Listen for currency changes and refresh data automatically
+    ref.listen<String?>(
+      homeFilterProvider.select((state) => state.selectedCurrency),
+      (previous, next) {
+        if (previous != next) {
+          // Currency changed, trigger refresh
+          refresh();
+        }
+      },
+    );
+
     return AdaptiveScaffold(
       body: Stack(
         children: [
           RefreshIndicator(
             onRefresh: refresh,
+            edgeOffset: getTopPadding(context),
             child: Padding(
-              padding:EdgeInsets.only(top:getTopPadding(context),bottom: getBottomPadding()),
+              padding: EdgeInsets.only(
+                  top: getTopPadding(context), bottom: getBottomPadding()),
               child: CustomScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
                   SliverToBoxAdapter(
                     child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 2, 20, 20),
-                  child: PocketsGridSection(
-                    scopeParams: pocketsScopeParams,
-                    colorScheme: colorScheme,
-                    isPersonalMode: viewMode.mode == ViewMode.personal,
-                    uncategorizedExpenses:
-                        pocketsState.uncategorizedExpenses,
+                      padding: const EdgeInsets.fromLTRB(20, 2, 20, 20),
+                      child: PocketsGridSection(
+                        scopeParams: pocketsScopeParams,
+                        colorScheme: colorScheme,
+                        isPersonalMode: viewMode.mode == ViewMode.personal,
+                        uncategorizedExpenses:
+                            pocketsState.uncategorizedExpenses,
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
-            ],
-          ),
             ),
           ),
           AnimatedPositioned(

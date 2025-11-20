@@ -16,28 +16,10 @@ import 'package:moneko/features/home/presentation/widgets/category_picker_bottom
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
+import 'package:moneko/features/pockets/presentation/constants/pocket_icon_constants.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/shared/widgets/plain-adaptive-button.dart';
 import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
-
-const _presetIcons = [
-  'shopping_bag',
-  'restaurant',
-  'directions_car',
-  'home',
-  'flight',
-  'medical_services',
-  'school',
-  'pets',
-  'sports_esports',
-  'fitness_center',
-  'local_cafe',
-  'local_bar',
-  'movie',
-  'music_note',
-  'savings',
-  'account_balance',
-];
 
 class EditPocketEnvelopeSheet extends HookConsumerWidget {
   const EditPocketEnvelopeSheet({
@@ -289,10 +271,11 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
     Future<void> handleDelete() async {
       if (!isEditing) return;
 
-     AdaptiveAlertDialog.show(
+      AdaptiveAlertDialog.show(
         context: context,
         title: 'Delete Pocket?',
-        message: 'This will remove the Pocket and its category links. Your expenses will not be deleted.',
+        message:
+            'This will remove the Pocket and its category links. Your expenses will not be deleted.',
         icon: 'trash.fill',
         actions: [
           AlertAction(
@@ -305,27 +288,27 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
             title: 'Delete',
             style: AlertActionStyle.destructive,
             onPressed: () async {
-          
-      isLoading.value = true;
-      try {
-        await supabase
-            .from('budget_envelopes')
-            .delete()
-            .eq('id', existingEnvelope!.id);
+              isLoading.value = true;
+              try {
+                await supabase
+                    .from('budget_envelopes')
+                    .delete()
+                    .eq('id', existingEnvelope!.id);
 
-        ref.invalidate(pocketsProvider(scopeParams));
+                ref.invalidate(pocketsProvider(scopeParams));
 
-        if (context.mounted) {
-          Navigator.of(context).pop();
-          AppToast.success(context, 'Pocket deleted');
-        }
-      } catch (e) {
-        if (context.mounted) {
-          AppToast.error(context, 'Failed to delete Pocket: ${e.toString()}');
-        }
-      } finally {
-        isLoading.value = false;
-      }
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                  AppToast.success(context, 'Pocket deleted');
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  AppToast.error(
+                      context, 'Failed to delete Pocket: ${e.toString()}');
+                }
+              } finally {
+                isLoading.value = false;
+              }
             },
           ),
         ],
@@ -745,16 +728,16 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                       height: 44,
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
-                        itemCount: _presetIcons.length,
+                        itemCount: pocketIconNames.length,
                         separatorBuilder: (_, __) => const SizedBox(width: 12),
                         itemBuilder: (context, index) {
-                          final iconName = _presetIcons[index];
+                          final iconName = pocketIconNames[index];
                           final selectedHex = selectedColor.value;
                           final selectedColorValue = selectedHex != null
-                              ? Color(
-                                  int.parse(selectedHex.replaceFirst('#', ''),
-                                          radix: 16) +
-                                      0xFF000000)
+                              ? Color(int.parse(
+                                      selectedHex.replaceFirst('#', ''),
+                                      radix: 16) +
+                                  0xFF000000)
                               : colorScheme.primary;
 
                           IconData iconData;
@@ -917,10 +900,12 @@ class _BudgetDistributionPreview extends StatelessWidget {
     if (totalBudget <= 0) return const SizedBox.shrink();
 
     // Calculate rebalanced percentages (what will actually be saved)
-    final otherPockets = allPockets.where((p) => p.id != currentPocketId).toList();
+    final otherPockets =
+        allPockets.where((p) => p.id != currentPocketId).toList();
     final desiredPct = currentAllocation.clamp(0, 100);
     final targetOtherTotal = (100 - desiredPct).clamp(0, 100);
-    final totalOther = otherPockets.fold<double>(0.0, (sum, p) => sum + p.percentage);
+    final totalOther =
+        otherPockets.fold<double>(0.0, (sum, p) => sum + p.percentage);
 
     // Calculate adjusted percentages for other pockets
     final rebalancedOthers = <String, double>{};
@@ -957,7 +942,8 @@ class _BudgetDistributionPreview extends StatelessWidget {
     ];
 
     // Since we're showing rebalanced percentages, they should always add up to 100
-    final totalRebalanced = segments.fold<double>(0.0, (sum, s) => sum + s.percentage);
+    final totalRebalanced =
+        segments.fold<double>(0.0, (sum, s) => sum + s.percentage);
     final remaining = (100.0 - totalRebalanced).clamp(0, 100);
 
     // For display, segments should already be balanced to 100%
@@ -1033,7 +1019,7 @@ class _BudgetDistributionPreview extends StatelessWidget {
                   color: seg.color,
                   label: seg.label,
                   colorScheme: colorScheme,
-                ),             
+                ),
             ],
           ),
         ],

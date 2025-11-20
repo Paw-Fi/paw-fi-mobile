@@ -10,6 +10,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dart';
+import 'package:moneko/features/utils/sub_page_top_padding.dart';
 import '../widgets/unified_transaction_sheet.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 
@@ -160,8 +161,7 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
           child: RefreshIndicator(
             onRefresh: widget.onRefresh,
             child: Padding(
-              padding: EdgeInsets.only(
-                  top: PlatformInfo.isIOS26OrHigher() ? 60.0 : 0),
+              padding: EdgeInsets.only(top: getSubPageTopPadding(context)),
               child: CustomScrollView(
                 slivers: [
                   // Search + filter trigger

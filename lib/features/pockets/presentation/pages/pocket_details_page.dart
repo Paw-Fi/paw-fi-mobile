@@ -7,6 +7,8 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/features/pockets/presentation/constants/pocket_icon_constants.dart';
 
 import 'package:intl/intl.dart';
 import 'package:moneko/features/pockets/presentation/state/pocket_details_provider.dart';
@@ -194,14 +196,12 @@ class PocketDetailsPage extends HookConsumerWidget {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               if (pocket.icon != null) ...[
-                                Text(
-                                  pocket.icon!,
-                                  style: TextStyle(
-                                    fontSize: 24,
-                                    color: textColor,
-                                  ),
+                                Icon(
+                                  getPocketIconData(pocket.icon),
+                                  size: 28,
+                                  color: textColor,
                                 ),
-                                const SizedBox(width: 8),
+                                const SizedBox(width: 12),
                               ],
                               Flexible(
                                 child: Text(
@@ -396,7 +396,6 @@ class _StatsGrid extends StatelessWidget {
           child: _StatCard(
             label: 'Spent This Month',
             value: formatCurrency(spent, currency),
-            icon: Icons.account_balance_wallet_outlined,
           ),
         ),
         const SizedBox(width: 12),
@@ -404,7 +403,6 @@ class _StatsGrid extends StatelessWidget {
           child: _StatCard(
             label: 'Avg. Daily Spend',
             value: formatCurrency(dailyAverage, currency),
-            icon: Icons.analytics_outlined,
           ),
         ),
         const SizedBox(width: 12),
@@ -412,7 +410,6 @@ class _StatsGrid extends StatelessWidget {
           child: _StatCard(
             label: 'Allowance',
             value: formatCurrency(allowance, currency),
-            icon: Icons.attach_money,
           ),
         ),
       ],
@@ -424,12 +421,10 @@ class _StatCard extends StatelessWidget {
   const _StatCard({
     required this.label,
     required this.value,
-    required this.icon,
   });
 
   final String label;
   final String value;
-  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -449,8 +444,6 @@ class _StatCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Icon(icon, size: 24, color: colorScheme.primary.withOpacity(0.7)),
-          const SizedBox(height: 12),
           Text(
             label,
             textAlign: TextAlign.center,
@@ -767,6 +760,7 @@ class _TransactionsListCard extends StatelessWidget {
                 final tx = entry.value;
                 final amount = (tx['amount_cents'] as num).toDouble() / 100.0;
                 final date = DateTime.parse(tx['date']);
+                final category = tx['category'] as String?;
                 final description = tx['description'] ?? 'Expense';
 
                 return Column(
@@ -781,7 +775,7 @@ class _TransactionsListCard extends StatelessWidget {
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
-                            Icons.local_cafe_outlined, // Generic icon
+                            getCategoryIcon(category),
                             size: 16,
                             color: colorScheme.onSurfaceVariant,
                           ),

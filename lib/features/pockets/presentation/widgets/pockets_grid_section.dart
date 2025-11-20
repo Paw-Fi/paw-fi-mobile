@@ -18,6 +18,7 @@ import 'package:moneko/core/ui/widgets/custom_text_field.dart';
 import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
+import 'package:moneko/features/pockets/presentation/constants/pocket_icon_constants.dart';
 
 class PocketsGridSection extends HookConsumerWidget {
   const PocketsGridSection({
@@ -608,7 +609,7 @@ class _SimpleSpendingList extends StatelessWidget {
         final percentageOfTotal =
             totalSpent > 0 ? (pocket.spent / totalSpent) : 0.0;
 
-        final iconData = _getIconData(pocket.icon);
+        final iconData = getPocketIconData(pocket.icon);
 
         return Container(
           padding: const EdgeInsets.all(20),
@@ -746,325 +747,205 @@ class _PocketsHeaderCard extends StatelessWidget {
     final sliderValue = effectiveBudget.clamp(sliderMin, sliderMax).toDouble();
     final monthLabel = DateFormat('MMM').format(periodMonth);
 
-    // Calculate progress
-    final progress = effectiveBudget > 0 ? (totalSpent / effectiveBudget) : 0.0;
-    final isOverBudget = totalSpent > effectiveBudget;
-
     // Theme-aware colors for the card
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardColor = isDark ? const Color(0xFF1C1C1E) : Colors.white;
     final textColor = isDark ? Colors.white : Colors.black;
     final subTextColor = isDark ? Colors.white54 : Colors.black54;
 
-    return Column(
-      children: [
-        Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: cardColor,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withAlpha(isDark ? 3 : 5),
-                blurRadius: 24,
-                offset: const Offset(0, 8),
-              ),
-            ],
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(isDark ? 3 : 5),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
           ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: 20,
-            vertical: 24,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 20,
+        vertical: 24,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Top Section: Help Icon in top right
+          Row(
             children: [
-              // Top Section: Date and Controls
-              Row(
-                children: [
-                  Text(
-                    monthLabel,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: textColor,
-                    ),
-                  ),
-                  const Spacer(),
-                  // Envelope Mode Pill
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () {
-                      debugPrint('Envelope Mode pill tapped');
-                      _showEnvelopeModeSettingsModal(
-                        context,
-                        colorScheme,
-                        envelopeMode,
-                        onEnvelopeModeChanged,
-                      );
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: envelopeMode
-                            ? colorScheme.primary.withOpacity(0.1)
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: colorScheme.outline.withOpacity(0.2),
-                          width: 1,
-                        ),
-                      ),
-                      child: Text(
-                        'Envelope Mode',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: envelopeMode
-                              ? colorScheme.primary
-                              : colorScheme.foreground,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Help Icon
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () {
-                      debugPrint('Help icon tapped');
-                      onHelpSeen();
-                      _showEnvelopeModeSettingsModal(
-                        context,
-                        colorScheme,
-                        envelopeMode,
-                        onEnvelopeModeChanged,
-                      );
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      child: Icon(
-                        Icons.help_outline_rounded,
-                        size: 18,
-                        color: colorScheme.foreground,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              // Budget Amount
+              const Spacer(),
+              // Help Icon
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () {
-                  // Re-using the manual entry logic
-                  final controller = TextEditingController(
-                      text: effectiveBudget.toStringAsFixed(0));
-                  showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true,
-                    backgroundColor: Colors.transparent,
-                    builder: (context) => Padding(
-                      padding: EdgeInsets.only(
-                        bottom: MediaQuery.of(context).viewInsets.bottom,
-                      ),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: colorScheme.surface,
-                          borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(24)),
-                        ),
-                        padding: const EdgeInsets.all(24),
-                        child: SafeArea(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'Set Monthly Budget',
-                                    style: TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w700,
-                                      color: colorScheme.foreground,
-                                    ),
-                                  ),
-                                  IconButton(
-                                    onPressed: () => Navigator.pop(context),
-                                    icon: Icon(Icons.close,
-                                        color: colorScheme.mutedForeground),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 24),
-                              CustomTextField(
-                                controller: controller,
-                                keyboardType: TextInputType.number,
-                                autofocus: true,
-                                placeholder: '0',
-                              ),
-                              const SizedBox(height: 24),
-                              SizedBox(
-                                width: double.infinity,
-                                child: PrimaryAdaptiveButton(
-                                  onPressed: () {
-                                    final val =
-                                        double.tryParse(controller.text);
-                                    if (val != null && val >= 0) {
-                                      onTotalChanged(val.roundToDouble());
-                                      Navigator.pop(context);
-                                    }
-                                  },
-                                  child: const Text('Save'),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
+                  debugPrint('Help icon tapped');
+                  _showEnvelopeModeSettingsModal(
+                    context,
+                    colorScheme,
+                    envelopeMode,
+                    onEnvelopeModeChanged,
                   );
                 },
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    Text(
-                      formatCurrency(effectiveBudget - totalSpent, currency),
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w700,
-                        color: textColor,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '/left',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: subTextColor,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 32),
-              // Slider
-              AdaptiveSlider(
-                activeColor: colorScheme.primary,
-                value: sliderValue,
-                min: sliderMin,
-                max: sliderMax,
-                onChanged: (value) => onTotalChanged(value.roundToDouble()),
-                divisions: ((sliderMax - sliderMin) / 10).round(),
-              ),
-              const SizedBox(height: 8),
-              // Min/Max Labels
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      formatCurrency(sliderMin, currency),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: subTextColor,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    Text(
-                      formatCurrency(sliderMax, currency),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: subTextColor,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  child: Icon(
+                    Icons.help_outline_rounded,
+                    size: 18,
+                    color: colorScheme.foreground,
+                  ),
                 ),
               ),
             ],
           ),
-        ),
-
-        const SizedBox(height: 16),
-
-        // Bottom Section: Progress Bar & Stats (Outside Card)
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    '${formatCurrency(totalSpent, currency)} spent',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: subTextColor,
-                    ),
-                  ),
-                  Text(
-                    formatCurrency(effectiveBudget, currency),
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: subTextColor,
-                    ),
-                  ),
-                ],
+          const SizedBox(height: 16),
+          // Month Label (centered with chip styling)
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 8,
+            ),
+            decoration: BoxDecoration(
+              color: colorScheme.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: colorScheme.primary.withOpacity(0.3),
+                width: 1.5,
               ),
-              const SizedBox(height: 12),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: Container(
-                  height: 6,
-                  width: double.infinity,
-                  color: isDark ? Colors.white10 : Colors.black12,
-                  child: FractionallySizedBox(
-                    alignment: Alignment.centerLeft,
-                    widthFactor: progress.clamp(0.0, 1.0),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: isOverBudget
-                              ? [
-                                  const Color(0xFFFF453A),
-                                  const Color(0xFFFF6961)
-                                ]
-                              : [
-                                  const Color(0xFF30D158),
-                                  const Color(0xFF34C759)
-                                ], // Apple green
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: (isOverBudget ? Colors.red : Colors.green)
-                                .withOpacity(0.4),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
+            ),
+            child: Text(
+              monthLabel,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.primary,
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          // Budget Amount (centered, showing total budget)
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              // Re-using the manual entry logic
+              final controller = TextEditingController(
+                  text: effectiveBudget.toStringAsFixed(0));
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (context) => Padding(
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).viewInsets.bottom,
+                  ),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: colorScheme.surface,
+                      borderRadius:
+                          const BorderRadius.vertical(top: Radius.circular(24)),
+                    ),
+                    padding: const EdgeInsets.all(24),
+                    child: SafeArea(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Set Monthly Budget',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w700,
+                                  color: colorScheme.foreground,
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: () => Navigator.pop(context),
+                                icon: Icon(Icons.close,
+                                    color: colorScheme.mutedForeground),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 24),
+                          CustomTextField(
+                            controller: controller,
+                            keyboardType: TextInputType.number,
+                            autofocus: true,
+                            placeholder: '0',
+                          ),
+                          const SizedBox(height: 24),
+                          SizedBox(
+                            width: double.infinity,
+                            child: PrimaryAdaptiveButton(
+                              onPressed: () {
+                                final val = double.tryParse(controller.text);
+                                if (val != null && val >= 0) {
+                                  onTotalChanged(val.roundToDouble());
+                                  Navigator.pop(context);
+                                }
+                              },
+                              child: const Text('Save'),
+                            ),
                           ),
                         ],
                       ),
                     ),
                   ),
                 ),
+              );
+            },
+            child: Text(
+              formatCurrency(effectiveBudget, currency),
+              style: TextStyle(
+                fontSize: 48,
+                fontWeight: FontWeight.w700,
+                color: textColor,
+                letterSpacing: -0.5,
               ),
-            ],
+            ),
           ),
-        ),
-      ],
+          const SizedBox(height: 32),
+          // Slider
+          AdaptiveSlider(
+            activeColor: colorScheme.primary,
+            value: sliderValue,
+            min: sliderMin,
+            max: sliderMax,
+            onChanged: (value) => onTotalChanged(value.roundToDouble()),
+            divisions: ((sliderMax - sliderMin) / 10).round(),
+          ),
+          const SizedBox(height: 8),
+          // Min/Max Labels
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  formatCurrency(sliderMin, currency),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: subTextColor,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  formatCurrency(sliderMax, currency),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: subTextColor,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1141,45 +1022,6 @@ Color _getColor(String? colorHex, Color fallback) {
   }
 }
 
-IconData _getIconData(String? iconName) {
-  switch (iconName) {
-    case 'shopping_bag':
-      return Icons.shopping_bag;
-    case 'restaurant':
-      return Icons.restaurant;
-    case 'directions_car':
-      return Icons.directions_car;
-    case 'home':
-      return Icons.home;
-    case 'flight':
-      return Icons.flight;
-    case 'medical_services':
-      return Icons.medical_services;
-    case 'school':
-      return Icons.school;
-    case 'pets':
-      return Icons.pets;
-    case 'sports_esports':
-      return Icons.sports_esports;
-    case 'fitness_center':
-      return Icons.fitness_center;
-    case 'local_cafe':
-      return Icons.local_cafe;
-    case 'local_bar':
-      return Icons.local_bar;
-    case 'movie':
-      return Icons.movie;
-    case 'music_note':
-      return Icons.music_note;
-    case 'savings':
-      return Icons.savings;
-    case 'account_balance':
-      return Icons.account_balance;
-    default:
-      return Icons.savings_outlined;
-  }
-}
-
 class _PocketCard extends StatelessWidget {
   const _PocketCard({
     required this.pocket,
@@ -1221,7 +1063,7 @@ class _PocketCard extends StatelessWidget {
       fillColor = baseColor;
     }
 
-    final iconData = _getIconData(pocket.icon);
+    final iconData = getPocketIconData(pocket.icon);
 
     // Calculate text color based on fill level for contrast
     // Since we are using a liquid fill, the text might be over the liquid or the background.

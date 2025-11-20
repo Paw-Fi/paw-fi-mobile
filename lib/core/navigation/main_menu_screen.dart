@@ -10,6 +10,7 @@ import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/presentation/pages/household_settings_page.dart';
+import 'package:moneko/features/households/presentation/pages/household_create_page.dart';
 import 'package:moneko/features/profile/presentation/pages/settings_page.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -189,13 +190,35 @@ class _HouseholdSection extends ConsumerWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              context.l10n.household,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: colorScheme.mutedForeground,
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  context.l10n.household,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: colorScheme.mutedForeground,
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const HouseholdCreatePage(),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(
+                      Icons.add_rounded,
+                      size: 20,
+                      color: colorScheme.primary,
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 10),
             SizedBox(
