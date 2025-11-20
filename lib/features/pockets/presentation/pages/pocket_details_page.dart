@@ -2,14 +2,13 @@ import 'dart:ui';
 
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
-import 'package:moneko/features/pockets/presentation/widgets/liquid_pocket.dart';
 import 'package:moneko/features/utils/currency.dart';
 
+import 'package:intl/intl.dart';
 import 'package:moneko/features/pockets/presentation/state/pocket_details_provider.dart';
 
 import 'package:flutter/cupertino.dart';
@@ -93,769 +92,271 @@ class PocketDetailsPage extends HookConsumerWidget {
     final totalBudget = state.totalBudget;
     final limit = pocket.getLimit(totalBudget);
     final progress = pocket.getProgress(totalBudget);
-    final isOverBudget = pocket.isOverBudget(totalBudget);
 
     // Calculate unallocated budget for the edit sheet
     final totalPercentage =
         state.editing.fold<double>(0, (sum, p) => sum + p.percentage);
     final unallocatedBudget = totalBudget * ((100 - totalPercentage) / 100);
 
-    // Animation for the liquid level
-    final animatedProgress = useAnimationController(
-      duration: const Duration(milliseconds: 1500),
-      initialValue: 0,
-    );
+    final pocketColor = pocket.color != null
+        ? Color(int.parse(pocket.color!.replaceAll('#', '0xff')))
+        : colorScheme.primary;
 
-    useEffect(() {
-      animatedProgress.animateTo(progress, curve: Curves.easeOutCubic);
-      return null;
-    }, [progress]);
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final gradientColors = _generateGradientColors(pocketColor, isDarkMode);
 
-    return AdaptiveScaffold(
-      appBar: AdaptiveAppBar(
-        title: pocket.name,
-        actions: [
-          AdaptiveAppBarAction(
-            onPressed: () {
-              // Combine both saved and editing pockets for complete rebalancing
-              // Remove duplicates by ID (editing takes precedence over saved)
-              final seenIds = <String>{};
-              final allPockets = <PocketEnvelope>[
-                ...state.editing.where((p) {
-                  if (seenIds.contains(p.id)) return false;
-                  seenIds.add(p.id);
-                  return true;
-                }),
-                ...state.saved.where((p) {
-                  if (seenIds.contains(p.id)) return false;
-                  seenIds.add(p.id);
-                  return true;
-                }),
-              ];
-              
-              showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                backgroundColor: Colors.transparent,
-                builder: (context) => EditPocketEnvelopeSheet(
-                  scopeParams: scopeParams,
-                  existingEnvelope: pocket,
-                  totalBudget: totalBudget,
-                  unallocatedBudget: unallocatedBudget,
-                  budgetId: state.budgetId,
-                  allPockets: allPockets,
+    // Determine text color based on background luminance
+    final isBackgroundLight = gradientColors.first.computeLuminance() > 0.5;
+    final textColor = isBackgroundLight ? Colors.black87 : Colors.white;
+    final secondaryTextColor =
+        isBackgroundLight ? Colors.black54 : Colors.white70;
+
+    return Scaffold(
+      backgroundColor: gradientColors.first,
+      body: Stack(
+        children: [
+          // 1. Full-bleed Gradient Background
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: gradientColors,
                 ),
-              );
-            },
-            iosSymbol: "pencil",
-            icon: Icons.edit,
+              ),
+            ),
           ),
-        ],
-      ),
-      body: Material(
-        child: Padding(
-          padding:
-              EdgeInsets.only(top: PlatformInfo.isIOS26OrHigher() ? 100.0 : 10),
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // Liquid Jar Visualization
-                  Center(
-                    child: Container(
-                      height: 300,
-                      width: 220,
-                      decoration: BoxDecoration(
-                        color: colorScheme.surface,
-                        borderRadius: BorderRadius.circular(40),
-                        boxShadow: [
-                          BoxShadow(
-                            color: colorScheme.shadow.withOpacity(0.1),
-                            blurRadius: 30,
-                            offset: const Offset(0, 10),
-                          ),
-                          BoxShadow(
-                            color: (pocket.color != null
-                                    ? Color(int.parse(
-                                        pocket.color!.replaceAll('#', '0xff')))
-                                    : colorScheme.primary)
-                                .withOpacity(0.2),
-                            blurRadius: 60,
-                            spreadRadius: -10,
-                            offset: const Offset(0, 0),
-                          ),
-                        ],
-                        border: Border.all(
-                          color: colorScheme.outlineVariant.withOpacity(0.3),
-                          width: 1.5,
-                        ),
-                      ),
-                      child: Stack(
-                        children: [
-                          // Glass reflection effect
-                          Positioned.fill(
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(38),
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [
-                                      Colors.white.withOpacity(0.1),
-                                      Colors.white.withOpacity(0.0),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          // The Liquid
-                          Padding(
-                            padding: const EdgeInsets.all(6.0),
-                            child: LiquidPocket(
-                              fillLevel: progress,
-                              color: pocket.color != null
-                                  ? Color(int.parse(
-                                      pocket.color!.replaceAll('#', '0xff')))
-                                  : colorScheme.primary,
-                            ),
-                          ),
-                          // Labels inside the jar
-                          Positioned(
-                            bottom: 30,
-                            left: 0,
-                            right: 0,
-                            child: Column(
-                              children: [
-                                Text(
-                                  '${(progress * 100).toInt()}%',
-                                  style: TextStyle(
-                                    fontSize: 42,
-                                    fontWeight: FontWeight.w800,
-                                    color: isOverBudget
-                                        ? colorScheme.error
-                                        : colorScheme.foreground
-                                            .withOpacity(0.8),
-                                    shadows: [
-                                      Shadow(
-                                        color: colorScheme.surface
-                                            .withOpacity(0.5),
-                                        blurRadius: 10,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Text(
-                                  'Used',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color:
-                                        colorScheme.foreground.withOpacity(0.6),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 40),
+          // 2. Scrollable Content
+          CustomScrollView(
+            physics: const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics()),
+            slivers: [
+              SliverAppBar(
+                expandedHeight: 320,
+                pinned: true,
+                stretch: true,
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                leading: IconButton(
+                  icon: Icon(Icons.arrow_back_ios_new, color: textColor),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+                actions: [
+                  IconButton(
+                    icon: Icon(Icons.edit, color: textColor),
+                    onPressed: () {
+                      // Combine both saved and editing pockets for complete rebalancing
+                      final seenIds = <String>{};
+                      final allPockets = <PocketEnvelope>[
+                        ...state.editing.where((p) {
+                          if (seenIds.contains(p.id)) return false;
+                          seenIds.add(p.id);
+                          return true;
+                        }),
+                        ...state.saved.where((p) {
+                          if (seenIds.contains(p.id)) return false;
+                          seenIds.add(p.id);
+                          return true;
+                        }),
+                      ];
 
-                  // Stats Row
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _StatItem(
-                        label: 'Spent',
-                        value: formatCurrency(pocket.spent, pocket.currency),
-                        color: colorScheme.foreground,
-                      ),
-                      Container(
-                        width: 1,
-                        height: 40,
-                        color: colorScheme.outlineVariant,
-                      ),
-                      _StatItem(
-                        label: 'Budget',
-                        value: formatCurrency(limit, pocket.currency),
-                        color: colorScheme.primary,
-                      ),
-                      Container(
-                        width: 1,
-                        height: 40,
-                        color: colorScheme.outlineVariant,
-                      ),
-                      _StatItem(
-                        label: 'Remaining',
-                        value: formatCurrency(
-                            limit - pocket.spent, pocket.currency),
-                        color: (limit - pocket.spent) < 0
-                            ? colorScheme.error
-                            : colorScheme.tertiary,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 40),
-
-                  // Transactions List
-                  const SizedBox(height: 12),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Recent Transactions',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: colorScheme.foreground,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  Consumer(
-                    builder: (context, ref, child) {
-                      final detailsAsync = ref.watch(
-                        pocketDetailsProvider(
-                          PocketTransactionsParams(
-                            pocketId: pocketId,
-                            scopeParams: scopeParams,
-                          ),
-                        ),
-                      );
-
-                      return detailsAsync.when(
-                        data: (data) {
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Insights Section
-                              if (data.transactions.isNotEmpty) ...[
-                                Text(
-                                  'Insights',
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w700,
-                                    color: colorScheme.foreground,
-                                    letterSpacing: -0.5,
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                Container(
-                                  padding: const EdgeInsets.all(20),
-                                  decoration: BoxDecoration(
-                                    color: colorScheme.surface,
-                                    borderRadius: BorderRadius.circular(24),
-                                    border: Border.all(
-                                      color: colorScheme.outlineVariant
-                                          .withOpacity(0.4),
-                                    ),
-                                  ),
-                                  child: Column(
-                                    children: [
-                                      _InsightRow(
-                                        label: 'Daily Average',
-                                        value: formatCurrency(
-                                            data.dailyAverage, pocket.currency),
-                                        icon: Icons.calendar_today_rounded,
-                                        colorScheme: colorScheme,
-                                      ),
-                                      const Padding(
-                                        padding:
-                                            EdgeInsets.symmetric(vertical: 12),
-                                        child: Divider(height: 1),
-                                      ),
-                                      _InsightRow(
-                                        label: 'Projected End of Month',
-                                        value: formatCurrency(
-                                            data.projectedSpend,
-                                            pocket.currency),
-                                        icon: Icons.trending_up_rounded,
-                                        colorScheme: colorScheme,
-                                        valueColor: data.projectedSpend > limit
-                                            ? colorScheme.error
-                                            : null,
-                                      ),
-                                      const Padding(
-                                        padding:
-                                            EdgeInsets.symmetric(vertical: 12),
-                                        child: Divider(height: 1),
-                                      ),
-                                      _InsightRow(
-                                        label: 'Last Month Total',
-                                        value: formatCurrency(
-                                            data.totalSpentLastMonth,
-                                            pocket.currency),
-                                        icon: Icons.history_rounded,
-                                        colorScheme: colorScheme,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 32),
-
-                                // Daily Spending Chart
-                                if (data.dailySpending.isNotEmpty) ...[
-                                  Text(
-                                    'Daily Spending Trend',
-                                    style: TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w700,
-                                      color: colorScheme.foreground,
-                                      letterSpacing: -0.5,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Container(
-                                    height: 200,
-                                    padding: const EdgeInsets.fromLTRB(
-                                        16, 24, 16, 0),
-                                    decoration: BoxDecoration(
-                                      color: colorScheme.surface,
-                                      borderRadius: BorderRadius.circular(24),
-                                      border: Border.all(
-                                        color: colorScheme.outlineVariant
-                                            .withOpacity(0.4),
-                                      ),
-                                    ),
-                                    child: _DailySpendingChart(
-                                      dailySpending: data.dailySpending,
-                                      colorScheme: colorScheme,
-                                      primaryColor: pocket.color != null
-                                          ? Color(int.parse(pocket.color!
-                                              .replaceAll('#', '0xff')))
-                                          : colorScheme.primary,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 32),
-                                ],
-                              ],
-
-                              // Category Breakdown
-                              if (data.categorySpending.isNotEmpty) ...[
-                                Text(
-                                  'Spending Breakdown',
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w700,
-                                    color: colorScheme.foreground,
-                                    letterSpacing: -0.5,
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                ListView.separated(
-                                  shrinkWrap: true,
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  itemCount: data.categorySpending.length,
-                                  separatorBuilder: (context, index) =>
-                                      const SizedBox(height: 16),
-                                  itemBuilder: (context, index) {
-                                    final item = data.categorySpending[index];
-                                    return Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Text(
-                                              item.category,
-                                              style: TextStyle(
-                                                fontSize: 15,
-                                                fontWeight: FontWeight.w600,
-                                                color: colorScheme.foreground,
-                                              ),
-                                            ),
-                                            Text(
-                                              formatCurrency(
-                                                  item.amount, pocket.currency),
-                                              style: TextStyle(
-                                                fontSize: 15,
-                                                fontWeight: FontWeight.w700,
-                                                color: colorScheme.foreground,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 8),
-                                        ClipRRect(
-                                          borderRadius:
-                                              BorderRadius.circular(4),
-                                          child: LinearProgressIndicator(
-                                            value: item.percentage,
-                                            backgroundColor: colorScheme
-                                                .surfaceContainerHighest,
-                                            valueColor: AlwaysStoppedAnimation(
-                                              pocket.color != null
-                                                  ? Color(int.parse(pocket
-                                                      .color!
-                                                      .replaceAll('#', '0xff')))
-                                                  : colorScheme.primary,
-                                            ),
-                                            minHeight: 8,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          '${(item.percentage * 100).toStringAsFixed(1)}% of pocket',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: colorScheme.mutedForeground,
-                                          ),
-                                        ),
-                                      ],
-                                    );
-                                  },
-                                ),
-                                const SizedBox(height: 32),
-                              ],
-
-                              // Transactions List
-                              Text(
-                                'Recent Transactions',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w700,
-                                  color: colorScheme.foreground,
-                                  letterSpacing: -0.5,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              if (data.transactions.isEmpty)
-                                Center(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(32.0),
-                                    child: Column(
-                                      children: [
-                                        Icon(
-                                          Icons.receipt_long_rounded,
-                                          size: 48,
-                                          color: colorScheme.outlineVariant,
-                                        ),
-                                        const SizedBox(height: 16),
-                                        Text(
-                                          'No transactions yet',
-                                          style: TextStyle(
-                                            color: colorScheme.mutedForeground,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                )
-                              else
-                                ListView.separated(
-                                  shrinkWrap: true,
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  itemCount: data.transactions.length,
-                                  separatorBuilder: (context, index) =>
-                                      const SizedBox(height: 12),
-                                  itemBuilder: (context, index) {
-                                    final tx = data.transactions[index];
-                                    final amount =
-                                        (tx['amount_cents'] as num).toDouble() /
-                                            100.0;
-                                    final date = DateTime.parse(tx['date']);
-                                    final description =
-                                        tx['description'] ?? 'Expense';
-
-                                    return Container(
-                                      padding: const EdgeInsets.all(16),
-                                      decoration: BoxDecoration(
-                                        color: colorScheme.surface,
-                                        borderRadius: BorderRadius.circular(20),
-                                        border: Border.all(
-                                          color: colorScheme.outlineVariant
-                                              .withOpacity(0.4),
-                                        ),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: colorScheme.shadow
-                                                .withOpacity(0.04),
-                                            blurRadius: 10,
-                                            offset: const Offset(0, 4),
-                                          ),
-                                        ],
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.all(10),
-                                            decoration: BoxDecoration(
-                                              color: colorScheme
-                                                  .surfaceContainerHighest,
-                                              shape: BoxShape.circle,
-                                            ),
-                                            child: Icon(
-                                              Icons.shopping_bag_outlined,
-                                              size: 20,
-                                              color:
-                                                  colorScheme.onSurfaceVariant,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 16),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  description,
-                                                  style: TextStyle(
-                                                    fontSize: 15,
-                                                    fontWeight: FontWeight.w600,
-                                                    color:
-                                                        colorScheme.foreground,
-                                                  ),
-                                                ),
-                                                Text(
-                                                  '${date.month}/${date.day} • ${date.year}',
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                    color: colorScheme
-                                                        .mutedForeground,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          Text(
-                                            formatCurrency(
-                                                amount, pocket.currency),
-                                            style: TextStyle(
-                                              fontSize: 15,
-                                              fontWeight: FontWeight.w700,
-                                              color: colorScheme.foreground,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  },
-                                ),
-                            ],
-                          );
-                        },
-                        loading: () => Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(32.0),
-                            child: CircularProgressIndicator(
-                              strokeWidth: 3,
-                              valueColor:
-                                  AlwaysStoppedAnimation(colorScheme.primary),
-                            ),
-                          ),
-                        ),
-                        error: (err, stack) => Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Text(
-                              'Failed to load details: $err',
-                              style: TextStyle(color: colorScheme.error),
-                            ),
-                          ),
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (context) => EditPocketEnvelopeSheet(
+                          scopeParams: scopeParams,
+                          existingEnvelope: pocket,
+                          totalBudget: totalBudget,
+                          unallocatedBudget: unallocatedBudget,
+                          budgetId: state.budgetId,
+                          allPockets: allPockets,
                         ),
                       );
                     },
                   ),
-                  const SizedBox(height: 40),
                 ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StatItem extends StatelessWidget {
-  const _StatItem({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            color: Theme.of(context).colorScheme.mutedForeground,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: color,
-            letterSpacing: -0.5,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _InsightRow extends StatelessWidget {
-  const _InsightRow({
-    required this.label,
-    required this.value,
-    required this.icon,
-    required this.colorScheme,
-    this.valueColor,
-  });
-
-  final String label;
-  final String value;
-  final IconData icon;
-  final ColorScheme colorScheme;
-  final Color? valueColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: colorScheme.primary.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(
-            icon,
-            size: 18,
-            color: colorScheme.primary,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: colorScheme.foreground,
-            ),
-          ),
-        ),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-            color: valueColor ?? colorScheme.foreground,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _DailySpendingChart extends StatelessWidget {
-  const _DailySpendingChart({
-    required this.dailySpending,
-    required this.colorScheme,
-    required this.primaryColor,
-  });
-
-  final List<DailySpend> dailySpending;
-  final ColorScheme colorScheme;
-  final Color primaryColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final maxSpend = dailySpending.fold<double>(
-        0, (max, e) => e.amount > max ? e.amount : max);
-
-    return BarChart(
-      BarChartData(
-        alignment: BarChartAlignment.spaceAround,
-        maxY: maxSpend * 1.2,
-        barTouchData: BarTouchData(
-          enabled: true,
-          touchTooltipData: BarTouchTooltipData(
-            getTooltipColor: (group) => colorScheme.surfaceContainerHighest,
-            getTooltipItem: (group, groupIndex, rod, rodIndex) {
-              return BarTooltipItem(
-                rod.toY.toStringAsFixed(0),
-                TextStyle(
-                  color: colorScheme.foreground,
-                  fontWeight: FontWeight.bold,
-                ),
-              );
-            },
-          ),
-        ),
-        titlesData: FlTitlesData(
-          show: true,
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              getTitlesWidget: (value, meta) {
-                final day = value.toInt();
-                if (day % 5 == 0 || day == 1) {
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
-                    child: Text(
-                      day.toString(),
-                      style: TextStyle(
-                        color: colorScheme.mutedForeground,
-                        fontSize: 10,
+                flexibleSpace: FlexibleSpaceBar(
+                  stretchModes: const [
+                    StretchMode.zoomBackground,
+                    StretchMode.fadeTitle,
+                  ],
+                  background: SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const SizedBox(height: 20),
+                          // Icon & Name
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              if (pocket.icon != null) ...[
+                                Text(
+                                  pocket.icon!,
+                                  style: TextStyle(
+                                    fontSize: 24,
+                                    color: textColor,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                              ],
+                              Flexible(
+                                child: Text(
+                                  pocket.name,
+                                  style: TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                    color: textColor,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Monthly Budget',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: secondaryTextColor,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          // Big Amount (Remaining)
+                          Text(
+                            formatCurrency(
+                                limit - pocket.spent, pocket.currency),
+                            style: TextStyle(
+                              fontSize: 48,
+                              fontWeight: FontWeight.w800,
+                              color: textColor,
+                              letterSpacing: -1,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          // Allocated
+                          Text(
+                            '${formatCurrency(limit, pocket.currency)} allocated',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: secondaryTextColor,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 32),
+                          // Progress Bar
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: LinearProgressIndicator(
+                              value: progress.clamp(0.0, 1.0),
+                              minHeight: 8,
+                              backgroundColor: textColor.withOpacity(0.1),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                textColor.withOpacity(0.8),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  );
-                }
-                return const SizedBox.shrink();
-              },
-              reservedSize: 30,
-            ),
-          ),
-          leftTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        ),
-        gridData: const FlGridData(show: false),
-        borderData: FlBorderData(show: false),
-        barGroups: dailySpending.map((spend) {
-          return BarChartGroupData(
-            x: spend.day,
-            barRods: [
-              BarChartRodData(
-                toY: spend.amount,
-                color: primaryColor,
-                width: 4,
-                borderRadius: BorderRadius.circular(2),
-                backDrawRodData: BackgroundBarChartRodData(
-                  show: true,
-                  toY: maxSpend * 1.2,
-                  color: colorScheme.surfaceContainerHighest.withOpacity(0.3),
+                  ),
+                ),
+              ),
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: colorScheme.background,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(32),
+                      topRight: Radius.circular(32),
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Consumer(
+                      builder: (context, ref, child) {
+                        final detailsAsync = ref.watch(
+                          pocketDetailsProvider(
+                            PocketTransactionsParams(
+                              pocketId: pocketId,
+                              scopeParams: scopeParams,
+                            ),
+                          ),
+                        );
+
+                        return detailsAsync.when(
+                          data: (data) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                const Text(
+                                  'Key Insights',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                // 1. Stats Grid
+                                _StatsGrid(
+                                  spent: pocket.spent,
+                                  dailyAverage: data.dailyAverage,
+                                  allowance: limit,
+                                  currency: pocket.currency,
+                                ),
+                                const SizedBox(height: 24),
+
+                                // 2. Daily Trend
+                                if (data.dailySpending.isNotEmpty) ...[
+                                  _DailyTrendCard(
+                                    dailySpending: data.dailySpending,
+                                    color: pocketColor,
+                                  ),
+                                  const SizedBox(height: 24),
+                                ],
+
+                                // 3. Spending Breakdown
+                                if (data.categorySpending.isNotEmpty) ...[
+                                  _SpendingBreakdownCard(
+                                    categorySpending: data.categorySpending,
+                                    currency: pocket.currency,
+                                  ),
+                                  const SizedBox(height: 24),
+                                ],
+
+                                // 4. Recent Transactions
+                                _TransactionsListCard(
+                                  transactions: data.transactions,
+                                  currency: pocket.currency,
+                                ),
+                                // Add extra padding at bottom for scrolling
+                                const SizedBox(height: 40),
+                              ],
+                            );
+                          },
+                          loading: () => const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(32.0),
+                              child: CircularProgressIndicator(),
+                            ),
+                          ),
+                          error: (err, stack) => Center(
+                            child: Text('Error: $err'),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
                 ),
               ),
             ],
-          );
-        }).toList(),
+          ),
+        ],
       ),
     );
   }
@@ -871,5 +372,485 @@ PocketEnvelope? _findPocket(PocketsState state, String pocketId) {
     } catch (_) {
       return null;
     }
+  }
+}
+
+class _StatsGrid extends StatelessWidget {
+  const _StatsGrid({
+    required this.spent,
+    required this.dailyAverage,
+    required this.allowance,
+    required this.currency,
+  });
+
+  final double spent;
+  final double dailyAverage;
+  final double allowance;
+  final String currency;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _StatCard(
+            label: 'Spent This Month',
+            value: formatCurrency(spent, currency),
+            icon: Icons.account_balance_wallet_outlined,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _StatCard(
+            label: 'Avg. Daily Spend',
+            value: formatCurrency(dailyAverage, currency),
+            icon: Icons.analytics_outlined,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _StatCard(
+            label: 'Allowance',
+            value: formatCurrency(allowance, currency),
+            icon: Icons.attach_money,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  const _StatCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.shadow.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 24, color: colorScheme.primary.withOpacity(0.7)),
+          const SizedBox(height: 12),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 11,
+              color: colorScheme.mutedForeground,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 4),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: colorScheme.foreground,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DailyTrendCard extends StatelessWidget {
+  const _DailyTrendCard({
+    required this.dailySpending,
+    required this.color,
+  });
+
+  final List<DailySpend> dailySpending;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final spots =
+        dailySpending.map((e) => FlSpot(e.day.toDouble(), e.amount)).toList();
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.shadow.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Daily Trend',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.foreground,
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color: colorScheme.mutedForeground,
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            height: 120,
+            child: LineChart(
+              LineChartData(
+                gridData: const FlGridData(show: false),
+                titlesData: const FlTitlesData(show: false),
+                borderData: FlBorderData(show: false),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: spots,
+                    isCurved: true,
+                    color: color,
+                    barWidth: 3,
+                    isStrokeCapRound: true,
+                    dotData: const FlDotData(show: false),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      color: color.withOpacity(0.1),
+                    ),
+                  ),
+                ],
+                minY: 0,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Past 30 Days',
+            style: TextStyle(
+              fontSize: 12,
+              color: colorScheme.mutedForeground,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SpendingBreakdownCard extends StatelessWidget {
+  const _SpendingBreakdownCard({
+    required this.categorySpending,
+    required this.currency,
+  });
+
+  final List<CategorySpend> categorySpending;
+  final String currency;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    // Use a set of nice colors for the chart
+    final colors = [
+      const Color(0xFF4ADE80), // Green
+      const Color(0xFFF87171), // Red
+      const Color(0xFF60A5FA), // Blue
+      const Color(0xFFFBBF24), // Yellow
+      const Color(0xFFA78BFA), // Purple
+      const Color(0xFFFB923C), // Orange
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.shadow.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Spending Breakdown',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: colorScheme.foreground,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: categorySpending.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final item = entry.value;
+                    final color = colors[index % colors.length];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: color,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              item.category,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: colorScheme.foreground,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Text(
+                            '${(item.percentage * 100).toInt()}%',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: colorScheme.mutedForeground,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                flex: 2,
+                child: SizedBox(
+                  height: 120,
+                  child: PieChart(
+                    PieChartData(
+                      sectionsSpace: 0,
+                      centerSpaceRadius: 30,
+                      sections: categorySpending.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final item = entry.value;
+                        final color = colors[index % colors.length];
+                        return PieChartSectionData(
+                          color: color,
+                          value: item.amount,
+                          title: '',
+                          radius: 30,
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TransactionsListCard extends StatelessWidget {
+  const _TransactionsListCard({
+    required this.transactions,
+    required this.currency,
+  });
+
+  final List<Map<String, dynamic>> transactions;
+  final String currency;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.shadow.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Recent Transactions',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.foreground,
+                ),
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'See All',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.foreground,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (transactions.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                'No transactions yet',
+                style: TextStyle(color: colorScheme.mutedForeground),
+              ),
+            )
+          else
+            Column(
+              children:
+                  transactions.take(5).toList().asMap().entries.map((entry) {
+                final index = entry.key;
+                final tx = entry.value;
+                final amount = (tx['amount_cents'] as num).toDouble() / 100.0;
+                final date = DateTime.parse(tx['date']);
+                final description = tx['description'] ?? 'Expense';
+
+                return Column(
+                  children: [
+                    if (index > 0) const Divider(height: 24),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: colorScheme.surfaceContainerHighest,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.local_cafe_outlined, // Generic icon
+                            size: 16,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                description,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: colorScheme.foreground,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                DateFormat('MMM d').format(date),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: colorScheme.mutedForeground,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Text(
+                          formatCurrency(amount, currency),
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.foreground,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              }).toList(),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+List<Color> _generateGradientColors(Color baseColor, bool isDarkMode) {
+  final hsl = HSLColor.fromColor(baseColor);
+
+  if (isDarkMode) {
+    // Dark Mode: Rich, deep gradient
+    // Top: Base color (slightly dimmed if too bright)
+    final top = hsl.withLightness((hsl.lightness * 0.85).clamp(0.0, 1.0));
+    // Bottom: Darker and slightly hue-shifted for depth
+    final bottom = hsl
+        .withLightness((hsl.lightness * 0.3).clamp(0.0, 1.0))
+        .withHue((hsl.hue + 15) % 360);
+    return [top.toColor(), bottom.toColor()];
+  } else {
+    // Light Mode: Vibrant, airy gradient
+    // Top: Lighter and slightly hue-shifted
+    final top = hsl
+        .withLightness((hsl.lightness + 0.15).clamp(0.0, 0.95))
+        .withHue((hsl.hue - 10) % 360);
+    // Bottom: Slightly darker/richer than base
+    final bottom = hsl.withLightness((hsl.lightness - 0.05).clamp(0.0, 1.0));
+    return [top.toColor(), bottom.toColor()];
   }
 }
