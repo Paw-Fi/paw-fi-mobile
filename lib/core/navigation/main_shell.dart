@@ -33,27 +33,40 @@ class MainShell extends HookConsumerWidget {
     ];
 
     final currentPage = pages[currentIndex.value];
+    final showHomeHeader = currentIndex.value != 2;
 
     return AdaptiveScaffold(
+      appBar: AdaptiveAppBar(
+        useNativeToolbar: false,
+        appBar: AppBar(
+          title: const Text('Moneko'),
+        )
+      )
+        ,
       body: ZoomDrawer(
         controller: zoomController,
         menuScreen: const MainMenuScreen(),
         mainScreen: Material(
           color: colorScheme.appBackground,
-          child: Column(
-            children: [
-              SafeArea(
-                bottom: false,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    ImpersonationBanner(),
-                    HomeHeaderSliver(),
-                  ],
+          child: SafeArea(
+            child: Stack(
+              children: [
+                currentPage,
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: IgnorePointer(
+                    ignoring: !showHomeHeader,
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 200),
+                      opacity: showHomeHeader ? 1.0 : 0.0,
+                      child: const HomeHeaderSliver(),
+                    ),
+                  ),
                 ),
-              ),
-              Expanded(child: currentPage),
-            ],
+              ],
+            ),
           ),
         ),
         borderRadius: 24.0,

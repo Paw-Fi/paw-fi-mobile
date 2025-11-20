@@ -241,7 +241,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         child: Material(
           child: Padding(
             padding:
-                EdgeInsets.only(top: PlatformInfo.isIOS26OrHigher() ? 16.0 : 0),
+                EdgeInsets.only(top: PlatformInfo.isIOS26OrHigher() ? 60.0 : 0),
             child: RefreshIndicator(
               onRefresh: () async {
                 if (widget.householdId != null) {

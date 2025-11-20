@@ -212,13 +212,34 @@ class _CategoryPickerHeader extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Spacer(),
-          const Spacer(),
-          AdaptiveButton(
-            style: AdaptiveButtonStyle.plain,
-            onPressed: onClose,
-            label: 'Done',
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          InkWell(
+            onTap: onClose,
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.8),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
+                  width: 1,
+                ),
+              ),
+              child: Icon(
+                Icons.check,
+                color: Theme.of(context).colorScheme.onSurface,
+                size: 20,
+              ),
+            ),
           ),
         ],
       ),
@@ -290,8 +311,8 @@ class _CategoryTile extends StatelessWidget {
     final icon = getCategoryIcon(categoryKey);
     final label = getCategoryTranslation(context, categoryKey);
 
-    final circleColor = isSelected ? color : color.withOpacity(0.15);
-    final iconColor = isSelected ? Colors.white : color;
+    final circleColor = isSelected ? color : Colors.transparent;
+    final iconColor = isSelected ? Colors.white : color.withValues(alpha: 0.3);
 
     return GestureDetector(
       onTap: onTap,
@@ -306,6 +327,17 @@ class _CategoryTile extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: circleColor,
+                border: isSelected ? null : Border.all(
+                  color: color.withOpacity(0.4),
+                  width: 1.5,
+                ),
+                boxShadow: isSelected ? [
+                  BoxShadow(
+                    color: color.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  )
+                ] : null,
               ),
               child: Icon(
                 icon,

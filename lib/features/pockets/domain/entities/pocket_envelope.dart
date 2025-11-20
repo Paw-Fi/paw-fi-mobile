@@ -10,6 +10,7 @@ class PocketEnvelope {
     required this.currency,
     this.icon,
     this.color,
+    this.budgetId,
     this.householdId,
     required this.lastUpdated,
   });
@@ -23,6 +24,7 @@ class PocketEnvelope {
       currency: json['currency'] as String? ?? 'USD',
       icon: json['icon'] as String?,
       color: json['color'] as String?,
+      budgetId: json['budget_id'] as String?,
       householdId: json['household_id'] as String?,
       lastUpdated: json['last_updated'] != null
           ? DateTime.parse(json['last_updated'] as String)
@@ -37,6 +39,7 @@ class PocketEnvelope {
   final String currency;
   final String? icon;
   final String? color;
+  final String? budgetId;
   final String? householdId;
   final DateTime lastUpdated;
 
@@ -72,6 +75,7 @@ class PocketEnvelope {
       'currency': currency,
       'icon': icon,
       'color': color,
+      'budget_id': budgetId,
       'household_id': householdId,
       'last_updated': lastUpdated.toIso8601String(),
     };
@@ -83,6 +87,7 @@ class PocketEnvelope {
     String? currency,
     String? icon,
     String? color,
+    String? budgetId,
   }) {
     return PocketEnvelope(
       id: id,
@@ -92,6 +97,7 @@ class PocketEnvelope {
       currency: currency ?? this.currency,
       icon: icon ?? this.icon,
       color: color ?? this.color,
+      budgetId: budgetId ?? this.budgetId,
       householdId: householdId,
       lastUpdated: lastUpdated,
     );

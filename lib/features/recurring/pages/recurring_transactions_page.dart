@@ -10,6 +10,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:moneko/features/utils/main_page_top_padding.dart';
 
 /// Modern recurring transactions page with Apple-inspired design
 /// Features tabbed interface for expenses and income
@@ -75,32 +76,38 @@ class _RecurringTransactionsPageState
     return AdaptiveScaffold(
       body: RefreshIndicator(
         onRefresh: _refresh,
-        child: AdaptiveTabBarView(
-          tabs: [
-            context.l10n.expenses,
-            context.l10n.income,
-          ],
-          children: [
-            _buildRecurringTabView(
-              colorScheme,
-              _buildExpensesSliver(
-                recurringExpenses,
+        child: Padding(
+          padding: EdgeInsets.only(
+            top:getTopPadding(context),
+            bottom: getBottomPadding(),
+          ),
+          child: AdaptiveTabBarView(
+            tabs: [
+              context.l10n.expenses,
+              context.l10n.income,
+            ],
+            children: [
+              _buildRecurringTabView(
                 colorScheme,
-                selectedCurrency,
+                _buildExpensesSliver(
+                  recurringExpenses,
+                  colorScheme,
+                  selectedCurrency,
+                ),
               ),
-            ),
-            _buildRecurringTabView(
-              colorScheme,
-              _buildIncomesSliver(
-                recurringIncomes,
+              _buildRecurringTabView(
                 colorScheme,
-                selectedCurrency,
+                _buildIncomesSliver(
+                  recurringIncomes,
+                  colorScheme,
+                  selectedCurrency,
+                ),
               ),
-            ),
-          ],
-          onTabChanged: (index) {
-            ref.read(selectedRecurringTabProvider.notifier).state = index;
-          },
+            ],
+            onTabChanged: (index) {
+              ref.read(selectedRecurringTabProvider.notifier).state = index;
+            },
+          ),
         ),
       ),
 
@@ -381,7 +388,8 @@ class _RecurringTransactionsPageState
         if (success) {
           AppToast.success(context, context.l10n.recurringTransactionDeleted);
         } else {
-          AppToast.error(context, context.l10n.failedToDeleteRecurringTransaction);
+          AppToast.error(
+              context, context.l10n.failedToDeleteRecurringTransaction);
         }
       }
     }

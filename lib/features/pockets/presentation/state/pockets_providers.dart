@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:moneko/core/resources/lib/supabase.dart';
@@ -37,26 +38,51 @@ class PocketsState {
     this.error,
     required this.saved,
     required this.editing,
+    this.budgetId,
+    required this.periodMonth,
+    required this.previousBudget,
     required this.totalBudget,
+    required this.savedTotalBudget,
     required this.unallocatedSpend,
+    required this.uncategorized,
+    required this.uncategorizedExpenses,
   });
 
   final bool isLoading;
   final String? error;
   final List<PocketEnvelope> saved;
   final List<PocketEnvelope> editing;
+  final String? budgetId;
+  final DateTime periodMonth;
+  final double previousBudget;
   final double totalBudget;
+  final double savedTotalBudget; // Track original budget for change detection
   final double unallocatedSpend;
+  final List<UncategorizedCategory> uncategorized;
+  final Map<String, List<Map<String, dynamic>>> uncategorizedExpenses;
 
   bool get hasChanges {
-    if (saved.length != editing.length) return true;
+    // Check if budget has changed
+    if ((totalBudget - savedTotalBudget).abs() > 0.01) {
+      debugPrint(
+          'hasChanges: true (budget changed from $savedTotalBudget to $totalBudget)');
+      return true;
+    }
+
+    // Check if pockets have changed
+    if (saved.length != editing.length) {
+      debugPrint('hasChanges: true (pocket count changed)');
+      return true;
+    }
     for (var i = 0; i < saved.length; i++) {
       if (saved[i].id != editing[i].id ||
           saved[i].percentage != editing[i].percentage ||
           saved[i].spent != editing[i].spent) {
+        debugPrint('hasChanges: true (pocket ${saved[i].name} changed)');
         return true;
       }
     }
+    debugPrint('hasChanges: false');
     return false;
   }
 
@@ -70,8 +96,14 @@ class PocketsState {
     String? error,
     List<PocketEnvelope>? saved,
     List<PocketEnvelope>? editing,
+    String? budgetId,
+    DateTime? periodMonth,
+    double? previousBudget,
     double? totalBudget,
+    double? savedTotalBudget,
     double? unallocatedSpend,
+    List<UncategorizedCategory>? uncategorized,
+    Map<String, List<Map<String, dynamic>>>? uncategorizedExpenses,
     bool clearError = false,
   }) {
     return PocketsState(
@@ -79,19 +111,42 @@ class PocketsState {
       error: clearError ? null : (error ?? this.error),
       saved: saved ?? this.saved,
       editing: editing ?? this.editing,
+      budgetId: budgetId ?? this.budgetId,
+      periodMonth: periodMonth ?? this.periodMonth,
+      previousBudget: previousBudget ?? this.previousBudget,
       totalBudget: totalBudget ?? this.totalBudget,
+      savedTotalBudget: savedTotalBudget ?? this.savedTotalBudget,
       unallocatedSpend: unallocatedSpend ?? this.unallocatedSpend,
+      uncategorized: uncategorized ?? this.uncategorized,
+      uncategorizedExpenses:
+          uncategorizedExpenses ?? this.uncategorizedExpenses,
     );
   }
 
-  factory PocketsState.initial() => const PocketsState(
+  factory PocketsState.initial() => PocketsState(
         isLoading: true,
         error: null,
         saved: [],
         editing: [],
+        budgetId: null,
+        periodMonth: DateTime(1970, 1, 1),
+        previousBudget: 0,
         totalBudget: 0,
+        savedTotalBudget: 0,
         unallocatedSpend: 0,
+        uncategorized: [],
+        uncategorizedExpenses: {},
       );
+}
+
+class UncategorizedCategory {
+  const UncategorizedCategory({
+    required this.category,
+    required this.amount,
+  });
+
+  final String category;
+  final double amount;
 }
 
 class PocketsNotifier extends StateNotifier<PocketsState> {
@@ -117,32 +172,132 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       final end = range['to'] ?? DateTime.now();
       final monthStart = DateTime(end.year, end.month, 1);
       final periodMonth = _formatDate(monthStart);
+      final monthEnd = DateTime(monthStart.year, monthStart.month + 1, 1);
 
       final isHousehold = params.scope == PocketsScopeType.household;
       final householdId = params.householdId;
 
-      final baseQuery = supabase
-          .from('budget_envelopes')
-          .select('id,name,budget_percentage,household_id,currency,icon,color')
+      if (isHousehold && householdId == null) {
+        state = PocketsState(
+          isLoading: false,
+          error: null,
+          saved: const [],
+          editing: const [],
+          budgetId: null,
+          periodMonth: monthStart,
+          previousBudget: 0,
+          totalBudget: 0,
+          savedTotalBudget: 0,
+          unallocatedSpend: 0,
+          uncategorized: const [],
+          uncategorizedExpenses: const {},
+        );
+        return;
+      }
+
+      // Fetch or create budget for the current month/scope
+      final budgetQuery = supabase
+          .from('budgets')
+          .select('id,total_budget_cents')
           .eq('user_id', authUser.uid)
           .eq('currency', selectedCurrency);
 
-      final envelopesRes = isHousehold
-          ? (householdId == null
-              ? <Map<String, dynamic>>[]
-              : await baseQuery.eq('household_id', householdId).order('name'))
-          : await baseQuery.isFilter('household_id', null).order('name');
+      final scopedBudgetQuery = isHousehold
+          ? budgetQuery.eq('household_id', householdId!)
+          : budgetQuery.isFilter('household_id', null);
 
-      final envRows =
-          (envelopesRes as List?)?.cast<Map<String, dynamic>>() ?? [];
+      Map<String, dynamic>? budgetRow = await scopedBudgetQuery
+          .eq('period_month', periodMonth)
+          .maybeSingle();
+
+      double previousBudget = 0;
+      if (budgetRow == null) {
+        // Check most recent previous budget for a reuse suggestion
+        final previousBudgetRow = await scopedBudgetQuery
+            .lt('period_month', periodMonth)
+            .order('period_month', ascending: false)
+            .limit(1)
+            .maybeSingle();
+        previousBudget = ((previousBudgetRow?['total_budget_cents'] as num?)
+                    ?.toDouble() ??
+                0.0) /
+            100.0;
+      }
+
+      if (budgetRow == null) {
+        final insertPayload = <String, dynamic>{
+          'user_id': authUser.uid,
+          'household_id': isHousehold ? householdId : null,
+          'currency': selectedCurrency,
+          'period_month': periodMonth,
+          'total_budget_cents': 0,
+          'updated_at': DateTime.now().toIso8601String(),
+        };
+
+        budgetRow = await supabase
+            .from('budgets')
+            .upsert(insertPayload)
+            .select('id,total_budget_cents')
+            .maybeSingle();
+      }
+
+      final budgetId = budgetRow?['id'] as String?;
+      final totalBudget =
+          ((budgetRow?['total_budget_cents'] as num?)?.toDouble() ?? 0) / 100.0;
+
+      final baseQuery = supabase
+          .from('budget_envelopes')
+          .select(
+              'id,name,budget_percentage,household_id,currency,icon,color,budget_id')
+          .eq('user_id', authUser.uid)
+          .eq('currency', selectedCurrency);
+
+      final envelopesRes = (budgetId != null
+              ? baseQuery.eq('budget_id', budgetId)
+              : (isHousehold
+                  ? baseQuery.eq('household_id', householdId!)
+                  : baseQuery.isFilter('household_id', null)))
+          .order('name');
+
+      final envelopes = await envelopesRes;
+
+      var envRows = (envelopes as List?)?.cast<Map<String, dynamic>>() ?? [];
+      if (envRows.isEmpty && budgetId != null) {
+        // Legacy rows without budget_id: attach them to the current budget
+        final legacyRes = await (isHousehold
+                ? baseQuery.eq('household_id', householdId!)
+                : baseQuery.isFilter('household_id', null))
+            .isFilter('budget_id', null)
+            .order('name');
+
+        envRows = (legacyRes as List?)?.cast<Map<String, dynamic>>() ?? [];
+        for (final row in envRows) {
+          final legacyId = row['id'] as String?;
+          if (legacyId != null) {
+            await supabase
+                .from('budget_envelopes')
+                .update({
+                  'budget_id': budgetId,
+                  'updated_at': DateTime.now().toIso8601String(),
+                })
+                .eq('id', legacyId);
+          }
+        }
+      }
       if (envRows.isEmpty) {
         state = PocketsState(
           isLoading: false,
           error: null,
           saved: const [],
           editing: const [],
-          totalBudget: 0,
+          budgetId: budgetId,
+          periodMonth: monthStart,
+          previousBudget: previousBudget,
+          totalBudget: totalBudget,
+          savedTotalBudget: totalBudget,
           unallocatedSpend: 0,
+          uncategorized: const [],
+          uncategorizedExpenses: const {},
         );
         return;
       }
@@ -173,6 +328,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         final currency = row['currency'] as String? ?? selectedCurrency;
         final icon = row['icon'] as String?;
         final color = row['color'] as String?;
+        final bId = row['budget_id'] as String? ?? budgetId;
 
         return PocketEnvelope(
           id: id,
@@ -182,27 +338,89 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           currency: currency,
           icon: icon,
           color: color,
+          budgetId: bId,
           householdId: hhId,
           lastUpdated: DateTime.now(),
         );
       }).toList();
 
-      // Calculate total budget from user preferences or default
-      // For now, we'll use a default or fetch from user settings
-      // TODO: Store total budget in user preferences
-      final totalBudget =
-          1000.0; // Default, should be fetched from user settings
+      final normalizedPockets = _normalizeToHundred(pockets);
+
+      // Fetch expenses for this month and scope to compute uncategorized totals
+      var expenseQuery = supabase
+          .from('expenses')
+          .select('amount_cents,category,type,household_id,currency,date')
+          .eq('user_id', authUser.uid)
+          .eq('currency', selectedCurrency)
+          .gte('date', monthStart.toIso8601String())
+          .lt('date', monthEnd.toIso8601String());
+
+      if (isHousehold) {
+        expenseQuery = expenseQuery.eq('household_id', householdId!);
+      } else {
+        expenseQuery = expenseQuery.isFilter('household_id', null);
+      }
+
+      final expensesRes = await expenseQuery;
+      final expensesRows =
+          (expensesRes as List?)?.cast<Map<String, dynamic>>() ?? [];
+
+      final expenseTotalsByCategory = <String, double>{};
+      final uncategorizedExpensesMap = <String, List<Map<String, dynamic>>>{};
+      var totalMonthlySpend = 0.0;
+      for (final row in expensesRows) {
+        final type = (row['type'] as String?)?.toLowerCase();
+        if (type == 'income') continue; // ignore incomes
+        final cents = (row['amount_cents'] as num?)?.toDouble() ?? 0;
+        final amount = cents / 100.0;
+        totalMonthlySpend += amount;
+        final rawCategory =
+            (row['category'] as String? ?? 'uncategorized').toLowerCase();
+        expenseTotalsByCategory.update(
+          rawCategory,
+          (v) => v + amount,
+          ifAbsent: () => amount,
+        );
+      }
+
+      // Fetch linked categories for loaded envelopes
+      List<Map<String, dynamic>> linksRows = [];
+      if (envIds.isNotEmpty) {
+        final linksRes = await supabase
+            .from('envelope_category_links')
+            .select('envelope_id, category')
+            .inFilter('envelope_id', envIds);
+        linksRows = (linksRes as List?)?.cast<Map<String, dynamic>>() ?? [];
+      }
+
+      final linkedCategories = linksRows
+          .map((r) => (r['category'] as String?)?.toLowerCase() ?? '')
+          .where((c) => c.isNotEmpty)
+          .toSet();
+
+      final uncategorized = <UncategorizedCategory>[];
+      expenseTotalsByCategory.forEach((cat, amount) {
+        if (!linkedCategories.contains(cat)) {
+          uncategorized.add(UncategorizedCategory(
+            category: cat.isEmpty ? 'uncategorized' : cat,
+            amount: amount,
+          ));
+          final key = cat.isEmpty ? 'uncategorized' : cat;
+          final matches = expensesRows.where((row) {
+            final rowCat =
+                (row['category'] as String? ?? 'uncategorized').toLowerCase();
+            return rowCat == cat;
+          });
+          for (final m in matches) {
+            uncategorizedExpensesMap
+                .putIfAbsent(key, () => <Map<String, dynamic>>[])
+                .add(m);
+          }
+        }
+      });
 
       final totalEnvelopeSpend =
-          pockets.fold<double>(0, (sum, p) => sum + p.spent);
-
-      // Fetch total monthly spend for the user to calculate unallocated
-      final totalMonthlySpend =
-          await supabase.rpc<num>('get_monthly_total_spend', params: {
-        'p_user_id': authUser.uid,
-        'p_currency': selectedCurrency,
-        'p_month': periodMonth,
-      }).then((val) => val.toDouble());
+          normalizedPockets.fold<double>(0, (sum, p) => sum + p.spent);
 
       final unallocatedSpend =
           math.max(0.0, totalMonthlySpend - totalEnvelopeSpend);
@@ -210,10 +428,16 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       state = PocketsState(
         isLoading: false,
         error: null,
-        saved: pockets,
-        editing: pockets.map((p) => p.copyWith()).toList(),
+        saved: normalizedPockets,
+        editing: normalizedPockets.map((p) => p.copyWith()).toList(),
+        budgetId: budgetId,
+        periodMonth: monthStart,
+        previousBudget: previousBudget,
         totalBudget: totalBudget,
+        savedTotalBudget: totalBudget, // Initialize saved budget
         unallocatedSpend: unallocatedSpend,
+        uncategorized: uncategorized,
+        uncategorizedExpenses: uncategorizedExpensesMap,
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -223,7 +447,10 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
   /// Update total budget - percentages stay the same!
   void updateTotalBudget(double newTotal) {
     if (newTotal < 0) return;
+    debugPrint(
+        'updateTotalBudget: $newTotal (saved: ${state.savedTotalBudget})');
     state = state.copyWith(totalBudget: newTotal);
+    debugPrint('After update - hasChanges: ${state.hasChanges}');
   }
 
   /// Update a pocket's percentage allocation
@@ -291,6 +518,11 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     state = state.copyWith(editing: pockets);
   }
 
+  void reusePreviousBudget(double amount) {
+    if (amount <= 0) return;
+    state = state.copyWith(totalBudget: amount);
+  }
+
   /// Ensure all percentages sum to exactly 100
   /// Adjusts other pockets (not the one at excludeIndex) to make up the difference
   void _normalizePercentages(List<PocketEnvelope> pockets, int excludeIndex) {
@@ -320,10 +552,49 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     }
   }
 
+  /// Returns a new list normalized so percentages sum to exactly 100.
+  List<PocketEnvelope> _normalizeToHundred(List<PocketEnvelope> pockets) {
+    if (pockets.isEmpty) return [];
+
+    final total = pockets.fold<double>(0, (sum, p) => sum + p.percentage);
+    if (total <= 0) {
+      final even = 100.0 / pockets.length;
+      return pockets
+          .asMap()
+          .entries
+          .map((entry) {
+            final isLast = entry.key == pockets.length - 1;
+            final pct =
+                isLast ? 100 - even * (pockets.length - 1) : even;
+            return entry.value.copyWith(
+              percentage: double.parse(pct.toStringAsFixed(2)),
+            );
+          })
+          .toList();
+    }
+
+    final factor = 100.0 / total;
+    var remaining = 100.0;
+    final normalized = <PocketEnvelope>[];
+    for (var i = 0; i < pockets.length; i++) {
+      final p = pockets[i];
+      final scaled = (p.percentage * factor).clamp(0.0, 100.0);
+      final pct = i == pockets.length - 1
+          ? remaining
+          : double.parse(scaled.toStringAsFixed(2));
+      remaining = double.parse((remaining - pct).toStringAsFixed(2));
+      normalized.add(p.copyWith(percentage: pct));
+    }
+    return normalized;
+  }
+
   Future<void> revertChanges() async {
     final restored = state.saved.map((p) => p.copyWith()).toList();
+    debugPrint(
+        'revertChanges: restoring budget from ${state.totalBudget} to ${state.savedTotalBudget}');
     state = state.copyWith(
       editing: restored,
+      totalBudget: state.savedTotalBudget, // Restore original budget
       clearError: true,
     );
   }
@@ -331,11 +602,60 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
   Future<void> saveChanges() async {
     if (!state.hasChanges) return;
     try {
+      final normalizedEditing = _normalizeToHundred(state.editing);
+      state = state.copyWith(editing: normalizedEditing);
+
+      final authUser = ref.read(authProvider);
+      final filter = ref.read(homeFilterProvider);
+      final selectedCurrency = filter.selectedCurrency ?? 'USD';
+      final range = getDateRangeFromFilter(
+        filter.dateRangeFilter,
+        filter.customStartDate,
+        filter.customEndDate,
+      );
+
+      final end = range['to'] ?? DateTime.now();
+      final monthStart = DateTime(end.year, end.month, 1);
+      final periodMonth = _formatDate(monthStart);
+      final isHousehold = params.scope == PocketsScopeType.household;
+      final householdId = params.householdId;
+
+      // Persist/update the parent budget first
+      final nowIso = DateTime.now().toIso8601String();
+      final budgetPayload = <String, dynamic>{
+        'user_id': authUser.uid,
+        'household_id': isHousehold ? householdId : null,
+        'currency': selectedCurrency,
+        'period_month': periodMonth,
+        'total_budget_cents': (state.totalBudget * 100).round(),
+        'updated_at': nowIso,
+      };
+      if (state.budgetId != null) {
+        budgetPayload['id'] = state.budgetId;
+      }
+
+      final budgetRes = await supabase
+          .from('budgets')
+          .upsert(budgetPayload)
+          .select('id')
+          .maybeSingle();
+
+      final budgetId =
+          (budgetRes != null ? budgetRes['id'] as String? : state.budgetId) ??
+              state.budgetId;
+
+      if (budgetId == null) {
+        throw Exception('Unable to persist budget for this period');
+      }
+
       final editing = state.editing;
       for (final p in editing) {
         await supabase.from('budget_envelopes').update(<String, dynamic>{
           'budget_percentage': p.percentage,
-          'updated_at': DateTime.now().toIso8601String(),
+          'budget_id': budgetId,
+          'household_id': isHousehold ? householdId : null,
+          'currency': selectedCurrency,
+          'updated_at': nowIso,
         }).eq('id', p.id);
       }
 

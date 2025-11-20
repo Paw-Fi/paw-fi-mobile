@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -33,54 +32,49 @@ class HomeHeaderSliver extends ConsumerWidget {
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
     final zoomController = ref.read(zoomDrawerControllerProvider);
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 5, 16, 5),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: ListTile(
-              onTap: () => zoomController.toggle?.call(),
-              leading: _HeaderAvatarButton(
-                user: user,
-                viewMode: viewMode,
-                householdsAsync: householdsAsync,
-                selectedHouseholdState: selectedHouseholdState,
-                colorScheme: colorScheme,
-              ),
-              title: Text(
-                viewMode.mode == ViewMode.personal
-                    ? (user.displayName?.isNotEmpty == true
-                        ? user.displayName!
-                        : user.email)
-                    : (selectedHouseholdState.household?.name ??
-                        context.l10n.forUs),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.3,
-                  color: colorScheme.foreground,
+    return SizedBox(
+      height: 65,      
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(0, 5, 16, 5),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: ListTile(
+                onTap: () => zoomController.toggle?.call(),
+                leading: _HeaderAvatarButton(
+                  user: user,
+                  viewMode: viewMode,
+                  householdsAsync: householdsAsync,
+                  selectedHouseholdState: selectedHouseholdState,
+                  colorScheme: colorScheme,
                 ),
-              ),
-              subtitle: Text(
-                '${ref.watch(homeFilterProvider).selectedCurrency ?? 'USD'} • ${ref.watch(homeFilterProvider).dateRangeFilter.getLabel(context)}',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: colorScheme.mutedForeground,
-                  fontWeight: FontWeight.w500,
+                title: Text(
+                  viewMode.mode == ViewMode.personal
+                      ? (user.displayName?.isNotEmpty == true
+                          ? user.displayName!
+                          : user.email)
+                      : (selectedHouseholdState.household?.name ??
+                          context.l10n.forUs),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.3,
+                    color: colorScheme.foreground,
+                  ),
                 ),
               ),
             ),
-          ),
-          _AccountTypeSwitch(
-            viewMode: viewMode,
-            colorScheme: colorScheme,
-            onPersonalSelected: () => _setPersonalMode(ref),
-            onHouseholdSelected: () => _switchToHouseholdMode(context, ref),
-          ),
-        ],
+            _AccountTypeSwitch(
+              viewMode: viewMode,
+              colorScheme: colorScheme,
+              onPersonalSelected: () => _setPersonalMode(ref),
+              onHouseholdSelected: () => _switchToHouseholdMode(context, ref),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -23,6 +23,7 @@ import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/home/presentation/widgets/mom_trend_bar.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:moneko/features/utils/main_page_top_padding.dart';
 
 // ============================================================================
 // HOME PAGE
@@ -868,133 +869,138 @@ class _HomePageState extends ConsumerState<HomePage> {
               }
               await Future.delayed(const Duration(milliseconds: 500));
             },
-            child: CustomScrollView(
-              slivers: [
-                // Content only: header is provided globally in MainShell
-                if (viewMode.mode == ViewMode.household)
-                  const HouseholdHomeContent()
-                else ...[
-                  // Personal mode - show analytics content
-                  // Spending Card with Line Chart
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: buildSpendingCard(
-                        context,
-                        colorScheme,
-                        filteredExpenses,
-                        analyticsData.contact,
-                        filterState.dateRangeFilter,
-                        selectedCurrency: filterState.selectedCurrency,
-                      ),
-                    ),
-                  ),
-
-                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
-
-                  // Budget and Net Cashflow Cards (Horizontal Scroll)
-                  SliverToBoxAdapter(
-                    child: SizedBox(
-                      height: 180,
-                      child: ListView(
-                        scrollDirection: Axis.horizontal,
+            child: Padding(
+              padding: EdgeInsets.only(
+                top:getTopPadding(context),
+                  bottom: getBottomPadding()),
+              child: CustomScrollView(
+                slivers: [
+                  // Content only: header is provided globally in MainShell
+                  if (viewMode.mode == ViewMode.household)
+                    const HouseholdHomeContent()
+                  else ...[
+                    // Personal mode - show analytics content
+                    // Spending Card with Line Chart
+                    SliverToBoxAdapter(
+                      child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        children: [
-                          SizedBox(
-                            width: 200,
-                            child: buildBudgetCard(
-                              context,
-                              colorScheme,
-                              filteredBudgets,
-                              filteredExpenses,
-                              analyticsData.contact,
-                              filterState.dateRangeFilter,
-                              onTap: _showBudgetUpdateSheet,
-                              selectedCurrency: filterState.selectedCurrency,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          SizedBox(
-                            width: 200,
-                            child: buildNetCashflowCard(
-                              context,
-                              colorScheme,
-                              filteredBudgets,
-                              ref.watch(homeFilteredTransactionsProvider),
-                              analyticsData.contact,
-                              filterState.dateRangeFilter,
-                              selectedCurrency: filterState.selectedCurrency,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          // TODO: Add CashflowSparklineCard
-                          // const SizedBox(
-                          //   width: 200,
-                          //   child: CashflowSparklineCard(),
-                          // ),
-                          // const SizedBox(width: 12),
-                          const SizedBox(
-                            width: 200,
-                            child: MoMTrendBar(),
-                          ),
-                          // const SizedBox(width: 12),
-                          // const SizedBox(
-                          //   width: 200,
-                          //   child: SavingsRateTile(),
-                          // ),
-                          // const SizedBox(width: 12),
-                          // const SizedBox(
-                          //   width: 200,
-                          //   child: RunwayGauge(),
-                          // ),
-                          const SizedBox(width: 12),
-                        ],
+                        child: buildSpendingCard(
+                          context,
+                          colorScheme,
+                          filteredExpenses,
+                          analyticsData.contact,
+                          filterState.dateRangeFilter,
+                          selectedCurrency: filterState.selectedCurrency,
+                        ),
                       ),
                     ),
-                  ),
 
-                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                    const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
-                  // Category Breakdown
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: buildCategoryBreakdownCard(
-                        context,
-                        colorScheme,
-                        ref.watch(homeFilteredTransactionsProvider),
-                        analyticsData.contact,
-                        selectedCurrency: filterState.selectedCurrency,
-                        onViewAll: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const TransactionsPage(),
+                    // Budget and Net Cashflow Cards (Horizontal Scroll)
+                    SliverToBoxAdapter(
+                      child: SizedBox(
+                        height: 180,
+                        child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                          children: [
+                            SizedBox(
+                              width: 200,
+                              child: buildBudgetCard(
+                                context,
+                                colorScheme,
+                                filteredBudgets,
+                                filteredExpenses,
+                                analyticsData.contact,
+                                filterState.dateRangeFilter,
+                                onTap: _showBudgetUpdateSheet,
+                                selectedCurrency: filterState.selectedCurrency,
+                              ),
                             ),
-                          );
-                        },
+                            const SizedBox(width: 12),
+                            SizedBox(
+                              width: 200,
+                              child: buildNetCashflowCard(
+                                context,
+                                colorScheme,
+                                filteredBudgets,
+                                ref.watch(homeFilteredTransactionsProvider),
+                                analyticsData.contact,
+                                filterState.dateRangeFilter,
+                                selectedCurrency: filterState.selectedCurrency,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            // TODO: Add CashflowSparklineCard
+                            // const SizedBox(
+                            //   width: 200,
+                            //   child: CashflowSparklineCard(),
+                            // ),
+                            // const SizedBox(width: 12),
+                            const SizedBox(
+                              width: 200,
+                              child: MoMTrendBar(),
+                            ),
+                            // const SizedBox(width: 12),
+                            // const SizedBox(
+                            //   width: 200,
+                            //   child: SavingsRateTile(),
+                            // ),
+                            // const SizedBox(width: 12),
+                            // const SizedBox(
+                            //   width: 200,
+                            //   child: RunwayGauge(),
+                            // ),
+                            const SizedBox(width: 12),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
 
-                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: buildSpendingBreakdownChart(
-                        context,
-                        colorScheme,
-                        filteredExpenses,
-                        filteredBudgets,
-                        analyticsData.contact,
-                        filterState.dateRangeFilter,
-                        selectedCurrency: filterState.selectedCurrency,
+                    const SliverToBoxAdapter(child: SizedBox(height: 16)),
+
+                    // Category Breakdown
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: buildCategoryBreakdownCard(
+                          context,
+                          colorScheme,
+                          ref.watch(homeFilteredTransactionsProvider),
+                          analyticsData.contact,
+                          selectedCurrency: filterState.selectedCurrency,
+                          onViewAll: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const TransactionsPage(),
+                              ),
+                            );
+                          },
+                        ),
                       ),
                     ),
-                  ),
 
-                  const SliverToBoxAdapter(child: SizedBox(height: 24)),
-                ], // end of else block for Personal mode
-              ],
+                    const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: buildSpendingBreakdownChart(
+                          context,
+                          colorScheme,
+                          filteredExpenses,
+                          filteredBudgets,
+                          analyticsData.contact,
+                          filterState.dateRangeFilter,
+                          selectedCurrency: filterState.selectedCurrency,
+                        ),
+                      ),
+                    ),
+
+                    const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                  ], // end of else block for Personal mode
+                ],
+              ),
             ),
           ),
         ],

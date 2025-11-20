@@ -334,562 +334,560 @@ class AddRecurringSheet extends HookConsumerWidget {
         color: colorScheme.appBackground,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    isEditing
+                        ? (isExpense
+                            ? context.l10n.editRecurringExpense
+                            : context.l10n.editRecurringIncome)
+                        : (isExpense
+                            ? context.l10n.addRecurringExpense
+                            : context.l10n.addRecurringIncome),
+                    style: TextStyle(
+                      color: colorScheme.foreground,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: Icon(
+                    Icons.close,
+                    color: colorScheme.mutedForeground,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      
+          // Scrollable content
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      isEditing
-                          ? (isExpense
-                              ? context.l10n.editRecurringExpense
-                              : context.l10n.editRecurringIncome)
-                          : (isExpense
-                              ? context.l10n.addRecurringExpense
-                              : context.l10n.addRecurringIncome),
-                      style: TextStyle(
-                        color: colorScheme.foreground,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.5,
+                  // Type toggle (adaptive segmented control)
+                  AdaptiveSegmentedControl(
+                    labels: [
+                      context.l10n.expenses,
+                      context.l10n.income,
+                    ],
+                    selectedIndex: isExpense ? 0 : 1,
+                    onValueChanged: (index) {
+                      selectedType.value = index == 0 ? 'expense' : 'income';
+                    },
+                  ),
+      
+                  const SizedBox(height: 20),
+      
+                  // Amount input
+                  _buildLabel(context.l10n.amount, colorScheme),
+                  const SizedBox(height: 8),
+                  AdaptiveTextField(
+                    controller: amountController,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    placeholder: '0.00',
+                    textAlign: TextAlign.end,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.foreground,
+                    ),
+                  ),
+      
+                  const SizedBox(height: 20),
+      
+                  _buildDetailCard(
+                    colorScheme: colorScheme,
+                    label: context.l10n.category,
+                    value: selectedCategory.value != null
+                        ? getCategoryTranslation(
+                            context, selectedCategory.value!)
+                        : context.l10n.selectCategory,
+                    onTap: () async {
+                      final result = await showCategoryPicker(
+                        context: context,
+                        currentCategory: selectedCategory.value ??
+                            (isExpense ? 'other' : 'salary'),
+                        isIncome: !isExpense,
+                      );
+                      if (result != null) {
+                        selectedCategory.value = result;
+                      }
+                    },
+                  ),
+      
+                  const SizedBox(height: 20),
+      
+                  // Currency selector
+                  _buildDetailCard(
+                    colorScheme: colorScheme,
+                    label: context.l10n.currency,
+                    value: selectedCurrency.value.toUpperCase(),
+                    onTap: () async {
+                      final result = await showCurrencyPicker(
+                        context: context,
+                        currentCurrency: selectedCurrency.value,
+                      );
+                      if (result != null) {
+                        selectedCurrency.value = result;
+                      }
+                    },
+                  ),
+      
+                  const SizedBox(height: 20),
+      
+                  // Household sharing + split (expenses only)
+                  if (user != null) ...[
+                    householdsAsync.when(
+                      data: (households) {
+                        if (households.isEmpty) {
+                          return const SizedBox.shrink();
+                        }
+      
+                        if (!isExpense) {
+                          // For income: only allow sharing toggle, no split editor
+                          return _buildSharingToggleOnly(
+                            context,
+                            colorScheme,
+                            households,
+                            isSharedWithHousehold,
+                            selectedHouseholdId,
+                          );
+                        }
+      
+                        if (!hasAmountForSplit) {
+                          // Require an amount before configuring splits
+                          return Text(
+                            context.l10n.pleaseEnterAmount,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: colorScheme.mutedForeground,
+                            ),
+                          );
+                        }
+      
+                        return _buildSharingAndSplitSection(
+                          context: context,
+                          colorScheme: colorScheme,
+                          households: households,
+                          isSharedWithHousehold: isSharedWithHousehold,
+                          selectedHouseholdId: selectedHouseholdId,
+                          membersAsync: membersAsync,
+                          selectedPayerUserId: selectedPayerUserId,
+                          customSplitType: customSplitType,
+                          customSplits: customSplits,
+                          amountController: amountController,
+                          currencySymbol: selectedCurrency.value,
+                        );
+                      },
+                      loading: () => const SizedBox.shrink(),
+                      error: (_, __) => const SizedBox.shrink(),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+      
+                  _buildDetailCard(
+                    colorScheme: colorScheme,
+                    label: context.l10n.frequency,
+                    value: () {
+                      // Get the label for the current frequency
+                      final freq =
+                          getDefaultFrequencyOptions(context).firstWhere(
+                        (f) => f.value == selectedFrequency.value,
+                        orElse: () => getDefaultFrequencyOptions(
+                            context)[3], // Default to 'monthly'
+                      );
+                      return freq.label;
+                    }(),
+                    onTap: () async {
+                      final result = await showFrequencyPicker(
+                        context: context,
+                        currentFrequency: selectedFrequency.value,
+                      );
+                      if (result != null) {
+                        selectedFrequency.value = result;
+                      }
+                    },
+                  ),
+      
+                  const SizedBox(height: 20),
+      
+                  _buildDetailCard(
+                    colorScheme: colorScheme,
+                    label: context.l10n.startDate,
+                    value: formatLocalizedDate(context, startDate.value,
+                        includeYear: true),
+                    onTap: () async {
+                      final result = await showTransactionDatePicker(
+                        context: context,
+                        currentDate: startDate.value,
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime(2030),
+                      );
+                      if (result != null) {
+                        startDate.value = result;
+                      }
+                    },
+                  ),
+      
+                  const SizedBox(height: 20),
+      
+                  // End date toggle (clickable container)
+                  GestureDetector(
+                    onTap: () {
+                      hasEndDate.value = !hasEndDate.value;
+                      if (!hasEndDate.value) {
+                        endDate.value = null;
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: colorScheme.muted.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: colorScheme.border.withValues(alpha: 0.2),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          AdaptiveCheckbox(
+                            value: hasEndDate.value,
+                            onChanged: (value) {
+                              final checked = value ?? false;
+                              hasEndDate.value = checked;
+                              if (!checked) {
+                                endDate.value = null;
+                              }
+                            },
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              context.l10n.setEndDate,
+                              style: TextStyle(
+                                color: colorScheme.foreground,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: Icon(
-                      Icons.close,
-                      color: colorScheme.mutedForeground,
+      
+                  // End date picker (if enabled)
+                  if (hasEndDate.value) ...[
+                    const SizedBox(height: 12),
+                    _buildDetailCard(
+                      colorScheme: colorScheme,
+                      label: context.l10n.endDate,
+                      value: endDate.value != null
+                          ? formatLocalizedDate(context, endDate.value!,
+                              includeYear: true)
+                          : context.l10n.selectEndDate,
+                      onTap: () async {
+                        final result = await showTransactionDatePicker(
+                          context: context,
+                          currentDate: endDate.value ??
+                              startDate.value.add(const Duration(days: 365)),
+                          firstDate: startDate.value,
+                          lastDate: DateTime(2030),
+                        );
+                        if (result != null) {
+                          endDate.value = result;
+                        }
+                      },
+                    ),
+                  ],
+      
+                  const SizedBox(height: 20),
+      
+                  // Description
+                  _buildLabel(context.l10n.descriptionOptional, colorScheme),
+                  const SizedBox(height: 8),
+                  AdaptiveTextField(
+                    controller: descriptionController,
+                    placeholder: context.l10n.addANote,
+                    maxLines: 2,
+                  ),
+      
+                  // Source (for income only)
+                  if (!isExpense) ...[
+                    const SizedBox(height: 20),
+                    _buildLabel(context.l10n.sourceOptional, colorScheme),
+                    const SizedBox(height: 8),
+                    AdaptiveTextField(
+                      controller: sourceController,
+                      placeholder: context.l10n.companyNameClientNameExample,
+                    ),
+                  ],
+      
+                  const SizedBox(height: 24),
+      
+                  // Reminder toggle (clickable container)
+                  GestureDetector(
+                    onTap: () {
+                      hasReminder.value = !hasReminder.value;
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: colorScheme.muted.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: colorScheme.border.withValues(alpha: 0.2),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          AdaptiveCheckbox(
+                            value: hasReminder.value,
+                            onChanged: (value) {
+                              hasReminder.value = value ?? false;
+                            },
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              context.l10n.setReminder,
+                              style: TextStyle(
+                                color: colorScheme.foreground,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+      
+                  // Reminder configuration (if enabled)
+                  if (hasReminder.value) ...[
+                    const SizedBox(height: 12),
+                    Builder(
+                      builder: (context) {
+                        // Detect word order based on language
+                        final lang = Localizations.localeOf(context)
+                            .languageCode
+                            .toLowerCase();
+                        final useSOV = {
+                          'zh',
+                          'ja',
+                          'ko',
+                          'hi',
+                          'ur',
+                          'tr',
+                          'fa'
+                        }.contains(lang);
+      
+                        // Build UI components
+                        final valueInput = SizedBox(
+                          width: 80,
+                          child: AdaptiveTextField(
+                            controller: TextEditingController(
+                              text: reminderValue.value.toString(),
+                            ),
+                            keyboardType: TextInputType.number,
+                            placeholder: '1',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: colorScheme.foreground,
+                            ),
+                            onChanged: (value) {
+                              final parsed = int.tryParse(value);
+                              if (parsed != null && parsed > 0) {
+                                reminderValue.value = parsed;
+                              }
+                            },
+                          ),
+                        );
+      
+                        final unitPicker = GestureDetector(
+                          onTap: () async {
+                            final result =
+                                await showTransactionSelectionSheet<String>(
+                              context: context,
+                              items: ['days'],
+                              getLabel: (unit) {
+                                if (unit == 'days') return context.l10n.days;
+                                if (unit == 'hours')
+                                  return context.l10n.hours;
+                                return unit;
+                              },
+                              initial: reminderUnit.value,
+                            );
+                            if (result != null) {
+                              reminderUnit.value = result;
+                            }
+                          },
+                          child: IntrinsicWidth(
+                            child: Container(
+                              constraints: const BoxConstraints(
+                                  minWidth: 80), // Minimum width
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 14),
+                              decoration: BoxDecoration(
+                                color:
+                                    colorScheme.muted.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: colorScheme.border
+                                      .withValues(alpha: 0.2),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    reminderUnit.value == 'days'
+                                        ? context.l10n.days
+                                        : context.l10n.hours,
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: colorScheme.foreground,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Icon(
+                                    Icons.arrow_drop_down,
+                                    color: colorScheme.mutedForeground,
+                                    size: 24,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+      
+                        // Arrange based on word order
+                        List<Widget> rowChildren;
+                        if (useSOV) {
+                          // SOV languages: beforePrefix [value][unit]beforeSuffix
+                          // Chinese: 在 2天之前
+                          rowChildren = [
+                            Text(
+                              context.l10n.beforePrefix,
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: colorScheme.foreground,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            valueInput,
+                            const SizedBox(width: 12),
+                            unitPicker,
+                            const SizedBox(width: 12),
+                            Text(
+                              context.l10n.beforeSuffix,
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: colorScheme.foreground,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ];
+                        } else {
+                          // Default SVO: [value] [unit] before
+                          // English: 2 days before
+                          rowChildren = [
+                            valueInput,
+                            const SizedBox(width: 12),
+                            unitPicker,
+                            const SizedBox(width: 12),
+                            Text(
+                              context.l10n.before,
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: colorScheme.foreground,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ];
+                        }
+      
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: rowChildren,
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      context.l10n.youWillBeNotifiedBeforeEachOccurrence(
+                        reminderValue.value,
+                        reminderUnit.value == 'days'
+                            ? context.l10n.days
+                            : context.l10n.hours,
+                      ),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: colorScheme.mutedForeground,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
+      
+                  // Save button
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: PrimaryAdaptiveButton(
+                      onPressed: isLoading.value
+                          ? null
+                          : () {
+                              handleSave();
+                            },
+                      child: isLoading.value
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
+                              ),
+                            )
+                          : Text(
+                              isEditing
+                                  ? context.l10n.updateRecurringTransaction
+                                  : context.l10n.addRecurringTransaction,
+                            ),
                     ),
                   ),
                 ],
               ),
             ),
-
-            // Scrollable content
-            Flexible(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Type toggle (adaptive segmented control)
-                    AdaptiveSegmentedControl(
-                      labels: [
-                        context.l10n.expenses,
-                        context.l10n.income,
-                      ],
-                      selectedIndex: isExpense ? 0 : 1,
-                      onValueChanged: (index) {
-                        selectedType.value = index == 0 ? 'expense' : 'income';
-                      },
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // Amount input
-                    _buildLabel(context.l10n.amount, colorScheme),
-                    const SizedBox(height: 8),
-                    AdaptiveTextField(
-                      controller: amountController,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
-                      placeholder: '0.00',
-                      textAlign: TextAlign.end,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.foreground,
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    _buildDetailCard(
-                      colorScheme: colorScheme,
-                      label: context.l10n.category,
-                      value: selectedCategory.value != null
-                          ? getCategoryTranslation(
-                              context, selectedCategory.value!)
-                          : context.l10n.selectCategory,
-                      onTap: () async {
-                        final result = await showCategoryPicker(
-                          context: context,
-                          currentCategory: selectedCategory.value ??
-                              (isExpense ? 'other' : 'salary'),
-                          isIncome: !isExpense,
-                        );
-                        if (result != null) {
-                          selectedCategory.value = result;
-                        }
-                      },
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // Currency selector
-                    _buildDetailCard(
-                      colorScheme: colorScheme,
-                      label: context.l10n.currency,
-                      value: selectedCurrency.value.toUpperCase(),
-                      onTap: () async {
-                        final result = await showCurrencyPicker(
-                          context: context,
-                          currentCurrency: selectedCurrency.value,
-                        );
-                        if (result != null) {
-                          selectedCurrency.value = result;
-                        }
-                      },
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // Household sharing + split (expenses only)
-                    if (user != null) ...[
-                      householdsAsync.when(
-                        data: (households) {
-                          if (households.isEmpty) {
-                            return const SizedBox.shrink();
-                          }
-
-                          if (!isExpense) {
-                            // For income: only allow sharing toggle, no split editor
-                            return _buildSharingToggleOnly(
-                              context,
-                              colorScheme,
-                              households,
-                              isSharedWithHousehold,
-                              selectedHouseholdId,
-                            );
-                          }
-
-                          if (!hasAmountForSplit) {
-                            // Require an amount before configuring splits
-                            return Text(
-                              context.l10n.pleaseEnterAmount,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: colorScheme.mutedForeground,
-                              ),
-                            );
-                          }
-
-                          return _buildSharingAndSplitSection(
-                            context: context,
-                            colorScheme: colorScheme,
-                            households: households,
-                            isSharedWithHousehold: isSharedWithHousehold,
-                            selectedHouseholdId: selectedHouseholdId,
-                            membersAsync: membersAsync,
-                            selectedPayerUserId: selectedPayerUserId,
-                            customSplitType: customSplitType,
-                            customSplits: customSplits,
-                            amountController: amountController,
-                            currencySymbol: selectedCurrency.value,
-                          );
-                        },
-                        loading: () => const SizedBox.shrink(),
-                        error: (_, __) => const SizedBox.shrink(),
-                      ),
-                      const SizedBox(height: 20),
-                    ],
-
-                    _buildDetailCard(
-                      colorScheme: colorScheme,
-                      label: context.l10n.frequency,
-                      value: () {
-                        // Get the label for the current frequency
-                        final freq =
-                            getDefaultFrequencyOptions(context).firstWhere(
-                          (f) => f.value == selectedFrequency.value,
-                          orElse: () => getDefaultFrequencyOptions(
-                              context)[3], // Default to 'monthly'
-                        );
-                        return freq.label;
-                      }(),
-                      onTap: () async {
-                        final result = await showFrequencyPicker(
-                          context: context,
-                          currentFrequency: selectedFrequency.value,
-                        );
-                        if (result != null) {
-                          selectedFrequency.value = result;
-                        }
-                      },
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    _buildDetailCard(
-                      colorScheme: colorScheme,
-                      label: context.l10n.startDate,
-                      value: formatLocalizedDate(context, startDate.value,
-                          includeYear: true),
-                      onTap: () async {
-                        final result = await showTransactionDatePicker(
-                          context: context,
-                          currentDate: startDate.value,
-                          firstDate: DateTime(2020),
-                          lastDate: DateTime(2030),
-                        );
-                        if (result != null) {
-                          startDate.value = result;
-                        }
-                      },
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // End date toggle (clickable container)
-                    GestureDetector(
-                      onTap: () {
-                        hasEndDate.value = !hasEndDate.value;
-                        if (!hasEndDate.value) {
-                          endDate.value = null;
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: colorScheme.muted.withValues(alpha: 0.05),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: colorScheme.border.withValues(alpha: 0.2),
-                            width: 1,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            AdaptiveCheckbox(
-                              value: hasEndDate.value,
-                              onChanged: (value) {
-                                final checked = value ?? false;
-                                hasEndDate.value = checked;
-                                if (!checked) {
-                                  endDate.value = null;
-                                }
-                              },
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                context.l10n.setEndDate,
-                                style: TextStyle(
-                                  color: colorScheme.foreground,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    // End date picker (if enabled)
-                    if (hasEndDate.value) ...[
-                      const SizedBox(height: 12),
-                      _buildDetailCard(
-                        colorScheme: colorScheme,
-                        label: context.l10n.endDate,
-                        value: endDate.value != null
-                            ? formatLocalizedDate(context, endDate.value!,
-                                includeYear: true)
-                            : context.l10n.selectEndDate,
-                        onTap: () async {
-                          final result = await showTransactionDatePicker(
-                            context: context,
-                            currentDate: endDate.value ??
-                                startDate.value.add(const Duration(days: 365)),
-                            firstDate: startDate.value,
-                            lastDate: DateTime(2030),
-                          );
-                          if (result != null) {
-                            endDate.value = result;
-                          }
-                        },
-                      ),
-                    ],
-
-                    const SizedBox(height: 20),
-
-                    // Description
-                    _buildLabel(context.l10n.descriptionOptional, colorScheme),
-                    const SizedBox(height: 8),
-                    AdaptiveTextField(
-                      controller: descriptionController,
-                      placeholder: context.l10n.addANote,
-                      maxLines: 2,
-                    ),
-
-                    // Source (for income only)
-                    if (!isExpense) ...[
-                      const SizedBox(height: 20),
-                      _buildLabel(context.l10n.sourceOptional, colorScheme),
-                      const SizedBox(height: 8),
-                      AdaptiveTextField(
-                        controller: sourceController,
-                        placeholder: context.l10n.companyNameClientNameExample,
-                      ),
-                    ],
-
-                    const SizedBox(height: 24),
-
-                    // Reminder toggle (clickable container)
-                    GestureDetector(
-                      onTap: () {
-                        hasReminder.value = !hasReminder.value;
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: colorScheme.muted.withValues(alpha: 0.05),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: colorScheme.border.withValues(alpha: 0.2),
-                            width: 1,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            AdaptiveCheckbox(
-                              value: hasReminder.value,
-                              onChanged: (value) {
-                                hasReminder.value = value ?? false;
-                              },
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                context.l10n.setReminder,
-                                style: TextStyle(
-                                  color: colorScheme.foreground,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    // Reminder configuration (if enabled)
-                    if (hasReminder.value) ...[
-                      const SizedBox(height: 12),
-                      Builder(
-                        builder: (context) {
-                          // Detect word order based on language
-                          final lang = Localizations.localeOf(context)
-                              .languageCode
-                              .toLowerCase();
-                          final useSOV = {
-                            'zh',
-                            'ja',
-                            'ko',
-                            'hi',
-                            'ur',
-                            'tr',
-                            'fa'
-                          }.contains(lang);
-
-                          // Build UI components
-                          final valueInput = SizedBox(
-                            width: 80,
-                            child: AdaptiveTextField(
-                              controller: TextEditingController(
-                                text: reminderValue.value.toString(),
-                              ),
-                              keyboardType: TextInputType.number,
-                              placeholder: '1',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: colorScheme.foreground,
-                              ),
-                              onChanged: (value) {
-                                final parsed = int.tryParse(value);
-                                if (parsed != null && parsed > 0) {
-                                  reminderValue.value = parsed;
-                                }
-                              },
-                            ),
-                          );
-
-                          final unitPicker = GestureDetector(
-                            onTap: () async {
-                              final result =
-                                  await showTransactionSelectionSheet<String>(
-                                context: context,
-                                items: ['days'],
-                                getLabel: (unit) {
-                                  if (unit == 'days') return context.l10n.days;
-                                  if (unit == 'hours')
-                                    return context.l10n.hours;
-                                  return unit;
-                                },
-                                initial: reminderUnit.value,
-                              );
-                              if (result != null) {
-                                reminderUnit.value = result;
-                              }
-                            },
-                            child: IntrinsicWidth(
-                              child: Container(
-                                constraints: const BoxConstraints(
-                                    minWidth: 80), // Minimum width
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 14),
-                                decoration: BoxDecoration(
-                                  color:
-                                      colorScheme.muted.withValues(alpha: 0.08),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: colorScheme.border
-                                        .withValues(alpha: 0.2),
-                                    width: 1,
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      reminderUnit.value == 'days'
-                                          ? context.l10n.days
-                                          : context.l10n.hours,
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        color: colorScheme.foreground,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Icon(
-                                      Icons.arrow_drop_down,
-                                      color: colorScheme.mutedForeground,
-                                      size: 24,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-
-                          // Arrange based on word order
-                          List<Widget> rowChildren;
-                          if (useSOV) {
-                            // SOV languages: beforePrefix [value][unit]beforeSuffix
-                            // Chinese: 在 2天之前
-                            rowChildren = [
-                              Text(
-                                context.l10n.beforePrefix,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: colorScheme.foreground,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              valueInput,
-                              const SizedBox(width: 12),
-                              unitPicker,
-                              const SizedBox(width: 12),
-                              Text(
-                                context.l10n.beforeSuffix,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: colorScheme.foreground,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ];
-                          } else {
-                            // Default SVO: [value] [unit] before
-                            // English: 2 days before
-                            rowChildren = [
-                              valueInput,
-                              const SizedBox(width: 12),
-                              unitPicker,
-                              const SizedBox(width: 12),
-                              Text(
-                                context.l10n.before,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: colorScheme.foreground,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ];
-                          }
-
-                          return Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: rowChildren,
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        context.l10n.youWillBeNotifiedBeforeEachOccurrence(
-                          reminderValue.value,
-                          reminderUnit.value == 'days'
-                              ? context.l10n.days
-                              : context.l10n.hours,
-                        ),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: colorScheme.mutedForeground,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ],
-
-                    // Save button
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      child: PrimaryAdaptiveButton(
-                        onPressed: isLoading.value
-                            ? null
-                            : () {
-                                handleSave();
-                              },
-                        child: isLoading.value
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    Colors.white,
-                                  ),
-                                ),
-                              )
-                            : Text(
-                                isEditing
-                                    ? context.l10n.updateRecurringTransaction
-                                    : context.l10n.addRecurringTransaction,
-                              ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

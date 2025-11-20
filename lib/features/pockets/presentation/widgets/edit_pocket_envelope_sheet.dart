@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -16,6 +18,7 @@ import 'package:moneko/features/home/presentation/widgets/category_picker_bottom
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
+import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 
 const _presetIcons = [
@@ -44,6 +47,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
     this.existingEnvelope,
     required this.totalBudget,
     required this.unallocatedBudget,
+    required this.budgetId,
     this.allPockets = const [],
   });
 
@@ -51,13 +55,15 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
   final PocketEnvelope? existingEnvelope;
   final double totalBudget;
   final double unallocatedBudget;
+  final String? budgetId;
   final List<PocketEnvelope> allPockets;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final isEditing = existingEnvelope != null;
-    final selectedCurrency = ref.watch(homeFilterProvider).selectedCurrency;
+    final selectedCurrency =
+        ref.watch(homeFilterProvider).selectedCurrency ?? 'USD';
 
     final nameController = useTextEditingController(
       text: existingEnvelope?.name ?? '',
@@ -70,13 +76,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
 
     useListenable(percentageController);
 
-    // Calculate current percentage and remaining
-    final currentPercentage = existingEnvelope?.percentage ?? 0.0;
-    final totalAllocated =
-        allPockets.fold<double>(0.0, (sum, p) => sum + p.percentage);
-    final remainingPercentage = 100.0 - (totalAllocated - currentPercentage);
-
-    final effectiveMax = remainingPercentage.clamp(0.0, 100.0);
+    final effectiveMax = 100.0;
 
     final currentPct = double.tryParse(percentageController.text) ?? 0.0;
     final sliderValue = useState<double>(currentPct.clamp(0, effectiveMax));
@@ -93,6 +93,14 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
     final selectedColor = useState<String?>(existingEnvelope?.color);
     final selectedIcon = useState<String?>(existingEnvelope?.icon);
     final isLoading = useState<bool>(false);
+    final currency = selectedCurrency ?? 'USD';
+    final currentPocketId = existingEnvelope?.id;
+    final otherPocketsTotal = allPockets
+        .where((p) => p.id != currentPocketId)
+        .fold<double>(0.0, (sum, p) => sum + p.percentage);
+    final totalAllocationNow = otherPocketsTotal + sliderValue.value;
+    final allocationDelta = (totalAllocationNow - 100.0).abs();
+    final isAllocationValid = allocationDelta < 0.01;
 
     useEffect(() {
       if (!isEditing) {
@@ -126,18 +134,24 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
       final percentageText = percentageController.text.trim();
 
       if (name.isEmpty) {
-        AppToast.info(context, 'Please enter a name');
+        AppToast.error(context, 'Please enter a name');
         return;
       }
 
       if (percentageText.isEmpty) {
-        AppToast.info(context, 'Please enter a percentage');
+        AppToast.error(context, 'Please enter a percentage');
+        return;
+      }
+
+      if (!isAllocationValid) {
+        AppToast.error(
+            context, 'Allocations must add up to 100% before saving.');
         return;
       }
 
       final percentage = double.tryParse(percentageText);
       if (percentage == null || percentage < 0 || percentage > 100) {
-        AppToast.info(context, 'Please enter a valid percentage (0-100)');
+        AppToast.error(context, 'Please enter a valid percentage (0-100)');
         return;
       }
 
@@ -156,23 +170,67 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
       final householdId = scopeParams.householdId;
 
       if (isHousehold && householdId == null) {
-        AppToast.info(context, 'Select a household first');
+        AppToast.info(context, 'Please select a household first');
+        return;
+      }
+
+      if (budgetId == null) {
+        AppToast.info(context, 'Please set a monthly budget first');
         return;
       }
 
       isLoading.value = true;
 
       try {
+        // Rebalance percentages so total always equals 100
+        final others = allPockets
+            .where((p) => isEditing ? p.id != existingEnvelope!.id : true)
+            .toList();
+        var desiredPct =
+            double.parse(percentage.clamp(0, 100).toStringAsFixed(2));
+        var targetOtherTotal = (100 - desiredPct).clamp(0, 100);
+        final totalOther =
+            others.fold<double>(0.0, (sum, p) => sum + p.percentage);
+
+        final adjustedOthers = <String, double>{};
+        if (others.isEmpty) {
+          desiredPct = 100;
+          targetOtherTotal = 0;
+        } else if (totalOther <= 0) {
+          final even = targetOtherTotal / others.length;
+          var remaining = targetOtherTotal;
+          for (var i = 0; i < others.length; i++) {
+            final pct = i == others.length - 1 ? remaining : even;
+            remaining -= pct;
+            adjustedOthers[others[i].id] = double.parse(pct.toStringAsFixed(2));
+          }
+        } else {
+          final factor = targetOtherTotal / totalOther;
+          var remaining = targetOtherTotal;
+          for (var i = 0; i < others.length; i++) {
+            final raw = (others[i].percentage * factor).clamp(0, 100);
+            final pct = i == others.length - 1
+                ? remaining
+                : double.parse(raw.toStringAsFixed(2));
+            remaining -= pct;
+            adjustedOthers[others[i].id] =
+                double.parse(pct.clamp(0, 100).toStringAsFixed(2));
+          }
+        }
+
         String envelopeId;
         if (isEditing) {
           envelopeId = existingEnvelope!.id;
 
           await supabase.from('budget_envelopes').update(<String, dynamic>{
             'name': name,
-            'budget_percentage': percentage,
+            'budget_id': budgetId,
+            'budget_percentage': desiredPct,
             'updated_at': DateTime.now().toIso8601String(),
             'color': selectedColor.value,
             'icon': selectedIcon.value,
+            'household_id': isHousehold ? householdId : null,
+            'currency': selectedCurrency,
           }).eq('id', envelopeId);
 
           await supabase
@@ -184,8 +242,9 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
               .from('budget_envelopes')
               .insert(<String, dynamic>{
                 'user_id': user.uid,
+                'budget_id': budgetId,
                 'name': name,
-                'budget_percentage': percentage,
+                'budget_percentage': desiredPct,
                 'household_id': isHousehold ? householdId : null,
                 'currency': selectedCurrency,
                 'color': selectedColor.value,
@@ -199,6 +258,18 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
             throw Exception('Failed to create envelope');
           }
           envelopeId = id;
+        }
+
+        // Persist redistributed percentages for other envelopes
+        final nowIso = DateTime.now().toIso8601String();
+        for (final entry in adjustedOthers.entries) {
+          await supabase.from('budget_envelopes').update(<String, dynamic>{
+            'budget_percentage': entry.value,
+            'budget_id': budgetId,
+            'household_id': isHousehold ? householdId : null,
+            'currency': selectedCurrency,
+            'updated_at': nowIso,
+          }).eq('id', entry.key);
         }
 
         final linksPayload = selectedCategories.value
@@ -218,11 +289,11 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           Navigator.of(context).pop();
           final message =
               isEditing ? l10n.budgetUpdated : l10n.budgetCreatedSuccessfully;
-          AppToast.info(context, message);
+          AppToast.success(context, message);
         }
       } catch (e) {
         if (context.mounted) {
-          AppToast.info(context, 'Failed to save envelope: ${e.toString()}');
+          AppToast.error(context, 'Failed to save Pocket: ${e.toString()}');
         }
       } finally {
         isLoading.value = false;
@@ -235,9 +306,9 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Delete Envelope?'),
+          title: const Text('Delete Pocket?'),
           content: const Text(
-              'This will remove the envelope and its category links. Your expenses will not be deleted.'),
+              'This will remove the Pocket and its category links. Your expenses will not be deleted.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -266,11 +337,11 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
 
         if (context.mounted) {
           Navigator.of(context).pop();
-          AppToast.info(context, 'Envelope deleted');
+          AppToast.success(context, 'Pocket deleted');
         }
       } catch (e) {
         if (context.mounted) {
-          AppToast.info(context, 'Failed to delete envelope: ${e.toString()}');
+          AppToast.error(context, 'Failed to delete Pocket: ${e.toString()}');
         }
       } finally {
         isLoading.value = false;
@@ -296,7 +367,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      isEditing ? 'Edit envelope' : 'Add envelope',
+                      isEditing ? 'Edit Pocket' : 'Add Pocket',
                       style: TextStyle(
                         color: colorScheme.foreground,
                         fontSize: 20,
@@ -333,7 +404,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                     const SizedBox(height: 8),
                     CustomTextField(
                       controller: nameController,
-                      placeholder: 'Envelope name',
+                      placeholder: 'Pocket name',
                     ),
                     const SizedBox(height: 20),
                     _BudgetDistributionPreview(
@@ -341,6 +412,12 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                       allPockets: allPockets,
                       currentPocketId: existingEnvelope?.id,
                       currentAllocation: sliderValue.value,
+                      currentPocketColor: selectedColor.value,
+                      currentPocketName:
+                          (existingEnvelope?.name?.trim().isEmpty ?? true)
+                              ? 'This Pocket'
+                              : existingEnvelope!.name,
+                      currency: currency,
                       colorScheme: colorScheme,
                     ),
                     const SizedBox(height: 20),
@@ -363,59 +440,56 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          Text(
+                            'Allocation',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: colorScheme.mutedForeground,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Allocation',
+                                    formatCurrency(
+                                        totalBudget *
+                                            (sliderValue.value / 100.0),
+                                        currency),
                                     style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                      color: colorScheme.mutedForeground,
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.w700,
+                                      color: colorScheme.foreground,
+                                      letterSpacing: -0.5,
                                     ),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    '${((sliderValue.value / (totalBudget > 0 ? totalBudget : 1)).clamp(0.0, 1.0) * 100).toStringAsFixed(0)}% of budget',
+                                    '${sliderValue.value.toStringAsFixed(1)}%',
                                     style: TextStyle(
-                                      fontSize: 14,
+                                      fontSize: 13,
+                                      color: colorScheme.mutedForeground,
                                       fontWeight: FontWeight.w600,
-                                      color: colorScheme.primary,
                                     ),
                                   ),
                                 ],
                               ),
-                              SizedBox(
-                                width: 120,
-                                child: CustomTextField(
-                                  controller: percentageController,
-                                  keyboardType: TextInputType.number,
-                                  placeholder: '0',
-                                  textAlign: TextAlign.end,
-                                  onChanged: (value) {
-                                    final val = double.tryParse(value);
-                                    if (val != null) {
-                                      sliderValue.value =
-                                          val.clamp(0, effectiveMax);
-                                    }
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 8),
                               Text(
-                                '%',
+                                formatCurrency(totalBudget, currency),
                                 style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: colorScheme.foreground,
+                                  fontSize: 13,
+                                  color: colorScheme.mutedForeground,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 16),
                           SliderTheme(
                             data: SliderThemeData(
                               trackHeight: 6,
@@ -434,7 +508,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                               value: sliderValue.value,
                               min: 0,
                               max: effectiveMax,
-                              divisions: 100,
+                              divisions: 20,
                               onChanged: (value) {
                                 sliderValue.value = value;
                                 percentageController.text =
@@ -691,6 +765,13 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                         separatorBuilder: (_, __) => const SizedBox(width: 12),
                         itemBuilder: (context, index) {
                           final iconName = _presetIcons[index];
+                          final selectedHex = selectedColor.value;
+                          final selectedColorValue = selectedHex != null
+                              ? Color(
+                                  int.parse(selectedHex.replaceFirst('#', ''),
+                                          radix: 16) +
+                                      0xFF000000)
+                              : colorScheme.primary;
 
                           IconData iconData;
                           switch (iconName) {
@@ -755,19 +836,19 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                               height: 44,
                               decoration: BoxDecoration(
                                 color: isSelected
-                                    ? colorScheme.primary.withOpacity(0.1)
+                                    ? selectedColorValue.withOpacity(0.1)
                                     : colorScheme.card,
                                 shape: BoxShape.circle,
                                 border: Border.all(
                                   color: isSelected
-                                      ? colorScheme.primary
+                                      ? selectedColorValue
                                       : colorScheme.border,
                                 ),
                               ),
                               child: Icon(
                                 iconData,
                                 color: isSelected
-                                    ? colorScheme.primary
+                                    ? selectedColorValue
                                     : colorScheme.mutedForeground,
                                 size: 20,
                               ),
@@ -777,26 +858,38 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      child: PrimaryAdaptiveButton(
-                        onPressed: isLoading.value ? null : handleSave,
-                        child: isLoading.value
-                            ? SizedBox(
-                                height: 18,
-                                width: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation(
-                                    colorScheme.primaryForeground,
+                    Opacity(
+                      opacity: isAllocationValid ? 1 : 0.6,
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: PrimaryAdaptiveButton(
+                          onPressed: isLoading.value
+                              ? null
+                              : () {
+                                  if (!isAllocationValid) {
+                                    AppToast.error(context,
+                                        'Allocations must add up to 100% before saving.');
+                                    return;
+                                  }
+                                  handleSave();
+                                },
+                          child: isLoading.value
+                              ? SizedBox(
+                                  height: 18,
+                                  width: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation(
+                                      colorScheme.primaryForeground,
+                                    ),
                                   ),
+                                )
+                              : Text(
+                                  isEditing
+                                      ? context.l10n.saveChanges
+                                      : context.l10n.save,
                                 ),
-                              )
-                            : Text(
-                                isEditing
-                                    ? context.l10n.saveChanges
-                                    : context.l10n.save,
-                              ),
+                        ),
                       ),
                     ),
                     if (isEditing) ...[
@@ -806,7 +899,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                         child: AdaptiveButton.child(
                           onPressed: isLoading.value ? null : handleDelete,
                           child: Text(
-                            'Delete Envelope',
+                            'Delete Pocket',
                             style: TextStyle(
                               color: colorScheme.destructive,
                               fontWeight: FontWeight.w600,
@@ -832,6 +925,9 @@ class _BudgetDistributionPreview extends StatelessWidget {
     required this.allPockets,
     required this.currentPocketId,
     required this.currentAllocation,
+    required this.currentPocketColor,
+    required this.currentPocketName,
+    required this.currency,
     required this.colorScheme,
   });
 
@@ -839,26 +935,45 @@ class _BudgetDistributionPreview extends StatelessWidget {
   final List<PocketEnvelope> allPockets;
   final String? currentPocketId;
   final double currentAllocation;
+  final String? currentPocketColor;
+  final String currentPocketName;
+  final String currency;
   final ColorScheme colorScheme;
 
   @override
   Widget build(BuildContext context) {
     if (totalBudget <= 0) return const SizedBox.shrink();
 
-    // Calculate other pockets' total percentage
-    final otherPocketsTotal = allPockets
-        .where((p) => p.id != currentPocketId)
-        .fold(0.0, (sum, p) => sum + p.percentage);
+    // Build segments for each pocket (others + current)
+    final otherPockets = allPockets.where((p) => p.id != currentPocketId);
+    final segments = <_Segment>[
+      for (final p in otherPockets)
+        _Segment(
+          label: p.name.isEmpty ? 'Pocket' : p.name,
+          percentage: p.percentage,
+          color: _hexOrPrimary(p.color, colorScheme),
+        ),
+      _Segment(
+        label: currentPocketName.isEmpty ? 'This Pocket' : currentPocketName,
+        percentage: currentAllocation,
+        color: _hexOrPrimary(currentPocketColor, colorScheme),
+        isCurrent: true,
+      ),
+    ];
 
-    final totalAllocated = otherPocketsTotal + currentAllocation;
+    final totalAllocated = segments.fold<double>(
+        0.0, (sum, s) => sum + math.max(0, s.percentage));
     final remaining = 100.0 - totalAllocated;
     final isOverBudget = remaining < 0;
 
-    // Calculate percentages for the bar
-    final otherPct = (otherPocketsTotal / 100.0).clamp(0.0, 1.0);
-    final currentPct = (currentAllocation / 100.0).clamp(0.0, 1.0);
-    // If over budget, we scale down to fit or just show full bar with warning
-    // Let's stick to a simple stacked bar where 100% is totalBudget.
+    // Normalize segments to max 100 for display
+    final normalizedSegments = segments
+        .map((s) => s.copyWith(
+            percentage:
+                ((s.percentage / (totalAllocated == 0 ? 1 : totalAllocated)) *
+                        100)
+                    .clamp(0.0, 100.0)))
+        .toList();
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -883,8 +998,8 @@ class _BudgetDistributionPreview extends StatelessWidget {
               ),
               Text(
                 isOverBudget
-                    ? 'Over by ${(remaining.abs()).toStringAsFixed(0)}'
-                    : '${remaining.toStringAsFixed(0)} remaining',
+                    ? 'Over by ${(remaining.abs()).toStringAsFixed(0)}%'
+                    : '${remaining.toStringAsFixed(0)}% remaining',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -904,29 +1019,20 @@ class _BudgetDistributionPreview extends StatelessWidget {
               color: colorScheme.surfaceContainerHighest,
               child: Row(
                 children: [
-                  // Other Pockets Segment
-                  if (otherPct > 0)
-                    Flexible(
-                      flex: (otherPct * 1000).toInt(),
-                      child: Container(
-                        color: colorScheme.muted.withOpacity(0.3),
+                  for (final seg in normalizedSegments)
+                    if (seg.percentage > 0)
+                      Flexible(
+                        flex: (seg.percentage * 10).round(),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          color: seg.isCurrent && isOverBudget
+                              ? colorScheme.error
+                              : seg.color,
+                        ),
                       ),
-                    ),
-                  // Current Pocket Segment (Animated)
-                  if (currentPct > 0)
+                  if (!isOverBudget && remaining > 0)
                     Flexible(
-                      flex: (currentPct * 1000).toInt(),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        color: isOverBudget
-                            ? colorScheme.error
-                            : colorScheme.primary,
-                      ),
-                    ),
-                  // Remaining Space (Implicit via Flex)
-                  if (!isOverBudget && (1.0 - otherPct - currentPct) > 0)
-                    Flexible(
-                      flex: ((1.0 - otherPct - currentPct) * 1000).toInt(),
+                      flex: remaining.clamp(0, 100).round(),
                       child: Container(color: Colors.transparent),
                     ),
                 ],
@@ -934,24 +1040,56 @@ class _BudgetDistributionPreview extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Row(
+          Wrap(
+            spacing: 12,
+            runSpacing: 8,
             children: [
-              _LegendItem(
-                color: colorScheme.muted.withOpacity(0.3),
-                label: 'Others',
-                colorScheme: colorScheme,
-              ),
-              const SizedBox(width: 12),
-              _LegendItem(
-                color: isOverBudget ? colorScheme.error : colorScheme.primary,
-                label: 'This Pocket',
-                colorScheme: colorScheme,
-              ),
+              for (final seg in normalizedSegments)
+                _LegendItem(
+                  color: seg.isCurrent && isOverBudget
+                      ? colorScheme.error
+                      : seg.color,
+                  label: seg.label,
+                  colorScheme: colorScheme,
+                ),             
             ],
           ),
         ],
       ),
     );
+  }
+}
+
+class _Segment {
+  const _Segment({
+    required this.label,
+    required this.percentage,
+    required this.color,
+    this.isCurrent = false,
+  });
+
+  final String label;
+  final double percentage;
+  final Color color;
+  final bool isCurrent;
+
+  _Segment copyWith({double? percentage}) {
+    return _Segment(
+      label: label,
+      percentage: percentage ?? this.percentage,
+      color: color,
+      isCurrent: isCurrent,
+    );
+  }
+}
+
+Color _hexOrPrimary(String? hex, ColorScheme scheme) {
+  if (hex == null || hex.isEmpty) return scheme.primary;
+  try {
+    final value = int.parse(hex.replaceFirst('#', ''), radix: 16);
+    return Color(0xFF000000 | value);
+  } catch (_) {
+    return scheme.primary;
   }
 }
 

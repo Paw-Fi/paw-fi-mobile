@@ -161,7 +161,7 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
             onRefresh: widget.onRefresh,
             child: Padding(
               padding: EdgeInsets.only(
-                  top: PlatformInfo.isIOS26OrHigher() ? 16.0 : 0),
+                  top: PlatformInfo.isIOS26OrHigher() ? 60.0 : 0),
               child: CustomScrollView(
                 slivers: [
                   // Search + filter trigger
