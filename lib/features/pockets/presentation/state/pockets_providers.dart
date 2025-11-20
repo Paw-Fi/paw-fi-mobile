@@ -304,18 +304,64 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
 
       final envIds = envRows.map((e) => e['id'] as String).toList();
 
-      // Load monthly spend per envelope using the helper view
-      final spendRes = await supabase
-          .from('v_envelope_monthly_spend')
-          .select('envelope_id, spent_cents')
-          .inFilter('envelope_id', envIds)
-          .eq('period_month', periodMonth);
-      final spendRows = (spendRes as List?)?.cast<Map<String, dynamic>>() ?? [];
+      // Fetch category links for all envelopes
+      final categoryLinksRes = await supabase
+          .from('envelope_category_links')
+          .select('envelope_id, category')
+          .inFilter('envelope_id', envIds);
+      final categoryLinksRows =
+          (categoryLinksRes as List?)?.cast<Map<String, dynamic>>() ?? [];
+
+      final categoriesByEnvelopeId = <String, List<String>>{};
+      for (final row in categoryLinksRows) {
+        final envId = row['envelope_id'] as String;
+        final category = (row['category'] as String).toLowerCase();
+        categoriesByEnvelopeId
+            .putIfAbsent(envId, () => [])
+            .add(category);
+      }
+
+      // Fetch all expenses for this month and scope
+      var expenseQuery = supabase
+          .from('expenses')
+          .select('amount_cents,category,type,household_id,currency,date')
+          .eq('user_id', authUser.uid)
+          .eq('currency', selectedCurrency)
+          .gte('date', monthStart.toIso8601String())
+          .lt('date', monthEnd.toIso8601String());
+
+      if (isHousehold) {
+        expenseQuery = expenseQuery.eq('household_id', householdId!);
+      } else {
+        expenseQuery = expenseQuery.isFilter('household_id', null);
+      }
+
+      final expensesRes = await expenseQuery;
+      final expensesRows =
+          (expensesRes as List?)?.cast<Map<String, dynamic>>() ?? [];
+
+      // Calculate spent per envelope by filtering expenses by category
       final spentById = <String, double>{};
-      for (final row in spendRows) {
-        final id = row['envelope_id'] as String;
-        final cents = (row['spent_cents'] as num?)?.toDouble() ?? 0;
-        spentById[id] = cents / 100.0;
+      for (final envId in envIds) {
+        final categories = categoriesByEnvelopeId[envId] ?? [];
+        if (categories.isEmpty) {
+          spentById[envId] = 0.0;
+          continue;
+        }
+
+        double totalSpent = 0.0;
+        for (final expense in expensesRows) {
+          final type = (expense['type'] as String?)?.toLowerCase();
+          if (type == 'income') continue;
+          
+          final expenseCategory =
+              (expense['category'] as String? ?? '').toLowerCase();
+          if (categories.contains(expenseCategory)) {
+            final cents = (expense['amount_cents'] as num?)?.toDouble() ?? 0;
+            totalSpent += cents / 100.0;
+          }
+        }
+        spentById[envId] = totalSpent;
       }
 
       final pockets = envRows.map((row) {
@@ -346,25 +392,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
 
       final normalizedPockets = _normalizeToHundred(pockets);
 
-      // Fetch expenses for this month and scope to compute uncategorized totals
-      var expenseQuery = supabase
-          .from('expenses')
-          .select('amount_cents,category,type,household_id,currency,date')
-          .eq('user_id', authUser.uid)
-          .eq('currency', selectedCurrency)
-          .gte('date', monthStart.toIso8601String())
-          .lt('date', monthEnd.toIso8601String());
-
-      if (isHousehold) {
-        expenseQuery = expenseQuery.eq('household_id', householdId!);
-      } else {
-        expenseQuery = expenseQuery.isFilter('household_id', null);
-      }
-
-      final expensesRes = await expenseQuery;
-      final expensesRows =
-          (expensesRes as List?)?.cast<Map<String, dynamic>>() ?? [];
-
+      // Use the already-fetched expenses to compute uncategorized totals
       final expenseTotalsByCategory = <String, double>{};
       final uncategorizedExpensesMap = <String, List<Map<String, dynamic>>>{};
       var totalMonthlySpend = 0.0;
@@ -383,17 +411,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         );
       }
 
-      // Fetch linked categories for loaded envelopes
-      List<Map<String, dynamic>> linksRows = [];
-      if (envIds.isNotEmpty) {
-        final linksRes = await supabase
-            .from('envelope_category_links')
-            .select('envelope_id, category')
-            .inFilter('envelope_id', envIds);
-        linksRows = (linksRes as List?)?.cast<Map<String, dynamic>>() ?? [];
-      }
-
-      final linkedCategories = linksRows
+      // Use the already-fetched category links to determine linked categories
+      final linkedCategories = categoryLinksRows
           .map((r) => (r['category'] as String?)?.toLowerCase() ?? '')
           .where((c) => c.isNotEmpty)
           .toSet();

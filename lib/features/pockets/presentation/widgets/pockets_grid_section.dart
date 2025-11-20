@@ -10,6 +10,7 @@ import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/pockets/presentation/widgets/edit_pocket_envelope_sheet.dart';
 import 'package:moneko/features/pockets/presentation/widgets/liquid_pocket.dart';
+import 'package:moneko/features/pockets/presentation/pages/pocket_details_page.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
@@ -118,8 +119,9 @@ class PocketsGridSection extends HookConsumerWidget {
           totalSpent: totalSpent,
           periodMonth: state.periodMonth,
           previousBudget: state.previousBudget,
-          onReusePrevious:
-              state.previousBudget > 0 ? () => notifier.reusePreviousBudget(state.previousBudget) : null,
+          onReusePrevious: state.previousBudget > 0
+              ? () => notifier.reusePreviousBudget(state.previousBudget)
+              : null,
           colorScheme: colorScheme,
           onTotalChanged: notifier.updateTotalBudget,
           envelopeMode: envelopeMode.value,
@@ -127,7 +129,7 @@ class PocketsGridSection extends HookConsumerWidget {
           currency: selectedCurrency,
           hasSeenHelp: hasSeenEnvelopeModeHelp.value,
           onHelpSeen: markHelpAsSeen,
-        ),       
+        ),
         const SizedBox(height: 24),
 
         // Mode-Specific Content
@@ -206,20 +208,13 @@ class PocketsGridSection extends HookConsumerWidget {
                 onPercentageChanged: (value) =>
                     notifier.updatePocketPercentage(pocket.id, value),
                 onTap: () {
-                  showModalBottomSheet<void>(
-                    context: context,
-                    isScrollControlled: true,
-                    backgroundColor: Colors.transparent,
-                    builder: (sheetContext) {
-                      return EditPocketEnvelopeSheet(
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => PocketDetailsPage(
+                        pocketId: pocket.id,
                         scopeParams: scopeParams,
-                        existingEnvelope: pocket,
-                        budgetId: state.budgetId,
-                        totalBudget: totalBudget,
-                        unallocatedBudget: state.unallocatedSpend,
-                        allPockets: state.editing,
-                      );
-                    },
+                      ),
+                    ),
                   );
                 },
               );
@@ -278,107 +273,104 @@ class _UncategorizedBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final total = uncategorized.fold<double>(0.0, (sum, e) => sum + e.amount);
-     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
-      onTap: () => _showUncategorizedSheet(
-        context,
-        colorScheme,
-        currency,
-        uncategorized,
-        uncategorizedExpenses: uncategorizedExpenses,
-      ),
-      child: Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: isDark
-            ? const Color(0xFF2C1C10) // Very dark orange/brown for dark mode
-            : const Color(0xFFFFF8F0), // Very light orange for light mode
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: isDark
-              ? Colors.orange.withValues(alpha: 0.2)
-              : Colors.orange.withValues(alpha: 0.1),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.orange.withOpacity(0.15),
-              shape: BoxShape.circle,
+        onTap: () => _showUncategorizedSheet(
+              context,
+              colorScheme,
+              currency,
+              uncategorized,
+              uncategorizedExpenses: uncategorizedExpenses,
             ),
-            child: const Icon(
-              Icons.warning_amber_rounded,
-              color: Colors.orange,
-              size: 24,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: isDark
+                ? const Color(
+                    0xFF2C1C10) // Very dark orange/brown for dark mode
+                : const Color(0xFFFFF8F0), // Very light orange for light mode
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: isDark
+                  ? Colors.orange.withValues(alpha: 0.2)
+                  : Colors.orange.withValues(alpha: 0.1),
+              width: 1,
             ),
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                
-                RichText(
-                  text: TextSpan(
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: colorScheme.mutedForeground,
-                      fontFamily:
-                          Theme.of(context).textTheme.bodyMedium?.fontFamily,
-                    ),
-                    children: [
-                      TextSpan(
-                        text: formatCurrency(total, currency),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.warning_amber_rounded,
+                  color: Colors.orange,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    RichText(
+                      text: TextSpan(
                         style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: isDark
-                              ? Colors.orange.shade200
-                              : Colors.orange.shade800,
+                          fontSize: 14,
+                          color: colorScheme.mutedForeground,
+                          fontFamily: Theme.of(context)
+                              .textTheme
+                              .bodyMedium
+                              ?.fontFamily,
                         ),
+                        children: [
+                          TextSpan(
+                            text: formatCurrency(total, currency),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: isDark
+                                  ? Colors.orange.shade200
+                                  : Colors.orange.shade800,
+                            ),
+                          ),
+                          const TextSpan(text: ' '),
+                          TextSpan(
+                            text: 'Unallocated Spend',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: colorScheme.foreground,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                        ],
                       ),
-                      const TextSpan(text: ' '),
-                     TextSpan(
-                  text:'Unallocated Spend',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.foreground,
-                    letterSpacing: -0.3,
-                  ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'You have transactions that are not covered by any pocket.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: colorScheme.mutedForeground.withOpacity(0.7),
+                      ),
+                    ),
+                  ],
                 ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'You have transactions that are not covered by any pocket.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: colorScheme.mutedForeground.withOpacity(0.7),
-                  ),
-                ),
-              ],
-            ),
+              ),
+              Icon(Icons.chevron_right, color: colorScheme.mutedForeground),
+            ],
           ),
-       Icon(Icons.chevron_right, color: colorScheme.mutedForeground),
-        ],
-      ),
-    )
-    );
+        ));
   }
 }
 
-void _showUncategorizedSheet(
-  BuildContext context,
-  ColorScheme colorScheme,
-  String currency,
-  List<UncategorizedCategory> uncategorized,
-  {Map<String, List<Map<String, dynamic>>>? uncategorizedExpenses}
-) {
+void _showUncategorizedSheet(BuildContext context, ColorScheme colorScheme,
+    String currency, List<UncategorizedCategory> uncategorized,
+    {Map<String, List<Map<String, dynamic>>>? uncategorizedExpenses}) {
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -422,7 +414,7 @@ void _showUncategorizedSheet(
               ),
               const SizedBox(height: 8),
               Text(
-                'These categories are not linked to any pocket. Link them to start tracking against your envelopes.',
+                'These categories are not linked to any pocket. Link them to start tracking against your pockets.',
                 style: TextStyle(
                   fontSize: 13,
                   color: colorScheme.mutedForeground,
@@ -438,8 +430,8 @@ void _showUncategorizedSheet(
                   separatorBuilder: (_, __) => const Divider(height: 1),
                   itemBuilder: (context, index) {
                     final item = sorted[index];
-                    final expensesForCategory =
-                        uncategorizedExpenses?[item.category] ??
+                    final expensesForCategory = uncategorizedExpenses?[
+                            item.category] ??
                         uncategorizedExpenses?[item.category.toLowerCase()] ??
                         const [];
                     return AdaptiveExpansionTile(
@@ -462,7 +454,8 @@ void _showUncategorizedSheet(
                       children: expensesForCategory.isEmpty
                           ? [
                               Padding(
-                                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                                padding:
+                                    const EdgeInsets.fromLTRB(12, 0, 12, 12),
                                 child: Text(
                                   'No detailed expenses found for this category.',
                                   style: TextStyle(
@@ -476,7 +469,8 @@ void _showUncategorizedSheet(
                               final desc =
                                   (exp['description'] as String?)?.trim();
                               final amountCents =
-                                  (exp['amount_cents'] as num?)?.toDouble() ?? 0;
+                                  (exp['amount_cents'] as num?)?.toDouble() ??
+                                      0;
                               final dateStr = exp['date'] as String?;
                               DateTime? date;
                               if (dateStr != null) {
@@ -485,14 +479,16 @@ void _showUncategorizedSheet(
                               final isRecurring =
                                   (exp['is_recurring'] as bool?) ?? false;
                               return Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
                                 child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             desc?.isNotEmpty == true
@@ -511,24 +507,32 @@ void _showUncategorizedSheet(
                                                   '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}',
                                                   style: TextStyle(
                                                     fontSize: 12,
-                                                    color: colorScheme.mutedForeground,
+                                                    color: colorScheme
+                                                        .mutedForeground,
                                                   ),
                                                 ),
                                               if (isRecurring) ...[
                                                 const SizedBox(width: 8),
                                                 Container(
-                                                  padding: const EdgeInsets.symmetric(
-                                                      horizontal: 6, vertical: 2),
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                      horizontal: 6,
+                                                      vertical: 2),
                                                   decoration: BoxDecoration(
-                                                    color: colorScheme.primary.withOpacity(0.1),
-                                                    borderRadius: BorderRadius.circular(8),
+                                                    color: colorScheme.primary
+                                                        .withOpacity(0.1),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            8),
                                                   ),
                                                   child: Text(
                                                     'Recurring',
                                                     style: TextStyle(
                                                       fontSize: 10,
-                                                      fontWeight: FontWeight.w700,
-                                                      color: colorScheme.primary,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      color:
+                                                          colorScheme.primary,
                                                     ),
                                                   ),
                                                 ),
@@ -539,7 +543,8 @@ void _showUncategorizedSheet(
                                       ),
                                     ),
                                     Text(
-                                      formatCurrency(amountCents / 100.0, currency),
+                                      formatCurrency(
+                                          amountCents / 100.0, currency),
                                       style: TextStyle(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w700,
@@ -736,10 +741,10 @@ class _PocketsHeaderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final effectiveBudget = totalBudget > 0 ? totalBudget : 0.0;
-     const sliderMin = 0.00;
+    const sliderMin = 0.00;
     const sliderMax = 10000.0;
     final sliderValue = effectiveBudget.clamp(sliderMin, sliderMax).toDouble();
-    final monthLabel = DateFormat('MMMM yyyy').format(periodMonth);
+    final monthLabel = DateFormat('MMM').format(periodMonth);
 
     // Calculate progress
     final progress = effectiveBudget > 0 ? (totalSpent / effectiveBudget) : 0.0;
@@ -757,7 +762,7 @@ class _PocketsHeaderCard extends StatelessWidget {
           width: double.infinity,
           decoration: BoxDecoration(
             color: cardColor,
-            borderRadius: BorderRadius.circular(32),
+            borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withAlpha(isDark ? 3 : 5),
@@ -766,45 +771,26 @@ class _PocketsHeaderCard extends StatelessWidget {
               ),
             ],
           ),
-          padding: const EdgeInsets.only(
-            top: 40,
-            bottom: 24,
-            left: 24,
-            right: 24,
+          padding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 24,
           ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      'Budget for $monthLabel',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: subTextColor,
-                      ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Top Section: Date and Controls
+              Row(
+                children: [
+                  Text(
+                    monthLabel,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: textColor,
                     ),
-                    const Spacer(),
-                    if (previousBudget > 0 && effectiveBudget == 0 && onReusePrevious != null)
-                      TextButton(
-                        onPressed: onReusePrevious,
-                        child: Text(
-                          'Reuse last month (${formatCurrency(previousBudget, currency)})',
-                          style: TextStyle(
-                            color: colorScheme.primary,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                // Middle Section: Budget Amount & Slider
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                  // Envelope Mode Pill - using SAME pattern as working budget text
+                  ),
+                  const Spacer(),
+                  // Envelope Mode Pill
                   GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: () {
@@ -818,34 +804,33 @@ class _PocketsHeaderCard extends StatelessWidget {
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
+                        horizontal: 12,
+                        vertical: 6,
                       ),
                       decoration: BoxDecoration(
                         color: envelopeMode
-                            ? colorScheme.primary.withOpacity(0.15)
-                            : colorScheme.surfaceContainerHighest
-                                .withOpacity(0.3),
-                        borderRadius: BorderRadius.circular(20),
-                        border: envelopeMode
-                            ? Border.all(
-                                color: colorScheme.primary.withOpacity(0.3),
-                                width: 1,
-                              )
-                            : null,
+                            ? colorScheme.primary.withOpacity(0.1)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: colorScheme.outline.withOpacity(0.2),
+                          width: 1,
+                        ),
                       ),
                       child: Text(
                         'Envelope Mode',
                         style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color:
-                              envelopeMode ? colorScheme.primary : subTextColor,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: envelopeMode
+                              ? colorScheme.primary
+                              : colorScheme.foreground,
                         ),
                       ),
                     ),
                   ),
-                  // Help Icon - using SAME pattern as working budget text
+                  const SizedBox(width: 8),
+                  // Help Icon
                   GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: () {
@@ -859,11 +844,11 @@ class _PocketsHeaderCard extends StatelessWidget {
                       );
                     },
                     child: Container(
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.all(4),
                       child: Icon(
                         Icons.help_outline_rounded,
-                        size: 20,
-                        color: subTextColor,
+                        size: 18,
+                        color: colorScheme.foreground,
                       ),
                     ),
                   ),
@@ -947,24 +932,24 @@ class _PocketsHeaderCard extends StatelessWidget {
                 },
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisAlignment: MainAxisAlignment.start,
                   crossAxisAlignment: CrossAxisAlignment.baseline,
                   textBaseline: TextBaseline.alphabetic,
                   children: [
                     Text(
                       formatCurrency(effectiveBudget - totalSpent, currency),
                       style: TextStyle(
-                        fontSize: 48,
+                        fontSize: 32,
                         fontWeight: FontWeight.w700,
                         color: textColor,
-                        letterSpacing: -1.5,
+                        letterSpacing: -0.5,
                       ),
                     ),
                     const SizedBox(width: 4),
                     Text(
                       '/left',
                       style: TextStyle(
-                        fontSize: 24,
+                        fontSize: 16,
                         fontWeight: FontWeight.w500,
                         color: subTextColor,
                       ),
@@ -972,9 +957,8 @@ class _PocketsHeaderCard extends StatelessWidget {
                   ],
                 ),
               ),
-
-              const SizedBox(height: 24),
-
+              const SizedBox(height: 32),
+              // Slider
               AdaptiveSlider(
                 activeColor: colorScheme.primary,
                 value: sliderValue,
@@ -983,10 +967,10 @@ class _PocketsHeaderCard extends StatelessWidget {
                 onChanged: (value) => onTotalChanged(value.roundToDouble()),
                 divisions: ((sliderMax - sliderMin) / 10).round(),
               ),
-
+              const SizedBox(height: 8),
               // Min/Max Labels
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -1084,6 +1068,7 @@ class _PocketsHeaderCard extends StatelessWidget {
     );
   }
 }
+
 class _AddEnvelopeCard extends StatelessWidget {
   const _AddEnvelopeCard({
     required this.colorScheme,
@@ -1405,19 +1390,6 @@ class _PocketCard extends StatelessWidget {
                           ],
                         ),
                       ),
-                      if (envelopeMode) ...[
-                        const SizedBox(height: 12), 
-                        SizedBox(
-                          height: 20,
-                          child:  AdaptiveSlider(
-                              value: pocket.percentage.clamp(0, 100).toDouble(),
-                              min: 0,
-                              max: 100,
-                              divisions: 100,
-                              onChanged: (value) => onPercentageChanged(value),
-                            ),
-                          ),                       
-                      ],
                     ],
                   ),
                 ),
@@ -1566,12 +1538,11 @@ void _showEnvelopeModeSettingsModal(
                       ],
                     ),
                   ),
-                  AdaptiveSwitch(
+                  Switch(
                     value: envelopeMode,
                     onChanged: (value) {
                       onEnvelopeModeChanged(value);
                     },
-                    activeColor: colorScheme.primary,
                   ),
                 ],
               ),
@@ -1616,6 +1587,7 @@ void _showEnvelopeModeSettingsModal(
     ),
   );
 }
+
 class _InfoRow extends StatelessWidget {
   const _InfoRow({
     required this.icon,

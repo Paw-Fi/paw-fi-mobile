@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -19,6 +17,7 @@ import 'package:moneko/features/home/presentation/state/home_filter_provider.dar
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/shared/widgets/plain-adaptive-button.dart';
 import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 
 const _presetIcons = [
@@ -93,14 +92,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
     final selectedColor = useState<String?>(existingEnvelope?.color);
     final selectedIcon = useState<String?>(existingEnvelope?.icon);
     final isLoading = useState<bool>(false);
-    final currency = selectedCurrency ?? 'USD';
-    final currentPocketId = existingEnvelope?.id;
-    final otherPocketsTotal = allPockets
-        .where((p) => p.id != currentPocketId)
-        .fold<double>(0.0, (sum, p) => sum + p.percentage);
-    final totalAllocationNow = otherPocketsTotal + sliderValue.value;
-    final allocationDelta = (totalAllocationNow - 100.0).abs();
-    final isAllocationValid = allocationDelta < 0.01;
+    final currency = selectedCurrency;
 
     useEffect(() {
       if (!isEditing) {
@@ -140,12 +132,6 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
 
       if (percentageText.isEmpty) {
         AppToast.error(context, 'Please enter a percentage');
-        return;
-      }
-
-      if (!isAllocationValid) {
-        AppToast.error(
-            context, 'Allocations must add up to 100% before saving.');
         return;
       }
 
@@ -303,29 +289,23 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
     Future<void> handleDelete() async {
       if (!isEditing) return;
 
-      final confirmed = await showDialog<bool>(
+     AdaptiveAlertDialog.show(
         context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Delete Pocket?'),
-          content: const Text(
-              'This will remove the Pocket and its category links. Your expenses will not be deleted.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              style: TextButton.styleFrom(
-                  foregroundColor: colorScheme.destructive),
-              child: const Text('Delete'),
-            ),
-          ],
-        ),
-      );
-
-      if (confirmed != true) return;
-
+        title: 'Delete Pocket?',
+        message: 'This will remove the Pocket and its category links. Your expenses will not be deleted.',
+        icon: 'trash.fill',
+        actions: [
+          AlertAction(
+            title: 'Cancel',
+            onPressed: () {
+              Navigator.of(context).pop(false);
+            },
+          ),
+          AlertAction(
+            title: 'Delete',
+            style: AlertActionStyle.destructive,
+            onPressed: () async {
+          
       isLoading.value = true;
       try {
         await supabase
@@ -346,6 +326,10 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
       } finally {
         isLoading.value = false;
       }
+            },
+          ),
+        ],
+      );
     }
 
     return Container(
@@ -414,7 +398,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                       currentAllocation: sliderValue.value,
                       currentPocketColor: selectedColor.value,
                       currentPocketName:
-                          (existingEnvelope?.name?.trim().isEmpty ?? true)
+                          (existingEnvelope?.name.trim().isEmpty ?? true)
                               ? 'This Pocket'
                               : existingEnvelope!.name,
                       currency: currency,
@@ -858,48 +842,36 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    Opacity(
-                      opacity: isAllocationValid ? 1 : 0.6,
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: PrimaryAdaptiveButton(
-                          onPressed: isLoading.value
-                              ? null
-                              : () {
-                                  if (!isAllocationValid) {
-                                    AppToast.error(context,
-                                        'Allocations must add up to 100% before saving.');
-                                    return;
-                                  }
-                                  handleSave();
-                                },
-                          child: isLoading.value
-                              ? SizedBox(
-                                  height: 18,
-                                  width: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation(
-                                      colorScheme.primaryForeground,
-                                    ),
+                    SizedBox(
+                      width: double.infinity,
+                      child: PrimaryAdaptiveButton(
+                        onPressed: isLoading.value ? null : handleSave,
+                        child: isLoading.value
+                            ? SizedBox(
+                                height: 18,
+                                width: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation(
+                                    colorScheme.primaryForeground,
                                   ),
-                                )
-                              : Text(
-                                  isEditing
-                                      ? context.l10n.saveChanges
-                                      : context.l10n.save,
                                 ),
-                        ),
+                              )
+                            : Text(
+                                isEditing
+                                    ? context.l10n.saveChanges
+                                    : context.l10n.save,
+                              ),
                       ),
                     ),
                     if (isEditing) ...[
                       const SizedBox(height: 16),
                       SizedBox(
                         width: double.infinity,
-                        child: AdaptiveButton.child(
+                        child: PlainAdaptiveButton(
                           onPressed: isLoading.value ? null : handleDelete,
                           child: Text(
-                            'Delete Pocket',
+                            context.l10n.delete,
                             style: TextStyle(
                               color: colorScheme.destructive,
                               fontWeight: FontWeight.w600,
@@ -944,36 +916,52 @@ class _BudgetDistributionPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     if (totalBudget <= 0) return const SizedBox.shrink();
 
-    // Build segments for each pocket (others + current)
-    final otherPockets = allPockets.where((p) => p.id != currentPocketId);
+    // Calculate rebalanced percentages (what will actually be saved)
+    final otherPockets = allPockets.where((p) => p.id != currentPocketId).toList();
+    final desiredPct = currentAllocation.clamp(0, 100);
+    final targetOtherTotal = (100 - desiredPct).clamp(0, 100);
+    final totalOther = otherPockets.fold<double>(0.0, (sum, p) => sum + p.percentage);
+
+    // Calculate adjusted percentages for other pockets
+    final rebalancedOthers = <String, double>{};
+    if (otherPockets.isEmpty) {
+      // Only current pocket, it gets 100%
+    } else if (totalOther <= 0) {
+      // Distribute evenly among other pockets
+      final even = targetOtherTotal / otherPockets.length;
+      for (var p in otherPockets) {
+        rebalancedOthers[p.id] = even;
+      }
+    } else {
+      // Proportionally reduce other pockets
+      final factor = targetOtherTotal / totalOther;
+      for (var p in otherPockets) {
+        rebalancedOthers[p.id] = (p.percentage * factor).clamp(0, 100);
+      }
+    }
+
+    // Build segments with rebalanced percentages
     final segments = <_Segment>[
       for (final p in otherPockets)
         _Segment(
           label: p.name.isEmpty ? 'Pocket' : p.name,
-          percentage: p.percentage,
+          percentage: rebalancedOthers[p.id] ?? 0,
           color: _hexOrPrimary(p.color, colorScheme),
         ),
       _Segment(
         label: currentPocketName.isEmpty ? 'This Pocket' : currentPocketName,
-        percentage: currentAllocation,
+        percentage: (otherPockets.isEmpty ? 100 : desiredPct).toDouble(),
         color: _hexOrPrimary(currentPocketColor, colorScheme),
         isCurrent: true,
       ),
     ];
 
-    final totalAllocated = segments.fold<double>(
-        0.0, (sum, s) => sum + math.max(0, s.percentage));
-    final remaining = 100.0 - totalAllocated;
-    final isOverBudget = remaining < 0;
+    // Since we're showing rebalanced percentages, they should always add up to 100
+    final totalRebalanced = segments.fold<double>(0.0, (sum, s) => sum + s.percentage);
+    final remaining = (100.0 - totalRebalanced).clamp(0, 100);
 
-    // Normalize segments to max 100 for display
-    final normalizedSegments = segments
-        .map((s) => s.copyWith(
-            percentage:
-                ((s.percentage / (totalAllocated == 0 ? 1 : totalAllocated)) *
-                        100)
-                    .clamp(0.0, 100.0)))
-        .toList();
+    // For display, segments should already be balanced to 100%
+    final normalizedSegments = segments;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -997,15 +985,13 @@ class _BudgetDistributionPreview extends StatelessWidget {
                 ),
               ),
               Text(
-                isOverBudget
-                    ? 'Over by ${(remaining.abs()).toStringAsFixed(0)}%'
-                    : '${remaining.toStringAsFixed(0)}% remaining',
+                remaining.abs() < 0.1
+                    ? 'Balanced'
+                    : '${remaining.toStringAsFixed(1)}% remaining',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: isOverBudget
-                      ? colorScheme.error
-                      : colorScheme.mutedForeground,
+                  color: colorScheme.mutedForeground,
                 ),
               ),
             ],
@@ -1025,12 +1011,10 @@ class _BudgetDistributionPreview extends StatelessWidget {
                         flex: (seg.percentage * 10).round(),
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
-                          color: seg.isCurrent && isOverBudget
-                              ? colorScheme.error
-                              : seg.color,
+                          color: seg.color,
                         ),
                       ),
-                  if (!isOverBudget && remaining > 0)
+                  if (remaining > 0)
                     Flexible(
                       flex: remaining.clamp(0, 100).round(),
                       child: Container(color: Colors.transparent),
@@ -1046,9 +1030,7 @@ class _BudgetDistributionPreview extends StatelessWidget {
             children: [
               for (final seg in normalizedSegments)
                 _LegendItem(
-                  color: seg.isCurrent && isOverBudget
-                      ? colorScheme.error
-                      : seg.color,
+                  color: seg.color,
                   label: seg.label,
                   colorScheme: colorScheme,
                 ),             

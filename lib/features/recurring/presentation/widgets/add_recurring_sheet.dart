@@ -1,3 +1,4 @@
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -21,8 +22,6 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
-import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
-import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 
 /// Modern bottom sheet for adding/editing recurring transactions
 /// Apple-inspired design with clean animations and intuitive UX
@@ -379,16 +378,58 @@ class AddRecurringSheet extends HookConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Type toggle (adaptive segmented control)
-                  AdaptiveSegmentedControl(
-                    labels: [
-                      context.l10n.expenses,
-                      context.l10n.income,
-                    ],
-                    selectedIndex: isExpense ? 0 : 1,
-                    onValueChanged: (index) {
-                      selectedType.value = index == 0 ? 'expense' : 'income';
-                    },
+                  // Type toggle
+                  Container(
+                    decoration: BoxDecoration(
+                      color: colorScheme.muted.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => selectedType.value = 'expense',
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                color: isExpense ? colorScheme.primary : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                context.l10n.expenses,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: isExpense ? Colors.white : colorScheme.foreground,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => selectedType.value = 'income',
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                color: !isExpense ? colorScheme.primary : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                context.l10n.income,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: !isExpense ? Colors.white : colorScheme.foreground,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
       
                   const SizedBox(height: 20),
@@ -396,16 +437,41 @@ class AddRecurringSheet extends HookConsumerWidget {
                   // Amount input
                   _buildLabel(context.l10n.amount, colorScheme),
                   const SizedBox(height: 8),
-                  AdaptiveTextField(
+                  TextField(
                     controller: amountController,
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
-                    placeholder: '0.00',
                     textAlign: TextAlign.end,
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
                       color: colorScheme.foreground,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: '0.00',
+                      hintStyle: TextStyle(
+                        color: colorScheme.mutedForeground,
+                      ),
+                      filled: true,
+                      fillColor: colorScheme.muted.withValues(alpha: 0.08),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(
+                          color: colorScheme.border.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(
+                          color: colorScheme.border.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(
+                          color: colorScheme.primary,
+                        ),
+                      ),
                     ),
                   ),
       
@@ -567,8 +633,9 @@ class AddRecurringSheet extends HookConsumerWidget {
                       ),
                       child: Row(
                         children: [
-                          AdaptiveCheckbox(
+                          Checkbox(
                             value: hasEndDate.value,
+                            activeColor: colorScheme.primary,
                             onChanged: (value) {
                               final checked = value ?? false;
                               hasEndDate.value = checked;
@@ -623,10 +690,38 @@ class AddRecurringSheet extends HookConsumerWidget {
                   // Description
                   _buildLabel(context.l10n.descriptionOptional, colorScheme),
                   const SizedBox(height: 8),
-                  AdaptiveTextField(
+                  TextField(
                     controller: descriptionController,
-                    placeholder: context.l10n.addANote,
                     maxLines: 2,
+                    style: TextStyle(
+                      color: colorScheme.foreground,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: context.l10n.addANote,
+                      hintStyle: TextStyle(
+                        color: colorScheme.mutedForeground,
+                      ),
+                      filled: true,
+                      fillColor: colorScheme.muted.withValues(alpha: 0.08),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(
+                          color: colorScheme.border.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(
+                          color: colorScheme.border.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(
+                          color: colorScheme.primary,
+                        ),
+                      ),
+                    ),
                   ),
       
                   // Source (for income only)
@@ -634,9 +729,37 @@ class AddRecurringSheet extends HookConsumerWidget {
                     const SizedBox(height: 20),
                     _buildLabel(context.l10n.sourceOptional, colorScheme),
                     const SizedBox(height: 8),
-                    AdaptiveTextField(
+                    TextField(
                       controller: sourceController,
-                      placeholder: context.l10n.companyNameClientNameExample,
+                      style: TextStyle(
+                        color: colorScheme.foreground,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: context.l10n.companyNameClientNameExample,
+                        hintStyle: TextStyle(
+                          color: colorScheme.mutedForeground,
+                        ),
+                        filled: true,
+                        fillColor: colorScheme.muted.withValues(alpha: 0.08),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: colorScheme.border.withValues(alpha: 0.2),
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: colorScheme.border.withValues(alpha: 0.2),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: colorScheme.primary,
+                          ),
+                        ),
+                      ),
                     ),
                   ],
       
@@ -659,8 +782,9 @@ class AddRecurringSheet extends HookConsumerWidget {
                       ),
                       child: Row(
                         children: [
-                          AdaptiveCheckbox(
+                          Checkbox(
                             value: hasReminder.value,
+                            activeColor: colorScheme.primary,
                             onChanged: (value) {
                               hasReminder.value = value ?? false;
                             },
@@ -703,17 +827,43 @@ class AddRecurringSheet extends HookConsumerWidget {
                         // Build UI components
                         final valueInput = SizedBox(
                           width: 80,
-                          child: AdaptiveTextField(
+                          child: TextField(
                             controller: TextEditingController(
                               text: reminderValue.value.toString(),
                             ),
                             keyboardType: TextInputType.number,
-                            placeholder: '1',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                               color: colorScheme.foreground,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: '1',
+                              hintStyle: TextStyle(
+                                color: colorScheme.mutedForeground,
+                              ),
+                              filled: true,
+                              fillColor: colorScheme.muted.withValues(alpha: 0.08),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(
+                                  color: colorScheme.border.withValues(alpha: 0.2),
+                                ),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(
+                                  color: colorScheme.border.withValues(alpha: 0.2),
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(
+                                  color: colorScheme.primary,
+                                ),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                             ),
                             onChanged: (value) {
                               final parsed = int.tryParse(value);
@@ -859,12 +1009,20 @@ class AddRecurringSheet extends HookConsumerWidget {
                   const SizedBox(height: 24),
                   SizedBox(
                     width: double.infinity,
-                    child: PrimaryAdaptiveButton(
+                    child: ElevatedButton(
                       onPressed: isLoading.value
                           ? null
                           : () {
                               handleSave();
                             },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: colorScheme.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
                       child: isLoading.value
                           ? const SizedBox(
                               width: 20,
@@ -880,6 +1038,10 @@ class AddRecurringSheet extends HookConsumerWidget {
                               isEditing
                                   ? context.l10n.updateRecurringTransaction
                                   : context.l10n.addRecurringTransaction,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                     ),
                   ),
@@ -968,10 +1130,15 @@ class AddRecurringSheet extends HookConsumerWidget {
     ValueNotifier<bool> isSharedWithHousehold,
     ValueNotifier<String?> selectedHouseholdId,
   ) {
-    return AdaptiveCard(
+    return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      borderRadius: BorderRadius.circular(12),
-      color: colorScheme.card,
+      decoration: BoxDecoration(
+        color: colorScheme.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: colorScheme.border.withValues(alpha: 0.2),
+        ),
+      ),
       child: Row(
         children: [
           Expanded(
@@ -986,6 +1153,7 @@ class AddRecurringSheet extends HookConsumerWidget {
           ),
           AdaptiveSwitch(
             value: isSharedWithHousehold.value,
+            activeColor: colorScheme.primary,
             onChanged: (value) {
               if (!value) {
                 isSharedWithHousehold.value = false;
@@ -1046,32 +1214,39 @@ class AddRecurringSheet extends HookConsumerWidget {
                     const SizedBox(height: 8),
                     if (isSharedWithHousehold.value)
                       DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value:
-                              selectedHouseholdId.value ?? households.first.id,
-                          isExpanded: true,
-                          icon: Icon(
-                            Icons.arrow_drop_down,
-                            color: colorScheme.foreground,
+                        child: IntrinsicWidth(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(
+                              maxWidth: 200, // Maximum width to prevent overflow
+                            ),
+                            child: DropdownButton<String>(
+                              value:
+                                  selectedHouseholdId.value ?? households.first.id,
+                              isExpanded: true,
+                              icon: Icon(
+                                Icons.arrow_drop_down,
+                                color: colorScheme.foreground,
+                              ),
+                              items: households
+                                  .map(
+                                    (h) => DropdownMenuItem<String>(
+                                      value: h.id,
+                                      child: Text(
+                                        h.name,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (value) {
+                                if (value == null) return;
+                                selectedHouseholdId.value = value;
+                                // Reset splits when switching households
+                                customSplitType.value = null;
+                                customSplits.value = null;
+                              },
+                            ),
                           ),
-                          items: households
-                              .map(
-                                (h) => DropdownMenuItem<String>(
-                                  value: h.id,
-                                  child: Text(
-                                    h.name,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: (value) {
-                            if (value == null) return;
-                            selectedHouseholdId.value = value;
-                            // Reset splits when switching households
-                            customSplitType.value = null;
-                            customSplits.value = null;
-                          },
                         ),
                       ),
                   ],

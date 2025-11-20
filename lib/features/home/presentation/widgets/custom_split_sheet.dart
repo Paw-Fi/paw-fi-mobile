@@ -674,7 +674,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
           // More rounded checkbox
           if (showCheckbox)
             Padding(
-              padding: const EdgeInsets.only(right: 0),
+              padding: const EdgeInsets.only(right: 10),
               child: AdaptiveCheckbox(
                 value: isIncluded,
                 onChanged: (value) {
