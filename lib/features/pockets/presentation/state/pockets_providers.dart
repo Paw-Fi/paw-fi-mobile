@@ -37,7 +37,6 @@ class PocketsState {
     this.error,
     required this.saved,
     required this.editing,
-    required this.explicitIds,
     required this.totalBudget,
     required this.unallocatedSpend,
   });
@@ -46,7 +45,6 @@ class PocketsState {
   final String? error;
   final List<PocketEnvelope> saved;
   final List<PocketEnvelope> editing;
-  final Set<String> explicitIds; // pockets directly adjusted by user
   final double totalBudget;
   final double unallocatedSpend;
 
@@ -54,7 +52,7 @@ class PocketsState {
     if (saved.length != editing.length) return true;
     for (var i = 0; i < saved.length; i++) {
       if (saved[i].id != editing[i].id ||
-          saved[i].limit != editing[i].limit ||
+          saved[i].percentage != editing[i].percentage ||
           saved[i].spent != editing[i].spent) {
         return true;
       }
@@ -64,12 +62,14 @@ class PocketsState {
 
   double get totalSpent => editing.fold<double>(0, (sum, p) => sum + p.spent);
 
+  double get totalPercentage =>
+      editing.fold<double>(0, (sum, p) => sum + p.percentage);
+
   PocketsState copyWith({
     bool? isLoading,
     String? error,
     List<PocketEnvelope>? saved,
     List<PocketEnvelope>? editing,
-    Set<String>? explicitIds,
     double? totalBudget,
     double? unallocatedSpend,
     bool clearError = false,
@@ -79,7 +79,6 @@ class PocketsState {
       error: clearError ? null : (error ?? this.error),
       saved: saved ?? this.saved,
       editing: editing ?? this.editing,
-      explicitIds: explicitIds ?? this.explicitIds,
       totalBudget: totalBudget ?? this.totalBudget,
       unallocatedSpend: unallocatedSpend ?? this.unallocatedSpend,
     );
@@ -90,7 +89,6 @@ class PocketsState {
         error: null,
         saved: [],
         editing: [],
-        explicitIds: {},
         totalBudget: 0,
         unallocatedSpend: 0,
       );
@@ -125,7 +123,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
 
       final baseQuery = supabase
           .from('budget_envelopes')
-          .select('id,name,monthly_target_cents,household_id,currency')
+          .select('id,name,budget_percentage,household_id,currency,icon,color')
           .eq('user_id', authUser.uid)
           .eq('currency', selectedCurrency);
 
@@ -143,7 +141,6 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           error: null,
           saved: const [],
           editing: const [],
-          explicitIds: <String>{},
           totalBudget: 0,
           unallocatedSpend: 0,
         );
@@ -169,25 +166,33 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       final pockets = envRows.map((row) {
         final id = row['id'] as String;
         final name = row['name'] as String? ?? '';
-        final monthlyTargetCents =
-            (row['monthly_target_cents'] as num?)?.toDouble() ?? 0;
-        final limit = monthlyTargetCents / 100.0;
+        final percentage =
+            (row['budget_percentage'] as num?)?.toDouble() ?? 0.0;
         final spent = spentById[id] ?? 0;
         final hhId = row['household_id'] as String?;
         final currency = row['currency'] as String? ?? selectedCurrency;
+        final icon = row['icon'] as String?;
+        final color = row['color'] as String?;
 
         return PocketEnvelope(
           id: id,
           name: name,
-          limit: limit,
+          percentage: percentage,
           spent: spent,
           currency: currency,
+          icon: icon,
+          color: color,
           householdId: hhId,
           lastUpdated: DateTime.now(),
         );
       }).toList();
 
-      final totalBudget = pockets.fold<double>(0, (sum, p) => sum + p.limit);
+      // Calculate total budget from user preferences or default
+      // For now, we'll use a default or fetch from user settings
+      // TODO: Store total budget in user preferences
+      final totalBudget =
+          1000.0; // Default, should be fetched from user settings
+
       final totalEnvelopeSpend =
           pockets.fold<double>(0, (sum, p) => sum + p.spent);
 
@@ -207,7 +212,6 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         error: null,
         saved: pockets,
         editing: pockets.map((p) => p.copyWith()).toList(),
-        explicitIds: <String>{},
         totalBudget: totalBudget,
         unallocatedSpend: unallocatedSpend,
       );
@@ -216,84 +220,110 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     }
   }
 
+  /// Update total budget - percentages stay the same!
   void updateTotalBudget(double newTotal) {
-    if (newTotal <= 0 || state.editing.isEmpty) return;
-    final oldTotal = state.totalBudget == 0 ? newTotal : state.totalBudget;
-    final ratio = newTotal / oldTotal;
-    final updated =
-        state.editing.map((p) => p.copyWith(limit: p.limit * ratio)).toList();
-    state = state.copyWith(
-      editing: updated,
-      totalBudget: newTotal,
-    );
+    if (newTotal < 0) return;
+    state = state.copyWith(totalBudget: newTotal);
   }
 
-  void updatePocketLimit(String id, double newLimit) {
+  /// Update a pocket's percentage allocation
+  /// Redistributes the difference proportionally to other pockets
+  void updatePocketPercentage(String id, double newPercentage) {
     if (state.editing.isEmpty) return;
 
     final pockets = [...state.editing];
     final index = pockets.indexWhere((p) => p.id == id);
     if (index == -1) return;
 
-    newLimit = math.max(0, newLimit);
+    // Clamp to 0-100
+    newPercentage = newPercentage.clamp(0.0, 100.0);
 
-    final explicit = {...state.explicitIds}..add(id);
+    final currentPercentage = pockets[index].percentage;
+    if (currentPercentage == newPercentage) return;
 
-    pockets[index] = pockets[index].copyWith(limit: newLimit);
+    final delta = newPercentage - currentPercentage;
 
-    final totalBudget = state.totalBudget;
-    if (totalBudget <= 0) {
-      final recalculatedTotal =
-          pockets.fold<double>(0, (sum, p) => sum + p.limit);
-      state = state.copyWith(
-        editing: pockets,
-        explicitIds: explicit,
-        totalBudget: recalculatedTotal,
-      );
+    // If there's only one pocket, just set it to 100%
+    if (pockets.length == 1) {
+      pockets[0] = pockets[0].copyWith(percentage: 100.0);
+      state = state.copyWith(editing: pockets);
       return;
     }
 
-    final explicitTotal = pockets
-        .where((p) => explicit.contains(p.id))
-        .fold<double>(0, (sum, p) => sum + p.limit);
+    // Update the target pocket
+    pockets[index] = pockets[index].copyWith(percentage: newPercentage);
 
-    var remaining = math.max(0, totalBudget - explicitTotal);
-
-    final nonExplicitIndices = <int>[];
+    // Calculate sum of other pockets' percentages
+    var sumOther = 0.0;
     for (var i = 0; i < pockets.length; i++) {
-      if (!explicit.contains(pockets[i].id)) {
-        nonExplicitIndices.add(i);
-      }
+      if (i != index) sumOther += pockets[i].percentage;
     }
 
-    if (nonExplicitIndices.isEmpty) {
-      // All pockets are explicit; clamp the last edited pocket if overflow.
-      if (explicitTotal > totalBudget) {
-        final overflow = explicitTotal - totalBudget;
-        final current = pockets[index].limit;
-        pockets[index] =
-            pockets[index].copyWith(limit: math.max(0, current - overflow));
+    // Redistribute -delta to other pockets proportionally
+    if (sumOther > 0) {
+      for (var i = 0; i < pockets.length; i++) {
+        if (i != index) {
+          final ratio = pockets[i].percentage / sumOther;
+          final adjustment = -delta * ratio;
+          var newPct = pockets[i].percentage + adjustment;
+          // Ensure non-negative
+          newPct = math.max(0.0, newPct);
+          pockets[i] = pockets[i].copyWith(percentage: newPct);
+        }
       }
     } else {
-      final perPocket = remaining / nonExplicitIndices.length;
-      for (final i in nonExplicitIndices) {
-        pockets[i] = pockets[i].copyWith(limit: perPocket);
+      // All other pockets are 0, distribute remaining equally
+      final remaining = 100.0 - newPercentage;
+      final othersCount = pockets.length - 1;
+      if (othersCount > 0) {
+        final perPocket = remaining / othersCount;
+        for (var i = 0; i < pockets.length; i++) {
+          if (i != index) {
+            pockets[i] = pockets[i].copyWith(percentage: perPocket);
+          }
+        }
       }
     }
 
-    state = state.copyWith(
-      editing: pockets,
-      explicitIds: explicit,
-    );
+    // Normalize to ensure sum = 100
+    _normalizePercentages(pockets, index);
+
+    state = state.copyWith(editing: pockets);
+  }
+
+  /// Ensure all percentages sum to exactly 100
+  /// Adjusts other pockets (not the one at excludeIndex) to make up the difference
+  void _normalizePercentages(List<PocketEnvelope> pockets, int excludeIndex) {
+    var total = pockets.fold<double>(0, (sum, p) => sum + p.percentage);
+    var error = 100.0 - total;
+
+    if (error.abs() < 0.01) return; // Close enough
+
+    // Distribute error to pockets other than excludeIndex
+    // Prioritize largest pockets to minimize relative impact
+    final indices = List.generate(pockets.length, (i) => i)
+        .where((i) => i != excludeIndex)
+        .toList();
+    indices
+        .sort((a, b) => pockets[b].percentage.compareTo(pockets[a].percentage));
+
+    for (final i in indices) {
+      if (error.abs() < 0.01) break;
+
+      final adjustment = error > 0 ? 0.01 : -0.01;
+      final newPct = pockets[i].percentage + adjustment;
+
+      if (newPct >= 0 && newPct <= 100) {
+        pockets[i] = pockets[i].copyWith(percentage: newPct);
+        error -= adjustment;
+      }
+    }
   }
 
   Future<void> revertChanges() async {
     final restored = state.saved.map((p) => p.copyWith()).toList();
-    final totalBudget = restored.fold<double>(0, (sum, p) => sum + p.limit);
     state = state.copyWith(
       editing: restored,
-      explicitIds: <String>{},
-      totalBudget: totalBudget,
       clearError: true,
     );
   }
@@ -303,9 +333,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     try {
       final editing = state.editing;
       for (final p in editing) {
-        final cents = (p.limit * 100).round();
         await supabase.from('budget_envelopes').update(<String, dynamic>{
-          'monthly_target_cents': cents,
+          'budget_percentage': p.percentage,
           'updated_at': DateTime.now().toIso8601String(),
         }).eq('id', p.id);
       }

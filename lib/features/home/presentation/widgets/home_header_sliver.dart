@@ -13,6 +13,7 @@ import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 
 /// Header for pages that includes:
 /// - Profile/Household cover photo
@@ -64,9 +65,7 @@ class HomeHeaderSliver extends ConsumerWidget {
                 ),
               ),
               subtitle: Text(
-                viewMode.mode == ViewMode.personal
-                    ? context.l10n.forMe
-                    : context.l10n.forUs,
+                '${ref.watch(homeFilterProvider).selectedCurrency ?? 'USD'} • ${ref.watch(homeFilterProvider).dateRangeFilter.getLabel(context)}',
                 style: TextStyle(
                   fontSize: 13,
                   color: colorScheme.mutedForeground,
@@ -75,7 +74,6 @@ class HomeHeaderSliver extends ConsumerWidget {
               ),
             ),
           ),
-          const SizedBox(width: 12),
           _AccountTypeSwitch(
             viewMode: viewMode,
             colorScheme: colorScheme,

@@ -11,8 +11,8 @@ import 'package:intl/intl.dart';
 import 'dart:ui' as ui;
 import 'package:flutter/cupertino.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+import 'package:moneko/shared/widgets/subtle_adaptive_button.dart';
 
 /// Supported sentence word orders for arranging the scenario inputs
 enum _WordOrder { svo, sov, vso, v2 }
@@ -636,7 +636,7 @@ class _ScenarioPlanningTabContentState
                         );
                       }();
 
-                      final dateButton = shadcnui.OutlineButton(
+                      final dateButton = SubtleAdaptiveButton(
                         onPressed: () => _pickTargetDate(context),
                         child: Text(_scenarioDate == null
                             ? context.l10n.pickDate

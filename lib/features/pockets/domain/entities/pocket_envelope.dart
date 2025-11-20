@@ -5,7 +5,7 @@ class PocketEnvelope {
   PocketEnvelope({
     required this.id,
     required this.name,
-    required this.limit,
+    required this.percentage,
     required this.spent,
     required this.currency,
     this.icon,
@@ -18,35 +18,48 @@ class PocketEnvelope {
     return PocketEnvelope(
       id: json['id'] as String,
       name: json['name'] as String,
-      limit: (json['monthly_target_cents'] as num).toDouble() / 100.0,
-      spent: (json['spent_cents'] as num).toDouble() / 100.0,
+      percentage: (json['budget_percentage'] as num?)?.toDouble() ?? 0.0,
+      spent: ((json['spent_cents'] as num?) ?? 0.0).toDouble() / 100.0,
       currency: json['currency'] as String? ?? 'USD',
       icon: json['icon'] as String?,
       color: json['color'] as String?,
       householdId: json['household_id'] as String?,
-      lastUpdated: DateTime.parse(json['last_updated'] as String),
+      lastUpdated: json['last_updated'] != null
+          ? DateTime.parse(json['last_updated'] as String)
+          : DateTime.now(),
     );
   }
 
   final String id;
   final String name;
-  final double limit; // monthly target in major units
-  final double spent; // spent amount in major units
+  final double percentage; // Budget allocation as percentage (0-100)
+  final double spent; // Spent amount in major units
   final String currency;
   final String? icon;
   final String? color;
   final String? householdId;
   final DateTime lastUpdated;
 
-  double get progress => limit == 0 ? 1.0 : (spent / limit).clamp(0.0, 1.0);
+  /// Calculate the actual limit based on total budget
+  double getLimit(double totalBudget) {
+    return (totalBudget * percentage / 100).roundToDouble();
+  }
 
-  bool get isOverBudget => spent > limit;
+  double getProgress(double totalBudget) {
+    final limit = getLimit(totalBudget);
+    return limit == 0 ? 1.0 : (spent / limit).clamp(0.0, 1.0);
+  }
 
-  bool get isNearLimit => !isOverBudget && spent >= limit * 0.85;
+  bool isOverBudget(double totalBudget) => spent > getLimit(totalBudget);
 
-  Color statusColor(Color safeColor) {
-    if (isOverBudget) return Colors.redAccent;
-    if (isNearLimit) return Colors.orangeAccent;
+  bool isNearLimit(double totalBudget) {
+    final limit = getLimit(totalBudget);
+    return !isOverBudget(totalBudget) && spent >= limit * 0.85;
+  }
+
+  Color statusColor(Color safeColor, double totalBudget) {
+    if (isOverBudget(totalBudget)) return Colors.redAccent;
+    if (isNearLimit(totalBudget)) return Colors.orangeAccent;
     return safeColor;
   }
 
@@ -54,7 +67,7 @@ class PocketEnvelope {
     return {
       'id': id,
       'name': name,
-      'monthly_target_cents': (limit * 100).toInt(),
+      'budget_percentage': percentage,
       'spent_cents': (spent * 100).toInt(),
       'currency': currency,
       'icon': icon,
@@ -65,7 +78,7 @@ class PocketEnvelope {
   }
 
   PocketEnvelope copyWith({
-    double? limit,
+    double? percentage,
     double? spent,
     String? currency,
     String? icon,
@@ -74,7 +87,7 @@ class PocketEnvelope {
     return PocketEnvelope(
       id: id,
       name: name,
-      limit: limit ?? this.limit,
+      percentage: percentage ?? this.percentage,
       spent: spent ?? this.spent,
       currency: currency ?? this.currency,
       icon: icon ?? this.icon,

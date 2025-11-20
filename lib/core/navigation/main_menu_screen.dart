@@ -83,12 +83,8 @@ class _DateRangeSection extends ConsumerWidget {
           },
           child: Container(
             decoration: BoxDecoration(
-              color: colorScheme.card,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: colorScheme.border.withValues(alpha: 0.7),
-                width: 1,
-              ),
+              color: colorScheme.surfaceContainerHighest.withOpacity(0.5),
+              borderRadius: BorderRadius.circular(20),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             child: Row(
@@ -148,12 +144,8 @@ class _CurrencySection extends ConsumerWidget {
         const SizedBox(height: 10),
         Container(
           decoration: BoxDecoration(
-            color: colorScheme.card,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: colorScheme.border.withValues(alpha: 0.7),
-              width: 1,
-            ),
+            color: colorScheme.surfaceContainerHighest.withOpacity(0.5),
+            borderRadius: BorderRadius.circular(20),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           child: Row(
@@ -229,14 +221,11 @@ class _HouseholdSection extends ConsumerWidget {
                       },
                       child: Container(
                         decoration: BoxDecoration(
-                          color: colorScheme.card,
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(
-                            color: isSelected
-                                ? colorScheme.primary.withValues(alpha: 0.7)
-                                : colorScheme.border.withValues(alpha: 0.7),
-                            width: 1.2,
-                          ),
+                          color: isSelected
+                              ? colorScheme.primaryContainer.withOpacity(0.4)
+                              : colorScheme.surfaceContainerHighest
+                                  .withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(20),
                         ),
                         padding: const EdgeInsets.symmetric(
                           horizontal: 12,
@@ -352,12 +341,8 @@ class _ProfileRow extends StatelessWidget {
                     : null);
 
             return Container(
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: colorScheme.border.withValues(alpha: 0.6),
-                  width: 1.2,
-                ),
               ),
               child: ClipOval(
                 child: avatarUrl != null

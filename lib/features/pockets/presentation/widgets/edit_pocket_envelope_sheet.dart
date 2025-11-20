@@ -42,10 +42,16 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
     super.key,
     required this.scopeParams,
     this.existingEnvelope,
+    required this.totalBudget,
+    required this.unallocatedBudget,
+    this.allPockets = const [],
   });
 
   final PocketsScopeParams scopeParams;
   final PocketEnvelope? existingEnvelope;
+  final double totalBudget;
+  final double unallocatedBudget;
+  final List<PocketEnvelope> allPockets;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -56,13 +62,32 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
     final nameController = useTextEditingController(
       text: existingEnvelope?.name ?? '',
     );
-    final amountController = useTextEditingController(
+    final percentageController = useTextEditingController(
       text: existingEnvelope != null
-          ? existingEnvelope!.limit.toStringAsFixed(0)
+          ? existingEnvelope!.percentage.toStringAsFixed(1)
           : '',
     );
 
-    useListenable(amountController);
+    useListenable(percentageController);
+
+    // Calculate current percentage and remaining
+    final currentPercentage = existingEnvelope?.percentage ?? 0.0;
+    final totalAllocated =
+        allPockets.fold<double>(0.0, (sum, p) => sum + p.percentage);
+    final remainingPercentage = 100.0 - (totalAllocated - currentPercentage);
+
+    final effectiveMax = remainingPercentage.clamp(0.0, 100.0);
+
+    final currentPct = double.tryParse(percentageController.text) ?? 0.0;
+    final sliderValue = useState<double>(currentPct.clamp(0, effectiveMax));
+
+    useEffect(() {
+      final val = double.tryParse(percentageController.text);
+      if (val != null && val != sliderValue.value) {
+        sliderValue.value = val.clamp(0, effectiveMax);
+      }
+      return null;
+    }, [percentageController.text]);
 
     final selectedCategories = useState<List<String>>(<String>[]);
     final selectedColor = useState<String?>(existingEnvelope?.color);
@@ -98,21 +123,21 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
     Future<void> handleSave() async {
       final l10n = context.l10n;
       final name = nameController.text.trim();
-      final amountText = amountController.text.trim();
+      final percentageText = percentageController.text.trim();
 
       if (name.isEmpty) {
         AppToast.info(context, 'Please enter a name');
         return;
       }
 
-      if (amountText.isEmpty) {
-        AppToast.info(context, l10n.pleaseEnterAmount);
+      if (percentageText.isEmpty) {
+        AppToast.info(context, 'Please enter a percentage');
         return;
       }
 
-      final amount = double.tryParse(amountText);
-      if (amount == null || amount <= 0) {
-        AppToast.info(context, l10n.pleaseEnterValidAmount);
+      final percentage = double.tryParse(percentageText);
+      if (percentage == null || percentage < 0 || percentage > 100) {
+        AppToast.info(context, 'Please enter a valid percentage (0-100)');
         return;
       }
 
@@ -138,15 +163,13 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
       isLoading.value = true;
 
       try {
-        final cents = (amount * 100).round();
         String envelopeId;
-
         if (isEditing) {
           envelopeId = existingEnvelope!.id;
 
           await supabase.from('budget_envelopes').update(<String, dynamic>{
             'name': name,
-            'monthly_target_cents': cents,
+            'budget_percentage': percentage,
             'updated_at': DateTime.now().toIso8601String(),
             'color': selectedColor.value,
             'icon': selectedIcon.value,
@@ -162,7 +185,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
               .insert(<String, dynamic>{
                 'user_id': user.uid,
                 'name': name,
-                'monthly_target_cents': cents,
+                'budget_percentage': percentage,
                 'household_id': isHousehold ? householdId : null,
                 'currency': selectedCurrency,
                 'color': selectedColor.value,
@@ -313,6 +336,14 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                       placeholder: 'Envelope name',
                     ),
                     const SizedBox(height: 20),
+                    _BudgetDistributionPreview(
+                      totalBudget: totalBudget,
+                      allPockets: allPockets,
+                      currentPocketId: existingEnvelope?.id,
+                      currentAllocation: sliderValue.value,
+                      colorScheme: colorScheme,
+                    ),
+                    const SizedBox(height: 20),
                     Text(
                       context.l10n.budgetAmount,
                       style: TextStyle(
@@ -321,12 +352,139 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                         color: colorScheme.mutedForeground,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    CustomTextField(
-                      controller: amountController,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
-                      placeholder: '0.00',
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: colorScheme.card,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: colorScheme.border),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Allocation',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                      color: colorScheme.mutedForeground,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${((sliderValue.value / (totalBudget > 0 ? totalBudget : 1)).clamp(0.0, 1.0) * 100).toStringAsFixed(0)}% of budget',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: colorScheme.primary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(
+                                width: 120,
+                                child: CustomTextField(
+                                  controller: percentageController,
+                                  keyboardType: TextInputType.number,
+                                  placeholder: '0',
+                                  textAlign: TextAlign.end,
+                                  onChanged: (value) {
+                                    final val = double.tryParse(value);
+                                    if (val != null) {
+                                      sliderValue.value =
+                                          val.clamp(0, effectiveMax);
+                                    }
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '%',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: colorScheme.foreground,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                          SliderTheme(
+                            data: SliderThemeData(
+                              trackHeight: 6,
+                              activeTrackColor: colorScheme.primary,
+                              inactiveTrackColor:
+                                  colorScheme.primary.withOpacity(0.1),
+                              thumbColor: colorScheme.surface,
+                              overlayColor:
+                                  colorScheme.primary.withOpacity(0.1),
+                              thumbShape: const RoundSliderThumbShape(
+                                  enabledThumbRadius: 12, elevation: 4),
+                              overlayShape: const RoundSliderOverlayShape(
+                                  overlayRadius: 24),
+                            ),
+                            child: Slider(
+                              value: sliderValue.value,
+                              min: 0,
+                              max: effectiveMax,
+                              divisions: 100,
+                              onChanged: (value) {
+                                sliderValue.value = value;
+                                percentageController.text =
+                                    value.toStringAsFixed(1);
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '0',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: colorScheme.mutedForeground,
+                                ),
+                              ),
+                              Text(
+                                '${effectiveMax.toStringAsFixed(1)}%',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: colorScheme.mutedForeground,
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (unallocatedBudget < 0)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 12),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.warning_amber_rounded,
+                                      size: 16, color: colorScheme.error),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Budget exceeded by ${(unallocatedBudget.abs()).toStringAsFixed(0)}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: colorScheme.error,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 20),
                     Text(
@@ -664,6 +822,172 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _BudgetDistributionPreview extends StatelessWidget {
+  const _BudgetDistributionPreview({
+    required this.totalBudget,
+    required this.allPockets,
+    required this.currentPocketId,
+    required this.currentAllocation,
+    required this.colorScheme,
+  });
+
+  final double totalBudget;
+  final List<PocketEnvelope> allPockets;
+  final String? currentPocketId;
+  final double currentAllocation;
+  final ColorScheme colorScheme;
+
+  @override
+  Widget build(BuildContext context) {
+    if (totalBudget <= 0) return const SizedBox.shrink();
+
+    // Calculate other pockets' total percentage
+    final otherPocketsTotal = allPockets
+        .where((p) => p.id != currentPocketId)
+        .fold(0.0, (sum, p) => sum + p.percentage);
+
+    final totalAllocated = otherPocketsTotal + currentAllocation;
+    final remaining = 100.0 - totalAllocated;
+    final isOverBudget = remaining < 0;
+
+    // Calculate percentages for the bar
+    final otherPct = (otherPocketsTotal / 100.0).clamp(0.0, 1.0);
+    final currentPct = (currentAllocation / 100.0).clamp(0.0, 1.0);
+    // If over budget, we scale down to fit or just show full bar with warning
+    // Let's stick to a simple stacked bar where 100% is totalBudget.
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.card,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colorScheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Budget Impact',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.foreground,
+                ),
+              ),
+              Text(
+                isOverBudget
+                    ? 'Over by ${(remaining.abs()).toStringAsFixed(0)}'
+                    : '${remaining.toStringAsFixed(0)} remaining',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: isOverBudget
+                      ? colorScheme.error
+                      : colorScheme.mutedForeground,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: Container(
+              height: 12,
+              width: double.infinity,
+              color: colorScheme.surfaceContainerHighest,
+              child: Row(
+                children: [
+                  // Other Pockets Segment
+                  if (otherPct > 0)
+                    Flexible(
+                      flex: (otherPct * 1000).toInt(),
+                      child: Container(
+                        color: colorScheme.muted.withOpacity(0.3),
+                      ),
+                    ),
+                  // Current Pocket Segment (Animated)
+                  if (currentPct > 0)
+                    Flexible(
+                      flex: (currentPct * 1000).toInt(),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        color: isOverBudget
+                            ? colorScheme.error
+                            : colorScheme.primary,
+                      ),
+                    ),
+                  // Remaining Space (Implicit via Flex)
+                  if (!isOverBudget && (1.0 - otherPct - currentPct) > 0)
+                    Flexible(
+                      flex: ((1.0 - otherPct - currentPct) * 1000).toInt(),
+                      child: Container(color: Colors.transparent),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _LegendItem(
+                color: colorScheme.muted.withOpacity(0.3),
+                label: 'Others',
+                colorScheme: colorScheme,
+              ),
+              const SizedBox(width: 12),
+              _LegendItem(
+                color: isOverBudget ? colorScheme.error : colorScheme.primary,
+                label: 'This Pocket',
+                colorScheme: colorScheme,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LegendItem extends StatelessWidget {
+  const _LegendItem({
+    required this.color,
+    required this.label,
+    required this.colorScheme,
+  });
+
+  final Color color;
+  final String label;
+  final ColorScheme colorScheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            color: colorScheme.mutedForeground,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 }

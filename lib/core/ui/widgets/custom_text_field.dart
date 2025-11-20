@@ -21,6 +21,7 @@ class CustomTextField extends StatelessWidget {
   final List<TextInputFormatter>? inputFormatters;
   final FocusNode? focusNode;
   final bool enabled;
+  final bool autofocus;
 
   const CustomTextField({
     super.key,
@@ -40,6 +41,7 @@ class CustomTextField extends StatelessWidget {
     this.inputFormatters,
     this.focusNode,
     this.enabled = true,
+    this.autofocus = false,
   });
 
   @override
@@ -58,6 +60,7 @@ class CustomTextField extends StatelessWidget {
       textAlign: textAlign,
       inputFormatters: inputFormatters,
       focusNode: focusNode,
+      autofocus: autofocus,
       enabled: enabled,
       style: style ??
           TextStyle(
