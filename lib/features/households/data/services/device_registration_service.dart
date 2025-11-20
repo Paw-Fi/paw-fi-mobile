@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -24,8 +25,10 @@ class DeviceRegistrationService {
 
   static const String _androidChannelId = 'high_importance_channel';
   static const String _androidChannelName = 'High Importance Notifications';
-  static const String _androidChannelDescription = 'Used for important notifications.';
-  static const String _updatesChannelId = 'household_updates'; // must match server channel_id
+  static const String _androidChannelDescription =
+      'Used for important notifications.';
+  static const String _updatesChannelId =
+      'household_updates'; // must match server channel_id
   static const String _updatesChannelName = 'Household Updates';
 
   DeviceRegistrationService(
@@ -42,20 +45,73 @@ class DeviceRegistrationService {
     }
     debugPrint('🔔 Initializing device registration service...');
 
+    try {
+      // Wrap entire initialization in a timeout to prevent hanging
+      await Future.any([
+        _performInitialization(),
+        Future.delayed(const Duration(seconds: 10), () {
+          debugPrint(
+              '⚠️ Device registration initialization timed out after 10s');
+          throw TimeoutException('Device registration timed out');
+        }),
+      ]);
+    } catch (e) {
+      debugPrint('❌ Device registration initialization failed: $e');
+      // Mark as initialized anyway to prevent blocking app startup
+      _initialized = true;
+      rethrow;
+    }
+  }
+
+  /// Perform the actual initialization (extracted for timeout handling)
+  Future<void> _performInitialization() async {
     // Android 13+: request notifications permission via permission_handler
     if (Platform.isAndroid) {
-      final status = await Permission.notification.request();
-      if (status.isDenied) {
-        debugPrint('⚠️ Notification permission denied on Android (continuing to obtain FCM token)');
+      try {
+        final status = await Permission.notification.request().timeout(
+          const Duration(seconds: 5),
+          onTimeout: () {
+            debugPrint('⚠️ Android notification permission request timed out');
+            return PermissionStatus.denied;
+          },
+        );
+        if (status.isDenied) {
+          debugPrint(
+              '⚠️ Notification permission denied on Android (continuing to obtain FCM token)');
+        }
+      } catch (e) {
+        debugPrint('⚠️ Android notification permission request failed: $e');
       }
     }
 
     // Request permission (iOS) and general settings
-    final settings = await _messaging.requestPermission(
+    final settings = await _messaging
+        .requestPermission(
       alert: true,
       badge: true,
       sound: true,
       provisional: false,
+    )
+        .timeout(
+      const Duration(seconds: 5),
+      onTimeout: () {
+        debugPrint('⚠️ FCM permission request timed out');
+        return NotificationSettings(
+          authorizationStatus: AuthorizationStatus.notDetermined,
+          alert: AppleNotificationSetting.notSupported,
+          announcement: AppleNotificationSetting.notSupported,
+          badge: AppleNotificationSetting.notSupported,
+          carPlay: AppleNotificationSetting.notSupported,
+          lockScreen: AppleNotificationSetting.notSupported,
+          notificationCenter: AppleNotificationSetting.notSupported,
+          showPreviews: AppleShowPreviewSetting.notSupported,
+          timeSensitive: AppleNotificationSetting.notSupported,
+          criticalAlert: AppleNotificationSetting.notSupported,
+          sound: AppleNotificationSetting.notSupported,
+          providesAppNotificationSettings:
+              AppleNotificationSetting.notSupported,
+        );
+      },
     );
 
     // iOS/macOS: ensure foreground notifications can be shown while app is open
@@ -67,8 +123,9 @@ class DeviceRegistrationService {
       );
     }
 
-    final authorized = settings.authorizationStatus == AuthorizationStatus.authorized ||
-        settings.authorizationStatus == AuthorizationStatus.provisional;
+    final authorized =
+        settings.authorizationStatus == AuthorizationStatus.authorized ||
+            settings.authorizationStatus == AuthorizationStatus.provisional;
 
     if (authorized) {
       debugPrint('✅ Push notification permission granted');
@@ -92,10 +149,22 @@ class DeviceRegistrationService {
 
       // Get and register FCM token (gracefully handle APNs-not-ready scenarios)
       try {
-        String? token = await _messaging.getToken();
+        String? token = await _messaging.getToken().timeout(
+          const Duration(seconds: 5),
+          onTimeout: () {
+            debugPrint('⚠️ FCM getToken timed out');
+            return null;
+          },
+        );
         if (token == null && Platform.isIOS) {
           // Retry once after APNs likely ready
-          token = await _messaging.getToken();
+          token = await _messaging.getToken().timeout(
+            const Duration(seconds: 5),
+            onTimeout: () {
+              debugPrint('⚠️ FCM getToken retry timed out');
+              return null;
+            },
+          );
         }
 
         if (token != null) {
@@ -124,8 +193,10 @@ class DeviceRegistrationService {
       _initialized = true;
     } else if (settings.authorizationStatus == AuthorizationStatus.denied) {
       debugPrint('❌ Push notification permission denied');
+      _initialized = true; // Mark as initialized even if denied
     } else {
       debugPrint('⚠️ Push notification permission not determined');
+      _initialized = true; // Mark as initialized even if not determined
     }
   }
 
@@ -147,7 +218,8 @@ class DeviceRegistrationService {
   /// Initialize local notifications for Android
   Future<void> _initializeLocalNotifications() async {
     // Use monochrome adaptive icon from mipmap for status bar
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher_monochrome');
+    const androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher_monochrome');
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: false,
       requestBadgePermission: false,
@@ -207,11 +279,15 @@ class DeviceRegistrationService {
       final lastToken = prefs.getString('${cachePrefix}token');
       final lastAtIso = prefs.getString('${cachePrefix}registered_at');
       final now = DateTime.now();
-      DateTime? lastAt = lastAtIso != null ? DateTime.tryParse(lastAtIso) : null;
+      DateTime? lastAt =
+          lastAtIso != null ? DateTime.tryParse(lastAtIso) : null;
 
       // Re-register only if token changed or older than 24h
-      if (lastToken == pushToken && lastAt != null && now.difference(lastAt) < const Duration(hours: 24)) {
-        debugPrint('⏭️ Skipping device registration (cached, <24h, token unchanged)');
+      if (lastToken == pushToken &&
+          lastAt != null &&
+          now.difference(lastAt) < const Duration(hours: 24)) {
+        debugPrint(
+            '⏭️ Skipping device registration (cached, <24h, token unchanged)');
         return;
       }
 
@@ -230,7 +306,8 @@ class DeviceRegistrationService {
       if (response.status == 200) {
         debugPrint('✅ Device registered successfully');
         await prefs.setString('${cachePrefix}token', pushToken);
-        await prefs.setString('${cachePrefix}registered_at', now.toIso8601String());
+        await prefs.setString(
+            '${cachePrefix}registered_at', now.toIso8601String());
       } else {
         debugPrint('❌ Device registration failed: ${response.status}');
       }
@@ -262,13 +339,15 @@ class DeviceRegistrationService {
     final deepLink = message.data['deep_link'];
     if (deepLink != null && deepLink.isNotEmpty) {
       debugPrint('🔗 Deep link found: $deepLink');
-      
+
       // Wait a bit for app to be ready, then trigger deep link directly
       Future.delayed(const Duration(milliseconds: 500), () {
-        if (DeepLinkContainer.deepLinkService != null && DeepLinkContainer.ref != null) {
+        if (DeepLinkContainer.deepLinkService != null &&
+            DeepLinkContainer.ref != null) {
           final uri = Uri.parse(deepLink);
           debugPrint('🚀 Triggering deep link directly: $deepLink');
-          DeepLinkContainer.deepLinkService!.handleDeepLinkUri(uri, DeepLinkContainer.ref!);
+          DeepLinkContainer.deepLinkService!
+              .handleDeepLinkUri(uri, DeepLinkContainer.ref!);
         }
       });
     } else {
@@ -326,7 +405,7 @@ class DeviceRegistrationService {
   /// Handle notification tap (for local notifications shown in foreground)
   void _onNotificationTapped(NotificationResponse response) {
     debugPrint('🔔 Notification tapped: ${response.payload}');
-    
+
     // The payload contains the deep_link if available
     if (response.payload != null && response.payload!.isNotEmpty) {
       try {
@@ -346,23 +425,25 @@ class DeviceRegistrationService {
     try {
       final userId = _supabase.auth.currentUser?.id;
       if (userId == null) return false;
-      
+
       final prefs = await SharedPreferences.getInstance();
       final cachePrefix = 'device_reg:$userId:';
       final cachedToken = prefs.getString('${cachePrefix}token');
-      
+
       // Check if we have a cached token and it's recent
       if (cachedToken != null && cachedToken.isNotEmpty) {
         final lastAtIso = prefs.getString('${cachePrefix}registered_at');
         if (lastAtIso != null) {
           final lastAt = DateTime.tryParse(lastAtIso);
-          if (lastAt != null && DateTime.now().difference(lastAt) < const Duration(days: 7)) {
-            debugPrint('✅ Device registration found in cache (token: ${cachedToken.substring(0, 10)}...)');
+          if (lastAt != null &&
+              DateTime.now().difference(lastAt) < const Duration(days: 7)) {
+            debugPrint(
+                '✅ Device registration found in cache (token: ${cachedToken.substring(0, 10)}...)');
             return true;
           }
         }
       }
-      
+
       debugPrint('⚠️ No valid device registration found in cache');
       return false;
     } catch (e) {
@@ -388,10 +469,10 @@ class DeviceRegistrationService {
       final userId = _supabase.auth.currentUser?.id;
       final prefs = await SharedPreferences.getInstance();
       final cachePrefix = 'device_reg:${userId ?? "anon"}:';
-      
+
       // Try to get token from cache first (more reliable than FCM during logout)
       String? token = prefs.getString('${cachePrefix}token');
-      
+
       // Fallback to FCM token if cache is empty
       if (token == null || token.isEmpty) {
         token = await _messaging.getToken();
@@ -399,7 +480,7 @@ class DeviceRegistrationService {
 
       if (token != null && token.isNotEmpty) {
         debugPrint('🗑️ Deleting device from backend...');
-        
+
         // Call Edge Function to DELETE device row (not just mark inactive)
         final response = await _supabase.functions.invoke(
           'households-register-device',
@@ -423,7 +504,7 @@ class DeviceRegistrationService {
         // Remove cached entries for current (or anon) prefix
         await prefs.remove('${cachePrefix}token');
         await prefs.remove('${cachePrefix}registered_at');
-        
+
         // Additionally, purge ALL device_reg caches to avoid cross-account residue
         final keys = prefs.getKeys();
         for (final k in keys.where((k) => k.startsWith('device_reg:'))) {
@@ -444,10 +525,9 @@ class DeviceRegistrationService {
 
       // Ensure service can re-initialize cleanly on next login
       _initialized = false;
-      
     } catch (e) {
       debugPrint('❌ Error unregistering device: $e');
-      
+
       // Still try to clear cache even if deletion failed
       try {
         final userId = _supabase.auth.currentUser?.id;

@@ -32,23 +32,32 @@ class AppInitialization extends _$AppInitialization {
   Future<void> _initialize() async {
     try {
       debugPrint('🚀 Starting app initialization...');
-      
+
       // Wait a moment for auth to settle
       await Future.delayed(const Duration(milliseconds: 100));
-      
+
       // Check if user is authenticated
       final auth = ref.read(authProvider);
       debugPrint('🔐 Auth loaded: ${!auth.isEmpty}');
-      
+
       if (!auth.isEmpty) {
         // User is authenticated - load all user-specific data in parallel
         debugPrint('👤 Loading user data...');
-        
+
         // Initialize device registration (push notifications)
         // Keep all app init calls centralized here for consistency
         try {
           debugPrint('🔔 Initializing device registration...');
-          await ref.read(deviceRegistrationServiceProvider).initialize();
+          await ref
+              .read(deviceRegistrationServiceProvider)
+              .initialize()
+              .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () {
+              debugPrint(
+                  '⚠️ Device registration timed out after 10s (non-critical)');
+            },
+          );
           debugPrint('✅ Device registration initialized');
         } catch (e) {
           debugPrint('⚠️ Device registration init failed (non-critical): $e');
@@ -62,7 +71,9 @@ class AppInitialization extends _$AppInitialization {
           // Load analytics/dashboard data
           _loadAnalytics(auth.uid),
           // Load recurring transactions (expenses and income)
-          ref.read(recurringTransactionsProvider.notifier).loadRecurringTransactions(auth.uid),
+          ref
+              .read(recurringTransactionsProvider.notifier)
+              .loadRecurringTransactions(auth.uid),
           // Load household data
           _loadHouseholdData(auth.uid),
         ]);
@@ -71,11 +82,11 @@ class AppInitialization extends _$AppInitialization {
       } else {
         debugPrint('👋 User not authenticated, skipping data load');
       }
-      
+
       // Mark as initialized
       state = AppInitState.initialized;
       debugPrint('🎉 App initialization complete');
-      
+
       // IMPORTANT: Version check happens AFTER initialization
       // This ensures the splash screen doesn't block on version check
       // The force update dialog will show on top of the app if needed
@@ -83,14 +94,15 @@ class AppInitialization extends _$AppInitialization {
     } catch (e) {
       // Record non-fatal so we can analyze initialization failures in production
       try {
-        FirebaseCrashlytics.instance.recordError(e, StackTrace.current, fatal: false, reason: 'app_initialization_error');
+        FirebaseCrashlytics.instance.recordError(e, StackTrace.current,
+            fatal: false, reason: 'app_initialization_error');
       } catch (_) {}
       debugPrint('❌ Error during app initialization: $e');
       // Even if there's an error, mark as initialized to avoid stuck splash screen
       state = AppInitState.initialized;
     }
   }
-  
+
   /// Check app version (non-blocking)
   Future<void> _checkAppVersion() async {
     try {
@@ -107,7 +119,7 @@ class AppInitialization extends _$AppInitialization {
     try {
       debugPrint('💳 Loading subscription...');
       final subscriptionAsync = ref.read(subscriptionNotifierProvider);
-      
+
       await subscriptionAsync.when(
         data: (_) {
           debugPrint('✅ Subscription loaded');
@@ -125,7 +137,8 @@ class AppInitialization extends _$AppInitialization {
       );
     } catch (e) {
       try {
-        FirebaseCrashlytics.instance.recordError(e, StackTrace.current, fatal: false, reason: 'subscription_load_error');
+        FirebaseCrashlytics.instance.recordError(e, StackTrace.current,
+            fatal: false, reason: 'subscription_load_error');
       } catch (_) {}
       debugPrint('❌ Error loading subscription: $e');
     }
@@ -141,7 +154,8 @@ class AppInitialization extends _$AppInitialization {
       debugPrint('✅ WhatsApp binding loaded');
     } catch (e) {
       try {
-        FirebaseCrashlytics.instance.recordError(e, StackTrace.current, fatal: false, reason: 'whatsapp_binding_error');
+        FirebaseCrashlytics.instance.recordError(e, StackTrace.current,
+            fatal: false, reason: 'whatsapp_binding_error');
       } catch (_) {}
       debugPrint('❌ Error loading WhatsApp binding: $e');
     }
@@ -156,7 +170,8 @@ class AppInitialization extends _$AppInitialization {
       debugPrint('✅ Analytics loaded');
     } catch (e) {
       try {
-        FirebaseCrashlytics.instance.recordError(e, StackTrace.current, fatal: false, reason: 'analytics_load_error');
+        FirebaseCrashlytics.instance.recordError(e, StackTrace.current,
+            fatal: false, reason: 'analytics_load_error');
       } catch (_) {}
       debugPrint('❌ Error loading analytics: $e');
     }
@@ -205,7 +220,8 @@ class AppInitialization extends _$AppInitialization {
       );
       final from = dateRange['from']!;
       final to = dateRange['to']!;
-      final selectedCurrency = (filterState.selectedCurrency ?? household.currency).toUpperCase();
+      final selectedCurrency =
+          (filterState.selectedCurrency ?? household.currency).toUpperCase();
 
       // Preload all household data in parallel
       await Future.wait([
@@ -237,7 +253,8 @@ class AppInitialization extends _$AppInitialization {
       debugPrint('✅ Household data preloaded');
     } catch (e) {
       try {
-        FirebaseCrashlytics.instance.recordError(e, StackTrace.current, fatal: false, reason: 'household_load_error');
+        FirebaseCrashlytics.instance.recordError(e, StackTrace.current,
+            fatal: false, reason: 'household_load_error');
       } catch (_) {}
       debugPrint('❌ Error loading household data: $e');
       // Non-critical error, continue with app initialization
@@ -250,7 +267,7 @@ class AppInitialization extends _$AppInitialization {
     state = AppInitState.initializing;
     _initialize();
   }
-  
+
   /// Clear all cached data (on logout)
   void clearCache() {
     debugPrint('🗑️ Clearing all cached user data...');
@@ -260,19 +277,19 @@ class AppInitialization extends _$AppInitialization {
     } catch (e) {
       debugPrint('⚠️ Failed to unregister device (non-critical): $e');
     }
-    
+
     // Clear WhatsApp binding (keepAlive provider)
     ref.read(whatsAppBindingProvider.notifier).clear();
-    
+
     // Clear analytics data (StateNotifierProvider - auto-dispose but needs clearing)
     ref.read(analyticsProvider.notifier).clear();
-    
+
     // Clear expense processing state
     ref.read(expenseProcessingProvider.notifier).clear();
-    
+
     // Subscription provider is auto-dispose and will be cleared automatically
     // Auth provider maintains only auth state, no user-specific data to clear
-    
+
     debugPrint('✅ All cached user data cleared');
   }
 }

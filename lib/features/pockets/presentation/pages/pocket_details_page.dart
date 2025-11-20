@@ -725,22 +725,6 @@ class _TransactionsListCard extends StatelessWidget {
                   color: colorScheme.foreground,
                 ),
               ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  'See All',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.foreground,
-                  ),
-                ),
-              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -829,22 +813,29 @@ List<Color> _generateGradientColors(Color baseColor, bool isDarkMode) {
   final hsl = HSLColor.fromColor(baseColor);
 
   if (isDarkMode) {
-    // Dark Mode: Rich, deep gradient
-    // Top: Base color (slightly dimmed if too bright)
-    final top = hsl.withLightness((hsl.lightness * 0.85).clamp(0.0, 1.0));
-    // Bottom: Darker and slightly hue-shifted for depth
+    // Dark Mode: Rich, deep gradient with high contrast
+    // Top: Vibrant base color
+    final top = hsl
+        .withLightness((hsl.lightness * 1.0).clamp(0.3, 0.6))
+        .withSaturation((hsl.saturation * 0.9).clamp(0.5, 1.0));
+    // Bottom: Much darker and hue-shifted for dramatic depth
     final bottom = hsl
-        .withLightness((hsl.lightness * 0.3).clamp(0.0, 1.0))
-        .withHue((hsl.hue + 15) % 360);
+        .withLightness(0.12)
+        .withSaturation((hsl.saturation * 0.7).clamp(0.4, 1.0))
+        .withHue((hsl.hue + 20) % 360);
     return [top.toColor(), bottom.toColor()];
   } else {
-    // Light Mode: Vibrant, airy gradient
-    // Top: Lighter and slightly hue-shifted
+    // Light Mode: Vibrant gradient with strong contrast
+    // Top: Bright, saturated version
     final top = hsl
-        .withLightness((hsl.lightness + 0.15).clamp(0.0, 0.95))
-        .withHue((hsl.hue - 10) % 360);
-    // Bottom: Slightly darker/richer than base
-    final bottom = hsl.withLightness((hsl.lightness - 0.05).clamp(0.0, 1.0));
+        .withLightness(0.75)
+        .withSaturation((hsl.saturation * 1.0).clamp(0.6, 1.0))
+        .withHue((hsl.hue - 15) % 360);
+    // Bottom: Much richer and more saturated
+    final bottom = hsl
+        .withLightness(0.45)
+        .withSaturation((hsl.saturation * 1.1).clamp(0.7, 1.0))
+        .withHue((hsl.hue + 10) % 360);
     return [top.toColor(), bottom.toColor()];
   }
 }

@@ -1,27 +1,44 @@
 import 'package:flutter/material.dart';
-import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'dart:async';
 
 enum AppToastType { info, success, warning, error }
 
 /// AppToast
 ///
-/// Unified toast/notification utility backed by `AdaptiveSnackBar`.
+/// Unified toast/notification utility using Overlay for guaranteed top-level display.
 ///
-/// - Uses `rootNavigatorKey.currentContext` so messages appear above nested
-///   navigators.
-/// - Prefer `AppToast.info/success/warning/error()` over manual snack bars.
-/// - For actions (e.g., Retry), use `AppToast.action(message, actionLabel, onPressed)`.
+/// - Uses Overlay to ensure toasts appear above ALL content including bottom sheets
+/// - Appears at the top of the screen with slide-in animation
+/// - Automatically dismisses after duration
+/// - Prefer `AppToast.info/success/warning/error()` over manual implementations
 class AppToast {
-  static AdaptiveSnackBarType _mapType(AppToastType type) {
+  static OverlayEntry? _currentToast;
+  static Timer? _dismissTimer;
+
+  static Color _getColorForType(AppToastType type, BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     switch (type) {
       case AppToastType.success:
-        return AdaptiveSnackBarType.success;
+        return Colors.green.shade600;
       case AppToastType.warning:
-        return AdaptiveSnackBarType.warning;
+        return Colors.orange.shade600;
       case AppToastType.error:
-        return AdaptiveSnackBarType.error;
+        return colorScheme.error;
       case AppToastType.info:
-        return AdaptiveSnackBarType.info;
+        return colorScheme.primary;
+    }
+  }
+
+  static IconData _getIconForType(AppToastType type) {
+    switch (type) {
+      case AppToastType.success:
+        return Icons.check_circle;
+      case AppToastType.warning:
+        return Icons.warning;
+      case AppToastType.error:
+        return Icons.error;
+      case AppToastType.info:
+        return Icons.info;
     }
   }
 
@@ -30,13 +47,36 @@ class AppToast {
     String message, {
     AppToastType type = AppToastType.info,
     Duration duration = const Duration(seconds: 3),
-  }) { 
-    AdaptiveSnackBar.show(
-      context,
-      message: message,
-      type: _mapType(type),
-      duration: duration,
+  }) {
+    // Dismiss any existing toast
+    _dismissCurrentToast();
+
+    final overlay = Overlay.of(context);
+    final color = _getColorForType(type, context);
+    final icon = _getIconForType(type);
+
+    // Create overlay entry with animation
+    _currentToast = OverlayEntry(
+      builder: (context) => _ToastWidget(
+        message: message,
+        color: color,
+        icon: icon,
+      ),
     );
+
+    overlay.insert(_currentToast!);
+
+    // Auto-dismiss after duration
+    _dismissTimer = Timer(duration, () {
+      _dismissCurrentToast();
+    });
+  }
+
+  static void _dismissCurrentToast() {
+    _dismissTimer?.cancel();
+    _dismissTimer = null;
+    _currentToast?.remove();
+    _currentToast = null;
   }
 
   /// Show a toast with an action button (e.g., Retry)
@@ -48,25 +88,197 @@ class AppToast {
     AppToastType type = AppToastType.info,
     Duration duration = const Duration(seconds: 4),
   }) {
-    AdaptiveSnackBar.show(
-      context,
-      message: message,
-      type: _mapType(type),
-      duration: duration,
-      action: actionLabel,
-      onActionPressed: onPressed,
+    // Dismiss any existing toast
+    _dismissCurrentToast();
+
+    final overlay = Overlay.of(context);
+    final color = _getColorForType(type, context);
+    final icon = _getIconForType(type);
+
+    // Create overlay entry with animation and action button
+    _currentToast = OverlayEntry(
+      builder: (context) => _ToastWidget(
+        message: message,
+        color: color,
+        icon: icon,
+        actionLabel: actionLabel,
+        onActionPressed: () {
+          onPressed();
+          _dismissCurrentToast();
+        },
+      ),
     );
+
+    overlay.insert(_currentToast!);
+
+    // Auto-dismiss after duration
+    _dismissTimer = Timer(duration, () {
+      _dismissCurrentToast();
+    });
   }
 
-  static void info(BuildContext context, String message, {Duration duration = const Duration(seconds: 3)}) =>
+  static void info(BuildContext context, String message,
+          {Duration duration = const Duration(seconds: 3)}) =>
       show(context, message, type: AppToastType.info, duration: duration);
 
-  static void success(BuildContext context, String message, {Duration duration = const Duration(seconds: 3)}) =>
+  static void success(BuildContext context, String message,
+          {Duration duration = const Duration(seconds: 3)}) =>
       show(context, message, type: AppToastType.success, duration: duration);
 
-  static void warning(BuildContext context, String message, {Duration duration = const Duration(seconds: 3)}) =>
+  static void warning(BuildContext context, String message,
+          {Duration duration = const Duration(seconds: 3)}) =>
       show(context, message, type: AppToastType.warning, duration: duration);
 
-  static void error(BuildContext context, String message, {Duration duration = const Duration(seconds: 4)}) =>
+  static void error(BuildContext context, String message,
+          {Duration duration = const Duration(seconds: 4)}) =>
       show(context, message, type: AppToastType.error, duration: duration);
+}
+
+/// Internal widget for toast display with animation
+class _ToastWidget extends StatefulWidget {
+  final String message;
+  final Color color;
+  final IconData icon;
+  final String? actionLabel;
+  final VoidCallback? onActionPressed;
+
+  const _ToastWidget({
+    required this.message,
+    required this.color,
+    required this.icon,
+    this.actionLabel,
+    this.onActionPressed,
+  });
+
+  @override
+  State<_ToastWidget> createState() => _ToastWidgetState();
+}
+
+class _ToastWidgetState extends State<_ToastWidget>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<Offset> _slideAnimation;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, -1),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOut,
+    ));
+
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeIn,
+    ));
+
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _handleDismiss() {
+    AppToast._dismissCurrentToast();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: SlideTransition(
+        position: _slideAnimation,
+        child: FadeTransition(
+          opacity: _fadeAnimation,
+          child: Dismissible(
+            key: const Key('toast_dismissible'),
+            direction: DismissDirection.up,
+            onDismissed: (direction) {
+              _handleDismiss();
+            },
+            child: Material(
+              color: Colors.transparent,
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: widget.color,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      child: Row(
+                        children: [
+                          Icon(
+                            widget.icon,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              widget.message,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          if (widget.actionLabel != null &&
+                              widget.onActionPressed != null) ...[
+                            const SizedBox(width: 8),
+                            TextButton(
+                              onPressed: widget.onActionPressed,
+                              style: TextButton.styleFrom(
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 8),
+                              ),
+                              child: Text(
+                                widget.actionLabel!,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

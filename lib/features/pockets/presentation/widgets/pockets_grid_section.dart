@@ -916,7 +916,7 @@ class _PocketsHeaderCard extends StatelessWidget {
             min: sliderMin,
             max: sliderMax,
             onChanged: (value) => onTotalChanged(value.roundToDouble()),
-            divisions: ((sliderMax - sliderMin) / 10).round(),
+            divisions: ((sliderMax - sliderMin) / 1000).round(),
           ),
           const SizedBox(height: 8),
           // Min/Max Labels
