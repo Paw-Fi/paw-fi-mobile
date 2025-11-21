@@ -45,7 +45,9 @@ class HomeHeaderLeading extends ConsumerWidget {
           Flexible(
             child: Text(
               viewMode.mode == ViewMode.personal
-                  ? ("Emily Carter")
+                  ? (user.displayName?.isNotEmpty == true
+                          ? user.displayName!
+                          : user.email)
                   : (selectedHouseholdState.household?.name ??
                       context.l10n.forUs),
               maxLines: 1,

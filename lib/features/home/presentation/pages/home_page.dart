@@ -895,61 +895,29 @@ class _HomePageState extends ConsumerState<HomePage> {
 
                   // Budget and Net Cashflow Cards (Horizontal Scroll)
                   SliverToBoxAdapter(
-                    child: SizedBox(
-                      height: 180,
-                      child: ListView(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        children: [
-                          SizedBox(
-                            width: 200,
-                            child: buildBudgetCard(
-                              context,
-                              colorScheme,
-                              filteredBudgets,
-                              filteredExpenses,
-                              analyticsData.contact,
-                              filterState.dateRangeFilter,
-                              onTap: _showBudgetUpdateSheet,
-                              selectedCurrency: filterState.selectedCurrency,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: SizedBox(
+                        height: 180,
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: buildNetCashflowCard(
+                                context,
+                                colorScheme,
+                                filteredBudgets,
+                                ref.watch(homeFilteredTransactionsProvider),
+                                analyticsData.contact,
+                                filterState.dateRangeFilter,
+                                selectedCurrency: filterState.selectedCurrency,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          SizedBox(
-                            width: 200,
-                            child: buildNetCashflowCard(
-                              context,
-                              colorScheme,
-                              filteredBudgets,
-                              ref.watch(homeFilteredTransactionsProvider),
-                              analyticsData.contact,
-                              filterState.dateRangeFilter,
-                              selectedCurrency: filterState.selectedCurrency,
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: MoMTrendBar(),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          // TODO: Add CashflowSparklineCard
-                          // const SizedBox(
-                          //   width: 200,
-                          //   child: CashflowSparklineCard(),
-                          // ),
-                          // const SizedBox(width: 12),
-                          const SizedBox(
-                            width: 200,
-                            child: MoMTrendBar(),
-                          ),
-                          // const SizedBox(width: 12),
-                          // const SizedBox(
-                          //   width: 200,
-                          //   child: SavingsRateTile(),
-                          // ),
-                          // const SizedBox(width: 12),
-                          // const SizedBox(
-                          //   width: 200,
-                          //   child: RunwayGauge(),
-                          // ),
-                          const SizedBox(width: 12),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),

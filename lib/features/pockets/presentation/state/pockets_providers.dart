@@ -16,20 +16,23 @@ class PocketsScopeParams {
   const PocketsScopeParams({
     required this.scope,
     this.householdId,
+    this.periodMonth,
   });
 
   final PocketsScopeType scope;
   final String? householdId;
+  final DateTime? periodMonth;
 
   @override
   bool operator ==(Object other) {
     return other is PocketsScopeParams &&
         other.scope == scope &&
-        other.householdId == householdId;
+        other.householdId == householdId &&
+        other.periodMonth == periodMonth;
   }
 
   @override
-  int get hashCode => Object.hash(scope, householdId);
+  int get hashCode => Object.hash(scope, householdId, periodMonth);
 }
 
 class PocketsState {
@@ -163,14 +166,20 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       final authUser = ref.read(authProvider);
       final filter = ref.read(homeFilterProvider);
       final selectedCurrency = filter.selectedCurrency ?? 'USD';
-      final range = getDateRangeFromFilter(
-        filter.dateRangeFilter,
-        filter.customStartDate,
-        filter.customEndDate,
-      );
 
-      final end = range['to'] ?? DateTime.now();
-      final monthStart = DateTime(end.year, end.month, 1);
+      final DateTime targetDate;
+      if (params.periodMonth != null) {
+        targetDate = params.periodMonth!;
+      } else {
+        final range = getDateRangeFromFilter(
+          filter.dateRangeFilter,
+          filter.customStartDate,
+          filter.customEndDate,
+        );
+        targetDate = range['to'] ?? DateTime.now();
+      }
+
+      final monthStart = DateTime(targetDate.year, targetDate.month, 1);
       final periodMonth = _formatDate(monthStart);
       final monthEnd = DateTime(monthStart.year, monthStart.month + 1, 1);
 
@@ -206,9 +215,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           ? budgetQuery.eq('household_id', householdId!)
           : budgetQuery.isFilter('household_id', null);
 
-      Map<String, dynamic>? budgetRow = await scopedBudgetQuery
-          .eq('period_month', periodMonth)
-          .maybeSingle();
+      Map<String, dynamic>? budgetRow =
+          await scopedBudgetQuery.eq('period_month', periodMonth).maybeSingle();
 
       double previousBudget = 0;
       if (budgetRow == null) {
@@ -218,10 +226,10 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
             .order('period_month', ascending: false)
             .limit(1)
             .maybeSingle();
-        previousBudget = ((previousBudgetRow?['total_budget_cents'] as num?)
-                    ?.toDouble() ??
-                0.0) /
-            100.0;
+        previousBudget =
+            ((previousBudgetRow?['total_budget_cents'] as num?)?.toDouble() ??
+                    0.0) /
+                100.0;
       }
 
       if (budgetRow == null) {
@@ -274,13 +282,10 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         for (final row in envRows) {
           final legacyId = row['id'] as String?;
           if (legacyId != null) {
-            await supabase
-                .from('budget_envelopes')
-                .update({
-                  'budget_id': budgetId,
-                  'updated_at': DateTime.now().toIso8601String(),
-                })
-                .eq('id', legacyId);
+            await supabase.from('budget_envelopes').update({
+              'budget_id': budgetId,
+              'updated_at': DateTime.now().toIso8601String(),
+            }).eq('id', legacyId);
           }
         }
       }
@@ -316,9 +321,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       for (final row in categoryLinksRows) {
         final envId = row['envelope_id'] as String;
         final category = (row['category'] as String).toLowerCase();
-        categoriesByEnvelopeId
-            .putIfAbsent(envId, () => [])
-            .add(category);
+        categoriesByEnvelopeId.putIfAbsent(envId, () => []).add(category);
       }
 
       // Fetch all expenses for this month and scope
@@ -353,7 +356,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         for (final expense in expensesRows) {
           final type = (expense['type'] as String?)?.toLowerCase();
           if (type == 'income') continue;
-          
+
           final expenseCategory =
               (expense['category'] as String? ?? '').toLowerCase();
           if (categories.contains(expenseCategory)) {
@@ -578,18 +581,13 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     final total = pockets.fold<double>(0, (sum, p) => sum + p.percentage);
     if (total <= 0) {
       final even = 100.0 / pockets.length;
-      return pockets
-          .asMap()
-          .entries
-          .map((entry) {
-            final isLast = entry.key == pockets.length - 1;
-            final pct =
-                isLast ? 100 - even * (pockets.length - 1) : even;
-            return entry.value.copyWith(
-              percentage: double.parse(pct.toStringAsFixed(2)),
-            );
-          })
-          .toList();
+      return pockets.asMap().entries.map((entry) {
+        final isLast = entry.key == pockets.length - 1;
+        final pct = isLast ? 100 - even * (pockets.length - 1) : even;
+        return entry.value.copyWith(
+          percentage: double.parse(pct.toStringAsFixed(2)),
+        );
+      }).toList();
     }
 
     final factor = 100.0 / total;

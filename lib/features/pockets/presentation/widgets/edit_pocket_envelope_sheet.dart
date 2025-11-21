@@ -56,6 +56,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
     );
 
     useListenable(percentageController);
+    useListenable(nameController);
 
     final effectiveMax = 100.0;
 
@@ -376,160 +377,6 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                       placeholder: context.l10n.pocketNamePlaceholder,
                     ),
                     const SizedBox(height: 20),
-                    _BudgetDistributionPreview(
-                      totalBudget: totalBudget,
-                      allPockets: allPockets,
-                      currentPocketId: existingEnvelope?.id,
-                      currentAllocation: sliderValue.value,
-                      currentPocketColor: selectedColor.value,
-                      currentPocketName:
-                          (existingEnvelope?.name.trim().isEmpty ?? true)
-                              ? context.l10n.thisPocketFallback
-                              : existingEnvelope!.name,
-                      currency: currency,
-                      colorScheme: colorScheme,
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      context.l10n.budgetAmount,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: colorScheme.mutedForeground,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: colorScheme.card,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: colorScheme.border),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            context.l10n.budgetAmount,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: colorScheme.mutedForeground,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    formatCurrency(
-                                        totalBudget *
-                                            (sliderValue.value / 100.0),
-                                        currency),
-                                    style: TextStyle(
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.w700,
-                                      color: colorScheme.foreground,
-                                      letterSpacing: -0.5,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '${sliderValue.value.toStringAsFixed(1)}%',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: colorScheme.mutedForeground,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Text(
-                                formatCurrency(totalBudget, currency),
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: colorScheme.mutedForeground,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          SliderTheme(
-                            data: SliderThemeData(
-                              trackHeight: 6,
-                              activeTrackColor: colorScheme.primary,
-                              inactiveTrackColor:
-                                  colorScheme.primary.withOpacity(0.1),
-                              thumbColor: colorScheme.surface,
-                              overlayColor:
-                                  colorScheme.primary.withOpacity(0.1),
-                              thumbShape: const RoundSliderThumbShape(
-                                  enabledThumbRadius: 12, elevation: 4),
-                              overlayShape: const RoundSliderOverlayShape(
-                                  overlayRadius: 24),
-                            ),
-                            child: Slider(
-                              value: sliderValue.value,
-                              min: 0,
-                              max: effectiveMax,
-                              divisions: 20,
-                              onChanged: (value) {
-                                sliderValue.value = value;
-                                percentageController.text =
-                                    value.toStringAsFixed(1);
-                              },
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                '0',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: colorScheme.mutedForeground,
-                                ),
-                              ),
-                              Text(
-                                '${effectiveMax.toStringAsFixed(1)}%',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: colorScheme.mutedForeground,
-                                ),
-                              ),
-                            ],
-                          ),
-                          if (unallocatedBudget < 0)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 12),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.warning_amber_rounded,
-                                      size: 16, color: colorScheme.error),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      '${context.l10n.budgetExceededByLabel} ${(unallocatedBudget.abs()).toStringAsFixed(0)}',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: colorScheme.error,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
                     Text(
                       context.l10n.pocketCategoriesLabel,
                       style: TextStyle(
@@ -624,98 +471,201 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    GestureDetector(
-                      onTap: () {
-                        final currentColor = selectedColor.value != null
-                            ? Color(int.parse(
-                                    selectedColor.value!.substring(1, 7),
-                                    radix: 16) +
-                                0xFF000000)
-                            : const Color(0xFF007AFF); // Default blue
+                    Builder(builder: (context) {
+                      final presetColors = [
+                        Colors.red,
+                        Colors.pink,
+                        Colors.purple,
+                        Colors.deepPurple,
+                        Colors.indigo,
+                        Colors.blue,
+                        Colors.lightBlue,
+                        Colors.cyan,
+                        Colors.teal,
+                        Colors.green,
+                        Colors.lightGreen,
+                        Colors.lime,
+                        Colors.yellow,
+                        Colors.amber,
+                        Colors.orange,
+                        Colors.deepOrange,
+                        Colors.brown,
+                        Colors.grey,
+                        Colors.blueGrey,
+                      ];
+                      return SizedBox(
+                        height: 44,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: presetColors.length + 1,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(width: 12),
+                          itemBuilder: (context, index) {
+                            if (index == 0) {
+                              // Check if current selected color is one of the presets
+                              bool isCustomColor = false;
+                              if (selectedColor.value != null) {
+                                isCustomColor = true;
+                                for (final preset in presetColors) {
+                                  String two(int n) =>
+                                      n.toRadixString(16).padLeft(2, '0');
+                                  int toByte(double x) =>
+                                      (x * 255.0).round() & 0xff;
+                                  final hex =
+                                      '#${two(toByte(preset.r))}${two(toByte(preset.g))}${two(toByte(preset.b))}';
+                                  if (selectedColor.value!.toLowerCase() ==
+                                      hex.toLowerCase()) {
+                                    isCustomColor = false;
+                                    break;
+                                  }
+                                }
+                              }
 
-                        if (PlatformInfo.isIOS) {
-                          // iOS: Use native iOS color picker
-                          final iosColorPickerController =
-                              IOSColorPickerController();
-                          iosColorPickerController.showIOSCustomColorPicker(
-                            startingColor: currentColor,
-                            onColorChanged: (color) {
-                              String two(int n) =>
-                                  n.toRadixString(16).padLeft(2, '0');
-                              int toByte(double x) =>
-                                  (x * 255.0).round() & 0xff;
-                              final hex =
-                                  '#${two(toByte(color.r))}${two(toByte(color.g))}${two(toByte(color.b))}';
-                              selectedColor.value = hex;
-                            },
-                            context: context,
-                          );
-                        } else {
-                          // Android/Other: Use flutter_colorpicker
-                          showDialog(
-                            context: context,
-                            builder: (BuildContext dialogContext) {
-                              return AlertDialog(
-                                title: Text(context.l10n.selectColor),
-                                content: SingleChildScrollView(
-                                  child: ColorPicker(
-                                    pickerColor: currentColor,
-                                    onColorChanged: (color) {
-                                      String two(int n) =>
-                                          n.toRadixString(16).padLeft(2, '0');
-                                      int toByte(double x) =>
-                                          (x * 255.0).round() & 0xff;
-                                      final hex =
-                                          '#${two(toByte(color.r))}${two(toByte(color.g))}${two(toByte(color.b))}';
-                                      selectedColor.value = hex;
-                                    },
+                              return GestureDetector(
+                                onTap: () {
+                                  final currentColor = selectedColor.value !=
+                                          null
+                                      ? Color(int.parse(
+                                              selectedColor.value!
+                                                  .substring(1, 7),
+                                              radix: 16) +
+                                          0xFF000000)
+                                      : const Color(0xFF007AFF); // Default blue
+
+                                  if (PlatformInfo.isIOS) {
+                                    // iOS: Use native iOS color picker
+                                    final iosColorPickerController =
+                                        IOSColorPickerController();
+                                    iosColorPickerController
+                                        .showIOSCustomColorPicker(
+                                      startingColor: currentColor,
+                                      onColorChanged: (color) {
+                                        String two(int n) =>
+                                            n.toRadixString(16).padLeft(2, '0');
+                                        int toByte(double x) =>
+                                            (x * 255.0).round() & 0xff;
+                                        final hex =
+                                            '#${two(toByte(color.r))}${two(toByte(color.g))}${two(toByte(color.b))}';
+                                        selectedColor.value = hex;
+                                      },
+                                      context: context,
+                                    );
+                                  } else {
+                                    // Android/Other: Use flutter_colorpicker
+                                    showDialog(
+                                      context: context,
+                                      builder: (BuildContext dialogContext) {
+                                        return AlertDialog(
+                                          title: Text(context.l10n.selectColor),
+                                          content: SingleChildScrollView(
+                                            child: ColorPicker(
+                                              pickerColor: currentColor,
+                                              onColorChanged: (color) {
+                                                String two(int n) => n
+                                                    .toRadixString(16)
+                                                    .padLeft(2, '0');
+                                                int toByte(double x) =>
+                                                    (x * 255.0).round() & 0xff;
+                                                final hex =
+                                                    '#${two(toByte(color.r))}${two(toByte(color.g))}${two(toByte(color.b))}';
+                                                selectedColor.value = hex;
+                                              },
+                                            ),
+                                          ),
+                                          actions: <Widget>[
+                                            TextButton(
+                                              child: Text(context.l10n.done),
+                                              onPressed: () {
+                                                Navigator.of(dialogContext)
+                                                    .pop();
+                                              },
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    );
+                                  }
+                                },
+                                child: Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    color: isCustomColor &&
+                                            selectedColor.value != null
+                                        ? Color(int.parse(
+                                                selectedColor.value!
+                                                    .substring(1, 7),
+                                                radix: 16) +
+                                            0xFF000000)
+                                        : null,
+                                    gradient: isCustomColor
+                                        ? null
+                                        : const SweepGradient(
+                                            colors: [
+                                              Colors.red,
+                                              Colors.yellow,
+                                              Colors.green,
+                                              Colors.cyan,
+                                              Colors.blue,
+                                              Colors.purpleAccent,
+                                              Colors.red
+                                            ],
+                                          ),
+                                    shape: BoxShape.circle,
+                                    border: isCustomColor
+                                        ? Border.all(
+                                            color: colorScheme.foreground,
+                                            width: 2)
+                                        : Border.all(color: colorScheme.border),
+                                    boxShadow: [
+                                      // Shadow removed as requested
+                                    ],
                                   ),
+                                  child: isCustomColor
+                                      ? const Icon(Icons.check,
+                                          color: Colors.white, size: 20)
+                                      : const Icon(Icons.colorize,
+                                          color: Colors.white, size: 20),
                                 ),
-                                actions: <Widget>[
-                                  TextButton(
-                                    child: Text(context.l10n.done),
-                                    onPressed: () {
-                                      Navigator.of(dialogContext).pop();
-                                    },
-                                  ),
-                                ],
                               );
-                            },
-                          );
-                        }
-                      },
-                      child: Container(
-                        width: 60,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          color: selectedColor.value != null
-                              ? Color(int.parse(
-                                      selectedColor.value!.substring(1, 7),
-                                      radix: 16) +
-                                  0xFF000000)
-                              : const Color(0xFF007AFF),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: colorScheme.border,
-                            width: 2,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
+                            }
+                            final color = presetColors[index - 1];
+                            String two(int n) =>
+                                n.toRadixString(16).padLeft(2, '0');
+                            int toByte(double x) => (x * 255.0).round() & 0xff;
+                            final hex =
+                                '#${two(toByte(color.r))}${two(toByte(color.g))}${two(toByte(color.b))}';
+                            final isSelected =
+                                selectedColor.value?.toLowerCase() ==
+                                    hex.toLowerCase();
+
+                            return GestureDetector(
+                              onTap: () => selectedColor.value = hex,
+                              child: Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  color: color,
+                                  shape: BoxShape.circle,
+                                  border: isSelected
+                                      ? Border.all(
+                                          color: colorScheme.foreground,
+                                          width: 2)
+                                      : null,
+                                  boxShadow: [
+                                    // Shadow removed as requested
+                                  ],
+                                ),
+                                child: isSelected
+                                    ? const Icon(Icons.check,
+                                        color: Colors.white, size: 20)
+                                    : null,
+                              ),
+                            );
+                          },
                         ),
-                        child: Center(
-                          child: Icon(
-                            Icons.colorize,
-                            color: Colors.white.withOpacity(0.8),
-                            size: 24,
-                          ),
-                        ),
-                      ),
-                    ),
+                      );
+                    }),
                     const SizedBox(height: 20),
                     Text(
                       context.l10n.pocketIconLabel,
@@ -825,6 +775,130 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                           );
                         },
                       ),
+                    ),
+                    const SizedBox(height: 20),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: colorScheme.card,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: colorScheme.border),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            context.l10n.budgetAmount,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: colorScheme.mutedForeground,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    formatCurrency(
+                                        totalBudget *
+                                            (sliderValue.value / 100.0),
+                                        currency),
+                                    style: TextStyle(
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.w700,
+                                      color: colorScheme.foreground,
+                                      letterSpacing: -0.5,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${sliderValue.value.toStringAsFixed(1)}%',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: colorScheme.mutedForeground,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Text(
+                                formatCurrency(totalBudget, currency),
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: colorScheme.mutedForeground,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          SliderTheme(
+                            data: SliderThemeData(
+                              trackHeight: 6,
+                              activeTrackColor: colorScheme.primary,
+                              inactiveTrackColor:
+                                  colorScheme.primary.withOpacity(0.1),
+                              thumbColor: colorScheme.surface,
+                              overlayColor:
+                                  colorScheme.primary.withOpacity(0.1),
+                              thumbShape: const RoundSliderThumbShape(
+                                  enabledThumbRadius: 12, elevation: 4),
+                              overlayShape: const RoundSliderOverlayShape(
+                                  overlayRadius: 24),
+                            ),
+                            child: Slider(
+                              value: sliderValue.value,
+                              min: 0,
+                              max: effectiveMax,
+                              divisions: 20,
+                              onChanged: (value) {
+                                sliderValue.value = value;
+                                percentageController.text =
+                                    value.toStringAsFixed(1);
+                              },
+                            ),
+                          ),
+                          if (unallocatedBudget < 0)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 12),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.warning_amber_rounded,
+                                      size: 16, color: colorScheme.error),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      '${context.l10n.budgetExceededByLabel} ${(unallocatedBudget.abs()).toStringAsFixed(0)}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: colorScheme.error,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    _BudgetDistributionPreview(
+                      totalBudget: totalBudget,
+                      allPockets: allPockets,
+                      currentPocketId: existingEnvelope?.id,
+                      currentAllocation: sliderValue.value,
+                      currentPocketColor: selectedColor.value,
+                      currentPocketName: nameController.text.trim().isEmpty
+                          ? context.l10n.thisPocketFallback
+                          : nameController.text.trim(),
+                      currency: currency,
+                      colorScheme: colorScheme,
                     ),
                     const SizedBox(height: 24),
                     SizedBox(
@@ -974,16 +1048,7 @@ class _BudgetDistributionPreview extends StatelessWidget {
                   color: colorScheme.foreground,
                 ),
               ),
-              Text(
-                remaining.abs() < 0.1
-                    ? context.l10n.budgetBalanced
-                    : '${remaining.toStringAsFixed(1)}% ${context.l10n.remainingLabel}',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.mutedForeground,
-                ),
-              ),
+             
             ],
           ),
           const SizedBox(height: 12),
@@ -1079,6 +1144,7 @@ class _LegendItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Container(
           width: 8,

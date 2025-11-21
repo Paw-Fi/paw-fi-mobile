@@ -312,7 +312,7 @@ class _CategoryTile extends StatelessWidget {
     final label = getCategoryTranslation(context, categoryKey);
 
     final circleColor = isSelected ? color : Colors.transparent;
-    final iconColor = isSelected ? Colors.white : color.withValues(alpha: 0.3);
+    final iconColor = isSelected ? Colors.white : color.withValues(alpha: 0.2);
 
     return GestureDetector(
       onTap: onTap,
@@ -328,12 +328,12 @@ class _CategoryTile extends StatelessWidget {
                 shape: BoxShape.circle,
                 color: circleColor,
                 border: isSelected ? null : Border.all(
-                  color: color.withOpacity(0.4),
+                  color: color.withValues(alpha: 0.2),
                   width: 1.5,
                 ),
                 boxShadow: isSelected ? [
                   BoxShadow(
-                    color: color.withOpacity(0.3),
+                    color: color.withValues(alpha: 0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   )

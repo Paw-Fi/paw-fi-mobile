@@ -2,9 +2,9 @@ import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:intl/intl.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/widgets/custom_text_field.dart';
+import 'package:moneko/core/utils/date_formatter.dart';
 import 'package:moneko/features/pockets/presentation/widgets/envelope_mode_settings_modal.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
@@ -47,7 +47,7 @@ class PocketsHeaderCard extends StatelessWidget {
     const sliderMin = 0.00;
     const sliderMax = 10000.0;
     final sliderValue = effectiveBudget.clamp(sliderMin, sliderMax).toDouble();
-    final monthLabel = DateFormat('MMM').format(periodMonth);
+    final monthLabel = formatLocalizedMonth(context, periodMonth, abbreviated: false);
 
     // Theme-aware colors for the card
     final isDark = Theme.of(context).brightness == Brightness.dark;
