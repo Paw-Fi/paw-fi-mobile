@@ -51,7 +51,7 @@ class PocketDetailsPage extends HookConsumerWidget {
     // If pocket not found, show error screen
     if (pocket == null) {
       return AdaptiveScaffold(
-        appBar: AdaptiveAppBar(title: 'Pocket Not Found'),
+        appBar: AdaptiveAppBar(title: context.l10n.pocketNotFound),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24.0),
@@ -65,7 +65,7 @@ class PocketDetailsPage extends HookConsumerWidget {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Pocket not found',
+                  context.l10n.pocketNotFound,
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
@@ -74,7 +74,7 @@ class PocketDetailsPage extends HookConsumerWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'This pocket may have been deleted',
+                  context.l10n.pocketNotFoundDescription,
                   style: TextStyle(
                     fontSize: 14,
                     color: colorScheme.mutedForeground,
@@ -219,7 +219,7 @@ class PocketDetailsPage extends HookConsumerWidget {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Monthly Budget',
+                            context.l10n.monthlyBudget,
                             style: TextStyle(
                               fontSize: 14,
                               color: secondaryTextColor,
@@ -295,8 +295,8 @@ class PocketDetailsPage extends HookConsumerWidget {
                             return Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                const Text(
-                                  'Key Insights',
+                                Text(
+                                  context.l10n.keyInsights,
                                   style: TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
@@ -498,7 +498,7 @@ class _DailyTrendCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Daily Trend',
+                context.l10n.dailyTrend,
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
@@ -539,7 +539,7 @@ class _DailyTrendCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Past 30 Days',
+            context.l10n.past30Days,
             style: TextStyle(
               fontSize: 12,
               color: colorScheme.mutedForeground,
@@ -724,7 +724,7 @@ class _TransactionsListCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Text(
-                'No transactions yet',
+                context.l10n.noTransactionsYet,
                 style: TextStyle(color: colorScheme.mutedForeground),
               ),
             )
@@ -737,7 +737,7 @@ class _TransactionsListCard extends StatelessWidget {
                 final amount = (tx['amount_cents'] as num).toDouble() / 100.0;
                 final date = DateTime.parse(tx['date']);
                 final category = tx['category'] as String?;
-                final description = tx['description'] ?? 'Expense';
+                final description = tx['description'] ?? context.l10n.expense;
 
                 return Column(
                   children: [

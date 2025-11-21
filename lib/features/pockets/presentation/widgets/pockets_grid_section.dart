@@ -362,7 +362,7 @@ class PocketsGridSection extends HookConsumerWidget {
                 final pocket = sortedPockets[index];
                 return Padding(
                   key: ValueKey(pocket.id),
-                  padding: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.only(bottom: 8),
                   child: PocketListTile(
                     pocket: pocket,
                     colorScheme: colorScheme,

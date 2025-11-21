@@ -410,7 +410,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Allocation',
+                            context.l10n.budgetAmount,
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w500,

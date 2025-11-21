@@ -67,7 +67,7 @@ class ImpersonationBanner extends ConsumerWidget {
                 foregroundColor: Colors.orange.shade900,
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               ),
-              child: const Text(
+                child: const Text(
                 'EXIT',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,

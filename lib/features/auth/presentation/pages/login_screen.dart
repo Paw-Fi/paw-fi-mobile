@@ -501,7 +501,7 @@ class _ResetPasswordDialog extends HookWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Enter your email and we will send you a password reset link.',
+            context.l10n.sendResetLink,
             style: TextStyle(
               fontSize: 14,
               color: theme.colorScheme.mutedForeground,

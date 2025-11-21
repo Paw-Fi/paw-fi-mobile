@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
 class ForceUpdateDialog extends StatelessWidget {
@@ -96,7 +97,7 @@ class ForceUpdateDialog extends StatelessWidget {
                 width: double.infinity,
                 child: AdaptiveButton(
                   onPressed: _openStore,
-                  label: 'Update now',
+                  label: context.l10n.updateNow,
                   style: AdaptiveButtonStyle.filled,
                 ),
               ),

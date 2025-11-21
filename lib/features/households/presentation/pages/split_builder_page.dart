@@ -177,7 +177,7 @@ class _SplitBuilderPageState extends ConsumerState<SplitBuilderPage> {
         ),
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) => Center(
-          child: Text('Error: $error', style: TextStyle(color: colorScheme.destructive)),
+          child: Text('${context.l10n.error}: $error', style: TextStyle(color: colorScheme.destructive)),
         ),
       ),
     );

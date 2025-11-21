@@ -292,7 +292,7 @@ void _showTotalSpentInfoDialog(BuildContext context, ColorScheme colorScheme) {
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             ),
             child: Text(
-              'Got it',
+              context.l10n.gotIt,
               style: TextStyle(
                 color: colorScheme.primary,
                 fontWeight: FontWeight.w600,
