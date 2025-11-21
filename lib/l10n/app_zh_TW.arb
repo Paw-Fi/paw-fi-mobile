@@ -1358,5 +1358,8 @@
   "processingInvitation": "正在處理邀請..."
   ,
   "noHouseholdsAvailableCreateOrJoin": "沒有可用的家庭。請先建立或加入家庭。",
-  "selectHousehold": "選擇家庭"
+  "selectHousehold": "選擇家庭",
+  "yourPockets": "你的口袋",
+  "editPocket": "編輯口袋",
+  "addPocket": "新增口袋"
 }

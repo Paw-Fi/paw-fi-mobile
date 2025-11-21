@@ -4,6 +4,7 @@ import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
@@ -142,15 +143,17 @@ class PocketsPage extends ConsumerWidget {
                           Flexible(
                             child: PlainAdaptiveButton(
                               onPressed: pocketsNotifier.revertChanges,
-                              child: Text('Revert',
-                                  style: TextStyle(color: colorScheme.error)),
+                              child: Text(
+                                context.l10n.reset,
+                                style: TextStyle(color: colorScheme.error),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 8),
                           Flexible(
                             child: PrimaryAdaptiveButton(
                               onPressed: pocketsNotifier.saveChanges,
-                              child: const Text('Save'),
+                              child: Text(context.l10n.save),
                             ),
                           ),
                         ],

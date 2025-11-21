@@ -8,11 +8,11 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:ios_color_picker/show_ios_color_picker.dart';
 import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
-import 'package:moneko/core/l10n/l10n.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/core/theme/app_theme.dart';
 
@@ -749,7 +749,7 @@ class _AvatarCustomizerScreenState
         context: context,
         builder: (BuildContext context) {
           return AlertDialog(
-            title: Text('Select $key color'),
+            title: Text('${context.l10n.select} ${key.toLowerCase()} ${context.l10n.color}'),
             content: SingleChildScrollView(
               child: ColorPicker(
                 pickerColor: current,
@@ -762,7 +762,7 @@ class _AvatarCustomizerScreenState
             ),
             actions: <Widget>[
               TextButton(
-                child: const Text('Done'),
+                child: Text(context.l10n.done),
                 onPressed: () {
                   Navigator.of(context).pop();
                 },

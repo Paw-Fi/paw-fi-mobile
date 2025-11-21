@@ -1386,5 +1386,8 @@
   "processingInvitation": "Einladung wird verarbeitet..."
   ,
   "noHouseholdsAvailableCreateOrJoin": "Keine Haushalte verfügbar. Erstelle oder tritt zuerst einem Haushalt bei.",
-  "selectHousehold": "Haushalt auswählen"
+  "selectHousehold": "Haushalt auswählen",
+  "yourPockets": "Deine Umschläge",
+  "editPocket": "Umschlag bearbeiten",
+  "addPocket": "Umschlag hinzufügen"
 }

@@ -406,7 +406,12 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                           for (final type in const ['all', 'expense', 'income'])
                             ChoiceChip(
                               label: Text(
-                                  type[0].toUpperCase() + type.substring(1)),
+                                type == 'all'
+                                    ? context.l10n.all
+                                    : type == 'expense'
+                                        ? context.l10n.expenses
+                                        : context.l10n.income,
+                              ),
                               selected: selectedType == type,
                               onSelected: (v) {
                                 if (!v) return;

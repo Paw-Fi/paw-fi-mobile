@@ -39,7 +39,7 @@ class MainShell extends HookConsumerWidget {
       appBar: AdaptiveAppBar(
         useNativeToolbar: false,
         appBar: AppBar(
-          title: const Text('Moneko'),
+          title: Text(context.l10n.moneko),
         )
       )
         ,
@@ -110,7 +110,7 @@ class MainShell extends HookConsumerWidget {
                 : PlatformInfo.isIOS
                     ? CupertinoIcons.creditcard
                     : Icons.account_balance_wallet_outlined,
-            label: 'Pockets',
+            label: context.l10n.pockets,
           ),
         ],
         selectedIndex: currentIndex.value,

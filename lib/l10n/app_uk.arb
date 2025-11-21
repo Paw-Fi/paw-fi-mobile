@@ -1350,5 +1350,8 @@
   "processingInvitation": "Обробка запрошення..."
   ,
   "noHouseholdsAvailableCreateOrJoin": "Немає доступних домогосподарств. Спершу створіть або приєднайтеся.",
-  "selectHousehold": "Виберіть домогосподарство"
+  "selectHousehold": "Виберіть домогосподарство",
+  "yourPockets": "Ваші кишені",
+  "editPocket": "Редагувати кишеню",
+  "addPocket": "Додати кишеню"
 }

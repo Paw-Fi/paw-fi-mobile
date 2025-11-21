@@ -108,18 +108,18 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
       final percentageText = percentageController.text.trim();
 
       if (name.isEmpty) {
-        AppToast.error(context, 'Please enter a name');
+        AppToast.error(context, l10n.pleaseEnterPocketName);
         return;
       }
 
       if (percentageText.isEmpty) {
-        AppToast.error(context, 'Please enter a percentage');
+        AppToast.error(context, l10n.pleaseEnterPocketPercentage);
         return;
       }
 
       final percentage = double.tryParse(percentageText);
       if (percentage == null || percentage < 0 || percentage > 100) {
-        AppToast.error(context, 'Please enter a valid percentage (0-100)');
+        AppToast.error(context, l10n.pleaseEnterValidPocketPercentage);
         return;
       }
 
@@ -138,12 +138,12 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
       final householdId = scopeParams.householdId;
 
       if (isHousehold && householdId == null) {
-        AppToast.info(context, 'Please select a household first');
+        AppToast.info(context, l10n.pleaseSelectHouseholdFirst);
         return;
       }
 
       if (budgetId == null) {
-        AppToast.info(context, 'Please set a monthly budget first');
+        AppToast.info(context, l10n.pleaseSetMonthlyBudgetFirst);
         return;
       }
 
@@ -261,7 +261,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
         }
       } catch (e) {
         if (context.mounted) {
-          AppToast.error(context, 'Failed to save Pocket: ${e.toString()}');
+          AppToast.error(context, l10n.failedToSave(e.toString()));
         }
       } finally {
         isLoading.value = false;
@@ -271,21 +271,22 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
     Future<void> handleDelete() async {
       if (!isEditing) return;
 
+      final l10n = context.l10n;
+
       AdaptiveAlertDialog.show(
         context: context,
-        title: 'Delete Pocket?',
-        message:
-            'This will remove the Pocket and its category links. Your expenses will not be deleted.',
+        title: l10n.pocketDeleteTitle,
+        message: l10n.pocketDeleteMessage,
         icon: 'trash.fill',
         actions: [
           AlertAction(
-            title: 'Cancel',
+            title: l10n.cancel,
             onPressed: () {
               Navigator.of(context).pop(false);
             },
           ),
           AlertAction(
-            title: 'Delete',
+            title: l10n.delete,
             style: AlertActionStyle.destructive,
             onPressed: () async {
               isLoading.value = true;
@@ -299,12 +300,11 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
 
                 if (context.mounted) {
                   Navigator.of(context).pop();
-                  AppToast.success(context, 'Pocket deleted');
+                  AppToast.success(context, l10n.pocketDeleted);
                 }
               } catch (e) {
                 if (context.mounted) {
-                  AppToast.error(
-                      context, 'Failed to delete Pocket: ${e.toString()}');
+                  AppToast.error(context, l10n.failedToDeletePocket);
                 }
               } finally {
                 isLoading.value = false;
@@ -334,7 +334,9 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      isEditing ? 'Edit Pocket' : 'Add Pocket',
+                      isEditing
+                          ? context.l10n.editPocket
+                          : context.l10n.addPocket,
                       style: TextStyle(
                         color: colorScheme.foreground,
                         fontSize: 20,
@@ -361,7 +363,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'Name',
+                      context.l10n.pocketNameLabel,
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
@@ -371,7 +373,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                     const SizedBox(height: 8),
                     CustomTextField(
                       controller: nameController,
-                      placeholder: 'Pocket name',
+                      placeholder: context.l10n.pocketNamePlaceholder,
                     ),
                     const SizedBox(height: 20),
                     _BudgetDistributionPreview(
@@ -382,7 +384,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                       currentPocketColor: selectedColor.value,
                       currentPocketName:
                           (existingEnvelope?.name.trim().isEmpty ?? true)
-                              ? 'This Pocket'
+                              ? context.l10n.thisPocketFallback
                               : existingEnvelope!.name,
                       currency: currency,
                       colorScheme: colorScheme,
@@ -513,7 +515,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      'Budget exceeded by ${(unallocatedBudget.abs()).toStringAsFixed(0)}',
+                                      '${context.l10n.budgetExceededByLabel} ${(unallocatedBudget.abs()).toStringAsFixed(0)}',
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: colorScheme.error,
@@ -529,7 +531,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      'Categories',
+                      context.l10n.pocketCategoriesLabel,
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
@@ -567,7 +569,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                             Expanded(
                               child: selectedCategories.value.isEmpty
                                   ? Text(
-                                      'Tap to select categories',
+                                      context.l10n.tapToSelectCategories,
                                       style: TextStyle(
                                         fontSize: 14,
                                         color: colorScheme.mutedForeground,
@@ -614,7 +616,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      'Color',
+                      context.l10n.pocketColorLabel,
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
@@ -654,7 +656,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                             context: context,
                             builder: (BuildContext dialogContext) {
                               return AlertDialog(
-                                title: const Text('Select color'),
+                                title: Text(context.l10n.selectColor),
                                 content: SingleChildScrollView(
                                   child: ColorPicker(
                                     pickerColor: currentColor,
@@ -671,7 +673,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                 ),
                                 actions: <Widget>[
                                   TextButton(
-                                    child: const Text('Done'),
+                                    child: Text(context.l10n.done),
                                     onPressed: () {
                                       Navigator.of(dialogContext).pop();
                                     },
@@ -716,7 +718,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      'Icon',
+                      context.l10n.pocketIconLabel,
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
@@ -929,12 +931,14 @@ class _BudgetDistributionPreview extends StatelessWidget {
     final segments = <_Segment>[
       for (final p in otherPockets)
         _Segment(
-          label: p.name.isEmpty ? 'Pocket' : p.name,
+          label: p.name.isEmpty ? context.l10n.pocketSegmentLabel : p.name,
           percentage: rebalancedOthers[p.id] ?? 0,
           color: _hexOrPrimary(p.color, colorScheme),
         ),
       _Segment(
-        label: currentPocketName.isEmpty ? 'This Pocket' : currentPocketName,
+        label: currentPocketName.isEmpty
+            ? context.l10n.thisPocketSegmentLabel
+            : currentPocketName,
         percentage: (otherPockets.isEmpty ? 100 : desiredPct).toDouble(),
         color: _hexOrPrimary(currentPocketColor, colorScheme),
         isCurrent: true,
@@ -963,7 +967,7 @@ class _BudgetDistributionPreview extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Budget Impact',
+                context.l10n.budgetImpactTitle,
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -972,8 +976,8 @@ class _BudgetDistributionPreview extends StatelessWidget {
               ),
               Text(
                 remaining.abs() < 0.1
-                    ? 'Balanced'
-                    : '${remaining.toStringAsFixed(1)}% remaining',
+                    ? context.l10n.budgetBalanced
+                    : '${remaining.toStringAsFixed(1)}% ${context.l10n.remainingLabel}',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,

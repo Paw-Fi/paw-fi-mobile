@@ -1308,5 +1308,8 @@
   "processingInvitation": "Обрабатываем приглашение..."
   ,
   "noHouseholdsAvailableCreateOrJoin": "Нет доступных домохозяйств. Сначала создайте или присоединитесь к домохозяйству.",
-  "selectHousehold": "Выберите домохозяйство"
+  "selectHousehold": "Выберите домохозяйство",
+  "yourPockets": "Ваши карманы",
+  "editPocket": "Изменить карман",
+  "addPocket": "Добавить карман"
 }

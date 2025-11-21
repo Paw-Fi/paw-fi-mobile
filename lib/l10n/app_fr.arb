@@ -1375,5 +1375,8 @@
   "processingInvitation": "Traitement de l’invitation..."
   ,
   "noHouseholdsAvailableCreateOrJoin": "Aucun foyer disponible. Crée ou rejoins d’abord un foyer.",
-  "selectHousehold": "Sélectionner un foyer"
+  "selectHousehold": "Sélectionner un foyer",
+  "yourPockets": "Vos enveloppes",
+  "editPocket": "Modifier l’enveloppe",
+  "addPocket": "Ajouter une enveloppe"
 }

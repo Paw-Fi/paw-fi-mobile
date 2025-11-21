@@ -1371,5 +1371,8 @@
   "processingInvitation": "正在处理邀请..."
   ,
   "noHouseholdsAvailableCreateOrJoin": "没有可用的家庭。请先创建或加入一个家庭。",
-  "selectHousehold": "选择家庭"
+  "selectHousehold": "选择家庭",
+  "yourPockets": "你的口袋",
+  "editPocket": "编辑口袋",
+  "addPocket": "添加口袋"
 }

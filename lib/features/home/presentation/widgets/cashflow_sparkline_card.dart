@@ -1,6 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/state/derived_selectors.dart';
 
 import 'package:moneko/core/util/logger.dart';
@@ -18,7 +19,7 @@ class CashflowSparklineCard extends ConsumerWidget {
     appLog('widget_viewed: cashflow_sparkline');
 
     if (series.isEmpty) {
-      return _wrapCard(colorScheme, const Center(child: Text('No cashflow yet')));
+      return _wrapCard(colorScheme, Center(child: Text(context.l10n.noCashflowYet)));
     }
 
     // Build cumulative net cashflow

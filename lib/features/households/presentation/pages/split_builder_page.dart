@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import '../../domain/entities/expense_split.dart';
@@ -73,9 +74,9 @@ class _SplitBuilderPageState extends ConsumerState<SplitBuilderPage> {
               // Total Amount
               TextField(
                 controller: _amountController,
-                decoration: const InputDecoration(
-                  labelText: 'Total Amount',
-                  prefixText: '\$',
+                decoration: InputDecoration(
+                  labelText: context.l10n.totalAmount,
+                  prefixText: context.l10n.dollarSign,
                 ),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
               ),
@@ -83,7 +84,7 @@ class _SplitBuilderPageState extends ConsumerState<SplitBuilderPage> {
 
               // Who Paid?
               Text(
-                'Who paid?',
+                context.l10n.whoPaid,
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -93,14 +94,14 @@ class _SplitBuilderPageState extends ConsumerState<SplitBuilderPage> {
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 initialValue: _selectedPayer,
-                decoration: const InputDecoration(
-                  labelText: 'Payer',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: context.l10n.payer,
+                  border: const OutlineInputBorder(),
                 ),
                 items: members
                     .map((m) => DropdownMenuItem(
                           value: m.userId,
-                          child: Text(m.userName ?? m.userEmail ?? 'Unknown'),
+                          child: Text(m.userName ?? m.userEmail ?? context.l10n.unknown),
                         ))
                     .toList(),
                 onChanged: (value) {
@@ -168,7 +169,7 @@ class _SplitBuilderPageState extends ConsumerState<SplitBuilderPage> {
                   onPressed: _canCreateSplit(members)
                       ? () => _createSplit(members)
                       : null,
-                  child: const Text('Create Split'),
+                  child: Text(context.l10n.createSplit),
                 ),
               ),
             ],
@@ -322,7 +323,7 @@ class _SplitMemberRow extends StatelessWidget {
             Expanded(
               child: Text(member.userName ?? member.userEmail ?? 'Unknown'),
             ),
-            const Text('Equal share'),
+            Text(context.l10n.equalShare),
           ],
         ),
       );

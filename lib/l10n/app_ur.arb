@@ -1293,5 +1293,8 @@
   "processingInvitation": "دعوت پر کارروائی ہو رہی ہے..."
   ,
   "noHouseholdsAvailableCreateOrJoin": "کوئی گھرانہ دستیاب نہیں۔ پہلے گھرانہ بنائیں یا شامل ہوں۔",
-  "selectHousehold": "گھرانہ منتخب کریں"
+  "selectHousehold": "گھرانہ منتخب کریں",
+  "yourPockets": "آپ کے پاکٹس",
+  "editPocket": "پاکٹ میں ترمیم کریں",
+  "addPocket": "پاکٹ شامل کریں"
 }

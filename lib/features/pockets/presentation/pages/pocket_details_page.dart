@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
@@ -35,7 +36,7 @@ class PocketDetailsPage extends HookConsumerWidget {
     // If state is loading (e.g., after invalidation), show loading indicator
     if (state.isLoading && state.editing.isEmpty && state.saved.isEmpty) {
       return AdaptiveScaffold(
-        appBar: AdaptiveAppBar(title: 'Loading...'),
+        appBar: AdaptiveAppBar(title: context.l10n.loading),
         body: Center(
           child: CircularProgressIndicator(
             valueColor: AlwaysStoppedAnimation(colorScheme.primary),
@@ -82,7 +83,7 @@ class PocketDetailsPage extends HookConsumerWidget {
                 const SizedBox(height: 24),
                 ElevatedButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Go Back'),
+                  child: Text(context.l10n.goBack),
                 ),
               ],
             ),
@@ -346,7 +347,7 @@ class PocketDetailsPage extends HookConsumerWidget {
                             ),
                           ),
                           error: (err, stack) => Center(
-                            child: Text('Error: $err'),
+                            child: Text(context.l10n.error(err.toString())),
                           ),
                         );
                       },
@@ -394,21 +395,21 @@ class _StatsGrid extends StatelessWidget {
       children: [
         Expanded(
           child: _StatCard(
-            label: 'Spent This Month',
+            label: context.l10n.spentThisMonth,
             value: formatCurrency(spent, currency),
           ),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: _StatCard(
-            label: 'Avg. Daily Spend',
+            label: context.l10n.avgDaily,
             value: formatCurrency(dailyAverage, currency),
           ),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: _StatCard(
-            label: 'Allowance',
+            label: context.l10n.allowance,
             value: formatCurrency(allowance, currency),
           ),
         ),
@@ -598,7 +599,7 @@ class _SpendingBreakdownCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Spending Breakdown',
+            context.l10n.spendingBreakdown,
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w700,
@@ -718,7 +719,7 @@ class _TransactionsListCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Recent Transactions',
+                context.l10n.recentTransactions,
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,

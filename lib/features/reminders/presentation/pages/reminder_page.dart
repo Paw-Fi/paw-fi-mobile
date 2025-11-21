@@ -4,6 +4,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 class ReminderPage extends HookConsumerWidget {
   const ReminderPage({super.key});
@@ -33,7 +34,7 @@ class ReminderPage extends HookConsumerWidget {
                     children: [
                 // Main Title
                 Text(
-                  'You\'ve Got 2 Paychecks Incoming and 2 Bills to Pay',
+                  context.l10n.youveGotPaychecksIncomingAndBillsToPay,
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w700,
@@ -63,7 +64,7 @@ class ReminderPage extends HookConsumerWidget {
                         ),
                         const shadcnui.Gap(8),
                         Text(
-                          'Notify Me 3 Days Before',
+                          context.l10n.notifyMeDaysBefore,
                           style: TextStyle(
                             fontSize: 14,
                             color: colorScheme.mutedForeground,
@@ -80,7 +81,7 @@ class ReminderPage extends HookConsumerWidget {
                 // Upcoming Paychecks Section
                 _buildExpandableSection(
                   colorScheme: colorScheme,
-                  title: 'Upcoming Paychecks',
+                  title: context.l10n.upcomingPaychecks,
                   isExpanded: showUpcomingPaychecks,
                   color: const Color(0xFF10B981),
                   child: Column(
@@ -88,7 +89,7 @@ class ReminderPage extends HookConsumerWidget {
                       _buildPaycheckCard(
                         colorScheme: colorScheme,
                         date: 'Sep 30',
-                        title: 'Paycheck from Work',
+                        title: context.l10n.paycheckFromWork,
                         amount: '\$2200.00',
                         isPositive: true,
                       ),
@@ -96,7 +97,7 @@ class ReminderPage extends HookConsumerWidget {
                       _buildPaycheckCard(
                         colorScheme: colorScheme,
                         date: 'Oct 2',
-                        title: 'Freelance Project',
+                        title: context.l10n.freelanceProject,
                         amount: '\$800.00',
                         isPositive: true,
                       ),
@@ -109,7 +110,7 @@ class ReminderPage extends HookConsumerWidget {
                 // Upcoming Bills Section
                 _buildExpandableSection(
                   colorScheme: colorScheme,
-                  title: 'Upcoming Bills',
+                  title: context.l10n.upcomingBills,
                   isExpanded: showUpcomingBills,
                   color: const Color(0xFFEF4444),
                   child: Column(
@@ -117,7 +118,7 @@ class ReminderPage extends HookConsumerWidget {
                       _buildPaycheckCard(
                         colorScheme: colorScheme,
                         date: 'Sep 28',
-                        title: 'Rent Payment',
+                        title: context.l10n.rentPayment,
                         amount: '\$1500.00',
                         isPositive: false,
                       ),
@@ -125,7 +126,7 @@ class ReminderPage extends HookConsumerWidget {
                       _buildPaycheckCard(
                         colorScheme: colorScheme,
                         date: 'Oct 1',
-                        title: 'Electricity Bill',
+                        title: context.l10n.electricityBill,
                         amount: '\$120.00',
                         isPositive: false,
                       ),
@@ -176,7 +177,7 @@ class ReminderPage extends HookConsumerWidget {
                           ),
                           const shadcnui.Gap(16),
                           Text(
-                            'Coming in Next Phase',
+                            context.l10n.comingInNextPhase,
                             style: TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.w700,
@@ -186,7 +187,7 @@ class ReminderPage extends HookConsumerWidget {
                           ),
                           const shadcnui.Gap(8),
                           Text(
-                            'This feature is under development',
+                            context.l10n.thisFeatureIsUnderDevelopment,
                             style: TextStyle(
                               fontSize: 14,
                               color: colorScheme.mutedForeground,

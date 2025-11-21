@@ -5,6 +5,7 @@ import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
@@ -138,7 +139,7 @@ class PocketsGridSection extends HookConsumerWidget {
           Row(
             children: [
               Text(
-                'Your Pockets',
+                context.l10n.yourPockets,
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
@@ -178,7 +179,7 @@ class PocketsGridSection extends HookConsumerWidget {
                   onTap: () {
                     if (totalBudget <= 0) {
                       AppToast.info(
-                          context, 'Please set a monthly budget first');
+                          context, context.l10n.pleaseSetMonthlyBudgetFirst);
                       // Optionally scroll to top or highlight budget slider
                       return;
                     }
@@ -226,7 +227,7 @@ class PocketsGridSection extends HookConsumerWidget {
           Row(
             children: [
               Text(
-                'Spending Breakdown',
+                context.l10n.spendingBreakdown,
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
@@ -236,7 +237,7 @@ class PocketsGridSection extends HookConsumerWidget {
               ),
               const Spacer(),
               Text(
-                'By Category',
+                context.l10n.byCategory,
                 style: TextStyle(
                   fontSize: 13,
                   color: colorScheme.mutedForeground,
@@ -340,7 +341,7 @@ class _UncategorizedBanner extends StatelessWidget {
                           ),
                           const TextSpan(text: ' '),
                           TextSpan(
-                            text: 'Unallocated Spend',
+                            text: context.l10n.unallocatedSpendLabel,
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -353,7 +354,7 @@ class _UncategorizedBanner extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'You have transactions that are not covered by any pocket.',
+                      context.l10n.unallocatedBannerDescription,
                       style: TextStyle(
                         fontSize: 12,
                         color: colorScheme.mutedForeground.withOpacity(0.7),
@@ -399,7 +400,7 @@ void _showUncategorizedSheet(BuildContext context, ColorScheme colorScheme,
               Row(
                 children: [
                   Text(
-                    'Uncategorized spending',
+                    context.l10n.uncategorizedSpendingTitle,
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
@@ -415,7 +416,7 @@ void _showUncategorizedSheet(BuildContext context, ColorScheme colorScheme,
               ),
               const SizedBox(height: 8),
               Text(
-                'These categories are not linked to any pocket. Link them to start tracking against your pockets.',
+                context.l10n.uncategorizedSpendingDescription,
                 style: TextStyle(
                   fontSize: 13,
                   color: colorScheme.mutedForeground,
@@ -458,7 +459,7 @@ void _showUncategorizedSheet(BuildContext context, ColorScheme colorScheme,
                                 padding:
                                     const EdgeInsets.fromLTRB(12, 0, 12, 12),
                                 child: Text(
-                                  'No detailed expenses found for this category.',
+                                  context.l10n.noDetailedExpensesFound,
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: colorScheme.mutedForeground,
@@ -494,7 +495,7 @@ void _showUncategorizedSheet(BuildContext context, ColorScheme colorScheme,
                                           Text(
                                             desc?.isNotEmpty == true
                                                 ? desc!
-                                                : 'Expense',
+                                                : context.l10n.expense,
                                             style: TextStyle(
                                               fontSize: 13,
                                               fontWeight: FontWeight.w600,
@@ -527,7 +528,7 @@ void _showUncategorizedSheet(BuildContext context, ColorScheme colorScheme,
                                                             8),
                                                   ),
                                                   child: Text(
-                                                    'Recurring',
+                                                    context.l10n.recurring,
                                                     style: TextStyle(
                                                       fontSize: 10,
                                                       fontWeight:
@@ -588,7 +589,7 @@ class _SimpleSpendingList extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(32),
           child: Text(
-            'No spending data yet.',
+            context.l10n.noSpendingData,
             style: TextStyle(color: colorScheme.mutedForeground),
           ),
         ),
@@ -660,7 +661,7 @@ class _SimpleSpendingList extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${(percentageOfTotal * 100).toStringAsFixed(1)}% of spending',
+                          context.l10n.percentageOfSpending((percentageOfTotal * 100).toStringAsFixed(1)),
                           style: TextStyle(
                             fontSize: 13,
                             color: colorScheme.mutedForeground,
@@ -856,7 +857,7 @@ class _PocketsHeaderCard extends StatelessWidget {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                'Set Monthly Budget',
+                                context.l10n.setMonthlyBudgetTitle,
                                 style: TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.w700,
@@ -888,7 +889,7 @@ class _PocketsHeaderCard extends StatelessWidget {
                                   Navigator.pop(context);
                                 }
                               },
-                              child: const Text('Save'),
+                              child: Text(context.l10n.save),
                             ),
                           ),
                         ],
@@ -997,7 +998,7 @@ class _AddEnvelopeCard extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               Text(
-                'New Pocket',
+                context.l10n.newPocketTitle,
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -1321,7 +1322,7 @@ void _showEnvelopeModeSettingsModal(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'View Options',
+                  context.l10n.viewOptionsTitle,
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
@@ -1362,7 +1363,7 @@ void _showEnvelopeModeSettingsModal(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Envelope Mode',
+                          context.l10n.envelopeModeTitle,
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -1371,7 +1372,7 @@ void _showEnvelopeModeSettingsModal(
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Allocate budget to individual pockets',
+                          context.l10n.envelopeModeDescription,
                           style: TextStyle(
                             fontSize: 13,
                             color: colorScheme.mutedForeground,
@@ -1391,7 +1392,7 @@ void _showEnvelopeModeSettingsModal(
             ),
             const SizedBox(height: 24),
             Text(
-              'How it works',
+              context.l10n.howItWorksTitle,
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -1401,25 +1402,25 @@ void _showEnvelopeModeSettingsModal(
             const SizedBox(height: 16),
             _InfoRow(
               icon: Icons.pie_chart_outline_rounded,
-              title: 'Allocate your income',
+              title: context.l10n.allocateYourIncomeTitle,
               description:
-                  'Divide your total monthly budget into specific categories or "pockets".',
+                  context.l10n.allocateYourIncomeDescription,
               colorScheme: colorScheme,
             ),
             const SizedBox(height: 16),
             _InfoRow(
               icon: Icons.track_changes_rounded,
-              title: 'Track spending',
+              title: context.l10n.trackSpendingTitle,
               description:
-                  'See exactly how much you have left in each pocket as you spend.',
+                  context.l10n.trackSpendingDescription,
               colorScheme: colorScheme,
             ),
             const SizedBox(height: 16),
             _InfoRow(
               icon: Icons.warning_amber_rounded,
-              title: 'Avoid overspending',
+              title: context.l10n.avoidOverspendingTitle,
               description:
-                  'Get visual alerts when a pocket is running low or over budget.',
+                  context.l10n.avoidOverspendingDescription,
               colorScheme: colorScheme,
             ),
             const SizedBox(height: 24),

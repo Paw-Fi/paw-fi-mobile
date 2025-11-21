@@ -299,14 +299,14 @@ class WalletLoginButton extends HookConsumerWidget {
               children: [
                 ListTile(
                   leading: const Icon(Icons.token_outlined),
-                  title: const Text('Ethereum (EVM)'),
-                  subtitle: const Text('Use MetaMask, Rainbow, Brave, etc.'),
+                  title: Text(context.l10n.ethereumEvm),
+                  subtitle: Text(context.l10n.useMetaMaskRainbowBraveEtc),
                   onTap: () => Navigator.pop(ctx, 'ethereum'),
                 ),
                 ListTile(
                   leading: const Icon(Icons.compass_calibration_outlined),
-                  title: const Text('Solana'),
-                  subtitle: const Text('Use Phantom, Solflare, Backpack, etc.'),
+                  title: Text(context.l10n.solana),
+                  subtitle: Text(context.l10n.usePhantomSolflareBackpackEtc),
                   onTap: () => Navigator.pop(ctx, 'solana'),
                 ),
                 const SizedBox(height: 4),

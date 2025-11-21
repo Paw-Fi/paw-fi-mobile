@@ -1377,5 +1377,8 @@
   "processingInvitation": "招待を処理しています..."
   ,
   "noHouseholdsAvailableCreateOrJoin": "世帯がありません。まず世帯を作成するか参加してください。",
-  "selectHousehold": "世帯を選択"
+  "selectHousehold": "世帯を選択",
+  "yourPockets": "あなたのポケット",
+  "editPocket": "ポケットを編集",
+  "addPocket": "ポケットを追加"
 }

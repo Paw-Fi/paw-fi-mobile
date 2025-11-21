@@ -235,7 +235,7 @@ class _GoalsListPageState extends ConsumerState<GoalsListPage> with SingleTicker
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stack) => Center(
-        child: Text('Error: $error'),
+        child: Text(context.l10n.error(error.toString())),
       ),
     );
   }

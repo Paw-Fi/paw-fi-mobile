@@ -1162,5 +1162,8 @@
   "processingInvitation": "초대를 처리하는 중..."
   ,
   "noHouseholdsAvailableCreateOrJoin": "가계가 없습니다. 먼저 가계를 생성하거나 가입하세요.",
-  "selectHousehold": "가계 선택"
+  "selectHousehold": "가계 선택",
+  "yourPockets": "내 포켓",
+  "editPocket": "포켓 수정",
+  "addPocket": "포켓 추가"
 }

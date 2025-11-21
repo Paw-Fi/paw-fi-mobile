@@ -1304,5 +1304,8 @@
   "processingInvitation": "Uitnodiging verwerken..."
   ,
   "noHouseholdsAvailableCreateOrJoin": "Geen huishoudens beschikbaar. Maak eerst een huishouden aan of word lid.",
-  "selectHousehold": "Huishouden selecteren"
+  "selectHousehold": "Huishouden selecteren",
+  "yourPockets": "Jouw pockets",
+  "editPocket": "Pocket bewerken",
+  "addPocket": "Pocket toevoegen"
 }

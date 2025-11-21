@@ -200,7 +200,7 @@ void _showCreateHouseholdDialog(BuildContext context, WidgetRef ref, String user
                   child: AdaptiveButton(
                     onPressed: () => Navigator.of(context).pop(),
                     style: AdaptiveButtonStyle.plain,
-                    label: 'Cancel',
+                    label: context.l10n.cancel,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -239,7 +239,7 @@ void _showCreateHouseholdDialog(BuildContext context, WidgetRef ref, String user
                         }
                       }
                     },
-                    label: 'Create',
+                    label: context.l10n.create,
                   ),
                 ),
               ],

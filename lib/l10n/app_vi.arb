@@ -1375,5 +1375,8 @@
   "processingInvitation": "Đang xử lý lời mời..."
   ,
   "noHouseholdsAvailableCreateOrJoin": "Chưa có hộ gia đình. Hãy tạo hoặc tham gia trước.",
-  "selectHousehold": "Chọn hộ gia đình"
+  "selectHousehold": "Chọn hộ gia đình",
+  "yourPockets": "Các hũ của bạn",
+  "editPocket": "Chỉnh sửa hũ",
+  "addPocket": "Thêm hũ"
 }

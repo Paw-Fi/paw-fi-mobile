@@ -319,7 +319,7 @@ class AddRecurringSheet extends HookConsumerWidget {
       } catch (e, stackTrace) {
         isLoading.value = false;
         if (context.mounted) {
-          AppToast.error(context, 'Error: ${e.toString()}');
+          AppToast.error(context, l10n.failedToSave(e.toString()));
         }
       }
     }
@@ -1316,7 +1316,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                                     (m) => DropdownMenuItem<String>(
                                       value: m.userId,
                                       child: Text(
-                                        m.userName ?? m.userEmail ?? 'Member',
+                                        m.userName ?? m.userEmail ?? context.l10n.member,
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),

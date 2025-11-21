@@ -1376,5 +1376,8 @@
   "processingInvitation": "Procesando invitación..."
   ,
   "noHouseholdsAvailableCreateOrJoin": "No hay hogares disponibles. Crea o únete a un hogar primero.",
-  "selectHousehold": "Seleccionar hogar"
+  "selectHousehold": "Seleccionar hogar",
+  "yourPockets": "Tus bolsillos",
+  "editPocket": "Editar bolsillo",
+  "addPocket": "Agregar bolsillo"
 }

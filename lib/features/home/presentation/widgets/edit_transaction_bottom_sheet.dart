@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/transaction_edit_state.dart';
@@ -140,7 +141,7 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
                 child: AdaptiveButton(
                   onPressed: isLoading ? null : () => Navigator.pop(context),
                   style: AdaptiveButtonStyle.plain,
-                  label: 'Cancel',
+                  label: context.l10n.cancel,
                 ),
               ),
               const SizedBox(width: 12),
@@ -153,7 +154,7 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
                           height: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Save'),
+                      : Text(context.l10n.save),
                 ),
               ),
             ],
