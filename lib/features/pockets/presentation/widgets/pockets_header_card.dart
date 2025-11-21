@@ -75,10 +75,39 @@ class PocketsHeaderCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Top Section: Help Icon in top right
+          // Month Label and Help Icon in same row
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Spacer(),
+              // Empty space to balance the row for true centering
+              const SizedBox(width: 48), // Match help icon width
+              // Month Label (truly centered)
+              Expanded(
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colorScheme.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: colorScheme.primary.withValues(alpha: 0.3),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Text(
+                      monthLabel,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
               // Help Icon
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
@@ -102,31 +131,7 @@ class PocketsHeaderCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          // Month Label (centered with chip styling)
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 8,
-            ),
-            decoration: BoxDecoration(
-              color: colorScheme.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: colorScheme.primary.withValues(alpha: 0.3),
-                width: 1.5,
-              ),
-            ),
-            child: Text(
-              monthLabel,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: colorScheme.primary,
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           // Budget Amount (centered, showing total budget)
           GestureDetector(
             behavior: HitTestBehavior.opaque,
@@ -212,17 +217,20 @@ class PocketsHeaderCard extends StatelessWidget {
           ),
           const SizedBox(height: 32),
           // Slider
-          AdaptiveSlider(
-            activeColor: colorScheme.primary,
-            value: sliderValue,
-            min: sliderMin,
-            max: sliderMax,
-            onChanged: (value) {
-              // Round to nearest 10
-              final roundedValue = (value / 10).round() * 10;
-              onTotalChanged(roundedValue.toDouble());
-            },
-            divisions: ((sliderMax - sliderMin) / 10).round(),
+          SizedBox(
+            width: double.infinity,
+            child: AdaptiveSlider(
+              activeColor: colorScheme.primary,
+              value: sliderValue,
+              min: sliderMin,
+              max: sliderMax,
+              onChanged: (value) {
+                // Round to nearest 10
+                final roundedValue = (value / 10).round() * 10;
+                onTotalChanged(roundedValue.toDouble());
+              },
+              divisions: ((sliderMax - sliderMin) / 10).round(),
+            ),
           ),
           const SizedBox(height: 8),
           // Min/Max Labels

@@ -312,15 +312,6 @@ class PocketDetailsPage extends HookConsumerWidget {
                                 ),
                                 const SizedBox(height: 24),
 
-                                // 2. Daily Trend
-                                if (data.dailySpending.isNotEmpty) ...[
-                                  _DailyTrendCard(
-                                    dailySpending: data.dailySpending,
-                                    color: pocketColor,
-                                  ),
-                                  const SizedBox(height: 24),
-                                ],
-
                                 // 3. Spending Breakdown
                                 if (data.categorySpending.isNotEmpty) ...[
                                   _SpendingBreakdownCard(

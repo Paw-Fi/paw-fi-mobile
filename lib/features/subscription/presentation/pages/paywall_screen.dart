@@ -72,7 +72,7 @@ class PaywallScreen extends ConsumerWidget {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: Theme.of(context).colorScheme.foreground,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -166,7 +166,7 @@ class PaywallScreen extends ConsumerWidget {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: Theme.of(context).colorScheme.foreground,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -294,7 +294,7 @@ class PaywallScreen extends ConsumerWidget {
             style: TextStyle(
               fontSize: 32,
               fontWeight: FontWeight.bold,
-              color: colorScheme.foreground,
+              color: colorScheme.onSurface,
             ),
             textAlign: TextAlign.center,
           ),
@@ -339,7 +339,7 @@ class PaywallScreen extends ConsumerWidget {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: colorScheme.foreground,
+                          color: colorScheme.onSurface,
                           height: 1.5,
                         ),
                       ),

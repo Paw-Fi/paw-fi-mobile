@@ -12,6 +12,8 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dart';
 import 'package:moneko/features/utils/sub_page_top_padding.dart';
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+import 'package:moneko/shared/widgets/secondary_adaptive_button.dart';
 import '../widgets/unified_transaction_sheet.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -1042,7 +1044,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                   Row(
                     children: [
                       Expanded(
-                        child: AdaptiveButton(
+                        child: SecondaryAdaptiveButton(
                           onPressed: () {
                             setState(() {
                               selectedCategory = 'all';
@@ -1052,15 +1054,15 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                             });
                             Navigator.pop(context);
                           },
-                          style: AdaptiveButtonStyle.bordered,
-                          label: context.l10n.reset,
+                          child: Text(context.l10n.reset),
+                        
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: AdaptiveButton(
+                        child: PrimaryAdaptiveButton(
                           onPressed: () => Navigator.pop(context),
-                          label: context.l10n.apply,
+                          child: Text(context.l10n.apply),
                         ),
                       ),
                     ],

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -63,6 +65,9 @@ class AppInitialization extends _$AppInitialization {
           debugPrint('⚠️ Device registration init failed (non-critical): $e');
         }
 
+        final recurringNotifier = ref.read(recurringTransactionsProvider.notifier);
+        unawaited(recurringNotifier.loadRecurringTransactions(auth.uid));
+
         await Future.wait([
           // Load subscription
           _loadSubscription(),
@@ -70,10 +75,6 @@ class AppInitialization extends _$AppInitialization {
           _loadWhatsAppBinding(),
           // Load analytics/dashboard data
           _loadAnalytics(auth.uid),
-          // Load recurring transactions (expenses and income)
-          ref
-              .read(recurringTransactionsProvider.notifier)
-              .loadRecurringTransactions(auth.uid),
           // Load household data
           _loadHouseholdData(auth.uid),
         ]);

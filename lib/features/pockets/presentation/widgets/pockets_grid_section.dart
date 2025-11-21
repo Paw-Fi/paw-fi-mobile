@@ -200,13 +200,22 @@ class PocketsGridSection extends HookConsumerWidget {
               const Spacer(),
               // View Toggle
               SizedBox(
-                width: 110,
+                width: 90,
+                height: 40,
                 child: AdaptiveSegmentedControl(
                   labels: const [],
-                  // SF Symbols for iOS 26+ (string names)
-                  sfSymbols: const [
-                    'square.grid.2x2.fill', // Grid icon
-                    'list.bullet', // List icon
+                  // Platform-specific icons for grid view
+                  sfSymbols: [
+                    PlatformInfo.isIOS26OrHigher()
+                        ? 'square.grid.2x2.fill'
+                        : PlatformInfo.isIOS
+                            ? CupertinoIcons.square_grid_2x2_fill
+                            : Icons.dashboard,
+                    PlatformInfo.isIOS26OrHigher()
+                        ? 'list.bullet'
+                        : PlatformInfo.isIOS
+                            ? CupertinoIcons.list_bullet
+                            : Icons.list,
                   ],
                   selectedIndex: viewMode.value == 'grid' ? 0 : 1,
                   onValueChanged: (index) {
@@ -299,26 +308,17 @@ class PocketsGridSection extends HookConsumerWidget {
               },
             )
           else
-            ReorderableListView.builder(
+            ReorderableGridView.builder(
               padding: const EdgeInsets.only(bottom: 100),
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 1,
+                childAspectRatio: 4.0,
+                crossAxisSpacing: 0,
+                mainAxisSpacing: 16,
+              ),
               itemCount: sortedPockets.length + 1,
-              proxyDecorator: (child, index, animation) {
-                return AnimatedBuilder(
-                  animation: animation,
-                  builder: (BuildContext context, Widget? child) {
-                    return Material(
-                      elevation: 8,
-                      color: Colors.transparent,
-                      shadowColor: Colors.black.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(24),
-                      child: child,
-                    );
-                  },
-                  child: child,
-                );
-              },
               onReorder: (oldIndex, newIndex) {
                 if (oldIndex == sortedPockets.length) return;
                 if (newIndex > sortedPockets.length) {
