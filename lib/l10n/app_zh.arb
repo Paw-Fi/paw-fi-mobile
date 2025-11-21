@@ -1,39 +1,1268 @@
 {
   "@@locale": "zh",
+  "appTitle": "Moneko",
+  "noSpendingYet": "暂无支出",
+  "loginWelcomeBack": "欢迎回来",
+  "orContinueWithEmail": "或使用邮箱继续",
+  "emailAddress": "邮箱地址",
+  "password": "密码",
+  "forgotPassword": "忘记密码？",
+  "signIn": "登录",
+  "newToMoneko": "Moneko 新用户？",
+  "createAccount": "创建账户",
+  "resetYourPassword": "重置密码",
+  "email": "邮箱",
+  "exampleEmail": "you@example.com",
+  "cancel": "取消",
+  "sendResetLink": "发送重置链接",
+  "passwordResetEmailSent": "密码重置邮件已发送。请检查您的收件箱。",
+  "enterValidEmail": "请输入有效的邮箱地址",
+  "passwordMinLength": "密码必须至少为 {min} 个字符",
+  "@passwordMinLength": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      }
+    }
+  },
+  "fullNameMinLength": "姓名必须至少为 {min} 个字符",
+  "@fullNameMinLength": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      }
+    }
+  },
+  "createYourAccount": "创建您的账户",
+  "fullName": "姓名",
+  "createPassword": "创建密码",
+  "passwordComplexityRequirement": "密码必须包含至少一个大写字母、一个小写字母和一个数字",
+  "passwordRequirementShort": "密码至少 8 位，且包含大小写字母和数字",
+  "termsAgreement": "创建账户即表示您同意我们的服务条款和隐私政策",
+  "alreadyHaveAccount": "已有账户？",
+  "signInLower": "登录",
+  "verificationCodeSent": "验证码已成功发送",
+  "verifyYourEmail": "验证您的邮箱",
+  "verificationEmailSentTo": "我们已发送一个 6 位验证码至 {email}",
+  "@verificationEmailSentTo": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "enterCompleteCode": "请输入完整的 6 位验证码",
+  "invalidVerificationCode": "验证码无效",
+  "verificationCodeExpired": "验证码已过期。请重新获取。",
+  "verifyEmail": "验证邮箱",
+  "didntReceiveTheCode": "没有收到验证码？请检查您的垃圾邮件夹或",
+  "resendInSeconds": "{seconds} 秒后重新发送",
+  "@resendInSeconds": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "resendVerificationEmail": "重新发送验证邮件",
+  "continueWithWallet": "使用 Web3 钱包继续",
+  "signingInWithWallet": "正在连接钱包...",
+  "continueWithGoogle": "Google 账号登录",
+  "signingInWithGoogle": "正在使用 Google 账号登录...",
+  "error": "错误",
+  "anErrorOccurred": "发生错误",
+  "unknownError": "未知错误",
+  "goToHome": "返回首页",
+  "paymentSuccessfulCheckingSubscription": "✅ 付款成功！正在检查订阅状态...",
+  "paymentFailed": "付款失败",
+  "paymentCanceled": "ℹ️ 付款已取消",
+  "whatsappVerifiedSuccessfully": "✅ WhatsApp 验证成功！",
+  "settings": "设置",
+  "enableNotificationsInSettings": "请在您设备的系统设置中为 Moneko 开启通知",
+  "appearance": "外观",
+  "darkMode": "深色模式",
+  "notifications": "通知",
+  "pushNotifications": "推送通知",
+  "receiveAlertsAndUpdates": "接收提醒和更新",
+  "language": "语言",
+  "systemDefault": "跟随系统",
+  "membership": "会员",
+  "loading": "加载中...",
+  "failedToLoadMembership": "会员信息加载失败",
+  "couldNotOpenMembershipPage": "无法打开会员页面",
+  "freePlan": "免费版",
+  "freePlanStatus": "免费版",
+  "lifetimePlan": "终身版",
+  "plusPlan": "Plus 版",
+  "plusMonthlyPlan": "Plus 月度版",
+  "plusYearlyPlan": "Plus 年度版",
+  "activeStatus": "生效中",
+  "activeLifetimeStatus": "生效中 • 终身",
+  "canceledStatus": "已取消",
+  "pastDueStatus": "已逾期",
+  "trialStatus": "试用中",
+  "trialEndsInDays": "试用期剩余 {days} 天",
+  "@trialEndsInDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "trialEnded": "试用已结束",
+  "renewsInDays": "{days} 天后自动续费",
+  "@renewsInDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "accessEndsInDays": "访问权限剩余 {days} 天",
+  "@accessEndsInDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "subscriptionEnded": "订阅已结束",
+  "profile": "个人资料",
+  "errorLoadingProfile": "个人资料加载失败",
+  "user": "用户",
+  "proBadge": "PRO",
+  "whatsAppConnected": "已连接 WhatsApp",
+  "logExpensesViaWhatsApp": "通过 WhatsApp 消息记账",
+  "connectWhatsApp": "连接 WhatsApp",
+  "newBadge": "新",
+  "logExpensesInstantly": "通过聊天即时记账",
+  "fast": "快速",
+  "photo": "照片",
+  "autoSync": "自动同步",
+  "naturalLanguage": "自然语言",
+  "describeExpenseAutomatically": "描述您的支出，我们将自动为您记录。",
+  "snapReceipt": "拍下收据",
+  "snapReceiptDescription": "拍下收据，AI 将自动提取并记录。",
+  "previous": "上一步",
+  "next": "下一步",
+  "overview": "概览",
+  "activity": "活动",
+  "accountInformation": "账户信息",
+  "userId": "用户 ID",
+  "recentActivity": "最近活动",
+  "noActivityYet": "暂无活动",
+  "signOut": "退出登录",
+  "@insights": {},
+  "insights": "财务分析",
+  "runningTab": "实时",
+  "day30Tab": "30 天",
+  "longTermTab": "长期",
+  "scenarioTab": "模拟",
   "@runningBalance": {},
+  "runningAndDailyBalances": "实时与每日余额",
+  "budgetVsSpentDescription": "每日预算 vs 支出，以及累计实时余额。",
+  "runningBalanceLegend": "实时余额",
+  "budgetLegend": "预算",
+  "spentLegend": "支出",
+  "runningBalanceGuide": "实时余额指南",
+  "runningBalanceIntro": "您可以把这张图表当作您的私人理财教练。下面，我们就来看看如何读懂和使用它。",
   "@day30Projection": {},
+  "day30LookAhead": "未来 30 天预测",
+  "projectedFromTrailing30Days": "根据过去 30 天的平均数据预测。",
+  "projectedSpendingLegend": "预测支出",
+  "peek30DaysAhead": "预见未来 30 天",
+  "day30ForecastIntro": "此预测使用上个月的活动来推测下个月的大致情况。把它想象成您钱包的天气预报。",
+  "@longTermProjection": {},
+  "longTermProjection": "长期预测",
+  "basedOnHistoricalAverages": "基于历史平均数据；随您的数据自动更新。",
+  "month18ProjectionLegend": "18 个月预测",
+  "your18MonthHorizon": "您的 18 个月展望",
+  "longTermIntro": "此预测结合了您的消费习惯与适度的增长预期，帮您预见今天的选择将如何塑造未来。",
   "@scenarioPlanning": {},
+  "aiScenarioPlanning": "AI 情景规划",
+  "askAiFinancialAdvisor": "询问您的 AI 财务顾问，您是否能负担某项未来支出",
+  "canI": "我能否",
+  "before": "在...之前",
+  "beforePrefix": "在",
+  "beforeSuffix": "之前",
+  "pickDate": "选择日期",
+  "check": "查看",
+  "enterQuestionAndPickDate": "请输入问题并选择日期",
+  "analyzingScenario": "正在分析情景...",
+  "thisMightTakeAWhile": "这可能需要一些时间",
+  "whereTheMoneyWent": "钱花哪儿了",
+  "categoryTotalsForSelectedRange": "所选范围的分类总计。",
+  "scenarioCategoriesGuide": "理解分类",
+  "categoryGuideIntro": "把这张图表想象成每笔钱去向的鸟瞰图。无需计算器，教您如何读懂它。",
+  "readTheBarChartLikeAPro": "像专家一样阅读条形图",
+  "categoryChartDesc": "所选时期的分类明细。",
+  "whyThisViewIsHelpful": "此视图为何有用",
+  "categoryWhyHelpfulDesc": "快速识别您的最大支出类别，并发现随时间变化的趋势。",
+  "whatToDoWithTheInsight": "如何运用此洞察",
+  "categoryWhatToDoDesc": "利用这些信息来调整您的预算和消费习惯。",
   "@scenarioResults": {},
+  "scenarioAnalysis": "情景分析",
+  "target": "目标",
+  "quickStats": "快速统计",
+  "currentBalance": "当前余额",
+  "projectedNoChange": "预测（无变化）",
+  "avgDailyNet": "日均净额",
   "@chartLabels": {},
+  "noDataAvailable": "暂无数据",
+  "day": "日",
   "@navigation": {},
+  "close": "关闭",
+  "done": "完成",
   "@runningBalanceSlides": {},
+  "whatYouAreSeeing": "您看到的是什么",
+  "whyItMatters": "为何重要",
+  "howToRespond": "如何应对",
+  "runningBalanceWhatYouSeeDesc": "您的实时余额追踪您每日支出后还剩多少“喘息空间”。每日条形图显示了您的计划支出与实际支出。",
+  "runningBalanceWhyMattersDesc": "把它当作一次友好的“脉搏检查”。它帮您注意到何时超前计划（以便继续投资），或何时需要“修正路线”以保持正轨。",
+  "runningBalanceHowToRespondDesc": "像教练一样使用图表。庆祝收益，必要时重设期望，并给自己一点宽容——关键在于稳步前进，而非完美无缺。",
   "@day30Slides": {},
+  "whatTheForecastShows": "预测显示了什么",
+  "day30WhatShowsDesc": "我们结合过去 30 天的收支来描绘未来一周的平均情况。它平滑了单次“大额消费”，让您看到通常的节奏。",
+  "day30WhyMattersDesc": "前瞻性预算助您保持主动。预见未来几天有大笔支出，能让您提前预留现金，而不是事后手忙脚乱。",
+  "day30HowToPlaySmartDesc": "把它当作一个友好的提醒，而不是一本严格的规则手册。用一些您认为可行的小调整来修正您的计划。",
   "@longTermSlides": {},
+  "howTheProjectionWorks": "预测如何运作",
+  "longTermHowWorksDesc": "我们推算您未来的平均收支，并加入适度的增长假设，以便您查看您的计划是否能在未来数月保持充裕的现金。",
+  "longTermWhyMattersDesc": "长远规划让梦想成真。看看您的应急基金、投资或大额采购是否仍在正轨上。",
+  "longTermMovesToConsiderDesc": "使用图表来“排练”未来的决策。今天的小调整将复合成未来的大胜利。",
   "@categorySlides": {},
+  "forMe": "个人",
+  "forUs": "家庭",
+  "home": "首页",
+  "reminder": "提醒",
+  "analyzingReceipt": "正在分析收据...",
+  "analyzingExpense": "正在分析支出...",
+  "noExpenseInformationExtracted": "未能提取到支出信息",
+  "failedToAnalyzeNoData": "分析失败：未返回数据",
+  "failedToAnalyze": "分析失败",
+  "updateBudget": "更新预算",
+  "enterNewTotalDailyBudget": "请输入新的每日总预算。",
+  "budgetAmount": "预算金额",
+  "save": "保存",
+  "enterValidAmountGreaterThan0": "请输入大于 0 的有效金额",
+  "updatingBudget": "正在更新预算...",
+  "budgetUpdated": "预算已更新",
+  "failedToUpdateBudget": "预算更新失败",
+  "loggedSuccessfully": "记录成功",
+  "view": "查看",
+  "retry": "重试",
+  "failedToCapturePhoto": "照片拍摄失败",
+  "noSpendingData": "暂无支出数据",
+  "byCategory": "按分类",
+  "noExpensesYet": "暂无支出",
+  "startLoggingExpensesToSeeCategories": "开始记账以查看分类",
+  "selectDateRange": "选择日期范围",
+  "addExpense": "记一笔",
+  "addEntry": "添加记录",
+  "describeYourExpense": "描述支出或收入（每次仅一种类型）。",
+  "enterExpenseDetails": "“汉堡 5 元，咖啡 3 元” • “收到父母 100 元”",
+  "freeFormText": "自由文本",
+  "takePhoto": "拍照",
+  "recentTransactions": "最近交易",
+  "negative": "负",
+  "positive": "正",
+  "spendingBreakdown": "支出明细",
+  "spent": "支出",
+  "today": "今天",
+  "yesterday": "昨天",
+  "thisWeek": "本周",
+  "lastWeek": "上周",
+  "thisMonth": "本月",
+  "last30Days": "过去 30 天",
+  "customRange": "自定义范围",
+  "spentToday": "您的今日支出",
+  "spentYesterday": "您的昨日支出",
+  "spentThisWeek": "您的本周支出",
+  "spentLastWeek": "您的上周支出",
+  "spentThisMonth": "您的本月支出",
+  "spentLast30Days": "您的支出（过去 30 天）",
+  "spentCustom": "支出（自定义）",
+  "todaysBudget": "今日预算",
+  "yesterdaysBudget": "昨日预算",
+  "sumOfDailyBudgetsThisWeek": "本周每日预算总和",
+  "sumOfDailyBudgetsLastWeek": "上周每日预算总和",
+  "sumOfDailyBudgetsThisMonth": "本月每日预算总和",
+  "sumOfDailyBudgetsLast30Days": "过去 30 天每日预算总和",
+  "sumOfDailyBudgetsForSelectedRange": "所选范围每日预算总和",
+  "netCashflowToday": "今日净现金流",
+  "netCashflowYesterday": "昨日净现金流",
+  "netCashflowThisWeek": "本周净现金流",
+  "netCashflowLastWeek": "上周净现金流",
+  "netCashflowThisMonth": "本月净现金流",
+  "netCashflowLast30Days": "净现金流（过去 30 天）",
+  "netCashflowCustom": "净现金流（自定义）",
+  "selectCurrency": "选择货币",
+  "showLessCurrencies": "收起",
+  "showAllCurrencies": "展开全部 {count} 种货币",
+  "@showAllCurrencies": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "budget": "预算",
+  "spentLabel": "支出",
+  "net": "净额",
+  "txn": "笔",
+  "txns": "笔",
+  "pleaseEnterExpenseDetails": "请输入支出详情",
+  "userNotLoggedIn": "用户未登录",
+  "errorLoadingHouseholds": "家庭加载失败",
+  "welcomeToHouseholds": "欢迎使用「家庭」功能",
+  "householdsDescription": "与您的家人、伴侣或室友共同管理财务。一起跟踪预算、分摊支出，并共同规划财务。",
+  "createHousehold": "创建家庭",
+  "joinWithInvite": "使用邀请加入",
+  "pleaseUseInvitationLink": "请使用邀请链接加入家庭",
+  "householdName": "家庭名称",
+  "householdNameHint": "例如：幸福一家人",
+  "pleaseEnterHouseholdName": "请输入家庭名称",
+  "errorCreatingHousehold": "创建家庭失败",
+  "householdsFeature": "“家庭”功能",
+  "householdsFeatureDescription": "“家庭”功能现已推出！与家人、伴侣或室友共同管理财务。",
+  "gotIt": "知道了",
+  "confirmExpense": "确认支出",
+  "expenseDetails": "支出详情",
+  "details": "详情",
+  "category": "类别",
+  "currency": "货币",
+  "date": "日期",
+  "time": "时间",
+  "notes": "备注",
+  "receipt": "收据",
+  "saveExpense": "保存支出",
+  "shareWithHousehold": "与家庭分享",
+  "loadingHouseholdMembers": "正在加载家庭成员...",
+  "selectHouseholdToConfigureSplit": "选择一个家庭以配置分摊",
+  "currencyManagedByHousehold": "家庭货币统一设置，无法在此更改",
+  "currencyCannotBeChanged": "分享至家庭时无法更改货币",
+  "cannotEditOthersExpenses": "你只能编辑自己的支出",
+  "failedToLoadImage": "图片加载失败",
+  "editAmount": "编辑金额",
+  "amount": "金额",
+  "editNotes": "编辑备注",
+  "addANote": "添加备注...",
+  "noMembersFoundInHousehold": "未找到家庭成员",
+  "errorLoadingMembers": "成员加载失败",
+  "noExpenseToSave": "没有要保存的支出",
+  "expenseSaved": "支出已保存！",
+  "failedToSave": "保存失败：{error}",
+  "failedToSyncCurrencyPreference": "货币偏好同步失败：{error}",
+  "currencyUpdatedSuccessfully": "货币更新成功",
+  "retryFailed": "重试失败：{error}",
+  "iSpentAmountOnCategory": "我在 {category} 上花了 {currencySymbol}{amount}",
+  "enterNewTotalDailyBudgetDescription": "请输入新的每日总预算。",
+  "@household": {},
+  "pleaseSignInToAccessHouseholdFeatures": "请登录以使用家庭功能",
+  "quickActions": "快捷操作",
+  "members": "成员",
+  "invites": "邀请",
+  "errorLoadingExpenses": "支出加载失败",
+  "budgets": "预算",
+  "loadingHousehold": "正在加载家庭信息...",
+  "remaining": "剩余",
+  "overBudget": "超出預算",
+  "sharedBudgets": "共享预算",
+  "netPosition": "净差额",
+  "spentByHousehold": "家庭支出",
+  "memberSpending": "成员支出",
+  "spentByHouseholdTooltip": "显示所选期间内所有家庭成员的总支出金额。包括家庭任何成员记录的所有共享支出。",
+  "manageMoneyTogether": "在同一共享空间中，与您的伴侣、家人或室友共同管理财务。",
+  "sharedBudgetsExpenses": "共享预算与支出",
+  "sharedBudgetsExpensesDesc": "设置预算、跟踪支出，实时查看您家庭的资金流向。",
+  "smartExpenseSplitting": "智能分摊支出",
+  "smartExpenseSplittingDesc": "通过灵活的分摊选项（均摊、按百分比或自定义金额）自动计算谁欠谁。",
+  "stayInSync": "保持同步",
+  "stayInSyncDesc": "当添加支出、达到预算或需要结算分摊时收到通知。",
+  "@householdSettings": {},
+  "householdSettings": "家庭设置",
+  "householdNotFound": "未找到家庭",
+  "coverPhoto": "封面照片",
+  "changeCoverPhoto": "更换封面",
+  "saveChanges": "保存更改",
+  "errorLoadingHousehold": "家庭信息加载失败",
+  "householdUpdatedSuccessfully": "家庭信息更新成功",
+  "failedToUpdateHousehold": "家庭信息更新失败",
   "@householdMembers": {},
+  "inviteMember": "邀请成员",
+  "removeMember": "移除成员",
+  "remove": "移除",
+  "confirmRemoveMember": "您确定要移除",
+  "updatedMemberRole": "已更新成员角色",
+  "unknown": "未知",
+  "makeAdmin": "设为管理员",
+  "makeMember": "设为成员",
   "@householdInvites": {},
+  "invitations": "邀请",
+  "errorLoadingInvites": "邀请加载失败",
+  "createInvitation": "创建邀请",
+  "pendingInvitations": "待处理的邀请",
+  "noPendingInvitations": "暂无待处理的邀请",
+  "invitationHistory": "邀请历史",
+  "noInvitationHistory": "暂无邀请历史",
+  "emailOptional": "邮箱（可选）",
+  "friendEmailExample": "friend@example.com",
+  "personalMessageOptional": "个性化消息（可选）",
+  "joinHouseholdBudget": "加入我们的家庭预算吧！",
+  "expiresIn": "有效期至",
+  "oneDay": "1 天",
+  "threeDays": "3 天",
+  "sevenDays": "7 天",
+  "fourteenDays": "14 天",
+  "thirtyDays": "30 天",
+  "unlimited": "无限制",
+  "create": "创建",
+  "invitationCreatedSuccessfully": "邀请创建成功",
+  "inviteLinkCopiedToClipboard": "邀请链接已复制到剪贴板！",
+  "errorCreatingInvite": "创建邀请失败",
+  "revokeInvitation": "撤销邀请",
+  "confirmRevokeInvitation": "您确定要撤销此邀请吗？",
+  "revoke": "撤销",
+  "invitationRevoked": "邀请已撤销",
+  "errorRevokingInvite": "撤销邀请失败",
+  "anyoneWithLink": "任何持有链接的人",
+  "noExpiry": "永不过期",
+  "expired": "已过期",
+  "expires": "过期时间",
+  "copyLink": "复制链接",
   "@householdImagePicker": {},
+  "selectCoverImage": "选择封面图片",
+  "failedToLoadImages": "图片加载失败",
+  "chooseFromGallery": "从相册选择",
+  "failedToLoad": "加载失败",
+  "imageTooLarge": "图片过大",
+  "maxIs": "最大为",
+  "unsupportedFileFormat": "不支持的文件格式。请使用 JPG、PNG 或 WebP。",
+  "cropCoverImage": "裁剪封面图片",
   "@budgetDetail": {},
+  "editBudget": "编辑预算",
+  "budgetDetails": "预算详情",
+  "budgetName": "预算名称",
+  "period": "周期",
+  "alertThresholds": "提醒阈值",
+  "warningThreshold": "警告阈值 (%)",
+  "alertThreshold": "警报阈值 (%)",
+  "warningThresholdHelper": "当预算使用达到此百分比时提醒",
+  "alertThresholdHelper": "达到此百分比时发送严重警报",
+  "budgetStatus": "预算状态",
+  "active": "活跃",
+  "inactive": "停用",
+  "deletingBudget": "正在删除预算...",
+  "savingChanges": "正在保存更改...",
+  "budgetNameCannotBeEmpty": "预算名称不能为空",
+  "pleaseEnterValidAmount": "请输入有效金额",
+  "warningThresholdRange": "警告阈值必须在 0 到 100 之间",
+  "alertThresholdRange": "警报阈值必须在 0 到 100 之间",
+  "warningThresholdLessThanAlert": "警告阈值必须小于或等于警报阈值",
+  "deleteBudget": "删除预算",
+  "confirmDeleteBudget": "您确定要删除",
+  "thisActionCannotBeUndone": "此操作无法撤销",
+  "budgetUpdatedSuccessfully": "预算更新成功",
+  "budgetDeletedSuccessfully": "预算删除成功",
   "@categories": {},
+  "categoryTransfers": "转账",
+  "categoryShopping": "购物",
+  "categoryUtilities": "水电煤",
+  "categoryEntertainment": "娱乐",
+  "categoryEntertainmentSubscriptions": "娱乐订阅",
+  "categoryRestaurants": "餐饮",
+  "categoryFood": "食物",
+  "categoryGroceries": "买菜",
+  "categoryTransport": "交通",
+  "categoryTransportation": "交通",
+  "categoryTravel": "旅行",
+  "categoryFlights": "机票",
+  "categoryVacation": "度假",
+  "categoryHealth": "健康",
+  "categoryMedical": "医疗",
+  "categoryText": "文本",
+  "categoryEducation": "教育",
+  "categoryTuition": "学费",
+  "categorySubscriptions": "订阅",
+  "categoryServices": "服务",
+  "categoryHousing": "住房",
+  "categoryRent": "房租",
+  "categoryMortgage": "房贷",
+  "categoryBills": "账单",
+  "categoryInsurance": "保险",
+  "categorySavings": "储蓄",
+  "categoryInvestment": "投资",
+  "categoryInvestments": "投资",
+  "categoryIncome": "收入",
+  "categorySalary": "工资",
+  "categoryBonus": "奖金",
+  "categoryPets": "宠物",
+  "categoryKids": "孩子",
+  "categoryFamily": "家庭",
+  "categoryGifts": "礼物",
+  "categoryCharity": "慈善",
+  "categoryFees": "费用",
+  "categoryLoan": "贷款",
+  "categoryLoans": "贷款",
+  "categoryDebt": "债务",
+  "categoryPersonalCare": "个人护理",
+  "categoryBeauty": "美容",
+  "categoryMisc": "其他",
+  "categoryUncategorized": "未分类",
+  "deleteBudgetCannotBeUndone": "此操作无法撤销",
+  "delete": "删除",
+  "failedToDeleteBudget": "预算删除失败",
+  "owner": "所有者",
+  "admin": "管理员",
+  "member": "成员",
+  "pending": "待处理",
+  "accepted": "已接受",
+  "revoked": "已撤销",
+  "tapToChangeCover": "点击更换封面",
+  "personalMessageHint": "给被邀请人留句话（例如：“加入我们的家庭预算吧！”）",
+  "invitationExpiresIn": "邀请有效期",
+  "daysCount": "{days} 天",
+  "@daysCount": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    },
+    "plural": "days"
+  },
+  "createHouseholdDescription": "创建一个共享空间，与家人或室友一起跟踪预算和支出。",
+  "uploadingImage": "正在上传图片...",
+  "creating": "正在创建...",
+  "generatingInvite": "正在生成邀请...",
+  "pleaseSelectValidCurrency": "请选择有效的家庭货币",
+  "nameMaxLength": "名称必须少于 {max} 个字符",
+  "@nameMaxLength": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "createHouseholdPage": "创建家庭页面",
+  "invitationPersonalMessageInput": "邀请消息输入框",
+  "householdNameInput": "家庭名称输入框",
+  "invitationExpirationSelector": "邀请有效期选择器",
+  "unlimitedExpiration": "无限期",
+  "daysExpiration": "{days} 天有效期",
+  "@daysExpiration": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    },
+    "plural": "days"
+  },
+  "householdInformation": "家庭信息",
+  "creatingHousehold": "正在创建家庭",
+  "createHouseholdButton": "创建家庭按钮",
+  "searchExpenses": "搜索支出...",
+  "clearAll": "全部清除",
+  "allCategories": "全部",
+  "allMembers": "所有成员",
+  "balanceSummary": "结算总览",
+  "youAreOwed": "他人欠您",
+  "youOwe": "您欠他人",
+  "youOweOthers": "您欠他人",
+  "othersOweYou": "他人欠您",
+  "viewDetails": "查看详情",
+  "settleUp": "结算",
+  "markExpensesAsSettled": "将支出标记为已结算以更新余额",
+  "whoAreYouSettlingWith": "您在和谁结算？",
+  "selectMember": "选择成员",
+  "amountToSettle": "结算金额",
+  "howDidYouSettle": "您是如何结算的？",
+  "cash": "现金",
+  "paidInCash": "以现金支付",
+  "bankTransfer": "银行转账",
+  "transferredViaBank": "通过银行转账",
+  "mobilePayment": "移动支付",
+  "venmoPaypalEtc": "微信、支付宝等",
+  "transactions": "交易",
+  "search": "搜索",
+  "noData": "暂无数据",
+  "filterTransactions": "筛选交易",
+  "noTransactionsFound": "未找到交易记录",
+  "failedToLoadHouseholdTransactions": "家庭交易记录加载失败",
+  "reset": "重置",
+  "apply": "应用",
+  "expenses": "支出",
+  "dateRange": "日期范围",
+  "noMatchingExpenses": "无匹配支出",
+  "startLoggingExpenses": "开始记账，支出将显示在此处",
+  "tryAdjustingFilters": "尝试调整您的筛选条件",
+  "split": "分摊",
+  "note": "备注",
+  "currencyCannotBeChangedWhenSharing": "分享至家庭时无法更改货币",
+  "createBudget": "创建预算",
+  "pleaseEnterABudgetName": "请输入预算名称",
+  "pleaseEnterAValidAmountGreaterThan0": "请输入一个大于 0 的有效金额",
+  "warningThresholdMustBeBetween0And100": "警告阈值必须在 0 到 100% 之间",
+  "alertThresholdMustBeBetween0And100": "警报阈值必须在 0 到 100% 之间",
+  "warningThresholdMustBeLessThanOrEqualToAlert": "警告阈值必须小于或等于警报阈值",
+  "budgetCreatedSuccessfully": "预算创建成功！",
+  "failedToCreateBudget": "预算创建失败",
+  "groceriesRentEntertainment": "例如：买菜、房租、娱乐",
+  "budgetType": "预算类型",
+  "sharedWithAllHouseholdMembers": "与所有家庭成员共享",
+  "personalBudgetForYourExpensesOnly": "仅用于您个人支出的预算",
+  "countSplitPortionOnly": "仅计算分摊部分",
+  "onlyCountYourPortionOfSplitExpenses": "仅将您在分摊支出中承担的部分计入此预算",
+  "joinHousehold": "加入家庭",
+  "joinAHousehold": "加入一个家庭",
+  "enterYourInvitationLinkToJoin": "输入您的邀请链接以加入\n共享的财务空间",
+  "pasteTheInvitationLinkYouReceived": "粘贴您从家庭成员收到的邀请链接",
+  "pasteInvitationLink": "粘贴邀请链接",
+  "pleaseEnterAnInvitationLink": "请输入邀请链接",
+  "pleaseEnterAValidInvitationLink": "请输入有效的邀请链接",
+  "paste": "粘贴",
+  "validating": "验证中...",
+  "continueAction": "继续",
+  "welcomeAboard": "欢迎加入！",
+  "youreNowPartOfTheHousehold": "您现在是家庭的一员了。\n开始共同管理您的财务吧！",
+  "thisWillOnlyTakeAMoment": "只需片刻",
+  "unableToJoin": "无法加入",
+  "tryAgain": "重试",
+  "goToHousehold": "前往家庭",
+  "expiresSoon": "即将过期",
+  "invitationValidUntil": "邀请有效期至 {formattedDate}",
+  "whatYoullGet": "您将获得",
+  "viewSharedBudgetsAndExpenses": "查看共享预算和支出",
+  "trackHouseholdFinancialHealth": "跟踪家庭财务健康状况",
+  "collaborateOnFinancialDecisions": "共同制定财务决策",
   "@householdOverview": {},
+  "household": "家庭",
+  "viewAll": "查看全部",
+  "manage": "管理",
+  "noBudgetsYet": "暂无预算",
+  "createSharedBudgetDescription": "创建一个共享预算以共同跟踪支出",
+  "errorLoadingBudgets": "加载预算出错",
+  "recentSplits": "最近的分摊",
+  "invite": "邀请",
   "@transactionsPage": {},
+  "last6Months": "过去 6 个月",
+  "thisYear": "今年",
+  "allTime": "全部时间",
   "@householdCreate": {},
+  "nameMinLength": "名称必须至少为 {min} 个字符",
+  "@nameMinLength": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      }
+    }
+  },
   "@customSplitSheet": {},
+  "splitExpense": "分摊支出",
+  "percent": "百分比",
+  "splitShare": "份额",
+  "owes": "欠款",
+  "splitAmountsMustEqual": "分摊金额总和必须等于 {currency}{amount}",
+  "@splitAmountsMustEqual": {
+    "placeholders": {
+      "currency": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "percentagesMustTotal100": "百分比总和必须为 100%",
+  "eachPersonMustHaveAtLeast1Share": "每人必须至少占 1 份",
+  "@whatsappVerification": {},
+  "whatsappVerified": "WhatsApp 验证成功",
+  "whatsappVerification": "WhatsApp 验证",
+  "yourWhatsAppNumberIsSuccessfullyLinked": "您的 WhatsApp 号码已成功绑定到您的账户",
+  "verifyingYourWhatsAppNumber": "正在验证您的 WhatsApp 号码...",
+  "enterThe6DigitCodeFromWhatsApp": "请输入来自 WhatsApp 的 6 位验证码",
+  "pleaseEnterThe6DigitVerificationCode": "请输入 6 位验证码",
+  "failedToVerifyCode": "验证码验证失败",
+  "failedToVerifyCodePleaseTryAgain": "验证失败。请重试。",
+  "codeAutoFilledFromVerificationLink": "已从验证链接自动填充验证码",
+  "verify": "验证",
+  "verifying": "验证中...",
+  "avatarStudio": "头像编辑器",
+  "preview": "预览",
+  "colors": "颜色",
+  "randomize": "随机",
+  "saveAvatar": "保存头像",
+  "saving": "保存中...",
+  "skipForNow": "暂时跳过",
+  "selectColor": "选择颜色",
+  "failedToSaveAvatar": "头像保存失败",
   "@avatarCustomizerCategories": {},
+  "hair": "头发",
+  "eyes": "眼睛",
+  "mouth": "嘴巴",
+  "background": "背景",
+  "face": "脸型",
+  "ears": "耳朵",
+  "shirts": "衣服",
+  "brow": "眉毛",
+  "nose": "鼻子",
+  "blush": "腮红",
+  "accessories": "配饰",
+  "stars": "星星",
   "@unifiedTransactionSheet": {},
+  "@recurringTransactions": {},
+  "recurring": "定期",
+  "manageYourRecurringTransactions": "管理周期性交易",
+  "errorLoadingData": "加载数据出错",
+  "deleteRecurringTransaction": "删除周期性交易",
+  "areYouSureYouWantToDeleteThisRecurringTransaction": "确定要删除此周期性交易吗？",
+  "recurringTransactionDeleted": "周期性交易已删除",
+  "transactionDeleted": "交易已删除",
+  "failedToDeleteRecurringTransaction": "删除周期性交易失败",
+  "recurringTransactions": "周期性交易",
+  "currencyIsManagedByHousehold": "家庭货币统一设置，无法在此更改",
+  "expenseSavedAndShared": "支出已保存并分享{splitInfo}！",
+  "@expenseSavedAndShared": {
+    "placeholders": {
+      "splitInfo": {
+        "type": "String"
+      }
+    }
+  },
+  "@failedToSave": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "buyALaptop": "购买一台 8000 元的笔记本电脑",
+  "selectTargetDate": "选择目标日期",
+  "scenarioQuestionTemplate": "我可以在 {date} 前 {action} 吗",
+  "@scenarioQuestionTemplate": {
+    "description": "Template for scenario planning questions. CRITICAL: Adjust word order for your language's grammar structure.\n\nLANGUAGE STRUCTURE EXAMPLES:\n• English (SVO): Can I {action} before {date}?\n• Chinese (STV): 我可以在{date}前{action}吗？\n• Japanese (SOV): {date}前に{action}できますか？\n• Korean (SOV): {date} 전에 {action}할 수 있나요?\n• Spanish (VSO): ¿Puedo {action} antes del {date}?\n• French (VSO): Puis-je {action} avant le {date}?\n• German (V2): Kann ich {action} vor dem {date}?\n• Russian (SVO): Могу ли я {action} до {date}?\n• Arabic (VSO): هل يمكنني {action} قبل {date}؟\n• Hindi (SOV): क्या मैं {date} से पहले {action} कर सकता हूँ?\n• Urdu (SOV): کیا میں {date} سے पहले {action} کر سکتا ہوں؟\n• Turkish (SOV): {date} öncesi {action} yapabilir miyim?\n• Dutch (SVO): Kan ik {action} voor {date}?\n• Swedish (SVO): Kan jag {action} före {date}?\n• Polish (SVO): Czy mogę {action} przed {date}?\n• Thai (SVO): ฉันสามารถ {action} ก่อน {date} ได้ไหม?\n• Vietnamese (SVO): Tôi có thể {action} trước {date} không?\n• Indonesian (SVO): Bisakah saya {action}S-11sebelum {date}?\n\nIMPORTANT: Consider your language's unique features:\n- Gender agreement (Romance languages)\n- Case systems (Germanic, Slavic languages)\n- Honorific levels (Asian languages)\n- Right-to-left script (Arabic, Hebrew)\n- Postpositions (Indian languages)\n- Verb position variations",
+    "placeholders": {
+      "action": {
+        "type": "String",
+        "description": "The action phrase (e.g., 'buy a laptop', 'go on vacation')"
+      },
+      "date": {
+        "type": "String",
+        "description": "The date string formatted according to locale conventions"
+      }
+    }
+  },
+  "scenarioDateFormat": "yyyy/MM/dd",
+  "@scenarioDateFormat": {
+    "description": "Date format for scenario planning. Use standard ICU DateFormat patterns.\n\nREGIONAL DATE FORMAT EXAMPLES:\n• United States: MM/dd/yyyy (01/25/2025)\n• United Kingdom: dd/MM/yyyy (25/01/2025)\n• China/Japan/Korea: yyyy/MM/dd (2025/01/25)\n• Germany: dd.MM.yyyy (25.01.2025)\n• France: dd/MM/yyyy (25/01/2025)\n• Spain: dd/MM/yyyy (25/01/2025)\n• Italy: dd/MM/yyyy (25/01/2025)\n• Russia: dd.MM.yyyy (25.01.2025)\n• Arabic (Egypt): dd/MM/yyyy (25/01/2025)\n• Hindi: dd-MM-yyyy (25-01-2025)\n• Urdu: dd/MM/yyyy (25/01/2025)\n• Thai: dd/MM/yyyy (25/01/2565) [Note: Buddhist calendar]\n• Vietnamese: dd/MM/yyyy (25/01/2025)\n• Indonesian: dd/MM/yyyy (25/01/2025)\n• Turkish: dd.MM.yyyy (25.01.2025)\n• Dutch: dd-MM-yyyy (25-01-2025)\n• Swedish: yyyy-MM-dd (2025-01-25)\n• Polish: dd.MM.yyyy (25.01.2025)\n\nSPECIAL CONSIDERATIONS:\n- Buddhist calendar (Thailand): Year + 543\n- Islamic calendar (Arabic countries): Different year system\n- Hebrew calendar (Israel): Different year system\n- Era naming (Japanese): Reiwa, Heisei, etc.\n- Lunar calendars (Chinese, Korean, Vietnamese)\n- Week start day (Sunday vs Monday)\n- Use of separators: /, -, ., or spaces",
+    "example": "2025/01/25"
+  },
+  "analysisFailed": "分析失败：{error}",
+  "@analysisFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "leftHandChamps": "左边的“大头”是您的主要支出项——非常适合快速审查。",
+  "smallButFrequent": "小额但频繁的类别暗示着可能随时间“悄悄”养成的习惯。",
+  "colorMatches": "颜色与您在“首页”看到的相匹配，让您的大脑保持舒适。",
+  "planningNewGoal": "正在规划新目标？找出可以削减的类别，而不影响“乐趣”支出。",
+  "eyeingTreatYourself": "想“犒劳”一下自己一个月？看看哪些领域可以安全地“伸缩”。",
+  "doubleCheckTagging": "用它来复查新支出是否被正确标记——不允许“幽灵支出”。",
+  "slideHighBar": "通过设置小额限制或切换到低成本替代品，将高额支出“拉低”一格。",
+  "nonNegotiable": "如果某项支出是不可协商的（比如房租），那就围绕它制定计划，而不是对抗它。",
+  "revisitAfterScenario": "运行情景分析后重新审视，看看您的调整是否有效。",
   "@runningBalanceTab": {},
+  "purpleLineCushion": "紫线：每天剩下的“缓冲垫”。上升的线条意味着您正在积累势头。",
+  "blueBarsBudget": "蓝条：您当天设定的预算。",
+  "redBarsSpent": "红条：实际从您账户中支出的。",
+  "lineTrendingUpward": "线条上升 = 您可以将额外的现金转用于储蓄目标。",
+  "flatDippingLine": "线条平坦或下降 = 是时候暂停并审查大额项目了。",
+  "sharpDrops": "急剧下降通常对应计划外采购——点击它们以查看详情。",
+  "lineRisingDays": "线条连续几天上升？考虑将一点额外的钱转入储蓄或偿还债务。",
+  "lineDippingWeekend": "忙碌的周末后线条下降？通过削减小的非必要开支来重新平衡未来几天的收支。",
+  "feelStuckRed": "感觉“陷入赤字”？返回“首页”重新审视您的预算——小的调整会迅速累积。",
   "@day30LookAheadTab": {},
+  "thirtyDayForecastDesc": "此预测使用上个月的活动来推测下个月的大致情况。把它想象成您钱包的天气预报。",
+  "greenLineExpected": "绿线 = 如果下个月的情况与上个月相似，预计的每日支出。",
+  "spikesHighlight": "尖峰突显了您的习惯通常“更昂贵”的几周（比如周五的外卖）。",
+  "forecastUpdates": "当您记录新交易时，预测会自动更新——无需刷新。",
+  "spotExpensivePatterns": "及早发现“昂贵”的模式，并在它们到来之前储备一个小型缓冲。",
+  "catchQuieterWeeks": "抓住“平静”的几周，您可以将额外的现金转入储蓄或偿还债务。",
+  "timeRecurringPayments": "利用此洞察来安排定期付款、订阅或充值的时间。",
+  "bigSpikeComing": "即将迎来大笔支出？提前预订更便宜的选项，或将灵活支出调整到“平静”的日子。",
+  "forecastDipping": "预测下降？安排一次额外的储蓄转账来奖励自己。",
+  "forecastLooksOff": "如果预测看起来不对劲，请在“首页”查看分类，整理任何错误的标签。",
   "@longTermProjectionTab": {},
+  "greenLineTrends": "绿线随您的典型储蓄率变化——向上的势头意味着您的目标资金充足。",
+  "lineDipsSignals": "如果线条下降，它预示着未来几个月支出可能超过收入。",
+  "largeGoalsDebts": "当您在“首页”标记它们时，大额目标或债务会包含在内。",
+  "upwardSlope": "向上的斜率？庆祝一下，并考虑增加退休或旅行储蓄。",
+  "flatSlipping": "平坦或下滑？是时候在“滚雪球”之前调整预算或增加收入来源了。",
+  "watchSeasonalTrends": "注意季节性趋势——假期、学期或年度续费通常会首先在这里显现。",
+  "schedulePaymentIncreases": "当曲线“上升”时，安排温和地增加贷款还款额。",
+  "planAheadDips": "通过指定“偿债基金”或削减可选支出来为“下降”提前计划。",
+  "checkProjectionMonthly": "每月检查一次预测，让您的长期规划保持乐趣和灵活性。",
+  "categoryHealthcare": "医疗健康",
+  "categoryOther": "其他",
+  "deleteExpense": "删除支出",
+  "confirmDeleteExpense": "您确定要删除这笔支出吗？此操作无法撤销。",
+  "expenseDeletedSuccessfully": "支出删除成功",
+  "failedToDeleteExpense": "支出删除失败",
+  "expenseNotFoundOrDeleted": "支出未找到或已被删除",
+  "onlyAdminsAndOwnersCanEditHouseholdSettings": "只有管理员和所有者可以编辑家庭设置",
+  "onlyAdminsAndOwnersCanCreateInvitations": "只有管理员和所有者可以创建邀请",
+  "shareInvitationForHousehold": "分享家庭 {householdName} 的邀请",
+  "@shareInvitationForHousehold": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "shareInvitation": "分享邀请",
+  "householdCreatedSuccessfully": "家庭 {householdName} 创建成功",
+  "@householdCreatedSuccessfully": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "householdCreatedSuccessfullyWithQuotes": "家庭 \"{householdName}\" 创建成功！",
+  "@householdCreatedSuccessfullyWithQuotes": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "invitationLink": "邀请链接",
+  "invitationLinkWithUrl": "邀请链接：{inviteUrl}",
+  "@invitationLinkWithUrl": {
+    "placeholders": {
+      "inviteUrl": {
+        "type": "String"
+      }
+    }
+  },
+  "copyInvitationLink": "复制邀请链接",
+  "copyInvitationLinkToClipboard": "复制邀请链接到剪贴板",
+  "shareInvitationLink": "分享邀请链接",
+  "share": "分享",
+  "closeShareSheet": "关闭分享面板",
+  "invitationLinkCopiedToClipboard": "邀请链接已复制到剪贴板！",
+  "joinMyHouseholdMessage": "来 Moneko 加入我的家庭 \"{householdName}\" 吧！\n\n{inviteUrl}",
+  "@joinMyHouseholdMessage": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      },
+      "inviteUrl": {
+        "type": "String"
+      }
+    }
+  },
+  "joinMyHouseholdSubject": "来 Moneko 加入我的家庭吧",
+  "zeroAmount": "0.00",
+  "dollarPrefix": "$ ",
+  "notificationSettings": "通知设置",
+  "budgetBoop": "预算戳一下",
+  "getGentleReminder": "达到此阈值时收到温和提醒",
+  "purrSuasiveNudge": "咕噜式提醒",
+  "getStrongerNudge": "达到此阈值时收到更强推动",
+  "createBudgetButton": "创建预算",
+  "daily": "每日",
+  "weekly": "每周",
+  "monthly": "每月",
+  "yearly": "每年",
+  "householdBudgetType": "家庭预算",
+  "personalBudgetType": "个人预算",
   "@householdJoin": {},
+  "joinHouseholdName": "加入 \"{householdName}\"",
+  "@joinHouseholdName": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "householdPreview": "家庭预览：{householdName}，邀请者：{inviterEmail}",
+  "@householdPreview": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      },
+      "inviterEmail": {
+        "type": "String"
+      }
+    }
+  },
+  "invitedBy": "邀请者：{inviterEmail}",
+  "@invitedBy": {
+    "placeholders": {
+      "inviterEmail": {
+        "type": "String"
+      }
+    }
+  },
+  "invitationExpiresSoon": "邀请即将于 {formattedDate} 过期",
+  "@invitationExpiresSoon": {
+    "placeholders": {
+      "formattedDate": {
+        "type": "String"
+      }
+    }
+  },
+  "@invitationValidUntil": {
+    "placeholders": {
+      "formattedDate": {
+        "type": "String"
+      }
+    }
+  },
+  "invitationValidUntilLabel": "邀请有效期至",
+  "personalMessageFromInviter": "邀请者的个人消息",
+  "messageFromInviter": "来自邀请者的消息",
+  "joiningHousehold": "正在加入家庭",
+  "errorWithMessage": "错误：{errorMessage}",
+  "@errorWithMessage": {
+    "placeholders": {
+      "errorMessage": {
+        "type": "String"
+      }
+    }
+  },
+  "anUnexpectedErrorOccurred": "发生了意外错误",
+  "invalidInvitationLinkFormat": "无效的邀请链接格式",
+  "invalidOrExpiredInvitation": "无效或已过期的邀请",
+  "tomorrow": "明天",
+  "inDays": "{days} 天后",
+  "@inDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "january": "1月",
+  "february": "2月",
+  "march": "3月",
+  "april": "4月",
+  "may": "5月",
+  "june": "6月",
+  "july": "7月",
+  "august": "8月",
+  "september": "9月",
+  "october": "10月",
+  "november": "11月",
+  "december": "12月",
+  "remindUser": "提醒 {name}",
+  "@remindUser": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sendFriendlySpendingReminder": "发送一条友好的消费提醒",
+  "addMessageOptional": "添加留言（可选）",
+  "messageHintExample": "例如：“你的钱包也需要休息！”",
+  "sendReminder": "发送提醒",
+  "pleaseWait24HoursBeforeSendingAnotherReminder": "请等待 24 小时后再向 {name} 发送提醒",
+  "@pleaseWait24HoursBeforeSendingAnotherReminder": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "reminderSentToName": "已向 {name} 发送提醒 🔔",
+  "@reminderSentToName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "failedToSendReminderTryAgain": "提醒发送失败，请重试。",
   "@incomeFeature": {},
+  "income": "收入",
+  "addIncome": "添加收入",
+  "incomeAdded": "收入添加成功",
+  "noIncome": "暂无收入",
+  "noIncomeDescription": "记录您的收入以跟踪家庭的财务健康状况",
+  "totalIncome": "总收入",
+  "monthToDate": "本月至今",
+  "yearToDate": "本年至今",
+  "failedToLoadIncome": "加载收入失败",
+  "incomeAcknowledged": "收入已确认",
+  "acknowledge": "确认",
+  "acknowledged": "已确认",
+  "source": "来源",
+  "sourceHint": "例如：雇主、客户",
+  "me": "我",
+  "partner": "伴侣",
+  "privacyScope": "隐私",
+  "privacyFull": "完整详情",
+  "privacyBalancesOnly": "仅余额",
+  "privacyPrivate": "私密",
+  "privacyFullExplanation": "伴侣可以看到所有详细信息，包括金额、来源和描述。",
+  "privacyBalancesOnlyExplanation": "伴侣可以在总额中看到此收入，但无法看到详细信息（来源、描述隐藏）。",
+  "privacyPrivateExplanation": "只有您可以看到此收入。它有助于家庭总额，但伴侣无法看到详细信息。",
+  "incomeSalary": "工资",
+  "incomeFreelance": "自由职业",
+  "incomeInvestment": "投资",
+  "incomeRefund": "退款",
+  "incomeGift": "礼金",
+  "incomeBonus": "奖金",
+  "incomeRental": "租金",
+  "incomeOther": "其他",
   "@goalsFeature": {},
-  "expenseUpdatedSuccessfully": "支出已更新",
+  "goals": "目标",
+  "createGoal": "创建目标",
+  "goalCreated": "目标创建成功",
+  "goalTitle": "目标标题",
+  "enterGoalTitle": "输入目标标题",
+  "pleaseEnterTitle": "请输入标题",
+  "pleaseEnterAmount": "请输入金额",
+  "invalidAmount": "请输入大于0的有效金额",
+  "targetAmount": "目标金额",
+  "currentAmount": "当前金额",
+  "targetDate": "目标日期",
+  "description": "描述",
+  "descriptionHint": "备注（可选）",
+  "savings": "储蓄",
+  "paydown": "还款",
+  "all": "全部",
+  "completed": "已完成",
+  "offTrack": "进度落后",
+  "onTrack": "进度正常",
+  "complete": "完成",
+  "overallProgress": "整体进度",
+  "totalGoals": "总目标数",
+  "noGoals": "还没有目标。创建您的第一个目标开始吧！",
+  "noSavingsGoals": "还没有储蓄目标。创建一个开始储蓄吧！",
+  "noPaydownGoals": "还没有还款目标。创建一个开始减少债务吧！",
+  "goalAcknowledged": "目标已确认",
+  "balancesOnly": "仅余额",
+  "contribution": "存入",
+  "withdrawal": "提款",
+  "interest": "利息",
+  "adjustment": "调整",
+  "addContribution": "添加存入",
+  "contributionAmount": "存入金额",
+  "contributionType": "类型",
+  "contributionAdded": "已成功添加存入",
+  "pleaseSelectCategory": "请选择分类",
+  "userNotAuthenticated": "用户未认证",
+  "recurringExpenseUpdatedSuccessfully": "定期支出更新成功",
+  "recurringExpenseAddedSuccessfully": "定期支出已成功添加",
+  "expenseUpdatedSuccessfully": "支出更新成功",
+  "recurringIncomeUpdatedSuccessfully": "定期收入已成功更新",
+  "recurringIncomeAddedSuccessfully": "定期收入已成功添加",
+  "failedToUpdateRecurringExpense": "无法更新定期支出",
+  "failedToAddRecurringExpense": "无法添加定期支出",
+  "failedToUpdateRecurringIncome": "无法更新定期收入",
+  "failedToAddRecurringIncome": "无法添加定期收入",
+  "editRecurringExpense": "编辑定期支出",
+  "editRecurringIncome": "编辑定期收入",
+  "addRecurringExpense": "添加定期支出",
+  "addRecurringIncome": "添加定期收入",
+  "selectCategory": "选择类别",
+  "frequency": "频率",
+  "startDate": "开始日期",
+  "setEndDate": "设置结束日期",
+  "endDate": "结束日期",
+  "selectEndDate": "选择结束日期",
+  "descriptionOptional": "描述（可选）",
+  "sourceOptional": "来源（可选）",
+  "companyNameClientNameExample": "例如：公司名称，客户名称",
+  "setReminder": "设置提醒",
+  "updateRecurringTransaction": "更新定期交易",
+  "addRecurringTransaction": "添加定期交易",
+  "youWillBeNotifiedBeforeEachOccurrence": "您将在每次发生 {value}{unit}之前 收到通知",
+  "@youWillBeNotifiedBeforeEachOccurrence": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      },
+      "unit": {
+        "type": "String"
+      }
+    }
+  },
+  "addReminder": "添加提醒",
+  "ended": "已结束",
+  "noRecurringExpenses": "无定期支出",
+  "noRecurringIncome": "无定期收入",
+  "setupAutomaticExpenseTracking": "为订阅、账单和定期付款设置自动支出跟踪",
+  "setupAutomaticIncomeTracking": "为工资、自由职业和定期收入设置自动收入跟踪",
+  "biweekly": "每两周",
+  "oneTime": "一次性",
+  "custom": "自定义",
+  "everyXDays": "每{count}天",
+  "@everyXDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXWeeks": "每{count}周",
+  "@everyXWeeks": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "every2Weeks": "每2周",
+  "everyXMonths": "每{count}个月",
+  "@everyXMonths": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXYears": "每{count}年",
+  "@everyXYears": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "days": "天",
+  "hours": "小时",
+  "confirmIncome": "确认收入",
+  "saveIncome": "保存收入",
+  "incomeSaved": "收入已保存",
+  "incomeSavedAndShared": "收入已保存并共享",
+  "addReceiptPhoto": "添加收据照片",
+  "tapToTakePhoto": "点击拍摄收据照片",
+  "atLeastOneMember": "至少需要一个成员",
+  "memberMustHaveShare": "至少一个成员的份额必须大于0",
+  "monthOverMonthSpending": "月度支出趋势",
+  "last3Months": "过去 3 个月",
+  "breakdown": "明细",
+  "noOutstandingItems": "没有未结项目",
+  "theyOweYou": "他们欠你",
+  "expressNetting": "快速净额结算",
+  "detailedSettlement": "详细结算",
+  "expressNettingHint": "这是净额结算建议。确认后，你与该成员的所有未结部分都会被结清。",
+  "settle": "结算",
+  "confirmSettlement": "确认结算",
+  "confirmSettlementMessage": "这将把你与该成员的所有未结项目标记为已结清。",
+  "pleaseSelectMember": "请选择成员",
+  "settlementCompleted": "结算完成",
+  "nothingToSettle": "无可结算项",
+  "expense": "支出",
+  "settlement": "结算",
+  "suggestedNetTransfers": "建议的净额转账",
+  "detailedPairwiseDues": "成员之间的明细欠款",
+  "outstanding": "未结",
+  "youAreOwedBy": "应收自",
+  "noOutstandingAmounts": "没有未结金额",
+  "groupFairnessTitle": "小组公平度",
+  "groupFairness": "小组公平度",
+  "groupFairnessExplanation": "显示家庭成员之间支出分担的均衡程度。\n\n百分比越高，说明大家贡献越均衡；越低则表示有人承担的支出更多。\n\n把它看作团队协作：当大家分担相近时，公平度得分更高；当某个人承担大部分时，得分会下降。\n\n“均摊金额”表示如果完全平均分配，每个人应承担的数额。",
+  "noMemberDataYet": "暂无成员数据",
+  "evenShare": "均摊金额：{amount}",
+  "@evenShare": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "viewHousehold": "查看家庭",
+  "invalidInvitationMissingInfo": "邀请无效：缺少家庭信息",
+  "joinedHouseholdWithName": "已成功加入 {name}！",
+  "@joinedHouseholdWithName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "joinedHousehold": "已成功加入该家庭！",
+  "errorLoadingSplits": "加载分摊出错",
+  "markAsSettled": "标记为已结清",
+  "splitDetails": "分摊详情",
+  "equalSplit": "平均分摊",
+  "noSharedBudgetsYet": "暂无共享预算",
+  "whoCanSeeThisExpense": "谁可以查看此支出？",
+  "onlyVisibleToYou": "仅你可见",
+  "chooseSpecificMembers": "选择特定成员",
+  "selectMembers": "选择成员",
+  "noMembersFound": "未找到成员",
+  "membersSelectedCount": "已选择 {count} 个",
+  "@membersSelectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noSplitsYet": "暂无分摊",
+  "startSplittingExpensesWithYourHousehold": "开始与家庭一起分摊支出",
+  "minutesAgoShort": "{count} 分钟前",
+  "@minutesAgoShort": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "hoursAgoShort": "{count} 小时前",
+  "@hoursAgoShort": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "daysAgoShort": "{count} 天前",
+  "@daysAgoShort": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "weeksAgoShort": "{count} 周前",
+  "@weeksAgoShort": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "errorLoadingActivity": "加载活动出错",
+  "noRecentActivity": "暂无近期活动",
+  "viewAllExpenses": "查看所有支出",
+  "noPendingSplits": "暂无待处理分摊",
+  "pendingSettlement": "待结算",
+  "youreIn": "已加入！🎉",
+  "invitationError": "邀请错误",
+  "processingInvitation": "正在处理邀请...",
+  "noHouseholdsAvailableCreateOrJoin": "没有可用的家庭。请先创建或加入一个家庭。",
+  "selectHousehold": "选择家庭",
+  "yourPockets": "你的口袋",
+  "editPocket": "编辑口袋",
+  "addPocket": "添加口袋",
+  "errorTitle": "错误",
   "createSplit": "创建分摊",
+  "equalShare": "平均分摊",
   "noCashflowYet": "暂无现金流",
   "monekoEncounteredAnError": "Moneko 遇到错误",
   "savingsRate": "储蓄率",
   "budgetRunway": "预算可用天数",
   "avgDaily": "日均",
+  "left": "剩余",
   "percentageOfSpending": "支出的 {percentage}%",
   "totalAmount": "总金额",
   "payer": "付款人",
@@ -60,7 +1289,9 @@
   "failedToDeletePocket": "删除口袋失败",
   "budgetImpactTitle": "对预算的影响",
   "budgetBalanced": "预算已平衡",
+  "remainingLabel": "剩余",
   "pocketSegmentLabel": "口袋分段",
+  "thisPocketSegmentLabel": "这个口袋",
   "pocketNotFoundAppBar": "找不到口袋",
   "pocketNotFoundTitle": "此口袋不存在",
   "pocketNotFoundMessage": "我们找不到此口袋。可能已被删除或移动。",
@@ -71,6 +1302,7 @@
   "avgDailySpendLabel": "日均支出",
   "pocketAllowanceLabel": "口袋额度",
   "dailyTrendTitle": "每日趋势",
+  "past30DaysLabel": "过去 30 天",
   "noTransactionsYet": "暂无交易",
   "unallocatedSpendLabel": "未分配支出",
   "unallocatedBannerDescription": "你的一部分支出还没有分配到任何口袋。分配后可以让预算更准确。",
@@ -93,6 +1325,7 @@
   "youveGotPaychecksIncomingAndBillsToPay": "既有收入要进账，也有账单等着支付。",
   "notifyMeDaysBefore": "提前 3 天提醒我",
   "upcomingPaychecks": "即将到账的工资",
+  "paycheckFromWork": "工资",
   "freelanceProject": "自由职业项目",
   "upcomingBills": "即将到期的账单",
   "rentPayment": "房租付款",
@@ -111,6 +1344,8 @@
   "solana": "Solana",
   "usePhantomSolflareBackpackEtc": "使用 Phantom、Solflare、Backpack 等钱包。",
   "select": "选择",
+  "color": "颜色",
+  "moneko": "Moneko",
   "allowance": "零用钱",
   "@percentageOfSpending": {
     "placeholders": {
@@ -118,14 +1353,5 @@
         "type": "String"
       }
     }
-  },
-  "errorTitle": "错误",
-  "equalShare": "平均分摊",
-  "left": "剩余",
-  "past30DaysLabel": "过去 30 天",
-  "paycheckFromWork": "工资",
-  "color": "颜色",
-  "moneko": "Moneko",
-  "remainingLabel": "剩余",
-  "thisPocketSegmentLabel": "这个口袋"
+  }
 }

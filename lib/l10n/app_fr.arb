@@ -1,33 +1,1260 @@
 {
   "@@locale": "fr",
+  "appTitle": "Moneko",
+  "noSpendingYet": "Aucune dépense",
+  "loginWelcomeBack": "Ravi de vous revoir",
+  "orContinueWithEmail": "Ou continuer par e-mail",
+  "emailAddress": "Adresse e-mail",
+  "password": "Mot de passe",
+  "forgotPassword": "Mot de passe oublié ?",
+  "signIn": "Connexion",
+  "newToMoneko": "Nouveau sur Moneko ?",
+  "createAccount": "Créer un compte",
+  "resetYourPassword": "Réinitialiser votre mot de passe",
+  "email": "E-mail",
+  "exampleEmail": "vous@exemple.com",
+  "cancel": "Annuler",
+  "sendResetLink": "Envoyer le lien de réinitialisation",
+  "passwordResetEmailSent": "E-mail de réinitialisation envoyé. Vérifiez votre boîte de réception.",
+  "enterValidEmail": "Veuillez saisir une adresse e-mail valide.",
+  "passwordMinLength": "Le mot de passe doit contenir au moins {min} caractères.",
+  "@passwordMinLength": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      }
+    }
+  },
+  "fullNameMinLength": "Le nom complet doit contenir au moins {min} caractères.",
+  "@fullNameMinLength": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      }
+    }
+  },
+  "createYourAccount": "Créez votre compte",
+  "fullName": "Nom complet",
+  "createPassword": "Créer un mot de passe",
+  "passwordComplexityRequirement": "Le mot de passe doit contenir au moins une majuscule, une minuscule et un chiffre.",
+  "passwordRequirementShort": "Mot de passe : 8+ caractères, avec majuscule, minuscule et chiffre.",
+  "termsAgreement": "En créant un compte, vous acceptez nos Conditions d'utilisation et notre Politique de confidentialité.",
+  "alreadyHaveAccount": "Vous avez déjà un compte ?",
+  "signInLower": "Se connecter",
+  "verificationCodeSent": "Code de vérification envoyé avec succès",
+  "verifyYourEmail": "Vérifiez votre e-mail",
+  "verificationEmailSentTo": "Nous avons envoyé un code de vérification à 6 chiffres à {email}",
+  "@verificationEmailSentTo": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "enterCompleteCode": "Veuillez saisir le code complet à 6 chiffres.",
+  "invalidVerificationCode": "Code de vérification invalide.",
+  "verificationCodeExpired": "Le code de vérification a expiré. Veuillez en demander un nouveau.",
+  "verifyEmail": "Vérifier l'e-mail",
+  "didntReceiveTheCode": "Vous n'avez pas reçu le code ? Vérifiez vos spams ou",
+  "resendInSeconds": "renvoyer dans {seconds} s",
+  "@resendInSeconds": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "resendVerificationEmail": "renvoyer l'e-mail de vérification",
+  "continueWithWallet": "Continuer avec le wallet Web3",
+  "signingInWithWallet": "Connexion au wallet...",
+  "continueWithGoogle": "Continuer avec Google",
+  "signingInWithGoogle": "Connexion avec Google...",
+  "error": "Erreur",
+  "anErrorOccurred": "Une erreur est survenue",
+  "unknownError": "Erreur inconnue",
+  "goToHome": "Aller à l'accueil",
+  "paymentSuccessfulCheckingSubscription": "✅ Paiement réussi ! Vérification de l'abonnement...",
+  "paymentFailed": "Échec du paiement",
+  "paymentCanceled": "ℹ️ Paiement annulé",
+  "whatsappVerifiedSuccessfully": "✅ WhatsApp vérifié avec succès !",
+  "settings": "Paramètres",
+  "enableNotificationsInSettings": "Activez les notifications pour Moneko dans les réglages de votre appareil.",
+  "appearance": "Apparence",
+  "darkMode": "Mode sombre",
+  "notifications": "Notifications",
+  "pushNotifications": "Notifications push",
+  "receiveAlertsAndUpdates": "Recevoir des alertes et des mises à jour",
+  "language": "Langue",
+  "systemDefault": "Système",
+  "membership": "Abonnement",
+  "loading": "Chargement...",
+  "failedToLoadMembership": "Échec du chargement de l'abonnement.",
+  "couldNotOpenMembershipPage": "Impossible d'ouvrir la page de l'abonnement.",
+  "freePlan": "Gratuit",
+  "freePlanStatus": "Formule gratuite",
+  "lifetimePlan": "À vie",
+  "plusPlan": "Plus",
+  "plusMonthlyPlan": "Plus (Mensuel)",
+  "plusYearlyPlan": "Plus (Annuel)",
+  "activeStatus": "Actif",
+  "activeLifetimeStatus": "Actif • À vie",
+  "canceledStatus": "Annulé",
+  "pastDueStatus": "En retard",
+  "trialStatus": "Essai",
+  "trialEndsInDays": "Fin de l'essai dans {days} jours",
+  "@trialEndsInDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "trialEnded": "Essai terminé",
+  "renewsInDays": "Renouvellement dans {days} jours",
+  "@renewsInDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "accessEndsInDays": "Fin de l'accès dans {days} jours",
+  "@accessEndsInDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "subscriptionEnded": "Abonnement terminé",
+  "profile": "Profil",
+  "errorLoadingProfile": "Erreur lors du chargement du profil.",
+  "user": "Utilisateur",
+  "proBadge": "PRO",
+  "whatsAppConnected": "WhatsApp connecté",
+  "logExpensesViaWhatsApp": "Ajouter des dépenses par messages WhatsApp",
+  "connectWhatsApp": "Connecter WhatsApp",
+  "newBadge": "NOUVEAU",
+  "logExpensesInstantly": "Ajoutez vos dépenses instantanément par chat.",
+  "fast": "Rapide",
+  "photo": "Photo",
+  "autoSync": "Synchro auto",
+  "naturalLanguage": "Langage naturel",
+  "describeExpenseAutomatically": "Décrivez votre dépense. Nous l'enregistrons automatiquement.",
+  "snapReceipt": "Scanner un reçu",
+  "snapReceiptDescription": "Scannez votre reçu. L'IA extrait et enregistre les données.",
+  "previous": "Précédent",
+  "next": "Suivant",
+  "overview": "Aperçu",
+  "activity": "Activité",
+  "accountInformation": "Informations du compte",
+  "userId": "ID utilisateur",
+  "recentActivity": "Activité récente",
+  "noActivityYet": "Aucune activité pour le moment.",
+  "signOut": "Déconnexion",
+  "@insights": {},
+  "insights": "Analyses",
+  "runningTab": "En continu",
+  "day30Tab": "30 jours",
+  "longTermTab": "Long terme",
+  "scenarioTab": "Scénario",
   "@runningBalance": {},
+  "runningAndDailyBalances": "Soldes courants et quotidiens",
+  "budgetVsSpentDescription": "Budget vs Dépenses par jour avec solde courant cumulé.",
+  "runningBalanceLegend": "Solde courant",
+  "budgetLegend": "Budget",
+  "spentLegend": "Dépensé",
+  "runningBalanceGuide": "Guide du solde courant",
+  "runningBalanceIntro": "Voyez ce graphique comme votre coach financier personnel. Découvrons ce qu'il montre et comment l'utiliser.",
   "@day30Projection": {},
+  "day30LookAhead": "Prévision à 30 jours",
+  "projectedFromTrailing30Days": "Projeté à partir des moyennes des 30 derniers jours.",
+  "projectedSpendingLegend": "Dépenses projetées",
+  "peek30DaysAhead": "Un aperçu des 30 prochains jours",
+  "day30ForecastIntro": "Cette prévision utilise l'activité du mois dernier pour anticiper le mois à venir. Considérez-la comme la météo de votre portefeuille.",
+  "@longTermProjection": {},
+  "longTermProjection": "Projection à long terme",
+  "basedOnHistoricalAverages": "Basé sur les moyennes historiques ; se met à jour automatiquement avec vos données.",
+  "month18ProjectionLegend": "Projection à 18 mois",
+  "your18MonthHorizon": "Votre horizon à 18 mois",
+  "longTermIntro": "Cette projection combine vos habitudes et des hypothèses de croissance modérées pour voir où vos choix d'aujourd'hui vous mènent.",
   "@scenarioPlanning": {},
+  "aiScenarioPlanning": "Planification de scénario (IA)",
+  "askAiFinancialAdvisor": "Demandez à votre conseiller financier IA si vous pouvez vous permettre une dépense future.",
+  "canI": "Puis-je",
+  "before": "avant le",
+  "beforePrefix": "avant le",
+  "beforeSuffix": "",
+  "pickDate": "Choisir une date",
+  "check": "Vérifier",
+  "enterQuestionAndPickDate": "Veuillez poser une question et choisir une date.",
+  "analyzingScenario": "Analyse du scénario...",
+  "thisMightTakeAWhile": "Cela peut prendre un moment.",
+  "whereTheMoneyWent": "Où est passé l'argent",
+  "categoryTotalsForSelectedRange": "Totaux par catégorie pour la période sélectionnée.",
+  "scenarioCategoriesGuide": "Comprendre les catégories",
+  "categoryGuideIntro": "Voyez ce graphique comme une vue d'ensemble de la destination de chaque euro. Voici comment le lire sans calculatrice.",
+  "readTheBarChartLikeAPro": "Lire le graphique en barres comme un pro",
+  "categoryChartDesc": "Répartition par catégorie pour la période sélectionnée.",
+  "whyThisViewIsHelpful": "Pourquoi cette vue est utile",
+  "categoryWhyHelpfulDesc": "Identifiez rapidement vos plus grandes catégories de dépenses et repérez les tendances.",
+  "whatToDoWithTheInsight": "Quoi faire de cette information",
+  "categoryWhatToDoDesc": "Utilisez ces informations pour ajuster votre budget et vos habitudes de consommation.",
   "@scenarioResults": {},
+  "scenarioAnalysis": "Analyse du scénario",
+  "target": "Cible",
+  "quickStats": "Stats rapides",
+  "currentBalance": "Solde actuel",
+  "projectedNoChange": "Projeté (Sans changement)",
+  "avgDailyNet": "Solde net quotidien moyen",
   "@chartLabels": {},
+  "noDataAvailable": "Aucune donnée disponible",
+  "day": "Jour",
   "@navigation": {},
+  "close": "Fermer",
+  "done": "Terminé",
   "@runningBalanceSlides": {},
+  "whatYouAreSeeing": "Ce que vous voyez",
+  "whyItMatters": "Pourquoi c'est important",
+  "howToRespond": "Comment réagir",
+  "runningBalanceWhatYouSeeDesc": "Votre solde courant suit votre marge de manœuvre après chaque journée de dépenses. Les barres montrent ce que vous aviez prévu vs ce que vous avez réellement dépensé.",
+  "runningBalanceWhyMattersDesc": "Voyez-le comme un bilan de santé amical. Il vous aide à voir quand vous êtes en avance sur vos plans (pour continuer à investir) ou quand une correction s'impose.",
+  "runningBalanceHowToRespondDesc": "Utilisez le graphique comme un coach. Célébrez les gains, réajustez les attentes si nécessaire et soyez indulgent. L'objectif est le progrès constant, pas la perfection.",
   "@day30Slides": {},
+  "whatTheForecastShows": "Ce que montre la prévision",
+  "day30WhatShowsDesc": "Nous combinons les 30 derniers jours de dépenses et de revenus pour esquisser une semaine moyenne à venir. Cela lisse les grosses dépenses ponctuelles pour voir le rythme habituel.",
+  "day30WhyMattersDesc": "Des budgets prévisionnels vous aident à rester proactif. Anticiper les jours de grosses dépenses vous permet de mettre de l'argent de côté au lieu de stresser plus tard.",
+  "day30HowToPlaySmartDesc": "Prenez-le comme un conseil amical, pas une règle stricte. Ajustez votre plan avec de petits changements qui vous semblent réalisables.",
   "@longTermSlides": {},
+  "howTheProjectionWorks": "Comment fonctionne la projection",
+  "longTermHowWorksDesc": "Nous projetons vos revenus et dépenses moyens, en y ajoutant une croissance modeste, pour voir si votre plan maintient un niveau de trésorerie confortable.",
+  "longTermWhyMattersDesc": "Les horizons lointains concrétisent les grands rêves. Voyez si votre fonds d'urgence, vos investissements ou vos gros achats restent sur la bonne voie.",
+  "longTermMovesToConsiderDesc": "Utilisez le graphique pour simuler vos décisions futures. De petits ajustements aujourd'hui génèrent de grands gains plus tard.",
   "@categorySlides": {},
+  "forMe": "Pour moi",
+  "forUs": "Pour nous",
+  "home": "Accueil",
+  "reminder": "Rappel",
+  "analyzingReceipt": "Analyse du reçu...",
+  "analyzingExpense": "Analyse de la dépense...",
+  "noExpenseInformationExtracted": "Aucune information de dépense extraite.",
+  "failedToAnalyzeNoData": "Échec de l'analyse : Aucune donnée retournée.",
+  "failedToAnalyze": "Échec de l'analyse",
+  "updateBudget": "Mettre à jour le budget",
+  "enterNewTotalDailyBudget": "Saisissez le nouveau budget quotidien total.",
+  "budgetAmount": "Montant du budget",
+  "save": "Enregistrer",
+  "enterValidAmountGreaterThan0": "Veuillez entrer un montant valide supérieur à 0",
+  "updatingBudget": "Mise à jour du budget...",
+  "budgetUpdated": "Budget mis à jour",
+  "failedToUpdateBudget": "Échec de la mise à jour du budget",
+  "loggedSuccessfully": "Enregistré avec succès",
+  "view": "Voir",
+  "retry": "Réessayer",
+  "failedToCapturePhoto": "Échec de la capture photo.",
+  "noSpendingData": "Aucune donnée de dépense.",
+  "byCategory": "Par catégorie",
+  "noExpensesYet": "Aucune dépense pour l'instant",
+  "startLoggingExpensesToSeeCategories": "Commencez à ajouter des dépenses pour voir les catégories.",
+  "selectDateRange": "Choisir la période",
+  "addExpense": "Ajouter une dépense",
+  "describeYourExpense": "Décris une dépense ou un revenu. Un seul type par saisie.",
+  "enterExpenseDetails": "\"5 pour un burger, 3 pour un café\" • \"reçu 100 de mes parents\"",
+  "addEntry": "Ajouter une entrée",
+  "freeFormText": "Texte libre",
+  "takePhoto": "Prendre une photo",
+  "transactions": "Transactions",
+  "negative": "Négatif",
+  "positive": "Positif",
+  "spendingBreakdown": "Répartition des dépenses",
+  "spent": "Dépensé",
+  "today": "Aujourd'hui",
+  "yesterday": "Hier",
+  "thisWeek": "Cette semaine",
+  "lastWeek": "La semaine dernière",
+  "thisMonth": "Ce mois-ci",
+  "last30Days": "Les 30 derniers jours",
+  "customRange": "Période personnalisée",
+  "spentToday": "Vos dépenses aujourd'hui",
+  "spentYesterday": "Vos dépenses hier",
+  "spentThisWeek": "Vos dépenses cette semaine",
+  "spentLastWeek": "Vos dépenses la semaine dernière",
+  "spentThisMonth": "Vos dépenses ce mois-ci",
+  "spentLast30Days": "Vos dépenses (30 derniers jours)",
+  "spentCustom": "Dépensé (personnalisé)",
+  "todaysBudget": "Budget du jour",
+  "yesterdaysBudget": "Budget d'hier",
+  "sumOfDailyBudgetsThisWeek": "Somme des budgets quotidiens (semaine)",
+  "sumOfDailyBudgetsLastWeek": "Somme des budgets quotidiens (sem. dernière)",
+  "sumOfDailyBudgetsThisMonth": "Somme des budgets quotidiens (mois)",
+  "sumOfDailyBudgetsLast30Days": "Somme des budgets quotidiens (30 jours)",
+  "sumOfDailyBudgetsForSelectedRange": "Somme des budgets quotidiens (période)",
+  "netCashflowToday": "Flux de trésorerie net (aujourd'hui)",
+  "netCashflowYesterday": "Flux de trésorerie net (hier)",
+  "netCashflowThisWeek": "Flux de trésorerie net (semaine)",
+  "netCashflowLastWeek": "Flux de trésorerie net (sem. dernière)",
+  "netCashflowThisMonth": "Flux de trésorerie net (mois)",
+  "netCashflowLast30Days": "Flux de trésorerie net (30 jours)",
+  "netCashflowCustom": "Flux de trésorerie net (personnalisé)",
+  "selectCurrency": "Choisir la devise",
+  "showLessCurrencies": "Afficher moins de devises",
+  "showAllCurrencies": "Afficher toutes les devises ({count} de plus)",
+  "@showAllCurrencies": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "budget": "Budget",
+  "spentLabel": "Dépensé",
+  "net": "Net",
+  "txn": "trans.",
+  "txns": "trans.",
+  "pleaseEnterExpenseDetails": "Veuillez saisir les détails de la dépense.",
+  "userNotLoggedIn": "Utilisateur non connecté.",
+  "errorLoadingHouseholds": "Erreur de chargement des foyers",
+  "welcomeToHouseholds": "Bienvenue dans les Foyers",
+  "householdsDescription": "Gérez vos finances partagées avec votre famille, partenaire ou colocataires. Suivez les budgets, partagez les dépenses et collaborez.",
+  "createHousehold": "Créer un foyer",
+  "joinWithInvite": "Rejoindre avec une invitation",
+  "pleaseUseInvitationLink": "Veuillez utiliser un lien d'invitation pour rejoindre un foyer.",
+  "householdName": "Nom du foyer",
+  "householdNameHint": "ex : Famille Durand",
+  "pleaseEnterHouseholdName": "Veuillez saisir un nom de foyer.",
+  "errorCreatingHousehold": "Erreur lors de la création du foyer.",
+  "householdsFeature": "Fonctionnalité Foyers",
+  "householdsFeatureDescription": "La fonctionnalité Foyers est disponible ! Gérez vos finances partagées avec votre famille, partenaires ou colocataires.",
+  "gotIt": "Compris !",
+  "confirmExpense": "Confirmer la dépense",
+  "expenseDetails": "Informations de la dépense",
+  "details": "Détails",
+  "category": "Catégorie",
+  "currency": "Devise",
+  "date": "Date",
+  "time": "Heure",
+  "notes": "Notes",
+  "receipt": "Reçu",
+  "saveExpense": "Enregistrer la dépense",
+  "shareWithHousehold": "Partager avec le foyer",
+  "loadingHouseholdMembers": "Chargement des membres du foyer...",
+  "selectHouseholdToConfigureSplit": "Sélectionnez un foyer pour configurer le partage.",
+  "currencyManagedByHousehold": "La devise est gérée par le foyer et ne peut pas être modifiée.",
+  "currencyCannotBeChanged": "La devise ne peut pas être modifiée lors du partage avec un foyer.",
+  "cannotEditOthersExpenses": "Vous ne pouvez modifier que vos propres dépenses",
+  "failedToLoadImage": "Échec du chargement de l'image.",
+  "editAmount": "Modifier le montant",
+  "amount": "Montant",
+  "editNotes": "Modifier les notes",
+  "addANote": "Ajouter une note...",
+  "noMembersFoundInHousehold": "Aucun membre trouvé dans ce foyer.",
+  "errorLoadingMembers": "Erreur de chargement des membres.",
+  "noExpenseToSave": "Aucune dépense à enregistrer.",
+  "expenseSavedAndShared": "Dépense enregistrée et partagée{splitInfo}",
+  "expenseSaved": "Dépense enregistrée",
+  "failedToSave": "Échec de l'enregistrement : {error}",
+  "failedToSyncCurrencyPreference": "Échec de la synchro. des préférences de devise : {error}",
+  "currencyUpdatedSuccessfully": "Devise mise à jour",
+  "retryFailed": "Échec de la nouvelle tentative : {error}",
+  "iSpentAmountOnCategory": "J'ai dépensé {amount} {currencySymbol} en {category}",
+  "enterNewTotalDailyBudgetDescription": "Saisissez le nouveau budget quotidien total.",
+  "@household": {},
+  "pleaseSignInToAccessHouseholdFeatures": "Veuillez vous connecter pour accéder aux foyers.",
+  "quickActions": "Actions rapides",
+  "members": "Membres",
+  "invites": "Invitations",
+  "errorLoadingExpenses": "Erreur de chargement des dépenses",
+  "budgets": "Budgets",
+  "loadingHousehold": "Chargement du foyer...",
+  "remaining": "Restant",
+  "overBudget": "Budget dépassé",
+  "sharedBudgets": "Budgets partagés",
+  "netPosition": "Solde de règlement",
+  "spentByHousehold": "Dépenses du Foyer",
+  "memberSpending": "Dépenses par Membre",
+  "spentByHouseholdTooltip": "Cela montre le montant total dépensé par tous les membres du foyer pendant la période sélectionnée. Il inclut toutes les dépenses partagées enregistrées par n'importe quel membre du foyer.",
+  "manageMoneyTogether": "Gérez l'argent ensemble avec votre partenaire, famille ou colocataires dans un espace partagé.",
+  "sharedBudgetsExpenses": "Budgets et dépenses partagés",
+  "sharedBudgetsExpensesDesc": "Définissez des budgets, suivez les dépenses et voyez où va l'argent de votre foyer en temps réel.",
+  "smartExpenseSplitting": "Partage intelligent des dépenses",
+  "smartExpenseSplittingDesc": "Calculez automatiquement qui doit quoi avec des options flexibles : égal, pourcentage ou montants personnalisés.",
+  "stayInSync": "Restez synchronisés",
+  "stayInSyncDesc": "Soyez notifié lorsque des dépenses sont ajoutées, des budgets atteints ou des partages à régler.",
+  "@householdSettings": {},
+  "householdSettings": "Paramètres du foyer",
+  "householdNotFound": "Foyer introuvable.",
+  "coverPhoto": "Photo de couverture",
+  "changeCoverPhoto": "Changer la photo de couverture",
+  "saveChanges": "Enregistrer les modifications",
+  "errorLoadingHousehold": "Erreur de chargement du foyer.",
+  "householdUpdatedSuccessfully": "Foyer mis à jour",
+  "failedToUpdateHousehold": "Échec de la mise à jour du foyer",
   "@householdMembers": {},
+  "inviteMember": "Inviter un membre",
+  "removeMember": "Supprimer le membre",
+  "remove": "Supprimer",
+  "confirmRemoveMember": "Êtes-vous sûr de vouloir supprimer",
+  "updatedMemberRole": "Rôle du membre mis à jour",
+  "unknown": "Inconnu",
+  "makeAdmin": "Nommer admin",
+  "makeMember": "Nommer membre",
   "@householdInvites": {},
+  "invitations": "Invitations",
+  "errorLoadingInvites": "Erreur de chargement des invitations.",
+  "createInvitation": "Créer une invitation",
+  "pendingInvitations": "Invitations en attente",
+  "noPendingInvitations": "Aucune invitation en attente.",
+  "invitationHistory": "Historique des invitations",
+  "noInvitationHistory": "Aucun historique d'invitation.",
+  "emailOptional": "E-mail (optionnel)",
+  "friendEmailExample": "ami@exemple.com",
+  "personalMessageOptional": "Message personnel (optionnel)",
+  "joinHouseholdBudget": "Rejoignez notre budget de foyer !",
+  "expiresIn": "Expire dans",
+  "oneDay": "1 jour",
+  "threeDays": "3 jours",
+  "sevenDays": "7 jours",
+  "fourteenDays": "14 jours",
+  "thirtyDays": "30 jours",
+  "unlimited": "Illimité",
+  "create": "Créer",
+  "invitationCreatedSuccessfully": "Invitation créée avec succès",
+  "inviteLinkCopiedToClipboard": "Lien d'invitation copié",
+  "errorCreatingInvite": "Erreur lors de la création de l'invitation.",
+  "revokeInvitation": "Révoquer l'invitation",
+  "confirmRevokeInvitation": "Êtes-vous sûr de vouloir révoquer cette invitation ?",
+  "revoke": "Révoquer",
+  "invitationRevoked": "Invitation révoquée",
+  "errorRevokingInvite": "Erreur lors de la révocation de l'invitation.",
+  "anyoneWithLink": "Toute personne ayant le lien",
+  "noExpiry": "N'expire pas",
+  "expired": "Expirée",
+  "expires": "Expire",
+  "copyLink": "Copier le lien",
   "@householdImagePicker": {},
+  "selectCoverImage": "Choisir une image de couverture",
+  "failedToLoadImages": "Échec du chargement des images.",
+  "chooseFromGallery": "Choisir depuis la galerie",
+  "failedToLoad": "Échec du chargement.",
+  "imageTooLarge": "Image trop volumineuse.",
+  "maxIs": "Max :",
+  "unsupportedFileFormat": "Format non supporté. Veuillez utiliser JPG, PNG ou WebP.",
+  "cropCoverImage": "Recadrer l'image de couverture",
   "@budgetDetail": {},
+  "editBudget": "Modifier le budget",
+  "budgetDetails": "Détails du budget",
+  "budgetName": "Nom du budget",
+  "period": "Période",
+  "alertThresholds": "Seuils d'alerte",
+  "warningThreshold": "Seuil d'avertissement (%)",
+  "alertThreshold": "Seuil d'alerte (%)",
+  "warningThresholdHelper": "Alerte quand l'utilisation du budget atteint ce pourcentage.",
+  "alertThresholdHelper": "Alerte critique à ce pourcentage.",
+  "budgetStatus": "Statut du budget",
+  "active": "Actif",
+  "inactive": "Inactif",
+  "deletingBudget": "Suppression du budget...",
+  "savingChanges": "Enregistrement...",
+  "budgetNameCannotBeEmpty": "Le nom du budget ne peut pas être vide.",
+  "pleaseEnterValidAmount": "Veuillez saisir un montant valide.",
+  "warningThresholdRange": "Le seuil d'avertissement doit être entre 0 et 100.",
+  "alertThresholdRange": "Le seuil d'alerte doit être entre 0 et 100.",
+  "warningThresholdLessThanAlert": "Le seuil d'avertissement doit être inférieur ou égal au seuil d'alerte.",
+  "deleteBudget": "Supprimer le budget",
+  "confirmDeleteBudget": "Êtes-vous sûr de vouloir supprimer",
+  "thisActionCannotBeUndone": "Cette action est irréversible.",
+  "budgetUpdatedSuccessfully": "Budget mis à jour",
+  "budgetDeletedSuccessfully": "Budget supprimé",
   "@categories": {},
+  "categoryTransfers": "Virements",
+  "categoryShopping": "Shopping",
+  "categoryUtilities": "Factures",
+  "categoryEntertainment": "Loisirs",
+  "categoryEntertainmentSubscriptions": "Abonnements (Loisirs)",
+  "categoryRestaurants": "Restaurants",
+  "categoryFood": "Alimentation",
+  "categoryGroceries": "Courses",
+  "categoryTransport": "Transport",
+  "categoryTransportation": "Transport",
+  "categoryTravel": "Voyage",
+  "categoryFlights": "Billets d'avion",
+  "categoryVacation": "Vacances",
+  "categoryHealth": "Santé",
+  "categoryMedical": "Médical",
+  "categoryText": "Texte",
+  "categoryEducation": "Éducation",
+  "categoryTuition": "Frais de scolarité",
+  "categorySubscriptions": "Abonnements",
+  "categoryServices": "Services",
+  "categoryHousing": "Logement",
+  "categoryRent": "Loyer",
+  "categoryMortgage": "Prêt immobilier",
+  "categoryBills": "Factures",
+  "categoryInsurance": "Assurance",
+  "categorySavings": "Épargne",
+  "categoryInvestment": "Investissement",
+  "categoryInvestments": "Investissements",
+  "categoryIncome": "Revenu",
+  "categorySalary": "Salaire",
+  "categoryBonus": "Bonus",
+  "categoryPets": "Animaux",
+  "categoryKids": "Enfants",
+  "categoryFamily": "Famille",
+  "categoryGifts": "Cadeaux",
+  "categoryCharity": "Dons",
+  "categoryFees": "Frais",
+  "categoryLoan": "Prêt",
+  "categoryLoans": "Prêts",
+  "categoryDebt": "Dette",
+  "categoryPersonalCare": "Soins personnels",
+  "categoryBeauty": "Beauté",
+  "categoryMisc": "Divers",
+  "categoryUncategorized": "Non catégorisé",
+  "deleteBudgetCannotBeUndone": "Cette action est irréversible.",
+  "delete": "Supprimer",
+  "failedToDeleteBudget": "Échec de la suppression du budget",
+  "owner": "Propriétaire",
+  "admin": "Admin",
+  "member": "Membre",
+  "pending": "En attente",
+  "accepted": "Acceptée",
+  "revoked": "Révoquée",
+  "tapToChangeCover": "Appuyez pour changer la couverture",
+  "personalMessageHint": "Dites quelque chose à vos invités (ex : \"Rejoignez notre budget de foyer !\")",
+  "invitationExpiresIn": "L'invitation expire dans",
+  "daysCount": "{days} jour{days, plural, =1 {} other {s}}",
+  "@daysCount": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    },
+    "plural": "days"
+  },
+  "createHouseholdDescription": "Créez un espace partagé pour suivre budgets et dépenses avec la famille ou des colocataires.",
+  "uploadingImage": "Chargement de l'image...",
+  "creating": "Création...",
+  "generatingInvite": "Génération de l'invitation...",
+  "pleaseSelectValidCurrency": "Veuillez choisir une devise valide pour le foyer.",
+  "nameMaxLength": "Le nom doit contenir moins de {max} caractères.",
+  "@nameMaxLength": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "createHouseholdPage": "Page de création de foyer",
+  "invitationPersonalMessageInput": "Champ : message personnel d'invitation",
+  "householdNameInput": "Champ : nom du foyer",
+  "invitationExpirationSelector": "Sélecteur d'expiration de l'invitation",
+  "unlimitedExpiration": "Expiration : illimitée",
+  "daysExpiration": "Expiration : {days} jour{days, plural, =1 {} other {s}}",
+  "@daysExpiration": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    },
+    "plural": "days"
+  },
+  "householdInformation": "Informations du foyer",
+  "creatingHousehold": "Création du foyer...",
+  "createHouseholdButton": "Bouton : Créer un foyer",
+  "searchExpenses": "Rechercher des dépenses...",
+  "clearAll": "Tout effacer",
+  "allCategories": "Toutes les catégories",
+  "allMembers": "Tous les membres",
+  "balanceSummary": "Résumé des soldes",
+  "youAreOwed": "On vous doit",
+  "youOwe": "Vous devez",
+  "youOweOthers": "Vous devez aux autres",
+  "othersOweYou": "D'autres vous doivent",
+  "viewDetails": "Voir les détails",
+  "settleUp": "Régler les comptes",
+  "markExpensesAsSettled": "Marquer les dépenses comme réglées pour mettre à jour les soldes.",
+  "whoAreYouSettlingWith": "Avec qui réglez-vous ?",
+  "selectMember": "Choisir un membre",
+  "amountToSettle": "Montant à régler",
+  "howDidYouSettle": "Comment avez-vous réglé ?",
+  "cash": "Espèces",
+  "paidInCash": "Payé en espèces",
+  "bankTransfer": "Virement bancaire",
+  "transferredViaBank": "Transféré par virement",
+  "mobilePayment": "Paiement mobile",
+  "venmoPaypalEtc": "Lydia, PayPal, etc.",
+  "search": "Rechercher",
+  "noData": "Aucune donnée",
+  "filterTransactions": "Filtrer les transactions",
+  "noTransactionsFound": "Aucune transaction trouvée.",
+  "failedToLoadHouseholdTransactions": "Échec du chargement des transactions du foyer.",
+  "reset": "Réinitialiser",
+  "apply": "Appliquer",
+  "expenses": "Dépenses",
+  "dateRange": "Période",
+  "noMatchingExpenses": "Aucune dépense correspondante",
+  "startLoggingExpenses": "Commencez à ajouter des dépenses pour les voir ici.",
+  "tryAdjustingFilters": "Essayez d'ajuster vos filtres.",
+  "split": "Partager",
+  "note": "Note",
+  "currencyCannotBeChangedWhenSharing": "La devise ne peut pas être modifiée lors du partage avec un foyer.",
+  "createBudget": "Créer un budget",
+  "pleaseEnterABudgetName": "Veuillez saisir un nom de budget.",
+  "pleaseEnterAValidAmountGreaterThan0": "Veuillez saisir un montant valide supérieur à 0.",
+  "warningThresholdMustBeBetween0And100": "Le seuil d'avertissement doit être entre 0 et 100 %.",
+  "alertThresholdMustBeBetween0And100": "Le seuil d'alerte doit être entre 0 et 100 %.",
+  "warningThresholdMustBeLessThanOrEqualToAlert": "Le seuil d'avertissement doit être inférieur ou égal au seuil d'alerte.",
+  "budgetCreatedSuccessfully": "Budget créé avec succès",
+  "failedToCreateBudget": "Échec de la création du budget",
+  "groceriesRentEntertainment": "ex : Courses, Loyer, Loisirs",
+  "budgetType": "Type de budget",
+  "sharedWithAllHouseholdMembers": "Partagé avec tous les membres du foyer",
+  "personalBudgetForYourExpensesOnly": "Budget personnel pour vos dépenses uniquement",
+  "countSplitPortionOnly": "Compter uniquement la part partagée",
+  "onlyCountYourPortionOfSplitExpenses": "Compter uniquement votre part des dépenses partagées dans ce budget.",
+  "joinHousehold": "Rejoindre le foyer",
+  "joinAHousehold": "Rejoindre un foyer",
+  "enterYourInvitationLinkToJoin": "Entrez votre lien d'invitation pour rejoindre\nun espace financier partagé",
+  "pasteTheInvitationLinkYouReceived": "Collez le lien d'invitation que vous avez reçu d'un membre du foyer",
+  "pasteInvitationLink": "Coller le lien d'invitation",
+  "pleaseEnterAnInvitationLink": "Veuillez entrer un lien d'invitation",
+  "pleaseEnterAValidInvitationLink": "Veuillez entrer un lien d'invitation valide",
+  "paste": "Coller",
+  "validating": "Validation...",
+  "continueAction": "Continuer",
+  "welcomeAboard": "Bienvenue à bord !",
+  "youreNowPartOfTheHousehold": "Vous faites maintenant partie du foyer.\nCommencez à collaborer sur vos finances !",
+  "thisWillOnlyTakeAMoment": "Juste un instant...",
+  "unableToJoin": "Impossible de rejoindre",
+  "tryAgain": "Réessayer",
+  "goToHousehold": "Aller au Foyer",
+  "expiresSoon": "Expire bientôt",
+  "invitationValidUntil": "Invitation valide jusqu'au {formattedDate}",
+  "whatYoullGet": "Ce que vous obtiendrez",
+  "viewSharedBudgetsAndExpenses": "Voir les budgets et dépenses partagés",
+  "trackHouseholdFinancialHealth": "Suivre la santé financière du foyer",
+  "collaborateOnFinancialDecisions": "Collaborer sur les décisions financières",
   "@householdOverview": {},
+  "household": "Foyer",
+  "viewAll": "Voir tout",
+  "manage": "Gérer",
+  "noBudgetsYet": "Aucun budget pour l'instant.",
+  "createSharedBudgetDescription": "Créez un budget partagé pour suivre les dépenses ensemble.",
+  "errorLoadingBudgets": "Erreur lors du chargement des budgets",
+  "recentSplits": "Partages récents",
+  "invite": "Inviter",
   "@transactionsPage": {},
+  "last6Months": "Les 6 derniers mois",
+  "thisYear": "Cette année",
+  "allTime": "Depuis toujours",
   "@householdCreate": {},
+  "nameMinLength": "Le nom doit contenir au moins {min} caractères.",
+  "@nameMinLength": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      }
+    }
+  },
   "@customSplitSheet": {},
+  "splitExpense": "Partager la dépense",
+  "percent": "Pourcentage",
+  "splitShare": "Part",
+  "owes": "Doit",
+  "splitAmountsMustEqual": "Le total doit être égal à {amount} {currency}",
+  "@splitAmountsMustEqual": {
+    "placeholders": {
+      "currency": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "percentagesMustTotal100": "Le total des pourcentages doit être de 100 %.",
+  "eachPersonMustHaveAtLeast1Share": "Chaque personne doit avoir au moins 1 part.",
+  "@whatsappVerification": {},
+  "whatsappVerified": "WhatsApp vérifié",
+  "whatsappVerification": "Vérification WhatsApp",
+  "yourWhatsAppNumberIsSuccessfullyLinked": "Votre numéro WhatsApp est connecté à votre compte.",
+  "verifyingYourWhatsAppNumber": "Vérification de votre numéro WhatsApp...",
+  "enterThe6DigitCodeFromWhatsApp": "Saisissez le code à 6 chiffres reçu sur WhatsApp.",
+  "pleaseEnterThe6DigitVerificationCode": "Veuillez saisir le code de vérification à 6 chiffres.",
+  "failedToVerifyCode": "Échec de la vérification du code.",
+  "failedToVerifyCodePleaseTryAgain": "Échec de la vérification. Veuillez réessayer.",
+  "codeAutoFilledFromVerificationLink": "Code auto-rempli depuis le lien de vérification.",
+  "verify": "Vérifier",
+  "verifying": "Vérification...",
   "@avatarCustomizer": {},
+  "avatarStudio": "Studio d'avatar",
+  "preview": "Aperçu",
+  "colors": "Couleurs",
+  "randomize": "Aléatoire",
+  "saveAvatar": "Enregistrer l'avatar",
+  "saving": "Enregistrement...",
+  "skipForNow": "Ignorer pour l'instant",
+  "selectColor": "Choisir la couleur",
+  "failedToSaveAvatar": "Échec de l'enregistrement de l'avatar.",
   "@avatarCustomizerCategories": {},
+  "hair": "Cheveux",
+  "eyes": "Yeux",
+  "mouth": "Bouche",
+  "background": "Arrière-plan",
+  "face": "Visage",
+  "ears": "Oreilles",
+  "shirts": "Hauts",
+  "brow": "Sourcils",
+  "nose": "Nez",
+  "blush": "Fard",
+  "accessories": "Accessoires",
+  "stars": "Étoiles",
   "@unifiedTransactionSheet": {},
+  "@recurringTransactions": {},
+  "recurring": "Récurrent",
+  "manageYourRecurringTransactions": "Gérer les transactions récurrentes",
+  "errorLoadingData": "Erreur lors du chargement des données",
+  "deleteRecurringTransaction": "Supprimer la transaction récurrente",
+  "areYouSureYouWantToDeleteThisRecurringTransaction": "Êtes-vous sûr de vouloir supprimer cette transaction récurrente ?",
+  "recurringTransactionDeleted": "Transaction récurrente supprimée",
+  "transactionDeleted": "Transaction supprimée",
+  "recentTransactions": "Transactions récentes",
+  "failedToDeleteRecurringTransaction": "Échec de la suppression de la transaction récurrente",
+  "recurringTransactions": "Transactions récurrentes",
+  "currencyIsManagedByHousehold": "La devise est gérée par le foyer et ne peut pas être modifiée.",
+  "@expenseSavedAndShared": {
+    "placeholders": {
+      "splitInfo": {
+        "type": "String"
+      }
+    }
+  },
+  "@failedToSave": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "buyALaptop": "acheter un ordinateur à 1 000 €",
+  "selectTargetDate": "Choisir la date cible",
+  "scenarioQuestionTemplate": "Puis-je {action} avant le {date}",
+  "@scenarioQuestionTemplate": {
+    "description": "Template for scenario planning questions. CRITICAL: Adjust word order for your language's grammar structure.\n\nLANGUAGE STRUCTURE EXAMPLES:\n• English (SVO): Can I {action} before {date}?\n• Chinese (STV): 我可以在{date}前{action}吗？\n• Japanese (SOV): {date}前に{action}できますか？\n• Korean (SOV): {date} 전에 {action}할 수 있나요?\n• Spanish (VSO): ¿Puedo {action} antes del {date}?\n• French (VSO): Puis-je {action} avant le {date}?\n• German (V2): Kann ich {action} vor dem {date}?\n• Russian (SVO): Могу ли я {action} до {date}?\n• Arabic (VSO): هل يمكنني {action}S-10S-10 قبل {date}؟\n• Hindi (SOV): क्या मैं {date} से पहले {action} कर सकता हूँ?\n• Urdu (SOV): کیا میں {date} سے پہلے {action} کر سکتا ہوں؟\n• Turkish (SOV): {date} öncesi {action} yapabilir miyim?\n• Dutch (SVO): Kan ik {action} voor {date}?\n• Swedish (SVO): Kan jag {action} före {date}?\n• Polish (SVO): Czy mogę {action} przed {date}?\n• Thai (SVO): ฉันสามารถ {action} ก่อน {date} ได้ไหม?\n• Vietnamese (SVO): Tôi có thể {action} trước {date} không?\n• Indonesian (SVO): Bisakah saya {action}S-11S-11sebelum {date}?\n\nIMPORTANT: Consider your language's unique features:\n- Gender agreement (Romance languages)\n- Case systems (Germanic, Slavic languages)\n- Honorific levels (Asian languages)\n- Right-to-left script (Arabic, Hebrew)\n- Postpositions (Indian languages)\n- Verb position variations",
+    "placeholders": {
+      "action": {
+        "type": "String",
+        "description": "The action phrase (e.g., 'buy a laptop', 'go on vacation')"
+      },
+      "date": {
+        "type": "String",
+        "description": "The date string formatted according to locale conventions"
+      }
+    }
+  },
+  "scenarioDateFormat": "dd/MM/yyyy",
+  "@scenarioDateFormat": {
+    "description": "Date format for scenario planning. Use standard ICU DateFormat patterns.\n\nREGIONAL DATE FORMAT EXAMPLES:\n• United States: MM/dd/yyyy (01/25/2025)\n• United Kingdom: dd/MM/yyyy (25/01/2025)\n• China/Japan/Korea: yyyy/MM/dd (2025/01/25)\n• Germany: dd.MM.yyyy (25.01.2025)\n• France: dd/MM/yyyy (25/01/2025)\n• Spain: dd/MM/yyyy (25/01/2025)\n• Italy: dd/MM/yyyy (25/01/2025)\n• Russia: dd.MM.yyyy (25.01.2025)\n• Arabic (Egypt): dd/MM/yyyy (25/01/2025)\n• Hindi: dd-MM-yyyy (25-01-2025)\n• Urdu: dd/MM/yyyy (25/01/2025)\n• Thai: dd/MM/yyyy (25/01/2565) [Note: Buddhist calendar]\n• Vietnamese: dd/MM/yyyy (25/01/2025)\n• Indonesian: dd/MM/yyyy (25/01/2025)\n• Turkish: dd.MM.yyyy (25.01.2025)\n• Dutch: dd-MM-yyyy (25-01-2025)\n• Swedish: yyyy-MM-dd (2025-01-25)\n• Polish: dd.MM.yyyy (25.01.2025)\n\nSPECIAL CONSIDERATIONS:\n- Buddhist calendar (Thailand): Year + 543\n- Islamic calendar (Arabic countries): Different year system\n- Hebrew calendar (Israel): Different year system\n- Era naming (Japanese): Reiwa, Heisei, etc.\n- Lunar calendars (Chinese, Korean, Vietnamese)\n- Week start day (Sunday vs Monday)\n- Use of separators: /, -, ., or spaces",
+    "example": "25/01/2025"
+  },
+  "analysisFailed": "Échec de l'analyse : {error}",
+  "@analysisFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "leftHandChamps": "Les champions de gauche sont vos poids lourds — parfaits pour un examen rapide.",
+  "smallButFrequent": "Les catégories petites mais fréquentes révèlent des habitudes qui peuvent s'installer discrètement.",
+  "colorMatches": "La couleur correspond à ce que vous voyez sur l'Accueil pour que votre cerveau reste à l'aise.",
+  "planningNewGoal": "Vous planifiez un nouvel objectif ? Repérez les catégories à réduire sans toucher au plaisir.",
+  "eyeingTreatYourself": "Envie d'un mois \"plaisir\" ? Voyez quels postes de dépenses peuvent être flexibles.",
+  "doubleCheckTagging": "Utilisez-le pour vérifier que les nouvelles dépenses ont été correctement étiquetées.",
+  "slideHighBar": "Réduisez une barre élevée en fixant une mini-limite ou en optant pour des alternatives moins coûteuses.",
+  "nonNegotiable": "Si une barre n'est pas négociable (bonjour le loyer), planifiez autour d'elle au lieu de la combattre.",
+  "revisitAfterScenario": "Revenez après un scénario pour voir si vos ajustements tiennent la route.",
   "@runningBalanceTab": {},
+  "purpleLineCushion": "Ligne violette : la marge restante après chaque jour. Une ligne montante signifie que vous prenez de l'élan.",
+  "blueBarsBudget": "Barres bleues : le budget que vous avez fixé pour ce jour-là.",
+  "redBarsSpent": "Barres rouges : ce qui est réellement sorti de votre compte.",
+  "lineTrendingUpward": "Ligne ascendante = argent supplémentaire que vous pouvez rediriger vers vos objectifs d'épargne.",
+  "flatDippingLine": "Ligne plate ou descendante = il est temps de pauser et de revoir les gros postes de dépenses.",
+  "sharpDrops": "Les chutes brutales correspondent souvent à des achats imprévus — appuyez dessus pour inspecter.",
+  "lineRisingDays": "La ligne monte depuis plusieurs jours ? Pensez à épargner un peu plus ou à rembourser une dette.",
+  "lineDippingWeekend": "La ligne plonge après un week-end chargé ? Rééquilibrez les jours à venir en réduisant les petites dépenses non essentielles.",
+  "feelStuckRed": "Coincé dans le rouge ? Revoyez votre budget dans l'Accueil — les petits ajustements font la différence.",
   "@day30LookAheadTab": {},
+  "thirtyDayForecastDesc": "Cette prévision utilise l'activité du mois dernier pour anticiper le mois à venir. Considérez-la comme la météo de votre portefeuille.",
+  "greenLineExpected": "Ligne verte = dépense quotidienne attendue si le mois à venir se comporte comme le précédent.",
+  "spikesHighlight": "Les pics soulignent les semaines où vos habitudes sont plus coûteuses (bonjour les restos du vendredi).",
+  "forecastUpdates": "Lorsque vous ajoutez de nouvelles transactions, la prévision se met à jour en douceur.",
+  "spotExpensivePatterns": "Repérez tôt les schémas coûteux et préparez un mini-tampon avant qu'ils n'arrivent.",
+  "catchQuieterWeeks": "Profitez des semaines plus calmes pour transférer de l'argent vers l'épargne ou le remboursement de dettes.",
+  "timeRecurringPayments": "Utilisez ces infos pour planifier vos paiements récurrents, abonnements ou recharges.",
+  "bigSpikeComing": "Un gros pic arrive ? Réservez des options moins chères ou décalez les dépenses flexibles à des jours plus calmes.",
+  "forecastDipping": "La prévision baisse ? Récompensez-vous en programmant un virement d'épargne supplémentaire.",
+  "forecastLooksOff": "Si la prévision semble erronée, vérifiez vos catégories dans l'Accueil pour corriger les étiquettes.",
   "@longTermProjectionTab": {},
+  "greenLineTrends": "La ligne verte suit votre taux d'épargne habituel — une tendance à la hausse signifie que vos objectifs sont financés.",
+  "lineDipsSignals": "Si la ligne baisse, cela signale des mois futurs où les dépenses dépassent les revenus.",
+  "largeGoalsDebts": "Les grands objectifs ou les dettes sont inclus lorsque vous les marquez dans l'Accueil.",
+  "upwardSlope": "Une pente ascendante ? Célébrez et envisagez d'augmenter votre épargne retraite ou voyage.",
+  "flatSlipping": "Stable ou en baisse ? Il est temps d'ajuster les budgets ou d'augmenter les revenus avant que cela ne s'aggrave.",
+  "watchSeasonalTrends": "Surveillez les tendances saisonnières — vacances, rentrée scolaire ou renouvellements annuels apparaissent souvent ici en premier.",
+  "schedulePaymentIncreases": "Programmez de légères augmentations de remboursement de prêts lorsque la courbe monte.",
+  "planAheadDips": "Anticipez les baisses en constituant des fonds d'amortissement ou en réduisant les dépenses optionnelles.",
+  "checkProjectionMonthly": "Vérifiez la projection chaque mois pour garder votre vision à long terme flexible et motivante.",
+  "categoryHealthcare": "Santé",
+  "categoryOther": "Autre",
+  "deleteExpense": "Supprimer la dépense",
+  "confirmDeleteExpense": "Êtes-vous sûr de vouloir supprimer cette dépense ? Cette action est irréversible.",
+  "expenseDeletedSuccessfully": "Dépense supprimée avec succès",
+  "failedToDeleteExpense": "Échec de la suppression de la dépense",
+  "expenseNotFoundOrDeleted": "Dépense introuvable ou déjà supprimée",
+  "onlyAdminsAndOwnersCanEditHouseholdSettings": "Seuls les administrateurs et propriétaires peuvent modifier les paramètres du foyer",
+  "onlyAdminsAndOwnersCanCreateInvitations": "Seuls les administrateurs et propriétaires peuvent créer des invitations",
+  "shareInvitationForHousehold": "Partager l'invitation pour le foyer {householdName}",
+  "@shareInvitationForHousehold": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "shareInvitation": "Partager l'invitation",
+  "householdCreatedSuccessfully": "Foyer {householdName} créé avec succès",
+  "@householdCreatedSuccessfully": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "householdCreatedSuccessfullyWithQuotes": "Foyer \"{householdName}\" créé avec succès !",
+  "@householdCreatedSuccessfullyWithQuotes": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "invitationLink": "Lien d'invitation",
+  "invitationLinkWithUrl": "Lien d'invitation : {inviteUrl}",
+  "@invitationLinkWithUrl": {
+    "placeholders": {
+      "inviteUrl": {
+        "type": "String"
+      }
+    }
+  },
+  "copyInvitationLink": "Copier le lien d'invitation",
+  "copyInvitationLinkToClipboard": "Copier le lien d'invitation dans le presse-papiers",
+  "shareInvitationLink": "Partager le lien d'invitation",
+  "share": "Partager",
+  "closeShareSheet": "Fermer le panneau de partage",
+  "invitationLinkCopiedToClipboard": "Lien d'invitation copié dans le presse-papiers !",
+  "joinMyHouseholdMessage": "Rejoins mon foyer \"{householdName}\" sur Moneko !\n\n{inviteUrl}",
+  "@joinMyHouseholdMessage": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      },
+      "inviteUrl": {
+        "type": "String"
+      }
+    }
+  },
+  "joinMyHouseholdSubject": "Rejoins mon foyer sur Moneko",
+  "zeroAmount": "0,00",
+  "dollarPrefix": "$ ",
+  "notificationSettings": "Paramètres de notification",
+  "budgetBoop": "Miau-rappel",
+  "getGentleReminder": "Reçois un rappel doux lorsque tu atteins ce seuil",
+  "purrSuasiveNudge": "Poussée ronronnante",
+  "getStrongerNudge": "Reçois une incitation plus forte lorsque tu atteins ce seuil",
+  "createBudgetButton": "Créer un budget",
+  "daily": "Quotidien",
+  "weekly": "Hebdomadaire",
+  "monthly": "Mensuel",
+  "yearly": "Annuel",
+  "householdBudgetType": "Budget du foyer",
+  "personalBudgetType": "Budget personnel",
   "@householdJoin": {},
+  "joinHouseholdName": "Rejoindre \"{householdName}\"",
+  "@joinHouseholdName": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      }
+    }
+  },
+  "householdPreview": "Aperçu du foyer : {householdName}, invité par {inviterEmail}",
+  "@householdPreview": {
+    "placeholders": {
+      "householdName": {
+        "type": "String"
+      },
+      "inviterEmail": {
+        "type": "String"
+      }
+    }
+  },
+  "invitedBy": "Invité par {inviterEmail}",
+  "@invitedBy": {
+    "placeholders": {
+      "inviterEmail": {
+        "type": "String"
+      }
+    }
+  },
+  "invitationExpiresSoon": "L'invitation expire bientôt le {formattedDate}",
+  "@invitationExpiresSoon": {
+    "placeholders": {
+      "formattedDate": {
+        "type": "String"
+      }
+    }
+  },
+  "@invitationValidUntil": {
+    "placeholders": {
+      "formattedDate": {
+        "type": "String"
+      }
+    }
+  },
+  "invitationValidUntilLabel": "Invitation valide jusqu'au",
+  "personalMessageFromInviter": "Message personnel de la personne qui vous invite",
+  "messageFromInviter": "Message de la personne qui vous invite",
+  "joiningHousehold": "Rejoindre le foyer",
+  "errorWithMessage": "Erreur : {errorMessage}",
+  "@errorWithMessage": {
+    "placeholders": {
+      "errorMessage": {
+        "type": "String"
+      }
+    }
+  },
+  "anUnexpectedErrorOccurred": "Une erreur inattendue s'est produite",
+  "invalidInvitationLinkFormat": "Format de lien d'invitation invalide",
+  "invalidOrExpiredInvitation": "Invitation invalide ou expirée",
+  "tomorrow": "Demain",
+  "inDays": "dans {days} jours",
+  "@inDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "january": "Jan",
+  "february": "Fév",
+  "march": "Mar",
+  "april": "Avr",
+  "may": "Mai",
+  "june": "Jui",
+  "july": "Juil",
+  "august": "Aoû",
+  "september": "Sep",
+  "october": "Oct",
+  "november": "Nov",
+  "december": "Déc",
+  "remindUser": "Rappeler {name}",
+  "@remindUser": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sendFriendlySpendingReminder": "Envoyer un rappel amical de dépenses",
+  "addMessageOptional": "Ajouter un message (facultatif)",
+  "messageHintExample": "p. ex. « Votre portefeuille a besoin de souffler ! »",
+  "sendReminder": "Envoyer le rappel",
+  "pleaseWait24HoursBeforeSendingAnotherReminder": "Veuillez attendre 24 heures avant d’envoyer un nouveau rappel à {name}",
+  "@pleaseWait24HoursBeforeSendingAnotherReminder": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "reminderSentToName": "Rappel envoyé à {name} 🔔",
+  "@reminderSentToName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "failedToSendReminderTryAgain": "Échec de l’envoi du rappel. Veuillez réessayer.",
   "@incomeFeature": {},
+  "income": "Revenus",
+  "addIncome": "Ajouter des revenus",
+  "incomeAdded": "Revenus ajoutés avec succès",
+  "noIncome": "Aucun revenu encore",
+  "noIncomeDescription": "Enregistrez vos revenus pour suivre la santé financière de votre foyer",
+  "totalIncome": "Revenus totaux",
+  "monthToDate": "Mois à ce jour",
+  "yearToDate": "YTD",
+  "failedToLoadIncome": "Échec du chargement des revenus",
+  "incomeAcknowledged": "Revenus confirmés",
+  "acknowledge": "Confirmer",
+  "acknowledged": "confirmé",
+  "source": "Source",
+  "sourceHint": "ex. Employeur, Client",
+  "me": "Moi",
+  "partner": "Partenaire",
+  "privacyScope": "Confidentialité",
+  "privacyFull": "Tous les détails",
+  "privacyBalancesOnly": "Soldes uniquement",
+  "privacyPrivate": "Privé",
+  "privacyFullExplanation": "Le partenaire peut voir tous les détails y compris le montant, la source et la description.",
+  "privacyBalancesOnlyExplanation": "Le partenaire peut voir ces revenus dans les totaux mais pas les détails (source, description masquée).",
+  "privacyPrivateExplanation": "Seul vous pouvez voir ces revenus. Ils contribuent aux totaux du foyer mais le partenaire ne peut pas voir les détails.",
+  "incomeSalary": "Salaire",
+  "incomeFreelance": "Freelance",
+  "incomeInvestment": "Investissement",
+  "incomeRefund": "Remboursement",
+  "incomeGift": "Cadeau",
+  "incomeBonus": "Prime",
+  "incomeRental": "Loyer",
+  "incomeOther": "Autre",
   "@goalsFeature": {},
+  "goals": "Objectifs",
+  "createGoal": "Créer un objectif",
+  "goalCreated": "Objectif créé avec succès",
+  "goalTitle": "Titre de l'objectif",
+  "enterGoalTitle": "Entrer le titre de l'objectif",
+  "pleaseEnterTitle": "Veuillez entrer un titre",
+  "pleaseEnterAmount": "Veuillez entrer un montant",
+  "invalidAmount": "Saisissez un montant valide supérieur à 0",
+  "targetAmount": "Montant cible",
+  "currentAmount": "Montant actuel",
+  "targetDate": "Date cible",
+  "description": "Description",
+  "descriptionHint": "Note optionnelle",
+  "savings": "Épargne",
+  "paydown": "Remboursement",
+  "all": "Tous",
+  "completed": "Terminé",
+  "offTrack": "Hors piste",
+  "onTrack": "Sur la bonne voie",
+  "complete": "terminer",
+  "overallProgress": "progrès global",
+  "totalGoals": "Objectifs totaux",
+  "noGoals": "Aucun objectif encore. Créez votre premier objectif pour commencer !",
+  "noSavingsGoals": "Aucun objectif d'épargne encore. Créez-en un pour commencer à épargner !",
+  "noPaydownGoals": "Aucun objectif de remboursement encore. Créez-en un pour commencer à réduire vos dettes !",
+  "goalAcknowledged": "Objectif confirmé",
+  "balancesOnly": "Soldes uniquement",
+  "contribution": "Contribution",
+  "withdrawal": "Retrait",
+  "interest": "Intérêt",
+  "adjustment": "Ajustement",
+  "addContribution": "Ajouter une contribution",
+  "contributionAmount": "Montant de la contribution",
+  "contributionType": "Type",
+  "contributionAdded": "Contribution ajoutée avec succès",
+  "pleaseSelectCategory": "Veuillez sélectionner une catégorie",
+  "userNotAuthenticated": "Utilisateur non authentifié",
+  "recurringExpenseUpdatedSuccessfully": "Dépense récurrente mise à jour avec succès",
+  "recurringExpenseAddedSuccessfully": "Dépense récurrente ajoutée avec succès",
+  "recurringIncomeUpdatedSuccessfully": "Revenu récurrent mis à jour avec succès",
+  "recurringIncomeAddedSuccessfully": "Revenu récurrent ajouté avec succès",
+  "failedToUpdateRecurringExpense": "Échec de la mise à jour de la dépense récurrente",
+  "failedToAddRecurringExpense": "Échec de l'ajout de la dépense récurrente",
+  "failedToUpdateRecurringIncome": "Échec de la mise à jour du revenu récurrent",
+  "failedToAddRecurringIncome": "Échec de l'ajout du revenu récurrent",
+  "editRecurringExpense": "Modifier Dépense Récurrente",
+  "editRecurringIncome": "Modifier Revenu Récurrent",
+  "addRecurringExpense": "Ajouter Dépense Récurrente",
+  "addRecurringIncome": "Ajouter Revenu Récurrent",
+  "selectCategory": "Sélectionner une catégorie",
+  "frequency": "Fréquence",
+  "startDate": "Date de début",
+  "setEndDate": "Définir une date de fin",
+  "endDate": "Date de fin",
+  "selectEndDate": "Sélectionner la date de fin",
+  "descriptionOptional": "Description (Optionnel)",
+  "sourceOptional": "Source (Optionnel)",
+  "companyNameClientNameExample": "ex: Nom de l'entreprise, Nom du client",
+  "setReminder": "Définir un rappel",
+  "updateRecurringTransaction": "Mettre à jour la Transaction Récurrente",
+  "addRecurringTransaction": "Ajouter une Transaction Récurrente",
+  "youWillBeNotifiedBeforeEachOccurrence": "Vous serez notifié {value} {unit} avant chaque occurrence",
+  "@youWillBeNotifiedBeforeEachOccurrence": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      },
+      "unit": {
+        "type": "String"
+      }
+    }
+  },
+  "addReminder": "Ajouter un Rappel",
+  "ended": "Terminé",
+  "noRecurringExpenses": "Aucune Dépense Récurrente",
+  "noRecurringIncome": "Aucun Revenu Récurrent",
+  "setupAutomaticExpenseTracking": "Configurez le suivi automatique des dépenses pour les abonnements, les factures et les paiements réguliers",
+  "setupAutomaticIncomeTracking": "Configurez le suivi automatique des revenus pour le salaire, le travail freelance et les gains réguliers",
+  "biweekly": "Bihebdomadaire",
+  "oneTime": "Unique",
+  "custom": "Personnalisé",
+  "everyXDays": "Tous les {count} jours",
+  "@everyXDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXWeeks": "Toutes les {count} semaines",
+  "@everyXWeeks": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "every2Weeks": "Toutes les 2 semaines",
+  "everyXMonths": "Tous les {count} mois",
+  "@everyXMonths": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "everyXYears": "Tous les {count} ans",
+  "@everyXYears": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "days": "jours",
+  "hours": "heures",
+  "confirmIncome": "Confirmer le revenu",
+  "saveIncome": "Enregistrer le revenu",
+  "incomeSaved": "Revenu enregistré",
+  "incomeSavedAndShared": "Revenu enregistré et partagé",
+  "addReceiptPhoto": "Ajouter une photo de reçu",
+  "tapToTakePhoto": "Prenez une photo de votre reçu",
+  "atLeastOneMember": "Au moins un membre doit être inclus",
+  "memberMustHaveShare": "Au moins un membre doit avoir une part supérieure à 0",
+  "monthOverMonthSpending": "Évolution des dépenses mensuelles",
+  "last3Months": "3 derniers mois",
+  "breakdown": "Ventilation",
+  "noOutstandingItems": "Aucun solde en attente",
+  "theyOweYou": "On te doit",
+  "expressNetting": "Compensation express",
+  "detailedSettlement": "Règlement détaillé",
+  "expressNettingHint": "Ceci est une suggestion de compensation. En confirmant, tous tes soldes en attente avec ce membre seront réglés.",
+  "settle": "Régler",
+  "confirmSettlement": "Confirmer le règlement",
+  "confirmSettlementMessage": "Cela marquera comme réglés tous tes éléments en attente avec ce membre.",
+  "pleaseSelectMember": "Sélectionnez un membre",
+  "settlementCompleted": "Règlement effectué",
+  "nothingToSettle": "Rien à régler",
+  "expense": "Dépense",
+  "settlement": "Règlement",
+  "suggestedNetTransfers": "Transferts nets suggérés",
+  "detailedPairwiseDues": "Dettes détaillées entre membres",
+  "outstanding": "En attente",
+  "youAreOwedBy": "Montants à recevoir de",
+  "noOutstandingAmounts": "Aucun montant en attente",
+  "groupFairnessTitle": "Équité du groupe",
+  "groupFairness": "Équité du groupe",
+  "groupFairnessExplanation": "Cela montre comment les dépenses sont réparties entre les membres du foyer.\n\nPlus le pourcentage est élevé, plus la contribution est équitable. Plus il est faible, plus certaines personnes couvrent de dépenses que d’autres.\n\nPensez‑y comme à un travail d’équipe : quand tout le monde contribue à parts égales, le score d’équité est élevé. Quand une personne supporte la majorité, il baisse.\n\nLa \"part égale\" indique ce que chacun paierait si tout était partagé équitablement.",
+  "noMemberDataYet": "Aucune donnée de membre pour le moment",
+  "evenShare": "Part égale : {amount}",
+  "@evenShare": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "viewHousehold": "Voir le foyer",
+  "invalidInvitationMissingInfo": "Invitation invalide : il manque des informations sur le foyer",
+  "joinedHouseholdWithName": "Tu as rejoint {name} !",
+  "@joinedHouseholdWithName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "joinedHousehold": "Tu as rejoint le foyer !",
+  "errorLoadingSplits": "Erreur lors du chargement des répartitions",
+  "markAsSettled": "Marquer comme réglé",
+  "splitDetails": "Détails de la répartition",
+  "equalSplit": "PARTAGE ÉGAL",
+  "noSharedBudgetsYet": "Aucun budget partagé pour le moment",
+  "whoCanSeeThisExpense": "Qui peut voir cette dépense ?",
+  "onlyVisibleToYou": "Visible uniquement pour toi",
+  "chooseSpecificMembers": "Choisir des membres spécifiques",
+  "selectMembers": "Sélectionner des membres",
+  "noMembersFound": "Aucun membre trouvé",
+  "membersSelectedCount": "{count} sélectionnés",
+  "@membersSelectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noSplitsYet": "Aucune répartition pour l’instant",
+  "startSplittingExpensesWithYourHousehold": "Commence à répartir les dépenses avec ton foyer",
+  "minutesAgoShort": "il y a {count} min",
+  "@minutesAgoShort": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "hoursAgoShort": "il y a {count} h",
+  "@hoursAgoShort": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "daysAgoShort": "il y a {count} j",
+  "@daysAgoShort": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "weeksAgoShort": "il y a {count} sem",
+  "@weeksAgoShort": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "errorLoadingActivity": "Erreur lors du chargement de l’activité",
+  "noRecentActivity": "Aucune activité récente",
+  "viewAllExpenses": "Voir toutes les dépenses",
+  "noPendingSplits": "Aucune répartition en attente",
+  "pendingSettlement": "Règlement en attente",
+  "youreIn": "C’est fait ! 🎉",
+  "invitationError": "Erreur d’invitation",
+  "processingInvitation": "Traitement de l’invitation...",
+  "noHouseholdsAvailableCreateOrJoin": "Aucun foyer disponible. Crée ou rejoins d’abord un foyer.",
+  "selectHousehold": "Sélectionner un foyer",
+  "yourPockets": "Vos enveloppes",
+  "editPocket": "Modifier l’enveloppe",
+  "addPocket": "Ajouter une enveloppe",
+  "errorTitle": "Erreur",
   "createSplit": "Créer une dépense partagée",
   "equalShare": "Partage égal",
   "noCashflowYet": "Aucun flux de trésorerie pour l’instant",
@@ -36,6 +1263,7 @@
   "savingsRate": "Taux d’épargne",
   "budgetRunway": "Autonomie du budget",
   "avgDaily": "Moy. quotidien",
+  "left": "Restant",
   "percentageOfSpending": "{percentage}% des dépenses",
   "totalAmount": "Montant total",
   "payer": "Payeur",
@@ -62,7 +1290,9 @@
   "failedToDeletePocket": "Échec de la suppression de l’enveloppe",
   "budgetImpactTitle": "Impact sur le budget",
   "budgetBalanced": "Budget équilibré",
+  "remainingLabel": "Restant",
   "pocketSegmentLabel": "Segment d'enveloppe",
+  "thisPocketSegmentLabel": "Cette enveloppe",
   "pocketNotFoundAppBar": "Enveloppe introuvable",
   "pocketNotFoundTitle": "Cette enveloppe n’existe pas",
   "pocketNotFoundMessage": "Nous n’avons pas pu trouver cette enveloppe. Elle a peut‑être été supprimée ou déplacée.",
@@ -116,6 +1346,7 @@
   "usePhantomSolflareBackpackEtc": "Utilisez Phantom, Solflare, Backpack, etc.",
   "select": "Sélectionner",
   "color": "Couleur",
+  "moneko": "Moneko",
   "allowance": "Argent de poche",
   "@percentageOfSpending": {
     "placeholders": {
@@ -123,10 +1354,5 @@
         "type": "String"
       }
     }
-  },
-  "errorTitle": "Erreur",
-  "left": "Restant",
-  "moneko": "Moneko",
-  "remainingLabel": "Restant",
-  "thisPocketSegmentLabel": "Cette enveloppe"
+  }
 }
