@@ -52,7 +52,7 @@
     }
   },
   "enterCompleteCode": "Inserisci il codice completo a 6 cifre",
-  "invalidVerificationCode": "Codice di verifica non valido. Controlla e riprova.",
+  "invalidVerificationCode": "Codice di verifica non valido",
   "verificationCodeExpired": "Codice di verifica scaduto. Richiedine uno nuovo.",
   "verifyEmail": "Verifica email",
   "didntReceiveTheCode": "Non hai ricevuto il codice? Controlla la cartella spam o",
@@ -149,7 +149,6 @@
   "activity": "Attività",
   "accountInformation": "Informazioni account",
   "userId": "ID Utente",
-  "email": "Email",
   "recentActivity": "Attività recente",
   "noActivityYet": "Nessuna attività ancora",
   "signOut": "Esci",
@@ -213,7 +212,6 @@
   "day": "Giorno",
   "@navigation": {},
   "close": "Chiudi",
-  "next": "Avanti",
   "done": "Fatto",
   "@runningBalanceSlides": {},
   "whatYouAreSeeing": "Cosa stai vedendo",
@@ -233,7 +231,6 @@
   "longTermWhyMattersDesc": "Orizzonti lunghi rendono reali i grandi sogni. Vedi se il tuo fondo di emergenza, investimenti o grandi acquisti rimangono in carreggiata.",
   "longTermMovesToConsiderDesc": "Usa il grafico per provare decisioni future. Piccoli aggiustamenti oggi si trasformano in grandi vittorie domani.",
   "@categorySlides": {},
-  "overview": "Panoramica",
   "forMe": "Per me",
   "forUs": "Per noi",
   "home": "Home",
@@ -246,9 +243,8 @@
   "updateBudget": "Aggiorna budget",
   "enterNewTotalDailyBudget": "Inserisci il nuovo budget giornaliero totale.",
   "budgetAmount": "Importo budget",
-  "cancel": "Annulla",
   "save": "Salva",
-  "enterValidAmountGreaterThan0": "Inserisci un importo valido superiore a 0",
+  "enterValidAmountGreaterThan0": "Inserisci un importo valido maggiore di 0",
   "updatingBudget": "Aggiornamento budget in corso...",
   "budgetUpdated": "Budget aggiornato",
   "failedToUpdateBudget": "Impossibile aggiornare il budget",
@@ -258,7 +254,7 @@
   "failedToCapturePhoto": "Impossibile scattare la foto",
   "noSpendingData": "Nessun dato di spesa",
   "byCategory": "Per categoria",
-  "noExpensesYet": "Nessuna spesa ancora",
+  "noExpensesYet": "Ancora nessuna spesa",
   "startLoggingExpensesToSeeCategories": "Inizia a registrare le spese per vedere le categorie",
   "selectDateRange": "Seleziona intervallo di date",
   "addExpense": "Aggiungi spesa",
@@ -266,9 +262,9 @@
   "enterExpenseDetails": "\"5 per hamburger, 3 per caffè\" • \"ho ricevuto 100 dai miei genitori\"",
   "addEntry": "Aggiungi voce",
   "freeFormText": "Testo libero",
-  "takePhoto": "Scatta foto",
+  "takePhoto": "Scatta Foto",
   "recentTransactions": "Transazioni recenti",
-  "transactions": "transazioni",
+  "transactions": "Transazioni",
   "negative": "Negativo",
   "positive": "Positivo",
   "spendingBreakdown": "Suddivisione spesa",
@@ -318,11 +314,11 @@
   "txns": "trans.",
   "pleaseEnterExpenseDetails": "Inserisci i dettagli della spesa",
   "userNotLoggedIn": "Utente non autenticato",
-  "errorLoadingHouseholds": "Errore nel caricamento dei gruppi",
-  "welcomeToHouseholds": "Benvenuto in Gruppi!",
+  "errorLoadingHouseholds": "Errore nel caricamento dei Gruppi",
+  "welcomeToHouseholds": "Benvenuto in Gruppi",
   "householdsDescription": "Gestisci le finanze condivise con la tua famiglia, partner o coinquilini. Tieni traccia dei budget, dividi le spese e collaborate sulle decisioni finanziarie.",
   "createHousehold": "Crea Gruppo",
-  "joinWithInvite": "Unisciti con invito",
+  "joinWithInvite": "Unisciti con Invito",
   "pleaseUseInvitationLink": "Usa un link d'invito per unirti a un gruppo",
   "householdName": "Nome del Gruppo",
   "householdNameHint": "es. I Rossi, Casa Via Roma",
@@ -341,9 +337,9 @@
   "notes": "Note",
   "receipt": "Ricevuta",
   "saveExpense": "Salva spesa",
-  "shareWithHousehold": "Condividi con la famiglia",
-  "loadingHouseholdMembers": "Caricamento membri della famiglia...",
-  "selectHouseholdToConfigureSplit": "Seleziona una famiglia per configurare la divisione",
+  "shareWithHousehold": "Condividi con nucleo familiare",
+  "loadingHouseholdMembers": "Caricamento membri del gruppo...",
+  "selectHouseholdToConfigureSplit": "Seleziona un gruppo per configurare la divisione",
   "currencyManagedByHousehold": "La valuta è gestita dal gruppo e non può essere modificata",
   "currencyCannotBeChanged": "La valuta non può essere modificata quando si condivide con un gruppo",
   "cannotEditOthersExpenses": "Puoi modificare solo le tue spese",
@@ -353,7 +349,7 @@
   "editNotes": "Modifica note",
   "addANote": "Aggiungi una nota...",
   "noMembersFoundInHousehold": "Nessun membro trovato nel gruppo",
-  "errorLoadingMembers": "Errore nel caricamento dei membri: {error}",
+  "errorLoadingMembers": "Errore nel caricamento dei membri",
   "noExpenseToSave": "Nessuna spesa da salvare",
   "expenseSavedAndShared": "Spesa salvata e condivisa{splitInfo}!",
   "expenseSaved": "Spesa salvata!",
@@ -365,11 +361,9 @@
   "enterNewTotalDailyBudgetDescription": "Inserisci il nuovo budget giornaliero totale.",
   "@household": {},
   "pleaseSignInToAccessHouseholdFeatures": "Accedi per usare le funzioni del gruppo",
-  "errorLoadingHouseholds": "Errore nel caricamento dei Gruppi",
   "quickActions": "Azioni rapide",
   "members": "Membri",
   "invites": "Inviti",
-  "settings": "Impostazioni",
   "errorLoadingExpenses": "Errore nel caricamento delle spese",
   "budgets": "Budget",
   "loadingHousehold": "Caricamento gruppo in corso...",
@@ -380,7 +374,6 @@
   "spentByHousehold": "Spese del Gruppo",
   "memberSpending": "Spese per Membro",
   "spentByHouseholdTooltip": "Questo mostra l'importo totale speso da tutti i membri del gruppo durante il periodo selezionato. Include tutte le spese condivise registrate da qualsiasi membro del gruppo.",
-  "welcomeToHouseholds": "Benvenuto in Gruppi",
   "manageMoneyTogether": "Gestite i soldi insieme al vostro partner, famiglia o coinquilini in un unico spazio condiviso.",
   "sharedBudgetsExpenses": "Budget e Spese Condivisi",
   "sharedBudgetsExpensesDesc": "Impostate budget, monitorate le spese e vedete dove vanno i soldi del gruppo in tempo reale.",
@@ -388,22 +381,17 @@
   "smartExpenseSplittingDesc": "Calcola automaticamente chi deve cosa con opzioni di divisione flessibili: equa, percentuale o importi personalizzati.",
   "stayInSync": "Rimanete Sincronizzati",
   "stayInSyncDesc": "Ricevi notifiche quando vengono aggiunte spese, raggiunti i budget o le divisioni devono essere saldate.",
-  "createHousehold": "Crea Gruppo",
-  "joinWithInvite": "Unisciti con Invito",
   "@householdSettings": {},
   "householdSettings": "Impostazioni del Gruppo",
   "householdNotFound": "Gruppo non trovato",
   "coverPhoto": "Immagine di copertina",
   "changeCoverPhoto": "Cambia immagine di copertina",
   "saveChanges": "Salva modifiche",
-  "pleaseEnterHouseholdName": "Inserisci un nome per il gruppo",
   "errorLoadingHousehold": "Errore nel caricamento del gruppo",
   "householdUpdatedSuccessfully": "Gruppo aggiornato con successo",
   "failedToUpdateHousehold": "Impossibile aggiornare il gruppo",
   "@householdMembers": {},
   "inviteMember": "Invita membro",
-  "errorLoadingMembers": "Errore nel caricamento dei membri",
-  "retry": "Riprova",
   "removeMember": "Rimuovi membro",
   "remove": "Rimuovi",
   "confirmRemoveMember": "Sei sicuro di voler rimuovere",
@@ -431,7 +419,7 @@
   "thirtyDays": "30 giorni",
   "unlimited": "Illimitato",
   "create": "Crea",
-  "invitationCreatedSuccessfully": "Invito creato con successo!",
+  "invitationCreatedSuccessfully": "Invito creato con successo",
   "inviteLinkCopiedToClipboard": "Link d'invito copiato negli appunti!",
   "errorCreatingInvite": "Errore nella creazione dell'invito",
   "revokeInvitation": "Revoca invito",
@@ -447,7 +435,6 @@
   "@householdImagePicker": {},
   "selectCoverImage": "Seleziona immagine di copertina",
   "failedToLoadImages": "Impossibile caricare le immagini",
-  "takePhoto": "Scatta Foto",
   "chooseFromGallery": "Scegli dalla Galleria",
   "failedToLoad": "Impossibile caricare",
   "imageTooLarge": "Immagine troppo grande",
@@ -458,12 +445,10 @@
   "editBudget": "Modifica budget",
   "budgetDetails": "Dettagli budget",
   "budgetName": "Nome budget",
-  "amount": "Importo",
   "period": "Periodo",
-  "currency": "Valuta",
   "alertThresholds": "Soglie di avviso",
-  "warningThreshold": "Soglia di attenzione",
-  "alertThreshold": "Soglia di allarme",
+  "warningThreshold": "Soglia di attenzione (%)",
+  "alertThreshold": "Soglia di allarme (%)",
   "warningThresholdHelper": "Avvisa quando l'uso del budget raggiunge questa percentuale",
   "alertThresholdHelper": "Allarme critico a questa percentuale",
   "budgetStatus": "Stato budget",
@@ -526,67 +511,15 @@
   "categoryBeauty": "Bellezza",
   "categoryMisc": "Altro",
   "categoryUncategorized": "Non categorizzato",
-  "alertThresholds": "Soglie di avviso",
-  "warningThreshold": "Soglia di attenzione (%)",
-  "alertThreshold": "Soglia di allarme (%)",
-  "warningThresholdHelper": "Avvisa quando l'uso del budget raggiunge questa percentuale",
-  "alertThresholdHelper": "Allarme critico a questa percentuale",
-  "active": "Attivo",
-  "inactive": "Inattivo",
-  "saveChanges": "Salva modifiche",
-  "pleaseEnterValidAmount": "Inserisci un importo valido",
-  "warningThresholdRange": "La soglia di attenzione deve essere tra 0 e 100",
-  "alertThresholdRange": "La soglia di allarme deve essere tra 0 e 100",
-  "warningThresholdLessThanAlert": "La soglia di attenzione deve essere inferiore o uguale alla soglia di allarme",
-  "failedToUpdateBudget": "Impossibile aggiornare il budget",
-  "deleteBudget": "Elimina budget",
-  "confirmDeleteBudget": "Sei sicuro di voler eliminare",
   "deleteBudgetCannotBeUndone": "Questa azione non può essere annullata",
   "delete": "Elimina",
   "failedToDeleteBudget": "Impossibile eliminare il budget",
   "owner": "Proprietario",
   "admin": "Admin",
   "member": "Membro",
-  "removeMember": "Rimuovi membro",
-  "confirmRemoveMember": "Sei sicuro di voler rimuovere",
-  "remove": "Rimuovi",
-  "retry": "Riprova",
-  "unknown": "Sconosciuto",
-  "makeAdmin": "Rendi amministratore",
-  "makeMember": "Rendi membro",
-  "updatedMemberRole": "Ruolo aggiornato",
-  "invitations": "Inviti",
-  "createInvitation": "Crea invito",
-  "pendingInvitations": "Inviti in sospeso",
-  "noPendingInvitations": "Nessun invito in sospeso",
-  "invitationHistory": "Cronologia inviti",
-  "noInvitationHistory": "Nessuna cronologia inviti",
-  "emailOptional": "Email (opzionale)",
-  "friendEmailExample": "amico@esempio.com",
-  "personalMessageOptional": "Messaggio personale (opzionale)",
-  "expiresIn": "Scade tra",
-  "oneDay": "1 giorno",
-  "threeDays": "3 giorni",
-  "sevenDays": "7 giorni",
-  "fourteenDays": "14 giorni",
-  "thirtyDays": "30 giorni",
-  "unlimited": "Illimitato",
-  "create": "Crea",
-  "invitationCreatedSuccessfully": "Invito creato con successo",
-  "inviteLinkCopiedToClipboard": "Link d'invito copiato negli appunti!",
-  "anyoneWithLink": "Chiunque abbia il link",
-  "revokeInvitation": "Revoca invito",
-  "confirmRevokeInvitation": "Sei sicuro di voler revocare questo invito?",
-  "revoke": "Revoca",
-  "invitationRevoked": "Invito revocato",
-  "copyLink": "Copia link",
-  "noExpiry": "Nessuna scadenza",
-  "expired": "Scaduto",
-  "expires": "Scade",
   "pending": "In sospeso",
   "accepted": "Accettato",
   "revoked": "Revocato",
-  "createHousehold": "Crea Gruppo",
   "tapToChangeCover": "Tocca per cambiare copertina",
   "personalMessageHint": "Scrivi qualcosa ai tuoi invitati (es. \"Ehi! Entra nel nostro gruppo per le spese di casa!\")",
   "invitationExpiresIn": "L'invito scade tra",
@@ -604,7 +537,6 @@
   "creating": "Creazione in corso...",
   "generatingInvite": "Generazione invito in corso...",
   "pleaseSelectValidCurrency": "Seleziona una valuta valida per il gruppo",
-  "details": "Dettagli",
   "nameMaxLength": "Il nome deve avere meno di {max} caratteri",
   "@nameMaxLength": {
     "placeholders": {
@@ -633,7 +565,6 @@
   "searchExpenses": "Cerca spese...",
   "clearAll": "Cancella tutto",
   "allCategories": "Tutte le categorie",
-  "category": "Categoria",
   "allMembers": "Tutti i membri",
   "balanceSummary": "Riepilogo saldi",
   "youAreOwed": "Hai da ricevere",
@@ -653,40 +584,22 @@
   "transferredViaBank": "Trasferito via banca",
   "mobilePayment": "Pagamento mobile",
   "venmoPaypalEtc": "Satispay, PayPal, ecc.",
-  "transactions": "Transazioni",
   "search": "Cerca",
-  "spent": "Spesi",
   "noData": "Nessun dato",
   "filterTransactions": "Filtra transazioni",
-  "byCategory": "Per categoria",
   "noTransactionsFound": "Nessuna transazione trovata",
   "failedToLoadHouseholdTransactions": "Impossibile caricare le transazioni del gruppo",
   "reset": "Reimposta",
   "apply": "Applica",
   "expenses": "Spese",
   "dateRange": "Intervallo di date",
-  "errorLoadingExpenses": "Errore nel caricamento delle spese",
-  "noExpensesYet": "Ancora nessuna spesa",
   "noMatchingExpenses": "Nessuna spesa corrispondente",
   "startLoggingExpenses": "Inizia a registrare le spese per vederle qui",
   "tryAdjustingFilters": "Prova a modificare i filtri",
-  "member": "Membro",
-  "split": "DIVIDI",
-  "today": "Oggi",
-  "yesterday": "Ieri",
-  "category": "Categoria",
-  "date": "Data",
-  "time": "Ora",
-  "shareWithHousehold": "Condividi con il gruppo",
-  "amount": "Importo",
+  "split": "Dividi",
   "note": "Nota",
-  "loadingHouseholdMembers": "Caricamento membri del gruppo...",
-  "selectHouseholdToConfigureSplit": "Seleziona un gruppo per configurare la divisione",
   "currencyCannotBeChangedWhenSharing": "La valuta non può essere modificata quando si condivide con una famiglia",
-  "failedToLoadImage": "Impossibile caricare l'immagine",
-  "done": "Fatto",
   "createBudget": "Crea budget",
-  "budgetName": "Nome budget",
   "pleaseEnterABudgetName": "Inserisci un nome per il budget",
   "pleaseEnterAValidAmountGreaterThan0": "Inserisci un importo valido superiore a 0",
   "warningThresholdMustBeBetween0And100": "La soglia di attenzione deve essere tra 0 e 100%",
@@ -721,7 +634,7 @@
   "whatYoullGet": "Cosa otterrai",
   "personalMessageFromInviter": "Messaggio personale dall'invitante",
   "messageFromInviter": "Messaggio dall'invitante",
-  "joiningHousehold": "Unione al gruppo in corso...",
+  "joiningHousehold": "Ingresso nel gruppo",
   "thisWillOnlyTakeAMoment": "Ci vorrà solo un momento",
   "welcomeAboard": "Benvenuto a bordo!",
   "youreNowPartOfTheHousehold": "Ora fai parte del gruppo.\nInizia a collaborare sulle vostre finanze!",
@@ -731,7 +644,6 @@
   "anUnexpectedErrorOccurred": "Si è verificato un errore imprevisto",
   "invalidInvitationLinkFormat": "Formato link d'invito non valido",
   "invalidOrExpiredInvitation": "Invito non valido o scaduto",
-  "today": "Oggi",
   "tomorrow": "Domani",
   "inDays": "tra {days} giorni",
   "january": "Gen",
@@ -747,8 +659,7 @@
   "november": "Nov",
   "december": "Dic",
   "@householdOverview": {},
-  "household": "Gruppo",
-  "errorLoadingMembers": "Errore nel caricamento dei membri",
+  "household": "Nucleo familiare",
   "viewAll": "Vedi tutti",
   "manage": "Gestisci",
   "noBudgetsYet": "Nessun budget ancora",
@@ -756,7 +667,6 @@
   "errorLoadingBudgets": "Errore nel caricamento dei budget",
   "recentSplits": "Divisioni recenti",
   "invite": "Invita",
-  "split": "Dividi",
   "@transactionsPage": {},
   "last6Months": "Ultimi 6 mesi",
   "thisYear": "Quest'anno",
@@ -770,17 +680,8 @@
       }
     }
   },
-  "nameMaxLength": "Il nome deve avere meno di {max} caratteri",
-  "@nameMaxLength": {
-    "placeholders": {
-      "max": {
-        "type": "int"
-      }
-    }
-  },
   "@customSplitSheet": {},
   "splitExpense": "Dividi spesa",
-  "amount": "Importo",
   "percent": "Percentuale",
   "splitShare": "Quota",
   "owes": "Deve",
@@ -797,7 +698,6 @@
   },
   "percentagesMustTotal100": "Le percentuali devono sommarsi al 100%",
   "eachPersonMustHaveAtLeast1Share": "Ogni persona deve avere almeno 1 quota",
-  "member": "Membro",
   "@whatsappVerification": {},
   "whatsappVerified": "WhatsApp Verificato",
   "whatsappVerification": "Verifica WhatsApp",
@@ -806,12 +706,10 @@
   "enterThe6DigitCodeFromWhatsApp": "Inserisci il codice a 6 cifre da WhatsApp",
   "pleaseEnterThe6DigitVerificationCode": "Inserisci il codice di verifica a 6 cifre",
   "failedToVerifyCode": "Impossibile verificare il codice",
-  "invalidVerificationCode": "Codice di verifica non valido",
   "failedToVerifyCodePleaseTryAgain": "Impossibile verificare il codice. Riprova.",
   "codeAutoFilledFromVerificationLink": "Codice compilato automaticamente dal link di verifica",
   "verify": "Verifica",
   "verifying": "Verifica in corso...",
-  "done": "Fatto",
   "@avatarCustomizer": {},
   "avatarStudio": "Studio Avatar",
   "preview": "Anteprima",
@@ -836,12 +734,6 @@
   "accessories": "Accessori",
   "stars": "Stelle",
   "@unifiedTransactionSheet": {},
-  "confirmExpense": "Conferma spesa",
-  "expenseDetails": "Dettagli spesa",
-  "details": "Dettagli",
-  "currency": "Valuta",
-  "notes": "Note",
-  "receipt": "Ricevuta",
   "@recurringTransactions": {},
   "recurring": "Ricorrente",
   "manageYourRecurringTransactions": "Gestisci le transazioni ricorrenti",
@@ -850,18 +742,9 @@
   "areYouSureYouWantToDeleteThisRecurringTransaction": "Sei sicuro di voler eliminare questa transazione ricorrente?",
   "recurringTransactionDeleted": "Transazione ricorrente eliminata",
   "transactionDeleted": "Transazione eliminata",
-  "transactions": "Transazioni",
-  "recentTransactions": "Transazioni recenti",
   "failedToDeleteRecurringTransaction": "Impossibile eliminare la transazione ricorrente",
   "recurringTransactions": "Transazioni ricorrenti",
-  "saveExpense": "Salva spesa",
   "currencyIsManagedByHousehold": "La valuta è gestita dal gruppo e non può essere modificata",
-  "editAmount": "Modifica importo",
-  "amount": "Importo",
-  "editNotes": "Modifica note",
-  "addANote": "Aggiungi una nota...",
-  "errorLoadingMembers": "Errore nel caricamento dei membri",
-  "expenseSavedAndShared": "Spesa salvata e condivisa{splitInfo}!",
   "@expenseSavedAndShared": {
     "placeholders": {
       "splitInfo": {
@@ -869,8 +752,6 @@
       }
     }
   },
-  "expenseSaved": "Spesa salvata!",
-  "failedToSave": "Salvataggio non riuscito: {error}",
   "@failedToSave": {
     "placeholders": {
       "error": {
@@ -878,7 +759,6 @@
       }
     }
   },
-  "@scenarioPlanning": {},
   "buyALaptop": "comprare un portatile da 1.200 €",
   "selectTargetDate": "Seleziona data obiettivo",
   "scenarioQuestionTemplate": "Posso {action} prima del {date}",
@@ -928,7 +808,6 @@
   "lineDippingWeekend": "La linea scende dopo un weekend intenso? Riequilibra i giorni successivi tagliando piccole spese discrezionali.",
   "feelStuckRed": "Ti senti bloccato in rosso? Rivedi il tuo budget nella scheda Home: piccoli aggiustamenti si sommano rapidamente.",
   "@day30LookAheadTab": {},
-  "peek30DaysAhead": "Sguardo ai prossimi 30 giorni",
   "thirtyDayForecastDesc": "Questa previsione usa l'attività dell'ultimo mese per ipotizzare come sarà il prossimo. Pensala come un bollettino meteo per il tuo portafoglio.",
   "greenLineExpected": "Linea verde = spesa giornaliera prevista se il prossimo mese si comporterà come l'ultimo.",
   "spikesHighlight": "I picchi evidenziano settimane in cui le tue abitudini di solito diventano più costose (ciao, cibo d'asporto del venerdì).",
@@ -949,28 +828,15 @@
   "schedulePaymentIncreases": "Programma leggeri aumenti di pagamento sui prestiti quando la curva sale.",
   "planAheadDips": "Pianifica in anticipo i cali accantonando fondi specifici o tagliando spese opzionali.",
   "checkProjectionMonthly": "Controlla la proiezione mensilmente per mantenere il tuo gioco a lungo termine divertente e flessibile.",
-  "@categories": {},
-  "categoryGroceries": "Spesa",
-  "categoryFood": "Cibo",
-  "categoryTransport": "Trasporti",
-  "categoryHousing": "Casa",
-  "categoryUtilities": "Utenze",
-  "categoryEntertainment": "Intrattenimento",
   "categoryHealthcare": "Salute",
-  "categoryEducation": "Istruzione",
-  "categoryShopping": "Shopping",
-  "categoryTravel": "Viaggi",
-  "categoryIncome": "Entrate",
   "categoryOther": "Altro",
   "deleteExpense": "Elimina Spesa",
   "confirmDeleteExpense": "Sei sicuro di voler eliminare questa spesa? Questa azione non può essere annullata.",
   "expenseDeletedSuccessfully": "Spesa eliminata con successo",
   "failedToDeleteExpense": "Impossibile eliminare la spesa",
   "expenseNotFoundOrDeleted": "Spesa non trovata o già eliminata",
-
   "onlyAdminsAndOwnersCanEditHouseholdSettings": "Solo amministratori e proprietari possono modificare le impostazioni del nucleo familiare",
   "onlyAdminsAndOwnersCanCreateInvitations": "Solo amministratori e proprietari possono creare inviti",
-
   "shareInvitationForHousehold": "Condividi l'invito per il gruppo {householdName}",
   "@shareInvitationForHousehold": {
     "placeholders": {
@@ -1007,11 +873,9 @@
   },
   "copyInvitationLink": "Copia link di invito",
   "copyInvitationLinkToClipboard": "Copia link di invito negli appunti",
-  "copyLink": "Copia link",
   "shareInvitationLink": "Condividi link di invito",
   "share": "Condividi",
   "closeShareSheet": "Chiudi pannello di condivisione",
-  "done": "Fatto",
   "invitationLinkCopiedToClipboard": "Link di invito copiato negli appunti!",
   "joinMyHouseholdMessage": "Unisciti al mio gruppo \"{householdName}\" su Moneko!\n\n{inviteUrl}",
   "@joinMyHouseholdMessage": {
@@ -1025,7 +889,6 @@
     }
   },
   "joinMyHouseholdSubject": "Unisciti al mio gruppo su Moneko",
-
   "zeroAmount": "0,00",
   "dollarPrefix": "$ ",
   "notificationSettings": "Impostazioni di notifica",
@@ -1043,11 +906,12 @@
   "paste": "Incolla",
   "continueAction": "Continua",
   "tryAgain": "Riprova",
-
   "remindUser": "Ricorda a {name}",
   "@remindUser": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "sendFriendlySpendingReminder": "Invia un promemoria gentile sulle spese",
@@ -1057,17 +921,20 @@
   "pleaseWait24HoursBeforeSendingAnotherReminder": "Attendi 24 ore prima di inviare un altro promemoria a {name}",
   "@pleaseWait24HoursBeforeSendingAnotherReminder": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "reminderSentToName": "Promemoria inviato a {name} 🔔",
   "@reminderSentToName": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "failedToSendReminderTryAgain": "Invio promemoria fallito. Riprova.",
-
   "@incomeFeature": {},
   "income": "Reddito",
   "addIncome": "Aggiungi reddito",
@@ -1083,10 +950,8 @@
   "acknowledged": "riconosciuto",
   "source": "Fonte",
   "sourceHint": "es. Datore di lavoro, Cliente",
-  "owner": "Proprietario",
   "me": "Io",
   "partner": "Partner",
-  "household": "Nucleo familiare",
   "privacyScope": "Privacy",
   "privacyFull": "Dettagli completi",
   "privacyBalancesOnly": "Solo saldi",
@@ -1094,7 +959,6 @@
   "privacyFullExplanation": "Il partner può vedere tutti i dettagli inclusi importo, fonte e descrizione.",
   "privacyBalancesOnlyExplanation": "Il partner può vedere questo reddito nei totali ma non i dettagli (fonte, descrizione nascosta).",
   "privacyPrivateExplanation": "Solo tu puoi vedere questo reddito. Contribuisce ai totali del nucleo familiare ma il partner non può vedere i dettagli.",
-  "shareWithHousehold": "Condividi con nucleo familiare",
   "incomeSalary": "Stipendio",
   "incomeFreelance": "Freelance",
   "incomeInvestment": "Investimento",
@@ -1103,11 +967,6 @@
   "incomeBonus": "Bonus",
   "incomeRental": "Affitto",
   "incomeOther": "Altro",
-  "enterValidAmountGreaterThan0": "Inserisci un importo valido maggiore di 0",
-  "date": "Data",
-  "time": "Ora",
-  "retry": "Riprova",
-
   "@goalsFeature": {},
   "goals": "Obiettivi",
   "createGoal": "Crea obiettivo",
@@ -1122,11 +981,9 @@
   "targetDate": "Data target",
   "description": "Descrizione",
   "descriptionHint": "Nota opzionale",
-  "category": "Categoria",
   "savings": "Risparmi",
   "paydown": "Estinzione",
   "all": "Tutti",
-  "active": "Attivo",
   "completed": "Completato",
   "offTrack": "Fuori traccia",
   "onTrack": "In traccia",
@@ -1146,9 +1003,7 @@
   "contributionAmount": "Importo contributo",
   "contributionType": "Tipo",
   "contributionAdded": "Contributo aggiunto con successo",
-
   "pleaseSelectCategory": "Seleziona una categoria",
-  "pleaseEnterAmount": "Inserisci un importo",
   "userNotAuthenticated": "Utente non autenticato",
   "recurringExpenseUpdatedSuccessfully": "Spesa ricorrente aggiornata con successo",
   "recurringExpenseAddedSuccessfully": "Spesa ricorrente aggiunta con successo",
@@ -1177,8 +1032,12 @@
   "youWillBeNotifiedBeforeEachOccurrence": "Sarai notificato {value} {unit} prima di ogni occorrenza",
   "@youWillBeNotifiedBeforeEachOccurrence": {
     "placeholders": {
-      "value": {"type": "int"},
-      "unit": {"type": "String"}
+      "value": {
+        "type": "int"
+      },
+      "unit": {
+        "type": "String"
+      }
     }
   },
   "addReminder": "Aggiungi Promemoria",
@@ -1235,7 +1094,6 @@
   "memberMustHaveShare": "Almeno un membro deve avere una quota superiore a 0",
   "monthOverMonthSpending": "Andamento delle spese mensili",
   "last3Months": "Ultimi 3 mesi",
-
   "breakdown": "Ripartizione",
   "noOutstandingItems": "Nessun saldo in sospeso",
   "theyOweYou": "Ti devono",
@@ -1260,19 +1118,28 @@
   "groupFairnessExplanation": "Mostra quanto equamente sono distribuite le spese tra i membri del gruppo.\n\nUna percentuale più alta significa che tutti contribuiscono alla propria giusta parte. Una più bassa suggerisce che alcuni stanno coprendo più spese di altri.\n\nPensala come un lavoro di squadra: quando tutti contribuiscono in modo uniforme, il punteggio di equità è alto. Quando una persona sostiene la maggior parte, scende.\n\nLa \"quota equa\" indica quanto dovrebbe pagare ciascuno se tutto fosse diviso in parti uguali.",
   "noMemberDataYet": "Nessun dato sui membri",
   "evenShare": "Quota equa: {amount}",
-  "@evenShare": {"placeholders": {"amount": {"type": "String"}}}
-,
+  "@evenShare": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "viewHousehold": "Visualizza gruppo",
   "invalidInvitationMissingInfo": "Invito non valido: mancano le informazioni sul gruppo",
   "joinedHouseholdWithName": "Ti sei unito a {name}!",
-  "@joinedHouseholdWithName": {"placeholders": {"name": {"type": "String"}}},
+  "@joinedHouseholdWithName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "joinedHousehold": "Ti sei unito al gruppo!",
-  "errorLoadingData": "Errore nel caricamento dei dati",
   "errorLoadingSplits": "Errore nel caricamento delle ripartizioni",
   "markAsSettled": "Segna come saldato",
   "splitDetails": "Dettagli della ripartizione",
   "equalSplit": "DIVISIONE EQUA",
-  "errorLoadingBudgets": "Errore nel caricamento dei budget",
   "noSharedBudgetsYet": "Nessun budget condiviso al momento",
   "whoCanSeeThisExpense": "Chi può vedere questa spesa?",
   "onlyVisibleToYou": "Visibile solo a te",
@@ -1280,29 +1147,55 @@
   "selectMembers": "Seleziona membri",
   "noMembersFound": "Nessun membro trovato",
   "membersSelectedCount": "{count} selezionati",
-  "@membersSelectedCount": {"placeholders": {"count": {"type": "int"}}},
+  "@membersSelectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "noSplitsYet": "Ancora nessuna ripartizione",
   "startSplittingExpensesWithYourHousehold": "Inizia a ripartire le spese con il tuo gruppo",
   "minutesAgoShort": "{count} min fa",
-  "@minutesAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "@minutesAgoShort": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "hoursAgoShort": "{count} h fa",
-  "@hoursAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "@hoursAgoShort": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "daysAgoShort": "{count} g fa",
-  "@daysAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "@daysAgoShort": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "weeksAgoShort": "{count} sett fa",
-  "@weeksAgoShort": {"placeholders": {"count": {"type": "int"}}}
-,
+  "@weeksAgoShort": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "errorLoadingActivity": "Errore nel caricamento delle attività",
   "noRecentActivity": "Nessuna attività recente",
   "viewAllExpenses": "Vedi tutte le spese",
   "noPendingSplits": "Nessuna ripartizione in sospeso",
-  "pendingSettlement": "Regolazione in sospeso"
-  ,
+  "pendingSettlement": "Regolazione in sospeso",
   "youreIn": "Sei dei nostri! 🎉",
   "invitationError": "Errore invito",
-  "joiningHousehold": "Ingresso nel gruppo",
-  "processingInvitation": "Elaborazione dell’invito..."
-  ,
+  "processingInvitation": "Elaborazione dell’invito...",
   "noHouseholdsAvailableCreateOrJoin": "Nessun gruppo disponibile. Crea o unisciti prima a un gruppo.",
   "selectHousehold": "Seleziona gruppo",
   "yourPockets": "Le tue tasche",
@@ -1402,5 +1295,19 @@
   "color": "Colore",
   "moneko": "Moneko",
   "allowance": "Paghetta",
-  "@percentageOfSpending": {"placeholders": {"percentage": {"type": "String"}}}
+  "@percentageOfSpending": {
+    "placeholders": {
+      "percentage": {
+        "type": "String"
+      }
+    }
+  },
+  "percentage": "Percentuale",
+  "updateNow": "Aggiorna ora",
+  "pocketNotFound": "Tasca non trovata",
+  "pocketNotFoundDescription": "La tasca che cerchi non esiste o è stata eliminata.",
+  "monthlyBudget": "Budget mensile",
+  "keyInsights": "Approfondimenti chiave",
+  "dailyTrend": "Andamento giornaliero",
+  "past30Days": "Ultimi 30 giorni"
 }

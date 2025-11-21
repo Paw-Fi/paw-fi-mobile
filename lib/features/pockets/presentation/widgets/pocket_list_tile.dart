@@ -68,7 +68,7 @@ class PocketListTile extends StatelessWidget {
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.all(11),
+          padding: const EdgeInsets.all(14),
           child: Row(
             children: [
               // Icon chip

@@ -1353,5 +1353,13 @@
         "type": "String"
       }
     }
-  }
+  },
+  "percentage": "百分比",
+  "updateNow": "立即更新",
+  "pocketNotFound": "未找到资金袋",
+  "pocketNotFoundDescription": "您查找的资金袋不存在或已被删除。",
+  "monthlyBudget": "月度预算",
+  "keyInsights": "关键洞察",
+  "dailyTrend": "每日趋势",
+  "past30Days": "过去 30 天"
 }

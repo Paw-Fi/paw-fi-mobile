@@ -1300,5 +1300,13 @@
         "type": "String"
       }
     }
-  }
+  },
+  "percentage": "فیصد",
+  "updateNow": "ابھی اپ ڈیٹ کریں",
+  "pocketNotFound": "پاکٹ نہیں ملی",
+  "pocketNotFoundDescription": "جو پاکٹ آپ تلاش کر رہے ہیں وہ موجود نہیں ہے یا حذف کر دی گئی ہے۔",
+  "monthlyBudget": "ماہانہ بجٹ",
+  "keyInsights": "اہم بصیرت",
+  "dailyTrend": "روزانہ کا رجحان",
+  "past30Days": "گزشتہ 30 دن"
 }

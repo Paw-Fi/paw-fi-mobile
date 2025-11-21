@@ -1354,5 +1354,13 @@
         "type": "String"
       }
     }
-  }
+  },
+  "percentage": "Prozentsatz",
+  "updateNow": "Jetzt aktualisieren",
+  "pocketNotFound": "Topf nicht gefunden",
+  "pocketNotFoundDescription": "Der gesuchte Topf existiert nicht oder wurde gelöscht.",
+  "monthlyBudget": "Monatsbudget",
+  "keyInsights": "Wichtige Erkenntnisse",
+  "dailyTrend": "Täglicher Trend",
+  "past30Days": "Letzte 30 Tage"
 }

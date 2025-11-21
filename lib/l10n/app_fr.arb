@@ -1354,5 +1354,13 @@
         "type": "String"
       }
     }
-  }
+  },
+  "percentage": "Pourcentage",
+  "updateNow": "Mettre à jour",
+  "pocketNotFound": "Poche introuvable",
+  "pocketNotFoundDescription": "La poche que vous cherchez n'existe pas ou a été supprimée.",
+  "monthlyBudget": "Budget mensuel",
+  "keyInsights": "Points clés",
+  "dailyTrend": "Tendance quotidienne",
+  "past30Days": "30 derniers jours"
 }

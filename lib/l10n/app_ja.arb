@@ -1354,5 +1354,13 @@
         "type": "String"
       }
     }
-  }
+  },
+  "percentage": "割合",
+  "updateNow": "今すぐ更新",
+  "pocketNotFound": "ポケットが見つかりません",
+  "pocketNotFoundDescription": "お探しのポケットは存在しないか、削除されています。",
+  "monthlyBudget": "月間予算",
+  "keyInsights": "主なポイント",
+  "dailyTrend": "日ごとの推移",
+  "past30Days": "過去30日間"
 }

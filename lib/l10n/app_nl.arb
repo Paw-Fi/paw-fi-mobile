@@ -1301,5 +1301,13 @@
         "type": "String"
       }
     }
-  }
+  },
+  "percentage": "Percentage",
+  "updateNow": "Nu updaten",
+  "pocketNotFound": "Potje niet gevonden",
+  "pocketNotFoundDescription": "Het potje dat je zoekt bestaat niet of is verwijderd.",
+  "monthlyBudget": "Maandelijks budget",
+  "keyInsights": "Belangrijkste inzichten",
+  "dailyTrend": "Dagelijkse trend",
+  "past30Days": "Afgelopen 30 dagen"
 }

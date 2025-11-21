@@ -316,7 +316,7 @@ class PocketsGridSection extends HookConsumerWidget {
                 crossAxisCount: 1,
                 childAspectRatio: 4.0,
                 crossAxisSpacing: 0,
-                mainAxisSpacing: 16,
+                mainAxisSpacing: 8,
               ),
               itemCount: sortedPockets.length + 1,
               onReorder: (oldIndex, newIndex) {

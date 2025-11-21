@@ -1301,5 +1301,13 @@
         "type": "String"
       }
     }
-  }
+  },
+  "percentage": "百分比",
+  "updateNow": "立即更新",
+  "pocketNotFound": "未找到口袋",
+  "pocketNotFoundDescription": "您搜尋的口袋不存在或已被刪除。",
+  "monthlyBudget": "月度預算",
+  "keyInsights": "關鍵洞察",
+  "dailyTrend": "每日趨勢",
+  "past30Days": "過去 30 天"
 }

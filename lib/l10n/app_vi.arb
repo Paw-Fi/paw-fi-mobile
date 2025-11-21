@@ -1353,5 +1353,13 @@
         "type": "String"
       }
     }
-  }
+  },
+  "percentage": "Phần trăm",
+  "updateNow": "Cập nhật ngay",
+  "pocketNotFound": "Không tìm thấy túi",
+  "pocketNotFoundDescription": "Túi bạn đang tìm không tồn tại hoặc đã bị xóa.",
+  "monthlyBudget": "Ngân sách tháng",
+  "keyInsights": "Thông tin chính",
+  "dailyTrend": "Xu hướng hàng ngày",
+  "past30Days": "30 ngày qua"
 }

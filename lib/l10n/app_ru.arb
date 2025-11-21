@@ -1304,5 +1304,13 @@
         "type": "String"
       }
     }
-  }
+  },
+  "percentage": "Процент",
+  "updateNow": "Обновить сейчас",
+  "pocketNotFound": "Карман не найден",
+  "pocketNotFoundDescription": "Карман, который вы ищете, не существует или был удален.",
+  "monthlyBudget": "Бюджет на месяц",
+  "keyInsights": "Ключевые выводы",
+  "dailyTrend": "Дневной тренд",
+  "past30Days": "Последние 30 дней"
 }

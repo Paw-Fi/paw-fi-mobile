@@ -1346,5 +1346,13 @@
         "type": "String"
       }
     }
-  }
+  },
+  "percentage": "Відсоток",
+  "updateNow": "Оновити зараз",
+  "pocketNotFound": "Кишеню не знайдено",
+  "pocketNotFoundDescription": "Кишеня, яку ви шукаєте, не існує або була видалена.",
+  "monthlyBudget": "Бюджет на місяць",
+  "keyInsights": "Ключові висновки",
+  "dailyTrend": "Денна тенденція",
+  "past30Days": "Останні 30 днів"
 }

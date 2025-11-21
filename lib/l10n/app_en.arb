@@ -1359,5 +1359,12 @@
   "color": "color",
   "done": "Done",
   "moneko": "Moneko",
-  "allowance": "Allowance"
+  "allowance": "Allowance",
+  "updateNow": "Update Now",
+  "pocketNotFound": "Pocket Not Found",
+  "pocketNotFoundDescription": "The pocket you're looking for doesn't exist or has been deleted.",
+  "monthlyBudget": "Monthly Budget",
+  "keyInsights": "Key Insights",
+  "dailyTrend": "Daily Trend",
+  "past30Days": "Past 30 Days"
 }

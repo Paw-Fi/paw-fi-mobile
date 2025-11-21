@@ -1167,5 +1167,13 @@
         "type": "String"
       }
     }
-  }
+  },
+  "percentage": "비율",
+  "updateNow": "지금 업데이트",
+  "pocketNotFound": "포켓을 찾을 수 없음",
+  "pocketNotFoundDescription": "찾으시는 포켓이 존재하지 않거나 삭제되었습니다.",
+  "monthlyBudget": "월간 예산",
+  "keyInsights": "주요 인사이트",
+  "dailyTrend": "일일 추세",
+  "past30Days": "최근 30일"
 }

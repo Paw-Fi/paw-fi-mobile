@@ -79,8 +79,7 @@ function updateLocale(locale) {
 
 function main() {
   for (const locale of Object.keys(localeToFile)) {
-    if (locale === 'en') continue; // English is already complete
-    updateLocale(locale);
+    updateLocale(locale); // Include all locales, including English
   }
 }
 
