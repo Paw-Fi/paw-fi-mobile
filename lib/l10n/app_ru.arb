@@ -52,7 +52,7 @@
     }
   },
   "enterCompleteCode": "Введите 6-значный код полностью",
-  "invalidVerificationCode": "Неверный код. Проверьте и попробуйте снова.",
+  "invalidVerificationCode": "Неверный код",
   "verificationCodeExpired": "Срок действия кода истёк. Запросите новый.",
   "verifyEmail": "Подтвердить Email",
   "didntReceiveTheCode": "Не пришёл код? Проверьте спам или",
@@ -152,7 +152,6 @@
   "activity": "Активность",
   "accountInformation": "Информация об аккаунте",
   "userId": "ID пользователя",
-  "email": "Email",
   "recentActivity": "Последние действия",
   "noActivityYet": "Здесь пока пусто",
   "signOut": "Выйти",
@@ -216,7 +215,6 @@
   "day": "День",
   "@navigation": {},
   "close": "Закрыть",
-  "next": "Далее",
   "done": "Готово",
   "@runningBalanceSlides": {},
   "whatYouAreSeeing": "Что вы видите",
@@ -236,7 +234,6 @@
   "longTermWhyMattersDesc": "Длинный горизонт делает мечты реальными. Посмотрите, всё ли в порядке с вашей подушкой безопасности или накоплениями на крупные цели.",
   "longTermMovesToConsiderDesc": "Используйте график, чтобы «отрепетировать» будущие решения. Маленькие шаги сегодня ведут к большим победам завтра.",
   "@categorySlides": {},
-  "overview": "Обзор",
   "forMe": "Для меня",
   "forUs": "Для нас",
   "home": "Главная",
@@ -249,9 +246,8 @@
   "updateBudget": "Изменить бюджет",
   "enterNewTotalDailyBudget": "Введите новый общий дневной бюджет.",
   "budgetAmount": "Сумма бюджета",
-  "cancel": "Отмена",
   "save": "Сохранить",
-  "enterValidAmountGreaterThan0": "Введите сумму больше 0",
+  "enterValidAmountGreaterThan0": "Пожалуйста, введите действительную сумму больше 0",
   "updatingBudget": "Обновляю бюджет...",
   "budgetUpdated": "Бюджет обновлён",
   "failedToUpdateBudget": "Не удалось обновить бюджет",
@@ -270,7 +266,7 @@
   "addEntry": "Добавить запись",
   "freeFormText": "Свободный текст",
   "takePhoto": "Сделать фото",
-  "transactions": "операции",
+  "transactions": "Транзакции",
   "negative": "Отрицательный",
   "positive": "Положительный",
   "spendingBreakdown": "Структура трат",
@@ -321,7 +317,7 @@
   "pleaseEnterExpenseDetails": "Введите детали расхода",
   "userNotLoggedIn": "Пользователь не авторизован",
   "errorLoadingHouseholds": "Ошибка загрузки домохозяйств",
-  "welcomeToHouseholds": "Добро пожаловать в Группы!",
+  "welcomeToHouseholds": "Добро пожаловать в Группы",
   "householdsDescription": "Управляйте общими финансами с семьёй, партнёром или соседями. Следите за бюджетами, делите расходы и принимайте решения вместе.",
   "createHousehold": "Создать домохозяйство",
   "joinWithInvite": "Войти по приглашению",
@@ -355,7 +351,7 @@
   "editNotes": "Изменить заметку",
   "addANote": "Добавить заметку...",
   "noMembersFoundInHousehold": "В домохозяйстве нет участников",
-  "errorLoadingMembers": "Ошибка загрузки участников: {error}",
+  "errorLoadingMembers": "Ошибка загрузки участников",
   "noExpenseToSave": "Нет расхода для сохранения",
   "expenseSavedAndShared": "Расход сохранён и добавлен в домохозяйство{splitInfo}!",
   "expenseSaved": "Расход сохранён!",
@@ -367,11 +363,9 @@
   "enterNewTotalDailyBudgetDescription": "Введите новый общий дневной бюджет.",
   "@household": {},
   "pleaseSignInToAccessHouseholdFeatures": "Войдите, чтобы получить доступ к домохозяйствам",
-  "errorLoadingHouseholds": "Ошибка загрузки домохозяйств",
   "quickActions": "Быстрые действия",
   "members": "Участники",
   "invites": "Приглашения",
-  "settings": "Настройки",
   "errorLoadingExpenses": "Ошибка загрузки расходов",
   "budgets": "Бюджеты",
   "loadingHousehold": "Загрузка домохозяйства...",
@@ -382,7 +376,6 @@
   "spentByHousehold": "Расходы группы",
   "memberSpending": "Расходы по участникам",
   "spentByHouseholdTooltip": "Показывает общую сумму, потраченную всеми участниками группы за выбранный период. Включает все общие расходы, внесенные любым участником группы.",
-  "welcomeToHouseholds": "Добро пожаловать в Группы",
   "manageMoneyTogether": "Управляйте деньгами вместе с партнёром, семьёй или соседями в одном общем пространстве.",
   "sharedBudgetsExpenses": "Общие бюджеты и расходы",
   "sharedBudgetsExpensesDesc": "Создавайте бюджеты, следите за тратами и смотрите, куда уходят деньги, в реальном времени.",
@@ -390,22 +383,17 @@
   "smartExpenseSplittingDesc": "Автоматически считайте, кто кому сколько должен: поровну, в процентах или по сумме.",
   "stayInSync": "Будьте в курсе",
   "stayInSyncDesc": "Получайте уведомления о новых расходах, достижении бюджета или когда пора рассчитаться.",
-  "createHousehold": "Создать домохозяйство",
-  "joinWithInvite": "Войти по приглашению",
   "@householdSettings": {},
   "householdSettings": "Настройки домохозяйства",
   "householdNotFound": "Группа не найдена",
   "coverPhoto": "Обложка",
   "changeCoverPhoto": "Сменить обложку",
   "saveChanges": "Сохранить",
-  "pleaseEnterHouseholdName": "Введите название домохозяйства",
   "errorLoadingHousehold": "Ошибка загрузки домохозяйства",
   "householdUpdatedSuccessfully": "Группа успешно обновлена",
   "failedToUpdateHousehold": "Не удалось обновить домохозяйство",
   "@householdMembers": {},
   "inviteMember": "Пригласить участника",
-  "errorLoadingMembers": "Ошибка загрузки участников",
-  "retry": "Повторить",
   "removeMember": "Удалить участника",
   "remove": "Удалить",
   "confirmRemoveMember": "Вы уверены, что хотите удалить",
@@ -433,7 +421,7 @@
   "thirtyDays": "30 дней",
   "unlimited": "Бессрочно",
   "create": "Создать",
-  "invitationCreatedSuccessfully": "Приглашение создано!",
+  "invitationCreatedSuccessfully": "Приглашение создано",
   "inviteLinkCopiedToClipboard": "Ссылка-приглашение скопирована!",
   "errorCreatingInvite": "Ошибка при создании приглашения",
   "revokeInvitation": "Отозвать приглашение",
@@ -449,7 +437,6 @@
   "@householdImagePicker": {},
   "selectCoverImage": "Выбрать обложку",
   "failedToLoadImages": "Не удалось загрузить изображения",
-  "takePhoto": "Сделать фото",
   "chooseFromGallery": "Выбрать из галереи",
   "failedToLoad": "Ошибка загрузки",
   "imageTooLarge": "Изображение слишком большое",
@@ -460,16 +447,14 @@
   "editBudget": "Изменить бюджет",
   "budgetDetails": "Детали бюджета",
   "budgetName": "Название бюджета",
-  "amount": "Сумма",
   "period": "Период",
-  "currency": "Валюта",
   "alertThresholds": "Пороги оповещений",
   "warningThreshold": "Предупреждение (%)",
   "alertThreshold": "Тревога (%)",
   "warningThresholdHelper": "Оповещение при достижении этого % бюджета",
   "alertThresholdHelper": "Критическое оповещение при этом %",
   "budgetStatus": "Статус бюджета",
-  "active": "Активен",
+  "active": "Активные",
   "inactive": "Неактивен",
   "deletingBudget": "Удаление бюджета...",
   "savingChanges": "Сохранение...",
@@ -528,67 +513,15 @@
   "categoryBeauty": "Красота",
   "categoryMisc": "Разное",
   "categoryUncategorized": "Без категории",
-  "alertThresholds": "Пороги оповещений",
-  "warningThreshold": "Предупреждение (%)",
-  "alertThreshold": "Тревога (%)",
-  "warningThresholdHelper": "Оповещение при достижении этого % бюджета",
-  "alertThresholdHelper": "Критическое оповещение при этом %",
-  "active": "Активен",
-  "inactive": "Неактивен",
-  "saveChanges": "Сохранить",
-  "pleaseEnterValidAmount": "Введите корректную сумму",
-  "warningThresholdRange": "Порог предупреждения должен быть от 0 до 100",
-  "alertThresholdRange": "Порог тревоги должен быть от 0 до 100",
-  "warningThresholdLessThanAlert": "Порог предупреждения должен быть меньше или равен порогу тревоги",
-  "failedToUpdateBudget": "Не удалось обновить бюджет",
-  "deleteBudget": "Удалить бюджет",
-  "confirmDeleteBudget": "Вы уверены, что хотите удалить",
   "deleteBudgetCannotBeUndone": "Это действие нельзя отменить",
   "delete": "Удалить",
   "failedToDeleteBudget": "Не удалось удалить бюджет",
   "owner": "Владелец",
   "admin": "Админ",
   "member": "Участник",
-  "removeMember": "Удалить участника",
-  "confirmRemoveMember": "Вы уверены, что хотите удалить",
-  "remove": "Удалить",
-  "retry": "Повторить",
-  "unknown": "Неизвестно",
-  "makeAdmin": "Сделать администратором",
-  "makeMember": "Сделать участником",
-  "updatedMemberRole": "Роль обновлена",
-  "invitations": "Приглашения",
-  "createInvitation": "Создать приглашение",
-  "pendingInvitations": "Ожидающие приглашения",
-  "noPendingInvitations": "Нет ожидающих приглашений",
-  "invitationHistory": "История приглашений",
-  "noInvitationHistory": "Истории приглашений нет",
-  "emailOptional": "Email (необязательно)",
-  "friendEmailExample": "anna@example.com",
-  "personalMessageOptional": "Личное сообщение (необязательно)",
-  "expiresIn": "Срок действия",
-  "oneDay": "1 день",
-  "threeDays": "3 дня",
-  "sevenDays": "7 дней",
-  "fourteenDays": "14 дней",
-  "thirtyDays": "30 дней",
-  "unlimited": "Бессрочно",
-  "create": "Создать",
-  "invitationCreatedSuccessfully": "Приглашение создано",
-  "inviteLinkCopiedToClipboard": "Ссылка-приглашение скопирована!",
-  "anyoneWithLink": "Любой по ссылке",
-  "revokeInvitation": "Отозвать приглашение",
-  "confirmRevokeInvitation": "Вы уверены, что хотите отозвать это приглашение?",
-  "revoke": "Отозвать",
-  "invitationRevoked": "Приглашение отозвано",
-  "copyLink": "Копировать ссылку",
-  "noExpiry": "Бессрочное",
-  "expired": "Истекло",
-  "expires": "Истекает",
   "pending": "Ожидает",
   "accepted": "Принято",
   "revoked": "Отозвано",
-  "createHousehold": "Создать домохозяйство",
   "tapToChangeCover": "Нажмите, чтобы сменить обложку",
   "personalMessageHint": "Напишите что-нибудь приглашённым (напр., \"Присоединяйся к нашему бюджету!\")",
   "invitationExpiresIn": "Срок действия приглашения",
@@ -606,7 +539,6 @@
   "creating": "Создание...",
   "generatingInvite": "Генерация приглашения...",
   "pleaseSelectValidCurrency": "Выберите валюту домохозяйства",
-  "details": "Детали",
   "nameMaxLength": "Название должно быть короче {max} символов",
   "@nameMaxLength": {
     "placeholders": {
@@ -635,10 +567,8 @@
   "searchExpenses": "Поиск расходов...",
   "clearAll": "Очистить всё",
   "allCategories": "Все категории",
-  "category": "Категория",
   "allMembers": "Все участники",
   "balanceSummary": "Баланс",
-  
   "youOwe": "Вы должны",
   "youOweOthers": "Вы должны другим",
   "othersOweYou": "Другие должны вам",
@@ -655,40 +585,22 @@
   "transferredViaBank": "Переведено через банк",
   "mobilePayment": "Мобильный платёж",
   "venmoPaypalEtc": "PayPal, СБП и т.п.",
-  "transactions": "Операции",
   "search": "Поиск",
-  "spent": "Потрачено",
   "noData": "Нет данных",
   "filterTransactions": "Фильтр операций",
-  "byCategory": "По категориям",
   "noTransactionsFound": "Операций не найдено",
   "failedToLoadHouseholdTransactions": "Не удалось загрузить операции домохозяйства",
   "reset": "Сбросить",
   "apply": "Применить",
   "expenses": "Расходы",
   "dateRange": "Период",
-  "errorLoadingExpenses": "Ошибка загрузки расходов",
-  "noExpensesYet": "Расходов пока нет",
   "noMatchingExpenses": "Нет подходящих расходов",
   "startLoggingExpenses": "Начните записывать расходы, и они появятся здесь",
   "tryAdjustingFilters": "Попробуйте изменить фильтры",
-  "member": "Участник",
-  "split": "РАЗДЕЛЁН",
-  "today": "Сегодня",
-  "yesterday": "Вчера",
-  "category": "Категория",
-  "date": "Дата",
-  "time": "Время",
-  "shareWithHousehold": "Поделиться с домохозяйством",
-  "amount": "Сумма",
+  "split": "Разделить",
   "note": "Заметка",
-  "loadingHouseholdMembers": "Загрузка участников домохозяйства...",
-  "selectHouseholdToConfigureSplit": "Выберите домохозяйство, чтобы настроить разделение",
   "currencyCannotBeChangedWhenSharing": "Валюту нельзя изменить, если расход общий",
-  "failedToLoadImage": "Не удалось загрузить фото",
-  "done": "Готово",
   "createBudget": "Создать бюджет",
-  "budgetName": "Название бюджета",
   "pleaseEnterABudgetName": "Введите название бюджета",
   "pleaseEnterAValidAmountGreaterThan0": "Введите сумму больше 0",
   "warningThresholdMustBeBetween0And100": "Порог предупреждения должен быть от 0 до 100%",
@@ -723,7 +635,7 @@
   "whatYoullGet": "Что вы получите",
   "personalMessageFromInviter": "Личное сообщение от отправителя",
   "messageFromInviter": "Сообщение от отправителя",
-  "joiningHousehold": "Присоединяемся к домохозяйству...",
+  "joiningHousehold": "Присоединение к домохозяйству",
   "thisWillOnlyTakeAMoment": "Это займёт всего секунду",
   "welcomeAboard": "Добро пожаловать!",
   "youreNowPartOfTheHousehold": "Теперь вы часть домохозяйства.\nНачните совместно управлять финансами!",
@@ -733,7 +645,6 @@
   "anUnexpectedErrorOccurred": "Произошла непредвиденная ошибка",
   "invalidInvitationLinkFormat": "Неверный формат ссылки-приглашения",
   "invalidOrExpiredInvitation": "Недействительное или просроченное приглашение",
-  "today": "Сегодня",
   "tomorrow": "Завтра",
   "inDays": "через {days} дн.",
   "january": "Янв",
@@ -749,8 +660,7 @@
   "november": "Ноя",
   "december": "Дек",
   "@householdOverview": {},
-  "household": "Группа",
-  "errorLoadingMembers": "Ошибка загрузки участников",
+  "household": "Домохозяйство",
   "viewAll": "Смотреть все",
   "manage": "Управлять",
   "noBudgetsYet": "Бюджетов пока нет",
@@ -758,7 +668,6 @@
   "errorLoadingBudgets": "Ошибка загрузки бюджетов",
   "recentSplits": "Последние разделения",
   "invite": "Пригласить",
-  "split": "Разделить",
   "@transactionsPage": {},
   "last6Months": "За 6 месяцев",
   "thisYear": "В этом году",
@@ -772,17 +681,8 @@
       }
     }
   },
-  "nameMaxLength": "Название должно быть короче {max} символов",
-  "@nameMaxLength": {
-    "placeholders": {
-      "max": {
-        "type": "int"
-      }
-    }
-  },
   "@customSplitSheet": {},
   "splitExpense": "Разделить расход",
-  "amount": "Сумма",
   "percent": "Процент",
   "splitShare": "Доля",
   "owes": "Должен",
@@ -799,7 +699,6 @@
   },
   "percentagesMustTotal100": "Сумма процентов должна быть 100%",
   "eachPersonMustHaveAtLeast1Share": "У каждого должна быть хотя бы 1 доля",
-  "member": "Участник",
   "@whatsappVerification": {},
   "whatsappVerified": "WhatsApp подтверждён",
   "whatsappVerification": "Проверка WhatsApp",
@@ -808,12 +707,10 @@
   "enterThe6DigitCodeFromWhatsApp": "Введите 6-значный код из WhatsApp",
   "pleaseEnterThe6DigitVerificationCode": "Введите 6-значный код проверки",
   "failedToVerifyCode": "Ошибка проверки кода",
-  "invalidVerificationCode": "Неверный код",
   "failedToVerifyCodePleaseTryAgain": "Ошибка проверки кода. Пожалуйста, попробуйте снова.",
   "codeAutoFilledFromVerificationLink": "Код вставлен из ссылки",
   "verify": "Подтвердить",
   "verifying": "Проверка...",
-  "done": "Готово",
   "@avatarCustomizer": {},
   "avatarStudio": "Студия аватаров",
   "preview": "Предпросмотр",
@@ -838,12 +735,6 @@
   "accessories": "Аксессуары",
   "stars": "Звёзды",
   "@unifiedTransactionSheet": {},
-  "confirmExpense": "Подтвердить расход",
-  "expenseDetails": "Детали расхода",
-  "details": "Детали",
-  "currency": "Валюта",
-  "notes": "Заметки",
-  "receipt": "Чек",
   "@recurringTransactions": {},
   "recurring": "Регулярные",
   "manageYourRecurringTransactions": "Управление регулярными транзакциями",
@@ -852,17 +743,10 @@
   "areYouSureYouWantToDeleteThisRecurringTransaction": "Вы уверены, что хотите удалить эту регулярную транзакцию?",
   "recurringTransactionDeleted": "Регулярная транзакция удалена",
   "transactionDeleted": "Транзакция удалена",
-  "transactions": "Транзакции",
   "recentTransactions": "Недавние транзакции",
   "failedToDeleteRecurringTransaction": "Не удалось удалить регулярную транзакцию",
   "recurringTransactions": "Регулярные транзакции",
   "currencyIsManagedByHousehold": "Валюта управляется домохозяйством и не может быть изменена",
-  "editAmount": "Изменить сумму",
-  "amount": "Сумма",
-  "editNotes": "Изменить заметку",
-  "addANote": "Добавить заметку...",
-  "errorLoadingMembers": "Ошибка загрузки участников",
-  "expenseSavedAndShared": "Расход сохранён и добавлен в домохозяйство{splitInfo}!",
   "@expenseSavedAndShared": {
     "placeholders": {
       "splitInfo": {
@@ -870,8 +754,6 @@
       }
     }
   },
-  "expenseSaved": "Расход сохранён!",
-  "failedToSave": "Ошибка сохранения: {error}",
   "@failedToSave": {
     "placeholders": {
       "error": {
@@ -879,7 +761,6 @@
       }
     }
   },
-  "@scenarioPlanning": {},
   "buyALaptop": "купить ноутбук за 100 000 ₽",
   "selectTargetDate": "Выберите дату",
   "scenarioQuestionTemplate": "Смогу ли я {action} до {date}?",
@@ -929,7 +810,6 @@
   "lineDippingWeekend": "Линия просела после выходных? Сбалансируйте следующие дни, урезав мелкие необязательные траты.",
   "feelStuckRed": "Застряли «в минусе»? Пересмотрите бюджет на Главной — даже мелкие правки имеют значение.",
   "@day30LookAheadTab": {},
-  "peek30DaysAhead": "Загляните на 30 дней вперёд",
   "thirtyDayForecastDesc": "Этот прогноз использует данные за прошлый месяц, чтобы предсказать активность в следующем. Считайте это прогнозом погоды для вашего кошелька.",
   "greenLineExpected": "Зелёная линия = ожидаемые траты, если следующий месяц будет похож на прошлый.",
   "spikesHighlight": "Пики показывают недели, когда вы обычно тратите больше (привет, пятничная доставка еды).",
@@ -950,28 +830,15 @@
   "schedulePaymentIncreases": "Планируйте плавное увеличение платежей по кредитам, когда кривая растёт.",
   "planAheadDips": "Готовьтесь к просадкам заранее, создавая резервные фонды или урезая необязательные траты.",
   "checkProjectionMonthly": "Проверяйте прогноз ежемесячно, чтобы ваша долгосрочная игра оставалась гибкой и приносила удовольствие.",
-  "@categories": {},
-  "categoryGroceries": "Продукты",
-  "categoryFood": "Еда",
-  "categoryTransport": "Транспорт",
-  "categoryHousing": "Жильё",
-  "categoryUtilities": "Коммунальные услуги",
-  "categoryEntertainment": "Развлечения",
   "categoryHealthcare": "Здоровье",
-  "categoryEducation": "Образование",
-  "categoryShopping": "Покупки",
-  "categoryTravel": "Путешествия",
-  "categoryIncome": "Доход",
   "categoryOther": "Разное",
   "deleteExpense": "Удалить расход",
   "confirmDeleteExpense": "Удалить этот расход? Отменить действие будет нельзя.",
   "expenseDeletedSuccessfully": "Расход удалён",
   "failedToDeleteExpense": "Не удалось удалить расход",
   "expenseNotFoundOrDeleted": "Расход не найден или уже удалён",
-
   "onlyAdminsAndOwnersCanEditHouseholdSettings": "Только администраторы и владельцы могут редактировать настройки домохозяйства",
   "onlyAdminsAndOwnersCanCreateInvitations": "Только администраторы и владельцы могут создавать приглашения",
-
   "shareInvitationForHousehold": "Поделиться приглашением в домохозяйство {householdName}",
   "@shareInvitationForHousehold": {
     "placeholders": {
@@ -1006,9 +873,8 @@
       }
     }
   },
-
   "pleaseSelectCategory": "Выберите категорию",
-  "pleaseEnterAmount": "Введите сумму",
+  "pleaseEnterAmount": "Пожалуйста, введите сумму",
   "userNotAuthenticated": "Пользователь не аутентифицирован",
   "recurringExpenseUpdatedSuccessfully": "Периодический расход успешно обновлен",
   "recurringExpenseAddedSuccessfully": "Периодический расход успешно добавлен",
@@ -1037,24 +903,25 @@
   "youWillBeNotifiedBeforeEachOccurrence": "Вы будете уведомлены за {value} {unit} до каждого события",
   "@youWillBeNotifiedBeforeEachOccurrence": {
     "placeholders": {
-      "value": {"type": "int"},
-      "unit": {"type": "String"}
+      "value": {
+        "type": "int"
+      },
+      "unit": {
+        "type": "String"
+      }
     }
   },
   "addReminder": "Добавить Напоминание",
   "ended": "Завершено",
   "noRecurringExpenses": "Нет Периодических Расходов",
   "noRecurringIncome": "Нет Периодических Доходов",
-  "setupAutomaticExpenseTracking": "Настройте автоматическое отслеживание расходов для подписок, счетов и регулярных платежей",
-  "setupAutomaticIncomeTracking": "Настройте автоматическое отслеживание доходов для зарплаты, фриланс-работы и регулярных доходов",
-
+  "setupAutomaticExpenseTracking": "Настройте автоматический отслеживание расходов для подписок, счетов и регулярных платежей",
+  "setupAutomaticIncomeTracking": "Настройте автоматический отслеживание доходов для зарплаты, фриланса и регулярных доходов",
   "copyInvitationLink": "Копировать пригласительную ссылку",
   "copyInvitationLinkToClipboard": "Копировать пригласительную ссылку в буфер обмена",
-  "copyLink": "Копировать ссылку",
   "shareInvitationLink": "Поделиться пригласительной ссылкой",
   "share": "Поделиться",
   "closeShareSheet": "Закрыть меню 'Поделиться'",
-  "done": "Готово",
   "invitationLinkCopiedToClipboard": "Пригласительная ссылка скопирована в буфер обмена!",
   "joinMyHouseholdMessage": "Присоединяйтесь к моему домохозяйству \"{householdName}\" в Moneko!\n\n{inviteUrl}",
   "@joinMyHouseholdMessage": {
@@ -1068,7 +935,6 @@
     }
   },
   "joinMyHouseholdSubject": "Присоединяйтесь к моему домохозяйству в Moneko",
-
   "zeroAmount": "0,00",
   "dollarPrefix": "$ ",
   "notificationSettings": "Настройки уведомлений",
@@ -1086,11 +952,12 @@
   "paste": "Вставить",
   "continueAction": "Продолжить",
   "tryAgain": "Попробовать снова",
-
   "remindUser": "Напомнить {name}",
   "@remindUser": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "sendFriendlySpendingReminder": "Отправить дружеское напоминание о расходах",
@@ -1100,13 +967,17 @@
   "pleaseWait24HoursBeforeSendingAnotherReminder": "Пожалуйста, подождите 24 часа, прежде чем отправлять {name} ещё одно напоминание",
   "@pleaseWait24HoursBeforeSendingAnotherReminder": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "reminderSentToName": "Напоминание отправлено {name} 🔔",
   "@reminderSentToName": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "failedToSendReminderTryAgain": "Не удалось отправить напоминание. Попробуйте ещё раз.",
@@ -1125,10 +996,8 @@
   "acknowledged": "Подтверждено",
   "source": "Источник",
   "sourceHint": "например, Работодатель, Клиент",
-  "owner": "Владелец",
   "me": "Я",
   "partner": "Партнер",
-  "household": "Домохозяйство",
   "privacyScope": "Конфиденциальность",
   "privacyFull": "Все детали",
   "privacyBalancesOnly": "Только балансы",
@@ -1136,7 +1005,6 @@
   "privacyFullExplanation": "Партнёр может видеть все детали включая сумму, источник и описание.",
   "privacyBalancesOnlyExplanation": "Партнёр может видеть этот доход в итогах, но не детали (источник, описание скрыто).",
   "privacyPrivateExplanation": "Только вы можете видеть этот доход. Он вносит вклад в итоги домохозяйства, но партнёр не может видеть детали.",
-  "shareWithHousehold": "Поделиться с домохозяйством",
   "incomeSalary": "Зарплата",
   "incomeFreelance": "Фриланс",
   "incomeInvestment": "Инвестиции",
@@ -1145,11 +1013,6 @@
   "incomeBonus": "Бонус",
   "incomeRental": "Аренда",
   "incomeOther": "Другое",
-  "enterValidAmountGreaterThan0": "Пожалуйста, введите действительную сумму больше 0",
-  "date": "Дата",
-  "time": "Время",
-  "retry": "Повторить",
-
   "@goalsFeature": {},
   "goals": "Цели",
   "createGoal": "Создать цель",
@@ -1157,18 +1020,15 @@
   "goalTitle": "Название цели",
   "enterGoalTitle": "Введите название цели",
   "pleaseEnterTitle": "Пожалуйста, введите название",
-  "pleaseEnterAmount": "Пожалуйста, введите сумму",
   "invalidAmount": "Пожалуйста, введите сумму больше 0",
   "targetAmount": "Целевая сумма",
   "currentAmount": "Текущая сумма",
   "targetDate": "Целевая дата",
   "description": "Описание",
   "descriptionHint": "Примечание (необязательно)",
-  "category": "Категория",
   "savings": "Сбережения",
   "paydown": "Погашение долга",
   "all": "Все",
-  "active": "Активные",
   "completed": "Завершённые",
   "offTrack": "Отставание от плана",
   "onTrack": "По плану",
@@ -1188,8 +1048,6 @@
   "contributionAmount": "Сумма взноса",
   "contributionType": "Тип",
   "contributionAdded": "Взнос добавлен",
-  "setupAutomaticExpenseTracking": "Настройте автоматический отслеживание расходов для подписок, счетов и регулярных платежей",
-  "setupAutomaticIncomeTracking": "Настройте автоматический отслеживание доходов для зарплаты, фриланса и регулярных доходов",
   "biweekly": "Раз в две недели",
   "oneTime": "Разово",
   "custom": "Настроить",
@@ -1238,7 +1096,6 @@
   "memberMustHaveShare": "Хотя бы один участник должен иметь долю больше 0",
   "monthOverMonthSpending": "Помесячная динамика расходов",
   "last3Months": "Последние 3 месяца",
-
   "breakdown": "Разбивка",
   "noOutstandingItems": "Нет непогашенных позиций",
   "theyOweYou": "Вам должны",
@@ -1264,19 +1121,28 @@
   "groupFairnessExplanation": "Показывает, насколько равномерно расходы распределены между членами домохозяйства.\n\nБолее высокий процент означает, что все вносят свою справедливую долю. Более низкий — что некоторые оплачивают больше, чем другие.\n\nПредставьте это как командную работу: когда все вносят одинаково, показатель справедливости высокий. Когда кто‑то тянет основную нагрузку, он снижается.\n\n«Равная доля» показывает, сколько должен заплатить каждый при равном разделении.",
   "noMemberDataYet": "Данных об участниках пока нет",
   "evenShare": "Равная доля: {amount}",
-  "@evenShare": {"placeholders": {"amount": {"type": "String"}}}
-,
+  "@evenShare": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "viewHousehold": "Открыть домохозяйство",
   "invalidInvitationMissingInfo": "Недействительное приглашение: отсутствует информация о домохозяйстве",
   "joinedHouseholdWithName": "Вы успешно присоединились к {name}!",
-  "@joinedHouseholdWithName": {"placeholders": {"name": {"type": "String"}}},
+  "@joinedHouseholdWithName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "joinedHousehold": "Вы успешно присоединились к домохозяйству!",
-  "errorLoadingData": "Ошибка загрузки данных",
   "errorLoadingSplits": "Ошибка загрузки распределений",
   "markAsSettled": "Отметить как погашено",
   "splitDetails": "Детали распределения",
   "equalSplit": "РАВНОЕ ДЕЛЕНИЕ",
-  "errorLoadingBudgets": "Ошибка загрузки бюджетов",
   "noSharedBudgetsYet": "Пока нет общих бюджетов",
   "whoCanSeeThisExpense": "Кто может видеть этот расход?",
   "onlyVisibleToYou": "Видно только вам",
@@ -1284,32 +1150,159 @@
   "selectMembers": "Выбрать участников",
   "noMembersFound": "Участники не найдены",
   "membersSelectedCount": "{count} выбрано",
-  "@membersSelectedCount": {"placeholders": {"count": {"type": "int"}}},
+  "@membersSelectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "noSplitsYet": "Пока нет распределений",
   "startSplittingExpensesWithYourHousehold": "Начните распределять расходы в вашем домохозяйстве",
   "minutesAgoShort": "{count} мин назад",
-  "@minutesAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "@minutesAgoShort": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "hoursAgoShort": "{count} ч назад",
-  "@hoursAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "@hoursAgoShort": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "daysAgoShort": "{count} д назад",
-  "@daysAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "@daysAgoShort": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "weeksAgoShort": "{count} нед назад",
-  "@weeksAgoShort": {"placeholders": {"count": {"type": "int"}}}
-,
+  "@weeksAgoShort": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "errorLoadingActivity": "Ошибка загрузки активности",
   "noRecentActivity": "Нет недавней активности",
   "viewAllExpenses": "Просмотреть все расходы",
   "noPendingSplits": "Нет ожидающих распределений",
-  "pendingSettlement": "Ожидается погашение"
-  ,
+  "pendingSettlement": "Ожидается погашение",
   "youreIn": "Готово! 🎉",
   "invitationError": "Ошибка приглашения",
-  "joiningHousehold": "Присоединение к домохозяйству",
-  "processingInvitation": "Обрабатываем приглашение..."
-  ,
+  "processingInvitation": "Обрабатываем приглашение...",
   "noHouseholdsAvailableCreateOrJoin": "Нет доступных домохозяйств. Сначала создайте или присоединитесь к домохозяйству.",
   "selectHousehold": "Выберите домохозяйство",
   "yourPockets": "Ваши карманы",
   "editPocket": "Изменить карман",
-  "addPocket": "Добавить карман"
+  "addPocket": "Добавить карман",
+  "errorTitle": "Ошибка",
+  "createSplit": "Создать общий расход",
+  "equalShare": "Равные доли",
+  "noCashflowYet": "Денежных потоков пока нет",
+  "monekoEncounteredAnError": "В Moneko произошла ошибка",
+  "expenseUpdatedSuccessfully": "Расход успешно обновлён",
+  "savingsRate": "Уровень сбережений",
+  "budgetRunway": "Запас бюджета по времени",
+  "avgDaily": "Ср. в день",
+  "left": "Осталось",
+  "percentageOfSpending": "{percentage}% расходов",
+  "totalAmount": "Общая сумма",
+  "payer": "Плательщик",
+  "whoPaid": "Кто заплатил?",
+  "dollarSign": "$",
+  "pockets": "Конверты",
+  "pocketNameLabel": "Название конверта",
+  "pocketNamePlaceholder": "напр.: Продукты",
+  "thisPocketFallback": "Этот конверт",
+  "pleaseEnterPocketName": "Введите название конверта",
+  "pleaseEnterPocketPercentage": "Укажите процент для этого конверта",
+  "pleaseEnterValidPocketPercentage": "Введите корректный процент для этого конверта",
+  "pleaseSelectHouseholdFirst": "Сначала выберите домохозяйство",
+  "pleaseSetMonthlyBudgetFirst": "Сначала задайте месячный бюджет",
+  "pocketAllocationLabel": "Распределение по конвертам",
+  "pocketCategoriesLabel": "Категории конверта",
+  "tapToSelectCategories": "Нажмите, чтобы выбрать категории",
+  "pocketColorLabel": "Цвет конверта",
+  "pocketIconLabel": "Значок конверта",
+  "budgetExceededByLabel": "Бюджет превышен на",
+  "pocketDeleteTitle": "Удалить этот конверт?",
+  "pocketDeleteMessage": "Вы уверены, что хотите удалить этот конверт? Прошлые операции затронуты не будут.",
+  "pocketDeleted": "Конверт удалён",
+  "failedToDeletePocket": "Не удалось удалить конверт",
+  "budgetImpactTitle": "Влияние на бюджет",
+  "budgetBalanced": "Бюджет сбалансирован",
+  "remainingLabel": "Осталось",
+  "pocketSegmentLabel": "Сегмент конверта",
+  "thisPocketSegmentLabel": "Этот конверт",
+  "pocketNotFoundAppBar": "Конверт не найден",
+  "pocketNotFoundTitle": "Этот конверт не существует",
+  "pocketNotFoundMessage": "Не удалось найти этот конверт. Возможно, он был удалён или перемещён.",
+  "goBack": "Назад",
+  "monthlyBudgetLabel": "Месячный бюджет",
+  "keyInsightsTitle": "Ключевые выводы",
+  "spentThisMonthLabel": "Потрачено в этом месяце",
+  "avgDailySpendLabel": "Средние дневные расходы",
+  "pocketAllowanceLabel": "Лимит для этого конверта",
+  "dailyTrendTitle": "Дневной тренд",
+  "past30DaysLabel": "Последние 30 дней",
+  "noTransactionsYet": "Операций пока нет",
+  "unallocatedSpendLabel": "Не распределённые расходы",
+  "unallocatedBannerDescription": "Часть ваших расходов ещё не привязана ни к одному конверту. Разнесите их по конвертам, чтобы бюджет оставался точным.",
+  "uncategorizedSpendingTitle": "Неклассифицированные расходы",
+  "uncategorizedSpendingDescription": "У этих расходов ещё нет категории. Разнесите их по категориям, чтобы отчёты были чище.",
+  "noDetailedExpensesFound": "Подробных расходов не найдено",
+  "setMonthlyBudgetTitle": "Настройте свой месячный бюджет",
+  "newPocketTitle": "Новый конверт",
+  "ofSpendingLabel": "от расходов",
+  "viewOptionsTitle": "Параметры отображения",
+  "envelopeModeTitle": "Режим конвертов",
+  "envelopeModeDescription": "Разложите деньги по конвертам, чтобы у каждого рубля была своя задача.",
+  "howItWorksTitle": "Как это работает",
+  "allocateYourIncomeTitle": "Распределите свой доход",
+  "allocateYourIncomeDescription": "Решите заранее, какую часть каждой зарплаты положить в каждый конверт — ещё до трат.",
+  "trackSpendingTitle": "Отслеживайте расходы",
+  "trackSpendingDescription": "По мере трат вы видите, сколько уже взято из каждого конверта и сколько там ещё осталось.",
+  "avoidOverspendingTitle": "Избегайте перерасхода",
+  "avoidOverspendingDescription": "Получайте уведомления, когда конверт почти пуст или выходит за рамки бюджета, чтобы вовремя скорректировать курс.",
+  "youveGotPaychecksIncomingAndBillsToPay": "У вас на подходе зарплаты — и счета, которые нужно оплатить.",
+  "notifyMeDaysBefore": "Уведомлять за 3 дня",
+  "upcomingPaychecks": "Предстоящие выплаты зарплаты",
+  "paycheckFromWork": "Зарплата с работы",
+  "freelanceProject": "Фриланс-проект",
+  "upcomingBills": "Предстоящие счета",
+  "rentPayment": "Оплата аренды",
+  "electricityBill": "Счёт за электричество",
+  "comingInNextPhase": "Появится на следующем этапе",
+  "thisFeatureIsUnderDevelopment": "Эта функция находится в разработке",
+  "impersonateUser": "Просматривать как пользователь",
+  "pleaseEnterAnEmailAddress": "Пожалуйста, введите адрес электронной почты",
+  "failedToImpersonateUserPleaseCheckTheEmailAndTryAgain": "Не удалось открыть просмотр от имени пользователя. Проверьте адрес электронной почты и попробуйте снова.",
+  "enterTheEmailAddressOfTheUserYouWantToImpersonate": "Введите e-mail пользователя, от имени которого хотите просматривать данные.",
+  "userEmail": "E-mail пользователя",
+  "youWillSeeDataFromThisUsersPerspectiveWithoutLoggingInAsThem": "Вы увидите данные с точки зрения этого пользователя, не входя в его аккаунт.",
+  "start": "Начать",
+  "ethereumEvm": "Ethereum (EVM)",
+  "useMetaMaskRainbowBraveEtc": "Используйте MetaMask, Rainbow, Brave и т. д.",
+  "solana": "Solana",
+  "usePhantomSolflareBackpackEtc": "Используйте Phantom, Solflare, Backpack и т. д.",
+  "select": "Выбрать",
+  "color": "Цвет",
+  "moneko": "Moneko",
+  "allowance": "Карманные деньги",
+  "@percentageOfSpending": {
+    "placeholders": {
+      "percentage": {
+        "type": "String"
+      }
+    }
+  }
 }

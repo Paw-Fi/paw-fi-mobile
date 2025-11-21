@@ -52,7 +52,7 @@
     }
   },
   "enterCompleteCode": "Voer de volledige 6-cijferige code in",
-  "invalidVerificationCode": "Ongeldige verificatiecode. Controleer de code en probeer het opnieuw.",
+  "invalidVerificationCode": "Ongeldige verificatiecode",
   "verificationCodeExpired": "Verificatiecode is verlopen. Vraag een nieuwe code aan.",
   "verifyEmail": "E-mail verifiëren",
   "didntReceiveTheCode": "Code niet ontvangen? Check je spamfolder of",
@@ -149,7 +149,6 @@
   "activity": "Activiteit",
   "accountInformation": "Accountinformatie",
   "userId": "Gebruikers-ID",
-  "email": "E-mail",
   "recentActivity": "Recente activiteit",
   "noActivityYet": "Nog geen activiteit",
   "signOut": "Uitloggen",
@@ -213,7 +212,6 @@
   "day": "Dag",
   "@navigation": {},
   "close": "Sluiten",
-  "next": "Volgende",
   "done": "Klaar",
   "@runningBalanceSlides": {},
   "whatYouAreSeeing": "Wat je ziet",
@@ -233,7 +231,6 @@
   "longTermWhyMattersDesc": "Een lange horizon maakt grote dromen haalbaar. Zie of je noodfonds, investeringen of grote aankopen op koers blijven.",
   "longTermMovesToConsiderDesc": "Gebruik de grafiek om toekomstige beslissingen te 'oefenen'. Kleine aanpassingen vandaag leiden tot grote winsten later.",
   "@categorySlides": {},
-  "overview": "Overzicht",
   "forMe": "Voor mij",
   "forUs": "Voor ons",
   "home": "Home",
@@ -246,9 +243,8 @@
   "updateBudget": "Budget bijwerken",
   "enterNewTotalDailyBudget": "Voer het nieuwe totale dagbudget in.",
   "budgetAmount": "Budgetbedrag",
-  "cancel": "Annuleren",
   "save": "Opslaan",
-  "enterValidAmountGreaterThan0": "Voer een geldig bedrag in (hoger dan 0)",
+  "enterValidAmountGreaterThan0": "Voer een geldig bedrag groter dan 0 in",
   "updatingBudget": "Budget bijwerken...",
   "budgetUpdated": "Budget bijgewerkt",
   "failedToUpdateBudget": "Budget bijwerken mislukt",
@@ -267,7 +263,7 @@
   "addEntry": "Invoer toevoegen",
   "freeFormText": "Vrije tekst",
   "takePhoto": "Maak foto",
-  "transactions": "transacties",
+  "transactions": "Transacties",
   "negative": "Negatief",
   "positive": "Positief",
   "spendingBreakdown": "Uitsplitsing uitgaven",
@@ -318,7 +314,7 @@
   "pleaseEnterExpenseDetails": "Voer uitgavedetails in",
   "userNotLoggedIn": "Gebruiker niet ingelogd",
   "errorLoadingHouseholds": "Fout bij laden van huishoudens",
-  "welcomeToHouseholds": "Welkom bij Huishoudens!",
+  "welcomeToHouseholds": "Welkom bij Huishoudens",
   "householdsDescription": "Beheer gedeelde financiën met je familie, partner of huisgenoten. Volg budgetten, splits uitgaven en werk samen aan geldbeslissingen.",
   "createHousehold": "Huishouden aanmaken",
   "joinWithInvite": "Deelnemen met uitnodiging",
@@ -330,8 +326,8 @@
   "householdsFeature": "Huishoudens-functie",
   "householdsFeatureDescription": "De Huishoudens-functie is nu beschikbaar! Beheer gedeelde financiën met familie, partners of huisgenoten.",
   "gotIt": "Oké!",
-  "confirmExpense": "Bevestig uitgave",
-  "expenseDetails": "Uitgavedetails",
+  "confirmExpense": "Uitgave bevestigen",
+  "expenseDetails": "Uitgave­details",
   "details": "Details",
   "category": "Categorie",
   "currency": "Valuta",
@@ -352,7 +348,7 @@
   "editNotes": "Notities bewerken",
   "addANote": "Voeg een notitie toe...",
   "noMembersFoundInHousehold": "Geen leden gevonden in huishouden",
-  "errorLoadingMembers": "Fout bij laden van leden: {error}",
+  "errorLoadingMembers": "Fout bij laden van leden",
   "noExpenseToSave": "Geen uitgave om op te slaan",
   "expenseSavedAndShared": "Uitgave opgeslagen en gedeeld{splitInfo}!",
   "expenseSaved": "Uitgave opgeslagen!",
@@ -364,11 +360,9 @@
   "enterNewTotalDailyBudgetDescription": "Voer het nieuwe totale dagbudget in.",
   "@household": {},
   "pleaseSignInToAccessHouseholdFeatures": "Log in om toegang te krijgen tot huishouden-functies",
-  "errorLoadingHouseholds": "Fout bij laden van huishoudens",
   "quickActions": "Snelle acties",
   "members": "Leden",
   "invites": "Uitnodigingen",
-  "settings": "Instellingen",
   "errorLoadingExpenses": "Fout bij laden van uitgaven",
   "budgets": "Budgetten",
   "loadingHousehold": "Huishouden laden...",
@@ -379,7 +373,6 @@
   "spentByHousehold": "Uitgaven van Huishouden",
   "memberSpending": "Uitgaven per Lid",
   "spentByHouseholdTooltip": "Dit toont het totaalbedrag dat alle huishoudleden hebben uitgegeven in de geselecteerde periode. Het omvat alle gedeelde uitgaven die door een lid van het huishouden zijn geregistreerd.",
-  "welcomeToHouseholds": "Welkom bij Huishoudens",
   "manageMoneyTogether": "Beheer geld samen met je partner, familie of huisgenoten in één gedeelde ruimte.",
   "sharedBudgetsExpenses": "Gedeelde budgetten & Uitgaven",
   "sharedBudgetsExpensesDesc": "Stel budgetten in, volg uitgaven en zie in real-time waar het geld van het huishouden naartoe gaat.",
@@ -387,22 +380,17 @@
   "smartExpenseSplittingDesc": "Bereken automatisch wie wat verschuldigd is met flexibele splitsopties: gelijk, percentage of aangepaste bedragen.",
   "stayInSync": "Blijf gesynchroniseerd",
   "stayInSyncDesc": "Ontvang meldingen wanneer uitgaven worden toegevoegd, budgetten zijn bereikt of splitsingen moeten worden verrekend.",
-  "createHousehold": "Huishouden aanmaken",
-  "joinWithInvite": "Deelnemen met uitnodiging",
   "@householdSettings": {},
   "householdSettings": "Instellingen huishouden",
   "householdNotFound": "Huishouden niet gevonden",
   "coverPhoto": "Omslagfoto",
   "changeCoverPhoto": "Omslagfoto wijzigen",
   "saveChanges": "Wijzigingen opslaan",
-  "pleaseEnterHouseholdName": "Voer een naam in voor het huishouden",
   "errorLoadingHousehold": "Fout bij laden van huishouden",
   "householdUpdatedSuccessfully": "Huishouden succesvol bijgewerkt",
   "failedToUpdateHousehold": "Huishouden bijwerken mislukt",
   "@householdMembers": {},
   "inviteMember": "Lid uitnodigen",
-  "errorLoadingMembers": "Fout bij laden van leden",
-  "retry": "Opnieuw proberen",
   "removeMember": "Lid verwijderen",
   "remove": "Verwijderen",
   "confirmRemoveMember": "Weet je zeker dat je",
@@ -430,7 +418,7 @@
   "thirtyDays": "30 dagen",
   "unlimited": "Onbeperkt",
   "create": "Aanmaken",
-  "invitationCreatedSuccessfully": "Uitnodiging succesvol aangemaakt!",
+  "invitationCreatedSuccessfully": "Uitnodiging succesvol aangemaakt",
   "inviteLinkCopiedToClipboard": "Uitnodigingslink gekopieerd naar klembord!",
   "errorCreatingInvite": "Fout bij maken van uitnodiging",
   "revokeInvitation": "Uitnodiging intrekken",
@@ -442,11 +430,10 @@
   "noExpiry": "Verloopt niet",
   "expired": "Verlopen",
   "expires": "Verloopt",
-  "copyLink": "Kopieer link",
+  "copyLink": "Link kopiëren",
   "@householdImagePicker": {},
   "selectCoverImage": "Kies omslagfoto",
   "failedToLoadImages": "Afbeeldingen laden mislukt",
-  "takePhoto": "Maak foto",
   "chooseFromGallery": "Kies uit galerij",
   "failedToLoad": "Laden mislukt",
   "imageTooLarge": "Afbeelding te groot",
@@ -457,12 +444,10 @@
   "editBudget": "Budget bewerken",
   "budgetDetails": "Budgetdetails",
   "budgetName": "Naam budget",
-  "amount": "Bedrag",
   "period": "Periode",
-  "currency": "Valuta",
   "alertThresholds": "Waarschuwingsdrempels",
-  "warningThreshold": "Waarschuwingsdrempel",
-  "alertThreshold": "Alarmdrempel",
+  "warningThreshold": "Waarschuwingsdrempel (%)",
+  "alertThreshold": "Alarmdrempel (%)",
   "warningThresholdHelper": "Melding wanneer budgetgebruik dit percentage bereikt",
   "alertThresholdHelper": "Kritieke melding bij dit percentage",
   "budgetStatus": "Budgetstatus",
@@ -525,67 +510,15 @@
   "categoryBeauty": "Uiterlijk",
   "categoryMisc": "Overig",
   "categoryUncategorized": "Geen categorie",
-  "alertThresholds": "Waarschuwingsdrempels",
-  "warningThreshold": "Waarschuwingsdrempel (%)",
-  "alertThreshold": "Alarmdrempel (%)",
-  "warningThresholdHelper": "Melding wanneer budgetgebruik dit percentage bereikt",
-  "alertThresholdHelper": "Kritieke melding bij dit percentage",
-  "active": "Actief",
-  "inactive": "Inactief",
-  "saveChanges": "Wijzigingen opslaan",
-  "pleaseEnterValidAmount": "Voer een geldig bedrag in",
-  "warningThresholdRange": "Waarschuwingsdrempel moet tussen 0 en 100 zijn",
-  "alertThresholdRange": "Alarmdrempel moet tussen 0 en 100 zijn",
-  "warningThresholdLessThanAlert": "Waarschuwingsdrempel moet lager zijn dan of gelijk zijn aan de alarmdrempel",
-  "failedToUpdateBudget": "Budget bijwerken mislukt",
-  "deleteBudget": "Budget verwijderen",
-  "confirmDeleteBudget": "Weet je zeker dat je",
   "deleteBudgetCannotBeUndone": "Deze actie kan niet ongedaan worden gemaakt",
   "delete": "Verwijderen",
   "failedToDeleteBudget": "Budget verwijderen mislukt",
   "owner": "Eigenaar",
   "admin": "Beheerder",
   "member": "Lid",
-  "removeMember": "Lid verwijderen",
-  "confirmRemoveMember": "Weet je zeker dat je",
-  "remove": "Verwijderen",
-  "retry": "Opnieuw proberen",
-  "unknown": "Onbekend",
-  "makeAdmin": "Beheerder maken",
-  "makeMember": "Lid maken",
-  "updatedMemberRole": "Rol van lid bijgewerkt",
-  "invitations": "Uitnodigingen",
-  "createInvitation": "Uitnodiging maken",
-  "pendingInvitations": "Openstaande uitnodigingen",
-  "noPendingInvitations": "Geen openstaande uitnodigingen",
-  "invitationHistory": "Geschiedenis uitnodigingen",
-  "noInvitationHistory": "Geen uitnodigingsgeschiedenis",
-  "emailOptional": "E-mail (optioneel)",
-  "friendEmailExample": "vriend@voorbeeld.nl",
-  "personalMessageOptional": "Persoonlijk bericht (optioneel)",
-  "expiresIn": "Verloopt over",
-  "oneDay": "1 dag",
-  "threeDays": "3 dagen",
-  "sevenDays": "7 dagen",
-  "fourteenDays": "14 dagen",
-  "thirtyDays": "30 dagen",
-  "unlimited": "Onbeperkt",
-  "create": "Aanmaken",
-  "invitationCreatedSuccessfully": "Uitnodiging succesvol aangemaakt",
-  "inviteLinkCopiedToClipboard": "Uitnodigingslink gekopieerd naar klembord!",
-  "anyoneWithLink": "Iedereen met de link",
-  "revokeInvitation": "Uitnodiging intrekken",
-  "confirmRevokeInvitation": "Weet je zeker dat je deze uitnodiging wilt intrekken?",
-  "revoke": "Intrekken",
-  "invitationRevoked": "Uitnodiging ingetrokken",
-  "copyLink": "Kopieer link",
-  "noExpiry": "Verloopt niet",
-  "expired": "Verlopen",
-  "expires": "Verloopt",
   "pending": "Openstaand",
   "accepted": "Geaccepteerd",
   "revoked": "Ingetrokken",
-  "createHousehold": "Huishouden aanmaken",
   "tapToChangeCover": "Tik om omslag te wijzigen",
   "personalMessageHint": "Zeg iets tegen je genodigden (bijv. \"Sluit je aan bij ons huishoudbudget!\")",
   "invitationExpiresIn": "Uitnodiging verloopt over",
@@ -603,7 +536,6 @@
   "creating": "Aanmaken...",
   "generatingInvite": "Uitnodiging genereren...",
   "pleaseSelectValidCurrency": "Kies een geldige valuta voor het huishouden",
-  "details": "Details",
   "nameMaxLength": "Naam mag maximaal {max} tekens bevatten",
   "@nameMaxLength": {
     "placeholders": {
@@ -632,7 +564,6 @@
   "searchExpenses": "Uitgaven zoeken...",
   "clearAll": "Alles wissen",
   "allCategories": "Alle categorieën",
-  "category": "Categorie",
   "allMembers": "Alle leden",
   "balanceSummary": "Saldo-overzicht",
   "youAreOwed": "Jij krijgt nog",
@@ -652,40 +583,22 @@
   "transferredViaBank": "Overgemaakt via bank",
   "mobilePayment": "Mobiele betaling",
   "venmoPaypalEtc": "Tikkie, PayPal, etc.",
-  "transactions": "Transacties",
   "search": "Zoeken",
-  "spent": "Uitgegeven",
   "noData": "Geen gegevens",
   "filterTransactions": "Filter transacties",
-  "byCategory": "Per categorie",
   "noTransactionsFound": "Geen transacties gevonden",
   "failedToLoadHouseholdTransactions": "Laden van huishoudtransacties mislukt",
   "reset": "Resetten",
   "apply": "Toepassen",
   "expenses": "Uitgaven",
   "dateRange": "Datumbereik",
-  "errorLoadingExpenses": "Fout bij laden van uitgaven",
-  "noExpensesYet": "Nog geen uitgaven",
   "noMatchingExpenses": "Geen passende uitgaven",
   "startLoggingExpenses": "Begin met registreren om hier je uitgaven te zien",
   "tryAdjustingFilters": "Probeer je filters aan te passen",
-  "member": "Lid",
-  "split": "GESPLITST",
-  "today": "Vandaag",
-  "yesterday": "Gisteren",
-  "category": "Categorie",
-  "date": "Datum",
-  "time": "Tijd",
-  "shareWithHousehold": "Delen met huishouden",
-  "amount": "Bedrag",
+  "split": "Splitsen",
   "note": "Notitie",
-  "loadingHouseholdMembers": "Leden van huishouden laden...",
-  "selectHouseholdToConfigureSplit": "Kies een huishouden om de splitsing in te stellen",
   "currencyCannotBeChangedWhenSharing": "Valuta kan niet worden gewijzigd bij het delen met een huishouden",
-  "failedToLoadImage": "Afbeelding laden mislukt",
-  "done": "Klaar",
   "createBudget": "Budget aanmaken",
-  "budgetName": "Naam budget",
   "pleaseEnterABudgetName": "Voer een budgetnaam in",
   "pleaseEnterAValidAmountGreaterThan0": "Voer een geldig bedrag in (hoger dan 0)",
   "warningThresholdMustBeBetween0And100": "Waarschuwingsdrempel moet tussen 0 en 100% zijn",
@@ -720,7 +633,7 @@
   "whatYoullGet": "Dit krijg je",
   "personalMessageFromInviter": "Persoonlijk bericht van de uitnodiger",
   "messageFromInviter": "Bericht van de uitnodiger",
-  "joiningHousehold": "Bezig met deelnemen...",
+  "joiningHousehold": "Bezig met lid worden van het huishouden",
   "thisWillOnlyTakeAMoment": "Dit duurt maar een momentje",
   "welcomeAboard": "Welkom aan boord!",
   "youreNowPartOfTheHousehold": "Je maakt nu deel uit van het huishouden.\nBegin met het samen beheren van je financiën!",
@@ -730,7 +643,6 @@
   "anUnexpectedErrorOccurred": "Er is een onverwachte fout opgetreden",
   "invalidInvitationLinkFormat": "Ongeldig uitnodigingslinkformaat",
   "invalidOrExpiredInvitation": "Ongeldige of verlopen uitnodiging",
-  "today": "Vandaag",
   "tomorrow": "Morgen",
   "inDays": "over {days} dagen",
   "january": "Jan",
@@ -747,15 +659,13 @@
   "december": "Dec",
   "@householdOverview": {},
   "household": "Huishouden",
-  "errorLoadingMembers": "Fout bij laden van leden",
   "viewAll": "Alles bekijken",
   "manage": "Beheren",
   "noBudgetsYet": "Nog geen budgetten",
   "createSharedBudgetDescription": "Maak een gedeeld budget om samen uitgaven te volgen",
-  "errorLoadingBudgets": "Fout bij laden van budgetten",
+  "errorLoadingBudgets": "Fout bij het laden van budgetten",
   "recentSplits": "Recente splitsingen",
   "invite": "Uitnodigen",
-  "split": "Splitsen",
   "@transactionsPage": {},
   "last6Months": "Afgelopen 6 maanden",
   "thisYear": "Dit jaar",
@@ -769,17 +679,8 @@
       }
     }
   },
-  "nameMaxLength": "Naam mag maximaal {max} tekens bevatten",
-  "@nameMaxLength": {
-    "placeholders": {
-      "max": {
-        "type": "int"
-      }
-    }
-  },
   "@customSplitSheet": {},
   "splitExpense": "Uitgave splitsen",
-  "amount": "Bedrag",
   "percent": "Procent",
   "splitShare": "Deel",
   "owes": "Schuldig",
@@ -796,7 +697,6 @@
   },
   "percentagesMustTotal100": "Percentages moeten opgeteld 100% zijn",
   "eachPersonMustHaveAtLeast1Share": "Elke persoon moet minimaal 1 deel hebben",
-  "member": "Lid",
   "@whatsappVerification": {},
   "whatsappVerified": "WhatsApp geverifieerd",
   "whatsappVerification": "WhatsApp-verificatie",
@@ -805,12 +705,10 @@
   "enterThe6DigitCodeFromWhatsApp": "Voer de 6-cijferige code uit WhatsApp in",
   "pleaseEnterThe6DigitVerificationCode": "Voer de 6-cijferige verificatiecode in",
   "failedToVerifyCode": "Code verifiëren mislukt",
-  "invalidVerificationCode": "Ongeldige verificatiecode",
   "failedToVerifyCodePleaseTryAgain": "Code verifiëren mislukt. Probeer het opnieuw.",
   "codeAutoFilledFromVerificationLink": "Code automatisch ingevuld via verificatielink",
   "verify": "Verifiëren",
   "verifying": "Verifiëren...",
-  "done": "Klaar",
   "@avatarCustomizer": {},
   "avatarStudio": "Avatarstudio",
   "preview": "Voorbeeld",
@@ -835,12 +733,6 @@
   "accessories": "Accessoires",
   "stars": "Sterren",
   "@unifiedTransactionSheet": {},
-  "confirmExpense": "Uitgave bevestigen",
-  "expenseDetails": "Uitgave­details",
-  "details": "Details",
-  "currency": "Valuta",
-  "notes": "Notities",
-  "receipt": "Bon",
   "@recurringTransactions": {},
   "recurringTransactions": "Periodieke transacties",
   "recurring": "Periodiek",
@@ -850,17 +742,9 @@
   "areYouSureYouWantToDeleteThisRecurringTransaction": "Weet je zeker dat je deze periodieke transactie wilt verwijderen?",
   "recurringTransactionDeleted": "Periodieke transactie verwijderd",
   "transactionDeleted": "Transactie verwijderd",
-  "transactions": "Transacties",
   "recentTransactions": "Recente transacties",
   "failedToDeleteRecurringTransaction": "Kon periodieke transactie niet verwijderen",
-  "saveExpense": "Uitgave opslaan",
   "currencyIsManagedByHousehold": "Valuta wordt beheerd door het huishouden en kan niet worden gewijzigd",
-  "editAmount": "Bedrag bewerken",
-  "amount": "Bedrag",
-  "editNotes": "Notities bewerken",
-  "addANote": "Voeg een notitie toe...",
-  "errorLoadingMembers": "Fout bij laden van leden",
-  "expenseSavedAndShared": "Uitgave opgeslagen en gedeeld{splitInfo}!",
   "@expenseSavedAndShared": {
     "placeholders": {
       "splitInfo": {
@@ -868,8 +752,6 @@
       }
     }
   },
-  "expenseSaved": "Uitgave opgeslagen!",
-  "failedToSave": "Opslaan mislukt: {error}",
   "@failedToSave": {
     "placeholders": {
       "error": {
@@ -877,7 +759,6 @@
       }
     }
   },
-  "@scenarioPlanning": {},
   "buyALaptop": "een laptop van € 1.200 kopen",
   "selectTargetDate": "Kies streefdatum",
   "scenarioQuestionTemplate": "Kan ik {action} vóór {date}?",
@@ -927,7 +808,6 @@
   "lineDippingWeekend": "Daalt de lijn na een druk weekend? Breng de komende dagen in balans door te korten op kleine, niet-noodzakelijke uitgaven.",
   "feelStuckRed": "Zit je vast in het rood? Check je budget op het Home-tabblad. Kleine aanpassingen tellen snel op.",
   "@day30LookAheadTab": {},
-  "peek30DaysAhead": "Kijk 30 dagen vooruit",
   "thirtyDayForecastDesc": "Deze prognose gebruikt de activiteit van de afgelopen maand om in te schatten hoe de volgende maand eruitziet. Zie het als een weerbericht voor je portemonnee.",
   "greenLineExpected": "Groene lijn = verwachte dagelijkse uitgaven als de komende maand zich gedraagt als de vorige.",
   "spikesHighlight": "Pieken markeren weken waarin je gewoonten meestal duurder uitvallen (hallo, afhaalmaaltijd op vrijdag).",
@@ -948,28 +828,15 @@
   "schedulePaymentIncreases": "Plan voorzichtige verhogingen van aflossingen als de curve stijgt.",
   "planAheadDips": "Plan vooruit voor dalingen door geld te reserveren (sinking funds) of te korten op optionele uitgaven.",
   "checkProjectionMonthly": "Controleer de prognose maandelijks om je langetermijnplan leuk en flexibel te houden.",
-  "@categories": {},
-  "categoryGroceries": "Boodschappen",
-  "categoryFood": "Eten & Drinken",
-  "categoryTransport": "Vervoer",
-  "categoryHousing": "Wonen",
-  "categoryUtilities": "Nutsvoorzieningen",
-  "categoryEntertainment": "Entertainment",
   "categoryHealthcare": "Gezondheidszorg",
-  "categoryEducation": "Onderwijs",
-  "categoryShopping": "Winkelen",
-  "categoryTravel": "Reizen",
-  "categoryIncome": "Inkomsten",
   "categoryOther": "Overig",
   "deleteExpense": "Verwijder uitgave",
   "confirmDeleteExpense": "Weet je zeker dat je deze uitgave wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt.",
   "expenseDeletedSuccessfully": "Uitgave succesvol verwijderd",
   "failedToDeleteExpense": "Verwijderen van uitgave mislukt",
   "expenseNotFoundOrDeleted": "Uitgave niet gevonden of al verwijderd",
-
   "onlyAdminsAndOwnersCanEditHouseholdSettings": "Alleen beheerders en eigenaren kunnen huishoudinstellingen bewerken",
   "onlyAdminsAndOwnersCanCreateInvitations": "Alleen beheerders en eigenaren kunnen uitnodigingen maken",
-
   "shareInvitationForHousehold": "Uitnodiging voor huishouden {householdName} delen",
   "@shareInvitationForHousehold": {
     "placeholders": {
@@ -1006,11 +873,9 @@
   },
   "copyInvitationLink": "Uitnodigingslink kopiëren",
   "copyInvitationLinkToClipboard": "Uitnodigingslink naar klembord kopiëren",
-  "copyLink": "Link kopiëren",
   "shareInvitationLink": "Uitnodigingslink delen",
   "share": "Delen",
   "closeShareSheet": "Deelvenster sluiten",
-  "done": "Klaar",
   "invitationLinkCopiedToClipboard": "Uitnodigingslink gekopieerd naar klembord!",
   "joinMyHouseholdMessage": "Word lid van mijn huishouden \"{householdName}\" op Moneko!\n\n{inviteUrl}",
   "@joinMyHouseholdMessage": {
@@ -1024,7 +889,6 @@
     }
   },
   "joinMyHouseholdSubject": "Word lid van mijn huishouden op Moneko",
-
   "zeroAmount": "0,00",
   "dollarPrefix": "$ ",
   "notificationSettings": "Notificatie-instellingen",
@@ -1042,11 +906,12 @@
   "paste": "Plakken",
   "continueAction": "Doorgaan",
   "tryAgain": "Probeer opnieuw",
-
   "remindUser": "{name} herinneren",
   "@remindUser": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "sendFriendlySpendingReminder": "Een vriendelijke bestedingsherinnering sturen",
@@ -1056,17 +921,20 @@
   "pleaseWait24HoursBeforeSendingAnotherReminder": "Wacht 24 uur voordat je nog een herinnering naar {name} stuurt",
   "@pleaseWait24HoursBeforeSendingAnotherReminder": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "reminderSentToName": "Herinnering verzonden naar {name} 🔔",
   "@reminderSentToName": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "failedToSendReminderTryAgain": "Herinnering verzenden mislukt. Probeer het opnieuw.",
-
   "@incomeFeature": {},
   "income": "Inkomen",
   "addIncome": "Inkomen toevoegen",
@@ -1082,10 +950,8 @@
   "acknowledged": "Bevestigd",
   "source": "Bron",
   "sourceHint": "bijv. Werkgever, Klant",
-  "owner": "Eigenaar",
   "me": "Ik",
   "partner": "Partner",
-  "household": "Huishouden",
   "privacyScope": "Privacy",
   "privacyFull": "Volledige details",
   "privacyBalancesOnly": "Alleen saldi",
@@ -1093,7 +959,6 @@
   "privacyFullExplanation": "Uw partner kan alle details bekijken, inclusief bedrag, bron en omschrijving.",
   "privacyBalancesOnlyExplanation": "Uw partner kan dit inkomen in het totaal zien, maar niet de details (bron, omschrijving zijn verborgen).",
   "privacyPrivateExplanation": "Alleen u kunt dit inkomen zien. Het draagt bij aan huishoudelijke totalen maar partner kan geen details zien.",
-  "shareWithHousehold": "Delen met huishouden",
   "incomeSalary": "Salaris",
   "incomeFreelance": "Freelance",
   "incomeInvestment": "Belegging",
@@ -1102,11 +967,6 @@
   "incomeBonus": "Bonus",
   "incomeRental": "Huur",
   "incomeOther": "Anders",
-  "enterValidAmountGreaterThan0": "Voer een geldig bedrag groter dan 0 in",
-  "date": "Datum",
-  "time": "Tijd",
-  "retry": "Opnieuw proberen",
-
   "@goalsFeature": {},
   "goals": "Doelen",
   "createGoal": "Doel aanmaken",
@@ -1121,11 +981,9 @@
   "targetDate": "Doeldatum",
   "description": "Beschrijving",
   "descriptionHint": "Notitie (optioneel)",
-  "category": "Categorie",
   "savings": "Spaar",
   "paydown": "Aflossing",
   "all": "Alle",
-  "active": "Actief",
   "completed": "Voltooid",
   "offTrack": "Achter op schema",
   "onTrack": "Op schema",
@@ -1145,9 +1003,7 @@
   "contributionAmount": "Bijdragebedrag",
   "contributionType": "Type",
   "contributionAdded": "Bijdrage succesvol toegevoegd",
-
   "pleaseSelectCategory": "Selecteer een categorie",
-  "pleaseEnterAmount": "Voer een bedrag in",
   "userNotAuthenticated": "Gebruiker niet geauthenticeerd",
   "recurringExpenseUpdatedSuccessfully": "Periodieke uitgave succesvol bijgewerkt",
   "recurringExpenseAddedSuccessfully": "Periodieke uitgave succesvol toegevoegd",
@@ -1176,8 +1032,12 @@
   "youWillBeNotifiedBeforeEachOccurrence": "U wordt {value} {unit} voor elke gebeurtenis geïnformeerd",
   "@youWillBeNotifiedBeforeEachOccurrence": {
     "placeholders": {
-      "value": {"type": "int"},
-      "unit": {"type": "String"}
+      "value": {
+        "type": "int"
+      },
+      "unit": {
+        "type": "String"
+      }
     }
   },
   "addReminder": "Herinnering Toevoegen",
@@ -1234,7 +1094,6 @@
   "memberMustHaveShare": "Minstens één lid moet een aandeel groter dan 0 hebben",
   "monthOverMonthSpending": "Maandelijkse uitgavenontwikkeling",
   "last3Months": "Afgelopen 3 maanden",
-
   "breakdown": "Uitsplitsing",
   "noOutstandingItems": "Geen openstaande posten",
   "theyOweYou": "Je krijgt geld",
@@ -1252,7 +1111,6 @@
   "suggestedNetTransfers": "Voorgestelde nettotransfers",
   "detailedPairwiseDues": "Gedetailleerde onderlinge schulden",
   "outstanding": "Openstaand",
-  
   "youAreOwedBy": "Je krijgt van",
   "noOutstandingAmounts": "Geen openstaande bedragen",
   "groupFairnessTitle": "Groepsgelijkheid",
@@ -1260,19 +1118,28 @@
   "groupFairnessExplanation": "Dit laat zien hoe gelijkmatig de uitgaven over de huishoudleden zijn verdeeld.\n\nEen hoger percentage betekent dat iedereen zijn eerlijke deel bijdraagt. Een lager percentage suggereert dat sommige leden meer uitgaven dragen dan anderen.\n\nZie het als teamwerk: als iedereen gelijk bijdraagt, is de eerlijkheidsscore hoog. Draagt één persoon het meeste, dan daalt die.\n\nDe ‘gelijke bijdrage’ geeft aan wat ieder zou moeten betalen als alles eerlijk wordt verdeeld.",
   "noMemberDataYet": "Nog geen ledendata",
   "evenShare": "Gelijke bijdrage: {amount}",
-  "@evenShare": {"placeholders": {"amount": {"type": "String"}}}
-,
+  "@evenShare": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "viewHousehold": "Huishouden bekijken",
   "invalidInvitationMissingInfo": "Ongeldige uitnodiging: huishoudgegevens ontbreken",
   "joinedHouseholdWithName": "Je bent lid geworden van {name}!",
-  "@joinedHouseholdWithName": {"placeholders": {"name": {"type": "String"}}},
+  "@joinedHouseholdWithName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "joinedHousehold": "Je bent lid geworden van het huishouden!",
-  "errorLoadingData": "Fout bij het laden van gegevens",
   "errorLoadingSplits": "Fout bij het laden van de verdelingen",
   "markAsSettled": "Markeren als verrekend",
   "splitDetails": "Details van de verdeling",
   "equalSplit": "GELIJKE VERDELING",
-  "errorLoadingBudgets": "Fout bij het laden van budgetten",
   "noSharedBudgetsYet": "Nog geen gedeelde budgetten",
   "whoCanSeeThisExpense": "Wie kan deze uitgave zien?",
   "onlyVisibleToYou": "Alleen zichtbaar voor jou",
@@ -1280,32 +1147,159 @@
   "selectMembers": "Leden selecteren",
   "noMembersFound": "Geen leden gevonden",
   "membersSelectedCount": "{count} geselecteerd",
-  "@membersSelectedCount": {"placeholders": {"count": {"type": "int"}}},
+  "@membersSelectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "noSplitsYet": "Nog geen verdelingen",
   "startSplittingExpensesWithYourHousehold": "Begin uitgaven te verdelen met je huishouden",
   "minutesAgoShort": "{count} min geleden",
-  "@minutesAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "@minutesAgoShort": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "hoursAgoShort": "{count} u geleden",
-  "@hoursAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "@hoursAgoShort": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "daysAgoShort": "{count} d geleden",
-  "@daysAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "@daysAgoShort": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "weeksAgoShort": "{count} w geleden",
-  "@weeksAgoShort": {"placeholders": {"count": {"type": "int"}}}
-,
+  "@weeksAgoShort": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "errorLoadingActivity": "Fout bij het laden van de activiteit",
   "noRecentActivity": "Geen recente activiteit",
   "viewAllExpenses": "Alle uitgaven bekijken",
   "noPendingSplits": "Geen openstaande verdelingen",
-  "pendingSettlement": "In afwachting van verrekening"
-  ,
+  "pendingSettlement": "In afwachting van verrekening",
   "youreIn": "Je bent binnen! 🎉",
   "invitationError": "Uitnodigingsfout",
-  "joiningHousehold": "Bezig met lid worden van het huishouden",
-  "processingInvitation": "Uitnodiging verwerken..."
-  ,
+  "processingInvitation": "Uitnodiging verwerken...",
   "noHouseholdsAvailableCreateOrJoin": "Geen huishoudens beschikbaar. Maak eerst een huishouden aan of word lid.",
   "selectHousehold": "Huishouden selecteren",
   "yourPockets": "Jouw pockets",
   "editPocket": "Pocket bewerken",
-  "addPocket": "Pocket toevoegen"
+  "addPocket": "Pocket toevoegen",
+  "errorTitle": "Fout",
+  "createSplit": "Splitsing maken",
+  "equalShare": "Gelijk verdelen",
+  "noCashflowYet": "Nog geen kasstroom",
+  "monekoEncounteredAnError": "In Moneko is een fout opgetreden.",
+  "expenseUpdatedSuccessfully": "Uitgave is succesvol bijgewerkt",
+  "savingsRate": "Spaarpercentage",
+  "budgetRunway": "Budgetduur",
+  "avgDaily": "Gem. per dag",
+  "left": "Resterend",
+  "percentageOfSpending": "{percentage}% van de uitgaven",
+  "totalAmount": "Totaalbedrag",
+  "payer": "Betaler",
+  "whoPaid": "Wie heeft betaald?",
+  "dollarSign": "$",
+  "pockets": "Pockets",
+  "pocketNameLabel": "Pocketnaam",
+  "pocketNamePlaceholder": "bijv. Boodschappen",
+  "thisPocketFallback": "Deze pocket",
+  "pleaseEnterPocketName": "Voer een naam voor de pocket in",
+  "pleaseEnterPocketPercentage": "Voer een percentage voor deze pocket in",
+  "pleaseEnterValidPocketPercentage": "Voer een geldig percentage voor de pocket in",
+  "pleaseSelectHouseholdFirst": "Selecteer eerst een huishouden",
+  "pleaseSetMonthlyBudgetFirst": "Stel eerst een maandbudget in",
+  "pocketAllocationLabel": "Pocket-toewijzing",
+  "pocketCategoriesLabel": "Pocketcategorieën",
+  "tapToSelectCategories": "Tik om categorieën te kiezen",
+  "pocketColorLabel": "Pocketkleur",
+  "pocketIconLabel": "Pocketpictogram",
+  "budgetExceededByLabel": "Budget overschreden met",
+  "pocketDeleteTitle": "Pocket verwijderen?",
+  "pocketDeleteMessage": "Weet je zeker dat je deze pocket wilt verwijderen? Eerdere transacties blijven ongewijzigd.",
+  "pocketDeleted": "Pocket verwijderd",
+  "failedToDeletePocket": "Verwijderen van pocket mislukt",
+  "budgetImpactTitle": "Budgetimpact",
+  "budgetBalanced": "Budget in balans",
+  "remainingLabel": "Resterend",
+  "pocketSegmentLabel": "Pocketsegment",
+  "thisPocketSegmentLabel": "Deze pocket",
+  "pocketNotFoundAppBar": "Pocket niet gevonden",
+  "pocketNotFoundTitle": "Deze pocket bestaat niet",
+  "pocketNotFoundMessage": "We konden deze pocket niet vinden. Mogelijk is hij verwijderd of verplaatst.",
+  "goBack": "Ga terug",
+  "monthlyBudgetLabel": "Maandbudget",
+  "keyInsightsTitle": "Belangrijkste inzichten",
+  "spentThisMonthLabel": "Deze maand uitgegeven",
+  "avgDailySpendLabel": "Gemiddelde daguitgaven",
+  "pocketAllowanceLabel": "Pocketbudget",
+  "dailyTrendTitle": "Dagelijkse trend",
+  "past30DaysLabel": "Afgelopen 30 dagen",
+  "noTransactionsYet": "Nog geen transacties",
+  "unallocatedSpendLabel": "Niet-toegewezen uitgaven",
+  "unallocatedBannerDescription": "Een deel van je uitgaven is nog niet aan een pocket gekoppeld. Koppel ze om je budget kloppend te houden.",
+  "uncategorizedSpendingTitle": "Niet-gecategoriseerde uitgaven",
+  "uncategorizedSpendingDescription": "Deze uitgaven hebben nog geen categorie. Categoriseer ze om je inzichten scherp te houden.",
+  "noDetailedExpensesFound": "Geen gedetailleerde uitgaven gevonden",
+  "setMonthlyBudgetTitle": "Stel je maandbudget in",
+  "newPocketTitle": "Nieuwe pocket",
+  "ofSpendingLabel": "van de uitgaven",
+  "viewOptionsTitle": "Weergave-opties",
+  "envelopeModeTitle": "Enveloppenmodus",
+  "envelopeModeDescription": "Organiseer je geld in enveloppen zodat elke euro een duidelijke taak heeft.",
+  "howItWorksTitle": "Hoe het werkt",
+  "allocateYourIncomeTitle": "Wijs je inkomen toe",
+  "allocateYourIncomeDescription": "Bepaal hoeveel van elke uitbetaling naar welke envelop gaat, vóórdat je uitgeeft.",
+  "trackSpendingTitle": "Volg je uitgaven",
+  "trackSpendingDescription": "Terwijl je uitgeeft, zie je per envelop hoeveel er al gebruikt is en wat er nog over is.",
+  "avoidOverspendingTitle": "Voorkom te veel uitgeven",
+  "avoidOverspendingDescription": "Krijg een zachte waarschuwing als een envelop bijna leeg is of over budget gaat, zodat je op tijd kunt bijsturen.",
+  "youveGotPaychecksIncomingAndBillsToPay": "Er komen inkomsten binnen en er staan ook rekeningen klaar om te betalen.",
+  "notifyMeDaysBefore": "Mij 3 dagen van tevoren melden",
+  "upcomingPaychecks": "Aankomende salarisbetalingen",
+  "paycheckFromWork": "Salaris van werk",
+  "freelanceProject": "Freelance-project",
+  "upcomingBills": "Aankomende rekeningen",
+  "rentPayment": "Huurbetaling",
+  "electricityBill": "Elektriciteitsrekening",
+  "comingInNextPhase": "Komt in een volgende fase",
+  "thisFeatureIsUnderDevelopment": "Deze functie is nog in ontwikkeling",
+  "impersonateUser": "Bekijken als gebruiker",
+  "pleaseEnterAnEmailAddress": "Voer een e-mailadres in",
+  "failedToImpersonateUserPleaseCheckTheEmailAndTryAgain": "Bekijken als gebruiker is mislukt. Controleer het e-mailadres en probeer het opnieuw.",
+  "enterTheEmailAddressOfTheUserYouWantToImpersonate": "Voer het e-mailadres in van de gebruiker als wie je de app wilt bekijken.",
+  "userEmail": "E-mail van gebruiker",
+  "youWillSeeDataFromThisUsersPerspectiveWithoutLoggingInAsThem": "Je bekijkt de gegevens vanuit het perspectief van deze gebruiker, zonder echt op zijn of haar account in te loggen.",
+  "start": "Starten",
+  "ethereumEvm": "Ethereum (EVM)",
+  "useMetaMaskRainbowBraveEtc": "Gebruik MetaMask, Rainbow, Brave, enz.",
+  "solana": "Solana",
+  "usePhantomSolflareBackpackEtc": "Gebruik Phantom, Solflare, Backpack, enz.",
+  "select": "Selecteren",
+  "color": "Kleur",
+  "moneko": "Moneko",
+  "allowance": "Zakgeld",
+  "@percentageOfSpending": {
+    "placeholders": {
+      "percentage": {
+        "type": "String"
+      }
+    }
+  }
 }
