@@ -16,6 +16,7 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/core/ui/widgets/custom_text_field.dart';
+import 'package:moneko/shared/widgets/moneko-switch.dart';
 import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
@@ -166,7 +167,7 @@ class PocketsGridSection extends HookConsumerWidget {
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
-              childAspectRatio: 0.65,
+              childAspectRatio: 0.85,
               crossAxisSpacing: 16,
               mainAxisSpacing: 16,
             ),
@@ -661,7 +662,8 @@ class _SimpleSpendingList extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          context.l10n.percentageOfSpending((percentageOfTotal * 100).toStringAsFixed(1)),
+                          context.l10n.percentageOfSpending(
+                              (percentageOfTotal * 100).toStringAsFixed(1)),
                           style: TextStyle(
                             fontSize: 13,
                             color: colorScheme.mutedForeground,
@@ -916,8 +918,12 @@ class _PocketsHeaderCard extends StatelessWidget {
             value: sliderValue,
             min: sliderMin,
             max: sliderMax,
-            onChanged: (value) => onTotalChanged(value.roundToDouble()),
-            divisions: ((sliderMax - sliderMin) / 1000).round(),
+            onChanged: (value) {
+              // Round to nearest 10
+              final roundedValue = (value / 10).round() * 10;
+              onTotalChanged(roundedValue.toDouble());
+            },
+            divisions: ((sliderMax - sliderMin) / 10).round(),
           ),
           const SizedBox(height: 8),
           // Min/Max Labels
@@ -1381,7 +1387,7 @@ void _showEnvelopeModeSettingsModal(
                       ],
                     ),
                   ),
-                  Switch(
+                  MonekoSwitch(
                     value: envelopeMode,
                     onChanged: (value) {
                       onEnvelopeModeChanged(value);
@@ -1403,24 +1409,21 @@ void _showEnvelopeModeSettingsModal(
             _InfoRow(
               icon: Icons.pie_chart_outline_rounded,
               title: context.l10n.allocateYourIncomeTitle,
-              description:
-                  context.l10n.allocateYourIncomeDescription,
+              description: context.l10n.allocateYourIncomeDescription,
               colorScheme: colorScheme,
             ),
             const SizedBox(height: 16),
             _InfoRow(
               icon: Icons.track_changes_rounded,
               title: context.l10n.trackSpendingTitle,
-              description:
-                  context.l10n.trackSpendingDescription,
+              description: context.l10n.trackSpendingDescription,
               colorScheme: colorScheme,
             ),
             const SizedBox(height: 16),
             _InfoRow(
               icon: Icons.warning_amber_rounded,
               title: context.l10n.avoidOverspendingTitle,
-              description:
-                  context.l10n.avoidOverspendingDescription,
+              description: context.l10n.avoidOverspendingDescription,
               colorScheme: colorScheme,
             ),
             const SizedBox(height: 24),

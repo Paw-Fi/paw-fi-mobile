@@ -32,7 +32,7 @@ class MainMenuScreen extends ConsumerWidget {
     return Material(
       color: colorScheme.card,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(20, 48, 20, 32),
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

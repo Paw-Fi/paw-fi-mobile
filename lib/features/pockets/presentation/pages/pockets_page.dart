@@ -81,27 +81,21 @@ class PocketsPage extends ConsumerWidget {
         children: [
           RefreshIndicator(
             onRefresh: refresh,
-            edgeOffset: getTopPadding(context),
-            child: Padding(
-              padding: EdgeInsets.only(
-                  top: getTopPadding(context), bottom: getBottomPadding()),
-              child: CustomScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 2, 20, 20),
-                      child: PocketsGridSection(
-                        scopeParams: pocketsScopeParams,
-                        colorScheme: colorScheme,
-                        isPersonalMode: viewMode.mode == ViewMode.personal,
-                        uncategorizedExpenses:
-                            pocketsState.uncategorizedExpenses,
-                      ),
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                    child: PocketsGridSection(
+                      scopeParams: pocketsScopeParams,
+                      colorScheme: colorScheme,
+                      isPersonalMode: viewMode.mode == ViewMode.personal,
+                      uncategorizedExpenses: pocketsState.uncategorizedExpenses,
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
           AnimatedPositioned(

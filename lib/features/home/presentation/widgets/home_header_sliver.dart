@@ -14,6 +14,93 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 
+/// Leading widget for app bar that includes:
+/// - Profile/Household avatar
+/// - Personal/Household name
+class HomeHeaderLeading extends ConsumerWidget {
+  const HomeHeaderLeading({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final viewMode = ref.watch(viewModeProvider);
+    final user = ref.watch(authProvider);
+    final selectedHouseholdState = ref.watch(selectedHouseholdProvider);
+    final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
+    final zoomController = ref.read(zoomDrawerControllerProvider);
+
+    return GestureDetector(
+      onTap: () => zoomController.toggle?.call(),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _HeaderAvatarButton(
+            user: user,
+            viewMode: viewMode,
+            householdsAsync: householdsAsync,
+            selectedHouseholdState: selectedHouseholdState,
+            colorScheme: colorScheme,
+          ),
+          const SizedBox(width: 12),
+          Flexible(
+            child: Text(
+              viewMode.mode == ViewMode.personal
+                  ? ("Emily Carter")
+                  : (selectedHouseholdState.household?.name ??
+                      context.l10n.forUs),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.3,
+                color: colorScheme.foreground,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Trailing widget for app bar that includes:
+/// - Personal/Household mode switch
+class HomeHeaderTrailing extends ConsumerWidget {
+  const HomeHeaderTrailing({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final viewMode = ref.watch(viewModeProvider);
+
+    return _AccountTypeSwitch(
+      viewMode: viewMode,
+      colorScheme: colorScheme,
+      onPersonalSelected: () => _setPersonalMode(ref),
+      onHouseholdSelected: () => _switchToHouseholdMode(context, ref),
+    );
+  }
+
+  static void _setPersonalMode(WidgetRef ref) {
+    HapticFeedback.lightImpact();
+    SystemSound.play(SystemSoundType.click);
+    ref.read(viewModeProvider.notifier).setPersonalMode();
+  }
+
+  static void _switchToHouseholdMode(BuildContext context, WidgetRef ref) {
+    HapticFeedback.lightImpact();
+    SystemSound.play(SystemSoundType.click);
+
+    // Switch to household mode and invalidate households so data is refreshed.
+    final user = ref.read(authProvider);
+    debugPrint(
+        '🔄 Switching to household mode - invalidating userHouseholdsProvider');
+    ref.invalidate(userHouseholdsProvider(user.uid));
+    ref.read(viewModeProvider.notifier).setMode(ViewMode.household);
+  }
+}
+
 /// Header for pages that includes:
 /// - Profile/Household cover photo
 /// - Personal/Household switch
@@ -33,7 +120,7 @@ class HomeHeaderSliver extends ConsumerWidget {
     final zoomController = ref.read(zoomDrawerControllerProvider);
 
     return SizedBox(
-      height: 65,      
+      height: 65,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(0, 5, 16, 5),
         child: Row(
@@ -67,34 +154,11 @@ class HomeHeaderSliver extends ConsumerWidget {
                 ),
               ),
             ),
-            _AccountTypeSwitch(
-              viewMode: viewMode,
-              colorScheme: colorScheme,
-              onPersonalSelected: () => _setPersonalMode(ref),
-              onHouseholdSelected: () => _switchToHouseholdMode(context, ref),
-            ),
+            const HomeHeaderTrailing(),
           ],
         ),
       ),
     );
-  }
-
-  static void _setPersonalMode(WidgetRef ref) {
-    HapticFeedback.lightImpact();
-    SystemSound.play(SystemSoundType.click);
-    ref.read(viewModeProvider.notifier).setPersonalMode();
-  }
-
-  static void _switchToHouseholdMode(BuildContext context, WidgetRef ref) {
-    HapticFeedback.lightImpact();
-    SystemSound.play(SystemSoundType.click);
-
-    // Switch to household mode and invalidate households so data is refreshed.
-    final user = ref.read(authProvider);
-    debugPrint(
-        '🔄 Switching to household mode - invalidating userHouseholdsProvider');
-    ref.invalidate(userHouseholdsProvider(user.uid));
-    ref.read(viewModeProvider.notifier).setMode(ViewMode.household);
   }
 }
 

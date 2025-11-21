@@ -75,45 +75,43 @@ class _RecurringTransactionsPageState
         ref.watch(homeFilterProvider).selectedCurrency?.toUpperCase();
     return AdaptiveScaffold(
       body: RefreshIndicator(
-        edgeOffset: getTopPadding(context),
         onRefresh: _refresh,
-        child: Padding(
-          padding: EdgeInsets.only(
-            top: getTopPadding(context),
-            bottom: getBottomPadding(),
-          ),
-          child: AdaptiveTabBarView(
-            tabs: [
-              context.l10n.expenses,
-              context.l10n.income,
-            ],
-            children: [
-              _buildRecurringTabView(
+        child: AdaptiveTabBarView(
+          tabs: [
+            context.l10n.expenses,
+            context.l10n.income,
+          ],
+          children: [
+            _buildRecurringTabView(
+              colorScheme,
+              _buildExpensesSliver(
+                recurringExpenses,
                 colorScheme,
-                _buildExpensesSliver(
-                  recurringExpenses,
-                  colorScheme,
-                  selectedCurrency,
-                ),
+                selectedCurrency,
               ),
-              _buildRecurringTabView(
+            ),
+            _buildRecurringTabView(
+              colorScheme,
+              _buildIncomesSliver(
+                recurringIncomes,
                 colorScheme,
-                _buildIncomesSliver(
-                  recurringIncomes,
-                  colorScheme,
-                  selectedCurrency,
-                ),
+                selectedCurrency,
               ),
-            ],
-            onTabChanged: (index) {
-              ref.read(selectedRecurringTabProvider.notifier).state = index;
-            },
-          ),
+            ),
+          ],
+          onTabChanged: (index) {
+            ref.read(selectedRecurringTabProvider.notifier).state = index;
+          },
         ),
       ),
 
       // Floating action button
-      floatingActionButton: _buildFAB(colorScheme),
+      floatingActionButton: Padding(
+        padding: PlatformInfo.isIOS26OrHigher()
+            ? const EdgeInsets.only(bottom: 80, right: 6)
+            : const EdgeInsets.all(0),
+        child: _buildFAB(colorScheme),
+      ),
     );
   }
 
@@ -294,33 +292,11 @@ class _RecurringTransactionsPageState
     final selectedTab = ref.watch(selectedRecurringTabProvider);
     final isExpense = selectedTab == 0;
 
-    return Container(
-      width: 56,
-      height: 56,
-      decoration: BoxDecoration(
-        color: colorScheme.primary,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => _showAddSheet(isExpense ? 'expense' : 'income'),
-          borderRadius: BorderRadius.circular(16),
-          child: Container(
-            padding: const EdgeInsets.all(8),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.add,
-                  color: colorScheme.primaryForeground,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+    return AdaptiveFloatingActionButton(
+      onPressed: () => _showAddSheet(isExpense ? 'expense' : 'income'),
+      backgroundColor: colorScheme.primary,
+      foregroundColor: colorScheme.primaryForeground,
+      child: const Icon(Icons.add),
     );
   }
 

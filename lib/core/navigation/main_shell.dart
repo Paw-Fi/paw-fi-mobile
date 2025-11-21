@@ -37,36 +37,26 @@ class MainShell extends HookConsumerWidget {
 
     return AdaptiveScaffold(
       appBar: AdaptiveAppBar(
-        useNativeToolbar: false,
-        appBar: AppBar(
-          title: Text(context.l10n.moneko),
-        )
-      )
-        ,
+          useNativeToolbar: false,
+          cupertinoNavigationBar: const CupertinoNavigationBar(
+            leading: HomeHeaderLeading(),
+            trailing: HomeHeaderTrailing(),
+          ),
+          appBar: AppBar(
+            leading: const HomeHeaderLeading(),
+            actions: const [
+              HomeHeaderTrailing(),
+              SizedBox(width: 16),
+            ],
+          )),
       body: ZoomDrawer(
         controller: zoomController,
         menuScreen: const MainMenuScreen(),
         mainScreen: Material(
           color: colorScheme.appBackground,
-          child: SafeArea(
-            child: Stack(
-              children: [
-                currentPage,
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: IgnorePointer(
-                    ignoring: !showHomeHeader,
-                    child: AnimatedOpacity(
-                      duration: const Duration(milliseconds: 200),
-                      opacity: showHomeHeader ? 1.0 : 0.0,
-                      child: const HomeHeaderSliver(),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+          child: Padding(
+            padding: const EdgeInsets.only(top: 10.0),
+            child: currentPage,
           ),
         ),
         borderRadius: 24.0,

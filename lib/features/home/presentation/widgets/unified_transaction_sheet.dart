@@ -33,6 +33,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/widgets/transaction_category_picker.dart';
 import 'package:moneko/core/ui/widgets/transaction_currency_picker.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:moneko/shared/widgets/moneko-switch.dart';
 import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 
 /// Format date with relative terms
@@ -684,7 +685,7 @@ class _UnifiedTransactionSheetState
                   ),
                 ),
               ),
-              Switch(
+              MonekoSwitch(
                 value: _isSharedWithHousehold,
                 onChanged: (value) {
                   setState(() {

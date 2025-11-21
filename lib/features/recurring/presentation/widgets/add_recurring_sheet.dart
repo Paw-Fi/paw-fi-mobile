@@ -22,6 +22,7 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
+import 'package:moneko/shared/widgets/moneko-switch.dart';
 
 /// Modern bottom sheet for adding/editing recurring transactions
 /// Apple-inspired design with clean animations and intuitive UX
@@ -369,7 +370,7 @@ class AddRecurringSheet extends HookConsumerWidget {
               ],
             ),
           ),
-      
+
           // Scrollable content
           Flexible(
             child: SingleChildScrollView(
@@ -392,7 +393,9 @@ class AddRecurringSheet extends HookConsumerWidget {
                             child: Container(
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               decoration: BoxDecoration(
-                                color: isExpense ? colorScheme.primary : Colors.transparent,
+                                color: isExpense
+                                    ? colorScheme.primary
+                                    : Colors.transparent,
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
@@ -401,7 +404,9 @@ class AddRecurringSheet extends HookConsumerWidget {
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
-                                  color: isExpense ? Colors.white : colorScheme.foreground,
+                                  color: isExpense
+                                      ? Colors.white
+                                      : colorScheme.foreground,
                                 ),
                               ),
                             ),
@@ -413,7 +418,9 @@ class AddRecurringSheet extends HookConsumerWidget {
                             child: Container(
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               decoration: BoxDecoration(
-                                color: !isExpense ? colorScheme.primary : Colors.transparent,
+                                color: !isExpense
+                                    ? colorScheme.primary
+                                    : Colors.transparent,
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
@@ -422,7 +429,9 @@ class AddRecurringSheet extends HookConsumerWidget {
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
-                                  color: !isExpense ? Colors.white : colorScheme.foreground,
+                                  color: !isExpense
+                                      ? Colors.white
+                                      : colorScheme.foreground,
                                 ),
                               ),
                             ),
@@ -431,9 +440,9 @@ class AddRecurringSheet extends HookConsumerWidget {
                       ],
                     ),
                   ),
-      
+
                   const SizedBox(height: 20),
-      
+
                   // Amount input
                   _buildLabel(context.l10n.amount, colorScheme),
                   const SizedBox(height: 8),
@@ -474,9 +483,9 @@ class AddRecurringSheet extends HookConsumerWidget {
                       ),
                     ),
                   ),
-      
+
                   const SizedBox(height: 20),
-      
+
                   _buildDetailCard(
                     colorScheme: colorScheme,
                     label: context.l10n.category,
@@ -496,9 +505,9 @@ class AddRecurringSheet extends HookConsumerWidget {
                       }
                     },
                   ),
-      
+
                   const SizedBox(height: 20),
-      
+
                   // Currency selector
                   _buildDetailCard(
                     colorScheme: colorScheme,
@@ -514,9 +523,9 @@ class AddRecurringSheet extends HookConsumerWidget {
                       }
                     },
                   ),
-      
+
                   const SizedBox(height: 20),
-      
+
                   // Household sharing + split (expenses only)
                   if (user != null) ...[
                     householdsAsync.when(
@@ -524,7 +533,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                         if (households.isEmpty) {
                           return const SizedBox.shrink();
                         }
-      
+
                         if (!isExpense) {
                           // For income: only allow sharing toggle, no split editor
                           return _buildSharingToggleOnly(
@@ -535,7 +544,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                             selectedHouseholdId,
                           );
                         }
-      
+
                         if (!hasAmountForSplit) {
                           // Require an amount before configuring splits
                           return Text(
@@ -546,7 +555,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                             ),
                           );
                         }
-      
+
                         return _buildSharingAndSplitSection(
                           context: context,
                           colorScheme: colorScheme,
@@ -566,7 +575,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                     ),
                     const SizedBox(height: 20),
                   ],
-      
+
                   _buildDetailCard(
                     colorScheme: colorScheme,
                     label: context.l10n.frequency,
@@ -590,9 +599,9 @@ class AddRecurringSheet extends HookConsumerWidget {
                       }
                     },
                   ),
-      
+
                   const SizedBox(height: 20),
-      
+
                   _buildDetailCard(
                     colorScheme: colorScheme,
                     label: context.l10n.startDate,
@@ -610,9 +619,9 @@ class AddRecurringSheet extends HookConsumerWidget {
                       }
                     },
                   ),
-      
+
                   const SizedBox(height: 20),
-      
+
                   // End date toggle (clickable container)
                   GestureDetector(
                     onTap: () {
@@ -659,7 +668,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                       ),
                     ),
                   ),
-      
+
                   // End date picker (if enabled)
                   if (hasEndDate.value) ...[
                     const SizedBox(height: 12),
@@ -684,9 +693,9 @@ class AddRecurringSheet extends HookConsumerWidget {
                       },
                     ),
                   ],
-      
+
                   const SizedBox(height: 20),
-      
+
                   // Description
                   _buildLabel(context.l10n.descriptionOptional, colorScheme),
                   const SizedBox(height: 8),
@@ -723,7 +732,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                       ),
                     ),
                   ),
-      
+
                   // Source (for income only)
                   if (!isExpense) ...[
                     const SizedBox(height: 20),
@@ -762,9 +771,9 @@ class AddRecurringSheet extends HookConsumerWidget {
                       ),
                     ),
                   ],
-      
+
                   const SizedBox(height: 24),
-      
+
                   // Reminder toggle (clickable container)
                   GestureDetector(
                     onTap: () {
@@ -804,7 +813,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                       ),
                     ),
                   ),
-      
+
                   // Reminder configuration (if enabled)
                   if (hasReminder.value) ...[
                     const SizedBox(height: 12),
@@ -823,7 +832,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                           'tr',
                           'fa'
                         }.contains(lang);
-      
+
                         // Build UI components
                         final valueInput = SizedBox(
                           width: 80,
@@ -844,17 +853,20 @@ class AddRecurringSheet extends HookConsumerWidget {
                                 color: colorScheme.mutedForeground,
                               ),
                               filled: true,
-                              fillColor: colorScheme.muted.withValues(alpha: 0.08),
+                              fillColor:
+                                  colorScheme.muted.withValues(alpha: 0.08),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
                                 borderSide: BorderSide(
-                                  color: colorScheme.border.withValues(alpha: 0.2),
+                                  color:
+                                      colorScheme.border.withValues(alpha: 0.2),
                                 ),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
                                 borderSide: BorderSide(
-                                  color: colorScheme.border.withValues(alpha: 0.2),
+                                  color:
+                                      colorScheme.border.withValues(alpha: 0.2),
                                 ),
                               ),
                               focusedBorder: OutlineInputBorder(
@@ -863,7 +875,8 @@ class AddRecurringSheet extends HookConsumerWidget {
                                   color: colorScheme.primary,
                                 ),
                               ),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 14),
                             ),
                             onChanged: (value) {
                               final parsed = int.tryParse(value);
@@ -873,7 +886,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                             },
                           ),
                         );
-      
+
                         final unitPicker = GestureDetector(
                           onTap: () async {
                             final result =
@@ -882,8 +895,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                               items: ['days'],
                               getLabel: (unit) {
                                 if (unit == 'days') return context.l10n.days;
-                                if (unit == 'hours')
-                                  return context.l10n.hours;
+                                if (unit == 'hours') return context.l10n.hours;
                                 return unit;
                               },
                               initial: reminderUnit.value,
@@ -903,8 +915,8 @@ class AddRecurringSheet extends HookConsumerWidget {
                                     colorScheme.muted.withValues(alpha: 0.08),
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
-                                  color: colorScheme.border
-                                      .withValues(alpha: 0.2),
+                                  color:
+                                      colorScheme.border.withValues(alpha: 0.2),
                                   width: 1,
                                 ),
                               ),
@@ -934,7 +946,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                             ),
                           ),
                         );
-      
+
                         // Arrange based on word order
                         List<Widget> rowChildren;
                         if (useSOV) {
@@ -981,7 +993,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                             ),
                           ];
                         }
-      
+
                         return Row(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -1004,7 +1016,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                       ),
                     ),
                   ],
-      
+
                   // Save button
                   const SizedBox(height: 24),
                   SizedBox(
@@ -1151,7 +1163,7 @@ class AddRecurringSheet extends HookConsumerWidget {
               ),
             ),
           ),
-          AdaptiveSwitch(
+          MonekoSwitch(
             value: isSharedWithHousehold.value,
             activeColor: colorScheme.primary,
             onChanged: (value) {
@@ -1217,11 +1229,12 @@ class AddRecurringSheet extends HookConsumerWidget {
                         child: IntrinsicWidth(
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(
-                              maxWidth: 200, // Maximum width to prevent overflow
+                              maxWidth:
+                                  200, // Maximum width to prevent overflow
                             ),
                             child: DropdownButton<String>(
-                              value:
-                                  selectedHouseholdId.value ?? households.first.id,
+                              value: selectedHouseholdId.value ??
+                                  households.first.id,
                               isExpanded: true,
                               icon: Icon(
                                 Icons.arrow_drop_down,
@@ -1252,7 +1265,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                   ],
                 ),
               ),
-              Switch(
+              MonekoSwitch(
                 value: isSharedWithHousehold.value,
                 onChanged: (value) {
                   if (!value) {
@@ -1316,7 +1329,9 @@ class AddRecurringSheet extends HookConsumerWidget {
                                     (m) => DropdownMenuItem<String>(
                                       value: m.userId,
                                       child: Text(
-                                        m.userName ?? m.userEmail ?? context.l10n.member,
+                                        m.userName ??
+                                            m.userEmail ??
+                                            context.l10n.member,
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
