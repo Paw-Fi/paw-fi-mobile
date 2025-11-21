@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 
 import '../../../../../core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
 /// Widget to display split details in transaction detail sheets
 class SplitDetailsWidget extends ConsumerWidget {
@@ -91,7 +91,7 @@ class SplitDetailsWidget extends ConsumerWidget {
             const SizedBox(height: 16),
 
             // Settle up button
-            shadcnui.PrimaryButton(
+            PrimaryAdaptiveButton(
               onPressed: () {
                 // Implement settle up flow
               },

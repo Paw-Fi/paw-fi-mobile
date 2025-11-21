@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 
 import '../../domain/entities/household.dart';
 import '../providers/household_providers.dart';
@@ -14,7 +15,6 @@ import '../../../home/presentation/widgets/unified_transaction_sheet.dart';
 import '../../../../shared/widgets/user_avatar.dart';
 import '../../../../../core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 /// Main household dashboard showing budgets, expenses, and splits
 class HouseholdDashboard extends ConsumerWidget {
   final Household household;
@@ -201,7 +201,7 @@ class HouseholdDashboard extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  shadcnui.TextButton(
+                  PrimaryAdaptiveButton(
                     onPressed: () {
                       Navigator.push(
                         context,

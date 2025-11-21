@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 
 import '../../domain/entities/shared_budget.dart';
 import '../providers/household_providers.dart';
@@ -11,7 +12,6 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/ui/widgets/transaction_currency_picker.dart';
 import 'package:moneko/core/ui/widgets/transaction_selection_sheet.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
 /// Page for creating a new household budget
 class CreateBudgetPage extends HookConsumerWidget {
@@ -526,7 +526,7 @@ class CreateBudgetPage extends HookConsumerWidget {
             // const SizedBox(height: 32),
 
             // Create Button
-            shadcnui.PrimaryButton(
+            PrimaryAdaptiveButton(
               onPressed: isCreating.value ? null : createBudget,
               child: isCreating.value
                   ? const SizedBox(

@@ -5,11 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/shared/widgets/outlined-adaptive-button.dart';
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 import '../../domain/entities/shared_budget.dart';
 import '../providers/household_providers.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
 /// Budget Detail Page
 /// Shows complete budget information and allows editing
@@ -237,14 +238,14 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
                     Row(
                       children: [
                         Expanded(
-                          child: shadcnui.OutlineButton(
+                          child: OutlinedAdaptiveButton(
                             onPressed: _cancelEditing,
                             child: Text(context.l10n.cancel),
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: shadcnui.PrimaryButton(
+                          child: PrimaryAdaptiveButton(
                             onPressed: _saveChanges,
                             child: Text(context.l10n.saveChanges),
                           ),

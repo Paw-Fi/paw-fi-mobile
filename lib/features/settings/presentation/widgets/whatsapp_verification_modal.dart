@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/l10n/l10n.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+import 'package:moneko/shared/widgets/otp_input.dart';
 
 class WhatsAppVerificationModal extends StatefulWidget {
   final String? otpFromUrl;
@@ -15,7 +16,8 @@ class WhatsAppVerificationModal extends StatefulWidget {
   });
 
   @override
-  State<WhatsAppVerificationModal> createState() => _WhatsAppVerificationModalState();
+  State<WhatsAppVerificationModal> createState() =>
+      _WhatsAppVerificationModalState();
 }
 
 class _WhatsAppVerificationModalState extends State<WhatsAppVerificationModal> {
@@ -27,7 +29,7 @@ class _WhatsAppVerificationModalState extends State<WhatsAppVerificationModal> {
   @override
   void initState() {
     super.initState();
-    
+
     // Pre-fill OTP if provided
     if (widget.otpFromUrl != null && widget.otpFromUrl!.length == 6) {
       _code = widget.otpFromUrl!;
@@ -62,7 +64,8 @@ class _WhatsAppVerificationModalState extends State<WhatsAppVerificationModal> {
       final data = response.data as Map<String, dynamic>?;
 
       if (response.status >= 400 || data == null) {
-        final errorMessage = data?['error'] as String? ?? context.l10n.failedToVerifyCode;
+        final errorMessage =
+            data?['error'] as String? ?? context.l10n.failedToVerifyCode;
         setState(() {
           _errorMessage = errorMessage;
           _isLoading = false;
@@ -76,19 +79,20 @@ class _WhatsAppVerificationModalState extends State<WhatsAppVerificationModal> {
           _errorMessage = null;
           _isLoading = false;
         });
-        
+
         // Call success callback if provided
         widget.onVerificationSuccess?.call();
       } else {
         setState(() {
-          _errorMessage = data['error'] as String? ?? context.l10n.invalidVerificationCode;
+          _errorMessage =
+              data['error'] as String? ?? context.l10n.invalidVerificationCode;
           _isLoading = false;
         });
       }
     } catch (e) {
       debugPrint('Error verifying WhatsApp code: $e');
       if (!mounted) return;
-      
+
       setState(() {
         _errorMessage = context.l10n.failedToVerifyCodePleaseTryAgain;
         _isLoading = false;
@@ -116,7 +120,9 @@ class _WhatsAppVerificationModalState extends State<WhatsAppVerificationModal> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                _isVerified ? context.l10n.whatsappVerified : context.l10n.whatsappVerification,
+                _isVerified
+                    ? context.l10n.whatsappVerified
+                    : context.l10n.whatsappVerification,
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
@@ -131,7 +137,7 @@ class _WhatsAppVerificationModalState extends State<WhatsAppVerificationModal> {
             ],
           ),
           const SizedBox(height: 8),
-          
+
           // Description or success message
           if (_isVerified)
             Container(
@@ -166,7 +172,7 @@ class _WhatsAppVerificationModalState extends State<WhatsAppVerificationModal> {
                 color: colorScheme.mutedForeground,
               ),
             ),
-          
+
           const SizedBox(height: 24),
 
           // OTP Input (show if not verified)
@@ -174,28 +180,25 @@ class _WhatsAppVerificationModalState extends State<WhatsAppVerificationModal> {
             Center(
               child: AbsorbPointer(
                 absorbing: _isLoading || widget.otpFromUrl != null,
-                child: shadcnui.InputOTP(
-                  initialValue: _code.codeUnits,
+                child: OtpInput(
+                  length: 6,
+                  initialValue: _code,
                   onChanged: (value) {
                     setState(() {
-                      // Convert code points back to string, filtering out nulls
-                      _code = String.fromCharCodes(value.where((c) => c != null).cast<int>());
+                      _code = value;
                       _errorMessage = null;
                     });
                   },
-                  children: [
-                    shadcnui.InputOTPChild.character(allowDigit: true),
-                    shadcnui.InputOTPChild.character(allowDigit: true),
-                    shadcnui.InputOTPChild.character(allowDigit: true),
-                    shadcnui.InputOTPChild.character(allowDigit: true),
-                    shadcnui.InputOTPChild.character(allowDigit: true),
-                    shadcnui.InputOTPChild.character(allowDigit: true),
-                  ],
+                  onCompleted: (value) {
+                    if (value.length == 6) {
+                      _verifyCode();
+                    }
+                  },
                 ),
               ),
             ),
             const SizedBox(height: 12),
-            
+
             // Helper text or error
             if (_errorMessage != null)
               Container(
@@ -206,7 +209,8 @@ class _WhatsAppVerificationModalState extends State<WhatsAppVerificationModal> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.error_outline, color: Colors.red, size: 20),
+                    const Icon(Icons.error_outline,
+                        color: Colors.red, size: 20),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -241,17 +245,17 @@ class _WhatsAppVerificationModalState extends State<WhatsAppVerificationModal> {
                   ),
                 ),
               ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Verify button
             if (!_isLoading)
-              shadcnui.PrimaryButton(
+              PrimaryAdaptiveButton(
                 onPressed: _code.length == 6 ? _verifyCode : null,
                 child: Text(context.l10n.verify),
               )
             else
-              shadcnui.PrimaryButton(
+              PrimaryAdaptiveButton(
                 onPressed: null,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -274,7 +278,7 @@ class _WhatsAppVerificationModalState extends State<WhatsAppVerificationModal> {
           // Close button for success state
           if (_isVerified) ...[
             const SizedBox(height: 24),
-            shadcnui.PrimaryButton(
+            PrimaryAdaptiveButton(
               onPressed: () {
                 Navigator.of(context).pop();
               },

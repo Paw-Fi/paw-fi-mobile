@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/shared/widgets/outlined-adaptive-button.dart';
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../../core/l10n/l10n.dart';
@@ -9,7 +11,6 @@ import '../providers/household_providers.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
 /// Bottom sheet for settling up balances
 class SettleUpSheet extends ConsumerStatefulWidget {
@@ -355,14 +356,14 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
           Row(
             children: [
               Expanded(
-                child: shadcnui.SecondaryButton(
+                child: OutlinedAdaptiveButton(
                   onPressed: _isProcessing ? null : () => Navigator.pop(context),
                   child: Text(context.l10n.cancel),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: shadcnui.PrimaryButton(
+                child: PrimaryAdaptiveButton(
                   onPressed: _isProcessing ? null : _confirmAndSettle,
                   child: Text(context.l10n.settle),
                 ),

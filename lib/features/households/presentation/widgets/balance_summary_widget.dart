@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/shared/widgets/outlined-adaptive-button.dart';
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 import '../../../../../core/l10n/l10n.dart';
 
 /// Widget to display balance summary ("You owe X" / "You are owed Y")
@@ -113,7 +114,7 @@ class BalanceSummaryWidget extends ConsumerWidget {
             Row(
               children: [
                 Expanded(
-                  child: shadcnui.OutlineButton(
+                  child: OutlinedAdaptiveButton(
                     onPressed: () {
                       // View detailed breakdown
                     },
@@ -122,7 +123,7 @@ class BalanceSummaryWidget extends ConsumerWidget {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: shadcnui.PrimaryButton(
+                  child: PrimaryAdaptiveButton(
                     onPressed: () {
                       // Settle up flow
                     },

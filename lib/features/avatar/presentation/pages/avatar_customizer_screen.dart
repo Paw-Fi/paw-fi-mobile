@@ -9,11 +9,12 @@ import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/shared/widgets/outlined-adaptive-button.dart';
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:ios_color_picker/show_ios_color_picker.dart';
 import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/core/theme/app_theme.dart';
 
 class AvatarCustomizerScreen extends ConsumerStatefulWidget {
@@ -432,263 +433,261 @@ class _AvatarCustomizerScreenState
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return shadcnui.DrawerOverlay(
-      child: Scaffold(
+    return Scaffold(
+      backgroundColor: scheme.background,
+      appBar: AppBar(
         backgroundColor: scheme.background,
-        appBar: AppBar(
-          backgroundColor: scheme.background,
-          elevation: 0,
-          centerTitle: true,
-          leading: IconButton(
-            icon: Icon(Icons.arrow_back, color: scheme.foreground),
-            onPressed: () {
-              if (context.canPop()) {
-                context.pop();
-              } else {
-                context.go('/dashboard');
-              }
-            },
-          ),
-          title: Text(context.l10n.avatarStudio,
-              style: TextStyle(
-                  color: scheme.foreground, fontWeight: FontWeight.w600)),
+        elevation: 0,
+        centerTitle: true,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: scheme.foreground),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/dashboard');
+            }
+          },
         ),
-        body: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Preview Card
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: scheme.card,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(context.l10n.preview,
-                          style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: scheme.mutedForeground)),
-                      const SizedBox(height: 8),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Avatar preview square
-                          Expanded(
-                            flex: 2,
-                            child: AspectRatio(
-                              aspectRatio: 1,
-                              child: RepaintBoundary(
-                                key: _previewKey,
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: _hexToColor(_colors['background']!),
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: Stack(
-                                    children: _categories.map((c) {
-                                      final asset = _selected[c]!;
-                                      final path = _assetPath(c, asset);
-                                      ColorFilter? filter;
-                                      if (c == 'hair') {
-                                        filter = ColorFilter.mode(
-                                            _hexToColor(_colors['hair']!),
-                                            BlendMode.srcIn);
-                                      } else if (c == 'eyes') {
-                                        filter = ColorFilter.mode(
-                                            _hexToColor(_colors['eyes']!),
-                                            BlendMode.srcIn);
-                                      } else if (c == 'mouth') {
-                                        filter = ColorFilter.mode(
-                                            _hexToColor(_colors['mouth']!),
-                                            BlendMode.srcIn);
-                                      }
-                                      double scale;
-                                      if (c == 'accessories' || c == 'stars') {
-                                        scale = 0.75;
-                                      } else if (c == 'hair') {
-                                        scale = 0.9;
-                                      } else if (c == 'shirts') {
-                                        scale = 0.85;
-                                      } else {
-                                        scale = 0.8;
-                                      }
-                                      return Positioned.fill(
-                                        child: Center(
-                                          child: FractionallySizedBox(
-                                            widthFactor: scale,
-                                            heightFactor: scale,
-                                            alignment: Alignment.center,
-                                            child: SvgPicture.asset(
-                                              path,
-                                              fit: BoxFit.contain,
-                                              colorFilter: filter,
-                                              allowDrawingOutsideViewBox: true,
-                                            ),
+        title: Text(context.l10n.avatarStudio,
+            style: TextStyle(
+                color: scheme.foreground, fontWeight: FontWeight.w600)),
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Preview Card
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: scheme.card,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(context.l10n.preview,
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: scheme.mutedForeground)),
+                    const SizedBox(height: 8),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Avatar preview square
+                        Expanded(
+                          flex: 2,
+                          child: AspectRatio(
+                            aspectRatio: 1,
+                            child: RepaintBoundary(
+                              key: _previewKey,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: _hexToColor(_colors['background']!),
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Stack(
+                                  children: _categories.map((c) {
+                                    final asset = _selected[c]!;
+                                    final path = _assetPath(c, asset);
+                                    ColorFilter? filter;
+                                    if (c == 'hair') {
+                                      filter = ColorFilter.mode(
+                                          _hexToColor(_colors['hair']!),
+                                          BlendMode.srcIn);
+                                    } else if (c == 'eyes') {
+                                      filter = ColorFilter.mode(
+                                          _hexToColor(_colors['eyes']!),
+                                          BlendMode.srcIn);
+                                    } else if (c == 'mouth') {
+                                      filter = ColorFilter.mode(
+                                          _hexToColor(_colors['mouth']!),
+                                          BlendMode.srcIn);
+                                    }
+                                    double scale;
+                                    if (c == 'accessories' || c == 'stars') {
+                                      scale = 0.75;
+                                    } else if (c == 'hair') {
+                                      scale = 0.9;
+                                    } else if (c == 'shirts') {
+                                      scale = 0.85;
+                                    } else {
+                                      scale = 0.8;
+                                    }
+                                    return Positioned.fill(
+                                      child: Center(
+                                        child: FractionallySizedBox(
+                                          widthFactor: scale,
+                                          heightFactor: scale,
+                                          alignment: Alignment.center,
+                                          child: SvgPicture.asset(
+                                            path,
+                                            fit: BoxFit.contain,
+                                            colorFilter: filter,
+                                            allowDrawingOutsideViewBox: true,
                                           ),
                                         ),
-                                      );
-                                    }).toList(),
-                                  ),
+                                      ),
+                                    );
+                                  }).toList(),
                                 ),
                               ),
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          // Colors on the right
-                          Expanded(
-                            flex: 1,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(context.l10n.colors,
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        color: scheme.mutedForeground)),
-                                const SizedBox(height: 8),
-                                Wrap(
-                                  spacing: 10,
-                                  runSpacing: 10,
-                                  children: [
-                                    _colorControl(
-                                        context, context.l10n.hair, 'hair'),
-                                    _colorControl(
-                                        context, context.l10n.eyes, 'eyes'),
-                                    _colorControl(
-                                        context, context.l10n.mouth, 'mouth'),
-                                    _colorControl(context,
-                                        context.l10n.background, 'background'),
-                                  ],
-                                ),
-                              ],
-                            ),
+                        ),
+                        const SizedBox(width: 12),
+                        // Colors on the right
+                        Expanded(
+                          flex: 1,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(context.l10n.colors,
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: scheme.mutedForeground)),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 10,
+                                runSpacing: 10,
+                                children: [
+                                  _colorControl(
+                                      context, context.l10n.hair, 'hair'),
+                                  _colorControl(
+                                      context, context.l10n.eyes, 'eyes'),
+                                  _colorControl(
+                                      context, context.l10n.mouth, 'mouth'),
+                                  _colorControl(context,
+                                      context.l10n.background, 'background'),
+                                ],
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // Category chips
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: _categories.map((c) {
-                      final active = _activeCategory == c;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8.0),
-                        child: ChoiceChip(
-                          selected: active,
-                          label: Text(_getLocalizedCategory(c)),
-                          onSelected: (_) =>
-                              setState(() => _activeCategory = c),
                         ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
-                // Asset grid
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: scheme.card,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final width = constraints.maxWidth;
-                      final crossAxisCount = width > 380 ? 4 : 3;
-                      final items = _assetsFor(_activeCategory);
-                      return GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: crossAxisCount,
-                          mainAxisSpacing: 10,
-                          crossAxisSpacing: 10,
-                          childAspectRatio: 1,
-                        ),
-                        itemCount: items.length,
-                        itemBuilder: (context, i) {
-                          final asset = items[i];
-                          final selected = _selected[_activeCategory] == asset;
-                          final path = _assetPath(_activeCategory, asset);
-                          return GestureDetector(
-                            onTap: () => setState(
-                                () => _selected[_activeCategory] = asset),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: selected
-                                    ? scheme.primary.withValues(alpha: 0.08)
-                                    : scheme.muted.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                    color: selected
-                                        ? scheme.primary
-                                        : scheme.border),
-                              ),
-                              padding: const EdgeInsets.all(8),
-                              child: SvgPicture.asset(
-                                path,
-                                fit: BoxFit.contain,
-                                allowDrawingOutsideViewBox: true,
-                              ),
-                            ),
-                          );
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        bottomNavigationBar: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: shadcnui.OutlineButton(
-                        onPressed: _isUploading ? null : _randomize,
-                        child: Text(context.l10n.randomize),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: shadcnui.PrimaryButton(
-                        onPressed: _isUploading ? null : _saveAvatar,
-                        child: Text(_isUploading
-                            ? '${context.l10n.saving} $_uploadProgress%'
-                            : context.l10n.saveAvatar),
-                      ),
+                      ],
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
-                if (!_hasAvatar)
-                  SizedBox(
-                    width: double.infinity,
-                    child: shadcnui.OutlineButton(
-                      onPressed: _isUploading ? null : _skipForNow,
-                      child: Text(context.l10n.skipForNow),
+              ),
+    
+              const SizedBox(height: 16),
+    
+              // Category chips
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: _categories.map((c) {
+                    final active = _activeCategory == c;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8.0),
+                      child: ChoiceChip(
+                        selected: active,
+                        label: Text(_getLocalizedCategory(c)),
+                        onSelected: (_) =>
+                            setState(() => _activeCategory = c),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+    
+              const SizedBox(height: 12),
+    
+              // Asset grid
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: scheme.card,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final width = constraints.maxWidth;
+                    final crossAxisCount = width > 380 ? 4 : 3;
+                    final items = _assetsFor(_activeCategory);
+                    return GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: crossAxisCount,
+                        mainAxisSpacing: 10,
+                        crossAxisSpacing: 10,
+                        childAspectRatio: 1,
+                      ),
+                      itemCount: items.length,
+                      itemBuilder: (context, i) {
+                        final asset = items[i];
+                        final selected = _selected[_activeCategory] == asset;
+                        final path = _assetPath(_activeCategory, asset);
+                        return GestureDetector(
+                          onTap: () => setState(
+                              () => _selected[_activeCategory] = asset),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: selected
+                                  ? scheme.primary.withValues(alpha: 0.08)
+                                  : scheme.muted.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                  color: selected
+                                      ? scheme.primary
+                                      : scheme.border),
+                            ),
+                            padding: const EdgeInsets.all(8),
+                            child: SvgPicture.asset(
+                              path,
+                              fit: BoxFit.contain,
+                              allowDrawingOutsideViewBox: true,
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedAdaptiveButton(
+                      onPressed: _isUploading ? null : _randomize,
+                      child: Text(context.l10n.randomize),
                     ),
                   ),
-              ],
-            ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: PrimaryAdaptiveButton(
+                      onPressed: _isUploading ? null : _saveAvatar,
+                      child: Text(_isUploading
+                          ? '${context.l10n.saving} $_uploadProgress%'
+                          : context.l10n.saveAvatar),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              if (!_hasAvatar)
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedAdaptiveButton(
+                    onPressed: _isUploading ? null : _skipForNow,
+                    child: Text(context.l10n.skipForNow),
+                  ),
+                ),
+            ],
           ),
         ),
       ),

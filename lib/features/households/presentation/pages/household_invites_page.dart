@@ -3,11 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/shared/widgets/destructive-adaptive-button.dart';
+import 'package:moneko/shared/widgets/outlined-adaptive-button.dart';
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 import '../../domain/entities/household.dart';
 import '../providers/household_providers.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 
 /// Household Invites Management Page
 /// Create, view, copy, and revoke invitations
@@ -76,7 +78,7 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
                 padding: const EdgeInsets.all(16),
                 children: [
                   // Create Invite Button
-                  shadcnui.PrimaryButton(
+                  PrimaryAdaptiveButton(
                     onPressed: () => _showCreateInviteDialog(context),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -378,7 +380,7 @@ class _InviteCard extends StatelessWidget {
                 children: [
                   if (onCopy != null)
                     Expanded(
-                      child: shadcnui.OutlineButton(
+                      child: OutlinedAdaptiveButton(
                         onPressed: onCopy,
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -393,7 +395,7 @@ class _InviteCard extends StatelessWidget {
                   if (onCopy != null && onRevoke != null) const SizedBox(width: 8),
                   if (onRevoke != null)
                     Expanded(
-                      child: shadcnui.DestructiveButton(
+                      child: DestructiveAdaptiveButton(
                         onPressed: onRevoke,
                         child: Row(
                           mainAxisSize: MainAxisSize.min,

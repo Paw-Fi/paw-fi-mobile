@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 
 import 'package:url_launcher/url_launcher.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -8,8 +9,6 @@ import 'package:moneko/core/core.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import '../providers/subscription_provider.dart';
 import '../providers/referral_code_provider.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
-import 'package:moneko/core/theme/app_theme.dart';
 
 class PaywallScreen extends ConsumerWidget {
   const PaywallScreen({super.key});
@@ -23,14 +22,18 @@ class PaywallScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: colorScheme.appBackground,
       body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: () => _handleRefresh(ref, context),
-          color: colorScheme.primary,
-          backgroundColor: colorScheme.card,
-          child: hasReferralCodeAsync.when(
-            data: (hasReferralCode) => _buildContent(context, ref, colorScheme, hasReferralCode, user),
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, stack) => _buildContent(context, ref, colorScheme, false, user),
+        child: Material(
+          child: RefreshIndicator(
+            onRefresh: () => _handleRefresh(ref, context),
+            color: colorScheme.primary,
+            backgroundColor: colorScheme.card,
+            child: hasReferralCodeAsync.when(
+              data: (hasReferralCode) => _buildContent(
+                  context, ref, colorScheme, hasReferralCode, user),
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stack) =>
+                  _buildContent(context, ref, colorScheme, false, user),
+            ),
           ),
         ),
       ),
@@ -65,9 +68,9 @@ class PaywallScreen extends ConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const shadcnui.CircularProgressIndicator(),
+                const CircularProgressIndicator(),
                 const SizedBox(height: 24),
-                shadcnui.Text(
+                Text(
                   'Opening Referral Page...',
                   style: TextStyle(
                     fontSize: 16,
@@ -77,7 +80,7 @@ class PaywallScreen extends ConsumerWidget {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
-                shadcnui.Text(
+                Text(
                   'Please wait',
                   style: TextStyle(
                     fontSize: 14,
@@ -125,7 +128,8 @@ class PaywallScreen extends ConsumerWidget {
     }
   }
 
-  static Future<void> _claimTrialAccess(BuildContext context, WidgetRef ref) async {
+  static Future<void> _claimTrialAccess(
+      BuildContext context, WidgetRef ref) async {
     final user = ref.read(authProvider);
 
     if (user.isEmpty) {
@@ -159,9 +163,9 @@ class PaywallScreen extends ConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const shadcnui.CircularProgressIndicator(),
+                const CircularProgressIndicator(),
                 const SizedBox(height: 24),
-                shadcnui.Text(
+                Text(
                   'Starting your trial...',
                   style: TextStyle(
                     fontSize: 16,
@@ -171,7 +175,7 @@ class PaywallScreen extends ConsumerWidget {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
-                shadcnui.Text(
+                Text(
                   'Please wait',
                   style: TextStyle(
                     fontSize: 14,
@@ -198,8 +202,10 @@ class PaywallScreen extends ConsumerWidget {
         body: {
           'plan': 'plus',
           'billingInterval': 'monthly',
-          'successUrl': 'https://moneko.io/checkout/success?status=success&flow=trial&session_id={CHECKOUT_SESSION_ID}',
-          'cancelUrl': 'https://moneko.io/checkout/cancel?status=canceled&flow=trial',
+          'successUrl':
+              'https://moneko.io/checkout/success?status=success&flow=trial&session_id={CHECKOUT_SESSION_ID}',
+          'cancelUrl':
+              'https://moneko.io/checkout/cancel?status=canceled&flow=trial',
         },
       );
 
@@ -237,7 +243,8 @@ class PaywallScreen extends ConsumerWidget {
     }
   }
 
-  static Future<void> _handleRefresh(WidgetRef ref, BuildContext context) async {
+  static Future<void> _handleRefresh(
+      WidgetRef ref, BuildContext context) async {
     await ref.read(subscriptionNotifierProvider.notifier).refresh();
     await ref.read(referralCodeCheckerProvider.notifier).refresh();
 
@@ -250,13 +257,17 @@ class PaywallScreen extends ConsumerWidget {
   static Widget _buildContent(
     BuildContext context,
     WidgetRef ref,
-    dynamic colorScheme,
+    ColorScheme colorScheme,
     bool hasReferralCode,
     AppUser user,
   ) {
     // Extract user name from email or use full name if available
-    final userName = user.email.split('@').first.isNotEmpty ? user.email.split('@').first : 'User';
-    final displayName = (user.displayName?.isNotEmpty ?? false) ? user.displayName?.split(' ').first ?? userName : userName;
+    final userName = user.email.split('@').first.isNotEmpty
+        ? user.email.split('@').first
+        : 'User';
+    final displayName = (user.displayName?.isNotEmpty ?? false)
+        ? user.displayName?.split(' ').first ?? userName
+        : userName;
 
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -265,7 +276,6 @@ class PaywallScreen extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           const SizedBox(height: 16),
-
           // Beta Icon
           Container(
             width: 100,
@@ -290,7 +300,9 @@ class PaywallScreen extends ConsumerWidget {
 
           // Title
           Text(
-            hasReferralCode ? 'Welcome, $displayName!' : 'Welcome, $displayName!',
+            hasReferralCode
+                ? 'Welcome, $displayName!'
+                : 'Welcome, $displayName!',
             style: TextStyle(
               fontSize: 32,
               fontWeight: FontWeight.bold,
@@ -298,7 +310,7 @@ class PaywallScreen extends ConsumerWidget {
             ),
             textAlign: TextAlign.center,
           ),
-   
+
           const SizedBox(height: 16),
 
           // Description
@@ -369,13 +381,17 @@ class PaywallScreen extends ConsumerWidget {
           SizedBox(
             width: double.infinity,
             height: 56,
-            child: shadcnui.PrimaryButton(
-              onPressed: () => hasReferralCode ? _claimTrialAccess(context, ref) : _launchReferralPage(context),
+            child: PrimaryAdaptiveButton(
+              onPressed: () => hasReferralCode
+                  ? _claimTrialAccess(context, ref)
+                  : _launchReferralPage(context),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    hasReferralCode ? 'Claim 1 Month Free Access' : 'Join Referral Program',
+                    hasReferralCode
+                        ? 'Claim 1 Month Free Access'
+                        : 'Join Referral Program',
                     style: TextStyle(
                       fontSize: 18,
                       color: colorScheme.primaryForeground,
@@ -383,7 +399,8 @@ class PaywallScreen extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Icon(Icons.arrow_forward, size: 20, color: colorScheme.primaryForeground),
+                  Icon(Icons.arrow_forward,
+                      size: 20, color: colorScheme.primaryForeground),
                 ],
               ),
             ),
@@ -422,9 +439,7 @@ class PaywallScreen extends ConsumerWidget {
             ),
           ),
 
-  
-
-                  const SizedBox(height: 15),
+          const SizedBox(height: 15),
 
           // Not your account link
           GestureDetector(
@@ -439,7 +454,6 @@ class PaywallScreen extends ConsumerWidget {
               textAlign: TextAlign.center,
             ),
           ),
-
         ],
       ),
     );

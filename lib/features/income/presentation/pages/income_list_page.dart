@@ -9,7 +9,7 @@ import 'package:moneko/features/income/presentation/constants/income_categories.
 import 'package:moneko/features/income/presentation/widgets/income_entry_sheet.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 
 
 import 'package:moneko/core/ui/notifications/app_toast.dart';
@@ -104,7 +104,7 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
-              shadcnui.PrimaryButton(
+              PrimaryAdaptiveButton(
                 onPressed: _refresh,
                 child: Text(context.l10n.retry),
               ),
@@ -147,7 +147,7 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
             ),
           ),
           const SizedBox(height: 24),
-          shadcnui.PrimaryButton(
+          PrimaryAdaptiveButton(
             onPressed: () => showIncomeEntrySheet(context),
             child: Text(context.l10n.addIncome),
           ),
@@ -338,7 +338,7 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
                   const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
-                    child: shadcnui.PrimaryButton(
+                    child: PrimaryAdaptiveButton(
                       onPressed: () => _acknowledgeIncome(income),
                       child: Text(context.l10n.acknowledge),
                     ),

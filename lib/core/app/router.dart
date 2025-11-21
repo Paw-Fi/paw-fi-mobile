@@ -153,7 +153,6 @@ GoRouter router(RouterRef ref) {
       ),
     ],
     redirect: (context, state) {
-      return "/paywall";
       try {
       // Handle invitation universal links - redirect to home page
       // The invitation modal is shown by deep_link_service.dart on top of the home page
