@@ -16,7 +16,7 @@ class DestructiveAdaptiveButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    
+
     // Return different widgets based on platform
     if (PlatformInfo.isIOS) {
       if (PlatformInfo.isIOS26OrHigher()) {
@@ -25,7 +25,10 @@ class DestructiveAdaptiveButton extends StatelessWidget {
           onPressed: onPressed,
           color: scheme.destructive,
           style: AdaptiveButtonStyle.filled,
-          child: child,
+          child: DefaultTextStyle.merge(
+            style: const TextStyle(color: Colors.white),
+            child: child,
+          ),
         );
       } else {
         // iOS <26 - Use Cupertino button with explicit red styling

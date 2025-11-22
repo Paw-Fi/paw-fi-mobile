@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
-
+import 'package:moneko/shared/widgets/plain-adaptive-button.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/core/core.dart';
@@ -21,84 +21,54 @@ class PaywallScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: colorScheme.appBackground,
-      body: SafeArea(
-        child: Material(
-          child: RefreshIndicator(
-            onRefresh: () => _handleRefresh(ref, context),
-            color: colorScheme.primary,
-            backgroundColor: colorScheme.card,
-            child: hasReferralCodeAsync.when(
-              data: (hasReferralCode) => _buildContent(
-                  context, ref, colorScheme, hasReferralCode, user),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, stack) =>
-                  _buildContent(context, ref, colorScheme, false, user),
-            ),
-          ),
+      body: hasReferralCodeAsync.when(
+        data: (hasReferralCode) => _PaywallContent(
+          hasReferralCode: hasReferralCode,
+          user: user,
+        ),
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, stack) => _PaywallContent(
+          hasReferralCode: false,
+          user: user,
         ),
       ),
     );
   }
+}
 
-  static Future<void> _launchReferralPage(BuildContext context) async {
+class _PaywallContent extends ConsumerStatefulWidget {
+  final bool hasReferralCode;
+  final AppUser user;
+
+  const _PaywallContent({
+    required this.hasReferralCode,
+    required this.user,
+  });
+
+  @override
+  ConsumerState<_PaywallContent> createState() => _PaywallContentState();
+}
+
+class _PaywallContentState extends ConsumerState<_PaywallContent> {
+  bool _isLoading = false;
+
+  Future<void> _handleRefresh() async {
+    await ref.read(subscriptionNotifierProvider.notifier).refresh();
+    await ref.read(referralCodeCheckerProvider.notifier).refresh();
+
+    if (!mounted) return;
+
+    final hasSubscription = ref.read(hasActiveSubscriptionProvider);
+    if (hasSubscription) {
+      context.go('/dashboard');
+    }
+  }
+
+  Future<void> _launchReferralPage() async {
     const referralUrl = 'https://moneko.io/referral';
-
-    // Show loading modal
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      barrierColor: Colors.black.withValues(alpha: 0.5),
-      builder: (context) => PopScope(
-        canPop: false,
-        child: Center(
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 32),
-            padding: const EdgeInsets.all(32),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.appBackground,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.2),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const CircularProgressIndicator(),
-                const SizedBox(height: 24),
-                Text(
-                  'Opening Referral Page...',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Please wait',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Theme.of(context).colorScheme.mutedForeground,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
+    setState(() => _isLoading = true);
 
     try {
-      final navigator = Navigator.of(context);
-      navigator.pop();
-
       if (!await launchUrl(
         Uri.parse(referralUrl),
         mode: LaunchMode.externalApplication,
@@ -106,97 +76,34 @@ class PaywallScreen extends ConsumerWidget {
         throw Exception('Could not open referral link');
       }
     } catch (e) {
-      if (context.mounted) {
-        Navigator.of(context).pop();
+      if (mounted) {
+        AppToast.error(context, 'Failed to open referral page');
       }
-      AppToast.error(context, 'Failed to open referral page: ${e.toString()}');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  static Future<void> _launchDiscord(BuildContext context) async {
+  Future<void> _launchDiscord() async {
     const discordUrl = 'https://discord.gg/M2Dgujvtze';
-
     try {
-      if (!await launchUrl(
-        Uri.parse(discordUrl),
-        mode: LaunchMode.externalApplication,
-      )) {
-        throw Exception('Could not open Discord link');
-      }
-    } catch (e) {
-      AppToast.error(context, 'Failed to open Discord: ${e.toString()}');
-    }
+      await launchUrl(Uri.parse(discordUrl),
+          mode: LaunchMode.externalApplication);
+    } catch (_) {}
   }
 
-  static Future<void> _claimTrialAccess(
-      BuildContext context, WidgetRef ref) async {
-    final user = ref.read(authProvider);
-
-    if (user.isEmpty) {
-      // Use global AppToast so it appears above any modal sheet
+  Future<void> _claimTrialAccess() async {
+    if (widget.user.isEmpty) {
       AppToast.info(context, 'Please log in to continue');
       return;
     }
 
-    // Show loading modal
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      barrierColor: Colors.black.withValues(alpha: 0.5),
-      builder: (context) => PopScope(
-        canPop: false,
-        child: Center(
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 32),
-            padding: const EdgeInsets.all(32),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.appBackground,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.2),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const CircularProgressIndicator(),
-                const SizedBox(height: 24),
-                Text(
-                  'Starting your trial...',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Please wait',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Theme.of(context).colorScheme.mutedForeground,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
+    setState(() => _isLoading = true);
 
     try {
       final session = supabase.auth.currentSession;
-      if (session == null) {
-        throw Exception('No active session');
-      }
+      if (session == null) throw Exception('No active session');
 
-      final navigator = Navigator.of(context);
       final response = await supabase.functions.invoke(
         'create-checkout-session',
         body: {
@@ -209,253 +116,252 @@ class PaywallScreen extends ConsumerWidget {
         },
       );
 
-      navigator.pop();
-
       if (response.data != null && response.data['checkoutUrl'] != null) {
         final checkoutUrl = response.data['checkoutUrl'] as String;
-        if (!await launchUrl(
-          Uri.parse(checkoutUrl),
-          mode: LaunchMode.externalApplication,
-        )) {
-          throw Exception('Could not open checkout page');
-        }
+        await launchUrl(Uri.parse(checkoutUrl),
+            mode: LaunchMode.externalApplication);
       } else {
         throw Exception('No checkout URL received');
       }
     } catch (e) {
-      if (context.mounted) {
-        Navigator.of(context).pop();
+      if (mounted) {
+        AppToast.error(context, 'Failed to start trial: ${e.toString()}');
       }
-      AppToast.error(context, 'Failed to start trial: ${e.toString()}');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  static Future<void> _handleLogout(BuildContext context, WidgetRef ref) async {
+  Future<void> _handleLogout() async {
     try {
       await ref.read(authProvider.notifier).signOut();
-      if (context.mounted) {
-        context.go('/login');
-      }
+      if (mounted) context.go('/login');
     } catch (e) {
-      if (context.mounted) {
-        AppToast.error(context, 'Failed to logout: ${e.toString()}');
-      }
+      if (mounted) AppToast.error(context, 'Failed to logout');
     }
   }
 
-  static Future<void> _handleRefresh(
-      WidgetRef ref, BuildContext context) async {
-    await ref.read(subscriptionNotifierProvider.notifier).refresh();
-    await ref.read(referralCodeCheckerProvider.notifier).refresh();
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
-    final hasSubscription = ref.read(hasActiveSubscriptionProvider);
-    if (hasSubscription && context.mounted) {
-      context.go('/dashboard');
-    }
-  }
-
-  static Widget _buildContent(
-    BuildContext context,
-    WidgetRef ref,
-    ColorScheme colorScheme,
-    bool hasReferralCode,
-    AppUser user,
-  ) {
-    // Extract user name from email or use full name if available
-    final userName = user.email.split('@').first.isNotEmpty
-        ? user.email.split('@').first
-        : 'User';
-    final displayName = (user.displayName?.isNotEmpty ?? false)
-        ? user.displayName?.split(' ').first ?? userName
+    // Extract name logic
+    final userName = widget.user.email.split('@').first;
+    final displayName = (widget.user.displayName?.isNotEmpty ?? false)
+        ? widget.user.displayName?.split(' ').first ?? userName
         : userName;
 
-    return SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          const SizedBox(height: 16),
-          // Beta Icon
-          Container(
-            width: 100,
-            height: 100,
-            decoration: BoxDecoration(
-              color: colorScheme.primary.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: ClipOval(
-                child: Image.asset(
-                  'lib/assets/mascots/moneko.png',
-                  width: 80,
-                  height: 80,
-                  fit: BoxFit.cover,
-                ),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Title
-          Text(
-            hasReferralCode
-                ? 'Welcome, $displayName!'
-                : 'Welcome, $displayName!',
-            style: TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-              color: colorScheme.onSurface,
-            ),
-            textAlign: TextAlign.center,
-          ),
-
-          const SizedBox(height: 16),
-
-          // Description
-          Text(
-            hasReferralCode
-                ? 'Get 1 month free access while you wait for friends to join!'
-                : 'Join our referral program and invite friends to unlock lifetime access!',
-            style: TextStyle(
-              fontSize: 16,
-              color: colorScheme.mutedForeground,
-              height: 1.5,
-            ),
-            textAlign: TextAlign.center,
-          ),
-
-          const SizedBox(height: 24),
-
-          // Highlight Box
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: colorScheme.card,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: colorScheme.primary,
-                width: 2,
-              ),
-            ),
-            child: Column(
-              children: [
-                Text.rich(
-                  TextSpan(
-                    children: [
-                      TextSpan(
-                        text: hasReferralCode
-                            ? 'Test the app with 1 month free access - no credit card required!'
-                            : 'Invite friends and when they join, both of you get lifetime access!',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.onSurface,
-                          height: 1.5,
+    return RefreshIndicator(
+      onRefresh: _handleRefresh,
+      color: colorScheme.primary,
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+              child: SafeArea(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const SizedBox(height: 40),
+                    // Hero Image with Glow
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Container(
+                          width: 160,
+                          height: 160,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color:
+                                    colorScheme.primary.withValues(alpha: 0.2),
+                                blurRadius: 60,
+                                spreadRadius: 20,
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  hasReferralCode
-                      ? 'Once your friend accepts your invite, you\'ll both automatically upgrade to lifetime access.'
-                      : 'Visit our referral page to get your unique referral link, share it with friends, and unlock exclusive lifetime features when they join.',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: colorScheme.mutedForeground,
-                    height: 1.5,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 32),
-
-          // CTA Button
-          SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: PrimaryAdaptiveButton(
-              onPressed: () => hasReferralCode
-                  ? _claimTrialAccess(context, ref)
-                  : _launchReferralPage(context),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    hasReferralCode
-                        ? 'Claim 1 Month Free Access'
-                        : 'Join Referral Program',
-                    style: TextStyle(
-                      fontSize: 18,
-                      color: colorScheme.primaryForeground,
-                      fontWeight: FontWeight.bold,
+                        Image.asset(
+                          'lib/assets/mascots/moneko.png',
+                          width: 140,
+                          height: 140,
+                          fit: BoxFit.contain,
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Icon(Icons.arrow_forward,
-                      size: 20, color: colorScheme.primaryForeground),
-                ],
+                    const SizedBox(height: 40),
+
+                    // Title
+                    Text(
+                      widget.hasReferralCode
+                          ? 'Welcome, $displayName!'
+                          : 'Unlock Full Access',
+                      style: textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: colorScheme.onSurface,
+                        letterSpacing: -0.5,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Description
+                    Text(
+                      widget.hasReferralCode
+                          ? 'You\'ve been invited to try Moneko Premium. Enjoy exclusive features and insights.'
+                          : 'Join our referral program to unlock lifetime access and share the love with friends.',
+                      style: textTheme.bodyLarge?.copyWith(
+                        color: colorScheme.onSurface.withValues(alpha: 0.7),
+                        height: 1.5,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 48),
+
+                    // Feature Card
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: colorScheme.card,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: colorScheme.outline.withValues(alpha: 0.1),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 20,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          _buildFeatureRow(context,
+                              icon: Icons.star_rounded,
+                              text: widget.hasReferralCode
+                                  ? '1 Month Free Premium Access'
+                                  : 'Lifetime Access for You & Friends'),
+                          const SizedBox(height: 16),
+                          _buildFeatureRow(context,
+                              icon: Icons.check_circle_outline_rounded,
+                              text: widget.hasReferralCode
+                                  ? 'No credit card required'
+                                  : 'Unlimited referrals'),
+                          const SizedBox(height: 16),
+                          _buildFeatureRow(context,
+                              icon: Icons.flash_on_rounded,
+                              text: 'Instant upgrade'),
+                        ],
+                      ),
+                    ),
+
+                    const Spacer(),
+                    const SizedBox(height: 32),
+
+                    // Primary Action
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: PrimaryAdaptiveButton(
+                        onPressed: _isLoading
+                            ? null
+                            : (widget.hasReferralCode
+                                ? _claimTrialAccess
+                                : _launchReferralPage),
+                        child: _isLoading
+                            ? const SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2.5, color: Colors.white))
+                            : Text(
+                                widget.hasReferralCode
+                                    ? 'Claim Free Month'
+                                    : 'Join Referral Program',
+                                style: const TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Secondary Actions
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        PlainAdaptiveButton(
+                          onPressed: _launchDiscord,
+                          child: Text(
+                            'Support',
+                            style: TextStyle(
+                                color: colorScheme.primary,
+                                fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        Container(
+                          height: 4,
+                          width: 4,
+                          margin: const EdgeInsets.symmetric(horizontal: 8),
+                          decoration: BoxDecoration(
+                            color: colorScheme.outline.withValues(alpha: 0.5),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        PlainAdaptiveButton(
+                          onPressed: _handleLogout,
+                          child: Text(
+                            'Log out',
+                            style:
+                                TextStyle(color: colorScheme.mutedForeground),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                ),
               ),
-            ),
-          ),
-
-          const SizedBox(height: 10),
-
-          // Footer Text
-          Text(
-            hasReferralCode
-                ? 'No credit card • Limited time • Instant upgrade'
-                : 'Free to join • Limited spots • Exclusive perks',
-            style: TextStyle(
-              fontSize: 13,
-              color: colorScheme.mutedForeground.withValues(alpha: 0.9),
-              fontWeight: FontWeight.w500,
-            ),
-            textAlign: TextAlign.center,
-          ),
-
-          const SizedBox(height: 30),
-
-          // Discord Link
-          GestureDetector(
-            onTap: () => _launchDiscord(context),
-            child: Text(
-              'Join our Discord for instant support',
-              style: TextStyle(
-                fontSize: 14,
-                color: colorScheme.primary,
-                decoration: TextDecoration.underline,
-                decorationColor: colorScheme.primary,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-
-          const SizedBox(height: 15),
-
-          // Not your account link
-          GestureDetector(
-            onTap: () => _handleLogout(context, ref),
-            child: Text(
-              'Not ${user.email}?',
-              style: TextStyle(
-                fontSize: 13,
-                color: colorScheme.mutedForeground,
-                decoration: TextDecoration.underline,
-              ),
-              textAlign: TextAlign.center,
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildFeatureRow(BuildContext context,
+      {required IconData icon, required String text}) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: colorScheme.primary.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: colorScheme.primary, size: 22),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Text(
+            text,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onSurface,
+                  fontSize: 15,
+                ),
+          ),
+        ),
+      ],
     );
   }
 }

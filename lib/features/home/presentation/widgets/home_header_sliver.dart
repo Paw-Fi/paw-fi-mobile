@@ -45,10 +45,19 @@ class HomeHeaderLeading extends ConsumerWidget {
           Text(
             viewMode.mode == ViewMode.personal
                 ? (user.displayName?.isNotEmpty == true
-                        ? user.displayName!
-                        : user.email)
-                : (selectedHouseholdState.household?.name ??
-                    context.l10n.forUs),
+                    ? user.displayName!
+                    : user.email)
+                : householdsAsync.when(
+                    loading: () => context.l10n.forUs,
+                    error: (_, __) => context.l10n.forUs,
+                    data: (households) {
+                      if (households.isEmpty) return context.l10n.forUs;
+                      
+                      // Use selected household if available, otherwise first household
+                      final household = selectedHouseholdState.household ?? households.first;
+                      return household.name;
+                    },
+                  ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
@@ -141,8 +150,17 @@ class HomeHeaderSliver extends ConsumerWidget {
                       ? (user.displayName?.isNotEmpty == true
                           ? user.displayName!
                           : user.email)
-                      : (selectedHouseholdState.household?.name ??
-                          context.l10n.forUs),
+                      : householdsAsync.when(
+                          loading: () => context.l10n.forUs,
+                          error: (_, __) => context.l10n.forUs,
+                          data: (households) {
+                            if (households.isEmpty) return context.l10n.forUs;
+                            
+                            // Use selected household if available, otherwise first household
+                            final household = selectedHouseholdState.household ?? households.first;
+                            return household.name;
+                          },
+                        ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(

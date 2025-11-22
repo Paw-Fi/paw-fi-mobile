@@ -19,7 +19,8 @@ class CashflowSparklineCard extends ConsumerWidget {
     appLog('widget_viewed: cashflow_sparkline');
 
     if (series.isEmpty) {
-      return _wrapCard(colorScheme, Center(child: Text(context.l10n.noCashflowYet)));
+      return _wrapCard(context, colorScheme,
+          Center(child: Text(context.l10n.noCashflowYet)));
     }
 
     // Build cumulative net cashflow
@@ -32,6 +33,7 @@ class CashflowSparklineCard extends ConsumerWidget {
     }
 
     return _wrapCard(
+      context,
       colorScheme,
       SizedBox(
         height: 96,
@@ -39,18 +41,25 @@ class CashflowSparklineCard extends ConsumerWidget {
           LineChartData(
             gridData: const FlGridData(show: false),
             titlesData: FlTitlesData(
-              leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              leftTitles:
+                  const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              rightTitles:
+                  const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              topTitles:
+                  const AxisTitles(sideTitles: SideTitles(showTitles: false)),
               bottomTitles: AxisTitles(
                 sideTitles: SideTitles(
                   showTitles: true,
                   interval: (spots.length / 4).clamp(1, 7).toDouble(),
                   getTitlesWidget: (v, meta) {
                     final idx = v.toInt();
-                    if (idx < 0 || idx >= dates.length) return const SizedBox.shrink();
+                    if (idx < 0 || idx >= dates.length) {
+                      return const SizedBox.shrink();
+                    }
                     final d = dates[idx];
-                    return Text('${d.month}/${d.day}', style: TextStyle(fontSize: 10, color: colorScheme.mutedForeground));
+                    return Text('${d.month}/${d.day}',
+                        style: TextStyle(
+                            fontSize: 10, color: colorScheme.mutedForeground));
                   },
                 ),
               ),
@@ -85,24 +94,52 @@ class CashflowSparklineCard extends ConsumerWidget {
     );
   }
 
-  Widget _wrapCard(ColorScheme colorScheme, Widget child, {String? title, String? subtitle}) {
+  Widget _wrapCard(BuildContext context, ColorScheme colorScheme, Widget child,
+      {String? title, String? subtitle}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       decoration: BoxDecoration(
-        color: colorScheme.card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colorScheme.border, width: 1),
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: colorScheme.outline.withValues(alpha: 0.05),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
+            blurRadius: 32,
+            offset: const Offset(0, 8),
+            spreadRadius: -4,
+          ),
+        ],
       ),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (title != null) ...[
-            Text(title, style: TextStyle(fontSize: 13, color: colorScheme.mutedForeground)),
+            Text(
+              title.toUpperCase(),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1.0,
+                color: colorScheme.mutedForeground,
+              ),
+            ),
             if (subtitle != null) ...[
-              const SizedBox(height: 2),
-              Text(subtitle, style: TextStyle(fontSize: 11, color: colorScheme.mutedForeground)),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: colorScheme.mutedForeground,
+                ),
+              ),
             ],
-            const SizedBox(height: 6),
+            const SizedBox(height: 16),
           ],
           child,
         ],

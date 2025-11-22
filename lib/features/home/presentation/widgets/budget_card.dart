@@ -5,6 +5,7 @@ import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+
 Widget buildBudgetCard(
   BuildContext context,
   ColorScheme colorScheme,
@@ -16,31 +17,46 @@ Widget buildBudgetCard(
   String? selectedCurrency,
 }) {
   final totalBudget = _getTotalBudget(budgets);
-  
+
   // selectedCurrency is never null (defaults to USD)
   final displayText = formatCurrency(totalBudget, selectedCurrency ?? 'USD');
-  
+
   final title = _budgetTitleForFilter(context, filter);
+
+  final isDark = Theme.of(context).brightness == Brightness.dark;
 
   return Material(
     color: Colors.transparent,
     child: InkWell(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(24),
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: colorScheme.card,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: colorScheme.border, width: 1),
+          color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: colorScheme.outline.withValues(alpha: 0.05),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
+              blurRadius: 32,
+              offset: const Offset(0, 8),
+              spreadRadius: -4,
+            ),
+          ],
         ),
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              title,
+              title.toUpperCase(),
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1.0,
                 color: colorScheme.mutedForeground,
               ),
             ),
@@ -48,18 +64,28 @@ Widget buildBudgetCard(
             Text(
               displayText,
               style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
+                fontSize: 36,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -1.0,
                 color: colorScheme.foreground,
+                height: 1.1,
               ),
             ),
             const Spacer(),
-            Text(
-              '${expenses.length} ${context.l10n.transactions}',
-              style: TextStyle(
-                fontSize: 12,
-                color: colorScheme.mutedForeground,
-              ),
+            Row(
+              children: [
+                Icon(Icons.receipt_long_rounded,
+                    size: 16, color: colorScheme.mutedForeground),
+                const SizedBox(width: 6),
+                Text(
+                  '${expenses.length} ${context.l10n.transactions}',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: colorScheme.mutedForeground,
+                  ),
+                ),
+              ],
             ),
           ],
         ),

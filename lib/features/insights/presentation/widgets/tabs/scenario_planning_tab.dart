@@ -7,6 +7,7 @@ import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/insights/presentation/widgets/charts/charts.dart';
 import 'package:moneko/features/insights/presentation/widgets/scenario_result_sheet.dart';
+import 'package:moneko/features/insights/presentation/widgets/insights_ui.dart';
 import 'package:intl/intl.dart';
 import 'dart:ui' as ui;
 import 'package:flutter/cupertino.dart';
@@ -520,7 +521,6 @@ class _ScenarioPlanningTabContentState
     super.dispose();
   }
 
-
   @override
   Widget build(BuildContext context) {
     final bool isDark =
@@ -656,7 +656,10 @@ class _ScenarioPlanningTabContentState
                                         ? ''
                                         : _formatLocalizedDate(_scenarioDate!);
                                     if (q.isEmpty || d.isEmpty) {
-                                       AppToast.info(context, context.l10n.enterQuestionAndPickDate);
+                                      AppToast.info(
+                                          context,
+                                          context
+                                              .l10n.enterQuestionAndPickDate);
                                       return;
                                     }
 
@@ -771,8 +774,10 @@ class _ScenarioPlanningTabContentState
                                       setState(() {
                                         _scenarioLoading = false;
                                       });
-                                       AppToast.info(context, context.l10n
-                                          .analysisFailed(e.toString()));
+                                      AppToast.info(
+                                          context,
+                                          context.l10n
+                                              .analysisFailed(e.toString()));
                                     }
                                   },
                             child: Text(

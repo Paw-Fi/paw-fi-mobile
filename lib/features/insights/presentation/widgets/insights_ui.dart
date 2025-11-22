@@ -26,8 +26,7 @@ class MetricPill extends StatelessWidget {
     final bg = (tint ?? colorScheme.primary).withValues(alpha: 0.08);
     final iconColor = (tint ?? colorScheme.primary);
 
-    return Container
-    (
+    return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: surface,
@@ -80,29 +79,35 @@ class MetricPill extends StatelessWidget {
 
 /// A subtle section card with modern spacing and border styling.
 class InsightsSectionCard extends StatelessWidget {
-  const InsightsSectionCard({super.key, required this.colorScheme, required this.child});
+  const InsightsSectionCard(
+      {super.key, required this.colorScheme, required this.child});
 
   final ColorScheme colorScheme;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       decoration: BoxDecoration(
-        color: colorScheme.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colorScheme.border.withValues(alpha: 0.8), width: 1),
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: colorScheme.outline.withValues(alpha: 0.05),
+          width: 1,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
+            blurRadius: 32,
+            offset: const Offset(0, 8),
+            spreadRadius: -4,
           ),
         ],
       ),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(24),
       child: child,
     );
   }
 }
-

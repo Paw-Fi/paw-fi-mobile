@@ -14,6 +14,7 @@ import 'package:moneko/features/pockets/presentation/state/pockets_providers.dar
 import 'package:moneko/features/pockets/presentation/widgets/add_envelope_card.dart';
 import 'package:moneko/features/pockets/presentation/widgets/add_envelope_list_tile.dart';
 import 'package:moneko/features/pockets/presentation/widgets/edit_pocket_envelope_sheet.dart';
+import 'package:moneko/features/pockets/presentation/widgets/envelope_mode_settings_modal.dart';
 import 'package:moneko/features/pockets/presentation/widgets/pocket_card.dart';
 import 'package:moneko/features/pockets/presentation/widgets/pocket_list_tile.dart';
 import 'package:moneko/features/pockets/presentation/widgets/pockets_header_card.dart';
@@ -176,11 +177,7 @@ class PocketsGridSection extends HookConsumerWidget {
               : null,
           colorScheme: colorScheme,
           onTotalChanged: notifier.updateTotalBudget,
-          envelopeMode: envelopeMode.value,
-          onEnvelopeModeChanged: (value) => envelopeMode.value = value,
           currency: selectedCurrency,
-          hasSeenHelp: hasSeenEnvelopeModeHelp.value,
-          onHelpSeen: markHelpAsSeen,
         ),
         const SizedBox(height: 24),
 
@@ -197,10 +194,28 @@ class PocketsGridSection extends HookConsumerWidget {
                   color: colorScheme.foreground,
                 ),
               ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  showEnvelopeModeSettingsModal(
+                    context,
+                    colorScheme,
+                    envelopeMode.value,
+                    (value) => envelopeMode.value = value,
+                  );
+                  markHelpAsSeen();
+                },
+                child: Icon(
+                  Icons.help_outline_rounded,
+                  size: 20,
+                  color: colorScheme.mutedForeground,
+                ),
+              ),
               const Spacer(),
               // View Toggle
               SizedBox(
-                width: PlatformInfo.isIOS? 90:150,
+                width: PlatformInfo.isIOS ? 90 : 150,
                 height: 40,
                 child: AdaptiveSegmentedControl(
                   labels: const [],

@@ -572,9 +572,9 @@ class _AvatarCustomizerScreenState
                   ],
                 ),
               ),
-    
+
               const SizedBox(height: 16),
-    
+
               // Category chips
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
@@ -586,16 +586,15 @@ class _AvatarCustomizerScreenState
                       child: ChoiceChip(
                         selected: active,
                         label: Text(_getLocalizedCategory(c)),
-                        onSelected: (_) =>
-                            setState(() => _activeCategory = c),
+                        onSelected: (_) => setState(() => _activeCategory = c),
                       ),
                     );
                   }).toList(),
                 ),
               ),
-    
+
               const SizedBox(height: 12),
-    
+
               // Asset grid
               Container(
                 padding: const EdgeInsets.all(12),
@@ -748,7 +747,8 @@ class _AvatarCustomizerScreenState
         context: context,
         builder: (BuildContext context) {
           return AlertDialog(
-            title: Text('${context.l10n.select} ${key.toLowerCase()} ${context.l10n.color}'),
+            title: Text(
+                '${context.l10n.select} ${key.toLowerCase()} ${context.l10n.color}'),
             content: SingleChildScrollView(
               child: ColorPicker(
                 pickerColor: current,

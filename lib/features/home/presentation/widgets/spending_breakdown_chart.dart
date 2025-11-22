@@ -19,32 +19,47 @@ Widget buildSpendingBreakdownChart(
 }) {
   final categorySummaries = _getCategorySummaries(expenses);
   final totalSpent = _getTotalSpent(expenses);
-  
+
   // selectedCurrency is never null (defaults to USD)
   final displayText = formatCurrency(totalSpent, selectedCurrency ?? 'USD');
 
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+
   return Container(
     decoration: BoxDecoration(
-      color: colorScheme.card,
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: colorScheme.border, width: 1),
+      color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+      borderRadius: BorderRadius.circular(24),
+      border: Border.all(
+        color: colorScheme.outline.withValues(alpha: 0.05),
+        width: 1,
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
+          blurRadius: 32,
+          offset: const Offset(0, 8),
+          spreadRadius: -4,
+        ),
+      ],
     ),
     padding: const EdgeInsets.all(24.0),
     child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          context.l10n.spendingBreakdown,
+          context.l10n.spendingBreakdown.toUpperCase(),
           style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: colorScheme.foreground,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 1.0,
+            color: colorScheme.mutedForeground,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 4),
         Text(
           dateRangeFilter.getLabel(context),
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 13,
             color: colorScheme.mutedForeground,
           ),
         ),
@@ -75,7 +90,8 @@ Widget buildSpendingBreakdownChart(
                       displayText,
                       style: TextStyle(
                         fontSize: 28,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -1.0,
                         color: colorScheme.foreground,
                       ),
                     ),
@@ -121,7 +137,6 @@ Widget buildSpendingBreakdownChart(
             );
           }).toList(),
         ),
-      
       ],
     ),
   );

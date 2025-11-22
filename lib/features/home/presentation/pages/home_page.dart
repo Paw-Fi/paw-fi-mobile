@@ -841,132 +841,135 @@ class _HomePageState extends ConsumerState<HomePage> {
     }
 
     return AdaptiveScaffold(
-      body: Stack(
-        children: [
-          RefreshIndicator(
-            onRefresh: () async {
-              // Refresh based on current view mode
-              if (viewMode.mode == ViewMode.household) {
-                // In household mode: invalidate ALL household-related providers
-                debugPrint('🔄 Pull-to-refresh: Refreshing household data');
-                ref.invalidate(userHouseholdsProvider(user.uid));
-                ref.invalidate(householdExpensesProvider);
-                ref.invalidate(householdSplitsProvider);
-                ref.invalidate(householdBudgetsProvider);
-                ref.invalidate(householdSummaryProvider);
-                ref.invalidate(
-                    householdMembersProvider); // FIXED: Added member info refresh
-                debugPrint(
-                    '✅ Invalidated: households, expenses, splits, budgets, summary, members');
-              } else {
-                // In personal mode: refresh analytics with current date filters
-                final dateRange = _getDateRangeFromFilter();
-                ref.read(analyticsProvider.notifier).refresh(
-                      user.uid,
-                      startDate: dateRange['startDate'],
-                      endDate: dateRange['endDate'],
-                    );
-              }
-              await Future.delayed(const Duration(milliseconds: 500));
-            },
-            child: CustomScrollView(
-              slivers: [
-                // Content only: header is provided globally in MainShell
-                if (viewMode.mode == ViewMode.household)
-                  const HouseholdHomeContent()
-                else ...[
-                  // Personal mode - show analytics content
-                  // Spending Card with Line Chart
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: buildSpendingCard(
-                        context,
-                        colorScheme,
-                        filteredExpenses,
-                        analyticsData.contact,
-                        filterState.dateRangeFilter,
-                        selectedCurrency: filterState.selectedCurrency,
-                      ),
-                    ),
-                  ),
-
-                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
-
-                  // Budget and Net Cashflow Cards (Horizontal Scroll)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: SizedBox(
-                        height: 180,
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: buildNetCashflowCard(
-                                context,
-                                colorScheme,
-                                filteredBudgets,
-                                ref.watch(homeFilteredTransactionsProvider),
-                                analyticsData.contact,
-                                filterState.dateRangeFilter,
-                                selectedCurrency: filterState.selectedCurrency,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            const Expanded(
-                              child: MoMTrendBar(),
-                            ),
-                          ],
+      body: SafeArea(
+        child: Stack(
+          children: [
+            RefreshIndicator(
+              onRefresh: () async {
+                // Refresh based on current view mode
+                if (viewMode.mode == ViewMode.household) {
+                  // In household mode: invalidate ALL household-related providers
+                  debugPrint('🔄 Pull-to-refresh: Refreshing household data');
+                  ref.invalidate(userHouseholdsProvider(user.uid));
+                  ref.invalidate(householdExpensesProvider);
+                  ref.invalidate(householdSplitsProvider);
+                  ref.invalidate(householdBudgetsProvider);
+                  ref.invalidate(householdSummaryProvider);
+                  ref.invalidate(
+                      householdMembersProvider); // FIXED: Added member info refresh
+                  debugPrint(
+                      '✅ Invalidated: households, expenses, splits, budgets, summary, members');
+                } else {
+                  // In personal mode: refresh analytics with current date filters
+                  final dateRange = _getDateRangeFromFilter();
+                  ref.read(analyticsProvider.notifier).refresh(
+                        user.uid,
+                        startDate: dateRange['startDate'],
+                        endDate: dateRange['endDate'],
+                      );
+                }
+                await Future.delayed(const Duration(milliseconds: 500));
+              },
+              child: CustomScrollView(
+                slivers: [
+                  // Content only: header is provided globally in MainShell
+                  if (viewMode.mode == ViewMode.household)
+                    const HouseholdHomeContent()
+                  else ...[
+                    // Personal mode - show analytics content
+                    // Spending Card with Line Chart
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: buildSpendingCard(
+                          context,
+                          colorScheme,
+                          filteredExpenses,
+                          analyticsData.contact,
+                          filterState.dateRangeFilter,
+                          selectedCurrency: filterState.selectedCurrency,
                         ),
                       ),
                     ),
-                  ),
 
-                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                    const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
-                  // Category Breakdown
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: buildCategoryBreakdownCard(
-                        context,
-                        colorScheme,
-                        ref.watch(homeFilteredTransactionsProvider),
-                        analyticsData.contact,
-                        selectedCurrency: filterState.selectedCurrency,
-                        onViewAll: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const TransactionsPage(),
-                            ),
-                          );
-                        },
+                    // Budget and Net Cashflow Cards (Horizontal Scroll)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: SizedBox(
+                          height: 180,
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: buildNetCashflowCard(
+                                  context,
+                                  colorScheme,
+                                  filteredBudgets,
+                                  ref.watch(homeFilteredTransactionsProvider),
+                                  analyticsData.contact,
+                                  filterState.dateRangeFilter,
+                                  selectedCurrency:
+                                      filterState.selectedCurrency,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              const Expanded(
+                                child: MoMTrendBar(),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
-                  ),
 
-                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: buildSpendingBreakdownChart(
-                        context,
-                        colorScheme,
-                        filteredExpenses,
-                        filteredBudgets,
-                        analyticsData.contact,
-                        filterState.dateRangeFilter,
-                        selectedCurrency: filterState.selectedCurrency,
+                    const SliverToBoxAdapter(child: SizedBox(height: 16)),
+
+                    // Category Breakdown
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: buildCategoryBreakdownCard(
+                          context,
+                          colorScheme,
+                          ref.watch(homeFilteredTransactionsProvider),
+                          analyticsData.contact,
+                          selectedCurrency: filterState.selectedCurrency,
+                          onViewAll: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const TransactionsPage(),
+                              ),
+                            );
+                          },
+                        ),
                       ),
                     ),
-                  ),
 
-                  const SliverToBoxAdapter(child: SizedBox(height: 24)),
-                ], // end of else block for Personal mode
-              ],
+                    const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: buildSpendingBreakdownChart(
+                          context,
+                          colorScheme,
+                          filteredExpenses,
+                          filteredBudgets,
+                          analyticsData.contact,
+                          filterState.dateRangeFilter,
+                          selectedCurrency: filterState.selectedCurrency,
+                        ),
+                      ),
+                    ),
+
+                    const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                  ], // end of else block for Personal mode
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
       floatingActionButton: _shouldShowFAB(viewMode, householdsAsync)
           ? Padding(

@@ -11,11 +11,12 @@ import 'package:moneko/core/utils/date_formatter.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
 /// Get localized frequency text for a recurring transaction
-String getLocalizedFrequencyText(BuildContext context, RecurringTransaction transaction) {
+String getLocalizedFrequencyText(
+    BuildContext context, RecurringTransaction transaction) {
   final l10n = context.l10n;
-  
+
   if (transaction.recurrenceRule == null) return l10n.oneTime;
-  
+
   final rule = transaction.recurrenceRule!;
   switch (rule.frequency) {
     case 'daily':
@@ -70,8 +71,10 @@ class RecurringTransactionCard extends ConsumerWidget {
       decimalDigits: 2,
     );
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 16),
       child: Slidable(
         key: ValueKey(transaction.id),
         endActionPane: ActionPane(
@@ -88,22 +91,24 @@ class RecurringTransactionCard extends ConsumerWidget {
               foregroundColor: Colors.white,
               icon: Icons.delete,
               label: context.l10n.delete,
+              borderRadius: BorderRadius.circular(24),
             ),
           ],
         ),
         child: Container(
           decoration: BoxDecoration(
-            color: colorScheme.card,
-            borderRadius: BorderRadius.circular(16),
+            color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+            borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: colorScheme.border.withValues(alpha: 0.5),
+              color: colorScheme.outline.withValues(alpha: 0.05),
               width: 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
+                color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
+                blurRadius: 32,
+                offset: const Offset(0, 8),
+                spreadRadius: -4,
               ),
             ],
           ),
@@ -111,23 +116,23 @@ class RecurringTransactionCard extends ConsumerWidget {
             color: Colors.transparent,
             child: InkWell(
               onTap: onTap,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(24),
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(20),
                 child: Row(
                   children: [
                     // Category icon
                     Container(
-                      width: 48,
-                      height: 48,
+                      width: 56,
+                      height: 56,
                       decoration: BoxDecoration(
                         color: categoryColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(16),
                       ),
                       child: Icon(
                         categoryIcon,
                         color: categoryColor,
-                        size: 24,
+                        size: 28,
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -139,15 +144,16 @@ class RecurringTransactionCard extends ConsumerWidget {
                         children: [
                           // Category name
                           Text(
-                            getCategoryTranslation(context, transaction.category),
+                            getCategoryTranslation(
+                                context, transaction.category),
                             style: TextStyle(
                               color: colorScheme.foreground,
-                              fontSize: 16,
+                              fontSize: 17,
                               fontWeight: FontWeight.w600,
-                              letterSpacing: -0.3,
+                              letterSpacing: -0.5,
                             ),
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 6),
 
                           // Frequency and next occurrence
                           Row(
@@ -155,17 +161,19 @@ class RecurringTransactionCard extends ConsumerWidget {
                               // Frequency badge
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 3,
+                                  horizontal: 10,
+                                  vertical: 4,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: colorScheme.muted,
-                                  borderRadius: BorderRadius.circular(6),
+                                  color: colorScheme.surfaceContainerHighest
+                                      .withValues(alpha: 0.5),
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
-                                  getLocalizedFrequencyText(context, transaction),
+                                  getLocalizedFrequencyText(
+                                      context, transaction),
                                   style: TextStyle(
-                                    color: colorScheme.mutedForeground,
+                                    color: colorScheme.onSurfaceVariant,
                                     fontSize: 12,
                                     fontWeight: FontWeight.w500,
                                   ),
@@ -173,16 +181,21 @@ class RecurringTransactionCard extends ConsumerWidget {
                               ),
                               const SizedBox(width: 8),
 
-                              const Icon(Icons.repeat, size: 12),
-                              const SizedBox(width: 2),
+                              Icon(
+                                Icons.calendar_today_rounded,
+                                size: 12,
+                                color: colorScheme.mutedForeground,
+                              ),
+                              const SizedBox(width: 4),
                               // Next occurrence
                               Flexible(
                                 child: Text(
-                                  formatLocalizedDate(context, transaction.getNextOccurrence()),
+                                  formatLocalizedDate(
+                                      context, transaction.getNextOccurrence()),
                                   style: TextStyle(
                                     color: colorScheme.mutedForeground,
                                     fontSize: 12,
-                                    fontWeight: FontWeight.w400,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -213,25 +226,27 @@ class RecurringTransactionCard extends ConsumerWidget {
                         ),
 
                         // Status indicator
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 6),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
+                            horizontal: 8,
+                            vertical: 3,
                           ),
                           decoration: BoxDecoration(
                             color: transaction.isActive
                                 ? const Color(0xFF10B981).withValues(alpha: 0.1)
                                 : colorScheme.muted,
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            transaction.isActive ? context.l10n.active : context.l10n.ended,
+                            transaction.isActive
+                                ? context.l10n.active
+                                : context.l10n.ended,
                             style: TextStyle(
                               color: transaction.isActive
                                   ? const Color(0xFF10B981)
                                   : colorScheme.mutedForeground,
-                              fontSize: 10,
+                              fontSize: 11,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -290,7 +305,9 @@ class EmptyRecurringState extends StatelessWidget {
 
             // Title
             Text(
-              isExpense ? context.l10n.noRecurringExpenses : context.l10n.noRecurringIncome,
+              isExpense
+                  ? context.l10n.noRecurringExpenses
+                  : context.l10n.noRecurringIncome,
               style: TextStyle(
                 color: colorScheme.foreground,
                 fontSize: 20,
@@ -314,7 +331,6 @@ class EmptyRecurringState extends StatelessWidget {
                 height: 1.5,
               ),
             ),
-          
           ],
         ),
       ),

@@ -100,9 +100,6 @@ GoRouter router(RouterRef ref) {
         },
       ),
 
-
-
-
       // Household join page (with optional token query param)
       GoRoute(
         path: '/households/join',
@@ -140,122 +137,126 @@ GoRouter router(RouterRef ref) {
         path: '/avatar',
         builder: (context, state) => const AvatarCustomizerScreen(),
       ),
- 
+
       // Catch-all route for deep links with UUID patterns (expense, budget, split IDs)
       // This handles paths like /{uuid} that come from moneko://expense/{uuid}
       GoRoute(
         path: '/:id',
         redirect: (context, state) {
           final id = state.pathParameters['id'] ?? '';
-          debugPrint('🔗 Catch-all route matched for ID: $id, redirecting to dashboard');
+          debugPrint(
+              '🔗 Catch-all route matched for ID: $id, redirecting to dashboard');
           return '/dashboard';
         },
       ),
     ],
     redirect: (context, state) {
       try {
-      // Handle invitation universal links - redirect to home page
-      // The invitation modal is shown by deep_link_service.dart on top of the home page
-      if (state.matchedLocation.startsWith('/invites/')) {
-        debugPrint('🔗 Invitation universal link detected: ${state.matchedLocation}');
-        // Redirect to home page where modal will be shown
-        return '/';
-      }
-
-      final isAuthenticated = !auth.isEmpty;
-      final isOnSplashPage = state.matchedLocation == '/splash';
-      final isOnAuthPage = state.matchedLocation == '/login' ||
-                          state.matchedLocation == '/register' ||
-                          state.matchedLocation.startsWith('/auth/callback');
-      final isOnboardingPage = state.matchedLocation == '/avatar' ||
-                              state.matchedLocation == '/onboarding';
-      final isOnPaywallPage = state.matchedLocation == '/paywall';
-
-      if (kDebugMode) {
-        debugPrint('🔐 Auth redirect: init=$appInitState, isAuth=$isAuthenticated, hasSub=$hasSubscription, loaded=$isSubscriptionLoaded, path=${state.matchedLocation}');
-      }
-
-      // If app is still initializing, stay on splash screen
-      if (appInitState != AppInitState.initialized) {
-        if (!isOnSplashPage) {
-          return '/splash';
+        // Handle invitation universal links - redirect to home page
+        // The invitation modal is shown by deep_link_service.dart on top of the home page
+        if (state.matchedLocation.startsWith('/invites/')) {
+          debugPrint(
+              '🔗 Invitation universal link detected: ${state.matchedLocation}');
+          // Redirect to home page where modal will be shown
+          return '/';
         }
-        return null;
-      }
 
-      // App is initialized, proceed with normal routing
-      
-      // Don't redirect if already leaving splash
-      if (isOnSplashPage) {
-        // Redirect from splash to appropriate page
-        if (isAuthenticated) {
-          // On web: skip paywall and go straight to dashboard
-          if (kIsWeb) {
-            return '/dashboard';
-          }
-          if (!isSubscriptionLoaded) {
-            // Wait for subscription to load
-            return null;
-          }
-          if (!hasSubscription) {
-            return '/paywall';
-          }
-          return '/dashboard';
-        } else {
-          return '/login';
+        final isAuthenticated = !auth.isEmpty;
+        final isOnSplashPage = state.matchedLocation == '/splash';
+        final isOnAuthPage = state.matchedLocation == '/login' ||
+            state.matchedLocation == '/register' ||
+            state.matchedLocation.startsWith('/auth/callback');
+        final isOnboardingPage = state.matchedLocation == '/avatar' ||
+            state.matchedLocation == '/onboarding';
+        final isOnPaywallPage = state.matchedLocation == '/paywall';
+
+        if (kDebugMode) {
+          debugPrint(
+              '🔐 Auth redirect: init=$appInitState, isAuth=$isAuthenticated, hasSub=$hasSubscription, loaded=$isSubscriptionLoaded, path=${state.matchedLocation}');
         }
-      }
 
-      // Allow auth callback to proceed
-      if (state.matchedLocation.startsWith('/auth/callback')) {
-        return null;
-      }
-
-      // Allow onboarding pages for both authenticated and unauthenticated users
-      if (isOnboardingPage) {
-        return null;
-      }
-
-      // Allow paywall page for authenticated users (mobile only)
-      if (!kIsWeb && isOnPaywallPage && isAuthenticated) {
-        return null;
-      }
-
-      // If not authenticated and not on auth/onboarding page, redirect to login
-      if (!isAuthenticated && !isOnAuthPage) {
-        return '/login';
-      }
-
-      // If authenticated and on auth page, check subscription then redirect
-      if (isAuthenticated && isOnAuthPage) {
-        // If subscription is still loading, allow navigation (don't redirect yet)
-        if (!isSubscriptionLoaded) {
+        // If app is still initializing, stay on splash screen
+        if (appInitState != AppInitState.initialized) {
+          if (!isOnSplashPage) {
+            return '/splash';
+          }
           return null;
         }
-        // Check subscription status
-        if (!hasSubscription) {
-          // On web: skip paywall and go straight to dashboard
-          return kIsWeb ? '/dashboard' : '/paywall';
+
+        // App is initialized, proceed with normal routing
+
+        // Don't redirect if already leaving splash
+        if (isOnSplashPage) {
+          // Redirect from splash to appropriate page
+          if (isAuthenticated) {
+            // On web: skip paywall and go straight to dashboard
+            if (kIsWeb) {
+              return '/dashboard';
+            }
+            if (!isSubscriptionLoaded) {
+              // Wait for subscription to load
+              return null;
+            }
+            if (!hasSubscription) {
+              return '/paywall';
+            }
+            return '/dashboard';
+          } else {
+            return '/login';
+          }
         }
-        return '/dashboard';
-      }
 
-      // If authenticated but no subscription and trying to access protected pages
-      // Only redirect to paywall if subscription is confirmed loaded
-      if (!kIsWeb &&
-          isAuthenticated &&
-          isSubscriptionLoaded &&
-          !hasSubscription &&
-          !isOnPaywallPage) {
-        return '/paywall';
-      }
+        // Allow auth callback to proceed
+        if (state.matchedLocation.startsWith('/auth/callback')) {
+          return null;
+        }
 
-      // Allow navigation (includes when subscription is loading)
-      return null;
+        // Allow onboarding pages for both authenticated and unauthenticated users
+        if (isOnboardingPage) {
+          return null;
+        }
+
+        // Allow paywall page for authenticated users (mobile only)
+        if (!kIsWeb && isOnPaywallPage && isAuthenticated) {
+          return null;
+        }
+
+        // If not authenticated and not on auth/onboarding page, redirect to login
+        if (!isAuthenticated && !isOnAuthPage) {
+          return '/login';
+        }
+
+        // If authenticated and on auth page, check subscription then redirect
+        if (isAuthenticated && isOnAuthPage) {
+          // If subscription is still loading, allow navigation (don't redirect yet)
+          if (!isSubscriptionLoaded) {
+            return null;
+          }
+          // Check subscription status
+          if (!hasSubscription) {
+            // On web: skip paywall and go straight to dashboard
+            return kIsWeb ? '/dashboard' : '/paywall';
+          }
+          return '/dashboard';
+        }
+
+        // If authenticated but no subscription and trying to access protected pages
+        // Only redirect to paywall if subscription is confirmed loaded
+        if (!kIsWeb &&
+            isAuthenticated &&
+            isSubscriptionLoaded &&
+            !hasSubscription &&
+            !isOnPaywallPage) {
+          return '/paywall';
+        }
+
+        // Allow navigation (includes when subscription is loading)
+        return null;
       } catch (e, s) {
         // Record non-fatal to Crashlytics for production observability
         try {
-          FirebaseCrashlytics.instance.recordError(e, s, fatal: false, reason: 'router_redirect_error');
+          FirebaseCrashlytics.instance
+              .recordError(e, s, fatal: false, reason: 'router_redirect_error');
         } catch (_) {}
         debugPrint('Router redirect error: $e');
         debugPrint(s.toString());
@@ -280,7 +281,7 @@ class RouterNotifier extends ChangeNotifier {
           if (kDebugMode) {
             debugPrint('🔄 Auth changed: ${previous?.uid} -> ${next.uid}');
           }
-          
+
           // If logging out (going from authenticated to not authenticated)
           if (previous != null && !previous.isEmpty && next.isEmpty) {
             if (kDebugMode) {
@@ -288,13 +289,13 @@ class RouterNotifier extends ChangeNotifier {
             }
             _ref.read(appInitializationProvider.notifier).clearCache();
           }
-          
+
           // Reset initialization for both login and logout
           _ref.read(appInitializationProvider.notifier).reset();
         }
       },
     );
-    
+
     // Listen to app initialization state changes
     _ref.listen<AppInitState>(
       appInitializationProvider,

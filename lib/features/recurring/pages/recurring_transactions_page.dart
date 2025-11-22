@@ -74,34 +74,36 @@ class _RecurringTransactionsPageState
     final selectedCurrency =
         ref.watch(homeFilterProvider).selectedCurrency?.toUpperCase();
     return AdaptiveScaffold(
-      body: RefreshIndicator(
-        onRefresh: _refresh,
-        child: AdaptiveTabBarView(
-          tabs: [
-            context.l10n.expenses,
-            context.l10n.income,
-          ],
-          children: [
-            _buildRecurringTabView(
-              colorScheme,
-              _buildExpensesSliver(
-                recurringExpenses,
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: _refresh,
+          child: AdaptiveTabBarView(
+            tabs: [
+              context.l10n.expenses,
+              context.l10n.income,
+            ],
+            children: [
+              _buildRecurringTabView(
                 colorScheme,
-                selectedCurrency,
+                _buildExpensesSliver(
+                  recurringExpenses,
+                  colorScheme,
+                  selectedCurrency,
+                ),
               ),
-            ),
-            _buildRecurringTabView(
-              colorScheme,
-              _buildIncomesSliver(
-                recurringIncomes,
+              _buildRecurringTabView(
                 colorScheme,
-                selectedCurrency,
+                _buildIncomesSliver(
+                  recurringIncomes,
+                  colorScheme,
+                  selectedCurrency,
+                ),
               ),
-            ),
-          ],
-          onTabChanged: (index) {
-            ref.read(selectedRecurringTabProvider.notifier).state = index;
-          },
+            ],
+            onTabChanged: (index) {
+              ref.read(selectedRecurringTabProvider.notifier).state = index;
+            },
+          ),
         ),
       ),
 
