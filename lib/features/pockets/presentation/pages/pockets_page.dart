@@ -89,6 +89,18 @@ class PocketsPage extends HookConsumerWidget {
                 scopeParams: scopeParams,
                 colorScheme: colorScheme,
                 isPersonalMode: viewMode.mode == ViewMode.personal,
+                onDateSelected: (date) {
+                  final diffYears = date.year - initialMonth.year;
+                  final diffMonths = date.month - initialMonth.month;
+                  final totalMonthDiff = diffYears * 12 + diffMonths;
+                  final int targetPage = initialPage + totalMonthDiff;
+
+                  pageController.animateToPage(
+                    targetPage,
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                  );
+                },
               );
             },
           ),
@@ -163,11 +175,13 @@ class _PocketsMonthView extends ConsumerWidget {
     required this.scopeParams,
     required this.colorScheme,
     required this.isPersonalMode,
+    this.onDateSelected,
   });
 
   final PocketsScopeParams scopeParams;
   final ColorScheme colorScheme;
   final bool isPersonalMode;
+  final ValueChanged<DateTime>? onDateSelected;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -217,6 +231,7 @@ class _PocketsMonthView extends ConsumerWidget {
                 colorScheme: colorScheme,
                 isPersonalMode: isPersonalMode,
                 uncategorizedExpenses: pocketsState.uncategorizedExpenses,
+                onDateSelected: onDateSelected,
               ),
             ),
           ),

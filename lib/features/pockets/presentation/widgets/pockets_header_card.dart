@@ -5,6 +5,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/widgets/custom_text_field.dart';
 import 'package:moneko/core/utils/date_formatter.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 
 class PocketsHeaderCard extends StatelessWidget {
@@ -19,6 +20,7 @@ class PocketsHeaderCard extends StatelessWidget {
     required this.colorScheme,
     required this.onTotalChanged,
     required this.currency,
+    this.onDateSelected,
   });
 
   final double totalBudget;
@@ -30,6 +32,7 @@ class PocketsHeaderCard extends StatelessWidget {
   final ColorScheme colorScheme;
   final ValueChanged<double> onTotalChanged;
   final String currency;
+  final ValueChanged<DateTime>? onDateSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -69,22 +72,26 @@ class PocketsHeaderCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // Month Label
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 6,
-            ),
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(100),
-            ),
-            child: Text(
-              monthLabel,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: colorScheme.onSurfaceVariant,
-                letterSpacing: 0.3,
+          GestureDetector(
+            onTap: () => _pickMonth(context),
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 6,
+              ),
+              decoration: BoxDecoration(
+                color:
+                    colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(100),
+              ),
+              child: Text(
+                monthLabel,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onSurfaceVariant,
+                  letterSpacing: 0.3,
+                ),
               ),
             ),
           ),
@@ -236,6 +243,72 @@ class PocketsHeaderCard extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  void _pickMonth(BuildContext context) {
+    if (onDateSelected == null) return;
+
+    final now = DateTime.now();
+    final minDate = DateTime(2020);
+    final maxDate =
+        DateTime(now.year, now.month + 1, 0); // End of current month
+    DateTime tempDate = periodMonth;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(context.l10n.cancel),
+                  ),
+                  Text(
+                    'Select Month',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      final normalized =
+                          DateTime(tempDate.year, tempDate.month, 1);
+                      onDateSelected!(normalized);
+                      Navigator.pop(context);
+                    },
+                    child: Text(context.l10n.done),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(
+              height: 200,
+              child: CupertinoDatePicker(
+                mode: CupertinoDatePickerMode.monthYear,
+                initialDateTime: periodMonth,
+                minimumDate: minDate,
+                maximumDate: maxDate,
+                onDateTimeChanged: (val) {
+                  tempDate = val;
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );

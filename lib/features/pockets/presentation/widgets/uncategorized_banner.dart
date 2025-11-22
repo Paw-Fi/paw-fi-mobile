@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/pockets/presentation/widgets/uncategorized_spending_sheet.dart';
@@ -12,12 +13,16 @@ class UncategorizedBanner extends StatelessWidget {
     required this.currency,
     required this.uncategorized,
     required this.uncategorizedExpenses,
+    required this.availablePockets,
+    required this.onAssignCategory,
   });
 
   final ColorScheme colorScheme;
   final String currency;
   final List<UncategorizedCategory> uncategorized;
   final Map<String, List<Map<String, dynamic>>> uncategorizedExpenses;
+  final List<PocketEnvelope> availablePockets;
+  final Function(String, String) onAssignCategory;
 
   @override
   Widget build(BuildContext context) {
@@ -29,6 +34,8 @@ class UncategorizedBanner extends StatelessWidget {
               colorScheme,
               currency,
               uncategorized,
+              availablePockets,
+              onAssignCategory,
               uncategorizedExpenses: uncategorizedExpenses,
             ),
         child: Container(

@@ -30,12 +30,14 @@ class PocketsGridSection extends HookConsumerWidget {
     required this.colorScheme,
     required this.isPersonalMode,
     this.uncategorizedExpenses = const {},
+    this.onDateSelected,
   });
 
   final PocketsScopeParams scopeParams;
   final ColorScheme colorScheme;
   final bool isPersonalMode;
   final Map<String, List<Map<String, dynamic>>> uncategorizedExpenses;
+  final ValueChanged<DateTime>? onDateSelected;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -162,6 +164,8 @@ class PocketsGridSection extends HookConsumerWidget {
             currency: selectedCurrency,
             uncategorized: uncategorized,
             uncategorizedExpenses: uncategorizedExpenses,
+            availablePockets: state.editing,
+            onAssignCategory: notifier.assignCategoryToPocket,
           ),
           const SizedBox(height: 16),
         ],
@@ -178,6 +182,7 @@ class PocketsGridSection extends HookConsumerWidget {
           colorScheme: colorScheme,
           onTotalChanged: notifier.updateTotalBudget,
           currency: selectedCurrency,
+          onDateSelected: onDateSelected,
         ),
         const SizedBox(height: 24),
 

@@ -375,7 +375,13 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         final spent = spentById[id] ?? 0;
         final hhId = row['household_id'] as String?;
         final currency = row['currency'] as String? ?? selectedCurrency;
-        final icon = row['icon'] as String?;
+
+        // Icon can be stored as an int codepoint or a string name in the DB.
+        // Use toString() to preserve whatever value is present instead of
+        // dropping non-string types to null via a failed cast.
+        final dynamic rawIcon = row['icon'];
+        final String? icon = rawIcon != null ? rawIcon.toString() : null;
+
         final color = row['color'] as String?;
         final bId = row['budget_id'] as String? ?? budgetId;
 
@@ -677,6 +683,19 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       }
 
       // Reload from backend to ensure consistency
+      await _load();
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+    }
+  }
+
+  Future<void> assignCategoryToPocket(String pocketId, String category) async {
+    try {
+      await supabase.from('envelope_category_links').insert({
+        'envelope_id': pocketId,
+        'category': category.toLowerCase(),
+        'created_at': DateTime.now().toIso8601String(),
+      });
       await _load();
     } catch (e) {
       state = state.copyWith(error: e.toString());
