@@ -6,17 +6,18 @@ import '../../../../../core/l10n/l10n.dart';
 
 class GroupFairnessMeter extends StatelessWidget {
   final HouseholdSummary summary;
-  final List<ExpenseEntry>? transactions; // Kept for backward compatibility but unused
+  final List<ExpenseEntry>?
+      transactions; // Kept for backward compatibility but unused
   final DateTime? from; // Kept for backward compatibility but unused
   final DateTime? to; // Kept for backward compatibility but unused
   final String? currency; // Kept for backward compatibility but unused
-  
+
   const GroupFairnessMeter({
-    super.key, 
-    required this.summary, 
-    this.transactions, 
-    this.from, 
-    this.to, 
+    super.key,
+    required this.summary,
+    this.transactions,
+    this.from,
+    this.to,
     this.currency,
   });
 
@@ -49,7 +50,8 @@ class GroupFairnessMeter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     // ═══════════════════════════════════════════════════════════════
     // CRITICAL: Use backend summary.memberContributions directly
     // ═══════════════════════════════════════════════════════════════
@@ -70,9 +72,20 @@ class GroupFairnessMeter extends StatelessWidget {
     if (members.isEmpty) {
       return Container(
         decoration: BoxDecoration(
-          color: colorScheme.card,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: colorScheme.border, width: 1),
+          color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: colorScheme.outline.withValues(alpha: 0.05),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
+              blurRadius: 32,
+              offset: const Offset(0, 8),
+              spreadRadius: -4,
+            ),
+          ],
         ),
         padding: const EdgeInsets.all(16),
         child: Text(context.l10n.noMemberDataYet),
@@ -82,9 +95,20 @@ class GroupFairnessMeter extends StatelessWidget {
     if (total == 0) {
       return Container(
         decoration: BoxDecoration(
-          color: colorScheme.card,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: colorScheme.border, width: 1),
+          color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: colorScheme.outline.withValues(alpha: 0.05),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
+              blurRadius: 32,
+              offset: const Offset(0, 8),
+              spreadRadius: -4,
+            ),
+          ],
         ),
         padding: const EdgeInsets.all(16),
         child: Text(context.l10n.noSpendingYet),
@@ -102,9 +126,20 @@ class GroupFairnessMeter extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: colorScheme.card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colorScheme.border, width: 1),
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: colorScheme.outline.withValues(alpha: 0.05),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
+            blurRadius: 32,
+            offset: const Offset(0, 8),
+            spreadRadius: -4,
+          ),
+        ],
       ),
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -112,7 +147,9 @@ class GroupFairnessMeter extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(context.l10n.groupFairness, style: TextStyle(fontSize: 14, color: colorScheme.mutedForeground)),
+              Text(context.l10n.groupFairness,
+                  style: TextStyle(
+                      fontSize: 14, color: colorScheme.mutedForeground)),
               const SizedBox(width: 6),
               GestureDetector(
                 onTap: () => _showExplanation(context, colorScheme),
@@ -135,7 +172,11 @@ class GroupFairnessMeter extends StatelessWidget {
                     minHeight: 10,
                     backgroundColor: colorScheme.muted.withValues(alpha: 0.2),
                     valueColor: AlwaysStoppedAnimation<Color>(
-                      fairness > 0.7 ? const Color(0xFF10B981) : (fairness > 0.4 ? const Color(0xFFF59E0B) : const Color(0xFFEF4444)),
+                      fairness > 0.7
+                          ? const Color(0xFF10B981)
+                          : (fairness > 0.4
+                              ? const Color(0xFFF59E0B)
+                              : const Color(0xFFEF4444)),
                     ),
                   ),
                 ),
@@ -145,7 +186,9 @@ class GroupFairnessMeter extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Text(context.l10n.evenShare((evenShare / 100).toStringAsFixed(2)), style: TextStyle(fontSize: 12, color: colorScheme.mutedForeground)),
+          Text(context.l10n.evenShare((evenShare / 100).toStringAsFixed(2)),
+              style:
+                  TextStyle(fontSize: 12, color: colorScheme.mutedForeground)),
         ],
       ),
     );

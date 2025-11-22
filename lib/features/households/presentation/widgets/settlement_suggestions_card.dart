@@ -7,6 +7,7 @@ import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 
 import 'package:moneko/features/households/presentation/widgets/settle_up_sheet.dart';
+import 'package:moneko/shared/widgets/moneko-switch.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../../core/l10n/l10n.dart';
@@ -15,18 +16,27 @@ import 'package:moneko/core/theme/app_theme.dart';
 /// Settlement suggestions card with toggle for net vs detailed transfers
 class SettlementSuggestionsCard extends StatefulWidget {
   final HouseholdSummary summary;
-  final List<ExpenseEntry>? transactions; // For date/currency filter and mapping
-  final List<ExpenseSplitGroup>? splits;  // For detailed (non-netted) view
+  final List<ExpenseEntry>?
+      transactions; // For date/currency filter and mapping
+  final List<ExpenseSplitGroup>? splits; // For detailed (non-netted) view
   final DateTime? from;
   final DateTime? to;
   final String? currency;
   final List<HouseholdMember>? members;
-  const SettlementSuggestionsCard({super.key, required this.summary, this.transactions, this.splits, this.from, this.to, this.currency, this.members});
+  const SettlementSuggestionsCard(
+      {super.key,
+      required this.summary,
+      this.transactions,
+      this.splits,
+      this.from,
+      this.to,
+      this.currency,
+      this.members});
 
   @override
-  State<SettlementSuggestionsCard> createState() => _SettlementSuggestionsCardState();
+  State<SettlementSuggestionsCard> createState() =>
+      _SettlementSuggestionsCardState();
 }
-
 
 class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
   static const String _prefsKey = 'moneko_settlement_express_netting';
@@ -59,12 +69,14 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
       // ignore persistence errors
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
     if (kDebugMode) {
-      debugPrint('🧮 Settlement: net=$_netTransfers currentUser=$currentUserId');
+      debugPrint(
+          '🧮 Settlement: net=$_netTransfers currentUser=$currentUserId');
     }
     // Use backend-calculated balances to suggest minimal transfers to settle
     // balances: userId -> positive (they should receive), negative (they should pay)
@@ -77,12 +89,18 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(context.l10n.settlement, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: colorScheme.mutedForeground)),
+          Text(context.l10n.settlement,
+              style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.mutedForeground)),
           Row(
             children: [
-              Text(context.l10n.expressNetting, style: TextStyle(fontSize: 12, color: colorScheme.mutedForeground)),
+              Text(context.l10n.expressNetting,
+                  style: TextStyle(
+                      fontSize: 12, color: colorScheme.mutedForeground)),
               const SizedBox(width: 8),
-              AdaptiveSwitch(
+              MonekoSwitch(
                 value: _netTransfers,
                 onChanged: (v) => _saveNettingPreference(v),
               ),
@@ -96,17 +114,32 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
       final fromMembers = widget.members?.firstWhere(
         (m) => m.userId == userId,
         orElse: () => HouseholdMember(
-          id: '', householdId: '', userId: userId, role: HouseholdRole.member,
-          joinedAt: DateTime.now(), createdAt: DateTime.now(), updatedAt: DateTime.now(),
-          userEmail: null, userName: null,
+          id: '',
+          householdId: '',
+          userId: userId,
+          role: HouseholdRole.member,
+          joinedAt: DateTime.now(),
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+          userEmail: null,
+          userName: null,
         ),
       );
-      if (fromMembers?.userName != null && fromMembers!.userName!.isNotEmpty) return fromMembers.userName!;
+      if (fromMembers?.userName != null && fromMembers!.userName!.isNotEmpty) {
+        return fromMembers.userName!;
+      }
       final fromSummary = widget.summary.memberContributions.firstWhere(
         (mc) => mc.userId == userId,
-        orElse: () => const MemberContribution(userId: '', totalSpentCents: 0, transactionCount: 0, splitCount: 0, balanceCents: 0),
+        orElse: () => const MemberContribution(
+            userId: '',
+            totalSpentCents: 0,
+            transactionCount: 0,
+            splitCount: 0,
+            balanceCents: 0),
       );
-      return fromSummary.userName ?? fromMembers?.userEmail ?? context.l10n.member;
+      return fromSummary.userName ??
+          fromMembers?.userEmail ??
+          context.l10n.member;
     }
 
     // Compute detailed pairs once for stats and non-net list
@@ -121,7 +154,8 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
     if (kDebugMode) {
       debugPrint('🔗 Detailed pairs (${detailedPairs.length}):');
       for (final s in detailedPairs) {
-        debugPrint('   ${s.fromName}(${s.fromUserId}) -> ${s.toName}(${s.toUserId}): ${s.amountCents}');
+        debugPrint(
+            '   ${s.fromName}(${s.fromUserId}) -> ${s.toName}(${s.toUserId}): ${s.amountCents}');
       }
     }
 
@@ -137,23 +171,28 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
             .where((s) => s.toUserId == currentUserId)
             .fold<int>(0, (acc, s) => acc + s.amountCents);
     if (kDebugMode) {
-      debugPrint('📊 Gross for current user: out=$grossOutForYou in=$grossInForYou');
+      debugPrint(
+          '📊 Gross for current user: out=$grossOutForYou in=$grossInForYou');
     }
 
     // Net values – prefer recomputing from splits filtered by currency (ensures UI filter),
     // fallback to backend summary balances when splits unavailable.
-    final Map<String, int> netBalances = (widget.splits != null && widget.splits!.isNotEmpty)
-        ? _buildNetBalancesFromSplits(widget.splits!, widget.currency)
-        : balances;
+    final Map<String, int> netBalances =
+        (widget.splits != null && widget.splits!.isNotEmpty)
+            ? _buildNetBalancesFromSplits(widget.splits!, widget.currency)
+            : balances;
     final totalOutstandingNet = netBalances.values
         .where((v) => v > 0)
         .fold<int>(0, (acc, v) => acc + v);
-    final youNetBalance = (currentUserId != null) ? (netBalances[currentUserId] ?? 0) : 0;
+    final youNetBalance =
+        (currentUserId != null) ? (netBalances[currentUserId] ?? 0) : 0;
     final youOweNet = youNetBalance < 0 ? -youNetBalance : 0;
     final youAreOwedNet = youNetBalance > 0 ? youNetBalance : 0;
     if (kDebugMode) {
-      debugPrint('🧾 Net balances (filtered): ${netBalances.map((k, v) => MapEntry(k, v))}');
-      debugPrint('➡️ totalOutstandingNet=$totalOutstandingNet youNetBalance=$youNetBalance oweNet=$youOweNet owedNet=$youAreOwedNet');
+      debugPrint(
+          '🧾 Net balances (filtered): ${netBalances.map((k, v) => MapEntry(k, v))}');
+      debugPrint(
+          '➡️ totalOutstandingNet=$totalOutstandingNet youNetBalance=$youNetBalance oweNet=$youOweNet owedNet=$youAreOwedNet');
     }
 
     // Choose which numbers to show per toggle
@@ -163,7 +202,8 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
     final youOweCents = _netTransfers ? youOweNet : grossOutForYou;
     final youAreOwedCents = _netTransfers ? youAreOwedNet : grossInForYou;
     if (kDebugMode) {
-      debugPrint('🧮 Display values (mode=${_netTransfers ? 'NET' : 'GROSS'}): outstanding=$totalOutstandingCents owe=$youOweCents owed=$youAreOwedCents');
+      debugPrint(
+          '🧮 Display values (mode=${_netTransfers ? 'NET' : 'GROSS'}): outstanding=$totalOutstandingCents owe=$youOweCents owed=$youAreOwedCents');
     }
     final impactedCounterparties = () {
       if (currentUserId == null) return 0;
@@ -175,7 +215,9 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
       if (set.isNotEmpty) return set.length;
       // Fallback to balance signs when no split data
       final mySign = youNetBalance.sign;
-      return netBalances.entries.where((e) => e.key != currentUserId && e.value.sign == -mySign).length;
+      return netBalances.entries
+          .where((e) => e.key != currentUserId && e.value.sign == -mySign)
+          .length;
     }();
 
     List<_Suggestion> suggestions;
@@ -184,13 +226,19 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
       final under = <_Balance>[]; // payers
       netBalances.forEach((userId, amountCents) {
         if (amountCents > 0) {
-          over.add(_Balance(userId: userId, userName: nameFor(userId), amount: amountCents.toDouble()));
+          over.add(_Balance(
+              userId: userId,
+              userName: nameFor(userId),
+              amount: amountCents.toDouble()));
         } else if (amountCents < 0) {
-          under.add(_Balance(userId: userId, userName: nameFor(userId), amount: (-amountCents).toDouble()));
+          under.add(_Balance(
+              userId: userId,
+              userName: nameFor(userId),
+              amount: (-amountCents).toDouble()));
         }
       });
-      over.sort((a,b)=>b.amount.compareTo(a.amount));
-      under.sort((a,b)=>b.amount.compareTo(a.amount));
+      over.sort((a, b) => b.amount.compareTo(a.amount));
+      under.sort((a, b) => b.amount.compareTo(a.amount));
 
       final out = <_Suggestion>[];
       int i = 0, j = 0;
@@ -231,12 +279,28 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
       }
     }
 
-    if (suggestions.isEmpty && detailedPairs.isEmpty) return const SizedBox.shrink();
+    if (suggestions.isEmpty && detailedPairs.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       decoration: BoxDecoration(
-        color: colorScheme.card,
-        borderRadius: BorderRadius.circular(12),
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: colorScheme.outline.withValues(alpha: 0.05),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
+            blurRadius: 32,
+            offset: const Offset(0, 8),
+            spreadRadius: -4,
+          ),
+        ],
       ),
       padding: const EdgeInsets.all(12),
       child: Column(
@@ -252,7 +316,8 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
             youAreOwedCents: youAreOwedCents,
             impactedCount: impactedCounterparties,
             onTapOwed: (currentUserId != null && youAreOwedCents > 0)
-                ? () => _showOwedDetails(context, colorScheme, currentUserId, detailedPairs)
+                ? () => _showOwedDetails(
+                    context, colorScheme, currentUserId, detailedPairs)
                 : null,
             onTapOwe: (currentUserId != null && youOweCents > 0)
                 ? () => _openSettleUpSheet(
@@ -272,7 +337,12 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
             ),
           ),
           const SizedBox(height: 6),
-          if (suggestions.isNotEmpty) _SectionLabel(title: _netTransfers ? context.l10n.suggestedNetTransfers : context.l10n.detailedPairwiseDues, scheme: colorScheme),
+          if (suggestions.isNotEmpty)
+            _SectionLabel(
+                title: _netTransfers
+                    ? context.l10n.suggestedNetTransfers
+                    : context.l10n.detailedPairwiseDues,
+                scheme: colorScheme),
           if (suggestions.isNotEmpty) const SizedBox(height: 4),
           ...suggestions.map((s) => Padding(
                 padding: const EdgeInsets.symmetric(vertical: 2),
@@ -290,7 +360,8 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
                           ),
                           child: SettleUpSheet(
                             householdId: widget.summary.householdId,
-                            specificMemberId: s.toUserId, // settle with receiver (payer of expenses)
+                            specificMemberId: s
+                                .toUserId, // settle with receiver (payer of expenses)
                             amount: s.amountCents / 100.0,
                             isExpressNetting: _netTransfers,
                             splits: widget.splits,
@@ -321,7 +392,8 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
     final pairMap = <String, int>{}; // key: from->to, value: cents
 
     if (kDebugMode) {
-      debugPrint('🧩 Building detailed pairs from ${splits.length} split groups');
+      debugPrint(
+          '🧩 Building detailed pairs from ${splits.length} split groups');
     }
     for (final g in splits) {
       // Filter by selected currency if provided
@@ -330,7 +402,8 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
         final selectedCode = currency.trim().toUpperCase();
         if (groupCode != selectedCode) {
           if (kDebugMode) {
-            debugPrint('  • Skipping group ${g.id} due to currency filter: $groupCode != $selectedCode');
+            debugPrint(
+                '  • Skipping group ${g.id} due to currency filter: $groupCode != $selectedCode');
           }
           continue;
         }
@@ -342,7 +415,8 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
       }
       for (final line in lines) {
         if (kDebugMode) {
-          debugPrint('     - line user=${line.userId} amount=${line.amountCents} settled=${line.isSettled}');
+          debugPrint(
+              '     - line user=${line.userId} amount=${line.amountCents} settled=${line.isSettled}');
         }
         if (line.isSettled) continue;
         if (line.userId == payer) continue; // payer doesn't owe themselves
@@ -368,13 +442,14 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
       ));
     });
 
-    out.sort((a,b) => b.amountCents.compareTo(a.amountCents));
+    out.sort((a, b) => b.amountCents.compareTo(a.amountCents));
     return out;
   }
 
   // Build net balances from split groups filtered by currency
   // Positive balance => should receive; Negative => should pay
-  Map<String, int> _buildNetBalancesFromSplits(List<ExpenseSplitGroup> splits, String? currency) {
+  Map<String, int> _buildNetBalancesFromSplits(
+      List<ExpenseSplitGroup> splits, String? currency) {
     final net = <String, int>{};
     for (final g in splits) {
       if (currency != null && currency.isNotEmpty) {
@@ -430,7 +505,8 @@ class _Balance {
   final String userId;
   final String userName;
   double amount;
-  _Balance({required this.userId, required this.userName, required this.amount});
+  _Balance(
+      {required this.userId, required this.userName, required this.amount});
 }
 
 class _Suggestion {
@@ -474,7 +550,8 @@ class _StatsRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(child: _StatTile(
+        Expanded(
+            child: _StatTile(
           label: context.l10n.outstanding,
           value: _fmt(outstandingCents),
           scheme: scheme,
@@ -482,7 +559,8 @@ class _StatsRow extends StatelessWidget {
           onTap: onTapOutstanding,
         )),
         const SizedBox(width: 8),
-        Expanded(child: _StatTile(
+        Expanded(
+            child: _StatTile(
           label: context.l10n.youOwe,
           value: _fmt(youOweCents),
           scheme: scheme,
@@ -490,7 +568,8 @@ class _StatsRow extends StatelessWidget {
           onTap: onTapOwe,
         )),
         const SizedBox(width: 8),
-        Expanded(child: _StatTile(
+        Expanded(
+            child: _StatTile(
           label: context.l10n.youAreOwed,
           value: _fmt(youAreOwedCents),
           scheme: scheme,
@@ -544,7 +623,10 @@ class _StatTile extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             value,
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: fg == scheme.mutedForeground ? scheme.foreground : fg),
+            style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: fg == scheme.mutedForeground ? scheme.foreground : fg),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             softWrap: false,
@@ -553,7 +635,8 @@ class _StatTile extends StatelessWidget {
       ),
     );
     if (onTap == null) return child;
-    return Material(color: Colors.transparent, child: InkWell(onTap: onTap, child: child));
+    return Material(
+        color: Colors.transparent, child: InkWell(onTap: onTap, child: child));
   }
 }
 
@@ -565,7 +648,8 @@ class _SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(top: 2, bottom: 4),
-      child: Text(title, style: TextStyle(fontSize: 12, color: scheme.mutedForeground)),
+      child: Text(title,
+          style: TextStyle(fontSize: 12, color: scheme.mutedForeground)),
     );
   }
 }
@@ -591,8 +675,11 @@ class _SuggestionTile extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Text(
-            (s.amountCents/100).toStringAsFixed(2),
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: scheme.primary),
+            (s.amountCents / 100).toStringAsFixed(2),
+            style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: scheme.primary),
           ),
         ],
       ),
@@ -600,9 +687,10 @@ class _SuggestionTile extends StatelessWidget {
   }
 }
 
-void _showOwedDetails(BuildContext context, ColorScheme scheme, String currentUserId, List<_Suggestion> pairs) {
+void _showOwedDetails(BuildContext context, ColorScheme scheme,
+    String currentUserId, List<_Suggestion> pairs) {
   final owedToYou = pairs.where((s) => s.toUserId == currentUserId).toList()
-    ..sort((a,b)=>b.amountCents.compareTo(a.amountCents));
+    ..sort((a, b) => b.amountCents.compareTo(a.amountCents));
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
@@ -631,30 +719,42 @@ void _showOwedDetails(BuildContext context, ColorScheme scheme, String currentUs
                 ),
               ),
               const SizedBox(height: 10),
-              Text(context.l10n.youAreOwedBy, style: TextStyle(fontSize: 14, color: scheme.mutedForeground)),
+              Text(context.l10n.youAreOwedBy,
+                  style:
+                      TextStyle(fontSize: 14, color: scheme.mutedForeground)),
               const SizedBox(height: 8),
               if (owedToYou.isEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 24),
-                  child: Center(child: Text(context.l10n.noOutstandingAmounts, style: TextStyle(color: scheme.mutedForeground))),
+                  child: Center(
+                      child: Text(context.l10n.noOutstandingAmounts,
+                          style: TextStyle(color: scheme.mutedForeground))),
                 )
               else
                 ...owedToYou.map((s) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Row(
-                    children: [
-                      Expanded(child: Text(s.fromName, style: TextStyle(color: scheme.foreground))),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: scheme.primary.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text((s.amountCents/100).toStringAsFixed(2), style: TextStyle(fontSize: 12, color: scheme.primary, fontWeight: FontWeight.w600)),
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Row(
+                        children: [
+                          Expanded(
+                              child: Text(s.fromName,
+                                  style: TextStyle(color: scheme.foreground))),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: scheme.primary.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                                (s.amountCents / 100).toStringAsFixed(2),
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: scheme.primary,
+                                    fontWeight: FontWeight.w600)),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                )),
+                    )),
               const SizedBox(height: 8),
             ],
           ),

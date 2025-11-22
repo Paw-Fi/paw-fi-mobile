@@ -9,6 +9,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+
 /// Member spending breakdown card with modern, Apple-inspired design
 Widget buildHouseholdMemberSpendingCard(
   BuildContext context,
@@ -23,7 +24,8 @@ Widget buildHouseholdMemberSpendingCard(
   String? selectedCurrency,
   VoidCallback? onTap,
 }) {
-  final currency = ((selectedCurrency ?? summary?.currency) ?? 'USD').toUpperCase();
+  final currency =
+      ((selectedCurrency ?? summary?.currency) ?? 'USD').toUpperCase();
   final currentUserId = Supabase.instance.client.auth.currentUser?.id;
 
   // ═══════════════════════════════════════════════════════════════
@@ -39,50 +41,56 @@ Widget buildHouseholdMemberSpendingCard(
   // ═══════════════════════════════════════════════════════════════
   Map<String, int> totalsByUser = {};
   Map<String, int> countsByUser = {};
-  
+
   if (transactions != null && from != null && to != null) {
     // Create lookup map for split groups
-    final byGroupId = splits != null ? {for (final g in splits) g.id: g} : <String, ExpenseSplitGroup>{};
-    
+    final byGroupId = splits != null
+        ? {for (final g in splits) g.id: g}
+        : <String, ExpenseSplitGroup>{};
+
     for (final t in transactions) {
       final tdate = DateTime(t.date.year, t.date.month, t.date.day);
       final code = (t.currency ?? '').trim().toUpperCase();
-      final currencyOk = selectedCurrency == null || code.isEmpty || code == selectedCurrency;
+      final currencyOk =
+          selectedCurrency == null || code.isEmpty || code == selectedCurrency;
       final isSpend = (t.type ?? 'expense').toLowerCase() != 'income';
-      
+
       if (!isSpend) continue;
       if (!currencyOk) continue;
       if (tdate.isBefore(from) || tdate.isAfter(to)) continue;
-      
+
       final splitGroupId = t.splitGroupId;
-      
+
       // CASE 1: No split - attribute full amount to creator
       if (splitGroupId == null) {
         if (t.userId != null) {
-          totalsByUser[t.userId!] = (totalsByUser[t.userId!] ?? 0) + t.amountCents.abs();
+          totalsByUser[t.userId!] =
+              (totalsByUser[t.userId!] ?? 0) + t.amountCents.abs();
           countsByUser[t.userId!] = (countsByUser[t.userId!] ?? 0) + 1;
         }
         continue;
       }
-      
+
       // CASE 2: Has split - distribute according to split lines
       final group = byGroupId[splitGroupId];
       if (group == null || group.splitLines == null) {
         // Split group not found, fallback to creator
         if (t.userId != null) {
-          totalsByUser[t.userId!] = (totalsByUser[t.userId!] ?? 0) + t.amountCents.abs();
+          totalsByUser[t.userId!] =
+              (totalsByUser[t.userId!] ?? 0) + t.amountCents.abs();
           countsByUser[t.userId!] = (countsByUser[t.userId!] ?? 0) + 1;
         }
         continue;
       }
-      
+
       // Distribute amounts according to each member's split line
       for (final line in group.splitLines!) {
         final memberUserId = line.userId;
         final memberAmount = (line.amountCents ?? 0).abs();
-        
+
         if (memberAmount > 0) {
-          totalsByUser[memberUserId] = (totalsByUser[memberUserId] ?? 0) + memberAmount;
+          totalsByUser[memberUserId] =
+              (totalsByUser[memberUserId] ?? 0) + memberAmount;
           // Count transaction for each member who has a share
           countsByUser[memberUserId] = (countsByUser[memberUserId] ?? 0) + 1;
         }
@@ -107,7 +115,8 @@ Widget buildHouseholdMemberSpendingCard(
         }).toList()
       : (summary?.memberContributions ?? []);
 
-  final totalMemberSpent = memberContributions.fold<int>(0, (sum, m) => sum + m.totalSpentCents);
+  final totalMemberSpent =
+      memberContributions.fold<int>(0, (sum, m) => sum + m.totalSpentCents);
 
   // Create a list of all members with their spending (0 if not in contributions)
   final allMembers = (members ?? []).map((member) {
@@ -130,20 +139,23 @@ Widget buildHouseholdMemberSpendingCard(
   final sortedMembers = List<MemberContribution>.from(allMembers)
     ..sort((a, b) => b.totalSpentCents.compareTo(a.totalSpentCents));
 
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+
   final card = Container(
     width: double.infinity,
     decoration: BoxDecoration(
-      color: colorScheme.card,
-      borderRadius: BorderRadius.circular(20),
+      color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+      borderRadius: BorderRadius.circular(24),
       border: Border.all(
-        color: colorScheme.border.withValues(alpha: 0.15),
-        width: 0.5,
+        color: colorScheme.outline.withValues(alpha: 0.05),
+        width: 1,
       ),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withValues(alpha: 0.03),
-          blurRadius: 10,
-          offset: const Offset(0, 2),
+          color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
+          blurRadius: 32,
+          offset: const Offset(0, 8),
+          spreadRadius: -4,
         ),
       ],
     ),
@@ -152,7 +164,6 @@ Widget buildHouseholdMemberSpendingCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-     
           // Divider
           Container(
             height: 0.5,
@@ -283,8 +294,8 @@ Widget _buildMemberRow(
 
   final isCurrentUser = currentUserId != null && member.userId == currentUserId;
   final canRemind = currentUserId != null &&
-                    member.userId != currentUserId &&
-                    householdId != null;
+      member.userId != currentUserId &&
+      householdId != null;
 
   return Padding(
     padding: EdgeInsets.only(bottom: isLast ? 0 : 20),
@@ -308,7 +319,7 @@ Widget _buildMemberRow(
                         shape: BoxShape.circle,
                         color: colorScheme.muted.withValues(alpha: 0.5),
                         border: Border.all(
-                          color:colorScheme.border.withValues(alpha: 0.15),
+                          color: colorScheme.border.withValues(alpha: 0.15),
                           width: 2,
                         ),
                         boxShadow: [
@@ -327,18 +338,19 @@ Widget _buildMemberRow(
                               errorBuilder: (context, error, stack) => Icon(
                                 Icons.person_rounded,
                                 size: 22,
-                                color: colorScheme.mutedForeground.withValues(alpha: 0.6),
+                                color: colorScheme.mutedForeground
+                                    .withValues(alpha: 0.6),
                               ),
                             )
                           : Icon(
                               Icons.person_rounded,
                               size: 22,
-                              color: colorScheme.mutedForeground.withValues(alpha: 0.6),
+                              color: colorScheme.mutedForeground
+                                  .withValues(alpha: 0.6),
                             ),
                     );
                   },
                 ),
-               
               ],
             ),
             const SizedBox(width: 14),
@@ -367,7 +379,8 @@ Widget _buildMemberRow(
                       if (isCurrentUser) ...[
                         const SizedBox(width: 6),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
                             color: colorScheme.primary.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(6),
@@ -396,7 +409,8 @@ Widget _buildMemberRow(
                           child: Container(
                             padding: const EdgeInsets.all(5),
                             decoration: BoxDecoration(
-                              color: colorScheme.primary.withValues(alpha: 0.08),
+                              color:
+                                  colorScheme.primary.withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(7),
                             ),
                             child: Icon(
@@ -417,11 +431,11 @@ Widget _buildMemberRow(
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
-                          color: colorScheme.mutedForeground.withValues(alpha: 0.6),
+                          color: colorScheme.mutedForeground
+                              .withValues(alpha: 0.6),
                           letterSpacing: -0.1,
                         ),
                       ),
-                  
                     ],
                   ),
                 ],
@@ -483,9 +497,9 @@ Widget _buildMemberRow(
                           begin: Alignment.centerLeft,
                           end: Alignment.centerRight,
                           colors: [
-                                  colorScheme.primary,
-                                  colorScheme.primary.withValues(alpha: 0.8),
-                                ],
+                            colorScheme.primary,
+                            colorScheme.primary.withValues(alpha: 0.8),
+                          ],
                         ),
                         borderRadius: BorderRadius.circular(3),
                       ),
@@ -526,7 +540,8 @@ Future<bool> _canSendReminder(String householdId, String targetUserId) async {
     if (currentUserId == null) return false;
 
     // Check for existing reminder in last 24 hours
-    final twentyFourHoursAgo = DateTime.now().subtract(const Duration(hours: 24));
+    final twentyFourHoursAgo =
+        DateTime.now().subtract(const Duration(hours: 24));
 
     final response = await supabase
         .from('notification_events')
@@ -611,14 +626,19 @@ class _ReminderModalContentState extends State<_ReminderModalContent> {
 
     try {
       // Check cooldown
-      final canSend = await _canSendReminder(widget.householdId, widget.targetUserId);
+      final canSend =
+          await _canSendReminder(widget.householdId, widget.targetUserId);
 
       if (!canSend) {
         if (mounted) {
           Navigator.of(context).pop();
         }
         if (widget.parentContext.mounted) {
-          AppToast.warning(widget.parentContext, widget.parentContext.l10n.pleaseWait24HoursBeforeSendingAnotherReminder(widget.targetUserName));
+          AppToast.warning(
+              widget.parentContext,
+              widget.parentContext.l10n
+                  .pleaseWait24HoursBeforeSendingAnotherReminder(
+                      widget.targetUserName));
         }
         return;
       }
@@ -638,7 +658,10 @@ class _ReminderModalContentState extends State<_ReminderModalContent> {
       }
       if (response.status == 200) {
         if (widget.parentContext.mounted) {
-          AppToast.success(widget.parentContext, widget.parentContext.l10n.reminderSentToName(widget.targetUserName));
+          AppToast.success(
+              widget.parentContext,
+              widget.parentContext.l10n
+                  .reminderSentToName(widget.targetUserName));
         }
       } else {
         throw Exception('Failed to send reminder');
@@ -649,7 +672,8 @@ class _ReminderModalContentState extends State<_ReminderModalContent> {
         Navigator.of(context).pop();
       }
       if (widget.parentContext.mounted) {
-        AppToast.error(widget.parentContext, widget.parentContext.l10n.failedToSendReminderTryAgain);
+        AppToast.error(widget.parentContext,
+            widget.parentContext.l10n.failedToSendReminderTryAgain);
       }
     } finally {
       if (mounted) {
@@ -663,153 +687,158 @@ class _ReminderModalContentState extends State<_ReminderModalContent> {
   @override
   Widget build(BuildContext context) {
     return Container(
-        decoration: BoxDecoration(
-          color: widget.colorScheme.card,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: widget.colorScheme.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        Icons.notifications_active,
-                        color: widget.colorScheme.primary,
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            context.l10n.remindUser(widget.targetUserName),
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: widget.colorScheme.foreground,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            context.l10n.sendFriendlySpendingReminder,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: widget.colorScheme.mutedForeground,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 14),
-                Text(context.l10n.addMessageOptional, style: TextStyle(fontSize: 14, color: widget.colorScheme.mutedForeground)),
-                const SizedBox(height: 6),
-
-                // Message input
-                TextField(
-                  controller: messageController,
-                  enabled: !isLoading,
-                  maxLines: 3,
-                  maxLength: 100,
-                  decoration: InputDecoration(
-                    hintText: context.l10n.messageHintExample,
-                    hintStyle: TextStyle(
-                      color: widget.colorScheme.mutedForeground.withValues(alpha: 0.5),
-                    ),
-                    filled: true,
-                    fillColor: widget.colorScheme.muted.withValues(alpha: 0.3),
-                    border: OutlineInputBorder(
+      decoration: BoxDecoration(
+        color: widget.colorScheme.card,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: widget.colorScheme.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
                     ),
-                    contentPadding: const EdgeInsets.all(16),
+                    child: Icon(
+                      Icons.notifications_active,
+                      color: widget.colorScheme.primary,
+                      size: 24,
+                    ),
                   ),
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: widget.colorScheme.foreground,
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Action buttons
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: isLoading ? null : () => Navigator.of(context).pop(),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          side: BorderSide(color: widget.colorScheme.border),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: Text(
-                          context.l10n.cancel,
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          context.l10n.remindUser(widget.targetUserName),
                           style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
                             color: widget.colorScheme.foreground,
                           ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: isLoading ? null : _sendReminder,
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          backgroundColor: widget.colorScheme.primary,
-                          disabledBackgroundColor: widget.colorScheme.muted,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                        const SizedBox(height: 4),
+                        Text(
+                          context.l10n.sendFriendlySpendingReminder,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: widget.colorScheme.mutedForeground,
                           ),
                         ),
-                        child: isLoading
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                ),
-                              )
-                            : Text(
-                                context.l10n.sendReminder,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white,
-                                ),
-                              ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 14),
+              Text(context.l10n.addMessageOptional,
+                  style: TextStyle(
+                      fontSize: 14, color: widget.colorScheme.mutedForeground)),
+              const SizedBox(height: 6),
+
+              // Message input
+              TextField(
+                controller: messageController,
+                enabled: !isLoading,
+                maxLines: 3,
+                maxLength: 100,
+                decoration: InputDecoration(
+                  hintText: context.l10n.messageHintExample,
+                  hintStyle: TextStyle(
+                    color: widget.colorScheme.mutedForeground
+                        .withValues(alpha: 0.5),
+                  ),
+                  filled: true,
+                  fillColor: widget.colorScheme.muted.withValues(alpha: 0.3),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.all(16),
+                ),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: widget.colorScheme.foreground,
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // Action buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed:
+                          isLoading ? null : () => Navigator.of(context).pop(),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        side: BorderSide(color: widget.colorScheme.border),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        context.l10n.cancel,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: widget.colorScheme.foreground,
+                        ),
                       ),
                     ),
-                  ],
-                ),
-              ],
-            ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: isLoading ? null : _sendReminder,
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor: widget.colorScheme.primary,
+                        disabledBackgroundColor: widget.colorScheme.muted,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : Text(
+                              context.l10n.sendReminder,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
-      );
-    }
+      ),
+    );
+  }
 }

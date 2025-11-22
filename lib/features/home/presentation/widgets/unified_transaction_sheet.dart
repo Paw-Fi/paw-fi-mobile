@@ -33,6 +33,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/widgets/transaction_category_picker.dart';
 import 'package:moneko/core/ui/widgets/transaction_currency_picker.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:moneko/shared/widgets/destructive-adaptive-button.dart';
 import 'package:moneko/shared/widgets/moneko-switch.dart';
 import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 
@@ -613,7 +614,7 @@ class _UnifiedTransactionSheetState
                     const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,
-                      child: PrimaryAdaptiveButton(
+                      child: DestructiveAdaptiveButton(
                         onPressed: _isDeleting ? null : _handleDelete,
                         child: _isDeleting
                             ? SizedBox(
@@ -622,16 +623,12 @@ class _UnifiedTransactionSheetState
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
                                   valueColor: AlwaysStoppedAnimation<Color>(
-                                    colorScheme.destructive,
+                                    Colors.white,
                                   ),
                                 ),
                               )
                             : Text(
                                 context.l10n.deleteExpense,
-                                style: TextStyle(
-                                  color: colorScheme.destructive,
-                                  fontWeight: FontWeight.w600,
-                                ),
                               ),
                       ),
                     ),
@@ -896,7 +893,7 @@ class _UnifiedTransactionSheetState
                           children: [
                             Expanded(
                               child: Text(
-                                'Who paid?',
+                                context.l10n.whoPaid,
                                 style: TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,

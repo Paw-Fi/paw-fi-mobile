@@ -1313,7 +1313,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                         children: [
                           Expanded(
                             child: Text(
-                              'Who paid?',
+                              context.l10n.whoPaid,
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,

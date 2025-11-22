@@ -534,13 +534,8 @@ class _ScenarioPlanningTabContentState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Scenario Planning Input
-          Container(
-            decoration: BoxDecoration(
-              color: widget.colorScheme.card,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: widget.colorScheme.border, width: 1),
-            ),
-            padding: const EdgeInsets.all(16),
+          InsightsSectionCard(
+            colorScheme: widget.colorScheme,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

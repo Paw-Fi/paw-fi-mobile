@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
-import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
@@ -12,6 +11,7 @@ import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 
 Widget buildCategoryBreakdownCard(
   BuildContext context,
@@ -65,7 +65,6 @@ Widget buildCategoryBreakdownCard(
           );
         }
 
-        String fmt(double v) => formatCurrency(v, selectedCurrency ?? 'USD');
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -80,105 +79,64 @@ Widget buildCategoryBreakdownCard(
             ),
             const SizedBox(height: 16),
             ...latest.map((e) {
-              final color = getCategoryColor(e.category);
-              final icon = getCategoryIcon(e.category);
               final isIncome = (e.type ?? 'expense').toLowerCase() == 'income';
-              final sign = isIncome ? '+' : '-';
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Slidable(
-                  key: ValueKey(e.id),
-                  endActionPane: ActionPane(
-                    motion: const ScrollMotion(),
-                    extentRatio: 0.22,
-                    children: [
-                      SlidableAction(
-                        onPressed: (_) async {
-                          final l10n = context.l10n;
-                          final uid =
-                              Supabase.instance.client.auth.currentUser?.id;
-                          if (uid == null) return;
-                          try {
-                            final res = await Supabase.instance.client.functions
-                                .invoke('delete-expense', body: {
-                              'userId': uid,
-                              'expenseId': e.id,
-                            });
+              return Slidable(
+                key: ValueKey(e.id),
+                endActionPane: ActionPane(
+                  motion: const ScrollMotion(),
+                  extentRatio: 0.22,
+                  children: [
+                    SlidableAction(
+                      onPressed: (_) async {
+                        final l10n = context.l10n;
+                        final uid =
+                            Supabase.instance.client.auth.currentUser?.id;
+                        if (uid == null) return;
+                        try {
+                          final res = await Supabase.instance.client.functions
+                              .invoke('delete-expense', body: {
+                            'userId': uid,
+                            'expenseId': e.id,
+                          });
 
-                            if (!context.mounted) return;
+                          if (!context.mounted) return;
 
-                            if (res.data != null &&
-                                (res.data['success'] == true)) {
-                              if (householdId == null) {
-                                ref
-                                    .read(analyticsProvider.notifier)
-                                    .refresh(uid);
-                              } else {
-                                ref.invalidate(householdExpensesProvider);
-                                ref.invalidate(householdSplitsProvider);
-                                ref.invalidate(householdSummaryProvider);
-                              }
-                              AppToast.success(
-                                  context, l10n.transactionDeleted);
+                          if (res.data != null &&
+                              (res.data['success'] == true)) {
+                            if (householdId == null) {
+                              ref.read(analyticsProvider.notifier).refresh(uid);
                             } else {
-                              AppToast.error(context, l10n.anErrorOccurred);
+                              ref.invalidate(householdExpensesProvider);
+                              ref.invalidate(householdSplitsProvider);
+                              ref.invalidate(householdSummaryProvider);
                             }
-                          } catch (err) {
-                            if (context.mounted) {
-                              AppToast.error(context, '${l10n.error}: $err');
-                            }
+                            AppToast.success(context, l10n.transactionDeleted);
+                          } else {
+                            AppToast.error(context, l10n.anErrorOccurred);
                           }
-                        },
-                        backgroundColor: const Color(0xFFFE4A49),
-                        foregroundColor: Colors.white,
-                        icon: Icons.delete,
-                        label: context.l10n.delete,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ],
-                  ),
-                  child: ListTile(
-                    onTap: () => showUnifiedTransactionSheet(context,
-                        existingExpense: e, contact: contact),
-                    dense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 0),
-                    leading: Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(icon, color: color, size: 24),
+                        } catch (err) {
+                          if (context.mounted) {
+                            AppToast.error(context, '${l10n.error}: $err');
+                          }
+                        }
+                      },
+                      backgroundColor: const Color(0xFFFE4A49),
+                      foregroundColor: Colors.white,
+                      icon: Icons.delete,
+                      label: context.l10n.delete,
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    title: Text(
-                      getCategoryTranslation(context, e.category),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.foreground,
-                      ),
-                    ),
-                    subtitle: Text(
-                      e.rawText ?? '',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          fontSize: 13, color: colorScheme.mutedForeground),
-                    ),
-                    trailing: Text(
-                      '$sign${fmt(e.amount.abs())}',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: isIncome
-                            ? const Color(0xFF10B981)
-                            : colorScheme.foreground,
-                      ),
-                    ),
-                  ),
+                  ],
+                ),
+                child: TransactionListTile(
+                  onTap: () => showUnifiedTransactionSheet(context,
+                      existingExpense: e, contact: contact),
+                  category: e.category ?? 'other',
+                  title: getCategoryTranslation(context, e.category ?? 'other'),
+                  subtitle: e.rawText ?? '',
+                  amount: e.amount,
+                  currency: selectedCurrency ?? 'USD',
+                  isIncome: isIncome,
                 ),
               );
             }),

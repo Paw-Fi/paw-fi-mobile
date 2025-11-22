@@ -175,7 +175,8 @@ void _showRunningBalanceInfoModal(
                               return Container(
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
-                                  color: colorScheme.muted.withOpacity(0.1),
+                                  color:
+                                      colorScheme.muted.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Column(

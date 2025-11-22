@@ -19,7 +19,6 @@ class AnalyticsPage extends ConsumerStatefulWidget {
 }
 
 class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
-
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -33,50 +32,54 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
           // Analytics data refresh will be handled by analyticsProvider
           await Future.delayed(const Duration(milliseconds: 500));
         },
-        child: AdaptiveTabBarView(
-          tabs: [
-            context.l10n.runningTab,
-            context.l10n.day30Tab,
-            context.l10n.longTermTab,
-            context.l10n.scenarioTab,
-          ],
-          children: [
-            buildRunningBalanceTab(
-              context,
-              colorScheme,
-              analyticsData,
-              selectedCurrency: filterState.selectedCurrency,
-            ),
-            build30DayLookAheadTab(
-              context,
-              colorScheme,
-              analyticsData,
-              selectedCurrency: filterState.selectedCurrency,
-            ),
-            buildLongTermProjectionTab(
-              context,
-              colorScheme,
-              analyticsData,
-              selectedCurrency: filterState.selectedCurrency,
-            ),
-            _buildScenarioPlanningTabWithProvider(
-              colorScheme,
-              analyticsData,
-              filterState.selectedCurrency,
-            ),
-          ],
-          onTabChanged: (_) {},
+        child: SafeArea(
+          child: AdaptiveTabBarView(
+            tabs: [
+              context.l10n.runningTab,
+              context.l10n.day30Tab,
+              context.l10n.longTermTab,
+              context.l10n.scenarioTab,
+            ],
+            children: [
+              buildRunningBalanceTab(
+                context,
+                colorScheme,
+                analyticsData,
+                selectedCurrency: filterState.selectedCurrency,
+              ),
+              build30DayLookAheadTab(
+                context,
+                colorScheme,
+                analyticsData,
+                selectedCurrency: filterState.selectedCurrency,
+              ),
+              buildLongTermProjectionTab(
+                context,
+                colorScheme,
+                analyticsData,
+                selectedCurrency: filterState.selectedCurrency,
+              ),
+              _buildScenarioPlanningTabWithProvider(
+                colorScheme,
+                analyticsData,
+                filterState.selectedCurrency,
+              ),
+            ],
+            onTabChanged: (_) {},
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildScenarioPlanningTabWithProvider(ColorScheme colorScheme, AnalyticsData analyticsData, String? selectedCurrency) {
+  Widget _buildScenarioPlanningTabWithProvider(ColorScheme colorScheme,
+      AnalyticsData analyticsData, String? selectedCurrency) {
     return ProviderScope(
       overrides: const [
         // Override any providers if needed
       ],
-      child: buildScenarioPlanningTab(context, colorScheme, analyticsData, selectedCurrency: selectedCurrency),
+      child: buildScenarioPlanningTab(context, colorScheme, analyticsData,
+          selectedCurrency: selectedCurrency),
     );
   }
 }

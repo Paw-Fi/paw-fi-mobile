@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:intl/intl.dart';
-import 'package:moneko/core/l10n/l10n.dart';
-
 import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
-import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/core/utils/date_formatter.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+
+import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 
 /// Get localized frequency text for a recurring transaction
 String getLocalizedFrequencyText(
@@ -61,20 +60,11 @@ class RecurringTransactionCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final isIncome = transaction.type == 'income';
-    final categoryColor = getCategoryColor(transaction.category);
-    final categoryIcon = getCategoryIcon(transaction.category);
-
-    // Use the currency utility for proper symbol display
-    final currencySymbol = resolveCurrencySymbol(transaction.currency);
-    final currencyFormat = NumberFormat.currency(
-      symbol: currencySymbol,
-      decimalDigits: 2,
-    );
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 12),
       child: Slidable(
         key: ValueKey(transaction.id),
         endActionPane: ActionPane(
@@ -114,146 +104,80 @@ class RecurringTransactionCard extends ConsumerWidget {
           ),
           child: Material(
             color: Colors.transparent,
-            child: InkWell(
-              onTap: onTap,
-              borderRadius: BorderRadius.circular(24),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Row(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
+              child: TransactionListTile(
+                onTap: onTap,
+                category: transaction.category,
+                title: getCategoryTranslation(context, transaction.category),
+                amount: transaction.amount,
+                currency: transaction.currency,
+                isIncome: isIncome,
+                subtitleWidget: Row(
                   children: [
-                    // Category icon
                     Container(
-                      width: 56,
-                      height: 56,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
-                        color: categoryColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(16),
+                        color: colorScheme.surfaceContainerHighest
+                            .withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(6),
                       ),
-                      child: Icon(
-                        categoryIcon,
-                        color: categoryColor,
-                        size: 28,
+                      child: Text(
+                        getLocalizedFrequencyText(context, transaction),
+                        style: TextStyle(
+                          color: colorScheme.onSurfaceVariant,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 16),
-
-                    // Content
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Category name
-                          Text(
-                            getCategoryTranslation(
-                                context, transaction.category),
-                            style: TextStyle(
-                              color: colorScheme.foreground,
-                              fontSize: 17,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: -0.5,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-
-                          // Frequency and next occurrence
-                          Row(
-                            children: [
-                              // Frequency badge
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: colorScheme.surfaceContainerHighest
-                                      .withValues(alpha: 0.5),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  getLocalizedFrequencyText(
-                                      context, transaction),
-                                  style: TextStyle(
-                                    color: colorScheme.onSurfaceVariant,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-
-                              Icon(
-                                Icons.calendar_today_rounded,
-                                size: 12,
-                                color: colorScheme.mutedForeground,
-                              ),
-                              const SizedBox(width: 4),
-                              // Next occurrence
-                              Flexible(
-                                child: Text(
-                                  formatLocalizedDate(
-                                      context, transaction.getNextOccurrence()),
-                                  style: TextStyle(
-                                    color: colorScheme.mutedForeground,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.calendar_today_rounded,
+                      size: 12,
+                      color: colorScheme.mutedForeground,
                     ),
-
-                    const SizedBox(width: 12),
-
-                    // Amount and actions
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        // Amount
-                        Text(
-                          '${isIncome ? '+' : '-'}${currencyFormat.format(transaction.amount)}',
-                          style: TextStyle(
-                            color: isIncome
-                                ? const Color(0xFF10B981)
-                                : colorScheme.foreground,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.5,
-                          ),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        formatLocalizedDate(
+                            context, transaction.getNextOccurrence()),
+                        style: TextStyle(
+                          color: colorScheme.mutedForeground,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
                         ),
-
-                        // Status indicator
-                        const SizedBox(height: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: transaction.isActive
-                                ? const Color(0xFF10B981).withValues(alpha: 0.1)
-                                : colorScheme.muted,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            transaction.isActive
-                                ? context.l10n.active
-                                : context.l10n.ended,
-                            style: TextStyle(
-                              color: transaction.isActive
-                                  ? const Color(0xFF10B981)
-                                  : colorScheme.mutedForeground,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
+                ),
+                trailingWidget: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: transaction.isActive
+                        ? const Color(0xFF10B981).withValues(alpha: 0.1)
+                        : colorScheme.muted,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    transaction.isActive
+                        ? context.l10n.active
+                        : context.l10n.ended,
+                    style: TextStyle(
+                      color: transaction.isActive
+                          ? const Color(0xFF10B981)
+                          : colorScheme.mutedForeground,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
             ),

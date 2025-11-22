@@ -10,7 +10,6 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
-import 'package:moneko/features/utils/main_page_top_padding.dart';
 
 /// Modern recurring transactions page with Apple-inspired design
 /// Features tabbed interface for expenses and income
@@ -75,35 +74,32 @@ class _RecurringTransactionsPageState
         ref.watch(homeFilterProvider).selectedCurrency?.toUpperCase();
     return AdaptiveScaffold(
       body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _refresh,
-          child: AdaptiveTabBarView(
-            tabs: [
-              context.l10n.expenses,
-              context.l10n.income,
-            ],
-            children: [
-              _buildRecurringTabView(
+        child: AdaptiveTabBarView(
+          tabs: [
+            context.l10n.expenses,
+            context.l10n.income,
+          ],
+          children: [
+            _buildRecurringTabView(
+              colorScheme,
+              _buildExpensesSliver(
+                recurringExpenses,
                 colorScheme,
-                _buildExpensesSliver(
-                  recurringExpenses,
-                  colorScheme,
-                  selectedCurrency,
-                ),
+                selectedCurrency,
               ),
-              _buildRecurringTabView(
+            ),
+            _buildRecurringTabView(
+              colorScheme,
+              _buildIncomesSliver(
+                recurringIncomes,
                 colorScheme,
-                _buildIncomesSliver(
-                  recurringIncomes,
-                  colorScheme,
-                  selectedCurrency,
-                ),
+                selectedCurrency,
               ),
-            ],
-            onTabChanged: (index) {
-              ref.read(selectedRecurringTabProvider.notifier).state = index;
-            },
-          ),
+            ),
+          ],
+          onTabChanged: (index) {
+            ref.read(selectedRecurringTabProvider.notifier).state = index;
+          },
         ),
       ),
 
@@ -121,15 +117,18 @@ class _RecurringTransactionsPageState
     ColorScheme colorScheme,
     Widget sliver,
   ) {
-    return CustomScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      slivers: [
-        // Header is now provided globally in MainShell; add spacing only
-        const SliverToBoxAdapter(
-          child: SizedBox(height: 20),
-        ),
-        sliver,
-      ],
+    return RefreshIndicator(
+      onRefresh: _refresh,
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          // Header is now provided globally in MainShell; add spacing only
+          const SliverToBoxAdapter(
+            child: SizedBox(height: 20),
+          ),
+          sliver,
+        ],
+      ),
     );
   }
 

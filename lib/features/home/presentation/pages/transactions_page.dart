@@ -18,6 +18,7 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 
 // ============================================================================
 // TRANSACTIONS PAGE
@@ -241,6 +242,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       ),
       body: SafeArea(
         child: Material(
+          color: colorScheme.appBackground,
           child: Padding(
             padding: EdgeInsets.only(top: getSubPageTopPadding(context)),
             child: RefreshIndicator(
@@ -400,7 +402,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 16.0, vertical: 8),
+                          horizontal: 16.0, vertical: 0),
                       child: Wrap(
                         spacing: 8,
                         children: [
@@ -463,7 +465,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 16.0),
                                 child: _buildTransactionItem(
-                                    expense, colorScheme, contact),
+                                    context, expense, contact),
                               );
                             },
                             childCount: filteredExpenses.length,
@@ -489,13 +491,26 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     final displayText =
         formatCurrency(totalSpent, filterState.selectedCurrency ?? 'USD');
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       decoration: BoxDecoration(
-        color: colorScheme.card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colorScheme.border, width: 1),
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: colorScheme.outline.withValues(alpha: 0.05),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
+            blurRadius: 32,
+            offset: const Offset(0, 8),
+            spreadRadius: -4,
+          ),
+        ],
       ),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -677,8 +692,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                 interval:
                     1, // Show all data points (already bucketed to 6-7 points)
                 getTitlesWidget: (value, meta) {
-                  if (value.toInt() >= sortedDates.length)
+                  if (value.toInt() >= sortedDates.length) {
                     return const SizedBox();
+                  }
                   final date = sortedDates[value.toInt()];
                   return Text(
                     formatDateForInterval(date, chartIntervalType),
@@ -815,8 +831,10 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                 reservedSize: 50,
                 interval: interval,
                 getTitlesWidget: (value, meta) {
-                  // Only show labels at exact intervals to prevent overlap
-                  if ((value % interval).abs() > 0.01) return const SizedBox();
+                  // Only show labels at intervals to avoid clutter
+                  if ((value % interval).abs() > 0.01) {
+                    return const SizedBox();
+                  }
                   return Padding(
                     padding: const EdgeInsets.only(left: 4),
                     child: Text(
@@ -836,8 +854,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
               sideTitles: SideTitles(
                 showTitles: true,
                 getTitlesWidget: (value, meta) {
-                  if (value.toInt() >= barData.sortedPeriods.length)
+                  if (value.toInt() >= barData.sortedPeriods.length) {
                     return const SizedBox();
+                  }
                   return Text(
                     barData.sortedPeriods[value.toInt()],
                     style: TextStyle(
@@ -868,86 +887,45 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   }
 
   Widget _buildTransactionItem(
-      ExpenseEntry expense, ColorScheme colorScheme, UserContact? contact) {
-    final category = expense.category ?? 'uncategorized';
-    final categoryColor = getCategoryColor(category);
-    final categoryIcon = getCategoryIcon(category);
+      BuildContext context, ExpenseEntry expense, UserContact? contact) {
+    final colorScheme = Theme.of(context).colorScheme;
     final dateFormat = DateFormat('MMM d, yyyy');
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isIncome = (expense.type ?? 'expense').toLowerCase() == 'income';
 
-    return GestureDetector(
-      onTap: () => showUnifiedTransactionSheet(
-        context,
-        existingExpense: expense,
-        contact: contact,
-      ),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: colorScheme.card,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: colorScheme.border, width: 1),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: colorScheme.outline.withValues(alpha: 0.05),
+          width: 1,
         ),
-        child: Row(
-          children: [
-            // Category Icon
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: categoryColor.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                categoryIcon,
-                color: categoryColor,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 12),
-            // Transaction Details
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    getCategoryTranslation(context, category),
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: colorScheme.foreground,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    dateFormat.format(expense.date),
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: colorScheme.mutedForeground,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Amount with sign based on type
-            Builder(builder: (_) {
-              final isIncome =
-                  (expense.type ?? 'expense').toLowerCase() == 'income';
-              final sign = isIncome ? '+' : '-';
-              final txt =
-                  '$sign${formatCurrency(expense.amount.abs(), expense.currency)}';
-              return Text(
-                txt,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: isIncome
-                      ? const Color(0xFF10B981)
-                      : colorScheme.foreground,
-                ),
-              );
-            }),
-          ],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
+            blurRadius: 32,
+            offset: const Offset(0, 8),
+            spreadRadius: -4,
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+          child: TransactionListTile(
+            onTap: () => showUnifiedTransactionSheet(context,
+                existingExpense: expense, contact: contact),
+            category: expense.category ?? 'uncategorized',
+            title: getCategoryTranslation(
+                context, expense.category ?? 'uncategorized'),
+            subtitle: dateFormat.format(expense.date),
+            amount: expense.amount,
+            currency: expense.currency ?? 'USD',
+            isIncome: isIncome,
+          ),
         ),
       ),
     );
@@ -1054,7 +1032,6 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                             Navigator.pop(context);
                           },
                           child: Text(context.l10n.reset),
-                        
                         ),
                       ),
                       const SizedBox(width: 12),

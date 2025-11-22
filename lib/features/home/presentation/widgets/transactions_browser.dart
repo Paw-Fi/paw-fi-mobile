@@ -13,6 +13,7 @@ import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dar
 import 'package:moneko/features/utils/sub_page_top_padding.dart';
 import '../widgets/unified_transaction_sheet.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 
 class TransactionsBrowser extends StatefulWidget {
   final List<ExpenseEntry> transactions;
@@ -157,6 +158,7 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
         title: (widget.title),
       ),
       body: Material(
+        color: colorScheme.appBackground,
         child: SafeArea(
           child: RefreshIndicator(
             onRefresh: widget.onRefresh,
@@ -270,7 +272,7 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 16.0, vertical: 8),
+                            horizontal: 16.0, vertical: 0),
                         child: Wrap(
                           spacing: 8,
                           children: [
@@ -281,7 +283,9 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
                             ])
                               ChoiceChip(
                                 label: Text(
-                                    type[0].toUpperCase() + type.substring(1)),
+                                    type == 'all' ? context.l10n.all :
+                                    type == 'expense' ? context.l10n.expense :
+                                    context.l10n.income),
                                 selected: _selectedType == type,
                                 onSelected: (v) {
                                   if (v) setState(() => _selectedType = type);
@@ -377,12 +381,24 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
       }
     }
     final displayText = formatCurrency(totalSpent, baseCurrency);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       decoration: BoxDecoration(
-        color: colorScheme.card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colorScheme.border, width: 1),
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: colorScheme.outline.withValues(alpha: 0.05),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
+            blurRadius: 32,
+            offset: const Offset(0, 8),
+            spreadRadius: -4,
+          ),
+        ],
       ),
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -515,8 +531,9 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
                 showTitles: true,
                 interval: 1,
                 getTitlesWidget: (value, meta) {
-                  if (value.toInt() >= sortedDates.length)
+                  if (value.toInt() >= sortedDates.length) {
                     return const SizedBox();
+                  }
                   final date = sortedDates[value.toInt()];
                   return Text(formatDateForInterval(date, _chartInterval),
                       style: TextStyle(
@@ -634,7 +651,9 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
                 reservedSize: 50,
                 interval: interval,
                 getTitlesWidget: (value, meta) {
-                  if ((value % interval).abs() > 0.01) return const SizedBox();
+                  if ((value % interval).abs() > 0.01) {
+                    return const SizedBox();
+                  }
                   return Padding(
                     padding: const EdgeInsets.only(left: 4),
                     child: Text(_formatYAxisValue(value),
@@ -650,8 +669,9 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
               sideTitles: SideTitles(
                 showTitles: true,
                 getTitlesWidget: (value, meta) {
-                  if (value.toInt() >= barData.sortedPeriods.length)
+                  if (value.toInt() >= barData.sortedPeriods.length) {
                     return const SizedBox();
+                  }
                   return Text(barData.sortedPeriods[value.toInt()],
                       style: TextStyle(
                           fontSize: 10, color: colorScheme.mutedForeground));
@@ -676,70 +696,43 @@ class _TransactionsBrowserState extends State<TransactionsBrowser> {
 
   Widget _buildTransactionItem(BuildContext context, ExpenseEntry expense) {
     final colorScheme = Theme.of(context).colorScheme;
-    final category = expense.category ?? 'uncategorized';
-    final categoryColor = getCategoryColor(category);
-    final categoryIcon = getCategoryIcon(category);
     final dateFormat = DateFormat('MMM d, yyyy');
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isIncome = (expense.type ?? 'expense').toLowerCase() == 'income';
 
-    return GestureDetector(
-      onTap: () => showUnifiedTransactionSheet(context,
-          existingExpense: expense, contact: widget.contact),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: colorScheme.card,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: colorScheme.border, width: 1),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: colorScheme.outline.withValues(alpha: 0.05),
+          width: 1,
         ),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                  color: categoryColor.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12)),
-              child: Icon(categoryIcon, color: categoryColor, size: 24),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    getCategoryTranslation(context, category),
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.foreground),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    dateFormat.format(expense.date),
-                    style: TextStyle(
-                        fontSize: 14, color: colorScheme.mutedForeground),
-                  ),
-                ],
-              ),
-            ),
-            Builder(builder: (_) {
-              final isIncome =
-                  (expense.type ?? 'expense').toLowerCase() == 'income';
-              final sign = isIncome ? '+' : '-';
-              final txt =
-                  '$sign${formatCurrency(expense.amount.abs(), expense.currency ?? (widget.selectedCurrency ?? 'USD'))}';
-              return Text(
-                txt,
-                style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: isIncome
-                        ? const Color(0xFF10B981)
-                        : colorScheme.foreground),
-              );
-            }),
-          ],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
+            blurRadius: 32,
+            offset: const Offset(0, 8),
+            spreadRadius: -4,
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+          child: TransactionListTile(
+            onTap: () => showUnifiedTransactionSheet(context,
+                existingExpense: expense, contact: widget.contact),
+            category: expense.category ?? 'uncategorized',
+            title: getCategoryTranslation(
+                context, expense.category ?? 'uncategorized'),
+            subtitle: dateFormat.format(expense.date),
+            amount: expense.amount,
+            currency: expense.currency ?? (widget.selectedCurrency ?? 'USD'),
+            isIncome: isIncome,
+          ),
         ),
       ),
     );

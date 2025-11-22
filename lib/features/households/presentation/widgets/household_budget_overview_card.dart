@@ -41,20 +41,23 @@ Widget buildHouseholdBudgetOverviewCard(
       ? (totalBudgetSpentCents / totalBudgetCents * 100).clamp(0, 100)
       : 0.0;
 
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+
   final card = Container(
     width: double.infinity,
     decoration: BoxDecoration(
-      color: colorScheme.card,
+      color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
       borderRadius: BorderRadius.circular(24),
       border: Border.all(
-        color: colorScheme.border.withValues(alpha: 0.4),
+        color: colorScheme.outline.withValues(alpha: 0.05),
         width: 1,
       ),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withValues(alpha: 0.04),
-          blurRadius: 20,
-          offset: const Offset(0, 4),
+          color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
+          blurRadius: 32,
+          offset: const Offset(0, 8),
+          spreadRadius: -4,
         ),
       ],
     ),
@@ -199,7 +202,8 @@ Widget buildHouseholdBudgetOverviewCard(
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w500,
-                        color: colorScheme.mutedForeground.withValues(alpha: 0.7),
+                        color:
+                            colorScheme.mutedForeground.withValues(alpha: 0.7),
                         letterSpacing: 0.3,
                       ),
                     ),
@@ -223,11 +227,14 @@ Widget buildHouseholdBudgetOverviewCard(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      budgetRemainingAmount >= 0 ? context.l10n.remaining : context.l10n.overBudget,
+                      budgetRemainingAmount >= 0
+                          ? context.l10n.remaining
+                          : context.l10n.overBudget,
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w500,
-                        color: colorScheme.mutedForeground.withValues(alpha: 0.7),
+                        color:
+                            colorScheme.mutedForeground.withValues(alpha: 0.7),
                         letterSpacing: 0.3,
                       ),
                     ),
