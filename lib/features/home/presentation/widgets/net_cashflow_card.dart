@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/utils/currency.dart';
@@ -11,7 +11,7 @@ import 'package:moneko/core/core.dart';
 
 Widget buildNetCashflowCard(
   BuildContext context,
-  shadcnui.ColorScheme colorScheme,
+  ColorScheme colorScheme,
   List<DailyBudgetEntry> budgets,
   List<ExpenseEntry> transactions,
   UserContact? contact,

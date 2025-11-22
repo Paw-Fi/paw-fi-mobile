@@ -2,10 +2,11 @@
 // Allows users to split expenses by amount, percentage, or shares
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/core/l10n/l10n.dart';
-
+import 'package:moneko/core/theme/app_theme.dart';
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 enum SplitType { equal, amount, percentage, shares }
 
 class MemberSplit {
@@ -534,8 +535,8 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
-    final isDark = shadcnui.Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -633,7 +634,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
     );
   }
 
-  Widget _buildTypeChip(shadcnui.ColorScheme colorScheme, String label, SplitType type) {
+  Widget _buildTypeChip(ColorScheme colorScheme, String label, SplitType type) {
     final isSelected = _selectedType == type;
     return GestureDetector(
       onTap: () {
@@ -658,7 +659,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
     );
   }
 
-  Widget _buildMemberRow(shadcnui.ColorScheme colorScheme, int index, bool isDark) {
+  Widget _buildMemberRow(ColorScheme colorScheme, int index, bool isDark) {
     final memberSplit = _memberSplits[index];
     final member = memberSplit.member;
     final showCheckbox = _selectedType == SplitType.shares ||
@@ -673,20 +674,12 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
           // More rounded checkbox
           if (showCheckbox)
             Padding(
-              padding: const EdgeInsets.only(right: 0),
-              child: shadcnui.Theme(
-                data: shadcnui.Theme.of(context).copyWith(
-                  radius: () => 0.8,
-                ),
-                child: shadcnui.Checkbox(
-                  state: isIncluded
-                      ? shadcnui.CheckboxState.checked
-                      : shadcnui.CheckboxState.unchecked,
-                  onChanged: (state) => _setMemberIncludedAt(
-                    index,
-                    state == shadcnui.CheckboxState.checked
-                  ),
-                ),
+              padding: const EdgeInsets.only(right: 10),
+              child: AdaptiveCheckbox(
+                value: isIncluded,
+                onChanged: (value) {
+                  _setMemberIncludedAt(index, value ?? false);
+                },
               ),
             ),
 
@@ -738,7 +731,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
     );
   }
 
-  Widget _buildSplitInput(shadcnui.ColorScheme colorScheme, int index, {bool enabled = true}) {
+  Widget _buildSplitInput(ColorScheme colorScheme, int index, {bool enabled = true}) {
     String suffix = '';
 
     switch (_selectedType) {
@@ -818,7 +811,7 @@ class _CustomSplitSheetState extends State<_CustomSplitSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
       constraints: BoxConstraints(

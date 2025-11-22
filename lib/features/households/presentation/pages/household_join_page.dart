@@ -2,14 +2,16 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/utils/error_handler.dart';
 import '../../core/household_constants.dart';
 import '../providers/household_providers.dart';
 import '../providers/selected_household_provider.dart';
 import '../../../../core/l10n/l10n.dart';
-
+import 'package:moneko/core/theme/app_theme.dart';
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 /// Modern page for joining a household via invitation URL
 ///
 /// Features:
@@ -113,17 +115,16 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
-    final canGoBack = _state != JoinPageState.joining;
+    final colorScheme = Theme.of(context).colorScheme;
 
-    return Scaffold(
-      backgroundColor: colorScheme.background,
+    return AdaptiveScaffold(
+      appBar: AdaptiveAppBar(
+        title: (context.l10n.joinHousehold),
+      ),
       body: SafeArea(
         child: Column(
           children: [
-            // Modern header
-            _buildHeader(colorScheme, canGoBack),
-
+          
             // Content area
             Expanded(
               child: FadeTransition(
@@ -140,46 +141,8 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
     );
   }
 
-  Widget _buildHeader(shadcnui.ColorScheme colorScheme, bool canGoBack) {
-    return Semantics(
-      label: HouseholdConstants.joinPageHeaderLabel,
-      header: true,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Row(
-          children: [
-            Semantics(
-              label: HouseholdConstants.backButtonLabel,
-              button: true,
-              enabled: canGoBack,
-              child: IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-                color: colorScheme.foreground,
-                onPressed: canGoBack ? () => Navigator.pop(context) : null,
-                style: IconButton.styleFrom(
-                  minimumSize: const Size(44, 44),
-                ),
-              ),
-            ),
-            Expanded(
-              child: Text(
-                context.l10n.joinHousehold,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.foreground,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-            const SizedBox(width: 44), // Balance
-          ],
-        ),
-      ),
-    );
-  }
 
-  Widget _buildContent(shadcnui.ColorScheme colorScheme) {
+  Widget _buildContent(ColorScheme colorScheme) {
     switch (_state) {
       case JoinPageState.input:
       case JoinPageState.validating:
@@ -195,7 +158,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
     }
   }
 
-  Widget _buildInputForm(shadcnui.ColorScheme colorScheme) {
+  Widget _buildInputForm(ColorScheme colorScheme) {
     final isValidating = _state == JoinPageState.validating;
 
     return SingleChildScrollView(
@@ -233,7 +196,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
     );
   }
 
-  Widget _buildHeroSection(shadcnui.ColorScheme colorScheme) {
+  Widget _buildHeroSection(ColorScheme colorScheme) {
     return Semantics(
       label: HouseholdConstants.joinHeroLabel,
       readOnly: true,
@@ -283,7 +246,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
     );
   }
 
-  Widget _buildInstructionsCard(shadcnui.ColorScheme colorScheme) {
+  Widget _buildInstructionsCard(ColorScheme colorScheme) {
     return Semantics(
       label: HouseholdConstants.joinInstructionsLabel,
       readOnly: true,
@@ -322,13 +285,13 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
     );
   }
 
-  Widget _buildUrlInput(shadcnui.ColorScheme colorScheme, bool isValidating) {
+  Widget _buildUrlInput(ColorScheme colorScheme, bool isValidating) {
     return Semantics(
       label: HouseholdConstants.inviteLinkInputLabel,
       textField: true,
       child: Container(
         decoration: BoxDecoration(
-          color: colorScheme.background,
+          color: colorScheme.appBackground,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: colorScheme.border.withValues(alpha: 0.12),
@@ -492,7 +455,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
     );
   }
 
-  Widget _buildContinueButton(shadcnui.ColorScheme colorScheme, bool isValidating) {
+  Widget _buildContinueButton(ColorScheme colorScheme, bool isValidating) {
     return Semantics(
       label: isValidating
           ? HouseholdConstants.validatingButtonLabel
@@ -501,50 +464,42 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
       enabled: !isValidating,
       child: SizedBox(
         height: 56,
-        child: isValidating
-            ? shadcnui.PrimaryButton(
-                onPressed: null,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          colorScheme.primaryForeground.withValues(alpha: 0.5),
-                        ),
-                      ),
+        child: PrimaryAdaptiveButton(
+          onPressed: isValidating ? null : _validateInvite,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (isValidating) ...[
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      colorScheme.primaryForeground.withValues(alpha: 0.5),
                     ),
-                    const SizedBox(width: 12),
-                    Text(
-                      context.l10n.validating,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: -0.3,
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            : shadcnui.PrimaryButton(
-                onPressed: _validateInvite,
-                child: Text(
-                  context.l10n.continueAction,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: -0.3,
                   ),
                 ),
+                const SizedBox(width: 12),
+              ],
+              Text(
+                isValidating
+                    ? context.l10n.validating
+                    : context.l10n.continueAction,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.3,
+                ),
               ),
+            ],
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildPreview(shadcnui.ColorScheme colorScheme) {
+  Widget _buildPreview(ColorScheme colorScheme) {
     final householdName = _invitePreview?['household']?['name'] ?? context.l10n.household;
     final inviterEmail = _invitePreview?['inviter']?['email'] ??
         _invitePreview?['inviter']?['full_name'] ?? context.l10n.unknown;
@@ -593,7 +548,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
             button: true,
             child: SizedBox(
               height: 56,
-              child: shadcnui.PrimaryButton(
+              child: PrimaryAdaptiveButton(
                 onPressed: _acceptInvite,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -625,7 +580,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
             button: true,
             child: SizedBox(
               height: 48,
-              child: shadcnui.OutlineButton(
+              child: AdaptiveButton.child(
                 onPressed: () {
                   if (!mounted) return;
                   setState(() {
@@ -636,6 +591,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
                   _animationController.reset();
                   _animationController.forward();
                 },
+                style: AdaptiveButtonStyle.bordered,
                 child: Text(
                   context.l10n.cancel,
                   style: const TextStyle(
@@ -652,7 +608,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
   }
 
   Widget _buildHouseholdPreviewCard(
-    shadcnui.ColorScheme colorScheme,
+    ColorScheme colorScheme,
     String householdName,
     String inviterEmail,
     String? coverImageUrl,
@@ -790,7 +746,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
     );
   }
 
-  Widget _buildExpirationCard(shadcnui.ColorScheme colorScheme, String expiresAt) {
+  Widget _buildExpirationCard(ColorScheme colorScheme, String expiresAt) {
     final expirationDate = DateTime.tryParse(expiresAt);
     final daysUntilExpiry = expirationDate?.difference(DateTime.now()).inDays;
     final isExpiringSoon = daysUntilExpiry != null && daysUntilExpiry <= 2;
@@ -851,7 +807,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
     );
   }
 
-  Widget _buildBenefitsCard(shadcnui.ColorScheme colorScheme) {
+  Widget _buildBenefitsCard(ColorScheme colorScheme) {
     final benefits = [
       {'icon': Icons.account_balance_wallet_rounded, 'text': context.l10n.viewSharedBudgetsAndExpenses},
       {'icon': Icons.insights_rounded, 'text': context.l10n.trackHouseholdFinancialHealth},
@@ -932,7 +888,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
     );
   }
 
-  Widget _buildPersonalMessageCard(shadcnui.ColorScheme colorScheme, String message) {
+  Widget _buildPersonalMessageCard(ColorScheme colorScheme, String message) {
     return Semantics(
       label: context.l10n.personalMessageFromInviter,
       readOnly: true,
@@ -978,7 +934,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
     );
   }
 
-  Widget _buildJoining(shadcnui.ColorScheme colorScheme) {
+  Widget _buildJoining(ColorScheme colorScheme) {
     return Semantics(
       label: HouseholdConstants.joiningHouseholdLabel,
       liveRegion: true,
@@ -1017,7 +973,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
     );
   }
 
-  Widget _buildSuccess(shadcnui.ColorScheme colorScheme) {
+  Widget _buildSuccess(ColorScheme colorScheme) {
     return Semantics(
       label: HouseholdConstants.joinSuccessLabel,
       liveRegion: true,
@@ -1069,7 +1025,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
               child: SizedBox(
                 width: double.infinity,
                 height: 56,
-                child: shadcnui.PrimaryButton(
+                child: PrimaryAdaptiveButton(
                   onPressed: () {
                     Navigator.of(context).popUntil((route) => route.isFirst);
                   },
@@ -1090,7 +1046,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
     );
   }
 
-  Widget _buildError(shadcnui.ColorScheme colorScheme) {
+  Widget _buildError(ColorScheme colorScheme) {
     return Semantics(
       label: context.l10n.errorWithMessage(_errorMessage ?? context.l10n.anUnexpectedErrorOccurred),
       liveRegion: true,
@@ -1159,7 +1115,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
               button: true,
               child: SizedBox(
                 height: 56,
-                child: shadcnui.PrimaryButton(
+                child: PrimaryAdaptiveButton(
                   onPressed: () {
                     if (!mounted) return;
                     setState(() {
@@ -1190,8 +1146,9 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
               button: true,
               child: SizedBox(
                 height: 48,
-                child: shadcnui.OutlineButton(
+                child: AdaptiveButton.child(
                   onPressed: () => Navigator.pop(context),
+                  style: AdaptiveButtonStyle.bordered,
                   child: Text(
                     context.l10n.cancel,
                     style: const TextStyle(

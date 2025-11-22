@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+
 import '../../../../../core/l10n/l10n.dart';
-// import '../../domain/entities/expense_split.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 /// Widget to display split details in transaction detail sheets
 class SplitDetailsWidget extends ConsumerWidget {
@@ -17,7 +18,7 @@ class SplitDetailsWidget extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     // In real app, fetch split group data from provider
     // For now, show placeholder UI
@@ -90,7 +91,7 @@ class SplitDetailsWidget extends ConsumerWidget {
             const SizedBox(height: 16),
 
             // Settle up button
-            shadcnui.PrimaryButton(
+            PrimaryAdaptiveButton(
               onPressed: () {
                 // Implement settle up flow
               },

@@ -2,7 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/state/derived_selectors.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/utils/date_formatter.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
@@ -13,7 +13,7 @@ class MoMTrendBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     // Ensure recurring data is loaded when the widget appears
     final recState = ref.watch(recurringTransactionsProvider);
     final userId = supabase.auth.currentUser?.id;
@@ -84,7 +84,7 @@ class MoMTrendBar extends ConsumerWidget {
     );
   }
 
-  Widget _wrap(shadcnui.ColorScheme colorScheme, Widget child, {String? title, String? subtitle}) {
+  Widget _wrap(ColorScheme colorScheme, Widget child, {String? title, String? subtitle}) {
     return Container(
       decoration: BoxDecoration(
         color: colorScheme.card,

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -7,7 +7,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 /// Budget overview card showing total spent, budget progress, and remaining budget
 Widget buildHouseholdBudgetOverviewCard(
   BuildContext context,
-  shadcnui.ColorScheme colorScheme,
+  ColorScheme colorScheme,
   HouseholdSummary? summary, {
   VoidCallback? onTap,
 }) {
@@ -261,7 +261,7 @@ Widget buildHouseholdBudgetOverviewCard(
 }
 
 /// Show total spent info dialog
-void _showTotalSpentInfoDialog(BuildContext context, shadcnui.ColorScheme colorScheme) {
+void _showTotalSpentInfoDialog(BuildContext context, ColorScheme colorScheme) {
   showDialog(
     context: context,
     barrierDismissible: true,
@@ -292,7 +292,7 @@ void _showTotalSpentInfoDialog(BuildContext context, shadcnui.ColorScheme colorS
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             ),
             child: Text(
-              'Got it',
+              context.l10n.gotIt,
               style: TextStyle(
                 color: colorScheme.primary,
                 fontWeight: FontWeight.w600,

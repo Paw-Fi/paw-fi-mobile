@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/l10n/l10n.dart';
-
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 /// Google Sign-In button matching web implementation
 /// Uses Supabase OAuth with Google provider
 class GoogleLoginButton extends HookConsumerWidget {
@@ -20,6 +21,7 @@ class GoogleLoginButton extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
     final isLoading = useState(false);
     final error = useState<String?>(null);
 
@@ -59,18 +61,57 @@ class GoogleLoginButton extends HookConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        shadcnui.OutlineButton(
-          onPressed: (isLoading.value || disabled) ? null : handleGoogleLogin,
-          leading: const shadcnui.Icon(Icons.g_mobiledata, size: 24),
-          child: isLoading.value
-              ? shadcnui.Text(context.l10n.signingInWithGoogle)
-              : shadcnui.Text(context.l10n.continueWithGoogle),
+        SizedBox(
+          width: double.infinity,
+          child:PrimaryAdaptiveButton(
+            onPressed: (isLoading.value || disabled) ? null : handleGoogleLogin,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if(!isLoading.value)
+                const Icon(Icons.g_mobiledata, size: 26,color: Colors.white,),
+                 if(!isLoading.value)
+                const SizedBox(width: 8),
+                Text(
+                  isLoading.value
+                      ? context.l10n.signingInWithGoogle
+                      : context.l10n.continueWithGoogle,
+                ),
+              ],
+            ),
+          ),
         ),
         if (error.value != null) ...[
           const SizedBox(height: 12),
-          shadcnui.Alert.destructive(
-            leading: const shadcnui.Icon(Icons.error),
-            title: shadcnui.Text(error.value!),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.destructive.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: theme.colorScheme.destructive.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.error_outline,
+                  color: theme.colorScheme.destructive,
+                  size: 20,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    error.value!,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: theme.colorScheme.destructive,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ],

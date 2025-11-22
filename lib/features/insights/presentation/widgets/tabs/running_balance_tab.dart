@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
@@ -7,18 +7,24 @@ import 'package:moneko/features/insights/presentation/widgets/charts/charts.dart
 import 'package:moneko/features/insights/presentation/widgets/chart_legend.dart';
 import 'package:moneko/features/insights/presentation/widgets/insights_ui.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 
-Widget buildRunningBalanceTab(BuildContext context, shadcnui.ColorScheme colorScheme, AnalyticsData analyticsData, {String? selectedCurrency}) {
+Widget buildRunningBalanceTab(
+    BuildContext context, ColorScheme colorScheme, AnalyticsData analyticsData,
+    {String? selectedCurrency}) {
   // Filter data by currency if selected
   var expenses = analyticsData.allExpenses;
   var budgets = analyticsData.allBudgets;
-  
+
   if (selectedCurrency != null) {
     final currency = selectedCurrency.toUpperCase();
-    expenses = expenses.where((e) => e.currency?.toUpperCase() == currency).toList();
-    budgets = budgets.where((b) => b.currency?.toUpperCase() == currency).toList();
+    expenses =
+        expenses.where((e) => e.currency?.toUpperCase() == currency).toList();
+    budgets =
+        budgets.where((b) => b.currency?.toUpperCase() == currency).toList();
   }
-  
+
   return SingleChildScrollView(
     padding: const EdgeInsets.all(16),
     child: Column(
@@ -50,7 +56,8 @@ Widget buildRunningBalanceTab(BuildContext context, shadcnui.ColorScheme colorSc
                           size: 18,
                           color: colorScheme.mutedForeground,
                         ),
-                        onPressed: () => _showRunningBalanceInfoModal(context, colorScheme),
+                        onPressed: () =>
+                            _showRunningBalanceInfoModal(context, colorScheme),
                       );
                     },
                   ),
@@ -67,28 +74,43 @@ Widget buildRunningBalanceTab(BuildContext context, shadcnui.ColorScheme colorSc
               const SizedBox(height: 24),
               SizedBox(
                 height: 250,
-                child: buildRunningBalanceChart(context, colorScheme, expenses, budgets),
+                child: buildRunningBalanceChart(
+                    context, colorScheme, expenses, budgets),
               ),
               const SizedBox(height: 16),
               buildChartLegend(
                 colorScheme,
                 [
-                  {'label': context.l10n.runningBalanceLegend, 'color': const Color(0xFF8B5CF6)},
-                  {'label': context.l10n.budgetLegend, 'color': const Color(0xFF3B82F6)},
-                  {'label': context.l10n.spentLegend, 'color': const Color(0xFFEF4444)},
+                  {
+                    'label': context.l10n.runningBalanceLegend,
+                    'color': const Color(0xFF8B5CF6)
+                  },
+                  {
+                    'label': context.l10n.budgetLegend,
+                    'color': const Color(0xFF3B82F6)
+                  },
+                  {
+                    'label': context.l10n.spentLegend,
+                    'color': const Color(0xFFEF4444)
+                  },
                 ],
               ),
             ],
           ),
         ),
         const SizedBox(height: 8),
-        _AllTimeSummaryPills(colorScheme: colorScheme, expenses: expenses, budgets: budgets, selectedCurrency: selectedCurrency),
+        _AllTimeSummaryPills(
+            colorScheme: colorScheme,
+            expenses: expenses,
+            budgets: budgets,
+            selectedCurrency: selectedCurrency),
       ],
     ),
   );
 }
 
-void _showRunningBalanceInfoModal(BuildContext context, shadcnui.ColorScheme colorScheme) {
+void _showRunningBalanceInfoModal(
+    BuildContext context, ColorScheme colorScheme) {
   final slides = _runningBalanceSlides(context);
 
   showDialog(
@@ -100,101 +122,162 @@ void _showRunningBalanceInfoModal(BuildContext context, shadcnui.ColorScheme col
 
       return StatefulBuilder(
         builder: (context, setState) {
-          return Dialog(
-            backgroundColor: colorScheme.card,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420, maxHeight: 520),
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            context.l10n.runningBalanceGuide,
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w600,
-                              color: colorScheme.foreground,
+          return Theme(
+            data: Theme.of(context),
+            child: Dialog(
+              backgroundColor: colorScheme.card,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+              child: ConstrainedBox(
+                constraints:
+                    const BoxConstraints(maxWidth: 420, maxHeight: 520),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              context.l10n.runningBalanceGuide,
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.foreground,
+                              ),
                             ),
                           ),
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.close, color: colorScheme.mutedForeground),
-                          onPressed: () => Navigator.of(dialogContext).pop(),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      context.l10n.runningBalanceIntro,
-                      style: TextStyle(color: colorScheme.mutedForeground, fontSize: 14),
-                    ),
-                    const SizedBox(height: 24),
-                    Expanded(
-                      child: PageView.builder(
-                        controller: controller,
-                        itemCount: slides.length,
-                        onPageChanged: (index) {
-                          setState(() => currentPage = index);
-                        },
-                        itemBuilder: (context, index) {
-                          final slide = slides[index];
-                          return _RunningBalanceInfoSlide(
-                            colorScheme: colorScheme,
-                            title: slide.title,
-                            summary: slide.summary,
-                            points: slide.points,
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(slides.length, (index) {
-                        final isActive = index == currentPage;
-                        return AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          height: 8,
-                          width: isActive ? 20 : 8,
-                          decoration: BoxDecoration(
-                            color: isActive ? colorScheme.primary : colorScheme.muted,
-                            borderRadius: BorderRadius.circular(8),
+                          IconButton(
+                            icon: Icon(Icons.close,
+                                color: colorScheme.mutedForeground),
+                            onPressed: () => Navigator.of(dialogContext).pop(),
                           ),
-                        );
-                      }),
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        TextButton(
-                          onPressed: () => Navigator.of(dialogContext).pop(),
-                          child: Text(context.l10n.close),
-                        ),
-                        const Spacer(),
-                        shadcnui.PrimaryButton(
-                          onPressed: () {
-                            if (currentPage < slides.length - 1) {
-                              controller.nextPage(
-                                duration: const Duration(milliseconds: 250),
-                                curve: Curves.easeOut,
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        context.l10n.runningBalanceIntro,
+                        style: TextStyle(
+                            color: colorScheme.mutedForeground, fontSize: 14),
+                      ),
+                      const SizedBox(height: 20),
+                      Expanded(
+                        child: PageView.builder(
+                            controller: controller,
+                            onPageChanged: (index) {
+                              setState(() => currentPage = index);
+                            },
+                            itemCount: slides.length,
+                            itemBuilder: (context, index) {
+                              final slide = slides[index];
+                              return Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.muted.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      slide.title,
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: colorScheme.foreground,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      slide.summary,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: colorScheme.mutedForeground,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    ...slide.points.map((point) {
+                                      return Padding(
+                                        padding:
+                                            const EdgeInsets.only(bottom: 8),
+                                        child: Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Icon(Icons.check_circle,
+                                                size: 16,
+                                                color: colorScheme.primary),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                point,
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  color: colorScheme.foreground,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }),
+                                  ],
+                                ),
                               );
-                              setState(() => currentPage += 1);
-                            } else {
-                              Navigator.of(dialogContext).pop();
-                            }
-                          },
-                          child: Text(currentPage < slides.length - 1 ? context.l10n.next : context.l10n.done),
-                        ),
-                      ],
-                    ),
-                  ],
+                            }),
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(slides.length, (index) {
+                          return Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            width: currentPage == index ? 24 : 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: currentPage == index
+                                  ? colorScheme.primary
+                                  : colorScheme.muted,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          );
+                        }),
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: TextButton(
+                              onPressed: () =>
+                                  Navigator.of(dialogContext).pop(),
+                              child: Text(context.l10n.close),
+                            ),
+                          ),
+                          const Spacer(),
+                          Flexible(
+                            child: PrimaryAdaptiveButton(
+                              onPressed: () {
+                                if (currentPage < slides.length - 1) {
+                                  controller.nextPage(
+                                    duration: const Duration(milliseconds: 250),
+                                    curve: Curves.easeOut,
+                                  );
+                                  setState(() => currentPage += 1);
+                                } else {
+                                  Navigator.of(dialogContext).pop();
+                                }
+                              },
+                              child: Text(currentPage < slides.length - 1
+                                  ? context.l10n.next
+                                  : context.l10n.done),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -213,7 +296,7 @@ class _AllTimeSummaryPills extends StatelessWidget {
     this.selectedCurrency,
   });
 
-  final shadcnui.ColorScheme colorScheme;
+  final ColorScheme colorScheme;
   final List<ExpenseEntry> expenses;
   final List<DailyBudgetEntry> budgets;
   final String? selectedCurrency;
@@ -247,10 +330,15 @@ class _AllTimeSummaryPills extends StatelessWidget {
     final spentTxt = formatCurrency(totalSpent.abs(), code);
     final budgetTxt = formatCurrency(totalBudget.abs(), code);
     final netTxt = formatCurrency(net.abs(), code);
-    final spanStart = minDate != null ? '${minDate.year}-${minDate.month.toString().padLeft(2, '0')}-${minDate.day.toString().padLeft(2, '0')}' : '';
-    final spanEnd = maxDate != null ? '${maxDate.year}-${maxDate.month.toString().padLeft(2, '0')}-${maxDate.day.toString().padLeft(2, '0')}' : '';
+    final spanStart = minDate != null
+        ? '${minDate.year}-${minDate.month.toString().padLeft(2, '0')}-${minDate.day.toString().padLeft(2, '0')}'
+        : '';
+    final spanEnd = maxDate != null
+        ? '${maxDate.year}-${maxDate.month.toString().padLeft(2, '0')}-${maxDate.day.toString().padLeft(2, '0')}'
+        : '';
 
-    final netTint = net >= 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+    final netTint =
+        net >= 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444);
 
     return Wrap(
       spacing: 10,
@@ -290,7 +378,8 @@ class _AllTimeSummaryPills extends StatelessWidget {
 }
 
 class _RunningBalanceSlideData {
-  const _RunningBalanceSlideData({required this.title, required this.summary, required this.points});
+  const _RunningBalanceSlideData(
+      {required this.title, required this.summary, required this.points});
 
   final String title;
   final String summary;
@@ -327,70 +416,4 @@ List<_RunningBalanceSlideData> _runningBalanceSlides(BuildContext context) {
       ],
     ),
   ];
-}
-
-class _RunningBalanceInfoSlide extends StatelessWidget {
-  const _RunningBalanceInfoSlide({
-    required this.colorScheme,
-    required this.title,
-    required this.summary,
-    required this.points,
-  });
-
-  final shadcnui.ColorScheme colorScheme;
-  final String title;
-  final String summary;
-  final List<String> points;
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: colorScheme.foreground,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            summary,
-            style: TextStyle(
-              fontSize: 14,
-              height: 1.4,
-              color: colorScheme.mutedForeground,
-            ),
-          ),
-          const SizedBox(height: 16),
-          ...points.map(
-            (point) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.star_rounded, size: 18, color: colorScheme.primary),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      point,
-                      style: TextStyle(
-                        fontSize: 14,
-                        height: 1.4,
-                        color: colorScheme.foreground,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }

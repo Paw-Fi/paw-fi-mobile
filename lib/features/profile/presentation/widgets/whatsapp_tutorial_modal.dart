@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 class WhatsAppTutorialModal extends HookWidget {
   const WhatsAppTutorialModal({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final currentPage = useState(0);
     final pageController = usePageController();
 
@@ -57,10 +59,10 @@ class WhatsAppTutorialModal extends HookWidget {
         if (launched && context.mounted) {
           Navigator.of(context).pop(true); // Return true to refresh status
         } else if (!launched) {
-          AppToast.error('Unable to open WhatsApp link. Please install a browser or WhatsApp.');
+          AppToast.error(context, 'Unable to open WhatsApp link. Please install a browser or WhatsApp.');
         }
       } catch (_) {
-        AppToast.error('Could not launch WhatsApp link.');
+        AppToast.error(context, 'Could not launch WhatsApp link.');
       }
     }
 
@@ -146,28 +148,29 @@ class WhatsAppTutorialModal extends HookWidget {
                 children: [
                   if (currentPage.value > 0)
                     Expanded(
-                        child: shadcnui.OutlineButton(
-                          onPressed: () {
-                            pageController.previousPage(
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                            );
-                          },
-                          child: Text(context.l10n.previous),
-                        ),
+                      child: AdaptiveButton(
+                        onPressed: () {
+                          pageController.previousPage(
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                          );
+                        },
+                        label: context.l10n.previous,
+                        style: AdaptiveButtonStyle.bordered,
+                      ),
                     ),
                   if (currentPage.value > 0) const SizedBox(width: 12),
                   Expanded(
-                    flex: currentPage.value == 0 ? 1 : 1,
                     child: currentPage.value < tutorialSteps.length - 1
-                        ? shadcnui.PrimaryButton(
+                        ? AdaptiveButton(
                             onPressed: () {
                               pageController.nextPage(
                                 duration: const Duration(milliseconds: 300),
                                 curve: Curves.easeInOut,
                               );
                             },
-                            child: Text(context.l10n.next),
+                            label: context.l10n.next,
+                            style: AdaptiveButtonStyle.filled,
                           )
                         : Container(
                             height: 54,
@@ -217,7 +220,7 @@ class WhatsAppTutorialModal extends HookWidget {
   Widget _buildTutorialPage(
     BuildContext context,
     _TutorialStep step,
-    shadcnui.ColorScheme colorScheme,
+    ColorScheme colorScheme,
   ) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),

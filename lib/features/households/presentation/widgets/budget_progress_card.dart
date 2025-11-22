@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/theme/app_theme.dart';
 import '../../domain/entities/shared_budget.dart';
 import '../../../../../core/l10n/l10n.dart';
 import '../providers/household_providers.dart';
@@ -17,7 +17,7 @@ class BudgetProgressCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     // Calculate date range based on budget period
     final now = DateTime.now();

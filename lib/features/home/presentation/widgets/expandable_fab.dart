@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 // Public interface for controlling the FAB from outside
 abstract class ExpandableFabController {
@@ -80,7 +81,12 @@ class ExpandableFabState extends State<ExpandableFab>
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox.expand(
+    // Use a fixed-size box instead of SizedBox.expand to avoid infinite
+    // BoxConstraints when used in adaptive layouts.
+    final extent = 56 + widget.distance;
+    return SizedBox(
+      width: extent,
+      height: extent,
       child: Stack(
         alignment: Alignment.bottomRight,
         clipBehavior: Clip.none,
@@ -94,33 +100,24 @@ class ExpandableFabState extends State<ExpandableFab>
   }
 
   Widget _buildTapToCloseFab() {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     return SizedBox(
       width: 56,
       height: 56,
       child: Center(
-        child: Material(
-          shape: const CircleBorder(),
-          clipBehavior: Clip.antiAlias,
-          elevation: 4,
-          color: colorScheme.primary,
-          child: InkWell(
-            onTap: _toggle,
-            child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: Icon(
-                Icons.close,
-                color: colorScheme.primaryForeground,
-              ),
-            ),
-          ),
+        child: AdaptiveFloatingActionButton(
+          onPressed: _toggle,
+          mini: true,
+          backgroundColor: colorScheme.primary,
+          foregroundColor: colorScheme.primaryForeground,
+          child: const Icon(Icons.close),
         ),
       ),
     );
   }
 
   Widget _buildTapToOpenFab() {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     return IgnorePointer(
       ignoring: _open,
       child: AnimatedContainer(
@@ -136,10 +133,11 @@ class ExpandableFabState extends State<ExpandableFab>
           opacity: _open ? 0.0 : 1.0,
           curve: const Interval(0.25, 1.0, curve: Curves.easeInOut),
           duration: const Duration(milliseconds: 250),
-          child: FloatingActionButton(
-            backgroundColor: colorScheme.primary,
+          child: AdaptiveFloatingActionButton(
             onPressed: _toggle,
-            child: Icon(Icons.add, color: colorScheme.primaryForeground),
+            backgroundColor: colorScheme.primary,
+            foregroundColor: colorScheme.primaryForeground,
+            child: const Icon(Icons.add),
           ),
         ),
       ),

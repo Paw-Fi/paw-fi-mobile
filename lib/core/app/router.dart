@@ -5,7 +5,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/avatar/presentation/pages/avatar_customizer_screen.dart';
-import 'package:moneko/features/onboarding/presentation/pages/onboarding_screen.dart';
 import 'package:moneko/features/subscription/presentation/pages/paywall_screen.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/core/navigation/main_shell.dart';
@@ -141,11 +140,7 @@ GoRouter router(RouterRef ref) {
         path: '/avatar',
         builder: (context, state) => const AvatarCustomizerScreen(),
       ),
-      GoRoute(
-        path: '/onboarding',
-        builder: (context, state) => const OnboardingScreen(),
-      ),
-
+ 
       // Catch-all route for deep links with UUID patterns (expense, budget, split IDs)
       // This handles paths like /{uuid} that come from moneko://expense/{uuid}
       GoRoute(

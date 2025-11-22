@@ -5,9 +5,13 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/auth/presentation/widgets/wallet_login_button.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/theme/app_theme.dart';
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+
 import 'dart:async';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 
 // State provider to store registered email for OTP verification
 final registeredEmailProvider = StateProvider<String?>((ref) => null);
@@ -44,7 +48,7 @@ class _RegistrationFormView extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = shadcnui.Theme.of(context);
+    final theme = Theme.of(context);
     final fullNameController = useTextEditingController();
     final emailController = useTextEditingController();
     final passwordController = useTextEditingController();
@@ -152,7 +156,7 @@ class _RegistrationFormView extends HookConsumerWidget {
     }
 
     return Scaffold(
-      backgroundColor: theme.colorScheme.background,
+      backgroundColor: theme.colorScheme.appBackground,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -181,7 +185,7 @@ class _RegistrationFormView extends HookConsumerWidget {
                       children: [
                         Text(
                           context.l10n.appTitle,
-                          style: theme.typography.h1.copyWith(
+                          style: TextStyle(
                             fontSize: 48,
                             fontWeight: FontWeight.bold,
                             letterSpacing: -1.5,
@@ -192,9 +196,10 @@ class _RegistrationFormView extends HookConsumerWidget {
                         const SizedBox(height: 8),
                         Text(
                           context.l10n.createYourAccount,
-                          style: theme.typography.large.copyWith(
-                            color: theme.colorScheme.mutedForeground,
+                          style: TextStyle(
                             fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: theme.colorScheme.mutedForeground,
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -259,9 +264,9 @@ class _RegistrationFormView extends HookConsumerWidget {
                                 padding: const EdgeInsets.symmetric(horizontal: 16),
                                 child: Text(
                                   context.l10n.orContinueWithEmail,
-                                  style: theme.typography.small.copyWith(
-                                    color: theme.colorScheme.mutedForeground,
+                                  style: TextStyle(
                                     fontSize: 13,
+                                    color: theme.colorScheme.mutedForeground,
                                   ),
                                 ),
                               ),
@@ -283,20 +288,7 @@ class _RegistrationFormView extends HookConsumerWidget {
                           const SizedBox(height: 24),
 
                           // Full Name Field with focus animation
-                          shadcnui.TextField(
-                            controller: fullNameController,
-                            focusNode: nameFocusNode,
-                            textInputAction: TextInputAction.next,
-                            textCapitalization: TextCapitalization.words,
-                            placeholder: shadcnui.Text(
-                              context.l10n.fullName,
-                              style: TextStyle(
-                                color: theme.colorScheme.mutedForeground.withValues(alpha: 0.6),
-                              ),
-                            ),
-                            enabled: !isLoading.value,
-                            style: theme.typography.base.copyWith(fontSize: 16),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                          Container(
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
@@ -306,24 +298,34 @@ class _RegistrationFormView extends HookConsumerWidget {
                                 width: nameHasFocus.value ? 2 : 1,
                               ),
                             ),
+                            child: TextField(
+                              controller: fullNameController,
+                              focusNode: nameFocusNode,
+                              textInputAction: TextInputAction.next,
+                              textCapitalization: TextCapitalization.words,
+                              enabled: !isLoading.value,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w400,
+                                color: theme.colorScheme.foreground,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: context.l10n.fullName,
+                                hintStyle: TextStyle(
+                                  color: theme.colorScheme.mutedForeground.withValues(alpha: 0.6),
+                                ),
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 16,
+                                ),
+                              ),
+                            ),
                           ),
                           const SizedBox(height: 16),
 
                           // Email Field with focus animation
-                          shadcnui.TextField(
-                            controller: emailController,
-                            focusNode: emailFocusNode,
-                            keyboardType: TextInputType.emailAddress,
-                            textInputAction: TextInputAction.next,
-                            placeholder: shadcnui.Text(
-                              context.l10n.emailAddress,
-                              style: TextStyle(
-                                color: theme.colorScheme.mutedForeground.withValues(alpha: 0.6),
-                              ),
-                            ),
-                            enabled: !isLoading.value,
-                            style: theme.typography.base.copyWith(fontSize: 16),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                          Container(
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
@@ -333,42 +335,34 @@ class _RegistrationFormView extends HookConsumerWidget {
                                 width: emailHasFocus.value ? 2 : 1,
                               ),
                             ),
+                            child: TextField(
+                              controller: emailController,
+                              focusNode: emailFocusNode,
+                              keyboardType: TextInputType.emailAddress,
+                              textInputAction: TextInputAction.next,
+                              enabled: !isLoading.value,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w400,
+                                color: theme.colorScheme.foreground,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: context.l10n.emailAddress,
+                                hintStyle: TextStyle(
+                                  color: theme.colorScheme.mutedForeground.withValues(alpha: 0.6),
+                                ),
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 16,
+                                ),
+                              ),
+                            ),
                           ),
                           const SizedBox(height: 16),
 
                           // Password Field with focus animation
-                          shadcnui.TextField(
-                            controller: passwordController,
-                            focusNode: passwordFocusNode,
-                            obscureText: !showPassword.value,
-                            textInputAction: TextInputAction.done,
-                            onSubmitted: (_) => handleSignUp(),
-                            placeholder: shadcnui.Text(
-                              context.l10n.createPassword,
-                              style: TextStyle(
-                                color: theme.colorScheme.mutedForeground.withValues(alpha: 0.6),
-                              ),
-                            ),
-                            features: [
-                              shadcnui.InputTrailingFeature(
-                                GestureDetector(
-                                  onTap: () => showPassword.value = !showPassword.value,
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(right: 12),
-                                    child: Icon(
-                                      showPassword.value
-                                          ? Icons.visibility_off_outlined
-                                          : Icons.visibility_outlined,
-                                      color: theme.colorScheme.mutedForeground,
-                                      size: 20,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                            enabled: !isLoading.value,
-                            style: theme.typography.base.copyWith(fontSize: 16),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                          Container(
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
@@ -378,15 +372,49 @@ class _RegistrationFormView extends HookConsumerWidget {
                                 width: passwordHasFocus.value ? 2 : 1,
                               ),
                             ),
+                            child: TextField(
+                              controller: passwordController,
+                              focusNode: passwordFocusNode,
+                              obscureText: !showPassword.value,
+                              textInputAction: TextInputAction.done,
+                              onSubmitted: (_) => handleSignUp(),
+                              enabled: !isLoading.value,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w400,
+                                color: theme.colorScheme.foreground,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: context.l10n.createPassword,
+                                hintStyle: TextStyle(
+                                  color: theme.colorScheme.mutedForeground.withValues(alpha: 0.6),
+                                ),
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 16,
+                                ),
+                                suffixIcon: IconButton(
+                                  onPressed: () => showPassword.value = !showPassword.value,
+                                  icon: Icon(
+                                    showPassword.value
+                                        ? Icons.visibility_off_outlined
+                                        : Icons.visibility_outlined,
+                                    color: theme.colorScheme.mutedForeground,
+                                    size: 20,
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
                           const SizedBox(height: 12),
 
                           // Password requirements
                           Text(
                             context.l10n.passwordRequirementShort,
-                            style: theme.typography.small.copyWith(
-                              color: theme.colorScheme.mutedForeground,
+                            style: TextStyle(
                               fontSize: 12,
+                              color: theme.colorScheme.mutedForeground,
                             ),
                             textAlign: TextAlign.left,
                           ),
@@ -426,9 +454,9 @@ class _RegistrationFormView extends HookConsumerWidget {
                                     Expanded(
                                       child: Text(
                                         error.value!,
-                                        style: theme.typography.small.copyWith(
-                                          color: theme.colorScheme.destructive,
+                                        style: TextStyle(
                                           fontSize: 13,
+                                          color: theme.colorScheme.destructive,
                                         ),
                                       ),
                                     ),
@@ -481,10 +509,10 @@ class _RegistrationFormView extends HookConsumerWidget {
                                           )
                                         : Text(
                                             context.l10n.createAccount,
-                                            style: theme.typography.base.copyWith(
-                                              color: theme.colorScheme.primaryForeground,
+                                            style: TextStyle(
                                               fontSize: 16,
                                               fontWeight: FontWeight.w600,
+                                              color: theme.colorScheme.primaryForeground,
                                             ),
                                           ),
                                   ),
@@ -497,9 +525,9 @@ class _RegistrationFormView extends HookConsumerWidget {
                           // Terms
                           Text(
                             context.l10n.termsAgreement,
-                            style: theme.typography.small.copyWith(
-                              color: theme.colorScheme.mutedForeground,
+                            style: TextStyle(
                               fontSize: 12,
+                              color: theme.colorScheme.mutedForeground,
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -515,19 +543,19 @@ class _RegistrationFormView extends HookConsumerWidget {
                     children: [
                       Text(
                         '${context.l10n.alreadyHaveAccount} ',
-                        style: theme.typography.base.copyWith(
-                          color: theme.colorScheme.mutedForeground,
+                        style: TextStyle(
                           fontSize: 15,
+                          color: theme.colorScheme.mutedForeground,
                         ),
                       ),
                       GestureDetector(
                         onTap: isLoading.value ? null : () => context.go('/login'),
                         child: Text(
                           context.l10n.signInLower,
-                          style: theme.typography.base.copyWith(
-                            color: theme.colorScheme.primary,
+                          style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
+                            color: theme.colorScheme.primary,
                           ),
                         ),
                       ),
@@ -554,7 +582,7 @@ class _OTPVerificationView extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme =   shadcnui.Theme.of(context);
+    final theme =   Theme.of(context);
     final otpValue = useState<String>('');
     final error = useState<String?>(null);
     final isVerifying = useState(false);
@@ -627,15 +655,7 @@ class _OTPVerificationView extends HookConsumerWidget {
         resendCooldown.value = 60;
 
         if (context.mounted) {
-          shadcnui.showToast(
-            context: context,
-            builder: (context, overlay) => shadcnui.SurfaceCard(
-              child: shadcnui.Basic(
-                title: shadcnui.Text(context.l10n.verificationCodeSent),
-                leading: const shadcnui.Icon(Icons.check_circle),
-              ),
-            ),
-          );
+          AppToast.success(context, context.l10n.verificationCodeSent);
         }
       } catch (e) {
         String errorMessage = e.toString().replaceAll('Exception: ', '').replaceAll('AuthException: ', '');
@@ -672,7 +692,7 @@ class _OTPVerificationView extends HookConsumerWidget {
                         color: theme.colorScheme.primary.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                       ),
-                      child: shadcnui.Icon(
+                      child: Icon(
                         Icons.check_circle,
                         size: 64,
                         color: theme.colorScheme.primary,
@@ -684,58 +704,93 @@ class _OTPVerificationView extends HookConsumerWidget {
                   // Title
                   Text(
                     context.l10n.verifyYourEmail,
-                    style: theme.typography.h2,
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.foreground,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
                   Text(
                     context.l10n.verificationEmailSentTo(email),
-                    style: theme.typography.textMuted,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: theme.colorScheme.mutedForeground,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 32),
 
-                  // OTP Input Fields
-                  Center(
-                    child: shadcnui.InputOTP(
-                      onChanged: (value) {
-                        otpValue.value = value.otpToString();
-                      },
-                      onSubmitted: (value) {
-                        otpValue.value = value.otpToString();
-                        if (value.otpToString().length == 6) {
-                          handleVerifyOtp();
-                        }
-                      },
-                      children: [
-                        shadcnui.InputOTPChild.character(allowDigit: true, readOnly: isVerifying.value),
-                        shadcnui.InputOTPChild.character(allowDigit: true, readOnly: isVerifying.value),
-                        shadcnui.InputOTPChild.character(allowDigit: true, readOnly: isVerifying.value),
-                        shadcnui.InputOTPChild.separator,
-                        shadcnui.InputOTPChild.character(allowDigit: true, readOnly: isVerifying.value),
-                        shadcnui.InputOTPChild.character(allowDigit: true, readOnly: isVerifying.value),
-                        shadcnui.InputOTPChild.character(allowDigit: true, readOnly: isVerifying.value),
-                      ],
+                  // OTP Input Field
+                  TextField(
+                    maxLength: 6,
+                    keyboardType: TextInputType.number,
+                    textAlign: TextAlign.center,
+                    enabled: !isVerifying.value,
+                    decoration: const InputDecoration(
+                      counterText: '',
+                      hintText: '••••••',
                     ),
+                    onChanged: (value) {
+                      otpValue.value = value;
+                    },
+                    onSubmitted: (_) {
+                      if (otpValue.value.length == 6) {
+                        handleVerifyOtp();
+                      }
+                    },
                   ),
                   const SizedBox(height: 24),
 
                   // Error Message
                   if (error.value != null)
-                    shadcnui.Alert.destructive(
-                      leading: const shadcnui.Icon(Icons.error),
-                      title: shadcnui.Text(error.value!),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.destructive.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: theme.colorScheme.destructive.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            color: theme.colorScheme.destructive,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              error.value!,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: theme.colorScheme.destructive,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   if (error.value != null) const SizedBox(height: 16),
 
                   // Verify Button
-                  shadcnui.PrimaryButton(
-                    onPressed: (isVerifying.value || otpValue.value.length != 6)
-                        ? null
-                        : handleVerifyOtp,
-                    child: isVerifying.value
-                        ? const CircularProgressIndicator()
-                        : Text(context.l10n.verifyEmail),
+                  SizedBox(
+                    width: double.infinity,
+                    child: PrimaryAdaptiveButton(
+                      onPressed: (isVerifying.value || otpValue.value.length != 6)
+                          ? null
+                          : handleVerifyOtp,
+                      child: isVerifying.value
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Text(context.l10n.verifyEmail),
+                    ),
                   ),
                   const SizedBox(height: 24),
 
@@ -745,7 +800,10 @@ class _OTPVerificationView extends HookConsumerWidget {
                       children: [
                         Text(
                           context.l10n.didntReceiveTheCode,
-                          style: theme.typography.textMuted,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: theme.colorScheme.mutedForeground,
+                          ),
                           textAlign: TextAlign.center,
                         ),
                         TextButton(

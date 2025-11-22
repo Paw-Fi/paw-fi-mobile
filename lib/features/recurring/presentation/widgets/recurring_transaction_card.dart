@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:moneko/core/l10n/l10n.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/core/utils/date_formatter.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 /// Get localized frequency text for a recurring transaction
 String getLocalizedFrequencyText(BuildContext context, RecurringTransaction transaction) {
@@ -57,7 +58,7 @@ class RecurringTransactionCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final isIncome = transaction.type == 'income';
     final categoryColor = getCategoryColor(transaction.category);
     final categoryIcon = getCategoryIcon(transaction.category);
@@ -261,7 +262,7 @@ class EmptyRecurringState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final isExpense = type == 'expense';
 
     return Center(

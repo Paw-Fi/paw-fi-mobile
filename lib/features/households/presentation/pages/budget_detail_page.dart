@@ -3,11 +3,14 @@
 
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/shared/widgets/outlined-adaptive-button.dart';
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 import '../../domain/entities/shared_budget.dart';
 import '../providers/household_providers.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 /// Budget Detail Page
 /// Shows complete budget information and allows editing
@@ -63,12 +66,12 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.appBackground,
       appBar: AppBar(
-        backgroundColor: colorScheme.background,
+        backgroundColor: colorScheme.appBackground,
         elevation: 0,
         title: Text(
           _isEditing ? context.l10n.editBudget : context.l10n.budgetDetails,
@@ -235,14 +238,14 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
                     Row(
                       children: [
                         Expanded(
-                          child: shadcnui.OutlineButton(
+                          child: OutlinedAdaptiveButton(
                             onPressed: _cancelEditing,
                             child: Text(context.l10n.cancel),
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: shadcnui.PrimaryButton(
+                          child: PrimaryAdaptiveButton(
                             onPressed: _saveChanges,
                             child: Text(context.l10n.saveChanges),
                           ),
@@ -261,7 +264,7 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
     required String label,
     required TextEditingController controller,
     required bool enabled,
-    required shadcnui.ColorScheme colorScheme,
+    required ColorScheme colorScheme,
     TextInputType? keyboardType,
     String? prefix,
     String? suffix,
@@ -301,7 +304,7 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
   Widget _buildReadOnlyField({
     required String label,
     required String value,
-    required shadcnui.ColorScheme colorScheme,
+    required ColorScheme colorScheme,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -401,7 +404,7 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
 
       if (mounted) {
         Navigator.pop(context, true); // Return true to indicate success
-        AppToast.success(context.l10n.budgetUpdatedSuccessfully);
+        AppToast.success(context, context.l10n.budgetUpdatedSuccessfully);
       }
     } catch (error) {
       if (mounted) {
@@ -415,7 +418,7 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
   }
 
   Future<void> _confirmDelete() async {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     
     final confirmed = await showDialog<bool>(
       context: context,
@@ -455,7 +458,7 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
 
       if (mounted) {
         Navigator.pop(context, true); // Return true to indicate success
-        AppToast.success(context.l10n.budgetDeletedSuccessfully);
+        AppToast.success(context, context.l10n.budgetDeletedSuccessfully);
       }
     } catch (error) {
       if (mounted) {
@@ -466,6 +469,6 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
   }
 
   void _showError(String message) {
-    AppToast.error(message);
+    AppToast.error(context, message);
   }
 }

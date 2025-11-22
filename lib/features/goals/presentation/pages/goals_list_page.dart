@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-// import 'package:go_router/go_router.dart';
-// import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcn;
 import '../providers/goals_providers.dart';
 import '../widgets/goal_card.dart';
 import '../widgets/create_goal_sheet.dart';
@@ -235,7 +233,7 @@ class _GoalsListPageState extends ConsumerState<GoalsListPage> with SingleTicker
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stack) => Center(
-        child: Text('Error: $error'),
+        child: Text(context.l10n.error(error.toString())),
       ),
     );
   }

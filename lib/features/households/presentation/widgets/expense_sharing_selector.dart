@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
-// import '../../../home/presentation/models/expense_entry.dart';
-// import '../../domain/entities/household.dart';
+import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/shared/widgets/outlined-adaptive-button.dart';
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+
 import '../../domain/entities/shared_budget.dart' show ShareScope;
 import '../../../../../core/l10n/l10n.dart';
 import '../providers/household_providers.dart';
@@ -41,7 +42,7 @@ class _ExpenseSharingSelectorState extends ConsumerState<ExpenseSharingSelector>
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final userId = ref.watch(currentUserIdProvider);
 
     return Column(
@@ -170,7 +171,7 @@ class _ExpenseSharingSelectorState extends ConsumerState<ExpenseSharingSelector>
         // Member selector (for custom scope only)
         if (_scope == ShareScope.custom && _householdId != null) ...[
           const SizedBox(height: 16),
-          shadcnui.OutlineButton(
+          OutlinedAdaptiveButton(
             onPressed: () => _showMemberPicker(context),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -258,7 +259,7 @@ class _SharingScopeOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return InkWell(
       onTap: onTap,
@@ -334,7 +335,7 @@ class _MemberPickerSheetState extends ConsumerState<_MemberPickerSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final membersAsync = ref.watch(householdMembersProvider(widget.householdId));
 
     return Container(
@@ -401,14 +402,14 @@ class _MemberPickerSheetState extends ConsumerState<_MemberPickerSheet> {
           Row(
             children: [
               Expanded(
-                child: shadcnui.SecondaryButton(
+                child: PrimaryAdaptiveButton(
                   onPressed: () => Navigator.pop(context),
                   child: Text(context.l10n.cancel),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: shadcnui.PrimaryButton(
+                child: PrimaryAdaptiveButton(
                   onPressed: () {
                     widget.onSelectionChanged(_selectedIds.toList());
                     Navigator.pop(context);

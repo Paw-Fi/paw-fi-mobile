@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:go_router/go_router.dart';
 import '../../domain/entities/household.dart';
 import '../providers/household_providers.dart';
 import '../utils/household_ui_utils.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
-
+import 'package:moneko/core/theme/app_theme.dart';
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 /// Household Members Management Page
 /// View members, update roles, remove members
 class HouseholdMembersPage extends ConsumerWidget {
@@ -21,12 +22,12 @@ class HouseholdMembersPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final membersAsync = ref.watch(householdMembersProvider(householdId));
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.appBackground,
       appBar: AppBar(
-        backgroundColor: colorScheme.background,
+        backgroundColor: colorScheme.appBackground,
         elevation: 0,
         title: Text(
           context.l10n.members,
@@ -76,9 +77,10 @@ class HouseholdMembersPage extends ConsumerWidget {
                 style: TextStyle(color: colorScheme.destructive),
               ),
               const SizedBox(height: 8),
-              shadcnui.OutlineButton(
+              AdaptiveButton(
                 onPressed: () => ref.read(householdMembersProvider(householdId).notifier).load(),
-                child: Text(context.l10n.retry),
+                style: AdaptiveButtonStyle.bordered,
+                label: context.l10n.retry,
               ),
             ],
           ),
@@ -114,7 +116,7 @@ class HouseholdMembersPage extends ConsumerWidget {
   Future<void> _updateMemberRole(BuildContext context, WidgetRef ref, HouseholdMember member, HouseholdRole role) async {
     await ref.read(householdMembersProvider(householdId).notifier).updateRole(member.id, role);
     if (context.mounted) {
-      AppToast.success('${context.l10n.updatedMemberRole} ${member.userName ?? member.userEmail} to ${role.toJson()}');
+      AppToast.success(context, '${context.l10n.updatedMemberRole} ${member.userName ?? member.userEmail} to ${role.toJson()}');
     }
   }
 }
@@ -135,7 +137,7 @@ class _MemberCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final isOwner = member.role == HouseholdRole.owner;
 
     return Card(

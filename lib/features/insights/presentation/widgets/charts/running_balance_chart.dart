@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
-
-Widget buildRunningBalanceChart(BuildContext context, shadcnui.ColorScheme colorScheme, List<ExpenseEntry> expenses, List<DailyBudgetEntry> budgets) {
+import 'package:moneko/core/theme/app_theme.dart';
+Widget buildRunningBalanceChart(BuildContext context, ColorScheme colorScheme, List<ExpenseEntry> expenses, List<DailyBudgetEntry> budgets) {
   // Group by date
   final Map<String, double> dailySpent = {};
   final Map<String, double> dailyBudget = {};

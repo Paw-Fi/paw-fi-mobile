@@ -4,12 +4,13 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:go_router/go_router.dart';
 import 'package:moneko/core/util/constants.dart';
 import 'package:moneko/core/web/web3_auth.dart';
-
+import 'package:moneko/core/theme/app_theme.dart';
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 /// Web3 Wallet Sign-In button using Supabase Auth (Web3 provider)
 /// 
 /// IMPORTANT: This button ONLY works on Flutter Web
@@ -40,6 +41,7 @@ class WalletLoginButton extends HookConsumerWidget {
       return const SizedBox.shrink();
     }
 
+    final theme = Theme.of(context);
     final isLoading = useState(false);
     final error = useState<String?>(null);
 
@@ -144,18 +146,56 @@ class WalletLoginButton extends HookConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        shadcnui.OutlineButton(
-          onPressed: (isLoading.value || disabled) ? null : handleWalletLogin,
-          leading: const shadcnui.Icon(Icons.account_balance_wallet_outlined, size: 20),
-          child: isLoading.value
-              ? shadcnui.Text(context.l10n.signingInWithWallet)
-              : shadcnui.Text(context.l10n.continueWithWallet),
+        SizedBox(
+          width: double.infinity,
+          child: AdaptiveButton.child(
+            onPressed: (isLoading.value || disabled) ? null : handleWalletLogin,
+            style: AdaptiveButtonStyle.bordered,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.account_balance_wallet_outlined, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  isLoading.value
+                      ? context.l10n.signingInWithWallet
+                      : context.l10n.continueWithWallet,
+                ),
+              ],
+            ),
+          ),
         ),
         if (error.value != null) ...[
           const SizedBox(height: 12),
-          shadcnui.Alert.destructive(
-            leading: const shadcnui.Icon(Icons.error),
-            title: shadcnui.Text(error.value!),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.destructive.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: theme.colorScheme.destructive.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.error_outline,
+                  color: theme.colorScheme.destructive,
+                  size: 20,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    error.value!,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: theme.colorScheme.destructive,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ],
@@ -244,7 +284,7 @@ class WalletLoginButton extends HookConsumerWidget {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
-        final scheme = shadcnui.Theme.of(ctx).colorScheme;
+        final scheme = Theme.of(ctx).colorScheme;
         return Container(
           decoration: BoxDecoration(
             color: scheme.card,
@@ -259,14 +299,14 @@ class WalletLoginButton extends HookConsumerWidget {
               children: [
                 ListTile(
                   leading: const Icon(Icons.token_outlined),
-                  title: const Text('Ethereum (EVM)'),
-                  subtitle: const Text('Use MetaMask, Rainbow, Brave, etc.'),
+                  title: Text(context.l10n.ethereumEvm),
+                  subtitle: Text(context.l10n.useMetaMaskRainbowBraveEtc),
                   onTap: () => Navigator.pop(ctx, 'ethereum'),
                 ),
                 ListTile(
                   leading: const Icon(Icons.compass_calibration_outlined),
-                  title: const Text('Solana'),
-                  subtitle: const Text('Use Phantom, Solflare, Backpack, etc.'),
+                  title: Text(context.l10n.solana),
+                  subtitle: Text(context.l10n.usePhantomSolflareBackpackEtc),
                   onTap: () => Navigator.pop(ctx, 'solana'),
                 ),
                 const SizedBox(height: 4),

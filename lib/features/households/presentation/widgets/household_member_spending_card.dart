@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
@@ -8,11 +8,11 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
-
+import 'package:moneko/core/theme/app_theme.dart';
 /// Member spending breakdown card with modern, Apple-inspired design
 Widget buildHouseholdMemberSpendingCard(
   BuildContext context,
-  shadcnui.ColorScheme colorScheme,
+  ColorScheme colorScheme,
   HouseholdSummary? summary, {
   List<HouseholdMember>? members,
   String? householdId,
@@ -197,7 +197,7 @@ Widget buildHouseholdMemberSpendingCard(
 }
 
 /// Build empty state when no members have spending
-Widget _buildEmptyState(BuildContext context, shadcnui.ColorScheme colorScheme) {
+Widget _buildEmptyState(BuildContext context, ColorScheme colorScheme) {
   return Center(
     child: Padding(
       padding: const EdgeInsets.symmetric(vertical: 32),
@@ -245,7 +245,7 @@ Widget _buildEmptyState(BuildContext context, shadcnui.ColorScheme colorScheme) 
 /// Build individual member row with modern design
 Widget _buildMemberRow(
   BuildContext context,
-  shadcnui.ColorScheme colorScheme,
+  ColorScheme colorScheme,
   MemberContribution member,
   List<HouseholdMember>? members,
   String currency,
@@ -549,7 +549,7 @@ Future<bool> _canSendReminder(String householdId, String targetUserId) async {
 /// Show reminder modal to send a nudge to a household member
 void _showReminderModal(
   BuildContext context,
-  shadcnui.ColorScheme colorScheme,
+  ColorScheme colorScheme,
   String targetUserId,
   String targetUserName,
   String householdId,
@@ -572,7 +572,7 @@ void _showReminderModal(
 
 /// Stateful widget for reminder modal content with loading state
 class _ReminderModalContent extends StatefulWidget {
-  final shadcnui.ColorScheme colorScheme;
+  final ColorScheme colorScheme;
   final String targetUserId;
   final String targetUserName;
   final String householdId;
@@ -618,7 +618,7 @@ class _ReminderModalContentState extends State<_ReminderModalContent> {
           Navigator.of(context).pop();
         }
         if (widget.parentContext.mounted) {
-          AppToast.warning(widget.parentContext.l10n.pleaseWait24HoursBeforeSendingAnotherReminder(widget.targetUserName));
+          AppToast.warning(widget.parentContext, widget.parentContext.l10n.pleaseWait24HoursBeforeSendingAnotherReminder(widget.targetUserName));
         }
         return;
       }
@@ -638,7 +638,7 @@ class _ReminderModalContentState extends State<_ReminderModalContent> {
       }
       if (response.status == 200) {
         if (widget.parentContext.mounted) {
-          AppToast.success(widget.parentContext.l10n.reminderSentToName(widget.targetUserName));
+          AppToast.success(widget.parentContext, widget.parentContext.l10n.reminderSentToName(widget.targetUserName));
         }
       } else {
         throw Exception('Failed to send reminder');
@@ -649,7 +649,7 @@ class _ReminderModalContentState extends State<_ReminderModalContent> {
         Navigator.of(context).pop();
       }
       if (widget.parentContext.mounted) {
-        AppToast.error(widget.parentContext.l10n.failedToSendReminderTryAgain);
+        AppToast.error(widget.parentContext, widget.parentContext.l10n.failedToSendReminderTryAgain);
       }
     } finally {
       if (mounted) {

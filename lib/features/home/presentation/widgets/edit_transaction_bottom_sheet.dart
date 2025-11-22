@@ -2,15 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/transaction_edit_state.dart';
 import 'package:moneko/features/home/presentation/state/transaction_edit_notifier.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/currency_flags.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/theme/app_theme.dart';
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 
 /// Generic bottom sheet for editing transaction fields
 class EditTransactionBottomSheet extends ConsumerStatefulWidget {
@@ -82,7 +86,7 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
   
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final editState = ref.watch(transactionEditProvider);
     final isLoading = editState.isLoading;
     
@@ -134,14 +138,15 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
           Row(
             children: [
               Expanded(
-                child: shadcnui.SecondaryButton(
+                child: AdaptiveButton(
                   onPressed: isLoading ? null : () => Navigator.pop(context),
-                  child: const Text('Cancel'),
+                  style: AdaptiveButtonStyle.plain,
+                  label: context.l10n.cancel,
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: shadcnui.PrimaryButton(
+                child: PrimaryAdaptiveButton(
                   onPressed: isLoading ? null : _handleSave,
                   child: isLoading
                       ? const SizedBox(
@@ -149,7 +154,7 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
                           height: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Save'),
+                      : Text(context.l10n.save),
                 ),
               ),
             ],
@@ -159,7 +164,7 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
     );
   }
   
-  Widget _buildInputField(shadcnui.ColorScheme colorScheme) {
+  Widget _buildInputField(ColorScheme colorScheme) {
     if (widget.field == EditField.category) {
       return _buildCategoryPicker(colorScheme);
     } else if (widget.field == EditField.date) {
@@ -207,7 +212,7 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
     }
   }
   
-  Widget _buildCategoryPicker(shadcnui.ColorScheme colorScheme) {
+  Widget _buildCategoryPicker(ColorScheme colorScheme) {
     final isIncome = (widget.expense.type ?? 'expense').toLowerCase() == 'income';
     final baseCategories = isIncome ? getIncomeCategories() : getExpenseCategories();
     final categories = () {
@@ -281,7 +286,7 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
     );
   }
   
-  Widget _buildDatePicker(shadcnui.ColorScheme colorScheme) {
+  Widget _buildDatePicker(ColorScheme colorScheme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -338,7 +343,7 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
     }
   }
   
-  Widget _buildTimePicker(shadcnui.ColorScheme colorScheme) {
+  Widget _buildTimePicker(ColorScheme colorScheme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -393,7 +398,7 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
     }
   }
   
-  Widget _buildCurrencyPicker(shadcnui.ColorScheme colorScheme) {
+  Widget _buildCurrencyPicker(ColorScheme colorScheme) {
     final currencies = getAvailableCurrencyOptions();
     
     return Column(
@@ -570,12 +575,12 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
       
       if (!mounted) return;
       // Prefer AppToast over SnackBar for visibility above sheets
-      AppToast.success('${_getLabel()} updated successfully');
+      AppToast.success(context, '${_getLabel()} updated successfully');
     } else {
       final error = ref.read(transactionEditProvider).error;
       setState(() => _error = error);
       
-      AppToast.error(error ?? 'Failed to update');
+      AppToast.error(context, error ?? 'Failed to update');
     }
   }
   
@@ -585,7 +590,7 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
     
     if (dontShowAgain || !mounted) return;
     
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     bool checkboxValue = false;
     
     if (!mounted) return;

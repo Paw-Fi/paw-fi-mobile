@@ -52,7 +52,7 @@
     }
   },
   "enterCompleteCode": "Будь ласка, введіть повний 6-значний код",
-  "invalidVerificationCode": "Невірний код підтвердження. Перевірте та спробуйте ще.",
+  "invalidVerificationCode": "Невірний код підтвердження",
   "verificationCodeExpired": "Термін дії коду минув. Будь ласка, надішліть новий.",
   "verifyEmail": "Підтвердити email",
   "didntReceiveTheCode": "Не отримали код? Перевірте папку \"Спам\" або",
@@ -149,7 +149,6 @@
   "activity": "Активність",
   "accountInformation": "Дані акаунту",
   "userId": "ID користувача",
-  "email": "Email",
   "recentActivity": "Остання активність",
   "noActivityYet": "Активності ще немає",
   "signOut": "Вийти",
@@ -213,7 +212,6 @@
   "day": "День",
   "@navigation": {},
   "close": "Закрити",
-  "next": "Далі",
   "done": "Готово",
   "@runningBalanceSlides": {},
   "whatYouAreSeeing": "Що ви бачите",
@@ -233,7 +231,6 @@
   "longTermWhyMattersDesc": "Довгі горизонти роблять великі мрії реальнішими. Подивіться, чи вистачає коштів на ваші цілі: резервний фонд, інвестиції чи великі покупки.",
   "longTermMovesToConsiderDesc": "Використовуйте графік, щоб \"прорепетирувати\" майбутні рішення. Маленькі зміни сьогодні дають великі результати завтра.",
   "@categorySlides": {},
-  "overview": "Огляд",
   "forMe": "Для мене",
   "forUs": "Для нас",
   "home": "Головна",
@@ -246,9 +243,8 @@
   "updateBudget": "Оновити бюджет",
   "enterNewTotalDailyBudget": "Введіть новий загальний денний бюджет.",
   "budgetAmount": "Сума бюджету",
-  "cancel": "Скасувати",
   "save": "Зберегти",
-  "enterValidAmountGreaterThan0": "Введіть суму, більшу за 0",
+  "enterValidAmountGreaterThan0": "Будь ласка, введіть дійсну суму більше 0",
   "updatingBudget": "Оновлення бюджету...",
   "budgetUpdated": "Бюджет оновлено",
   "failedToUpdateBudget": "Не вдалося оновити бюджет",
@@ -267,7 +263,7 @@
   "addEntry": "Додати запис",
   "freeFormText": "Довільний текст",
   "takePhoto": "Зробити фото",
-  "transactions": "транзакції",
+  "transactions": "Транзакції",
   "negative": "Негативний",
   "positive": "Позитивний",
   "spendingBreakdown": "Аналіз витрат",
@@ -318,7 +314,7 @@
   "pleaseEnterExpenseDetails": "Будь ласка, введіть деталі витрати",
   "userNotLoggedIn": "Користувач не ввійшов у систему",
   "errorLoadingHouseholds": "Помилка завантаження домогосподарств",
-  "welcomeToHouseholds": "Вітаємо в Групах!",
+  "welcomeToHouseholds": "Вітаємо в Групах",
   "householdsDescription": "Керуйте спільними фінансами з сім'єю, партнером чи сусідами. Слідкуйте за бюджетами, діліть витрати та приймайте рішення разом.",
   "createHousehold": "Створити домогосподарство",
   "joinWithInvite": "Приєднатись за запрошенням",
@@ -331,7 +327,7 @@
   "householdsFeatureDescription": "Функція \"Групи\" вже доступна! Керуйте спільними фінансами з родиною, партнером чи сусідами.",
   "gotIt": "Зрозуміло!",
   "confirmExpense": "Підтвердити витрату",
-  "expenseDetails": "Деталі витрати",
+  "expenseDetails": "Деталі витрат",
   "details": "Деталі",
   "category": "Категорія",
   "currency": "Валюта",
@@ -352,7 +348,7 @@
   "editNotes": "Редагувати нотатки",
   "addANote": "Додати нотатку...",
   "noMembersFoundInHousehold": "У домогосподарстві не знайдено учасників",
-  "errorLoadingMembers": "Помилка завантаження учасників: {error}",
+  "errorLoadingMembers": "Помилка завантаження учасників",
   "noExpenseToSave": "Немає витрати для збереження",
   "expenseSavedAndShared": "Витрату збережено та поширено{splitInfo}!",
   "expenseSaved": "Витрату збережено!",
@@ -364,11 +360,9 @@
   "enterNewTotalDailyBudgetDescription": "Введіть новий загальний денний бюджет.",
   "@household": {},
   "pleaseSignInToAccessHouseholdFeatures": "Будь ласка, увійдіть, щоб отримати доступ до функцій домогосподарства",
-  "errorLoadingHouseholds": "Помилка завантаження домогосподарств",
   "quickActions": "Швидкі дії",
   "members": "Учасники",
   "invites": "Запрошення",
-  "settings": "Налаштування",
   "errorLoadingExpenses": "Помилка завантаження витрат",
   "budgets": "Бюджети",
   "loadingHousehold": "Завантаження домогосподарства...",
@@ -379,7 +373,6 @@
   "spentByHousehold": "Витрати групи",
   "memberSpending": "Витрати за учасниками",
   "spentByHouseholdTooltip": "Показує загальну суму, витрачену всіма учасниками групи за обраний період. Включає всі спільні витрати, додані будь-яким учасником групи.",
-  "welcomeToHouseholds": "Вітаємо в Групах",
   "manageMoneyTogether": "Керуйте грошима разом з партнером, родиною чи сусідами в одному спільному просторі.",
   "sharedBudgetsExpenses": "Спільні бюджети та витрати",
   "sharedBudgetsExpensesDesc": "Створюйте бюджети, відстежуйте витрати та дивіться, куди йдуть спільні гроші, в реальному часі.",
@@ -387,22 +380,17 @@
   "smartExpenseSplittingDesc": "Автоматично розраховуйте, хто кому скільки винен, з гнучкими опціями: порівну, за відсотками чи точними сумами.",
   "stayInSync": "Будьте на зв'язку",
   "stayInSyncDesc": "Отримуйте сповіщення про додавання витрат, досягнення бюджетів чи необхідність розрахуватися.",
-  "createHousehold": "Створити домогосподарство",
-  "joinWithInvite": "Приєднатись за запрошенням",
   "@householdSettings": {},
   "householdSettings": "Налаштування домогосподарства",
   "householdNotFound": "Групу не знайдено",
   "coverPhoto": "Обкладинка",
   "changeCoverPhoto": "Змінити обкладинку",
   "saveChanges": "Зберегти зміни",
-  "pleaseEnterHouseholdName": "Будь ласка, введіть назву домогосподарства",
   "errorLoadingHousehold": "Помилка завантаження домогосподарства",
   "householdUpdatedSuccessfully": "Групу успішно оновлено",
   "failedToUpdateHousehold": "Не вдалося оновити домогосподарство",
   "@householdMembers": {},
   "inviteMember": "Запросити учасника",
-  "errorLoadingMembers": "Помилка завантаження учасників",
-  "retry": "Повторити",
   "removeMember": "Видалити учасника",
   "remove": "Видалити",
   "confirmRemoveMember": "Ви впевнені, що хочете видалити",
@@ -430,7 +418,7 @@
   "thirtyDays": "30 днів",
   "unlimited": "Без обмежень",
   "create": "Створити",
-  "invitationCreatedSuccessfully": "Запрошення успішно створено!",
+  "invitationCreatedSuccessfully": "Запрошення успішно створено",
   "inviteLinkCopiedToClipboard": "Посилання скопійовано в буфер обміну!",
   "errorCreatingInvite": "Помилка створення запрошення",
   "revokeInvitation": "Скасувати запрошення",
@@ -446,7 +434,6 @@
   "@householdImagePicker": {},
   "selectCoverImage": "Обрати обкладинку",
   "failedToLoadImages": "Не вдалося завантажити зображення",
-  "takePhoto": "Зробити фото",
   "chooseFromGallery": "Обрати з галереї",
   "failedToLoad": "Не вдалося завантажити",
   "imageTooLarge": "Зображення завелике",
@@ -457,16 +444,14 @@
   "editBudget": "Редагувати бюджет",
   "budgetDetails": "Деталі бюджету",
   "budgetName": "Назва бюджету",
-  "amount": "Сума",
   "period": "Період",
-  "currency": "Валюта",
   "alertThresholds": "Рівні сповіщень",
-  "warningThreshold": "Поріг попередження",
-  "alertThreshold": "Поріг тривоги",
+  "warningThreshold": "Поріг попередження (%)",
+  "alertThreshold": "Поріг тривоги (%)",
   "warningThresholdHelper": "Сповістити, коли використання бюджету досягне цього відсотка",
   "alertThresholdHelper": "Критичне сповіщення при цьому відсотку",
   "budgetStatus": "Статус бюджету",
-  "active": "Активний",
+  "active": "Активні",
   "inactive": "Неактивний",
   "deletingBudget": "Видалення бюджету...",
   "savingChanges": "Збереження змін...",
@@ -525,67 +510,15 @@
   "categoryBeauty": "Краса",
   "categoryMisc": "Різне",
   "categoryUncategorized": "Без категорії",
-  "alertThresholds": "Рівні сповіщень",
-  "warningThreshold": "Поріг попередження (%)",
-  "alertThreshold": "Поріг тривоги (%)",
-  "warningThresholdHelper": "Сповістити, коли використання бюджету досягне цього відсотка",
-  "alertThresholdHelper": "Критичне сповіщення при цьому відсотку",
-  "active": "Активний",
-  "inactive": "Неактивний",
-  "saveChanges": "Зберегти зміни",
-  "pleaseEnterValidAmount": "Будь ласка, введіть дійсну суму",
-  "warningThresholdRange": "Поріг попередження має бути від 0 до 100",
-  "alertThresholdRange": "Поріг тривоги має бути від 0 до 100",
-  "warningThresholdLessThanAlert": "Поріг попередження має бути меншим або дорівнювати порогу тривоги",
-  "failedToUpdateBudget": "Не вдалося оновити бюджет",
-  "deleteBudget": "Видалити бюджет",
-  "confirmDeleteBudget": "Ви впевнені, що хочете видалити",
   "deleteBudgetCannotBeUndone": "Цю дію неможливо скасувати",
   "delete": "Видалити",
   "failedToDeleteBudget": "Не вдалося видалити бюджет",
   "owner": "Власник",
   "admin": "Адмін",
   "member": "Учасник",
-  "removeMember": "Видалити учасника",
-  "confirmRemoveMember": "Ви впевнені, що хочете видалити",
-  "remove": "Видалити",
-  "retry": "Повторити",
-  "unknown": "Невідомо",
-  "makeAdmin": "Зробити адміністратором",
-  "makeMember": "Зробити учасником",
-  "updatedMemberRole": "Роль оновлено",
-  "invitations": "Запрошення",
-  "createInvitation": "Створити запрошення",
-  "pendingInvitations": "Очікують на відповідь",
-  "noPendingInvitations": "Немає активних запрошень",
-  "invitationHistory": "Історія запрошень",
-  "noInvitationHistory": "Немає історії запрошень",
-  "emailOptional": "Email (необов'язково)",
-  "friendEmailExample": "dryg@example.com",
-  "personalMessageOptional": "Особисте повідомлення (необов'язково)",
-  "expiresIn": "Термін дії",
-  "oneDay": "1 день",
-  "threeDays": "3 дні",
-  "sevenDays": "7 днів",
-  "fourteenDays": "14 днів",
-  "thirtyDays": "30 днів",
-  "unlimited": "Без обмежень",
-  "create": "Створити",
-  "invitationCreatedSuccessfully": "Запрошення успішно створено",
-  "inviteLinkCopiedToClipboard": "Посилання скопійовано в буфер обміну!",
-  "anyoneWithLink": "Будь-хто за посиланням",
-  "revokeInvitation": "Скасувати запрошення",
-  "confirmRevokeInvitation": "Ви впевнені, що хочете скасувати це запрошення?",
-  "revoke": "Скасувати",
-  "invitationRevoked": "Запрошення скасовано",
-  "copyLink": "Копіювати посилання",
-  "noExpiry": "Без терміну дії",
-  "expired": "Термін дії минув",
-  "expires": "Дійсне до",
   "pending": "Очікує",
   "accepted": "Прийнято",
   "revoked": "Скасовано",
-  "createHousehold": "Створити домогосподарство",
   "tapToChangeCover": "Торкніться, щоб змінити обкладинку",
   "personalMessageHint": "Напишіть щось запрошеним (напр., \"Приєднуйся до нашого бюджету!\")",
   "invitationExpiresIn": "Термін дії запрошення",
@@ -603,7 +536,6 @@
   "creating": "Створення...",
   "generatingInvite": "Генерація запрошення...",
   "pleaseSelectValidCurrency": "Будь ласка, оберіть дійсну валюту домогосподарства",
-  "details": "Деталі",
   "nameMaxLength": "Назва має містити менше {max} символів",
   "@nameMaxLength": {
     "placeholders": {
@@ -632,7 +564,6 @@
   "searchExpenses": "Пошук витрат...",
   "clearAll": "Очистити все",
   "allCategories": "Всі категорії",
-  "category": "Категорія",
   "allMembers": "Всі учасники",
   "balanceSummary": "Баланс",
   "youAreOwed": "Вам винні",
@@ -652,40 +583,22 @@
   "transferredViaBank": "Переказано через банк",
   "mobilePayment": "Мобільний платіж",
   "venmoPaypalEtc": "Venmo, PayPal тощо.",
-  "transactions": "Транзакції",
   "search": "Пошук",
-  "spent": "Витрачено",
   "noData": "Немає даних",
   "filterTransactions": "Фільтр транзакцій",
-  "byCategory": "За категоріями",
   "noTransactionsFound": "Транзакцій не знайдено",
   "failedToLoadHouseholdTransactions": "Не вдалося завантажити транзакції домогосподарства",
   "reset": "Скинути",
   "apply": "Застосувати",
   "expenses": "Витрати",
   "dateRange": "Період",
-  "errorLoadingExpenses": "Помилка завантаження витрат",
-  "noExpensesYet": "Витрат ще немає",
   "noMatchingExpenses": "Відповідних витрат не знайдено",
   "startLoggingExpenses": "Почніть додавати витрати, щоб побачити їх тут",
   "tryAdjustingFilters": "Спробуйте змінити фільтри",
-  "member": "Учасник",
-  "split": "РОЗДІЛЕНО",
-  "today": "Сьогодні",
-  "yesterday": "Вчора",
-  "category": "Категорія",
-  "date": "Дата",
-  "time": "Час",
-  "shareWithHousehold": "Поділитися з домогосподарством",
-  "amount": "Сума",
+  "split": "Розділити",
   "note": "Нотатка",
-  "loadingHouseholdMembers": "Завантаження учасників домогосподарства...",
-  "selectHouseholdToConfigureSplit": "Оберіть домогосподарство, щоб налаштувати розділення",
   "currencyCannotBeChangedWhenSharing": "Валюту не можна змінити, якщо ви ділитеся витратою з домогосподарством",
-  "failedToLoadImage": "Не вдалося завантажити зображення",
-  "done": "Готово",
   "createBudget": "Створити бюджет",
-  "budgetName": "Назва бюджету",
   "pleaseEnterABudgetName": "Будь ласка, введіть назву бюджету",
   "pleaseEnterAValidAmountGreaterThan0": "Будь ласка, введіть суму, більшу за 0",
   "warningThresholdMustBeBetween0And100": "Поріг попередження має бути від 0 до 100%",
@@ -713,7 +626,7 @@
   "youreNowPartOfTheHousehold": "Ви тепер частина домогосподарства.\nПочніть спільно керувати фінансами!",
   "thisWillOnlyTakeAMoment": "Це займе лише хвилинку",
   "unableToJoin": "Не вдалося приєднатись",
-  "tryAgain": "Спробувати ще",
+  "tryAgain": "Спробувати знову",
   "goToHousehold": "Перейти до домогосподарства",
   "expiresSoon": "Термін дії спливає",
   "invitationValidUntil": "Запрошення дійсне до",
@@ -722,8 +635,7 @@
   "trackHouseholdFinancialHealth": "Відстеження фінансового стану домогосподарства",
   "collaborateOnFinancialDecisions": "Спільне прийняття фінансових рішень",
   "@householdOverview": {},
-  "household": "Група",
-  "errorLoadingMembers": "Помилка завантаження учасників",
+  "household": "Домогосподарство",
   "viewAll": "Усі",
   "manage": "Керувати",
   "noBudgetsYet": "Бюджетів ще немає",
@@ -731,7 +643,6 @@
   "errorLoadingBudgets": "Помилка завантаження бюджетів",
   "recentSplits": "Останні розділення",
   "invite": "Запросити",
-  "split": "Розділити",
   "@transactionsPage": {},
   "last6Months": "Останні 6 місяців",
   "thisYear": "Цей рік",
@@ -745,17 +656,8 @@
       }
     }
   },
-  "nameMaxLength": "Назва має містити менше {max} символів",
-  "@nameMaxLength": {
-    "placeholders": {
-      "max": {
-        "type": "int"
-      }
-    }
-  },
   "@customSplitSheet": {},
   "splitExpense": "Розділити витрату",
-  "amount": "Сума",
   "percent": "Відсоток",
   "splitShare": "Частка",
   "owes": "Борг",
@@ -772,7 +674,6 @@
   },
   "percentagesMustTotal100": "Сума відсотків має бути 100%",
   "eachPersonMustHaveAtLeast1Share": "Кожен має мати принаймні 1 частку",
-  "member": "Учасник",
   "@whatsappVerification": {},
   "whatsappVerified": "WhatsApp підтверджено",
   "whatsappVerification": "Підтвердження WhatsApp",
@@ -781,12 +682,10 @@
   "enterThe6DigitCodeFromWhatsApp": "Введіть 6-значний код з WhatsApp",
   "pleaseEnterThe6DigitVerificationCode": "Будь ласка, введіть 6-значний код",
   "failedToVerifyCode": "Не вдалося підтвердити код",
-  "invalidVerificationCode": "Невірний код підтвердження",
   "failedToVerifyCodePleaseTryAgain": "Помилка підтвердження коду. Спробуйте ще.",
   "codeAutoFilledFromVerificationLink": "Код введено автоматично з посилання",
   "verify": "Підтвердити",
   "verifying": "Підтвердження...",
-  "done": "Готово",
   "@avatarCustomizer": {},
   "avatarStudio": "Студія Аватарів",
   "preview": "Попередній перегляд",
@@ -811,12 +710,6 @@
   "accessories": "Аксесуари",
   "stars": "Зірки",
   "@unifiedTransactionSheet": {},
-  "confirmExpense": "Підтвердити витрату",
-  "expenseDetails": "Деталі витрат",
-  "details": "Деталі",
-  "currency": "Валюта",
-  "notes": "Нотатки",
-  "receipt": "Чек",
   "@recurringTransactions": {},
   "recurring": "Регулярні",
   "manageYourRecurringTransactions": "Керування регулярними транзакціями",
@@ -825,17 +718,10 @@
   "areYouSureYouWantToDeleteThisRecurringTransaction": "Ви впевнені, що хочете видалити цю регулярну транзакцію?",
   "recurringTransactionDeleted": "Регулярну транзакцію видалено",
   "transactionDeleted": "Транзакцію видалено",
-  "transactions": "Транзакції",
   "recentTransactions": "Останні транзакції",
   "failedToDeleteRecurringTransaction": "Не вдалося видалити регулярну транзакцію",
   "recurringTransactions": "Регулярні транзакції",
   "currencyIsManagedByHousehold": "Валюта керується домогосподарством і не може бути змінена",
-  "editAmount": "Редагувати суму",
-  "amount": "Сума",
-  "editNotes": "Редагувати нотатки",
-  "addANote": "Додати нотатку...",
-  "errorLoadingMembers": "Помилка завантаження учасників",
-  "expenseSavedAndShared": "Витрату збережено та поширено{splitInfo}!",
   "@expenseSavedAndShared": {
     "placeholders": {
       "splitInfo": {
@@ -843,8 +729,6 @@
       }
     }
   },
-  "expenseSaved": "Витрату збережено!",
-  "failedToSave": "Помилка збереження: {error}",
   "@failedToSave": {
     "placeholders": {
       "error": {
@@ -852,7 +736,6 @@
       }
     }
   },
-  "@scenarioPlanning": {},
   "buyALaptop": "купити ноутбук за $1,200",
   "selectTargetDate": "Оберіть кінцеву дату",
   "scenarioQuestionTemplate": "Чи можу я {action} до {date}",
@@ -902,7 +785,6 @@
   "lineDippingWeekend": "Лінія падає після активних вихідних? Збалансуйте наступні дні, скоротивши дрібні необов'язкові витрати.",
   "feelStuckRed": "Застрягли \"в мінусі\"? Перегляньте свій бюджет на Головній — малі зміни дають великий ефект.",
   "@day30LookAheadTab": {},
-  "peek30DaysAhead": "Погляд на 30 днів уперед",
   "thirtyDayForecastDesc": "Цей прогноз аналізує ваші звички за останній місяць, щоб передбачити активність на наступний. Вважайте це прогнозом погоди для вашого гаманця.",
   "greenLineExpected": "Зелена лінія = очікувані денні витрати, якщо наступний місяць буде схожий на минулий.",
   "spikesHighlight": "Піки показують тижні, коли ваші звички зазвичай стають дорожчими (привіт, п'ятнична доставка їжі).",
@@ -923,28 +805,15 @@
   "schedulePaymentIncreases": "Плануйте плавне збільшення платежів за кредитами, коли крива зростає.",
   "planAheadDips": "Плануйте заздалегідь \"просідання\", відкладаючи кошти у цільові фонди або скорочуючи необов'язкові витрати.",
   "checkProjectionMonthly": "Перевіряйте прогноз щомісяця, щоб ваша \"довга гра\" залишалася приємною та гнучкою.",
-  "@categories": {},
-  "categoryGroceries": "Продукти",
-  "categoryFood": "Їжа",
-  "categoryTransport": "Транспорт",
-  "categoryHousing": "Житло",
-  "categoryUtilities": "Комунальні",
-  "categoryEntertainment": "Розваги",
   "categoryHealthcare": "Здоров'я / Медицина",
-  "categoryEducation": "Освіта",
-  "categoryShopping": "Покупки",
-  "categoryTravel": "Подорожі",
-  "categoryIncome": "Дохід",
   "categoryOther": "Інше",
   "deleteExpense": "Видалити витрату",
   "confirmDeleteExpense": "Ви впевнені, що хочете видалити цю витрату? Цю дію неможливо скасувати.",
   "expenseDeletedSuccessfully": "Витрату успішно видалено",
   "failedToDeleteExpense": "Не вдалося видалити витрату",
   "expenseNotFoundOrDeleted": "Витрату не знайдено або її було видалено",
-
   "onlyAdminsAndOwnersCanEditHouseholdSettings": "Лише адміністратори та власники можуть редагувати налаштування домогосподарства",
   "onlyAdminsAndOwnersCanCreateInvitations": "Лише адміністратори та власники можуть створювати запрошення",
-
   "shareInvitationForHousehold": "Поділитися запрошенням у домогосподарство {householdName}",
   "@shareInvitationForHousehold": {
     "placeholders": {
@@ -981,11 +850,9 @@
   },
   "copyInvitationLink": "Копіювати запрошувальне посилання",
   "copyInvitationLinkToClipboard": "Копіювати запрошувальне посилання в буфер обміну",
-  "copyLink": "Копіювати посилання",
   "shareInvitationLink": "Поділитися запрошувальним посиланням",
   "share": "Поділитися",
   "closeShareSheet": "Закрити меню 'Поділитися'",
-  "done": "Готово",
   "invitationLinkCopiedToClipboard": "Запрошувальне посилання скопійовано в буфер обміну!",
   "joinMyHouseholdMessage": "Долучайтеся до мого домогосподарства \"{householdName}\" у Moneko!\n\n{inviteUrl}",
   "@joinMyHouseholdMessage": {
@@ -999,7 +866,6 @@
     }
   },
   "joinMyHouseholdSubject": "Долучайтеся до мого домогосподарства у Moneko",
-
   "zeroAmount": "0,00",
   "dollarPrefix": "$ ",
   "notificationSettings": "Налаштування сповіщень",
@@ -1052,7 +918,7 @@
   "invitationValidUntilLabel": "Запрошення дійсне до",
   "personalMessageFromInviter": "Особисте повідомлення від відправника",
   "messageFromInviter": "Повідомлення від відправника",
-  "joiningHousehold": "Приєднання до домогосподарства...",
+  "joiningHousehold": "Приєднання до домогосподарства",
   "errorWithMessage": "Помилка: {errorMessage}",
   "@errorWithMessage": {
     "placeholders": {
@@ -1085,14 +951,12 @@
   "october": "Жовт",
   "november": "Лист",
   "december": "Груд",
-  "paste": "Вставити",
-  "continueAction": "Продовжити",
-  "tryAgain": "Спробувати знову",
-
   "remindUser": "Нагадати {name}",
   "@remindUser": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "sendFriendlySpendingReminder": "Надіслати дружнє нагадування про витрати",
@@ -1102,17 +966,20 @@
   "pleaseWait24HoursBeforeSendingAnotherReminder": "Будь ласка, зачекайте 24 години, перш ніж надсилати {name} ще одне нагадування",
   "@pleaseWait24HoursBeforeSendingAnotherReminder": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "reminderSentToName": "Нагадування надіслано {name} 🔔",
   "@reminderSentToName": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "failedToSendReminderTryAgain": "Не вдалося надіслати нагадування. Спробуйте ще раз.",
-
   "@incomeFeature": {},
   "income": "Дохід",
   "addIncome": "Додати дохід",
@@ -1128,10 +995,8 @@
   "acknowledged": "підтверджено",
   "source": "Джерело",
   "sourceHint": "напр. Роботодавець, Клієнт",
-  "owner": "Власник",
   "me": "Я",
   "partner": "Партнер",
-  "household": "Домогосподарство",
   "privacyScope": "Конфіденційність",
   "privacyFull": "Усі деталі",
   "privacyBalancesOnly": "Лише баланси",
@@ -1139,7 +1004,6 @@
   "privacyFullExplanation": "Партнер може бачити всі деталі включаючи суму, джерело та опис.",
   "privacyBalancesOnlyExplanation": "Партнер може бачити цей дохід у підсумках, але не деталі (джерело, опис приховано).",
   "privacyPrivateExplanation": "Лише ви можете бачити цей дохід. Він робить внесок у підсумки домогосподарства, але партнер не може бачити деталі.",
-  "shareWithHousehold": "Поділитися з домогосподарством",
   "incomeSalary": "Зарплата",
   "incomeFreelance": "Фріланс",
   "incomeInvestment": "Інвестиція",
@@ -1148,11 +1012,6 @@
   "incomeBonus": "Бонус",
   "incomeRental": "Оренда",
   "incomeOther": "Інше",
-  "enterValidAmountGreaterThan0": "Будь ласка, введіть дійсну суму більше 0",
-  "date": "Дата",
-  "time": "Час",
-  "retry": "Повторити",
-
   "@goalsFeature": {},
   "goals": "Цілі",
   "createGoal": "Створити ціль",
@@ -1167,11 +1026,9 @@
   "targetDate": "Цільова дата",
   "description": "Опис",
   "descriptionHint": "Примітка (необов’язково)",
-  "category": "Категорія",
   "savings": "Збереження",
   "paydown": "Погашення боргу",
   "all": "Усі",
-  "active": "Активні",
   "completed": "Завершені",
   "offTrack": "Відставання від графіка",
   "onTrack": "За графіком",
@@ -1191,9 +1048,7 @@
   "contributionAmount": "Сума внеску",
   "contributionType": "Тип",
   "contributionAdded": "Внесок успішно додано",
-
   "pleaseSelectCategory": "Будь ласка, виберіть категорію",
-  "pleaseEnterAmount": "Будь ласка, введіть суму",
   "userNotAuthenticated": "Користувач не автентифікований",
   "recurringExpenseUpdatedSuccessfully": "Періодичну витрату успішно оновлено",
   "recurringExpenseAddedSuccessfully": "Періодичні витрати успішно додано",
@@ -1222,8 +1077,12 @@
   "youWillBeNotifiedBeforeEachOccurrence": "Ви будете сповіщені за {value} {unit} до кожної події",
   "@youWillBeNotifiedBeforeEachOccurrence": {
     "placeholders": {
-      "value": {"type": "int"},
-      "unit": {"type": "String"}
+      "value": {
+        "type": "int"
+      },
+      "unit": {
+        "type": "String"
+      }
     }
   },
   "addReminder": "Додати Нагадування",
@@ -1280,7 +1139,6 @@
   "memberMustHaveShare": "Хоча б один учасник повинен мати частку більше 0",
   "monthOverMonthSpending": "Динаміка витрат за місяцями",
   "last3Months": "Останні 3 місяці",
-
   "breakdown": "Деталізація",
   "noOutstandingItems": "Немає непогашених позицій",
   "theyOweYou": "Тобі винні",
@@ -1298,7 +1156,6 @@
   "suggestedNetTransfers": "Запропоновані нетто‑перекази",
   "detailedPairwiseDues": "Детальні борги між учасниками",
   "outstanding": "Непогашено",
-  
   "youAreOwedBy": "Тобі винні від",
   "noOutstandingAmounts": "Немає непогашених сум",
   "groupFairnessTitle": "Справедливість групи",
@@ -1306,19 +1163,28 @@
   "groupFairnessExplanation": "Показує, наскільки рівномірно витрати розподіляються між членами домогосподарства.\n\nВищий відсоток означає, що кожен робить справедливий внесок. Нижчий — що дехто покриває більше витрат, ніж інші.\n\nУявіть це як командну роботу: коли всі вкладаються порівну, показник справедливості високий. Коли хтось тягне основне навантаження — знижується.\n\n«Рівна частка» показує, скільки мав би сплатити кожен за рівного поділу.",
   "noMemberDataYet": "Поки що немає даних про учасників",
   "evenShare": "Рівна частка: {amount}",
-  "@evenShare": {"placeholders": {"amount": {"type": "String"}}}
-,
+  "@evenShare": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "viewHousehold": "Переглянути домогосподарство",
   "invalidInvitationMissingInfo": "Недійсне запрошення: бракує даних домогосподарства",
   "joinedHouseholdWithName": "Ти приєднався/приєдналася до {name}!",
-  "@joinedHouseholdWithName": {"placeholders": {"name": {"type": "String"}}},
+  "@joinedHouseholdWithName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "joinedHousehold": "Ти приєднався/приєдналася до домогосподарства!",
-  "errorLoadingData": "Помилка завантаження даних",
   "errorLoadingSplits": "Помилка завантаження розподілів",
   "markAsSettled": "Позначити як погашено",
   "splitDetails": "Деталі розподілу",
   "equalSplit": "РІВНИЙ РОЗПОДІЛ",
-  "errorLoadingBudgets": "Помилка завантаження бюджетів",
   "noSharedBudgetsYet": "Ще немає спільних бюджетів",
   "whoCanSeeThisExpense": "Хто може бачити цю витрату?",
   "onlyVisibleToYou": "Бачиш лише ти",
@@ -1326,29 +1192,167 @@
   "selectMembers": "Обрати учасників",
   "noMembersFound": "Учасників не знайдено",
   "membersSelectedCount": "Обрано: {count}",
-  "@membersSelectedCount": {"placeholders": {"count": {"type": "int"}}},
+  "@membersSelectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "noSplitsYet": "Поки що немає розподілів",
   "startSplittingExpensesWithYourHousehold": "Почни розподіляти витрати у своєму домогосподарстві",
   "minutesAgoShort": "{count} хв тому",
-  "@minutesAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "@minutesAgoShort": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "hoursAgoShort": "{count} год тому",
-  "@hoursAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "@hoursAgoShort": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "daysAgoShort": "{count} дн. тому",
-  "@daysAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "@daysAgoShort": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "weeksAgoShort": "{count} тиж. тому",
-  "@weeksAgoShort": {"placeholders": {"count": {"type": "int"}}}
-,
+  "@weeksAgoShort": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "errorLoadingActivity": "Помилка завантаження активності",
   "noRecentActivity": "Немає нещодавньої активності",
   "viewAllExpenses": "Переглянути всі витрати",
   "noPendingSplits": "Немає розподілів, що очікують",
-  "pendingSettlement": "Очікує врегулювання"
-  ,
+  "pendingSettlement": "Очікує врегулювання",
   "youreIn": "Готово! 🎉",
   "invitationError": "Помилка запрошення",
-  "joiningHousehold": "Приєднання до домогосподарства",
-  "processingInvitation": "Обробка запрошення..."
-  ,
+  "processingInvitation": "Обробка запрошення...",
   "noHouseholdsAvailableCreateOrJoin": "Немає доступних домогосподарств. Спершу створіть або приєднайтеся.",
-  "selectHousehold": "Виберіть домогосподарство"
+  "selectHousehold": "Виберіть домогосподарство",
+  "yourPockets": "Ваші кишені",
+  "editPocket": "Редагувати кишеню",
+  "addPocket": "Додати кишеню",
+  "errorTitle": "Помилка",
+  "createSplit": "Створити поділ витрат",
+  "equalShare": "Рівні частки",
+  "noCashflowYet": "Ще немає грошового потоку",
+  "monekoEncounteredAnError": "У Moneko сталася помилка",
+  "expenseUpdatedSuccessfully": "Витрату успішно оновлено",
+  "savingsRate": "Рівень заощаджень",
+  "budgetRunway": "Запас бюджету за часом",
+  "avgDaily": "Сер./день",
+  "left": "Залишилося",
+  "percentageOfSpending": "{percentage}% витрат",
+  "totalAmount": "Загальна сума",
+  "payer": "Платник",
+  "whoPaid": "Хто заплатив?",
+  "dollarSign": "$",
+  "pockets": "Кишеньки",
+  "pocketNameLabel": "Назва кишеньки",
+  "pocketNamePlaceholder": "напр.: Продукти",
+  "thisPocketFallback": "Ця кишенька",
+  "pleaseEnterPocketName": "Введіть назву кишеньки",
+  "pleaseEnterPocketPercentage": "Вкажіть відсоток для цієї кишеньки",
+  "pleaseEnterValidPocketPercentage": "Введіть коректний відсоток для цієї кишеньки",
+  "pleaseSelectHouseholdFirst": "Спочатку виберіть домогосподарство",
+  "pleaseSetMonthlyBudgetFirst": "Спочатку задайте місячний бюджет",
+  "pocketAllocationLabel": "Розподіл по кишеньках",
+  "pocketCategoriesLabel": "Категорії кишеньки",
+  "tapToSelectCategories": "Торкніться, щоб обрати категорії",
+  "pocketColorLabel": "Колір кишеньки",
+  "pocketIconLabel": "Іконка кишеньки",
+  "budgetExceededByLabel": "Бюджет перевищено на",
+  "pocketDeleteTitle": "Видалити цю кишеньку?",
+  "pocketDeleteMessage": "Ви впевнені, що хочете видалити цю кишеньку? На минулі транзакції це не вплине.",
+  "pocketDeleted": "Кишеньку видалено",
+  "failedToDeletePocket": "Не вдалося видалити кишеньку",
+  "budgetImpactTitle": "Вплив на бюджет",
+  "budgetBalanced": "Бюджет збалансовано",
+  "remainingLabel": "Залишок",
+  "pocketSegmentLabel": "Сегмент кишеньки",
+  "thisPocketSegmentLabel": "Ця кишенька",
+  "pocketNotFoundAppBar": "Кишеньку не знайдено",
+  "pocketNotFoundTitle": "Ця кишенька не існує",
+  "pocketNotFoundMessage": "Не вдалося знайти цю кишеньку. Можливо, її видалено або перенесено.",
+  "goBack": "Назад",
+  "monthlyBudgetLabel": "Місячний бюджет",
+  "keyInsightsTitle": "Ключові висновки",
+  "spentThisMonthLabel": "Витрачено цього місяця",
+  "avgDailySpendLabel": "Середні щоденні витрати",
+  "pocketAllowanceLabel": "Ліміт для цієї кишеньки",
+  "dailyTrendTitle": "Щоденний тренд",
+  "past30DaysLabel": "Останні 30 днів",
+  "noTransactionsYet": "Транзакцій ще немає",
+  "unallocatedSpendLabel": "Нерозподілені витрати",
+  "unallocatedBannerDescription": "Частина витрат ще не прив’язана до жодної кишеньки. Розподіліть їх, щоб бюджет був точним.",
+  "uncategorizedSpendingTitle": "Некатегоризовані витрати",
+  "uncategorizedSpendingDescription": "У цих витрат ще немає категорії. Розподіліть їх, щоб аналітика була чистою.",
+  "noDetailedExpensesFound": "Детальних витрат не знайдено",
+  "setMonthlyBudgetTitle": "Налаштуйте свій місячний бюджет",
+  "newPocketTitle": "Нова кишенька",
+  "ofSpendingLabel": "від витрат",
+  "viewOptionsTitle": "Параметри перегляду",
+  "envelopeModeTitle": "Режим конвертів",
+  "envelopeModeDescription": "Розкладіть гроші по конвертах, щоб кожна гривня мала свою роль.",
+  "howItWorksTitle": "Як це працює",
+  "allocateYourIncomeTitle": "Розподіліть свій дохід",
+  "allocateYourIncomeDescription": "Вирішіть заздалегідь, яку частину кожної виплати класти в який конверт — ще до витрат.",
+  "trackSpendingTitle": "Відстежуйте витрати",
+  "trackSpendingDescription": "Під час витрат ви бачите, скільки вже взято з кожного конверта і скільки ще лишилося.",
+  "avoidOverspendingTitle": "Уникайте надмірних витрат",
+  "avoidOverspendingDescription": "Отримуйте делікатні попередження, коли конверт майже порожній або перевищує бюджет, щоб вчасно підлаштуватися.",
+  "youveGotPaychecksIncomingAndBillsToPay": "У вас на підході виплати — і рахунки, які треба сплатити.",
+  "notifyMeDaysBefore": "Сповіщати за 3 дні до",
+  "upcomingPaychecks": "Майбутні виплати зарплати",
+  "paycheckFromWork": "Зарплата з роботи",
+  "freelanceProject": "Фриланс-проєкт",
+  "upcomingBills": "Майбутні рахунки",
+  "rentPayment": "Оплата оренди",
+  "electricityBill": "Рахунок за електроенергію",
+  "comingInNextPhase": "З’явиться на наступному етапі",
+  "thisFeatureIsUnderDevelopment": "Ця функція наразі в розробці",
+  "impersonateUser": "Переглядати як користувач",
+  "pleaseEnterAnEmailAddress": "Будь ласка, введіть адресу електронної пошти",
+  "failedToImpersonateUserPleaseCheckTheEmailAndTryAgain": "Не вдалося відкрити перегляд від імені користувача. Перевірте email і спробуйте ще раз.",
+  "enterTheEmailAddressOfTheUserYouWantToImpersonate": "Введіть email користувача, від імені якого хочете переглядати дані.",
+  "userEmail": "Email користувача",
+  "youWillSeeDataFromThisUsersPerspectiveWithoutLoggingInAsThem": "Ви зможете бачити дані з погляду цього користувача, не входячи в його акаунт.",
+  "start": "Почати",
+  "ethereumEvm": "Ethereum (EVM)",
+  "useMetaMaskRainbowBraveEtc": "Використовуйте MetaMask, Rainbow, Brave тощо.",
+  "solana": "Solana",
+  "usePhantomSolflareBackpackEtc": "Використовуйте Phantom, Solflare, Backpack тощо.",
+  "select": "Вибрати",
+  "color": "Колір",
+  "moneko": "Moneko",
+  "allowance": "Кишенькові гроші",
+  "@percentageOfSpending": {
+    "placeholders": {
+      "percentage": {
+        "type": "String"
+      }
+    }
+  },
+  "percentage": "Відсоток",
+  "updateNow": "Оновити зараз",
+  "pocketNotFound": "Кишеню не знайдено",
+  "pocketNotFoundDescription": "Кишеня, яку ви шукаєте, не існує або була видалена.",
+  "monthlyBudget": "Бюджет на місяць",
+  "keyInsights": "Ключові висновки",
+  "dailyTrend": "Денна тенденція",
+  "past30Days": "Останні 30 днів"
 }

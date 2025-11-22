@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
@@ -11,15 +11,23 @@ import 'package:intl/intl.dart';
 import 'dart:ui' as ui;
 import 'package:flutter/cupertino.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+import 'package:moneko/shared/widgets/subtle_adaptive_button.dart';
 
 /// Supported sentence word orders for arranging the scenario inputs
 enum _WordOrder { svo, sov, vso, v2 }
 
-Widget buildScenarioPlanningTab(BuildContext context, shadcnui.ColorScheme colorScheme, AnalyticsData analyticsData, {String? selectedCurrency}) {
-  return ScenarioPlanningTabContent(context: context, colorScheme: colorScheme, analyticsData: analyticsData, selectedCurrency: selectedCurrency);
+Widget buildScenarioPlanningTab(
+    BuildContext context, ColorScheme colorScheme, AnalyticsData analyticsData,
+    {String? selectedCurrency}) {
+  return ScenarioPlanningTabContent(
+      context: context,
+      colorScheme: colorScheme,
+      analyticsData: analyticsData,
+      selectedCurrency: selectedCurrency);
 }
 
-void _showCategoryGuide(BuildContext context, shadcnui.ColorScheme colorScheme) {
+void _showCategoryGuide(BuildContext context, ColorScheme colorScheme) {
   final slides = _scenarioCategorySlides(context);
   final controller = PageController();
   int currentPage = 0;
@@ -30,95 +38,109 @@ void _showCategoryGuide(BuildContext context, shadcnui.ColorScheme colorScheme) 
     builder: (dialogContext) {
       return StatefulBuilder(
         builder: (context, setState) {
-          return Dialog(
-            backgroundColor: colorScheme.card,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420, maxHeight: 520),
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            context.l10n.scenarioCategoriesGuide,
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w600,
-                              color: colorScheme.foreground,
+          return Theme(
+            data: Theme.of(context),
+            child: Dialog(
+              backgroundColor: colorScheme.card,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+              child: ConstrainedBox(
+                constraints:
+                    const BoxConstraints(maxWidth: 420, maxHeight: 520),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              context.l10n.scenarioCategoriesGuide,
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.foreground,
+                              ),
                             ),
                           ),
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.close, color: colorScheme.mutedForeground),
-                          onPressed: () => Navigator.of(dialogContext).pop(),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      context.l10n.categoryGuideIntro,
-                      style: TextStyle(color: colorScheme.mutedForeground, fontSize: 14),
-                    ),
-                    const SizedBox(height: 24),
-                    Expanded(
-                      child: PageView.builder(
-                        controller: controller,
-                        itemCount: slides.length,
-                        onPageChanged: (index) => setState(() => currentPage = index),
-                        itemBuilder: (context, index) {
-                          final slide = slides[index];
-                          return _ScenarioHelpSlide(
-                            colorScheme: colorScheme,
-                            title: slide.title,
-                            summary: slide.summary,
-                            bullets: slide.points,
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(slides.length, (index) {
-                        final active = index == currentPage;
-                        return AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          height: 8,
-                          width: active ? 20 : 8,
-                          decoration: BoxDecoration(
-                            color: active ? colorScheme.primary : colorScheme.muted,
-                            borderRadius: BorderRadius.circular(8),
+                          IconButton(
+                            icon: Icon(Icons.close,
+                                color: colorScheme.mutedForeground),
+                            onPressed: () => Navigator.of(dialogContext).pop(),
                           ),
-                        );
-                      }),
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        TextButton(
-                          onPressed: () => Navigator.of(dialogContext).pop(),
-                          child: Text(context.l10n.close),
-                        ),
-                        const Spacer(),
-                        shadcnui.PrimaryButton(
-                          onPressed: () {
-                            if (currentPage < slides.length - 1) {
-                              controller.nextPage(duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
-                              setState(() => currentPage += 1);
-                            } else {
-                              Navigator.of(dialogContext).pop();
-                            }
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        context.l10n.categoryGuideIntro,
+                        style: TextStyle(
+                            color: colorScheme.mutedForeground, fontSize: 14),
+                      ),
+                      const SizedBox(height: 24),
+                      Expanded(
+                        child: PageView.builder(
+                          controller: controller,
+                          itemCount: slides.length,
+                          onPageChanged: (index) =>
+                              setState(() => currentPage = index),
+                          itemBuilder: (context, index) {
+                            final slide = slides[index];
+                            return _ScenarioHelpSlide(
+                              colorScheme: colorScheme,
+                              title: slide.title,
+                              summary: slide.summary,
+                              bullets: slide.points,
+                            );
                           },
-                          child: Text(currentPage < slides.length - 1 ? context.l10n.next : context.l10n.done),
                         ),
-                      ],
-                    ),
-                  ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(slides.length, (index) {
+                          final active = index == currentPage;
+                          return AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            height: 8,
+                            width: active ? 20 : 8,
+                            decoration: BoxDecoration(
+                              color: active
+                                  ? colorScheme.primary
+                                  : colorScheme.muted,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          );
+                        }),
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.of(dialogContext).pop(),
+                            child: Text(context.l10n.close),
+                          ),
+                          const Spacer(),
+                          PrimaryAdaptiveButton(
+                            onPressed: () {
+                              if (currentPage < slides.length - 1) {
+                                controller.nextPage(
+                                    duration: const Duration(milliseconds: 250),
+                                    curve: Curves.easeOut);
+                                setState(() => currentPage += 1);
+                              } else {
+                                Navigator.of(dialogContext).pop();
+                              }
+                            },
+                            child: Text(currentPage < slides.length - 1
+                                ? context.l10n.next
+                                : context.l10n.done),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -130,7 +152,8 @@ void _showCategoryGuide(BuildContext context, shadcnui.ColorScheme colorScheme) 
 }
 
 class _ScenarioSlideData {
-  const _ScenarioSlideData({required this.title, required this.summary, required this.points});
+  const _ScenarioSlideData(
+      {required this.title, required this.summary, required this.points});
 
   final String title;
   final String summary;
@@ -177,7 +200,7 @@ class _ScenarioHelpSlide extends StatelessWidget {
     required this.bullets,
   });
 
-  final shadcnui.ColorScheme colorScheme;
+  final ColorScheme colorScheme;
   final String title;
   final String summary;
   final List<String> bullets;
@@ -191,12 +214,16 @@ class _ScenarioHelpSlide extends StatelessWidget {
         children: [
           Text(
             title,
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: colorScheme.foreground),
+            style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.foreground),
           ),
           const SizedBox(height: 12),
           Text(
             summary,
-            style: TextStyle(fontSize: 14, height: 1.4, color: colorScheme.mutedForeground),
+            style: TextStyle(
+                fontSize: 14, height: 1.4, color: colorScheme.mutedForeground),
           ),
           const SizedBox(height: 16),
           ...bullets.map(
@@ -210,7 +237,10 @@ class _ScenarioHelpSlide extends StatelessWidget {
                   Expanded(
                     child: Text(
                       bullet,
-                      style: TextStyle(fontSize: 14, height: 1.4, color: colorScheme.foreground),
+                      style: TextStyle(
+                          fontSize: 14,
+                          height: 1.4,
+                          color: colorScheme.foreground),
                     ),
                   ),
                 ],
@@ -225,7 +255,7 @@ class _ScenarioHelpSlide extends StatelessWidget {
 
 class ScenarioPlanningTabContent extends ConsumerStatefulWidget {
   final BuildContext context;
-  final shadcnui.ColorScheme colorScheme;
+  final ColorScheme colorScheme;
   final AnalyticsData analyticsData;
   final String? selectedCurrency;
 
@@ -238,7 +268,8 @@ class ScenarioPlanningTabContent extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<ScenarioPlanningTabContent> createState() => _ScenarioPlanningTabContentState();
+  ConsumerState<ScenarioPlanningTabContent> createState() =>
+      _ScenarioPlanningTabContentState();
 }
 
 class _Affixes {
@@ -247,8 +278,10 @@ class _Affixes {
   const _Affixes(this.prefix, this.suffix);
 }
 
-class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTabContent> {
-  final TextEditingController _scenarioQuestionController = TextEditingController();
+class _ScenarioPlanningTabContentState
+    extends ConsumerState<ScenarioPlanningTabContent> {
+  final TextEditingController _scenarioQuestionController =
+      TextEditingController();
   DateTime? _scenarioDate;
   bool _scenarioLoading = false;
 
@@ -256,19 +289,19 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
   String _formatLocalizedDate(DateTime date) {
     final locale = Localizations.localeOf(context);
     final dateFormat = context.l10n.scenarioDateFormat;
-    
+
     try {
       // Try locale-specific formatting first
       return DateFormat(dateFormat, locale.languageCode).format(date);
     } catch (e) {
       debugPrint('Locale-specific date formatting failed: $e');
-      
+
       try {
         // Fallback to locale without country code
         return DateFormat(dateFormat).format(date);
       } catch (e2) {
         debugPrint('Generic date formatting failed: $e2');
-        
+
         // Ultimate fallback based on language family
         return _formatDateByLanguageFamily(date, locale.languageCode);
       }
@@ -314,7 +347,7 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
         context: context,
         barrierDismissible: true,
         builder: (ctx) {
-          final bg = widget.colorScheme.background;
+          final bg = widget.colorScheme.appBackground;
           return Material(
             color: Colors.transparent,
             child: Container(
@@ -332,18 +365,24 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
                           CupertinoButton(
                             padding: EdgeInsets.zero,
                             onPressed: () => Navigator.of(ctx).pop(),
-                            child: Text(context.l10n.close, style: TextStyle(color: widget.colorScheme.mutedForeground)),
+                            child: Text(context.l10n.close,
+                                style: TextStyle(
+                                    color: widget.colorScheme.mutedForeground)),
                           ),
                           const Spacer(),
                           CupertinoButton(
                             padding: EdgeInsets.zero,
                             onPressed: () {
                               setState(() {
-                                _scenarioDate = DateTime(temp.year, temp.month, temp.day);
+                                _scenarioDate =
+                                    DateTime(temp.year, temp.month, temp.day);
                               });
                               Navigator.of(ctx).pop();
                             },
-                            child: Text(context.l10n.done, style: TextStyle(color: widget.colorScheme.primary, fontWeight: FontWeight.w600)),
+                            child: Text(context.l10n.done,
+                                style: TextStyle(
+                                    color: widget.colorScheme.primary,
+                                    fontWeight: FontWeight.w600)),
                           ),
                         ],
                       ),
@@ -387,15 +426,9 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
     final lang = Localizations.localeOf(context).languageCode.toLowerCase();
 
     // Families based on user's specification and common grammatical tendencies
-    const sov = {
-      'zh', 'ja', 'ko', 'hi', 'ur', 'tr', 'fa'
-    };
-    const vso = {
-      'es', 'fr', 'ar'
-    };
-    const v2 = {
-      'de'
-    };
+    const sov = {'zh', 'ja', 'ko', 'hi', 'ur', 'tr', 'fa'};
+    const vso = {'es', 'fr', 'ar'};
+    const v2 = {'de'};
 
     if (sov.contains(lang)) return _WordOrder.sov;
     if (vso.contains(lang)) return _WordOrder.vso;
@@ -411,7 +444,7 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
       case 'ja':
       case 'ko':
         return '${date.year}/${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')}';
-      
+
       // Germanic family - uses DD.MM.YYYY
       case 'de':
       case 'nl':
@@ -420,7 +453,7 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
       case 'da':
       case 'is':
         return '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';
-      
+
       // Romance family - uses DD/MM/YYYY
       case 'es':
       case 'fr':
@@ -429,7 +462,7 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
       case 'ro':
       case 'ca':
         return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
-      
+
       // Slavic family - uses DD.MM.YYYY
       case 'ru':
       case 'pl':
@@ -441,14 +474,14 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
       case 'sr':
       case 'sl':
         return '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';
-      
+
       // Arabic family - uses DD/MM/YYYY
       case 'ar':
       case 'he':
       case 'fa':
       case 'ur':
         return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
-      
+
       // Indian family - uses DD-MM-YYYY
       case 'hi':
       case 'bn':
@@ -459,14 +492,14 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
       case 'gu':
       case 'pa':
         return '${date.day.toString().padLeft(2, '0')}-${date.month.toString().padLeft(2, '0')}-${date.year}';
-      
+
       // Southeast Asian family - uses DD/MM/YYYY
       case 'th':
       case 'vi':
       case 'id':
       case 'ms':
         return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
-      
+
       // Turkic family - uses DD.MM.YYYY
       case 'tr':
       case 'az':
@@ -474,7 +507,7 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
       case 'ky':
       case 'uz':
         return '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';
-      
+
       // Default to ISO format for unknown languages
       default:
         return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
@@ -487,16 +520,13 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
     super.dispose();
   }
 
-  void _showToast(String message) {
-    // For custom trailing controls, consider AppToast.action
-    AppToast.info(message);
-  }
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = widget.colorScheme.background == AppTheme.darkBackground;
+    final bool isDark =
+        widget.colorScheme.appBackground == AppTheme.darkBackground;
     final user = ref.watch(authProvider);
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -542,7 +572,9 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
                         padding: const EdgeInsets.only(right: 8.0),
                         child: Text(
                           context.l10n.canI,
-                          style: TextStyle(color: widget.colorScheme.foreground, fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                              color: widget.colorScheme.foreground,
+                              fontWeight: FontWeight.w600),
                         ),
                       );
 
@@ -551,20 +583,27 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
                           controller: _scenarioQuestionController,
                           decoration: InputDecoration(
                             hintText: context.l10n.buyALaptop,
-                            hintStyle: TextStyle(color: widget.colorScheme.mutedForeground),
+                            hintStyle: TextStyle(
+                                color: widget.colorScheme.mutedForeground),
                             filled: true,
-                            fillColor: isDark ? AppTheme.darkInputBg : AppTheme.lightInputBg,
+                            fillColor: isDark
+                                ? AppTheme.darkInputBg
+                                : AppTheme.lightInputBg,
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(color: widget.colorScheme.border),
+                              borderSide:
+                                  BorderSide(color: widget.colorScheme.border),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(color: widget.colorScheme.primary),
+                              borderSide:
+                                  BorderSide(color: widget.colorScheme.primary),
                             ),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 10),
                           ),
-                          style: TextStyle(color: widget.colorScheme.foreground),
+                          style:
+                              TextStyle(color: widget.colorScheme.foreground),
                           keyboardType: TextInputType.text,
                         ),
                       );
@@ -576,7 +615,9 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
                           padding: const EdgeInsets.only(right: 8.0),
                           child: Text(
                             t,
-                            style: TextStyle(color: widget.colorScheme.foreground, fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                                color: widget.colorScheme.foreground,
+                                fontWeight: FontWeight.w600),
                           ),
                         );
                       }();
@@ -588,27 +629,34 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
                           padding: const EdgeInsets.only(left: 8.0, right: 8.0),
                           child: Text(
                             t,
-                            style: TextStyle(color: widget.colorScheme.foreground, fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                                color: widget.colorScheme.foreground,
+                                fontWeight: FontWeight.w600),
                           ),
                         );
                       }();
 
-                      final dateButton = shadcnui.OutlineButton(
+                      final dateButton = SubtleAdaptiveButton(
                         onPressed: () => _pickTargetDate(context),
-                        child: Text(_scenarioDate == null ? context.l10n.pickDate : _formatLocalizedDate(_scenarioDate!)),
+                        child: Text(_scenarioDate == null
+                            ? context.l10n.pickDate
+                            : _formatLocalizedDate(_scenarioDate!)),
                       );
 
                       Widget buildPrimaryButton({bool expand = true}) {
                         final btn = SizedBox(
                           height: 40,
-                          child: shadcnui.PrimaryButton(
+                          child: PrimaryAdaptiveButton(
                             onPressed: _scenarioLoading
                                 ? null
                                 : () async {
-                                    final q = _scenarioQuestionController.text.trim();
-                                    final d = _scenarioDate == null ? '' : _formatLocalizedDate(_scenarioDate!);
+                                    final q =
+                                        _scenarioQuestionController.text.trim();
+                                    final d = _scenarioDate == null
+                                        ? ''
+                                        : _formatLocalizedDate(_scenarioDate!);
                                     if (q.isEmpty || d.isEmpty) {
-                                      _showToast(context.l10n.enterQuestionAndPickDate);
+                                       AppToast.info(context, context.l10n.enterQuestionAndPickDate);
                                       return;
                                     }
 
@@ -626,8 +674,9 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
                                           child: Container(
                                             padding: const EdgeInsets.all(32),
                                             decoration: BoxDecoration(
-                                              color: colorScheme.background,
-                                              borderRadius: BorderRadius.circular(12),
+                                              color: colorScheme.appBackground,
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
                                             ),
                                             child: Column(
                                               mainAxisSize: MainAxisSize.min,
@@ -639,18 +688,22 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
                                                 ),
                                                 const SizedBox(height: 16),
                                                 Text(
-                                                  context.l10n.analyzingScenario,
+                                                  context
+                                                      .l10n.analyzingScenario,
                                                   style: TextStyle(
-                                                    color: colorScheme.foreground,
+                                                    color:
+                                                        colorScheme.foreground,
                                                     fontSize: 16,
                                                     fontWeight: FontWeight.w600,
                                                   ),
                                                 ),
                                                 const SizedBox(height: 8),
                                                 Text(
-                                                  context.l10n.thisMightTakeAWhile,
+                                                  context
+                                                      .l10n.thisMightTakeAWhile,
                                                   style: TextStyle(
-                                                    color: colorScheme.mutedForeground,
+                                                    color: colorScheme
+                                                        .mutedForeground,
                                                     fontSize: 14,
                                                   ),
                                                 ),
@@ -662,53 +715,71 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
                                     );
 
                                     try {
-                                      final response = await supabase.functions.invoke(
+                                      final response =
+                                          await supabase.functions.invoke(
                                         'ai-scenario-planner',
                                         body: {
-                                          'question': context.l10n.scenarioQuestionTemplate(
+                                          'question': context.l10n
+                                              .scenarioQuestionTemplate(
                                             q,
                                             d,
                                           ),
                                           'targetDate': d,
-                                          'userId': user.uid, // Not trusted by BE, just for logs
-                                          'language': Localizations.localeOf(context).languageCode,
+                                          'userId': user
+                                              .uid, // Not trusted by BE, just for logs
+                                          'language':
+                                              Localizations.localeOf(context)
+                                                  .languageCode,
                                         },
                                       );
 
                                       if (!context.mounted) return;
 
                                       // Close loading modal
-                                      Navigator.of(context, rootNavigator: true).pop();
+                                      Navigator.of(context, rootNavigator: true)
+                                          .pop();
 
-                                      if (response.data != null && response.data['success'] == true) {
-                                        final advice = response.data['advice'] ?? 'No analysis available';
-                                        final meta = response.data['meta'] ?? {};
+                                      if (response.data != null &&
+                                          response.data['success'] == true) {
+                                        final advice =
+                                            response.data['advice'] ??
+                                                'No analysis available';
+                                        final meta =
+                                            response.data['meta'] ?? {};
 
                                         setState(() {
                                           _scenarioLoading = false;
                                         });
 
                                         // Auto-show the result sheet
-                                        showScenarioResultSheet(context, advice, meta, selectedCurrency: widget.selectedCurrency);
+                                        showScenarioResultSheet(
+                                            context, advice, meta,
+                                            selectedCurrency:
+                                                widget.selectedCurrency);
                                       } else {
-                                        final error = response.data?['error'] ?? 'Failed to analyze scenario';
+                                        final error = response.data?['error'] ??
+                                            'Failed to analyze scenario';
                                         throw Exception(error);
                                       }
                                     } catch (e) {
                                       if (!context.mounted) return;
 
                                       // Close loading modal
-                                      Navigator.of(context, rootNavigator: true).pop();
+                                      Navigator.of(context, rootNavigator: true)
+                                          .pop();
 
                                       setState(() {
                                         _scenarioLoading = false;
                                       });
-                                      _showToast(context.l10n.analysisFailed(e.toString()));
+                                       AppToast.info(context, context.l10n
+                                          .analysisFailed(e.toString()));
                                     }
                                   },
                             child: Text(
                               context.l10n.check,
-                              style: TextStyle(color: colorScheme.buttonText, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                  color: colorScheme.buttonText,
+                                  fontWeight: FontWeight.bold),
                             ),
                           ),
                         );
@@ -812,7 +883,8 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
                             size: 18,
                             color: widget.colorScheme.mutedForeground,
                           ),
-                          onPressed: () => _showCategoryGuide(context, widget.colorScheme),
+                          onPressed: () =>
+                              _showCategoryGuide(context, widget.colorScheme),
                         );
                       },
                     ),
@@ -833,9 +905,12 @@ class _ScenarioPlanningTabContentState extends ConsumerState<ScenarioPlanningTab
                     var expenses = widget.analyticsData.allExpenses;
                     if (widget.selectedCurrency != null) {
                       final currency = widget.selectedCurrency!.toUpperCase();
-                      expenses = expenses.where((e) => e.currency?.toUpperCase() == currency).toList();
+                      expenses = expenses
+                          .where((e) => e.currency?.toUpperCase() == currency)
+                          .toList();
                     }
-                    return buildCategoryBarChart(context, widget.colorScheme, expenses);
+                    return buildCategoryBarChart(
+                        context, widget.colorScheme, expenses);
                   },
                 ),
               ],

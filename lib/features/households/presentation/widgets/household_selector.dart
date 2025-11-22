@@ -6,14 +6,14 @@ import 'package:flutter/material.dart';
 // import 'dart:math' as math;
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import '../../domain/entities/household.dart';
 import '../providers/household_providers.dart';
 import '../providers/selected_household_provider.dart';
 import '../pages/household_create_page.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/core/l10n/l10n.dart';
-
+import 'package:moneko/core/theme/app_theme.dart';
 /// Household selector component
 /// Horizontal scrollable list displaying all households
 class HouseholdSelector extends ConsumerWidget {
@@ -21,7 +21,7 @@ class HouseholdSelector extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final user = ref.watch(authProvider);
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
     final selectedState = ref.watch(selectedHouseholdProvider);
@@ -51,7 +51,7 @@ class HouseholdSelector extends ConsumerWidget {
 class _HouseholdSelectorContent extends ConsumerWidget {
   final List<Household> households;
   final String? selectedHouseholdId;
-  final shadcnui.ColorScheme colorScheme;
+  final ColorScheme colorScheme;
 
   const _HouseholdSelectorContent({
     required this.households,
@@ -100,7 +100,7 @@ class _HouseholdSelectorContent extends ConsumerWidget {
 class _HouseholdTile extends StatelessWidget {
   final Household household;
   final bool isSelected;
-  final shadcnui.ColorScheme colorScheme;
+  final ColorScheme colorScheme;
   final VoidCallback onTap;
 
   const _HouseholdTile({
@@ -185,7 +185,7 @@ class _HouseholdTile extends StatelessWidget {
 
 /// Add new household tile
 class _AddHouseholdTile extends StatelessWidget {
-  final shadcnui.ColorScheme colorScheme;
+  final ColorScheme colorScheme;
 
   const _AddHouseholdTile({required this.colorScheme});
 
@@ -238,7 +238,7 @@ class _AddHouseholdTile extends StatelessWidget {
 
 /// Loading skeleton
 class _LoadingSkeleton extends StatelessWidget {
-  final shadcnui.ColorScheme colorScheme;
+  final ColorScheme colorScheme;
 
   const _LoadingSkeleton({required this.colorScheme});
 
@@ -271,7 +271,7 @@ class _LoadingSkeleton extends StatelessWidget {
 
 /// Error state
 class _ErrorState extends StatelessWidget {
-  final shadcnui.ColorScheme colorScheme;
+  final ColorScheme colorScheme;
   final String error;
 
   const _ErrorState({required this.colorScheme, required this.error});

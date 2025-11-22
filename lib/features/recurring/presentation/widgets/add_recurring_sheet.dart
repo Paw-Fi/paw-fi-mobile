@@ -1,10 +1,10 @@
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
-import 'package:moneko/core/ui/widgets/custom_text_field.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
@@ -21,6 +21,8 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
+import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
+import 'package:moneko/shared/widgets/moneko-switch.dart';
 
 /// Modern bottom sheet for adding/editing recurring transactions
 /// Apple-inspired design with clean animations and intuitive UX
@@ -36,8 +38,9 @@ class AddRecurringSheet extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
-    final selectedType = useState<String>(type == 'income' ? 'income' : 'expense');
+    final colorScheme = Theme.of(context).colorScheme;
+    final selectedType =
+        useState<String>(type == 'income' ? 'income' : 'expense');
     final isExpense = selectedType.value == 'expense';
     final isEditing = existingTransaction != null;
 
@@ -121,10 +124,10 @@ class AddRecurringSheet extends HookConsumerWidget {
         ? ref.watch(userHouseholdsProvider(user.id))
         : const AsyncValue<List<Household>>.data([]);
 
-    final membersAsync = (isSharedWithHousehold.value &&
-            selectedHouseholdId.value != null)
-        ? ref.watch(householdMembersProvider(selectedHouseholdId.value!))
-        : const AsyncValue<List<HouseholdMember>>.data([]);
+    final membersAsync =
+        (isSharedWithHousehold.value && selectedHouseholdId.value != null)
+            ? ref.watch(householdMembersProvider(selectedHouseholdId.value!))
+            : const AsyncValue<List<HouseholdMember>>.data([]);
 
     // Parsed amount used for split editor defaults
     final parsedAmount = double.tryParse(amountController.text.trim());
@@ -142,19 +145,19 @@ class AddRecurringSheet extends HookConsumerWidget {
       final l10n = context.l10n;
       if (selectedCategory.value == null) {
         debugPrint('🔴 Error: No category selected');
-        _showError(context, context.l10n.pleaseSelectCategory);
+        AppToast.error(context, context.l10n.pleaseSelectCategory);
         return;
       }
 
       final amountText = amountController.text.trim();
       if (amountText.isEmpty) {
-        _showError(context, context.l10n.pleaseEnterAmount);
+        AppToast.error(context, context.l10n.pleaseEnterAmount);
         return;
       }
 
       final amount = double.tryParse(amountText);
       if (amount == null || amount <= 0) {
-        _showError(context, context.l10n.pleaseEnterValidAmount);
+        AppToast.error(context, context.l10n.pleaseEnterValidAmount);
         return;
       }
 
@@ -163,7 +166,7 @@ class AddRecurringSheet extends HookConsumerWidget {
       try {
         final user = supabase.auth.currentUser;
         if (user == null) {
-          _showError(context, context.l10n.userNotAuthenticated);
+          AppToast.error(context, context.l10n.userNotAuthenticated);
           isLoading.value = false;
           return;
         }
@@ -221,8 +224,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                   householdId: activeHouseholdId,
                   customSplitType:
                       shareWithHousehold ? customSplitType.value : null,
-                  customSplits:
-                      shareWithHousehold ? customSplits.value : null,
+                  customSplits: shareWithHousehold ? customSplits.value : null,
                   payerUserId: shareWithHousehold
                       ? (selectedPayerUserId.value ?? user.id)
                       : null,
@@ -284,6 +286,18 @@ class AddRecurringSheet extends HookConsumerWidget {
         isLoading.value = false;
 
         if (result != null) {
+          // Invalidate pockets provider to ensure UI updates immediately
+          if (activeHouseholdId != null) {
+            ref.invalidate(pocketsProvider(PocketsScopeParams(
+              scope: PocketsScopeType.household,
+              householdId: activeHouseholdId,
+            )));
+          } else {
+            ref.invalidate(pocketsProvider(const PocketsScopeParams(
+              scope: PocketsScopeType.personal,
+            )));
+          }
+
           if (context.mounted) {
             Navigator.of(context).pop();
             final successMsg = isExpense
@@ -293,20 +307,20 @@ class AddRecurringSheet extends HookConsumerWidget {
                 : (isEditing
                     ? l10n.recurringIncomeUpdatedSuccessfully
                     : l10n.recurringIncomeAddedSuccessfully);
-            _showSuccess(context, successMsg);
+            AppToast.success(context, successMsg);
           }
         } else {
           final errMsg = isExpense
               ? l10n.failedToUpdateRecurringExpense
               : l10n.failedToUpdateRecurringIncome;
           if (context.mounted) {
-            _showError(context, errMsg);
+            AppToast.error(context, errMsg);
           }
         }
       } catch (e, stackTrace) {
         isLoading.value = false;
         if (context.mounted) {
-          _showError(context, 'Error: ${e.toString()}');
+          AppToast.error(context, l10n.failedToSave(e.toString()));
         }
       }
     }
@@ -317,57 +331,61 @@ class AddRecurringSheet extends HookConsumerWidget {
             0.85, // Limit to 85% of screen height
       ),
       decoration: BoxDecoration(
-        color: colorScheme.background,
+        color: colorScheme.appBackground,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [              
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      isEditing
-                          ? (isExpense
-                              ? context.l10n.editRecurringExpense
-                              : context.l10n.editRecurringIncome)
-                          : (isExpense
-                              ? context.l10n.addRecurringExpense
-                              : context.l10n.addRecurringIncome),
-                      style: TextStyle(
-                        color: colorScheme.foreground,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.5,
-                      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    isEditing
+                        ? (isExpense
+                            ? context.l10n.editRecurringExpense
+                            : context.l10n.editRecurringIncome)
+                        : (isExpense
+                            ? context.l10n.addRecurringExpense
+                            : context.l10n.addRecurringIncome),
+                    style: TextStyle(
+                      color: colorScheme.foreground,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.5,
                     ),
                   ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: Icon(
-                      Icons.close,
-                      color: colorScheme.mutedForeground,
-                    ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: Icon(
+                    Icons.close,
+                    color: colorScheme.mutedForeground,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
+          ),
 
-            // Scrollable content
-            Flexible(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Type toggle
-                    Row(
+          // Scrollable content
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Type toggle
+                  Container(
+                    decoration: BoxDecoration(
+                      color: colorScheme.muted.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
                       children: [
                         Expanded(
                           child: GestureDetector(
@@ -376,29 +394,24 @@ class AddRecurringSheet extends HookConsumerWidget {
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               decoration: BoxDecoration(
                                 color: isExpense
-                                    ? colorScheme.background
-                                    : colorScheme.muted.withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: isExpense
-                                      ? colorScheme.primary.withValues(alpha: 0.4)
-                                      : colorScheme.border.withValues(alpha: 0.2),
-                                ),
+                                    ? colorScheme.primary
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
                               ),
-                              alignment: Alignment.center,
                               child: Text(
                                 context.l10n.expenses,
+                                textAlign: TextAlign.center,
                                 style: TextStyle(
+                                  fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                   color: isExpense
-                                      ? colorScheme.foreground
-                                      : colorScheme.mutedForeground,
+                                      ? Colors.white
+                                      : colorScheme.foreground,
                                 ),
                               ),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 12),
                         Expanded(
                           child: GestureDetector(
                             onTap: () => selectedType.value = 'income',
@@ -406,23 +419,19 @@ class AddRecurringSheet extends HookConsumerWidget {
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               decoration: BoxDecoration(
                                 color: !isExpense
-                                    ? colorScheme.background
-                                    : colorScheme.muted.withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: !isExpense
-                                      ? colorScheme.primary.withValues(alpha: 0.4)
-                                      : colorScheme.border.withValues(alpha: 0.2),
-                                ),
+                                    ? colorScheme.primary
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
                               ),
-                              alignment: Alignment.center,
                               child: Text(
                                 context.l10n.income,
+                                textAlign: TextAlign.center,
                                 style: TextStyle(
+                                  fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                   color: !isExpense
-                                      ? colorScheme.foreground
-                                      : colorScheme.mutedForeground,
+                                      ? Colors.white
+                                      : colorScheme.foreground,
                                 ),
                               ),
                             ),
@@ -430,482 +439,634 @@ class AddRecurringSheet extends HookConsumerWidget {
                         ),
                       ],
                     ),
+                  ),
 
-                    const SizedBox(height: 20),
+                  const SizedBox(height: 20),
 
-                    // Amount input
-                    _buildLabel(context.l10n.amount, colorScheme),
-                    const SizedBox(height: 8),
-                    CustomTextField(
-                      controller: amountController,
-                      keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true),
-                      placeholder: '0.00',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.foreground,
+                  // Amount input
+                  _buildLabel(context.l10n.amount, colorScheme),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: amountController,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    textAlign: TextAlign.end,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.foreground,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: '0.00',
+                      hintStyle: TextStyle(
+                        color: colorScheme.mutedForeground,
+                      ),
+                      filled: true,
+                      fillColor: colorScheme.muted.withValues(alpha: 0.08),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(
+                          color: colorScheme.border.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(
+                          color: colorScheme.border.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(
+                          color: colorScheme.primary,
+                        ),
                       ),
                     ),
+                  ),
 
-                    const SizedBox(height: 20),
-          
-                    _buildDetailCard(
-                      colorScheme: colorScheme,
-                      label: context.l10n.category,
-                      value: selectedCategory.value != null
-                          ? getCategoryTranslation(context, selectedCategory.value!)
-                          : context.l10n.selectCategory,
-                      onTap: () async {
-                        final result = await showCategoryPicker(
-                          context: context,
-                          currentCategory: selectedCategory.value ?? (isExpense ? 'other' : 'salary'),
-                          isIncome: !isExpense,
-                        );
-                        if (result != null) {
-                          selectedCategory.value = result;
+                  const SizedBox(height: 20),
+
+                  _buildDetailCard(
+                    colorScheme: colorScheme,
+                    label: context.l10n.category,
+                    value: selectedCategory.value != null
+                        ? getCategoryTranslation(
+                            context, selectedCategory.value!)
+                        : context.l10n.selectCategory,
+                    onTap: () async {
+                      final result = await showCategoryPicker(
+                        context: context,
+                        currentCategory: selectedCategory.value ??
+                            (isExpense ? 'other' : 'salary'),
+                        isIncome: !isExpense,
+                      );
+                      if (result != null) {
+                        selectedCategory.value = result;
+                      }
+                    },
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Currency selector
+                  _buildDetailCard(
+                    colorScheme: colorScheme,
+                    label: context.l10n.currency,
+                    value: selectedCurrency.value.toUpperCase(),
+                    onTap: () async {
+                      final result = await showCurrencyPicker(
+                        context: context,
+                        currentCurrency: selectedCurrency.value,
+                      );
+                      if (result != null) {
+                        selectedCurrency.value = result;
+                      }
+                    },
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Household sharing + split (expenses only)
+                  if (user != null) ...[
+                    householdsAsync.when(
+                      data: (households) {
+                        if (households.isEmpty) {
+                          return const SizedBox.shrink();
                         }
-                      },
-                    ),
 
-                    const SizedBox(height: 20),
-
-                    // Currency selector
-                    _buildDetailCard(
-                      colorScheme: colorScheme,
-                      label: context.l10n.currency,
-                      value: selectedCurrency.value.toUpperCase(),
-                      onTap: () async {
-                        final result = await showCurrencyPicker(
-                          context: context,
-                          currentCurrency: selectedCurrency.value,
-                        );
-                        if (result != null) {
-                          selectedCurrency.value = result;
-                        }
-                      },
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // Household sharing + split (expenses only)
-                    if (user != null) ...[
-                      householdsAsync.when(
-                        data: (households) {
-                          if (households.isEmpty) {
-                            return const SizedBox.shrink();
-                          }
-
-                          if (!isExpense) {
-                            // For income: only allow sharing toggle, no split editor
-                            return _buildSharingToggleOnly(
-                              context,
-                              colorScheme,
-                              households,
-                              isSharedWithHousehold,
-                              selectedHouseholdId,
-                            );
-                          }
-
-                          if (!hasAmountForSplit) {
-                            // Require an amount before configuring splits
-                            return Text(
-                              context.l10n.pleaseEnterAmount,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: colorScheme.mutedForeground,
-                              ),
-                            );
-                          }
-
-                          return _buildSharingAndSplitSection(
-                            context: context,
-                            colorScheme: colorScheme,
-                            households: households,
-                            isSharedWithHousehold: isSharedWithHousehold,
-                            selectedHouseholdId: selectedHouseholdId,
-                            membersAsync: membersAsync,
-                            selectedPayerUserId: selectedPayerUserId,
-                            customSplitType: customSplitType,
-                            customSplits: customSplits,
-                            amountController: amountController,
-                            currencySymbol: selectedCurrency.value,
+                        if (!isExpense) {
+                          // For income: only allow sharing toggle, no split editor
+                          return _buildSharingToggleOnly(
+                            context,
+                            colorScheme,
+                            households,
+                            isSharedWithHousehold,
+                            selectedHouseholdId,
                           );
-                        },
-                        loading: () => const SizedBox.shrink(),
-                        error: (_, __) => const SizedBox.shrink(),
-                      ),
-
-                      const SizedBox(height: 20),
-                    ],
-                
-                    _buildDetailCard(
-                      colorScheme: colorScheme,
-                      label: context.l10n.frequency,
-                      value: () {
-                        // Get the label for the current frequency
-                        final freq = getDefaultFrequencyOptions(context).firstWhere(
-                          (f) => f.value == selectedFrequency.value,
-                          orElse: () => getDefaultFrequencyOptions(context)[3], // Default to 'monthly'
-                        );
-                        return freq.label;
-                      }(),
-                      onTap: () async {
-                        final result = await showFrequencyPicker(
-                          context: context,
-                          currentFrequency: selectedFrequency.value,
-                        );
-                        if (result != null) {
-                          selectedFrequency.value = result;
                         }
-                      },
-                    ),
 
+                        if (!hasAmountForSplit) {
+                          // Require an amount before configuring splits
+                          return Text(
+                            context.l10n.pleaseEnterAmount,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: colorScheme.mutedForeground,
+                            ),
+                          );
+                        }
+
+                        return _buildSharingAndSplitSection(
+                          context: context,
+                          colorScheme: colorScheme,
+                          households: households,
+                          isSharedWithHousehold: isSharedWithHousehold,
+                          selectedHouseholdId: selectedHouseholdId,
+                          membersAsync: membersAsync,
+                          selectedPayerUserId: selectedPayerUserId,
+                          customSplitType: customSplitType,
+                          customSplits: customSplits,
+                          amountController: amountController,
+                          currencySymbol: selectedCurrency.value,
+                        );
+                      },
+                      loading: () => const SizedBox.shrink(),
+                      error: (_, __) => const SizedBox.shrink(),
+                    ),
                     const SizedBox(height: 20),
-             
-               
+                  ],
+
+                  _buildDetailCard(
+                    colorScheme: colorScheme,
+                    label: context.l10n.frequency,
+                    value: () {
+                      // Get the label for the current frequency
+                      final freq =
+                          getDefaultFrequencyOptions(context).firstWhere(
+                        (f) => f.value == selectedFrequency.value,
+                        orElse: () => getDefaultFrequencyOptions(
+                            context)[3], // Default to 'monthly'
+                      );
+                      return freq.label;
+                    }(),
+                    onTap: () async {
+                      final result = await showFrequencyPicker(
+                        context: context,
+                        currentFrequency: selectedFrequency.value,
+                      );
+                      if (result != null) {
+                        selectedFrequency.value = result;
+                      }
+                    },
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  _buildDetailCard(
+                    colorScheme: colorScheme,
+                    label: context.l10n.startDate,
+                    value: formatLocalizedDate(context, startDate.value,
+                        includeYear: true),
+                    onTap: () async {
+                      final result = await showTransactionDatePicker(
+                        context: context,
+                        currentDate: startDate.value,
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime(2030),
+                      );
+                      if (result != null) {
+                        startDate.value = result;
+                      }
+                    },
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // End date toggle (clickable container)
+                  GestureDetector(
+                    onTap: () {
+                      hasEndDate.value = !hasEndDate.value;
+                      if (!hasEndDate.value) {
+                        endDate.value = null;
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: colorScheme.muted.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: colorScheme.border.withValues(alpha: 0.2),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Checkbox(
+                            value: hasEndDate.value,
+                            activeColor: colorScheme.primary,
+                            onChanged: (value) {
+                              final checked = value ?? false;
+                              hasEndDate.value = checked;
+                              if (!checked) {
+                                endDate.value = null;
+                              }
+                            },
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              context.l10n.setEndDate,
+                              style: TextStyle(
+                                color: colorScheme.foreground,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // End date picker (if enabled)
+                  if (hasEndDate.value) ...[
+                    const SizedBox(height: 12),
                     _buildDetailCard(
                       colorScheme: colorScheme,
-                      label: context.l10n.startDate,
-                      value: formatLocalizedDate(context, startDate.value, includeYear: true),
+                      label: context.l10n.endDate,
+                      value: endDate.value != null
+                          ? formatLocalizedDate(context, endDate.value!,
+                              includeYear: true)
+                          : context.l10n.selectEndDate,
                       onTap: () async {
                         final result = await showTransactionDatePicker(
                           context: context,
-                          currentDate: startDate.value,
-                          firstDate: DateTime(2020),
+                          currentDate: endDate.value ??
+                              startDate.value.add(const Duration(days: 365)),
+                          firstDate: startDate.value,
                           lastDate: DateTime(2030),
                         );
                         if (result != null) {
-                          startDate.value = result;
+                          endDate.value = result;
                         }
                       },
                     ),
+                  ],
 
-                    const SizedBox(height: 20),
+                  const SizedBox(height: 20),
 
-                    // End date toggle (clickable container)
-                    GestureDetector(
-                      onTap: () {
-                        hasEndDate.value = !hasEndDate.value;
-                        if (!hasEndDate.value) {
-                          endDate.value = null;
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: colorScheme.muted.withValues(alpha: 0.05),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: colorScheme.border.withValues(alpha: 0.2),
-                            width: 1,
-                          ),
+                  // Description
+                  _buildLabel(context.l10n.descriptionOptional, colorScheme),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: descriptionController,
+                    maxLines: 2,
+                    style: TextStyle(
+                      color: colorScheme.foreground,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: context.l10n.addANote,
+                      hintStyle: TextStyle(
+                        color: colorScheme.mutedForeground,
+                      ),
+                      filled: true,
+                      fillColor: colorScheme.muted.withValues(alpha: 0.08),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(
+                          color: colorScheme.border.withValues(alpha: 0.2),
                         ),
-                        child: Row(
-                          children: [
-                            shadcnui.Checkbox(
-                              state: hasEndDate.value
-                                  ? shadcnui.CheckboxState.checked
-                                  : shadcnui.CheckboxState.unchecked,
-                              onChanged: (state) {
-                                hasEndDate.value =
-                                    state == shadcnui.CheckboxState.checked;
-                                if (!hasEndDate.value) {
-                                  endDate.value = null;
-                                }
-                              },
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                context.l10n.setEndDate,
-                                style: TextStyle(
-                                  color: colorScheme.foreground,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ],
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(
+                          color: colorScheme.border.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(
+                          color: colorScheme.primary,
                         ),
                       ),
                     ),
+                  ),
 
-                    // End date picker (if enabled)
-                    if (hasEndDate.value) ...[
-                      const SizedBox(height: 12),
-                      _buildDetailCard(
-                        colorScheme: colorScheme,
-                        label: context.l10n.endDate,
-                        value: endDate.value != null
-                            ? formatLocalizedDate(context, endDate.value!, includeYear: true)
-                            : context.l10n.selectEndDate,
-                        onTap: () async {
-                          final result = await showTransactionDatePicker(
-                            context: context,
-                            currentDate: endDate.value ??
-                                startDate.value.add(const Duration(days: 365)),
-                            firstDate: startDate.value,
-                            lastDate: DateTime(2030),
-                          );
-                          if (result != null) {
-                            endDate.value = result;
-                          }
-                        },
-                      ),
-                    ],
-
+                  // Source (for income only)
+                  if (!isExpense) ...[
                     const SizedBox(height: 20),
-
-                    // Description
-                    _buildLabel(context.l10n.descriptionOptional, colorScheme),
+                    _buildLabel(context.l10n.sourceOptional, colorScheme),
                     const SizedBox(height: 8),
-                    CustomTextField(
-                      controller: descriptionController,
-                      placeholder: context.l10n.addANote,
-                      maxLines: 2,
-                    ),
-
-                    // Source (for income only)
-                    if (!isExpense) ...[
-                      const SizedBox(height: 20),
-                      _buildLabel(context.l10n.sourceOptional, colorScheme),
-                      const SizedBox(height: 8),
-                      CustomTextField(
-                        controller: sourceController,
-                        placeholder: context.l10n.companyNameClientNameExample,
+                    TextField(
+                      controller: sourceController,
+                      style: TextStyle(
+                        color: colorScheme.foreground,
                       ),
-                    ],
-
-                    const SizedBox(height: 24),
-
-                    // Reminder toggle (clickable container)
-                    GestureDetector(
-                      onTap: () {
-                        hasReminder.value = !hasReminder.value;
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: colorScheme.muted.withValues(alpha: 0.05),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
+                      decoration: InputDecoration(
+                        hintText: context.l10n.companyNameClientNameExample,
+                        hintStyle: TextStyle(
+                          color: colorScheme.mutedForeground,
+                        ),
+                        filled: true,
+                        fillColor: colorScheme.muted.withValues(alpha: 0.08),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
                             color: colorScheme.border.withValues(alpha: 0.2),
-                            width: 1,
                           ),
                         ),
-                        child: Row(
-                          children: [
-                            shadcnui.Checkbox(
-                              state: hasReminder.value
-                                  ? shadcnui.CheckboxState.checked
-                                  : shadcnui.CheckboxState.unchecked,
-                              onChanged: (state) {
-                                hasReminder.value =
-                                    state == shadcnui.CheckboxState.checked;
-                              },
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                context.l10n.setReminder,
-                                style: TextStyle(
-                                  color: colorScheme.foreground,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ],
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: colorScheme.border.withValues(alpha: 0.2),
+                          ),
                         ),
-                      ),
-                    ),
-
-                    // Reminder configuration (if enabled)
-                    if (hasReminder.value) ...[
-                      const SizedBox(height: 12),
-                      Builder(
-                        builder: (context) {
-                          // Detect word order based on language
-                          final lang = Localizations.localeOf(context).languageCode.toLowerCase();
-                          final useSOV = {'zh', 'ja', 'ko', 'hi', 'ur', 'tr', 'fa'}.contains(lang);
-                          
-                          // Build UI components
-                          final valueInput = SizedBox(
-                            width: 80,
-                            child: CustomTextField(
-                              initialValue: reminderValue.value.toString(),
-                              keyboardType: TextInputType.number,
-                              placeholder: '1',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: colorScheme.foreground,
-                              ),
-                              onChanged: (value) {
-                                final parsed = int.tryParse(value);
-                                if (parsed != null && parsed > 0) {
-                                  reminderValue.value = parsed;
-                                }
-                              },
-                            ),
-                          );
-                          
-                          final unitPicker = GestureDetector(
-                            onTap: () async {
-                              final result = await showTransactionSelectionSheet<String>(
-                                context: context,
-                                items: ['days'],
-                                getLabel: (unit) {
-                                  if (unit == 'days') return context.l10n.days;
-                                  if (unit == 'hours') return context.l10n.hours;
-                                  return unit;
-                                },
-                                initial: reminderUnit.value,
-                              );
-                              if (result != null) {
-                                reminderUnit.value = result;
-                              }
-                            },
-                            child: IntrinsicWidth(
-                              child: Container(
-                                constraints: const BoxConstraints(minWidth: 80), // Minimum width
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                decoration: BoxDecoration(
-                                  color: colorScheme.muted.withValues(alpha: 0.08),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: colorScheme.border.withValues(alpha: 0.2),
-                                    width: 1,
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      reminderUnit.value == 'days' ? context.l10n.days : context.l10n.hours,
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        color: colorScheme.foreground,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Icon(
-                                      Icons.arrow_drop_down,
-                                      color: colorScheme.mutedForeground,
-                                      size: 24,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                          
-                          // Arrange based on word order
-                          List<Widget> rowChildren;
-                          if (useSOV) {
-                            // SOV languages: beforePrefix [value][unit]beforeSuffix
-                            // Chinese: 在 2天之前
-                            rowChildren = [
-                              Text(
-                                context.l10n.beforePrefix,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: colorScheme.foreground,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              valueInput,
-                              const SizedBox(width: 12),
-                              unitPicker,
-                              const SizedBox(width: 12),
-                              Text(
-                                context.l10n.beforeSuffix,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: colorScheme.foreground,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ];
-                          } else {
-                            // Default SVO: [value] [unit] before
-                            // English: 2 days before
-                            rowChildren = [
-                              valueInput,
-                              const SizedBox(width: 12),
-                              unitPicker,
-                              const SizedBox(width: 12),
-                              Text(
-                                context.l10n.before,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: colorScheme.foreground,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ];
-                          }
-                          
-                          return Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: rowChildren,
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        context.l10n.youWillBeNotifiedBeforeEachOccurrence(
-                          reminderValue.value,
-                          reminderUnit.value == 'days' ? context.l10n.days : context.l10n.hours,
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: colorScheme.primary,
+                          ),
                         ),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: colorScheme.mutedForeground,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ],
-
-                    // Save button
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      child: shadcnui.PrimaryButton(
-                        onPressed: isLoading.value 
-                            ? null 
-                            : () {
-                                handleSave();
-                              },
-                        child: isLoading.value
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.white),
-                                ),
-                              )
-                            : Text(isEditing ? context.l10n.updateRecurringTransaction : context.l10n.addRecurringTransaction),
                       ),
                     ),
                   ],
-                ),
+
+                  const SizedBox(height: 24),
+
+                  // Reminder toggle (clickable container)
+                  GestureDetector(
+                    onTap: () {
+                      hasReminder.value = !hasReminder.value;
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: colorScheme.muted.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: colorScheme.border.withValues(alpha: 0.2),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Checkbox(
+                            value: hasReminder.value,
+                            activeColor: colorScheme.primary,
+                            onChanged: (value) {
+                              hasReminder.value = value ?? false;
+                            },
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              context.l10n.setReminder,
+                              style: TextStyle(
+                                color: colorScheme.foreground,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Reminder configuration (if enabled)
+                  if (hasReminder.value) ...[
+                    const SizedBox(height: 12),
+                    Builder(
+                      builder: (context) {
+                        // Detect word order based on language
+                        final lang = Localizations.localeOf(context)
+                            .languageCode
+                            .toLowerCase();
+                        final useSOV = {
+                          'zh',
+                          'ja',
+                          'ko',
+                          'hi',
+                          'ur',
+                          'tr',
+                          'fa'
+                        }.contains(lang);
+
+                        // Build UI components
+                        final valueInput = SizedBox(
+                          width: 80,
+                          child: TextField(
+                            controller: TextEditingController(
+                              text: reminderValue.value.toString(),
+                            ),
+                            keyboardType: TextInputType.number,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: colorScheme.foreground,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: '1',
+                              hintStyle: TextStyle(
+                                color: colorScheme.mutedForeground,
+                              ),
+                              filled: true,
+                              fillColor:
+                                  colorScheme.muted.withValues(alpha: 0.08),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(
+                                  color:
+                                      colorScheme.border.withValues(alpha: 0.2),
+                                ),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(
+                                  color:
+                                      colorScheme.border.withValues(alpha: 0.2),
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(
+                                  color: colorScheme.primary,
+                                ),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 14),
+                            ),
+                            onChanged: (value) {
+                              final parsed = int.tryParse(value);
+                              if (parsed != null && parsed > 0) {
+                                reminderValue.value = parsed;
+                              }
+                            },
+                          ),
+                        );
+
+                        final unitPicker = GestureDetector(
+                          onTap: () async {
+                            final result =
+                                await showTransactionSelectionSheet<String>(
+                              context: context,
+                              items: ['days'],
+                              getLabel: (unit) {
+                                if (unit == 'days') return context.l10n.days;
+                                if (unit == 'hours') return context.l10n.hours;
+                                return unit;
+                              },
+                              initial: reminderUnit.value,
+                            );
+                            if (result != null) {
+                              reminderUnit.value = result;
+                            }
+                          },
+                          child: IntrinsicWidth(
+                            child: Container(
+                              constraints: const BoxConstraints(
+                                  minWidth: 80), // Minimum width
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 14),
+                              decoration: BoxDecoration(
+                                color:
+                                    colorScheme.muted.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color:
+                                      colorScheme.border.withValues(alpha: 0.2),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    reminderUnit.value == 'days'
+                                        ? context.l10n.days
+                                        : context.l10n.hours,
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: colorScheme.foreground,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Icon(
+                                    Icons.arrow_drop_down,
+                                    color: colorScheme.mutedForeground,
+                                    size: 24,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+
+                        // Arrange based on word order
+                        List<Widget> rowChildren;
+                        if (useSOV) {
+                          // SOV languages: beforePrefix [value][unit]beforeSuffix
+                          // Chinese: 在 2天之前
+                          rowChildren = [
+                            Text(
+                              context.l10n.beforePrefix,
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: colorScheme.foreground,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            valueInput,
+                            const SizedBox(width: 12),
+                            unitPicker,
+                            const SizedBox(width: 12),
+                            Text(
+                              context.l10n.beforeSuffix,
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: colorScheme.foreground,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ];
+                        } else {
+                          // Default SVO: [value] [unit] before
+                          // English: 2 days before
+                          rowChildren = [
+                            valueInput,
+                            const SizedBox(width: 12),
+                            unitPicker,
+                            const SizedBox(width: 12),
+                            Text(
+                              context.l10n.before,
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: colorScheme.foreground,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ];
+                        }
+
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: rowChildren,
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      context.l10n.youWillBeNotifiedBeforeEachOccurrence(
+                        reminderValue.value,
+                        reminderUnit.value == 'days'
+                            ? context.l10n.days
+                            : context.l10n.hours,
+                      ),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: colorScheme.mutedForeground,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
+
+                  // Save button
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: isLoading.value
+                          ? null
+                          : () {
+                              handleSave();
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: colorScheme.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: isLoading.value
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
+                              ),
+                            )
+                          : Text(
+                              isEditing
+                                  ? context.l10n.updateRecurringTransaction
+                                  : context.l10n.addRecurringTransaction,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildLabel(String text, shadcnui.ColorScheme colorScheme) {
+  Widget _buildLabel(String text, ColorScheme colorScheme) {
     return Text(
       text,
       style: TextStyle(
@@ -918,7 +1079,7 @@ class AddRecurringSheet extends HookConsumerWidget {
   }
 
   Widget _buildDetailCard({
-    required shadcnui.ColorScheme colorScheme,
+    required ColorScheme colorScheme,
     required String label,
     required String value,
     required VoidCallback onTap,
@@ -973,18 +1134,10 @@ class AddRecurringSheet extends HookConsumerWidget {
     );
   }
 
-  void _showError(BuildContext context, String message) {
-    AppToast.error(message);
-  }
-
-  void _showSuccess(BuildContext context, String message) {
-    AppToast.success(message);
-  }
-
   /// Simple sharing toggle used for incomes (no split editor)
   Widget _buildSharingToggleOnly(
     BuildContext context,
-    shadcnui.ColorScheme colorScheme,
+    ColorScheme colorScheme,
     List<Household> households,
     ValueNotifier<bool> isSharedWithHousehold,
     ValueNotifier<String?> selectedHouseholdId,
@@ -992,11 +1145,10 @@ class AddRecurringSheet extends HookConsumerWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: colorScheme.muted.withValues(alpha: 0.08),
+        color: colorScheme.card,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: colorScheme.border.withValues(alpha: 0.2),
-          width: 1,
         ),
       ),
       child: Row(
@@ -1011,8 +1163,9 @@ class AddRecurringSheet extends HookConsumerWidget {
               ),
             ),
           ),
-          Switch(
+          MonekoSwitch(
             value: isSharedWithHousehold.value,
+            activeColor: colorScheme.primary,
             onChanged: (value) {
               if (!value) {
                 isSharedWithHousehold.value = false;
@@ -1031,7 +1184,7 @@ class AddRecurringSheet extends HookConsumerWidget {
   /// Full sharing + split editor section for recurring expenses
   Widget _buildSharingAndSplitSection({
     required BuildContext context,
-    required shadcnui.ColorScheme colorScheme,
+    required ColorScheme colorScheme,
     required List<Household> households,
     required ValueNotifier<bool> isSharedWithHousehold,
     required ValueNotifier<String?> selectedHouseholdId,
@@ -1073,37 +1226,46 @@ class AddRecurringSheet extends HookConsumerWidget {
                     const SizedBox(height: 8),
                     if (isSharedWithHousehold.value)
                       DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: selectedHouseholdId.value ?? households.first.id,
-                          isExpanded: true,
-                          icon: Icon(
-                            Icons.arrow_drop_down,
-                            color: colorScheme.foreground,
+                        child: IntrinsicWidth(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(
+                              maxWidth:
+                                  200, // Maximum width to prevent overflow
+                            ),
+                            child: DropdownButton<String>(
+                              value: selectedHouseholdId.value ??
+                                  households.first.id,
+                              isExpanded: true,
+                              icon: Icon(
+                                Icons.arrow_drop_down,
+                                color: colorScheme.foreground,
+                              ),
+                              items: households
+                                  .map(
+                                    (h) => DropdownMenuItem<String>(
+                                      value: h.id,
+                                      child: Text(
+                                        h.name,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (value) {
+                                if (value == null) return;
+                                selectedHouseholdId.value = value;
+                                // Reset splits when switching households
+                                customSplitType.value = null;
+                                customSplits.value = null;
+                              },
+                            ),
                           ),
-                          items: households
-                              .map(
-                                (h) => DropdownMenuItem<String>(
-                                  value: h.id,
-                                  child: Text(
-                                    h.name,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: (value) {
-                            if (value == null) return;
-                            selectedHouseholdId.value = value;
-                            // Reset splits when switching households
-                            customSplitType.value = null;
-                            customSplits.value = null;
-                          },
                         ),
                       ),
                   ],
                 ),
               ),
-              Switch(
+              MonekoSwitch(
                 value: isSharedWithHousehold.value,
                 onChanged: (value) {
                   if (!value) {
@@ -1146,8 +1308,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                 child: Column(
                   children: [
                     Padding(
-                      padding:
-                          const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
                       child: Row(
                         children: [
                           Expanded(
@@ -1170,14 +1331,13 @@ class AddRecurringSheet extends HookConsumerWidget {
                                       child: Text(
                                         m.userName ??
                                             m.userEmail ??
-                                            'Member',
+                                            context.l10n.member,
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
                                   )
                                   .toList(),
-                              onChanged: (v) =>
-                                  selectedPayerUserId.value = v,
+                              onChanged: (v) => selectedPayerUserId.value = v,
                             ),
                           ),
                         ],

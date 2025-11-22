@@ -348,7 +348,7 @@ Future<void> showCurrencySelectorModal(BuildContext context, WidgetRef ref) asyn
   await Navigator.of(context).push(
     MaterialPageRoute(fullscreenDialog: true, builder: (_) {
       final summaries = ref.watch(currencySummariesProvider);
-      final color = shadcnui.Theme.of(context).colorScheme;
+      final color = Theme.of(context).colorScheme;
       return Scaffold(
         appBar: AppBar(
           leading: IconButton(

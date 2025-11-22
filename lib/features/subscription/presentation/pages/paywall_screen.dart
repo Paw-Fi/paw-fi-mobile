@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+
 import 'package:url_launcher/url_launcher.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/core/core.dart';
@@ -14,21 +15,25 @@ class PaywallScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final hasReferralCodeAsync = ref.watch(referralCodeCheckerProvider);
     final user = ref.watch(authProvider);
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.appBackground,
       body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: () => _handleRefresh(ref, context),
-          color: colorScheme.primary,
-          backgroundColor: colorScheme.card,
-          child: hasReferralCodeAsync.when(
-            data: (hasReferralCode) => _buildContent(context, ref, colorScheme, hasReferralCode, user),
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, stack) => _buildContent(context, ref, colorScheme, false, user),
+        child: Material(
+          child: RefreshIndicator(
+            onRefresh: () => _handleRefresh(ref, context),
+            color: colorScheme.primary,
+            backgroundColor: colorScheme.card,
+            child: hasReferralCodeAsync.when(
+              data: (hasReferralCode) => _buildContent(
+                  context, ref, colorScheme, hasReferralCode, user),
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stack) =>
+                  _buildContent(context, ref, colorScheme, false, user),
+            ),
           ),
         ),
       ),
@@ -50,7 +55,7 @@ class PaywallScreen extends ConsumerWidget {
             margin: const EdgeInsets.symmetric(horizontal: 32),
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
-              color: shadcnui.Theme.of(context).colorScheme.background,
+              color: Theme.of(context).colorScheme.appBackground,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
@@ -63,17 +68,24 @@ class PaywallScreen extends ConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const shadcnui.CircularProgressIndicator(),
+                const CircularProgressIndicator(),
                 const SizedBox(height: 24),
-                shadcnui.Text(
+                Text(
                   'Opening Referral Page...',
-                  style: shadcnui.Theme.of(context).typography.large,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
-                shadcnui.Text(
+                Text(
                   'Please wait',
-                  style: shadcnui.Theme.of(context).typography.base,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Theme.of(context).colorScheme.mutedForeground,
+                  ),
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -97,7 +109,7 @@ class PaywallScreen extends ConsumerWidget {
       if (context.mounted) {
         Navigator.of(context).pop();
       }
-      AppToast.error('Failed to open referral page: ${e.toString()}');
+      AppToast.error(context, 'Failed to open referral page: ${e.toString()}');
     }
   }
 
@@ -112,16 +124,17 @@ class PaywallScreen extends ConsumerWidget {
         throw Exception('Could not open Discord link');
       }
     } catch (e) {
-      AppToast.error('Failed to open Discord: ${e.toString()}');
+      AppToast.error(context, 'Failed to open Discord: ${e.toString()}');
     }
   }
 
-  static Future<void> _claimTrialAccess(BuildContext context, WidgetRef ref) async {
+  static Future<void> _claimTrialAccess(
+      BuildContext context, WidgetRef ref) async {
     final user = ref.read(authProvider);
 
     if (user.isEmpty) {
       // Use global AppToast so it appears above any modal sheet
-      AppToast.info('Please log in to continue');
+      AppToast.info(context, 'Please log in to continue');
       return;
     }
 
@@ -137,7 +150,7 @@ class PaywallScreen extends ConsumerWidget {
             margin: const EdgeInsets.symmetric(horizontal: 32),
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
-              color: shadcnui.Theme.of(context).colorScheme.background,
+              color: Theme.of(context).colorScheme.appBackground,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
@@ -150,17 +163,24 @@ class PaywallScreen extends ConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const shadcnui.CircularProgressIndicator(),
+                const CircularProgressIndicator(),
                 const SizedBox(height: 24),
-                shadcnui.Text(
+                Text(
                   'Starting your trial...',
-                  style: shadcnui.Theme.of(context).typography.large,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
-                shadcnui.Text(
+                Text(
                   'Please wait',
-                  style: shadcnui.Theme.of(context).typography.base,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Theme.of(context).colorScheme.mutedForeground,
+                  ),
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -182,8 +202,10 @@ class PaywallScreen extends ConsumerWidget {
         body: {
           'plan': 'plus',
           'billingInterval': 'monthly',
-          'successUrl': 'https://moneko.io/checkout/success?status=success&flow=trial&session_id={CHECKOUT_SESSION_ID}',
-          'cancelUrl': 'https://moneko.io/checkout/cancel?status=canceled&flow=trial',
+          'successUrl':
+              'https://moneko.io/checkout/success?status=success&flow=trial&session_id={CHECKOUT_SESSION_ID}',
+          'cancelUrl':
+              'https://moneko.io/checkout/cancel?status=canceled&flow=trial',
         },
       );
 
@@ -204,7 +226,7 @@ class PaywallScreen extends ConsumerWidget {
       if (context.mounted) {
         Navigator.of(context).pop();
       }
-      AppToast.error('Failed to start trial: ${e.toString()}');
+      AppToast.error(context, 'Failed to start trial: ${e.toString()}');
     }
   }
 
@@ -216,12 +238,13 @@ class PaywallScreen extends ConsumerWidget {
       }
     } catch (e) {
       if (context.mounted) {
-        AppToast.error('Failed to logout: ${e.toString()}');
+        AppToast.error(context, 'Failed to logout: ${e.toString()}');
       }
     }
   }
 
-  static Future<void> _handleRefresh(WidgetRef ref, BuildContext context) async {
+  static Future<void> _handleRefresh(
+      WidgetRef ref, BuildContext context) async {
     await ref.read(subscriptionNotifierProvider.notifier).refresh();
     await ref.read(referralCodeCheckerProvider.notifier).refresh();
 
@@ -234,13 +257,17 @@ class PaywallScreen extends ConsumerWidget {
   static Widget _buildContent(
     BuildContext context,
     WidgetRef ref,
-    dynamic colorScheme,
+    ColorScheme colorScheme,
     bool hasReferralCode,
     AppUser user,
   ) {
     // Extract user name from email or use full name if available
-    final userName = user.email.split('@').first.isNotEmpty ? user.email.split('@').first : 'User';
-    final displayName = (user.displayName?.isNotEmpty ?? false) ? user.displayName?.split(' ').first ?? userName : userName;
+    final userName = user.email.split('@').first.isNotEmpty
+        ? user.email.split('@').first
+        : 'User';
+    final displayName = (user.displayName?.isNotEmpty ?? false)
+        ? user.displayName?.split(' ').first ?? userName
+        : userName;
 
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -249,7 +276,6 @@ class PaywallScreen extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           const SizedBox(height: 16),
-
           // Beta Icon
           Container(
             width: 100,
@@ -274,15 +300,17 @@ class PaywallScreen extends ConsumerWidget {
 
           // Title
           Text(
-            hasReferralCode ? 'Welcome, $displayName!' : 'Welcome, $displayName!',
+            hasReferralCode
+                ? 'Welcome, $displayName!'
+                : 'Welcome, $displayName!',
             style: TextStyle(
               fontSize: 32,
               fontWeight: FontWeight.bold,
-              color: colorScheme.foreground,
+              color: colorScheme.onSurface,
             ),
             textAlign: TextAlign.center,
           ),
-   
+
           const SizedBox(height: 16),
 
           // Description
@@ -323,7 +351,7 @@ class PaywallScreen extends ConsumerWidget {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: colorScheme.foreground,
+                          color: colorScheme.onSurface,
                           height: 1.5,
                         ),
                       ),
@@ -353,13 +381,17 @@ class PaywallScreen extends ConsumerWidget {
           SizedBox(
             width: double.infinity,
             height: 56,
-            child: shadcnui.PrimaryButton(
-              onPressed: () => hasReferralCode ? _claimTrialAccess(context, ref) : _launchReferralPage(context),
+            child: PrimaryAdaptiveButton(
+              onPressed: () => hasReferralCode
+                  ? _claimTrialAccess(context, ref)
+                  : _launchReferralPage(context),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    hasReferralCode ? 'Claim 1 Month Free Access' : 'Join Referral Program',
+                    hasReferralCode
+                        ? 'Claim 1 Month Free Access'
+                        : 'Join Referral Program',
                     style: TextStyle(
                       fontSize: 18,
                       color: colorScheme.primaryForeground,
@@ -367,7 +399,8 @@ class PaywallScreen extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Icon(Icons.arrow_forward, size: 20, color: colorScheme.primaryForeground),
+                  Icon(Icons.arrow_forward,
+                      size: 20, color: colorScheme.primaryForeground),
                 ],
               ),
             ),
@@ -406,9 +439,7 @@ class PaywallScreen extends ConsumerWidget {
             ),
           ),
 
-  
-
-                  const SizedBox(height: 15),
+          const SizedBox(height: 15),
 
           // Not your account link
           GestureDetector(
@@ -423,7 +454,6 @@ class PaywallScreen extends ConsumerWidget {
               textAlign: TextAlign.center,
             ),
           ),
-
         ],
       ),
     );

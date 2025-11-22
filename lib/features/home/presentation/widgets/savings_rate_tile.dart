@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/state/derived_selectors.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/util/logger.dart';
 
 class SavingsRateTile extends ConsumerWidget {
@@ -9,7 +10,7 @@ class SavingsRateTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final rate = ref.watch(savingsRateProvider);
     appLog('widget_viewed: savings_rate_tile');
 
@@ -30,7 +31,7 @@ class SavingsRateTile extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Savings rate', style: TextStyle(fontSize: 13, color: colorScheme.mutedForeground)),
+              Text(context.l10n.savingsRate, style: TextStyle(fontSize: 13, color: colorScheme.mutedForeground)),
               Text('$pct%', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: colorScheme.foreground)),
             ],
           ),
@@ -50,7 +51,7 @@ class SavingsRateTile extends ConsumerWidget {
                     color: positive ? const Color(0xFF10B981) : const Color(0xFFEF4444)),
                 const SizedBox(width: 6),
                 Text(
-                  positive ? 'Positive' : 'Negative',
+                  positive ? context.l10n.positive : context.l10n.negative,
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,

@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+
 import '../widgets/onboarding_card.dart';
 import 'household_create_page.dart';
 import 'household_join_page.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:moneko/core/theme/app_theme.dart';
+
 
 /// Full-page household onboarding with flashcard carousel
 class HouseholdOnboardingPage extends StatefulWidget {
@@ -27,10 +31,10 @@ class _HouseholdOnboardingPageState extends State<HouseholdOnboardingPage> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
-      color: colorScheme.background,
+      color: colorScheme.appBackground,
       child: SafeArea(
         child: Column(
           children: [
@@ -87,7 +91,7 @@ class _HouseholdOnboardingPageState extends State<HouseholdOnboardingPage> {
                   SizedBox(
                     width: double.infinity,
                     height: 56,
-                    child: shadcnui.PrimaryButton(
+                    child: PrimaryAdaptiveButton(
                       onPressed: _navigateToCreate,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -113,8 +117,9 @@ class _HouseholdOnboardingPageState extends State<HouseholdOnboardingPage> {
                   SizedBox(
                     width: double.infinity,
                     height: 56,
-                    child: shadcnui.OutlineButton(
+                    child: AdaptiveButton.child(
                       onPressed: _navigateToJoin,
+                      style: AdaptiveButtonStyle.bordered,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [

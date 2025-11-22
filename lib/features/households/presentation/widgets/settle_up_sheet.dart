@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/shared/widgets/outlined-adaptive-button.dart';
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../../core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import '../providers/household_providers.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 /// Bottom sheet for settling up balances
 class SettleUpSheet extends ConsumerStatefulWidget {
@@ -104,7 +107,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final membersAsync = ref.watch(householdMembersProvider(widget.householdId));
     final userId = Supabase.instance.client.auth.currentUser?.id;
 
@@ -117,7 +120,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
         child: Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: colorScheme.background,
+            color: colorScheme.appBackground,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: Column(
@@ -353,14 +356,14 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
           Row(
             children: [
               Expanded(
-                child: shadcnui.SecondaryButton(
+                child: OutlinedAdaptiveButton(
                   onPressed: _isProcessing ? null : () => Navigator.pop(context),
                   child: Text(context.l10n.cancel),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: shadcnui.PrimaryButton(
+                child: PrimaryAdaptiveButton(
                   onPressed: _isProcessing ? null : _confirmAndSettle,
                   child: Text(context.l10n.settle),
                 ),
@@ -415,7 +418,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
     if (_selectedMemberId == null && widget.specificMemberId == null) {
       // Show error
       if (mounted) {
-        AppToast.info(context.l10n.pleaseSelectMember);
+        AppToast.info(context, context.l10n.pleaseSelectMember);
       }
       return;
     }
@@ -478,11 +481,11 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
 
       if (mounted) {
         Navigator.pop(context, true);
-        AppToast.success(count > 0 ? context.l10n.settlementCompleted : context.l10n.nothingToSettle);
+        AppToast.success(context, count > 0 ? context.l10n.settlementCompleted : context.l10n.nothingToSettle);
       }
     } catch (e) {
       if (mounted) {
-        AppToast.error('${context.l10n.error}: $e');
+        AppToast.error(context, '${context.l10n.error}: $e');
       }
     } finally {
       if (mounted) {
@@ -509,7 +512,7 @@ enum _AmountTone { neutral, ok, warn }
 
 class _LineTile extends StatelessWidget {
   final _LineItem item;
-  final shadcnui.ColorScheme scheme;
+  final ColorScheme scheme;
   final _AmountTone tone;
   const _LineTile({required this.item, required this.scheme, this.tone = _AmountTone.neutral});
   @override

@@ -1,6 +1,7 @@
 // Stub implementation for web platform
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 class IOSColorPickerController {
   void showIOSCustomColorPicker({
@@ -13,7 +14,7 @@ class IOSColorPickerController {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Select color'),
+          title: Text(context.l10n.selectColor),
           content: SingleChildScrollView(
             child: ColorPicker(
               pickerColor: startingColor,
@@ -22,7 +23,7 @@ class IOSColorPickerController {
           ),
           actions: <Widget>[
             TextButton(
-              child: const Text('Done'),
+              child: Text(context.l10n.done),
               onPressed: () {
                 Navigator.of(context).pop();
               },

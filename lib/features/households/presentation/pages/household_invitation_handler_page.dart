@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/household_providers.dart';
 import '../providers/selected_household_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 class HouseholdInvitationHandlerPage extends ConsumerStatefulWidget {
   final String token;
@@ -95,7 +96,7 @@ class _HouseholdInvitationHandlerPageState extends ConsumerState<HouseholdInvita
 
   @override
   Widget build(BuildContext context) {
-    final colors = shadcnui.Theme.of(context).colorScheme;
+    final colors = Theme.of(context).colorScheme;
 
     if (_error != null) {
       return Scaffold(

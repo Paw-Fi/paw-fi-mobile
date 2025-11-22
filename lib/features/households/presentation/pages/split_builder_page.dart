@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/l10n/l10n.dart';
+
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 import '../../domain/entities/expense_split.dart';
 import '../../domain/entities/household.dart';
 import '../providers/household_providers.dart';
-
+import 'package:moneko/core/theme/app_theme.dart';
 /// Split Builder Page
 /// Interactive expense splitting tool
 class SplitBuilderPage extends ConsumerStatefulWidget {
@@ -47,12 +49,12 @@ class _SplitBuilderPageState extends ConsumerState<SplitBuilderPage> {
   @override
   Widget build(BuildContext context) {
     final membersAsync = ref.watch(householdMembersProvider(widget.householdId));
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.appBackground,
       appBar: AppBar(
-        backgroundColor: colorScheme.background,
+        backgroundColor: colorScheme.appBackground,
         elevation: 0,
         title: Text(
           'Split Expense',
@@ -72,9 +74,9 @@ class _SplitBuilderPageState extends ConsumerState<SplitBuilderPage> {
               // Total Amount
               TextField(
                 controller: _amountController,
-                decoration: const InputDecoration(
-                  labelText: 'Total Amount',
-                  prefixText: '\$',
+                decoration: InputDecoration(
+                  labelText: context.l10n.totalAmount,
+                  prefixText: context.l10n.dollarSign,
                 ),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
               ),
@@ -82,7 +84,7 @@ class _SplitBuilderPageState extends ConsumerState<SplitBuilderPage> {
 
               // Who Paid?
               Text(
-                'Who paid?',
+                context.l10n.whoPaid,
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -92,14 +94,14 @@ class _SplitBuilderPageState extends ConsumerState<SplitBuilderPage> {
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 initialValue: _selectedPayer,
-                decoration: const InputDecoration(
-                  labelText: 'Payer',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: context.l10n.payer,
+                  border: const OutlineInputBorder(),
                 ),
                 items: members
                     .map((m) => DropdownMenuItem(
                           value: m.userId,
-                          child: Text(m.userName ?? m.userEmail ?? 'Unknown'),
+                          child: Text(m.userName ?? m.userEmail ?? context.l10n.unknown),
                         ))
                     .toList(),
                 onChanged: (value) {
@@ -163,11 +165,11 @@ class _SplitBuilderPageState extends ConsumerState<SplitBuilderPage> {
               // Create Split Button
               SizedBox(
                 width: double.infinity,
-                child: shadcnui.PrimaryButton(
+                child: PrimaryAdaptiveButton(
                   onPressed: _canCreateSplit(members)
                       ? () => _createSplit(members)
                       : null,
-                  child: const Text('Create Split'),
+                  child: Text(context.l10n.createSplit),
                 ),
               ),
             ],
@@ -175,7 +177,7 @@ class _SplitBuilderPageState extends ConsumerState<SplitBuilderPage> {
         ),
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) => Center(
-          child: Text('Error: $error', style: TextStyle(color: colorScheme.destructive)),
+          child: Text('${context.l10n.error}: $error', style: TextStyle(color: colorScheme.destructive)),
         ),
       ),
     );
@@ -242,12 +244,12 @@ class _SplitBuilderPageState extends ConsumerState<SplitBuilderPage> {
       await repository.computeSplit(request);
 
       if (mounted) {
-        AppToast.success('Split created successfully!');
+        AppToast.success(context, 'Split created successfully!');
         Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
-        AppToast.error('Error creating split: $e');
+        AppToast.error(context, 'Error creating split: $e');
       }
     }
   }
@@ -321,7 +323,7 @@ class _SplitMemberRow extends StatelessWidget {
             Expanded(
               child: Text(member.userName ?? member.userEmail ?? 'Unknown'),
             ),
-            const Text('Equal share'),
+            Text(context.l10n.equalShare),
           ],
         ),
       );
@@ -384,7 +386,7 @@ class _SplitPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Card(
       child: Padding(

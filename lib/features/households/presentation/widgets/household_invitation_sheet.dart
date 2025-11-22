@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/household_providers.dart';
 import '../../../../../core/l10n/l10n.dart';
 import '../providers/selected_household_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/core/app/router.dart';
-
+import 'package:moneko/core/theme/app_theme.dart';
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 class HouseholdInvitationSheet extends ConsumerStatefulWidget {
   final String token;
 
@@ -151,7 +153,7 @@ class _HouseholdInvitationSheetState
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
       padding: EdgeInsets.only(
@@ -231,7 +233,7 @@ class _HouseholdInvitationSheetState
               ),
             ),
             const SizedBox(height: 24),
-            shadcnui.PrimaryButton(
+           PrimaryAdaptiveButton(
               onPressed: () => Navigator.of(context).pop(),
               child: Text(context.l10n.close),
             ),
@@ -264,7 +266,7 @@ class _HouseholdInvitationSheetState
               ),
             ),
             const SizedBox(height: 24),
-            shadcnui.PrimaryButton(
+            PrimaryAdaptiveButton(
               onPressed: () async {
                 final userId = Supabase.instance.client.auth.currentUser?.id;
                 final householdId = _householdId;
@@ -296,8 +298,9 @@ class _HouseholdInvitationSheetState
               child: Text(context.l10n.viewHousehold),
             ),
             const SizedBox(height: 12),
-            shadcnui.OutlineButton(
+            AdaptiveButton.child(
               onPressed: () => Navigator.of(context).pop(),
+              style: AdaptiveButtonStyle.bordered,
               child: Text(context.l10n.close),
             ),
           ],
@@ -319,7 +322,7 @@ Future<void> showHouseholdInvitationSheet(
     enableDrag: true,
     backgroundColor: Colors.transparent,
     builder: (context) {
-      final colorScheme = shadcnui.Theme.of(context).colorScheme;
+      final colorScheme = Theme.of(context).colorScheme;
       return Container(
         decoration: BoxDecoration(
           color: colorScheme.card,

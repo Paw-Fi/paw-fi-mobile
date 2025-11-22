@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 Widget buildSpendingBreakdownChart(
   BuildContext context,
-  shadcnui.ColorScheme colorScheme,
+  ColorScheme colorScheme,
   List<ExpenseEntry> expenses,
   List<DailyBudgetEntry> budgets,
   UserContact? contact,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/auth/data/services/impersonation_service.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 /// Dialog for admins to start impersonating a user
 class ImpersonationDialog extends ConsumerStatefulWidget {
@@ -34,7 +35,7 @@ class _ImpersonationDialogState extends ConsumerState<ImpersonationDialog> {
 
     if (email.isEmpty) {
       setState(() {
-        _errorMessage = 'Please enter an email address';
+        _errorMessage = context.l10n.pleaseEnterAnEmailAddress;
       });
       return;
     }
@@ -58,7 +59,7 @@ class _ImpersonationDialogState extends ConsumerState<ImpersonationDialog> {
       Navigator.of(context).pop();
     } else {
       setState(() {
-        _errorMessage = 'Failed to impersonate user. Please check the email and try again.';
+        _errorMessage = context.l10n.failedToImpersonateUserPleaseCheckTheEmailAndTryAgain;
       });
     }
   }
@@ -66,20 +67,20 @@ class _ImpersonationDialogState extends ConsumerState<ImpersonationDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Impersonate User'),
+      title: Text(context.l10n.impersonateUser),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Enter the email address of the user you want to impersonate:',
-            style: TextStyle(fontSize: 14),
+          Text(
+            context.l10n.enterTheEmailAddressOfTheUserYouWantToImpersonate,
+            style: const TextStyle(fontSize: 14),
           ),
           const SizedBox(height: 16),
           TextField(
             controller: _emailController,
             decoration: InputDecoration(
-              labelText: 'User Email',
+              labelText: context.l10n.userEmail,
               border: const OutlineInputBorder(),
               errorText: _errorMessage,
               enabled: !_isLoading,
@@ -107,7 +108,7 @@ class _ImpersonationDialogState extends ConsumerState<ImpersonationDialog> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'You will see data from this user\'s perspective without logging in as them.',
+                    context.l10n.youWillSeeDataFromThisUsersPerspectiveWithoutLoggingInAsThem,
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.blue.shade900,
@@ -122,7 +123,7 @@ class _ImpersonationDialogState extends ConsumerState<ImpersonationDialog> {
       actions: [
         TextButton(
           onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text(context.l10n.cancel),
         ),
         FilledButton(
           onPressed: _isLoading ? null : _startImpersonation,
@@ -132,7 +133,7 @@ class _ImpersonationDialogState extends ConsumerState<ImpersonationDialog> {
                   height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('Start'),
+              : Text(context.l10n.start),
         ),
       ],
     );

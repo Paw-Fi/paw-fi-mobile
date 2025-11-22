@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/theme/app_theme.dart';
 
 Widget buildSectionTitle(BuildContext context, String titleKey) {
-  final colorScheme = shadcnui.Theme.of(context).colorScheme;
+  final colorScheme = Theme.of(context).colorScheme;
   return Text(
     titleKey,
     style: TextStyle(
@@ -15,7 +15,7 @@ Widget buildSectionTitle(BuildContext context, String titleKey) {
 }
 
 Widget buildBenefitIcon(BuildContext context, IconData icon, String label) {
-  final colorScheme = shadcnui.Theme.of(context).colorScheme;
+  final colorScheme = Theme.of(context).colorScheme;
   return Column(
     children: [
       Icon(

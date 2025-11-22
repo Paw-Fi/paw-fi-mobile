@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 // removed shared budgets UI from settings; budgets are managed elsewhere
 import '../../domain/entities/household.dart';
@@ -16,7 +17,8 @@ import '../../../../core/config/storage_config.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/app/router.dart';
-
+import 'package:moneko/core/theme/app_theme.dart';
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 /// Household Settings Page
 /// Manage budgets, privacy preferences, and household settings
 class HouseholdSettingsPage extends ConsumerStatefulWidget {
@@ -50,12 +52,12 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage>
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.appBackground,
       appBar: AppBar(
-        backgroundColor: colorScheme.background,
+        backgroundColor: colorScheme.appBackground,
         elevation: 0,
         title: Text(
           context.l10n.householdSettings,
@@ -115,7 +117,7 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
   Widget build(BuildContext context) {
     final householdAsync = ref.watch(householdProvider(widget.householdId));
     final membersAsync = ref.watch(householdMembersProvider(widget.householdId));
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
 
     return householdAsync.when(
@@ -320,7 +322,7 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
 
             // Save Button
             if (canEdit)
-              shadcnui.PrimaryButton(
+              PrimaryAdaptiveButton(
                 onPressed: _isSaving ? null : () => _saveChanges(household),
                 child: _isSaving
                     ? const SizedBox(
@@ -362,7 +364,7 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
 
   Future<void> _saveChanges(Household household) async {
     if (_nameController.text.trim().isEmpty) {
-      _showError(context.l10n.pleaseEnterHouseholdName);
+      AppToast.error(context, context.l10n.pleaseEnterHouseholdName);
       return;
     }
 
@@ -398,11 +400,11 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
       }
 
       if (mounted) {
-        AppToast.success(context.l10n.householdUpdatedSuccessfully);
+        AppToast.success(context, context.l10n.householdUpdatedSuccessfully);
       }
     } catch (e) {
       if (mounted) {
-        _showError('${context.l10n.failedToUpdateHousehold}: $e');
+        AppToast.error(context, '${context.l10n.failedToUpdateHousehold}: $e');
       }
     } finally {
       if (mounted) {
@@ -437,13 +439,7 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
     }
   }
 
-  void _showError(String message) {
-    if (mounted) {
-      AppToast.error(message);
-    }
-  }
-
-  shadcnui.ColorScheme get colorScheme => shadcnui.Theme.of(context).colorScheme;
+  ColorScheme get colorScheme => Theme.of(context).colorScheme;
 }
 
 /// Members Tab - Clean, minimal design
@@ -455,7 +451,7 @@ class _MembersTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final membersAsync = ref.watch(householdMembersProvider(householdId));
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
 
     return membersAsync.when(
@@ -565,7 +561,7 @@ class _MembersTab extends ConsumerWidget {
   Future<void> _updateMemberRole(BuildContext context, WidgetRef ref, HouseholdMember member, HouseholdRole role) async {
     await ref.read(householdMembersProvider(householdId).notifier).updateRole(member.id, role);
     if (context.mounted) {
-      AppToast.success('${context.l10n.updatedMemberRole} ${member.userName ?? member.userEmail}');
+      AppToast.success(context, '${context.l10n.updatedMemberRole} ${member.userName ?? member.userEmail}');
     }
   }
 }
@@ -590,7 +586,7 @@ class _MemberCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final isOwner = member.role == HouseholdRole.owner;
     
     final canManageThisMember = canManageMembers && (
@@ -785,14 +781,14 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        AppToast.error('${context.l10n.errorLoadingInvites}: $e');
+        AppToast.error(context, '${context.l10n.errorLoadingInvites}: $e');
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final membersAsync = ref.watch(householdMembersProvider(widget.householdId));
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
 
@@ -912,7 +908,7 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
 
   // ignore: unused_element
   Widget _oldBuild(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final membersAsync = ref.watch(householdMembersProvider(widget.householdId));
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
 
@@ -1215,7 +1211,7 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
     String title,
     String subtitle,
   ) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
       child: Center(
@@ -1450,17 +1446,17 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
       await _loadInvites();
 
       if (mounted) {
-        AppToast.success(context.l10n.invitationCreatedSuccessfully);
+        AppToast.success(context, context.l10n.invitationCreatedSuccessfully);
 
         // Auto-copy invite link
         final inviteUrl = 'https://moneko.io/invites/$token';
         Clipboard.setData(ClipboardData(text: inviteUrl));
 
-        AppToast.success(context.l10n.inviteLinkCopiedToClipboard);
+        AppToast.success(context, context.l10n.inviteLinkCopiedToClipboard);
       }
     } catch (e) {
       if (mounted) {
-        AppToast.error('${context.l10n.errorCreatingInvite}: $e');
+        AppToast.error(context, '${context.l10n.errorCreatingInvite}: $e');
       }
     }
   }
@@ -1469,7 +1465,7 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
     final inviteUrl = 'https://moneko.io/invites/${invite.token}';
     Clipboard.setData(ClipboardData(text: inviteUrl));
 
-    AppToast.success(context.l10n.inviteLinkCopiedToClipboard);
+    AppToast.success(context, context.l10n.inviteLinkCopiedToClipboard);
   }
 
   Future<void> _revokeInvite(HouseholdInvite invite) async {
@@ -1529,13 +1525,13 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
         final navCtx = rootNavigatorKey.currentContext;
         if (navCtx != null && navCtx.mounted) {
           _hideBlockingLoader(navCtx);
-          AppToast.success(l10n.invitationRevoked);
+          AppToast.success(context, context.l10n.invitationRevoked);
         }
       } catch (e) {
         final navCtx = rootNavigatorKey.currentContext;
         if (navCtx != null && navCtx.mounted) {
           _hideBlockingLoader(navCtx);
-          AppToast.error('${l10n.errorRevokingInvite}: $e');
+          AppToast.error(context, '${context.l10n.errorRevokingInvite}: $e');
         }
       }
     }
@@ -1584,7 +1580,7 @@ class _InviteCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final isExpired = invite.expiresAt != null && invite.expiresAt!.isBefore(DateTime.now());
     final isPending = invite.status == InviteStatus.pending;
 

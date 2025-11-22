@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/profile/data/providers/whatsapp_binding_provider.dart';
 import 'package:moneko/features/profile/presentation/widgets/profile_helpers.dart';
 import 'package:moneko/features/profile/presentation/widgets/whatsapp_tutorial_modal.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 Widget buildWhatsAppBindingCard(BuildContext context, WidgetRef ref) {
-  final colorScheme = shadcnui.Theme.of(context).colorScheme;
+  final colorScheme = Theme.of(context).colorScheme;
   final whatsappBinding = ref.watch(whatsAppBindingProvider);
 
     Future<void> handleBindWhatsApp() async {
@@ -30,10 +31,10 @@ Widget buildWhatsAppBindingCard(BuildContext context, WidgetRef ref) {
         if (launched && context.mounted) {
           Navigator.of(context).pop(true); // Return true to refresh status
         } else if (!launched) {
-          AppToast.error('Unable to open WhatsApp link. Please install a browser or WhatsApp.');
+          AppToast.error(context, 'Unable to open WhatsApp link. Please install a browser or WhatsApp.');
         }
       } catch (_) {
-        AppToast.error('Could not launch WhatsApp link.');
+        AppToast.error(context, 'Could not launch WhatsApp link.');
       }
     }
 
@@ -44,7 +45,7 @@ Widget buildWhatsAppBindingCard(BuildContext context, WidgetRef ref) {
         return InkWell(
           onTap: () => handleBindWhatsApp(),
           child: Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           decoration: BoxDecoration(
             color: colorScheme.card,
             borderRadius: BorderRadius.circular(16),
@@ -52,19 +53,12 @@ Widget buildWhatsAppBindingCard(BuildContext context, WidgetRef ref) {
           ),
           child: Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF25D366).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.check_circle,
-                  color: Color(0xFF25D366),
-                  size: 24,
-                ),
+              Icon(
+                Icons.chat_bubble_rounded,
+                color: const Color(0xFF25D366),
+                size: 22,
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

@@ -1,7 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:intl/intl.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
@@ -11,10 +11,13 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dart';
+import 'package:moneko/features/utils/sub_page_top_padding.dart';
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 import '../widgets/unified_transaction_sheet.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 
 // ============================================================================
 // TRANSACTIONS PAGE
@@ -36,7 +39,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   int currentChartIndex = 0;
   DateTime? _customStartDate;
   DateTime? _customEndDate;
-  
+
   final TextEditingController _searchController = TextEditingController();
   final PageController _chartPageController = PageController();
 
@@ -62,9 +65,13 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     }
 
     // Filter by period
-    if (selectedPeriod == 'Custom' && _customStartDate != null && _customEndDate != null) {
-      final start = DateTime(_customStartDate!.year, _customStartDate!.month, _customStartDate!.day);
-      final end = DateTime(_customEndDate!.year, _customEndDate!.month, _customEndDate!.day);
+    if (selectedPeriod == 'Custom' &&
+        _customStartDate != null &&
+        _customEndDate != null) {
+      final start = DateTime(_customStartDate!.year, _customStartDate!.month,
+          _customStartDate!.day);
+      final end = DateTime(
+          _customEndDate!.year, _customEndDate!.month, _customEndDate!.day);
       expenses = expenses.where((ex) {
         final d = DateTime(ex.date.year, ex.date.month, ex.date.day);
         return !d.isBefore(start) && !d.isAfter(end);
@@ -100,8 +107,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         final query = searchQuery.toLowerCase();
 
         return category.contains(query) ||
-               amount.contains(query) ||
-               rawText.contains(query);
+            amount.contains(query) ||
+            rawText.contains(query);
       }).toList();
     }
 
@@ -151,7 +158,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       case 'Custom':
         if (_customStartDate != null && _customEndDate != null) {
           final sameYear = _customStartDate!.year == _customEndDate!.year;
-          final fmt = sameYear ? DateFormat('MMM d') : DateFormat('MMM d, yyyy');
+          final fmt =
+              sameYear ? DateFormat('MMM d') : DateFormat('MMM d, yyyy');
           return '${fmt.format(_customStartDate!)} – ${fmt.format(_customEndDate!)}';
         }
         return context.l10n.customRange;
@@ -177,11 +185,12 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     }
   }
 
-  String get chartIntervalType => getChartIntervalTypeFromPeriod(selectedPeriod);
+  String get chartIntervalType =>
+      getChartIntervalTypeFromPeriod(selectedPeriod);
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final analyticsData = ref.watch(analyticsProvider);
 
     // Resolve base expenses source (household-specific or global analytics)
@@ -191,20 +200,22 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       ));
       return expensesAsync.when(
         loading: () => Scaffold(
-          backgroundColor: colorScheme.background,
+          backgroundColor: colorScheme.appBackground,
           body: const Center(child: CircularProgressIndicator()),
         ),
         error: (e, st) => Scaffold(
-          backgroundColor: colorScheme.background,
+          backgroundColor: colorScheme.appBackground,
           body: Center(
             child: Padding(
               padding: const EdgeInsets.all(24.0),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.error_outline, size: 48, color: colorScheme.destructive),
+                  Icon(Icons.error_outline,
+                      size: 48, color: colorScheme.destructive),
                   const SizedBox(height: 12),
-                  Text(context.l10n.failedToLoadHouseholdTransactions, style: TextStyle(color: colorScheme.destructive)),
+                  Text(context.l10n.failedToLoadHouseholdTransactions,
+                      style: TextStyle(color: colorScheme.destructive)),
                 ],
               ),
             ),
@@ -222,268 +233,261 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     return _buildMainScaffold(colorScheme, analyticsData.contact);
   }
 
-  Scaffold _buildMainScaffold(shadcnui.ColorScheme colorScheme, UserContact? contact) {
-    return Scaffold(
-      backgroundColor: colorScheme.background,
+  AdaptiveScaffold _buildMainScaffold(
+      ColorScheme colorScheme, UserContact? contact) {
+    return AdaptiveScaffold(
+      appBar: AdaptiveAppBar(
+        title: (context.l10n.transactions),
+      ),
       body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: () async {
-            if (widget.householdId != null) {
-              ref.invalidate(householdExpensesProvider);
-            } else {
-              ref.read(analyticsProvider.notifier).refresh(ref.read(authProvider).uid);
-            }
-            await Future.delayed(const Duration(milliseconds: 500));
-          },
-          child: CustomScrollView(
-            slivers: [
-            // Header
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  children: [
-                    IconButton(
-                      onPressed: () => Navigator.of(context).maybePop(),
-                      icon: Icon(
-                        Icons.chevron_left,
-                        color: colorScheme.foreground,
-                        size: 28,
-                      ),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            context.l10n.transactions,
-                            style: TextStyle(
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                              color: colorScheme.foreground,
-                            ),
-                          ),
-                          Text(
-                            '${filteredExpenses.length} ${context.l10n.transactions.toLowerCase()}',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: colorScheme.mutedForeground,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // Search Bar
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: colorScheme.muted,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: TextField(
-                          controller: _searchController,
-                          onChanged: (value) {
-                            setState(() {
-                              searchQuery = value;
-                            });
-                          },
-                          style: TextStyle(color: colorScheme.foreground),
-                          decoration: InputDecoration(
-                            hintText: context.l10n.search,
-                            hintStyle: TextStyle(color: colorScheme.mutedForeground),
-                            prefixIcon: Icon(Icons.search, color: colorScheme.mutedForeground),
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    IconButton(
-                      icon: Icon(
-                        Icons.tune,
-                        color: selectedCategory != 'all' ? colorScheme.primary : colorScheme.mutedForeground,
-                      ),
-                      onPressed: () => _showFilterSheet(context, colorScheme),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            const SliverToBoxAdapter(child: SizedBox(height: 16)),
-
-            // Period Selector
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: ['1W', '1M', '6M', '1Y', 'All'].map((period) {
-                      final isSelected = selectedPeriod == period;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8.0),
-                        child: GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              selectedPeriod = period;
-                            });
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: isSelected ? colorScheme.primary : colorScheme.muted,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              getPeriodLabel(period),
-                              style: TextStyle(
-                                color: isSelected ? Colors.white : colorScheme.foreground,
-                                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ),
-            ),
-
-            const SliverToBoxAdapter(child: SizedBox(height: 16)),
-
-            // Chart Display
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: _buildChart(colorScheme, contact),
-              ),
-            ),
-
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
-
-            // Category Filter Header
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    GestureDetector(
-                      onTap: () => _showFilterSheet(context, colorScheme),
+        child: Material(
+          child: Padding(
+            padding: EdgeInsets.only(top: getSubPageTopPadding(context)),
+            child: RefreshIndicator(
+              onRefresh: () async {
+                if (widget.householdId != null) {
+                  ref.invalidate(householdExpensesProvider);
+                } else {
+                  ref
+                      .read(analyticsProvider.notifier)
+                      .refresh(ref.read(authProvider).uid);
+                }
+                await Future.delayed(const Duration(milliseconds: 500));
+              },
+              child: CustomScrollView(
+                slivers: [
+                  // Search Bar
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
                       child: Row(
                         children: [
-                          Text(
-                            context.l10n.byCategory,
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: colorScheme.foreground,
+                          Expanded(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: colorScheme.muted,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: TextField(
+                                controller: _searchController,
+                                onChanged: (value) {
+                                  setState(() {
+                                    searchQuery = value;
+                                  });
+                                },
+                                style: TextStyle(color: colorScheme.foreground),
+                                decoration: InputDecoration(
+                                  hintText: context.l10n.search,
+                                  hintStyle: TextStyle(
+                                      color: colorScheme.mutedForeground),
+                                  prefixIcon: Icon(Icons.search,
+                                      color: colorScheme.mutedForeground),
+                                  border: InputBorder.none,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 12),
+                                ),
+                              ),
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Icon(Icons.keyboard_arrow_down, color: colorScheme.foreground),
+                          const SizedBox(width: 12),
+                          IconButton(
+                            icon: Icon(
+                              Icons.tune,
+                              color: selectedCategory != 'all'
+                                  ? colorScheme.primary
+                                  : colorScheme.mutedForeground,
+                            ),
+                            onPressed: () =>
+                                _showFilterSheet(context, colorScheme),
+                          ),
                         ],
                       ),
                     ),
-                  ],
-                ),
-              ),
-            ),
+                  ),
 
-            // Type filter chips
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
-                child: Wrap(
-                  spacing: 8,
-                  children: [
-                    for (final type in const ['all','expense','income'])
-                      ChoiceChip(
-                        label: Text(type[0].toUpperCase() + type.substring(1)),
-                        selected: selectedType == type,
-                        onSelected: (v) {
-                          if (!v) return;
-                          setState(() { selectedType = type; });
-                        },
-                      ),
-                  ],
-                ),
-              ),
-            ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
-            const SliverToBoxAdapter(child: SizedBox(height: 8)),
-
-            // Transactions List
-            filteredExpenses.isEmpty
-                ? SliverToBoxAdapter(
-                    child: Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(48.0),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.receipt_long_outlined,
-                              size: 64,
-                              color: colorScheme.mutedForeground,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              context.l10n.noTransactionsFound,
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: colorScheme.mutedForeground,
+                  // Period Selector
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children:
+                              ['1W', '1M', '6M', '1Y', 'All'].map((period) {
+                            final isSelected = selectedPeriod == period;
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8.0),
+                              child: GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    selectedPeriod = period;
+                                  });
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 24, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? colorScheme.primary
+                                        : colorScheme.muted,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    getPeriodLabel(period),
+                                    style: TextStyle(
+                                      color: isSelected
+                                          ? Colors.white
+                                          : colorScheme.foreground,
+                                      fontWeight: isSelected
+                                          ? FontWeight.w600
+                                          : FontWeight.normal,
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ),
-                          ],
+                            );
+                          }).toList(),
                         ),
                       ),
                     ),
-                  )
-                : SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final expense = filteredExpenses[index];
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        child: _buildTransactionItem(expense, colorScheme, contact),
-                        );
-                      },
-                      childCount: filteredExpenses.length,
+                  ),
+
+                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
+
+                  // Chart Display
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: _buildChart(colorScheme, contact),
                     ),
                   ),
-            ],
+
+                  const SliverToBoxAdapter(child: SizedBox(height: 24)),
+
+                  // Category Filter Header
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          GestureDetector(
+                            onTap: () => _showFilterSheet(context, colorScheme),
+                            child: Row(
+                              children: [
+                                Text(
+                                  context.l10n.byCategory,
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: colorScheme.foreground,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Icon(Icons.keyboard_arrow_down,
+                                    color: colorScheme.foreground),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Type filter chips
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16.0, vertical: 8),
+                      child: Wrap(
+                        spacing: 8,
+                        children: [
+                          for (final type in const ['all', 'expense', 'income'])
+                            ChoiceChip(
+                              label: Text(
+                                type == 'all'
+                                    ? context.l10n.all
+                                    : type == 'expense'
+                                        ? context.l10n.expenses
+                                        : context.l10n.income,
+                              ),
+                              selected: selectedType == type,
+                              onSelected: (v) {
+                                if (!v) return;
+                                setState(() {
+                                  selectedType = type;
+                                });
+                              },
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SliverToBoxAdapter(child: SizedBox(height: 8)),
+
+                  // Transactions List
+                  filteredExpenses.isEmpty
+                      ? SliverToBoxAdapter(
+                          child: Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(48.0),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.receipt_long_outlined,
+                                    size: 64,
+                                    color: colorScheme.mutedForeground,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    context.l10n.noTransactionsFound,
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: colorScheme.mutedForeground,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        )
+                      : SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                            (context, index) {
+                              final expense = filteredExpenses[index];
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16.0),
+                                child: _buildTransactionItem(
+                                    expense, colorScheme, contact),
+                              );
+                            },
+                            childCount: filteredExpenses.length,
+                          ),
+                        ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildChart(shadcnui.ColorScheme colorScheme, UserContact? contact) {
+  Widget _buildChart(ColorScheme colorScheme, UserContact? contact) {
     final spendOnly = filteredExpenses
         .where((e) => (e.type ?? 'expense').toLowerCase() != 'income')
         .toList();
     final totalSpent = spendOnly.fold(0.0, (sum, e) => sum + e.amount.abs());
     final filterState = ref.watch(homeFilterProvider);
-    
+
     // selectedCurrency is never null (defaults to USD)
-    final displayText = formatCurrency(totalSpent, filterState.selectedCurrency ?? 'USD');
+    final displayText =
+        formatCurrency(totalSpent, filterState.selectedCurrency ?? 'USD');
 
     return Container(
       decoration: BoxDecoration(
@@ -609,13 +613,15 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     return value.toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), '');
   }
 
-  Widget _buildLineChart(shadcnui.ColorScheme colorScheme) {
+  Widget _buildLineChart(ColorScheme colorScheme) {
     // Group expenses using utility function
-    final periodTotals = groupExpensesByInterval(filteredExpenses, chartIntervalType);
+    final periodTotals =
+        groupExpensesByInterval(filteredExpenses, chartIntervalType);
     final sortedDates = periodTotals.keys.toList()..sort();
     if (sortedDates.isEmpty) {
       return Center(
-        child: Text(context.l10n.noData, style: TextStyle(color: colorScheme.mutedForeground)),
+        child: Text(context.l10n.noData,
+            style: TextStyle(color: colorScheme.mutedForeground)),
       );
     }
 
@@ -646,7 +652,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
             },
           ),
           titlesData: FlTitlesData(
-            leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            leftTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
             rightTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
@@ -662,13 +669,16 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                 },
               ),
             ),
-            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
-                interval: 1, // Show all data points (already bucketed to 6-7 points)
+                interval:
+                    1, // Show all data points (already bucketed to 6-7 points)
                 getTitlesWidget: (value, meta) {
-                  if (value.toInt() >= sortedDates.length) return const SizedBox();
+                  if (value.toInt() >= sortedDates.length)
+                    return const SizedBox();
                   final date = sortedDates[value.toInt()];
                   return Text(
                     formatDateForInterval(date, chartIntervalType),
@@ -725,22 +735,25 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     );
   }
 
-  Widget _buildBarChart(shadcnui.ColorScheme colorScheme) {
+  Widget _buildBarChart(ColorScheme colorScheme) {
     // Group expenses using utility function
-    final barData = groupExpensesForBarChart(filteredExpenses, chartIntervalType);
+    final barData =
+        groupExpensesForBarChart(filteredExpenses, chartIntervalType);
 
     if (barData.periodTotals.isEmpty) {
       return Center(
-        child: Text(context.l10n.noData, style: TextStyle(color: colorScheme.mutedForeground)),
+        child: Text(context.l10n.noData,
+            style: TextStyle(color: colorScheme.mutedForeground)),
       );
     }
 
-    final maxValue = barData.periodTotals.values.reduce((a, b) => a > b ? a : b);
-    
+    final maxValue =
+        barData.periodTotals.values.reduce((a, b) => a > b ? a : b);
+
     // Calculate dynamic Y-axis max and interval to prevent overlapping
     double chartMaxY;
     double interval;
-    
+
     if (maxValue <= 0) {
       chartMaxY = 10;
       interval = 2;
@@ -771,86 +784,91 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     return Padding(
       padding: const EdgeInsets.only(top: 16, bottom: 8),
       child: BarChart(
-      BarChartData(
-        alignment: BarChartAlignment.spaceAround,
-        minY: 0,
-        maxY: chartMaxY,
-        barGroups: barData.sortedPeriods.asMap().entries.map((entry) {
-          final index = entry.key;
-          final period = entry.value;
-          final value = barData.periodTotals[period] ?? 0;
-          
-          return BarChartGroupData(
-            x: index,
-            barRods: [
-              BarChartRodData(
-                toY: value,
-                color: const Color(0xFF10B981),
-                width: 40,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+        BarChartData(
+          alignment: BarChartAlignment.spaceAround,
+          minY: 0,
+          maxY: chartMaxY,
+          barGroups: barData.sortedPeriods.asMap().entries.map((entry) {
+            final index = entry.key;
+            final period = entry.value;
+            final value = barData.periodTotals[period] ?? 0;
+
+            return BarChartGroupData(
+              x: index,
+              barRods: [
+                BarChartRodData(
+                  toY: value,
+                  color: const Color(0xFF10B981),
+                  width: 40,
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(4)),
+                ),
+              ],
+            );
+          }).toList(),
+          titlesData: FlTitlesData(
+            leftTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            rightTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 50,
+                interval: interval,
+                getTitlesWidget: (value, meta) {
+                  // Only show labels at exact intervals to prevent overlap
+                  if ((value % interval).abs() > 0.01) return const SizedBox();
+                  return Padding(
+                    padding: const EdgeInsets.only(left: 4),
+                    child: Text(
+                      _formatYAxisValue(value),
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: colorScheme.mutedForeground,
+                      ),
+                    ),
+                  );
+                },
               ),
-            ],
-          );
-        }).toList(),
-        titlesData: FlTitlesData(
-          leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 50,
-              interval: interval,
-              getTitlesWidget: (value, meta) {
-                // Only show labels at exact intervals to prevent overlap
-                if ((value % interval).abs() > 0.01) return const SizedBox();
-                return Padding(
-                  padding: const EdgeInsets.only(left: 4),
-                  child: Text(
-                    _formatYAxisValue(value),
+            ),
+            topTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                getTitlesWidget: (value, meta) {
+                  if (value.toInt() >= barData.sortedPeriods.length)
+                    return const SizedBox();
+                  return Text(
+                    barData.sortedPeriods[value.toInt()],
                     style: TextStyle(
                       fontSize: 10,
                       color: colorScheme.mutedForeground,
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           ),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              getTitlesWidget: (value, meta) {
-                if (value.toInt() >= barData.sortedPeriods.length) return const SizedBox();
-                return Text(
-                  barData.sortedPeriods[value.toInt()],
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: colorScheme.mutedForeground,
-                  ),
-                );
-              },
-            ),
+          gridData: FlGridData(
+            show: true,
+            drawVerticalLine: false,
+            horizontalInterval: interval,
+            getDrawingHorizontalLine: (value) {
+              return FlLine(
+                color: colorScheme.border.withValues(alpha: 0.3),
+                strokeWidth: 1,
+                dashArray: [5, 5],
+              );
+            },
           ),
+          borderData: FlBorderData(show: false),
         ),
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          horizontalInterval: interval,
-          getDrawingHorizontalLine: (value) {
-            return FlLine(
-              color: colorScheme.border.withValues(alpha: 0.3),
-              strokeWidth: 1,
-              dashArray: [5, 5],
-            );
-          },
-        ),
-        borderData: FlBorderData(show: false),
-      ),
       ),
     );
   }
 
-  Widget _buildTransactionItem(ExpenseEntry expense, shadcnui.ColorScheme colorScheme, UserContact? contact) {
+  Widget _buildTransactionItem(
+      ExpenseEntry expense, ColorScheme colorScheme, UserContact? contact) {
     final category = expense.category ?? 'uncategorized';
     final categoryColor = getCategoryColor(category);
     final categoryIcon = getCategoryIcon(category);
@@ -872,71 +890,73 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         ),
         child: Row(
           children: [
-          // Category Icon
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: categoryColor.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              categoryIcon,
-              color: categoryColor,
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 12),
-          // Transaction Details
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  getCategoryTranslation(context, category),
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.foreground,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  dateFormat.format(expense.date),
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: colorScheme.mutedForeground,
-                  ),
-                ),
-               
-              ],
-            ),
-          ),
-          // Amount with sign based on type
-          Builder(builder: (_) {
-            final isIncome = (expense.type ?? 'expense').toLowerCase() == 'income';
-            final sign = isIncome ? '+' : '-';
-            final txt = '$sign${formatCurrency(expense.amount.abs(), expense.currency)}';
-            return Text(
-              txt,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: isIncome ? const Color(0xFF10B981) : colorScheme.foreground,
+            // Category Icon
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: categoryColor.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(12),
               ),
-            );
-          }),
-        ],
+              child: Icon(
+                categoryIcon,
+                color: categoryColor,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Transaction Details
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    getCategoryTranslation(context, category),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.foreground,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    dateFormat.format(expense.date),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: colorScheme.mutedForeground,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Amount with sign based on type
+            Builder(builder: (_) {
+              final isIncome =
+                  (expense.type ?? 'expense').toLowerCase() == 'income';
+              final sign = isIncome ? '+' : '-';
+              final txt =
+                  '$sign${formatCurrency(expense.amount.abs(), expense.currency)}';
+              return Text(
+                txt,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: isIncome
+                      ? const Color(0xFF10B981)
+                      : colorScheme.foreground,
+                ),
+              );
+            }),
+          ],
+        ),
       ),
-    ),
     );
   }
 
-
-  void _showFilterSheet(BuildContext context, shadcnui.ColorScheme colorScheme) {
+  void _showFilterSheet(BuildContext context, ColorScheme colorScheme) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.appBackground,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -989,12 +1009,17 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                           setModalState(() {});
                         },
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
                           decoration: BoxDecoration(
-                            color: isSelected ? colorScheme.primary : colorScheme.muted,
+                            color: isSelected
+                                ? colorScheme.primary
+                                : colorScheme.muted,
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                              color: isSelected ? colorScheme.primary : colorScheme.border,
+                              color: isSelected
+                                  ? colorScheme.primary
+                                  : colorScheme.border,
                             ),
                           ),
                           child: Text(
@@ -1002,8 +1027,12 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                                 ? context.l10n.allCategories
                                 : getCategoryTranslation(context, category),
                             style: TextStyle(
-                              color: isSelected ? Colors.white : colorScheme.foreground,
-                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                              color: isSelected
+                                  ? Colors.white
+                                  : colorScheme.foreground,
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.normal,
                             ),
                           ),
                         ),
@@ -1014,7 +1043,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                   Row(
                     children: [
                       Expanded(
-                        child: shadcnui.OutlineButton(
+                        child: PrimaryAdaptiveButton(
                           onPressed: () {
                             setState(() {
                               selectedCategory = 'all';
@@ -1025,11 +1054,12 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                             Navigator.pop(context);
                           },
                           child: Text(context.l10n.reset),
+                        
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: shadcnui.PrimaryButton(
+                        child: PrimaryAdaptiveButton(
                           onPressed: () => Navigator.pop(context),
                           child: Text(context.l10n.apply),
                         ),

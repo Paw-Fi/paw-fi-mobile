@@ -8,7 +8,10 @@ import 'package:moneko/features/income/presentation/providers/income_providers.d
 import 'package:moneko/features/income/presentation/constants/income_categories.dart';
 import 'package:moneko/features/income/presentation/widgets/income_entry_sheet.dart';
 import 'package:moneko/features/utils/currency.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+
+
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 
 class IncomeListPage extends ConsumerStatefulWidget {
@@ -43,21 +46,21 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
     );
 
     if (success && mounted) {
-      AppToast.success(context.l10n.incomeAcknowledged);
+      AppToast.success(context, context.l10n.incomeAcknowledged);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = shadcnui.Theme.of(context);
+    final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final incomeListState = ref.watch(incomeListProvider);
     final user = ref.watch(authProvider);
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.appBackground,
       appBar: AppBar(
-        backgroundColor: colorScheme.background,
+        backgroundColor: colorScheme.appBackground,
         elevation: 0,
         title: Text(
           context.l10n.income,
@@ -101,7 +104,7 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
-              shadcnui.PrimaryButton(
+              PrimaryAdaptiveButton(
                 onPressed: _refresh,
                 child: Text(context.l10n.retry),
               ),
@@ -112,7 +115,7 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
     );
   }
 
-  Widget _buildEmptyState(shadcnui.ColorScheme colorScheme) {
+  Widget _buildEmptyState(ColorScheme colorScheme) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -144,7 +147,7 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
             ),
           ),
           const SizedBox(height: 24),
-          shadcnui.PrimaryButton(
+          PrimaryAdaptiveButton(
             onPressed: () => showIncomeEntrySheet(context),
             child: Text(context.l10n.addIncome),
           ),
@@ -155,7 +158,7 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
 
   Widget _buildIncomeCard(
     IncomeEntry income,
-    shadcnui.ColorScheme colorScheme,
+    ColorScheme colorScheme,
     String currentUserId,
   ) {
     final isOwner = income.id.contains(currentUserId); // Simplified check
@@ -335,7 +338,7 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
                   const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
-                    child: shadcnui.PrimaryButton(
+                    child: PrimaryAdaptiveButton(
                       onPressed: () => _acknowledgeIncome(income),
                       child: Text(context.l10n.acknowledge),
                     ),

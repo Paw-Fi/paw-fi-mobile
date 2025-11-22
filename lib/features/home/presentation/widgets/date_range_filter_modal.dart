@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 /// Shows the date range filter sheet.
 ///
@@ -14,7 +15,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 /// - If [height] > 1: treated as absolute pixels.
 void showDateRangeFilter(
   BuildContext context,
-  shadcnui.ColorScheme colorScheme, {
+  ColorScheme colorScheme, {
   double? height,
 }) {
   double resolveHeight(BuildContext c, double? h) {
@@ -27,7 +28,7 @@ void showDateRangeFilter(
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    backgroundColor: colorScheme.background,
+    backgroundColor: colorScheme.appBackground,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),

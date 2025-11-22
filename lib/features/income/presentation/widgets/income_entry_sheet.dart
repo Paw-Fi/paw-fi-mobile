@@ -9,7 +9,9 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/home/presentation/widgets/currency_selector_modal.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/shared/widgets/moneko-switch.dart';
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 
 void showIncomeEntrySheet(BuildContext context) {
@@ -101,7 +103,7 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
     final amount = double.tryParse(amountText);
 
     if (amount == null || amount <= 0) {
-      _showError(context.l10n.enterValidAmountGreaterThan0);
+       AppToast.error(context, context.l10n.enterValidAmountGreaterThan0);
       return;
     }
 
@@ -143,13 +145,13 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
 
       if (income != null && mounted) {
         Navigator.of(context).pop();
-        _showSuccess(context.l10n.incomeAdded);
+        AppToast.success(context, context.l10n.incomeAdded);
       } else if (mounted) {
-        _showError('Failed to save income');
+         AppToast.error(context, 'Failed to save income');
       }
     } catch (e) {
       if (mounted) {
-        _showError(e.toString());
+         AppToast.error(context, e.toString());
       }
     } finally {
       if (mounted) {
@@ -158,14 +160,6 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
         });
       }
     }
-  }
-
-  void _showError(String message) {
-    AppToast.error(message);
-  }
-
-  void _showSuccess(String message) {
-    AppToast.success(message);
   }
 
   String _getCategoryLabel(String category) {
@@ -219,7 +213,7 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = shadcnui.Theme.of(context);
+    final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
     return Container(
@@ -483,7 +477,7 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
                             context.l10n.shareWithHousehold,
                             style: TextStyle(color: colorScheme.foreground),
                           ),
-                          Switch(
+                          MonekoSwitch(
                             value: _shareWithHousehold,
                             onChanged: (value) {
                               setState(() {
@@ -572,7 +566,7 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
                     // Save Button
                     SizedBox(
                       width: double.infinity,
-                      child: shadcnui.PrimaryButton(
+                      child: PrimaryAdaptiveButton(
                         onPressed: _isSaving ? null : _saveIncome,
                         child: _isSaving
                             ? const SizedBox(

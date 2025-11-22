@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/shared/widgets/destructive-adaptive-button.dart';
+import 'package:moneko/shared/widgets/outlined-adaptive-button.dart';
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 import '../../domain/entities/household.dart';
 import '../providers/household_providers.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 /// Household Invites Management Page
 /// Create, view, copy, and revoke invitations
@@ -43,19 +47,19 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
-        AppToast.error('${context.l10n.errorLoadingInvites}: $e');
+        AppToast.error(context, '${context.l10n.errorLoadingInvites}: $e');
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.appBackground,
       appBar: AppBar(
-        backgroundColor: colorScheme.background,
+        backgroundColor: colorScheme.appBackground,
         elevation: 0,
         title: Text(
           context.l10n.invitations,
@@ -74,7 +78,7 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
                 padding: const EdgeInsets.all(16),
                 children: [
                   // Create Invite Button
-                  shadcnui.PrimaryButton(
+                  PrimaryAdaptiveButton(
                     onPressed: () => _showCreateInviteDialog(context),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -241,17 +245,17 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
       await _loadInvites();
 
       if (mounted) {
-        AppToast.success(context.l10n.invitationCreatedSuccessfully);
+        AppToast.success(context, context.l10n.invitationCreatedSuccessfully);
 
         // Automatically copy the invite link
         final inviteUrl = 'https://moneko.io/invites/$token';
         Clipboard.setData(ClipboardData(text: inviteUrl));
 
-        AppToast.success(context.l10n.inviteLinkCopiedToClipboard);
+        AppToast.success(context, context.l10n.inviteLinkCopiedToClipboard);
       }
     } catch (e) {
       if (mounted) {
-        AppToast.error('${context.l10n.errorCreatingInvite}: $e');
+        AppToast.error(context, '${context.l10n.errorCreatingInvite}: $e');
       }
     }
   }
@@ -260,7 +264,7 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
     final inviteUrl = 'https://moneko.io/invites/${invite.token}';
     Clipboard.setData(ClipboardData(text: inviteUrl));
 
-    AppToast.success(context.l10n.inviteLinkCopiedToClipboard);
+    AppToast.success(context, context.l10n.inviteLinkCopiedToClipboard);
   }
 
   Future<void> _revokeInvite(HouseholdInvite invite) async {
@@ -290,11 +294,11 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
         await _loadInvites();
 
         if (mounted) {
-          AppToast.success(context.l10n.invitationRevoked);
+          AppToast.success(context, context.l10n.invitationRevoked);
         }
       } catch (e) {
         if (mounted) {
-          AppToast.error('${context.l10n.errorRevokingInvite}: $e');
+          AppToast.error(context, '${context.l10n.errorRevokingInvite}: $e');
         }
       }
     }
@@ -315,7 +319,7 @@ class _InviteCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final isExpired = invite.expiresAt != null && invite.expiresAt!.isBefore(DateTime.now());
     final isPending = invite.status == InviteStatus.pending;
 
@@ -376,7 +380,7 @@ class _InviteCard extends StatelessWidget {
                 children: [
                   if (onCopy != null)
                     Expanded(
-                      child: shadcnui.OutlineButton(
+                      child: OutlinedAdaptiveButton(
                         onPressed: onCopy,
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -391,7 +395,7 @@ class _InviteCard extends StatelessWidget {
                   if (onCopy != null && onRevoke != null) const SizedBox(width: 8),
                   if (onRevoke != null)
                     Expanded(
-                      child: shadcnui.DestructiveButton(
+                      child: DestructiveAdaptiveButton(
                         onPressed: onRevoke,
                         child: Row(
                           mainAxisSize: MainAxisSize.min,

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/utils/currency.dart';
@@ -11,9 +11,11 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/core/theme/app_theme.dart';
+
 Widget buildCategoryBreakdownCard(
   BuildContext context,
-  shadcnui.ColorScheme colorScheme,
+  ColorScheme colorScheme,
   List<ExpenseEntry> expenses,
   UserContact? contact, {
   String? selectedCurrency,
@@ -95,12 +97,12 @@ Widget buildCategoryBreakdownCard(
                                 }
                                 
                                 // Show success toast
-                                AppToast.success(l10n.transactionDeleted);
+                                AppToast.success(context, l10n.transactionDeleted);
                               } else {
-                                AppToast.error(l10n.anErrorOccurred);
+                                AppToast.error(context, l10n.anErrorOccurred);
                               }
                             } catch (err) {
-                              AppToast.error('${l10n.error}: $err');
+                              AppToast.error(context, '${l10n.error}: $err');
                             }
                           },
                           backgroundColor: const Color(0xFFFE4A49),

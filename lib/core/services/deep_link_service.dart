@@ -99,7 +99,7 @@ class DeepLinkService {
       if (navCtx != null && navCtx.mounted) {
         final ctx = navCtx;
         if (status == 'success') {
-          AppToast.success(ctx.l10n.paymentSuccessfulCheckingSubscription);
+          AppToast.success(ctx,ctx.l10n.paymentSuccessfulCheckingSubscription);
           // Navigate to dashboard after a short delay to let subscription load
           Future.delayed(const Duration(seconds: 2), () {
             final delayed = rootNavigatorKey.currentContext;
@@ -110,9 +110,9 @@ class DeepLinkService {
           });
         } else if (status == 'failed') {
           final error = uri.queryParameters['error'] ?? ctx.l10n.paymentFailed;
-          AppToast.error('❌ $error');
+          AppToast.error(ctx,error);
         } else if (status == 'canceled') {
-          AppToast.info(ctx.l10n.paymentCanceled);
+          AppToast.info(ctx,ctx.l10n.paymentCanceled);
         }
       }
       return;
@@ -280,7 +280,7 @@ class DeepLinkService {
       if (expense == null) {
         debugPrint('⚠️ Expense not found: $expenseId');
         if (navigatorContext.mounted) {
-          AppToast.info(navigatorContext.l10n.expenseNotFoundOrDeleted);
+          AppToast.info(navigatorContext, navigatorContext.l10n.expenseNotFoundOrDeleted);
         }
         return;
       }
@@ -353,7 +353,7 @@ class DeepLinkService {
         ref.read(whatsAppBindingProvider.notifier).setVerified();
         
         // Show success message
-        AppToast.success(context.l10n.whatsappVerifiedSuccessfully);
+        AppToast.success(context, context.l10n.whatsappVerifiedSuccessfully);
       },
     );
   }

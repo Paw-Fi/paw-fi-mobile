@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
-
-Widget buildCategoryBarChart(BuildContext context, shadcnui.ColorScheme colorScheme, List<ExpenseEntry> expenses) {
+import 'package:moneko/core/theme/app_theme.dart';
+Widget buildCategoryBarChart(BuildContext context, ColorScheme colorScheme, List<ExpenseEntry> expenses) {
   // Group by category
   final Map<String, double> categoryTotals = {};
   for (final expense in expenses) {

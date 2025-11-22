@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/core/theme/app_theme.dart';
 
 /// Custom text field with consistent design across the app
 /// Provides a clean, minimal input field with subtle border radius
@@ -21,6 +21,7 @@ class CustomTextField extends StatelessWidget {
   final List<TextInputFormatter>? inputFormatters;
   final FocusNode? focusNode;
   final bool enabled;
+  final bool autofocus;
 
   const CustomTextField({
     super.key,
@@ -40,11 +41,12 @@ class CustomTextField extends StatelessWidget {
     this.inputFormatters,
     this.focusNode,
     this.enabled = true,
+    this.autofocus = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return TextFormField(
       controller: controller,
@@ -58,6 +60,7 @@ class CustomTextField extends StatelessWidget {
       textAlign: textAlign,
       inputFormatters: inputFormatters,
       focusNode: focusNode,
+      autofocus: autofocus,
       enabled: enabled,
       style: style ??
           TextStyle(
@@ -75,7 +78,7 @@ class CustomTextField extends StatelessWidget {
         prefixIcon: prefixIcon,
         suffixIcon: suffixIcon,
         filled: true,
-        fillColor: colorScheme.background,
+        fillColor: colorScheme.appBackground,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 14,

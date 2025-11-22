@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../households/presentation/providers/household_providers.dart';
 import '../state/analytics_provider.dart';
 import '../../../utils/currency.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/theme/app_theme.dart';
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 
 /// Navigate to household screen (either overview or onboarding)
 void navigateToHousehold(BuildContext context, WidgetRef ref) async {
@@ -14,7 +17,7 @@ void navigateToHousehold(BuildContext context, WidgetRef ref) async {
   final userId = Supabase.instance.client.auth.currentUser?.id;
 
   if (userId == null) {
-    AppToast.info(context.l10n.userNotLoggedIn);
+    AppToast.info(context, context.l10n.userNotLoggedIn);
     return;
   }
 
@@ -45,14 +48,14 @@ void navigateToHousehold(BuildContext context, WidgetRef ref) async {
     },
     error: (error, stack) {
       // Show error message
-      AppToast.error(context.l10n.errorLoadingHouseholds);
+      AppToast.error(context, context.l10n.errorLoadingHouseholds);
     },
   );
 }
 
 /// Show household onboarding modal (create or join)
 void showHouseholdOnboardingModal(BuildContext context, WidgetRef ref, String userId) {
-  final colorScheme = shadcnui.Theme.of(context).colorScheme;
+  final colorScheme = Theme.of(context).colorScheme;
 
   showDialog(
     context: context,
@@ -65,7 +68,7 @@ void showHouseholdOnboardingModal(BuildContext context, WidgetRef ref, String us
           maxWidth: 400,
         ),
         decoration: BoxDecoration(
-          color: colorScheme.background,
+          color: colorScheme.appBackground,
           borderRadius: BorderRadius.circular(20),
         ),
         padding: const EdgeInsets.all(24),
@@ -108,7 +111,7 @@ void showHouseholdOnboardingModal(BuildContext context, WidgetRef ref, String us
             SizedBox(
               width: double.infinity,
               height: 44,
-              child: shadcnui.PrimaryButton(
+              child: PrimaryAdaptiveButton(
                 onPressed: () {
                   Navigator.of(context).pop();
                   _showCreateHouseholdDialog(context, ref, userId);
@@ -129,18 +132,13 @@ void showHouseholdOnboardingModal(BuildContext context, WidgetRef ref, String us
             SizedBox(
               width: double.infinity,
               height: 44,
-              child: shadcnui.OutlineButton(
+              child: AdaptiveButton(
                 onPressed: () {
                   Navigator.of(context).pop();
-                  AppToast.info(context.l10n.pleaseUseInvitationLink);
+                  AppToast.info(context, context.l10n.pleaseUseInvitationLink);
                 },
-                child: Text(
-                  context.l10n.joinWithInvite,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                style: AdaptiveButtonStyle.bordered,
+                label: context.l10n.joinWithInvite,
               ),
             ),
           ],
@@ -152,7 +150,7 @@ void showHouseholdOnboardingModal(BuildContext context, WidgetRef ref, String us
 
 /// Show create household dialog
 void _showCreateHouseholdDialog(BuildContext context, WidgetRef ref, String userId) {
-  final colorScheme = shadcnui.Theme.of(context).colorScheme;
+  final colorScheme = Theme.of(context).colorScheme;
   final nameController = TextEditingController();
 
   showDialog(
@@ -166,7 +164,7 @@ void _showCreateHouseholdDialog(BuildContext context, WidgetRef ref, String user
           maxWidth: 400,
         ),
         decoration: BoxDecoration(
-          color: colorScheme.background,
+          color: colorScheme.appBackground,
           borderRadius: BorderRadius.circular(20),
         ),
         padding: const EdgeInsets.all(24),
@@ -199,17 +197,18 @@ void _showCreateHouseholdDialog(BuildContext context, WidgetRef ref, String user
             Row(
               children: [
                 Expanded(
-                  child: shadcnui.OutlineButton(
+                  child: AdaptiveButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Cancel'),
+                    style: AdaptiveButtonStyle.plain,
+                    label: context.l10n.cancel,
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: shadcnui.PrimaryButton(
+                  child: AdaptiveButton(
                     onPressed: () async {
                       if (nameController.text.isEmpty) {
-                        AppToast.info(context.l10n.pleaseEnterHouseholdName);
+                        AppToast.info(context, context.l10n.pleaseEnterHouseholdName);
                         return;
                       }
 
@@ -236,11 +235,11 @@ void _showCreateHouseholdDialog(BuildContext context, WidgetRef ref, String user
                         }
                       } catch (e) {
                         if (context.mounted) {
-                          AppToast.error(context.l10n.errorCreatingHousehold);
+                          AppToast.error(context, context.l10n.errorCreatingHousehold);
                         }
                       }
                     },
-                    child: const Text('Create'),
+                    label: context.l10n.create,
                   ),
                 ),
               ],
@@ -253,7 +252,7 @@ void _showCreateHouseholdDialog(BuildContext context, WidgetRef ref, String user
 }
 
 // Legacy function for backwards compatibility
-void showJointAccountModal(BuildContext context, shadcnui.ColorScheme colorScheme) {
+void showJointAccountModal(BuildContext context, ColorScheme colorScheme) {
   // This is deprecated, but kept for backwards compatibility
   // It will be removed once all references are updated
   showDialog(
@@ -267,7 +266,7 @@ void showJointAccountModal(BuildContext context, shadcnui.ColorScheme colorSchem
           maxWidth: 400,
         ),
         decoration: BoxDecoration(
-          color: colorScheme.background,
+          color: colorScheme.appBackground,
           borderRadius: BorderRadius.circular(20),
         ),
         padding: const EdgeInsets.all(24),
@@ -304,15 +303,9 @@ void showJointAccountModal(BuildContext context, shadcnui.ColorScheme colorSchem
             SizedBox(
               width: double.infinity,
               height: 44,
-              child: shadcnui.PrimaryButton(
+              child: AdaptiveButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: Text(
-                  context.l10n.gotIt,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                label: context.l10n.gotIt,
               ),
             ),
           ],

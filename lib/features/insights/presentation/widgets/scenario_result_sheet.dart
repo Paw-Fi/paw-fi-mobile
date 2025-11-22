@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:markdown_widget/markdown_widget.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/utils/currency.dart';
-
+import 'package:moneko/core/theme/app_theme.dart';
 /// Helper to safely convert dynamic value to double
 double _asDouble(dynamic v) {
   if (v is num) return v.toDouble();
@@ -18,7 +18,7 @@ void showScenarioResultSheet(
   Map<String, dynamic> meta, {
   String? selectedCurrency,
 }) {
-  final colorScheme = shadcnui.Theme.of(context).colorScheme;
+  final colorScheme = Theme.of(context).colorScheme;
   
   // Use correct currency symbol based on selection
   final String currencySymbol;
@@ -45,7 +45,7 @@ void showScenarioResultSheet(
           maxHeight: MediaQuery.of(context).size.height * 0.85,
         ),
         decoration: BoxDecoration(
-          color: colorScheme.background,
+          color: colorScheme.appBackground,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(
@@ -189,7 +189,7 @@ void showScenarioResultSheet(
   );
 }
 
-Widget _buildStatRow(BuildContext context, shadcnui.ColorScheme colorScheme, String label, String value) {
+Widget _buildStatRow(BuildContext context, ColorScheme colorScheme, String label, String value) {
   return Padding(
     padding: const EdgeInsets.symmetric(vertical: 6.0),
     child: Row(

@@ -2,7 +2,6 @@
   "@@locale": "zh_TW",
   "appTitle": "Moneko",
   "noSpendingYet": "尚無支出",
-
   "loginWelcomeBack": "歡迎回來",
   "orContinueWithEmail": "或使用 Email 繼續",
   "emailAddress": "電子信箱",
@@ -34,7 +33,6 @@
       }
     }
   },
-
   "createYourAccount": "建立您的帳號",
   "fullName": "全名",
   "createPassword": "建立密碼",
@@ -43,7 +41,6 @@
   "termsAgreement": "註冊帳號即表示您同意我們的服務條款與隱私權政策",
   "alreadyHaveAccount": "已經有帳號了？",
   "signInLower": "登入",
-
   "verificationCodeSent": "驗證碼已成功寄出",
   "verifyYourEmail": "驗證您的 Email",
   "verificationEmailSentTo": "我們已將 6 位數驗證碼寄至 {email}",
@@ -55,7 +52,7 @@
     }
   },
   "enterCompleteCode": "請輸入完整的 6 位數驗證碼",
-  "invalidVerificationCode": "驗證碼無效。請檢查後再試一次。",
+  "invalidVerificationCode": "驗證碼無效",
   "verificationCodeExpired": "驗證碼已過期，請重新索取。",
   "verifyEmail": "驗證 Email",
   "didntReceiveTheCode": "沒收到驗證碼？請檢查您的垃圾郵件匣，或",
@@ -70,20 +67,16 @@
   "resendVerificationEmail": "重新傳送驗證 Email",
   "continueWithWallet": "使用 Web3 錢包繼續",
   "signingInWithWallet": "正在連線錢包...",
-
   "continueWithGoogle": "使用 Google 帳號繼續",
   "signingInWithGoogle": "正在使用 Google 登入...",
-
   "error": "錯誤",
   "anErrorOccurred": "發生錯誤",
   "unknownError": "未知的錯誤",
   "goToHome": "前往首頁",
-
   "paymentSuccessfulCheckingSubscription": "✅ 付款成功！正在檢查訂閱狀態...",
   "paymentFailed": "付款失敗",
   "paymentCanceled": "ℹ️ 付款已取消",
   "whatsappVerifiedSuccessfully": "✅ WhatsApp 驗證成功！",
-
   "settings": "設定",
   "enableNotificationsInSettings": "請至您裝置的「設定」開啟 Moneko 的通知功能",
   "appearance": "外觀",
@@ -159,14 +152,12 @@
   "recentActivity": "近期活動",
   "noActivityYet": "目前沒有活動",
   "signOut": "登出",
-
   "@insights": {},
   "insights": "洞察報告",
   "runningTab": "即時餘額",
   "day30Tab": "30 天",
   "longTermTab": "長期",
   "scenarioTab": "情境",
-
   "@runningBalance": {},
   "runningAndDailyBalances": "即時與每日餘額",
   "budgetVsSpentDescription": "每日預算與支出對比，以及累計即時餘額。",
@@ -175,21 +166,18 @@
   "spentLegend": "支出",
   "runningBalanceGuide": "即時餘額指南",
   "runningBalanceIntro": "把這張圖表想像成您的個人理財教練。讓我們來看看它顯示了什麼，以及如何使用它。",
-
   "@day30Projection": {},
   "day30LookAhead": "未來 30 天預測",
   "projectedFromTrailing30Days": "根據過去 30 天的平均值預測。",
   "projectedSpendingLegend": "預測支出",
   "peek30DaysAhead": "預覽未來 30 天",
   "day30ForecastIntro": "此預測使用上個月的活動來推測下個月的狀況。把它想像成您錢包的氣象報告。",
-
   "@longTermProjection": {},
   "longTermProjection": "長期預測",
   "basedOnHistoricalAverages": "基於歷史平均值；隨您的資料自動更新。",
   "month18ProjectionLegend": "18 個月預測",
   "your18MonthHorizon": "您的 18 個月展望",
   "longTermIntro": "此預測融合了您的穩定習慣與溫和的成長假設，讓您看見今日的選擇將帶來什麼樣的未來。",
-
   "@scenarioPlanning": {},
   "aiScenarioPlanning": "AI 情境規劃",
   "askAiFinancialAdvisor": "詢問您的 AI 理財顧問，您是否負擔得起未來的某項支出",
@@ -212,7 +200,6 @@
   "categoryWhyHelpfulDesc": "快速找出您最大的支出類別，並觀察長期趨勢。",
   "whatToDoWithTheInsight": "如何運用這份洞察",
   "categoryWhatToDoDesc": "利用這些資訊來調整您的預算和消費習慣。",
-
   "@scenarioResults": {},
   "scenarioAnalysis": "情境分析",
   "target": "目標",
@@ -220,15 +207,12 @@
   "currentBalance": "目前餘額",
   "projectedNoChange": "預測 (無變動)",
   "avgDailyNet": "每日平均淨額",
-
   "@chartLabels": {},
   "noDataAvailable": "沒有可用的資料",
   "day": "日",
-
   "@navigation": {},
   "close": "關閉",
   "done": "完成",
-
   "@runningBalanceSlides": {},
   "whatYouAreSeeing": "您所看到的",
   "whyItMatters": "為何重要",
@@ -236,19 +220,16 @@
   "runningBalanceWhatYouSeeDesc": "您的「即時餘額」追蹤您在每日支出後還有多少緩衝空間。每日長條圖顯示您的計劃 (預算) 與實際支出。",
   "runningBalanceWhyMattersDesc": "把它當作一個友善的健康檢查。它幫助您注意到自己何時超前進度，以便繼續投資，或在何時需要修正路線以保持在軌道上。",
   "runningBalanceHowToRespondDesc": "像教練一樣使用這張圖表。慶祝成果，必要時重新設定期望，並給自己一點彈性——重點是穩步前進，而非完美。",
-
   "@day30Slides": {},
   "whatTheForecastShows": "預測顯示了什麼",
   "day30WhatShowsDesc": "我們融合過去 30 天的收支，描繪出未來一週的平均狀況。它會平滑掉一次性的大額花費，讓您看到通常的節奏。",
   "day30WhyMattersDesc": "前瞻性的預算能幫助您保持主動。看到未來有大筆支出的日子，能讓您提早預留現金，而不是到時手忙腳亂。",
   "day30HowToPlaySmartDesc": "把它當作一個友善的提醒，而不是嚴格的規則手冊。用一些您覺得可行的小動作來調整您的計劃。",
-
   "@longTermSlides": {},
   "howTheProjectionWorks": "預測如何運作",
   "longTermHowWorksDesc": "我們推估您未來的平均收支，並加入適度的成長，讓您看到您的計劃是否能在未來幾個月保持現金充裕。",
   "longTermWhyMattersDesc": "長遠的眼光使偉大的夢想成真。看看您的緊急預備金、投資或大型採購是否仍在軌道上。",
   "longTermMovesToConsiderDesc": "使用圖表來演練未來的決策。今天的小調整將在未來累積成大勝利。",
-
   "@categorySlides": {},
   "forMe": "個人",
   "forUs": "共享",
@@ -282,7 +263,7 @@
   "addEntry": "新增記錄",
   "freeFormText": "自由輸入",
   "takePhoto": "拍照",
-  "recentTransactions": "最近的交易",
+  "recentTransactions": "最近交易",
   "transactions": "交易",
   "negative": "負",
   "positive": "正",
@@ -334,7 +315,7 @@
   "pleaseEnterExpenseDetails": "請輸入支出詳情",
   "userNotLoggedIn": "使用者未登入",
   "errorLoadingHouseholds": "載入家庭時發生錯誤",
-  "welcomeToHouseholds": "歡迎使用「家庭」功能！",
+  "welcomeToHouseholds": "歡迎使用「家庭」",
   "householdsDescription": "與您的家人、伴侶或室友管理共享財務。追蹤預算、分攤支出，並共同協作理財決策。",
   "createHousehold": "建立家庭",
   "joinWithInvite": "使用邀請加入",
@@ -347,16 +328,16 @@
   "householdsFeatureDescription": "「家庭」功能現已推出！與家人、伴侶或室友共同管理共享財務。",
   "gotIt": "了解！",
   "confirmExpense": "確認支出",
-  "expenseDetails": "支出詳情",
+  "expenseDetails": "支出明細",
   "details": "詳情",
   "category": "類別",
-  "currency": "幣別",
+  "currency": "貨幣",
   "date": "日期",
   "time": "時間",
   "notes": "備註",
   "receipt": "收據",
   "saveExpense": "儲存支出",
-  "shareWithHousehold": "與家庭共享",
+  "shareWithHousehold": "與家庭分享",
   "loadingHouseholdMembers": "正在載入家庭成員...",
   "selectHouseholdToConfigureSplit": "選擇一個家庭以設定分帳",
   "currencyManagedByHousehold": "幣別由家庭管理，無法變更",
@@ -368,7 +349,7 @@
   "editNotes": "編輯備註",
   "addANote": "新增備註...",
   "noMembersFoundInHousehold": "家庭中找不到成員",
-  "errorLoadingMembers": "載入成員時發生錯誤：{error}",
+  "errorLoadingMembers": "載入成員時發生錯誤",
   "noExpenseToSave": "沒有要儲存的支出",
   "expenseSavedAndShared": "支出已儲存並共享{splitInfo}！",
   "failedToSave": "儲存失敗：{error}",
@@ -377,14 +358,11 @@
   "retryFailed": "重試失敗：{error}",
   "iSpentAmountOnCategory": "我在 {category} 上花了 {currencySymbol}{amount}",
   "enterNewTotalDailyBudgetDescription": "輸入新的每日總預算。",
-
   "@household": {},
   "pleaseSignInToAccessHouseholdFeatures": "請登入以使用家庭功能",
-  "errorLoadingHouseholds": "載入家庭時發生錯誤",
   "quickActions": "快速操作",
   "members": "成員",
   "invites": "邀請",
-  "settings": "設定",
   "errorLoadingExpenses": "載入支出時發生錯誤",
   "budgets": "預算",
   "loadingHousehold": "正在載入家庭...",
@@ -395,7 +373,6 @@
   "spentByHousehold": "家庭支出",
   "memberSpending": "成員支出",
   "spentByHouseholdTooltip": "顯示所選期間內所有家庭成員的總支出金額。包括家庭任何成員記錄的所有共享支出。",
-  "welcomeToHouseholds": "歡迎使用「家庭」",
   "manageMoneyTogether": "在一個共享空間中，與您的伴侶、家人或室友共同管理財務。",
   "sharedBudgetsExpenses": "共享預算與支出",
   "sharedBudgetsExpensesDesc": "設定預算、追蹤支出，並即時查看您家庭的資金流向。",
@@ -403,91 +380,78 @@
   "smartExpenseSplittingDesc": "透過彈性的分帳選項 (均分、百分比或自訂金額) 自動計算誰該付多少錢。",
   "stayInSync": "保持同步",
   "stayInSyncDesc": "當新增支出、達到預算或需要結算分帳時收到通知。",
-  "createHousehold": "建立家庭",
-  "joinWithInvite": "使用邀請加入",
-  
-    "@householdSettings": {},
-    "householdSettings": "家庭設定",
-    "householdNotFound": "找不到家庭",
-    "coverPhoto": "封面照片",
-    "changeCoverPhoto": "更換封面照片",
-    "saveChanges": "儲存變更",
-    "pleaseEnterHouseholdName": "請輸入家庭名稱",
-    "errorLoadingHousehold": "載入家庭時發生錯誤",
-    "householdUpdatedSuccessfully": "家庭已成功更新",
-    "failedToUpdateHousehold": "更新家庭失敗",
-    
-    "@householdMembers": {},
-    "inviteMember": "邀請成員",
-    "errorLoadingMembers": "載入成員時發生錯誤",
-    "retry": "重試",
-    "removeMember": "移除成員",
-    "remove": "移除",
-    "confirmRemoveMember": "您確定要移除",
-    "updatedMemberRole": "已更新",
-    "unknown": "未知",
-    "makeAdmin": "設為管理員",
-    "makeMember": "設為成員",
-    
-    "@householdInvites": {},
-    "invitations": "邀請",
-    "errorLoadingInvites": "載入邀請時發生錯誤",
-    "createInvitation": "建立邀請",
-    "pendingInvitations": "待處理的邀請",
-    "noPendingInvitations": "沒有待處理的邀請",
-    "invitationHistory": "邀請紀錄",
-    "noInvitationHistory": "沒有邀請紀錄",
-    "emailOptional": "Email (選填)",
-    "friendEmailExample": "friend@example.com",
-    "personalMessageOptional": "個人訊息 (選填)",
-    "joinHouseholdBudget": "加入我們的家庭預算！",
-    "expiresIn": "有效期限",
-    "oneDay": "1 天",
-    "threeDays": "3 天",
-    "sevenDays": "7 天",
-    "fourteenDays": "14 天",
-    "thirtyDays": "30 天",
-    "unlimited": "無限制",
-    "create": "建立",
-    "invitationCreatedSuccessfully": "邀請已成功建立！",
-    "inviteLinkCopiedToClipboard": "邀請連結已複製到剪貼簿！",
-    "errorCreatingInvite": "建立邀請時發生錯誤",
-    "revokeInvitation": "撤銷邀請",
-    "confirmRevokeInvitation": "您確定要撤銷此邀請嗎？",
-    "revoke": "撤銷",
-    "invitationRevoked": "邀請已撤銷",
-    "errorRevokingInvite": "撤銷邀請時發生錯誤",
-    "anyoneWithLink": "任何持有連結者",
-    "noExpiry": "無到期日",
-    "expired": "已過期",
-    "expires": "到期",
-    "copyLink": "複製連結",
-    
-    "@householdImagePicker": {},
-    "selectCoverImage": "選取封面圖片",
-    "failedToLoadImages": "載入圖片失敗",
-    "takePhoto": "拍照",
-    "chooseFromGallery": "從相簿選擇",
-    "failedToLoad": "載入失敗",
-    "imageTooLarge": "圖片過大",
-    "maxIs": "上限為",
-    "unsupportedFileFormat": "不支援的檔案格式。請使用 JPG、PNG 或 WebP。",
-    "cropCoverImage": "裁切封面圖片",
-
+  "@householdSettings": {},
+  "householdSettings": "家庭設定",
+  "householdNotFound": "找不到家庭",
+  "coverPhoto": "封面照片",
+  "changeCoverPhoto": "更換封面照片",
+  "saveChanges": "儲存變更",
+  "errorLoadingHousehold": "載入家庭時發生錯誤",
+  "householdUpdatedSuccessfully": "家庭已成功更新",
+  "failedToUpdateHousehold": "更新家庭失敗",
+  "@householdMembers": {},
+  "inviteMember": "邀請成員",
+  "removeMember": "移除成員",
+  "remove": "移除",
+  "confirmRemoveMember": "您確定要移除",
+  "updatedMemberRole": "已更新成員角色",
+  "unknown": "未知",
+  "makeAdmin": "設為管理員",
+  "makeMember": "設為成員",
+  "@householdInvites": {},
+  "invitations": "邀請",
+  "errorLoadingInvites": "載入邀請時發生錯誤",
+  "createInvitation": "建立邀請",
+  "pendingInvitations": "待處理的邀請",
+  "noPendingInvitations": "沒有待處理的邀請",
+  "invitationHistory": "邀請紀錄",
+  "noInvitationHistory": "沒有邀請紀錄",
+  "emailOptional": "Email (選填)",
+  "friendEmailExample": "friend@example.com",
+  "personalMessageOptional": "個人訊息 (選填)",
+  "joinHouseholdBudget": "加入我們的家庭預算！",
+  "expiresIn": "有效期限",
+  "oneDay": "1 天",
+  "threeDays": "3 天",
+  "sevenDays": "7 天",
+  "fourteenDays": "14 天",
+  "thirtyDays": "30 天",
+  "unlimited": "無限制",
+  "create": "建立",
+  "invitationCreatedSuccessfully": "邀請建立成功",
+  "inviteLinkCopiedToClipboard": "邀請連結已複製到剪貼簿！",
+  "errorCreatingInvite": "建立邀請時發生錯誤",
+  "revokeInvitation": "撤銷邀請",
+  "confirmRevokeInvitation": "您確定要撤銷此邀請嗎？",
+  "revoke": "撤銷",
+  "invitationRevoked": "邀請已撤銷",
+  "errorRevokingInvite": "撤銷邀請時發生錯誤",
+  "anyoneWithLink": "任何持有連結者",
+  "noExpiry": "無到期日",
+  "expired": "已過期",
+  "expires": "到期",
+  "copyLink": "複製連結",
+  "@householdImagePicker": {},
+  "selectCoverImage": "選取封面圖片",
+  "failedToLoadImages": "載入圖片失敗",
+  "chooseFromGallery": "從相簿選擇",
+  "failedToLoad": "載入失敗",
+  "imageTooLarge": "圖片過大",
+  "maxIs": "上限為",
+  "unsupportedFileFormat": "不支援的檔案格式。請使用 JPG、PNG 或 WebP。",
+  "cropCoverImage": "裁切封面圖片",
   "@budgetDetail": {},
   "editBudget": "編輯預算",
   "budgetDetails": "預算詳情",
   "budgetName": "預算名稱",
-  "amount": "金額",
   "period": "週期",
-  "currency": "幣別",
   "alertThresholds": "提醒閾值",
-  "warningThreshold": "警告閾值",
-  "alertThreshold": "警示閾值",
+  "warningThreshold": "警告閾值 (%)",
+  "alertThreshold": "警示閾值 (%)",
   "warningThresholdHelper": "當預算使用率達到此百分比時提醒",
   "alertThresholdHelper": "達到此百分比時發出嚴重警示",
   "budgetStatus": "預算狀態",
-  "active": "啟用",
+  "active": "活躍",
   "inactive": "停用",
   "deletingBudget": "正在刪除預算...",
   "savingChanges": "正在儲存變更...",
@@ -501,7 +465,6 @@
   "thisActionCannotBeUndone": "此動作無法復原",
   "budgetUpdatedSuccessfully": "預算更新成功",
   "budgetDeletedSuccessfully": "預算刪除成功",
-
   "@categories": {},
   "categoryTransfers": "轉帳",
   "categoryShopping": "購物",
@@ -547,71 +510,15 @@
   "categoryBeauty": "美容",
   "categoryMisc": "雜項",
   "categoryUncategorized": "未分類",
-
-  "alertThresholds": "提醒閾值",
-  "warningThreshold": "警告閾值 (%)",
-  "alertThreshold": "警示閾值 (%)",
-  "warningThresholdHelper": "當預算使用率達到此百分比時提醒",
-  "alertThresholdHelper": "達到此百分比時發出嚴重警示",
-  "active": "啟用",
-  "inactive": "停用",
-  "saveChanges": "儲存變更",
-  "pleaseEnterValidAmount": "請輸入有效金額",
-  "warningThresholdRange": "警告閾值必須介於 0 和 100 之間",
-  "alertThresholdRange": "警示閾值必須介於 0 和 100 之間",
-  "warningThresholdLessThanAlert": "警告閾值必須小於或等於警示閾值",
-  "failedToUpdateBudget": "更新預算失敗",
-  "deleteBudget": "刪除預算",
-  "confirmDeleteBudget": "您確定要刪除",
   "deleteBudgetCannotBeUndone": "此動作無法復原",
   "delete": "刪除",
   "failedToDeleteBudget": "刪除預算失敗",
-
-  "owner": "擁有者",
-  "admin": "管理員",  
+  "owner": "所有者",
+  "admin": "管理員",
   "member": "成員",
-  "removeMember": "移除成員",
-  "confirmRemoveMember": "您確定要移除",
-  "remove": "移除",
-  "retry": "重試",
-  "unknown": "未知",
-  "makeAdmin": "設為管理員",
-  "makeMember": "設為成員",
-  "updatedMemberRole": "已更新成員角色",
-
-  "invitations": "邀請",
-  "createInvitation": "建立邀請",
-  "pendingInvitations": "待處理的邀請",
-  "noPendingInvitations": "沒有待處理的邀請",
-  "invitationHistory": "邀請紀錄",
-  "noInvitationHistory": "沒有邀請紀錄",
-  "emailOptional": "Email (選填)",
-  "friendEmailExample": "friend@example.com",
-  "personalMessageOptional": "個人訊息 (選填)",
-  "expiresIn": "有效期限",
-  "oneDay": "1 天",
-  "threeDays": "3 天",
-  "sevenDays": "7 天",
-  "fourteenDays": "14 天",
-  "thirtyDays": "30 天",
-  "unlimited": "無限制",
-  "create": "建立",
-  "invitationCreatedSuccessfully": "邀請建立成功",
-  "inviteLinkCopiedToClipboard": "邀請連結已複製到剪貼簿！",
-  "anyoneWithLink": "任何持有連結者",
-  "revokeInvitation": "撤銷邀請",
-  "confirmRevokeInvitation": "您確定要撤銷此邀請嗎？",
-  "revoke": "撤銷",
-  "invitationRevoked": "邀請已撤銷",
-  "copyLink": "複製連結",
-  "noExpiry": "無到期日",
-  "expired": "已過期",
-  "expires": "到期",
   "pending": "待處理",
   "accepted": "已接受",
   "revoked": "已撤銷",
-
-  "createHousehold": "建立家庭",
   "tapToChangeCover": "點擊以更換封面",
   "personalMessageHint": "想對受邀者說的話 (例如：「加入我們的家庭預算吧！」)",
   "invitationExpiresIn": "邀請有效期限",
@@ -629,7 +536,6 @@
   "creating": "正在建立...",
   "generatingInvite": "正在產生邀請...",
   "pleaseSelectValidCurrency": "請選擇有效的家庭幣別",
-  "details": "詳情",
   "nameMaxLength": "名稱不得超過 {max} 個字元",
   "@nameMaxLength": {
     "placeholders": {
@@ -638,7 +544,6 @@
       }
     }
   },
-
   "createHouseholdPage": "建立家庭頁面",
   "invitationPersonalMessageInput": "邀請個人訊息輸入",
   "householdNameInput": "家庭名稱輸入",
@@ -656,13 +561,10 @@
   "householdInformation": "家庭資訊",
   "creatingHousehold": "正在建立家庭",
   "createHouseholdButton": "建立家庭按鈕",
-
   "searchExpenses": "搜尋支出...",
   "clearAll": "全部清除",
   "allCategories": "所有類別",
-  "category": "類別",
   "allMembers": "所有成員",
-
   "balanceSummary": "餘額總覽",
   "youAreOwed": "他人欠您",
   "youOwe": "您欠他人",
@@ -670,7 +572,6 @@
   "othersOweYou": "他人欠您",
   "viewDetails": "查看詳情",
   "settleUp": "結算",
-
   "markExpensesAsSettled": "將支出標記為已結算以更新餘額",
   "whoAreYouSettlingWith": "您要與誰結算？",
   "selectMember": "選擇成員",
@@ -682,49 +583,22 @@
   "transferredViaBank": "透過銀行轉帳",
   "mobilePayment": "行動支付",
   "venmoPaypalEtc": "LINE Pay, 街口支付等",
-
-  "transactions": "交易",
   "search": "搜尋",
-  "spent": "已支出",
   "noData": "沒有資料",
   "filterTransactions": "篩選交易",
-  "byCategory": "按類別",
   "noTransactionsFound": "找不到交易",
   "failedToLoadHouseholdTransactions": "載入家庭交易失敗",
-
   "reset": "重設",
   "apply": "套用",
-
   "expenses": "支出",
   "dateRange": "日期範圍",
-  "errorLoadingExpenses": "載入支出時發生錯誤",
-  "noExpensesYet": "尚無支出",
   "noMatchingExpenses": "沒有符合的支出",
   "startLoggingExpenses": "開始記錄支出，就能在這裡看到它們",
   "tryAdjustingFilters": "試著調整您的篩選條件",
-  "member": "成員",
   "split": "分帳",
-
-  "today": "今天",
-  "yesterday": "昨天",
-  "category": "類別",
-  "date": "日期",
-  "time": "時間",
-  "shareWithHousehold": "與家庭共享",
-  "amount": "金額",
   "note": "備註",
-
-  "loadingHouseholdMembers": "正在載入家庭成員...",
-
-  "selectHouseholdToConfigureSplit": "選擇一個家庭以設定分帳",
-
   "currencyCannotBeChangedWhenSharing": "與家庭共享時無法變更幣別",
-
-  "failedToLoadImage": "載入圖片失敗",
-
-
   "createBudget": "建立預算",
-  "budgetName": "預算名稱",
   "pleaseEnterABudgetName": "請輸入預算名稱",
   "pleaseEnterAValidAmountGreaterThan0": "請輸入大於 0 的有效金額",
   "warningThresholdMustBeBetween0And100": "警告閾值必須介於 0% 和 100% 之間",
@@ -738,7 +612,6 @@
   "personalBudgetForYourExpensesOnly": "僅供您個人支出的預算",
   "countSplitPortionOnly": "僅計算分帳部分",
   "onlyCountYourPortionOfSplitExpenses": "僅將您在分帳支出中的部分計入此預算",
-
   "joinHousehold": "加入家庭",
   "joinAHousehold": "加入一個家庭",
   "enterYourInvitationLinkToJoin": "輸入您的邀請連結以加入\n一個共享的財務空間",
@@ -757,11 +630,10 @@
   "goToHousehold": "前往家庭",
   "expiresSoon": "即將過期",
   "invitationValidUntil": "邀請有效期至",
-  "whatYoullGet": "您將獲得",
+  "whatYoullGet": "你將獲得",
   "viewSharedBudgetsAndExpenses": "查看共享預算和支出",
   "trackHouseholdFinancialHealth": "追蹤家庭財務狀況",
   "collaborateOnFinancialDecisions": "協作制定財務決策",
-  "whatYoullGet": "你將獲得",
   "personalMessageFromInviter": "邀請者的個人訊息",
   "messageFromInviter": "來自邀請者的訊息",
   "joinHouseholdName": "加入「{householdName}」",
@@ -769,8 +641,7 @@
   "invitedBy": "邀請者：{inviterEmail}",
   "invitationExpiresSoon": "邀請將於 {formattedDate} 到期",
   "invitationValidUntilLabel": "邀請有效期限",
-  "joiningHousehold": "正在加入家庭...",
-  "thisWillOnlyTakeAMoment": "請稍候片刻",
+  "joiningHousehold": "正在加入家庭",
   "errorWithMessage": "錯誤：{errorMessage}",
   "invalidInvitationLinkFormat": "無效的邀請連結格式",
   "invalidOrExpiredInvitation": "邀請無效或已過期",
@@ -788,24 +659,19 @@
   "october": "10月",
   "november": "11月",
   "december": "12月",
-
   "@householdOverview": {},
   "household": "家庭",
-  "errorLoadingMembers": "載入成員時發生錯誤",
   "viewAll": "查看全部",
   "manage": "管理",
   "noBudgetsYet": "尚無預算",
   "createSharedBudgetDescription": "建立共享預算以共同追蹤支出",
-  "errorLoadingBudgets": "載入預算時發生錯誤",
+  "errorLoadingBudgets": "載入預算錯誤",
   "recentSplits": "近期分帳",
   "invite": "邀請",
-  "split": "分帳",
-
   "@transactionsPage": {},
   "last6Months": "過去 6 個月",
   "thisYear": "今年",
   "allTime": "所有時間",
-
   "@householdCreate": {},
   "nameMinLength": "名稱至少需 {min} 個字元",
   "@nameMinLength": {
@@ -815,18 +681,8 @@
       }
     }
   },
-  "nameMaxLength": "名稱不得超過 {max} 個字元",
-  "@nameMaxLength": {
-    "placeholders": {
-      "max": {
-        "type": "int"
-      }
-    }
-  },
-
   "@customSplitSheet": {},
   "splitExpense": "分攤支出",
-  "amount": "金額",
   "percent": "百分比",
   "splitShare": "份",
   "owes": "應付",
@@ -843,8 +699,6 @@
   },
   "percentagesMustTotal100": "百分比總和必須為 100%",
   "eachPersonMustHaveAtLeast1Share": "每人至少需佔 1 份",
-  "member": "成員",
-
   "@whatsappVerification": {},
   "whatsappVerified": "WhatsApp 驗證成功",
   "whatsappVerification": "WhatsApp 驗證",
@@ -853,12 +707,10 @@
   "enterThe6DigitCodeFromWhatsApp": "輸入來自 WhatsApp 的 6 位數驗證碼",
   "pleaseEnterThe6DigitVerificationCode": "請輸入 6 位數驗證碼",
   "failedToVerifyCode": "驗證失敗",
-  "invalidVerificationCode": "驗證碼無效",
   "failedToVerifyCodePleaseTryAgain": "驗證失敗，請再試一次。",
   "codeAutoFilledFromVerificationLink": "已從驗證連結自動填入驗證碼",
   "verify": "驗證",
   "verifying": "驗證中...",
-
   "@avatarCustomizer": {},
   "avatarStudio": "頭像工作室",
   "preview": "預覽",
@@ -869,7 +721,6 @@
   "skipForNow": "暫時略過",
   "selectColor": "選擇顏色",
   "failedToSaveAvatar": "儲存頭像失敗",
-
   "@avatarCustomizerCategories": {},
   "hair": "頭髮",
   "eyes": "眼睛",
@@ -883,35 +734,18 @@
   "blush": "腮紅",
   "accessories": "配件",
   "stars": "星星",
-
   "@unifiedTransactionSheet": {},
-  "confirmExpense": "確認支出",
-  "expenseDetails": "支出明細",
-  "details": "詳情",
-  "currency": "貨幣",
-  "notes": "備註",
-  "receipt": "收據",
-
   "@recurringTransactions": {},
   "recurringTransactions": "定期交易",
   "recurring": "定期",
   "manageYourRecurringTransactions": "管理定期交易",
-  "errorLoadingData": "資料載入失敗",
+  "errorLoadingData": "載入資料錯誤",
   "deleteRecurringTransaction": "刪除定期交易",
   "areYouSureYouWantToDeleteThisRecurringTransaction": "確定要刪除此定期交易嗎？",
   "recurringTransactionDeleted": "定期交易已刪除",
   "transactionDeleted": "交易已刪除",
-  "transactions": "交易",
-  "recentTransactions": "最近交易",
   "failedToDeleteRecurringTransaction": "刪除定期交易失敗",
-  "saveExpense": "儲存支出",
   "currencyIsManagedByHousehold": "幣別由家庭管理，無法變更",
-  "editAmount": "編輯金額",
-  "amount": "金額",
-  "editNotes": "編輯備註",
-  "addANote": "新增備註...",
-  "errorLoadingMembers": "載入成員時發生錯誤",
-  "expenseSavedAndShared": "支出已儲存並共享{splitInfo}！",
   "@expenseSavedAndShared": {
     "placeholders": {
       "splitInfo": {
@@ -920,7 +754,6 @@
     }
   },
   "expenseSaved": "支出已儲存！",
-  "failedToSave": "儲存失敗：{error}",
   "@failedToSave": {
     "placeholders": {
       "error": {
@@ -928,8 +761,6 @@
       }
     }
   },
-
-  "@scenarioPlanning": {},
   "buyALaptop": "買一台 $30,000 的筆電",
   "selectTargetDate": "選擇目標日期",
   "scenarioQuestionTemplate": "我可以在 {date} 之前 {action} 嗎？",
@@ -941,7 +772,7 @@
         "description": "The action phrase (e.g., 'buy a laptop', 'go on vacation')"
       },
       "date": {
-        "type": "String",  
+        "type": "String",
         "description": "The date string formatted according to locale conventions"
       }
     }
@@ -968,7 +799,6 @@
   "slideHighBar": "設定一個小額限制或改用較低成本的替代品，來降低那個高高的長條。",
   "nonNegotiable": "如果某個項目是固定支出 (例如：租金)，那就圍繞它來規劃，而不是對抗它。",
   "revisitAfterScenario": "執行情境分析後，重新檢視，看看您的調整是否有效。",
-
   "@runningBalanceTab": {},
   "purpleLineCushion": "紫線：每天結束後剩下的緩衝金。上升的線條代表您正在累積動能。",
   "blueBarsBudget": "藍色長條：您當天設定的預算。",
@@ -979,9 +809,7 @@
   "lineRisingDays": "線條連續上升好幾天？考慮將多餘的錢轉入儲蓄或償還債務。",
   "lineDippingWeekend": "忙碌的週末後線條下降了？透過削減未來幾天的小額非必要開支來重新平衡。",
   "feelStuckRed": "覺得自己一直處於赤字？回到「首頁」標籤重新檢視您的預算——小小的調整也能累積大大的效果。",
-
   "@day30LookAheadTab": {},
-  "peek30DaysAhead": "預覽未來 30 天",
   "thirtyDayForecastDesc": "此預測使用上個月的活動來推測下個月的狀況。把它想像成您錢包的氣象報告。",
   "greenLineExpected": "綠線 = 如果下個月的行為與上個月相同，預期的每日支出。",
   "spikesHighlight": "高峰突顯出您的消費習慣通常在哪幾週花費更高 (例如：週五的外賣)。",
@@ -992,7 +820,6 @@
   "bigSpikeComing": "即將有大筆支出？提早預訂較便宜的選項，或將彈性支出改到較平靜的日子。",
   "forecastDipping": "預測顯示支出下降？安排一筆額外的儲蓄轉帳來獎勵自己。",
   "forecastLooksOff": "如果預測看起來不對勁，請檢視「首頁」標籤中的類別，整理任何錯誤的標記。",
-
   "@longTermProjectionTab": {},
   "greenLineTrends": "綠線會隨著您典型的儲蓄率趨勢變動——向上的動能代表您的目標資金充足。",
   "lineDipsSignals": "如果線條下降，這預示著未來幾個月的支出可能超過收入。",
@@ -1003,30 +830,15 @@
   "schedulePaymentIncreases": "當曲線上升時，安排溫和地增加貸款還款金額。",
   "planAheadDips": "透過提撥儲備基金或削減非必要開支，為未來的下降提前規劃。",
   "checkProjectionMonthly": "每月檢查預測，讓您的長期規劃保持樂趣和彈性。",
-
-  "@categories": {},
-  "categoryGroceries": "食材雜貨",
-  "categoryFood": "食物",
-  "categoryTransport": "交通",
-  "categoryHousing": "居住",
-  "categoryUtilities": "水電雜費",
-  "categoryEntertainment": "娛樂",
   "categoryHealthcare": "醫療保健",
-  "categoryEducation": "教育",
-  "categoryShopping": "購物",
-  "categoryTravel": "旅遊",
-  "categoryIncome": "收入",
   "categoryOther": "其他",
-
   "deleteExpense": "刪除支出",
   "confirmDeleteExpense": "您確定要刪除這筆支出嗎？此動作無法復原。",
   "expenseDeletedSuccessfully": "支出已成功刪除",
   "failedToDeleteExpense": "刪除支出失敗",
   "expenseNotFoundOrDeleted": "找不到支出或支出已被刪除",
-
   "onlyAdminsAndOwnersCanEditHouseholdSettings": "只有管理員和擁有者可以編輯家庭設定",
   "onlyAdminsAndOwnersCanCreateInvitations": "只有管理員和擁有者可以建立邀請",
-
   "shareInvitationForHousehold": "分享家庭 {householdName} 的邀請",
   "@shareInvitationForHousehold": {
     "placeholders": {
@@ -1063,7 +875,6 @@
   },
   "copyInvitationLink": "複製邀請連結",
   "copyInvitationLinkToClipboard": "複製邀請連結到剪貼簿",
-  "copyLink": "複製連結",
   "shareInvitationLink": "分享邀請連結",
   "share": "分享",
   "closeShareSheet": "關閉分享面板",
@@ -1080,7 +891,6 @@
     }
   },
   "joinMyHouseholdSubject": "來 Moneko 加入我的家庭吧",
-
   "zeroAmount": "0.00",
   "dollarPrefix": "$ ",
   "notificationSettings": "通知設定",
@@ -1096,11 +906,12 @@
   "householdBudgetType": "家庭預算",
   "personalBudgetType": "個人預算",
   "anUnexpectedErrorOccurred": "發生意外錯誤",
-
   "remindUser": "提醒 {name}",
   "@remindUser": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "sendFriendlySpendingReminder": "傳送一則親切的消費提醒",
@@ -1110,17 +921,20 @@
   "pleaseWait24HoursBeforeSendingAnotherReminder": "請等候 24 小時後再向 {name} 傳送另一則提醒",
   "@pleaseWait24HoursBeforeSendingAnotherReminder": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "reminderSentToName": "已傳送提醒給 {name} 🔔",
   "@reminderSentToName": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "failedToSendReminderTryAgain": "無法傳送提醒，請再試一次。",
-
   "@incomeFeature": {},
   "income": "收入",
   "addIncome": "新增收入",
@@ -1136,10 +950,8 @@
   "acknowledged": "已確認",
   "source": "來源",
   "sourceHint": "例如：雇主、客戶",
-  "owner": "所有者",
   "me": "我",
   "partner": "伴侶",
-  "household": "家庭",
   "privacyScope": "隱私",
   "privacyFull": "完整詳情",
   "privacyBalancesOnly": "僅餘額",
@@ -1147,7 +959,6 @@
   "privacyFullExplanation": "伴侶可以看到所有詳細資訊，包括金額、來源和描述。",
   "privacyBalancesOnlyExplanation": "伴侶可以在總額中看到此收入，但無法看到詳細資訊（來源、描述隱藏）。",
   "privacyPrivateExplanation": "只有您可以看到此收入。它有助於家庭總額，但伴侶無法看到詳細資訊。",
-  "shareWithHousehold": "與家庭分享",
   "incomeSalary": "薪資",
   "incomeFreelance": "自由業",
   "incomeInvestment": "投資",
@@ -1156,11 +967,6 @@
   "incomeBonus": "獎金",
   "incomeRental": "租金收入",
   "incomeOther": "其他",
-  "enterValidAmountGreaterThan0": "請輸入大於 0 的有效金額",
-  "date": "日期",
-  "time": "時間",
-  "retry": "重試",
-
   "@goalsFeature": {},
   "goals": "目標",
   "createGoal": "建立目標",
@@ -1175,11 +981,9 @@
   "targetDate": "目標日期",
   "description": "描述",
   "descriptionHint": "備註（可選）",
-  "category": "類別",
   "savings": "儲蓄",
   "paydown": "還款",
   "all": "全部",
-  "active": "活躍",
   "completed": "已完成",
   "offTrack": "進度落後",
   "onTrack": "進度正常",
@@ -1199,9 +1003,7 @@
   "contributionAmount": "貢獻金額",
   "contributionType": "類型",
   "contributionAdded": "貢獻新增成功",
-
   "pleaseSelectCategory": "請選擇分類",
-  "pleaseEnterAmount": "請輸入金額",
   "userNotAuthenticated": "用戶未認證",
   "recurringExpenseUpdatedSuccessfully": "定期支出更新成功",
   "recurringExpenseAddedSuccessfully": "定期支出已成功新增",
@@ -1230,8 +1032,12 @@
   "youWillBeNotifiedBeforeEachOccurrence": "您將在每次發生前 {value} {unit} 收到通知",
   "@youWillBeNotifiedBeforeEachOccurrence": {
     "placeholders": {
-      "value": {"type": "int"},
-      "unit": {"type": "String"}
+      "value": {
+        "type": "int"
+      },
+      "unit": {
+        "type": "String"
+      }
     }
   },
   "addReminder": "新增提醒",
@@ -1288,7 +1094,6 @@
   "memberMustHaveShare": "至少一個成員的份額必須大於0",
   "monthOverMonthSpending": "每月支出趨勢",
   "last3Months": "過去 3 個月",
-
   "breakdown": "明細",
   "noOutstandingItems": "沒有未結項目",
   "theyOweYou": "他們欠你",
@@ -1306,7 +1111,6 @@
   "suggestedNetTransfers": "建議的淨額轉帳",
   "detailedPairwiseDues": "成員之間的明細欠款",
   "outstanding": "未結",
-  
   "youAreOwedBy": "應收自",
   "noOutstandingAmounts": "沒有未結金額",
   "groupFairnessTitle": "群組公平度",
@@ -1314,19 +1118,28 @@
   "groupFairnessExplanation": "顯示家庭成員之間支出分擔的均衡程度。\n\n百分比越高，表示大家分擔較為公平；越低則表示有人承擔較多支出。\n\n把它想成團隊合作：當大家平均付出時，公平度分數較高；若某個人承擔大部分，分數就會下降。\n\n「平均分攤」表示若完全平均分配，每個人應負擔的金額。",
   "noMemberDataYet": "尚無成員資料",
   "evenShare": "平均分攤：{amount}",
-  "@evenShare": {"placeholders": {"amount": {"type": "String"}}}
-,
+  "@evenShare": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "viewHousehold": "檢視家庭",
   "invalidInvitationMissingInfo": "無效的邀請：缺少家庭資訊",
   "joinedHouseholdWithName": "已成功加入 {name}！",
-  "@joinedHouseholdWithName": {"placeholders": {"name": {"type": "String"}}},
+  "@joinedHouseholdWithName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "joinedHousehold": "已成功加入此家庭！",
-  "errorLoadingData": "載入資料錯誤",
   "errorLoadingSplits": "載入分攤錯誤",
   "markAsSettled": "標記為已結清",
   "splitDetails": "分攤明細",
   "equalSplit": "平均分攤",
-  "errorLoadingBudgets": "載入預算錯誤",
   "noSharedBudgetsYet": "尚無共享預算",
   "whoCanSeeThisExpense": "誰可以查看此支出？",
   "onlyVisibleToYou": "僅你可見",
@@ -1334,29 +1147,167 @@
   "selectMembers": "選擇成員",
   "noMembersFound": "找不到成員",
   "membersSelectedCount": "已選擇 {count} 位",
-  "@membersSelectedCount": {"placeholders": {"count": {"type": "int"}}},
+  "@membersSelectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "noSplitsYet": "尚無分攤",
   "startSplittingExpensesWithYourHousehold": "開始與家庭分攤支出",
   "minutesAgoShort": "{count} 分鐘前",
-  "@minutesAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "@minutesAgoShort": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "hoursAgoShort": "{count} 小時前",
-  "@hoursAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "@hoursAgoShort": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "daysAgoShort": "{count} 天前",
-  "@daysAgoShort": {"placeholders": {"count": {"type": "int"}}},
+  "@daysAgoShort": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "weeksAgoShort": "{count} 週前",
-  "@weeksAgoShort": {"placeholders": {"count": {"type": "int"}}}
-,
+  "@weeksAgoShort": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "errorLoadingActivity": "載入活動錯誤",
   "noRecentActivity": "尚無近期活動",
   "viewAllExpenses": "檢視所有支出",
   "noPendingSplits": "尚無待處理分攤",
-  "pendingSettlement": "待結清"
-  ,
+  "pendingSettlement": "待結清",
   "youreIn": "已加入！🎉",
   "invitationError": "邀請錯誤",
-  "joiningHousehold": "正在加入家庭",
-  "processingInvitation": "正在處理邀請..."
-  ,
+  "processingInvitation": "正在處理邀請...",
   "noHouseholdsAvailableCreateOrJoin": "沒有可用的家庭。請先建立或加入家庭。",
-  "selectHousehold": "選擇家庭"
+  "selectHousehold": "選擇家庭",
+  "yourPockets": "你的口袋",
+  "editPocket": "編輯口袋",
+  "addPocket": "新增口袋",
+  "errorTitle": "錯誤",
+  "createSplit": "建立分帳",
+  "equalShare": "平均分攤",
+  "noCashflowYet": "尚無現金流",
+  "monekoEncounteredAnError": "Moneko 遇到錯誤",
+  "expenseUpdatedSuccessfully": "支出已更新",
+  "savingsRate": "儲蓄率",
+  "budgetRunway": "預算可用天數",
+  "avgDaily": "日均",
+  "left": "剩餘",
+  "percentageOfSpending": "支出的 {percentage}%",
+  "totalAmount": "總金額",
+  "payer": "付款人",
+  "whoPaid": "誰付款？",
+  "dollarSign": "$",
+  "pockets": "口袋預算",
+  "pocketNameLabel": "口袋名稱",
+  "pocketNamePlaceholder": "例如：買菜",
+  "thisPocketFallback": "這個口袋",
+  "pleaseEnterPocketName": "請輸入口袋名稱",
+  "pleaseEnterPocketPercentage": "請輸入此口袋的百分比",
+  "pleaseEnterValidPocketPercentage": "請輸入有效的口袋百分比",
+  "pleaseSelectHouseholdFirst": "請先選擇一個家庭",
+  "pleaseSetMonthlyBudgetFirst": "請先設定每月預算",
+  "pocketAllocationLabel": "口袋分配",
+  "pocketCategoriesLabel": "口袋對應類別",
+  "tapToSelectCategories": "點一下選擇類別",
+  "pocketColorLabel": "口袋顏色",
+  "pocketIconLabel": "口袋圖示",
+  "budgetExceededByLabel": "超出預算金額",
+  "pocketDeleteTitle": "刪除口袋？",
+  "pocketDeleteMessage": "確定要刪除此口袋嗎？不會影響過去的交易。",
+  "pocketDeleted": "口袋已刪除",
+  "failedToDeletePocket": "刪除口袋失敗",
+  "budgetImpactTitle": "對預算的影響",
+  "budgetBalanced": "預算已平衡",
+  "remainingLabel": "剩餘",
+  "pocketSegmentLabel": "口袋區段",
+  "thisPocketSegmentLabel": "這個口袋",
+  "pocketNotFoundAppBar": "找不到口袋",
+  "pocketNotFoundTitle": "此口袋不存在",
+  "pocketNotFoundMessage": "找不到此口袋，可能已被刪除或移動。",
+  "goBack": "返回",
+  "monthlyBudgetLabel": "每月預算",
+  "keyInsightsTitle": "關鍵洞察",
+  "spentThisMonthLabel": "本月支出",
+  "avgDailySpendLabel": "日均支出",
+  "pocketAllowanceLabel": "口袋額度",
+  "dailyTrendTitle": "每日趨勢",
+  "past30DaysLabel": "過去 30 天",
+  "noTransactionsYet": "尚無交易",
+  "unallocatedSpendLabel": "未分配支出",
+  "unallocatedBannerDescription": "你有部分支出尚未分配到任何口袋。分配後可以讓預算更精準。",
+  "uncategorizedSpendingTitle": "未分類支出",
+  "uncategorizedSpendingDescription": "這些支出尚未分類。為它們選擇類別，可以讓分析更清楚。",
+  "noDetailedExpensesFound": "找不到詳細支出",
+  "setMonthlyBudgetTitle": "設定你的每月預算",
+  "newPocketTitle": "新口袋",
+  "ofSpendingLabel": "的支出",
+  "viewOptionsTitle": "檢視選項",
+  "envelopeModeTitle": "信封模式",
+  "envelopeModeDescription": "把資金分到不同的「信封」，讓每一塊錢都有安排。",
+  "howItWorksTitle": "運作方式",
+  "allocateYourIncomeTitle": "分配你的收入",
+  "allocateYourIncomeDescription": "每次領薪前先決定要把多少錢放進每個「信封」，再開始花錢。",
+  "trackSpendingTitle": "追蹤你的支出",
+  "trackSpendingDescription": "在花錢的同時，隨時看到每個「信封」已用多少、還剩多少。",
+  "avoidOverspendingTitle": "避免超支",
+  "avoidOverspendingDescription": "當某個「信封」快沒錢或超出預算時，我們會提前溫和提醒你，方便你及時調整。",
+  "youveGotPaychecksIncomingAndBillsToPay": "有薪水要進帳，也有帳單等著支付。",
+  "notifyMeDaysBefore": "提前 3 天提醒我",
+  "upcomingPaychecks": "即將入帳的薪水",
+  "paycheckFromWork": "工作薪水",
+  "freelanceProject": "自由接案專案",
+  "upcomingBills": "即將到期的帳單",
+  "rentPayment": "房租付款",
+  "electricityBill": "電費帳單",
+  "comingInNextPhase": "將在下一階段推出",
+  "thisFeatureIsUnderDevelopment": "此功能開發中",
+  "impersonateUser": "以該使用者身分檢視",
+  "pleaseEnterAnEmailAddress": "請輸入電子信箱地址",
+  "failedToImpersonateUserPleaseCheckTheEmailAndTryAgain": "模擬該使用者失敗。請檢查電子信箱後再試一次。",
+  "enterTheEmailAddressOfTheUserYouWantToImpersonate": "輸入你想模擬的使用者的電子信箱。",
+  "userEmail": "使用者電子信箱",
+  "youWillSeeDataFromThisUsersPerspectiveWithoutLoggingInAsThem": "你不需以該使用者身分登入，就能從他的視角檢視資料。",
+  "start": "開始",
+  "ethereumEvm": "以太坊（EVM）",
+  "useMetaMaskRainbowBraveEtc": "使用 MetaMask、Rainbow、Brave 等錢包。",
+  "solana": "Solana",
+  "usePhantomSolflareBackpackEtc": "使用 Phantom、Solflare、Backpack 等錢包。",
+  "select": "選擇",
+  "color": "顏色",
+  "moneko": "Moneko",
+  "allowance": "零用錢",
+  "@percentageOfSpending": {
+    "placeholders": {
+      "percentage": {
+        "type": "String"
+      }
+    }
+  },
+  "percentage": "百分比",
+  "updateNow": "立即更新",
+  "pocketNotFound": "未找到口袋",
+  "pocketNotFoundDescription": "您搜尋的口袋不存在或已被刪除。",
+  "monthlyBudget": "月度預算",
+  "keyInsights": "關鍵洞察",
+  "dailyTrend": "每日趨勢",
+  "past30Days": "過去 30 天"
 }

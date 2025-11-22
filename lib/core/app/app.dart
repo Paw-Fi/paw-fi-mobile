@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart' hide ThemeMode;
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/app/router.dart';
 import 'package:moneko/core/app/locale_provider.dart';
@@ -8,9 +9,9 @@ import 'package:moneko/core/services/deep_link_service.dart';
 import 'package:moneko/features/households/data/services/device_registration_service.dart';
 import 'package:moneko/features/app_version/presentation/widgets/version_check_wrapper.dart';
 import 'package:moneko/l10n/app_localizations.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
 import 'package:moneko/core/ui/pages/splash_screen.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 class App extends ConsumerStatefulWidget {
   const App({super.key});
@@ -66,69 +67,39 @@ class _AppState extends ConsumerState<App> {
     final themeMode = ref.watch(themeModeProvider);
     final locale = ref.watch(localeProvider);
 
-    return shadcnui.ShadcnApp.router(
+    return AdaptiveApp.router(
+      routerConfig: router,
       title: 'Moneko',
+      themeMode: themeMode,
+      materialLightTheme: AppTheme.lightTheme(),
+      materialDarkTheme: AppTheme.darkTheme(),
+      cupertinoLightTheme: const CupertinoThemeData(
+        brightness: Brightness.light,
+        primaryColor: AppTheme.monekoPrimary,
+        // Match Material light background (near-white) for all iOS scaffolds
+        scaffoldBackgroundColor: AppTheme.lightBackground,
+        barBackgroundColor: AppTheme.lightBackground,
+      ),
+      cupertinoDarkTheme: const CupertinoThemeData(
+        brightness: Brightness.dark,
+        primaryColor: Color(0xFF8B70FF),
+        // Match Material dark background so dark mode is consistently black-ish
+        scaffoldBackgroundColor: AppTheme.darkBackground,
+        barBackgroundColor: AppTheme.darkBackground,
+      ),
       localizationsDelegates: const [
         ...AppLocalizations.localizationsDelegates,
-        FallbackMaterialLocalizationDelegate(),
-        FallbackCupertinoLocalizationDelegate(),
+       GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate, // Important!
+        DefaultWidgetsLocalizations.delegate,
       ],
       supportedLocales: AppLocalizations.supportedLocales,
       locale: locale,
       localeResolutionCallback: localeResolutionCallback,
-      themeMode: themeMode,
-      theme: AppTheme.lightTheme(),
-      darkTheme: AppTheme.darkTheme(),
-      routeInformationParser: router.routeInformationParser,
-      routerDelegate: router.routerDelegate,
-      routeInformationProvider: router.routeInformationProvider,
       builder: (context, child) {
-        // Apply global Material theme wrapper for TextField styling
-        return Theme(
-          data: _getMaterialTheme(context, themeMode),
-          // Never render an empty child on first frames; fallback to SplashScreen
-          child: VersionCheckWrapper(child: child ?? const SplashScreen()),
-        );
+        // Never render an empty child on first frames; fallback to SplashScreen
+        return VersionCheckWrapper(child: child ?? const SplashScreen());
       },
     );
-  }
-
-  /// Get Material theme with proper input decoration for all TextFields
-  ThemeData _getMaterialTheme(BuildContext context, shadcnui.ThemeMode themeMode) {
-    try {
-      final shadcnTheme = shadcnui.Theme.of(context);
-      final colorScheme = shadcnTheme.colorScheme;
-      final mediaQuery = MediaQuery.maybeOf(context);
-      final platformBrightness = mediaQuery?.platformBrightness ?? Brightness.light;
-      final isDark = themeMode == shadcnui.ThemeMode.dark ||
-          (themeMode == shadcnui.ThemeMode.system && platformBrightness == Brightness.dark);
-
-      return ThemeData(
-        brightness: isDark ? Brightness.dark : Brightness.light,
-        inputDecorationTheme: InputDecorationTheme(
-          labelStyle: TextStyle(fontSize: 16, color: colorScheme.foreground, fontWeight: FontWeight.w400),
-          hintStyle: TextStyle(fontSize: 16, color: colorScheme.mutedForeground, fontWeight: FontWeight.w400),
-          prefixStyle: TextStyle(fontSize: 16, color: colorScheme.foreground, fontWeight: FontWeight.w400),
-          suffixStyle: TextStyle(fontSize: 16, color: colorScheme.foreground, fontWeight: FontWeight.w400),
-          prefixIconColor: colorScheme.foreground,
-          suffixIconColor: colorScheme.foreground,
-          iconColor: colorScheme.foreground,
-        ),
-        textTheme: TextTheme(
-          bodyLarge: TextStyle(fontSize: 16, color: colorScheme.foreground, fontWeight: FontWeight.w400),
-          bodyMedium: TextStyle(fontSize: 14, color: colorScheme.foreground, fontWeight: FontWeight.w400),
-        ),
-        iconTheme: IconThemeData(color: colorScheme.foreground),
-        snackBarTheme: AppSnackBarStyles.build(colorScheme, isDark: isDark),
-      );
-    } catch (e, s) {
-      // Defensive fallback if shadcn Theme is not available during the very first frames
-      try {
-        FirebaseCrashlytics.instance.recordError(e, s, fatal: false, reason: 'material_theme_build_error');
-      } catch (_) {}
-      final mediaQuery = MediaQuery.maybeOf(context);
-      final platformBrightness = mediaQuery?.platformBrightness ?? Brightness.light;
-      return ThemeData(brightness: platformBrightness);
-    }
   }
 }

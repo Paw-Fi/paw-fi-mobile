@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+
 import '../../domain/entities/household.dart';
 import '../providers/household_providers.dart';
 import '../pages/household_invites_page.dart';
@@ -13,7 +14,7 @@ import '../../../home/presentation/models/expense_entry.dart';
 import '../../../home/presentation/widgets/unified_transaction_sheet.dart';
 import '../../../../shared/widgets/user_avatar.dart';
 import '../../../../../core/l10n/l10n.dart';
-
+import 'package:moneko/core/theme/app_theme.dart';
 /// Main household dashboard showing budgets, expenses, and splits
 class HouseholdDashboard extends ConsumerWidget {
   final Household household;
@@ -25,7 +26,7 @@ class HouseholdDashboard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -168,7 +169,7 @@ class HouseholdDashboard extends ConsumerWidget {
     );
   }
 
-  Widget _buildBudgetsSection(BuildContext context, WidgetRef ref, shadcnui.ColorScheme colorScheme) {
+  Widget _buildBudgetsSection(BuildContext context, WidgetRef ref, ColorScheme colorScheme) {
     final budgetsAsync = ref.watch(householdBudgetsProvider(household.id));
 
     return budgetsAsync.when(
@@ -200,7 +201,7 @@ class HouseholdDashboard extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  shadcnui.TextButton(
+                  PrimaryAdaptiveButton(
                     onPressed: () {
                       Navigator.push(
                         context,
@@ -235,7 +236,7 @@ class HouseholdDashboard extends ConsumerWidget {
     );
   }
 
-  Widget _buildRecentActivity(BuildContext context, WidgetRef ref, shadcnui.ColorScheme colorScheme) {
+  Widget _buildRecentActivity(BuildContext context, WidgetRef ref, ColorScheme colorScheme) {
     final expensesParams = HouseholdExpensesParams(householdId: household.id);
     final expensesAsync = ref.watch(householdExpensesProvider(expensesParams));
 
@@ -328,7 +329,7 @@ class HouseholdDashboard extends ConsumerWidget {
   }
 
   // ignore: unused_element
-  Widget _buildSplitsSection(BuildContext context, WidgetRef ref, shadcnui.ColorScheme colorScheme) {
+  Widget _buildSplitsSection(BuildContext context, WidgetRef ref, ColorScheme colorScheme) {
     final splitsParams = HouseholdSplitsParams(householdId: household.id);
     final splitsAsync = ref.watch(householdSplitsProvider(splitsParams));
 
@@ -398,7 +399,7 @@ class _QuickActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Tooltip(
       message: label,
@@ -428,7 +429,7 @@ class _BudgetCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return GestureDetector(
       onTap: () async {
@@ -501,7 +502,7 @@ class _SplitCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -545,7 +546,7 @@ class _ExpenseActivityCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     
     return GestureDetector(
       onTap: () {
@@ -559,7 +560,7 @@ class _ExpenseActivityCard extends StatelessWidget {
     );
   }
 
-  Widget _buildCard(BuildContext context, shadcnui.ColorScheme colorScheme) {
+  Widget _buildCard(BuildContext context, ColorScheme colorScheme) {
 
     // Format date
     final now = DateTime.now();

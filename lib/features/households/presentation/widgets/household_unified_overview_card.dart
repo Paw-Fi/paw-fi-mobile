@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
+import 'package:moneko/core/theme/app_theme.dart';
 /// Unified overview card that combines household total spent, budget info, and member spending
 Widget buildHouseholdUnifiedOverviewCard(
   BuildContext context,
-  shadcnui.ColorScheme colorScheme,
+  ColorScheme colorScheme,
   HouseholdSummary? summary, {
   List<HouseholdMember>? members,
   VoidCallback? onTap,
@@ -492,7 +492,7 @@ Future<String?> _getUserAvatarUrl(String userId) async {
 }
 
 /// Show total spent info dialog
-void _showTotalSpentInfoDialog(BuildContext context, shadcnui.ColorScheme colorScheme) {
+void _showTotalSpentInfoDialog(BuildContext context, ColorScheme colorScheme) {
   showDialog(
     context: context,
     barrierDismissible: true,

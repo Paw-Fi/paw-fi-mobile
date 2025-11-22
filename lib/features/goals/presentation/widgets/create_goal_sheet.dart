@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-// import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcn;
 import '../providers/goals_providers.dart';
 import '../../../../core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
@@ -297,7 +296,7 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
 
     if (mounted) {
       Navigator.of(context).pop();
-      AppToast.success(l10n.goalCreated);
+      AppToast.success(context, l10n.goalCreated);
     }
   }
 }

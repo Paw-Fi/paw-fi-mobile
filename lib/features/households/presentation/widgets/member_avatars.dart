@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+
 import '../../domain/entities/household.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 class MemberAvatars extends StatelessWidget {
   final List<HouseholdMember> members;
@@ -9,7 +10,7 @@ class MemberAvatars extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Wrap(
       spacing: 12,
@@ -51,7 +52,7 @@ class MemberAvatars extends StatelessWidget {
     return name.substring(0, 1).toUpperCase();
   }
 
-  Color _getRoleColor(HouseholdRole role, shadcnui.ColorScheme scheme) {
+  Color _getRoleColor(HouseholdRole role, ColorScheme scheme) {
     switch (role) {
       case HouseholdRole.owner:
         return Colors.purple;

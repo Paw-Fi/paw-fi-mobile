@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:moneko/l10n/app_localizations.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcnui;
+import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+
 import 'package:share_plus/share_plus.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import '../../core/household_constants.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 /// Invitation share sheet for sharing household invitation URLs
 ///
@@ -27,15 +29,16 @@ class InvitationShareSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = shadcnui.Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Semantics(
-      label: AppLocalizations.of(context)!.shareInvitationForHousehold(householdName),
+      label: AppLocalizations.of(context)!
+          .shareInvitationForHousehold(householdName),
       container: true,
       child: Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: colorScheme.background,
+          color: colorScheme.appBackground,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(
@@ -77,7 +80,8 @@ class InvitationShareSheet extends StatelessWidget {
 
             // Success message
             Semantics(
-              label: AppLocalizations.of(context)!.householdCreatedSuccessfully(householdName),
+              label: AppLocalizations.of(context)!
+                  .householdCreatedSuccessfully(householdName),
               readOnly: true,
               child: Container(
                 padding: const EdgeInsets.all(16),
@@ -91,11 +95,14 @@ class InvitationShareSheet extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.check_circle, color: Colors.green, size: 24),
+                    const Icon(Icons.check_circle,
+                        color: Colors.green, size: 24),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        AppLocalizations.of(context)!.householdCreatedSuccessfullyWithQuotes(householdName),
+                        AppLocalizations.of(context)!
+                            .householdCreatedSuccessfullyWithQuotes(
+                                householdName),
                         style: const TextStyle(
                           fontSize: 15,
                           color: Colors.green,
@@ -123,9 +130,9 @@ class InvitationShareSheet extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-
                 Semantics(
-                  label: AppLocalizations.of(context)!.invitationLinkWithUrl(inviteUrl),
+                  label: AppLocalizations.of(context)!
+                      .invitationLinkWithUrl(inviteUrl),
                   textField: true,
                   readOnly: true,
                   child: Container(
@@ -145,7 +152,8 @@ class InvitationShareSheet extends StatelessWidget {
                             inviteUrl,
                             style: TextStyle(
                               fontSize: 14,
-                              color: colorScheme.foreground.withValues(alpha: 0.8),
+                              color:
+                                  colorScheme.foreground.withValues(alpha: 0.8),
                               fontFamily: 'monospace',
                               fontWeight: FontWeight.w500,
                             ),
@@ -155,7 +163,8 @@ class InvitationShareSheet extends StatelessWidget {
                         ),
                         const SizedBox(width: 12),
                         Semantics(
-                          label: AppLocalizations.of(context)!.copyInvitationLink,
+                          label:
+                              AppLocalizations.of(context)!.copyInvitationLink,
                           button: true,
                           child: InkWell(
                             onTap: () => _copyToClipboard(context, inviteUrl),
@@ -163,7 +172,8 @@ class InvitationShareSheet extends StatelessWidget {
                             child: Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: colorScheme.primary.withValues(alpha: 0.1),
+                                color:
+                                    colorScheme.primary.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Icon(
@@ -240,24 +250,17 @@ class InvitationShareSheet extends StatelessWidget {
 
             //const SizedBox(height: 16),
 
-            // Done button
-            Semantics(
-              label: AppLocalizations.of(context)!.closeShareSheet,
-              button: true,
-              child: SizedBox(
-                width: double.infinity,
-                child: shadcnui.TextButton(
-                  onPressed: onClose ?? () => Navigator.pop(context),
-                  child: Text(
-                    AppLocalizations.of(context)!.done,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+            PrimaryAdaptiveButton(
+              onPressed: onClose ?? () => Navigator.pop(context),
+              child: Text(
+                AppLocalizations.of(context)!.done,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),
+            // Done button
 
             // Bottom safe area
             SizedBox(height: MediaQuery.of(context).padding.bottom),
@@ -272,13 +275,15 @@ class InvitationShareSheet extends StatelessWidget {
 
     if (!context.mounted) return;
     // Use AppToast to ensure visibility above this bottom sheet
-    AppToast.success(AppLocalizations.of(context)!.invitationLinkCopiedToClipboard);
+    AppToast.success(
+        context, AppLocalizations.of(context)!.invitationLinkCopiedToClipboard);
   }
 
   // ignore: unused_element
   void _shareInvite(BuildContext context) {
     Share.share(
-      AppLocalizations.of(context)!.joinMyHouseholdMessage(householdName, inviteUrl),
+      AppLocalizations.of(context)!
+          .joinMyHouseholdMessage(householdName, inviteUrl),
       subject: AppLocalizations.of(context)!.joinMyHouseholdSubject,
     );
   }
