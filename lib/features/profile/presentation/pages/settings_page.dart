@@ -4,6 +4,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/l10n/app_localizations.dart';
+import 'package:moneko/shared/widgets/destructive-adaptive-button.dart';
 
 import 'package:url_launcher/url_launcher.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -465,7 +466,7 @@ class SettingsPage extends HookConsumerWidget {
                 // Sign Out Button
                 SizedBox(
                   width: double.infinity,
-                  child: AdaptiveButton(
+                  child: DestructiveAdaptiveButton(
                     onPressed: () async {
                       try {
                         await ref
@@ -512,8 +513,7 @@ class SettingsPage extends HookConsumerWidget {
                       // Sign out from auth last (this will trigger navigation to login)
                       await ref.read(authProvider.notifier).signOut();
                     },
-                    label: context.l10n.signOut,
-                    color: colorScheme.destructive,
+                   child: Text(context.l10n.signOut),
                   ),
                 ),
               ],

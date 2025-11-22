@@ -28,12 +28,11 @@ class MainShell extends HookConsumerWidget {
     final pages = [
       const HomePage(),
       const RecurringTransactionsPage(),
-      const AnalyticsPage(),
       const PocketsPage(),
+      const AnalyticsPage(),
     ];
 
     final currentPage = pages[currentIndex.value];
-    final showHomeHeader = currentIndex.value != 2;
 
     return AdaptiveScaffold(
       appBar: AdaptiveAppBar(
@@ -86,14 +85,7 @@ class MainShell extends HookConsumerWidget {
                     : Icons.repeat,
             label: context.l10n.recurring,
           ),
-          AdaptiveNavigationDestination(
-            icon: PlatformInfo.isIOS26OrHigher()
-                ? 'chart.bar.fill'
-                : PlatformInfo.isIOS
-                    ? CupertinoIcons.chart_bar_alt_fill
-                    : Icons.bar_chart,
-            label: context.l10n.insights,
-          ),
+         
           AdaptiveNavigationDestination(
             icon: PlatformInfo.isIOS26OrHigher()
                 ? 'wallet.pass'
@@ -101,6 +93,14 @@ class MainShell extends HookConsumerWidget {
                     ? CupertinoIcons.creditcard
                     : Icons.account_balance_wallet_outlined,
             label: context.l10n.pockets,
+          ),
+           AdaptiveNavigationDestination(
+            icon: PlatformInfo.isIOS26OrHigher()
+                ? 'chart.bar.fill'
+                : PlatformInfo.isIOS
+                    ? CupertinoIcons.chart_bar_alt_fill
+                    : Icons.bar_chart,
+            label: context.l10n.insights,
           ),
         ],
         selectedIndex: currentIndex.value,

@@ -116,16 +116,15 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final canGoBack = _state != JoinPageState.joining;
 
-    return Scaffold(
-      backgroundColor: colorScheme.appBackground,
+    return AdaptiveScaffold(
+      appBar: AdaptiveAppBar(
+        title: (context.l10n.joinHousehold),
+      ),
       body: SafeArea(
         child: Column(
           children: [
-            // Modern header
-            _buildHeader(colorScheme, canGoBack),
-
+          
             // Content area
             Expanded(
               child: FadeTransition(
@@ -142,44 +141,6 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
     );
   }
 
-  Widget _buildHeader(ColorScheme colorScheme, bool canGoBack) {
-    return Semantics(
-      label: HouseholdConstants.joinPageHeaderLabel,
-      header: true,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Row(
-          children: [
-            Semantics(
-              label: HouseholdConstants.backButtonLabel,
-              button: true,
-              enabled: canGoBack,
-              child: IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-                color: colorScheme.foreground,
-                onPressed: canGoBack ? () => Navigator.pop(context) : null,
-                style: IconButton.styleFrom(
-                  minimumSize: const Size(44, 44),
-                ),
-              ),
-            ),
-            Expanded(
-              child: Text(
-                context.l10n.joinHousehold,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.foreground,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-            const SizedBox(width: 44), // Balance
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildContent(ColorScheme colorScheme) {
     switch (_state) {

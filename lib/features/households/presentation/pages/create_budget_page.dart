@@ -114,19 +114,9 @@ class CreateBudgetPage extends HookConsumerWidget {
       }
     }
 
-    return Scaffold(
-      backgroundColor: colorScheme.appBackground,
-      appBar: AppBar(
-        backgroundColor: colorScheme.appBackground,
-        elevation: 0,
-        title: Text(
-          context.l10n.createBudget,
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: colorScheme.foreground,
-          ),
-        ),
+    return AdaptiveScaffold(
+      appBar: AdaptiveAppBar(
+        title:  context.l10n.createBudget,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),

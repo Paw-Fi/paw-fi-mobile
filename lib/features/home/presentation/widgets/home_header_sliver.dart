@@ -42,22 +42,20 @@ class HomeHeaderLeading extends ConsumerWidget {
             colorScheme: colorScheme,
           ),
           const SizedBox(width: 12),
-          Flexible(
-            child: Text(
-              viewMode.mode == ViewMode.personal
-                  ? (user.displayName?.isNotEmpty == true
-                          ? user.displayName!
-                          : user.email)
-                  : (selectedHouseholdState.household?.name ??
-                      context.l10n.forUs),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.3,
-                color: colorScheme.foreground,
-              ),
+          Text(
+            viewMode.mode == ViewMode.personal
+                ? (user.displayName?.isNotEmpty == true
+                        ? user.displayName!
+                        : user.email)
+                : (selectedHouseholdState.household?.name ??
+                    context.l10n.forUs),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.3,
+              color: colorScheme.foreground,
             ),
           ),
         ],

@@ -200,7 +200,7 @@ class PocketsGridSection extends HookConsumerWidget {
               const Spacer(),
               // View Toggle
               SizedBox(
-                width: 90,
+                width: PlatformInfo.isIOS? 90:150,
                 height: 40,
                 child: AdaptiveSegmentedControl(
                   labels: const [],
