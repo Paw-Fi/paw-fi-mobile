@@ -1362,5 +1362,6 @@
   "monthlyBudget": "月間予算",
   "keyInsights": "主なポイント",
   "dailyTrend": "日ごとの推移",
-  "past30Days": "過去30日間"
+  "past30Days": "過去30日間",
+  "assignToPocket": "ポケットに割り当てる"
 }

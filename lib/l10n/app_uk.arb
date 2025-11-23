@@ -1354,5 +1354,6 @@
   "monthlyBudget": "Бюджет на місяць",
   "keyInsights": "Ключові висновки",
   "dailyTrend": "Денна тенденція",
-  "past30Days": "Останні 30 днів"
+  "past30Days": "Останні 30 днів",
+  "assignToPocket": "Призначити до Pocket"
 }

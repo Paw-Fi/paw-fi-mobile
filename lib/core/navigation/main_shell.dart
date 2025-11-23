@@ -2,7 +2,7 @@ import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:flutter_zoom_drawer/flutter_zoom_drawer.dart';
+import 'package:moneko/core/navigation/custom_drawer.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -34,80 +34,79 @@ class MainShell extends HookConsumerWidget {
 
     final currentPage = pages[currentIndex.value];
 
-    return AdaptiveScaffold(
-      appBar: AdaptiveAppBar(
-          useNativeToolbar: false,
-          cupertinoNavigationBar: const CupertinoNavigationBar(
-            leading: HomeHeaderLeading(),
-            trailing: HomeHeaderTrailing(),
-          ),
-          appBar: AppBar(
-            leading: const HomeHeaderLeading(),
-            actions: const [
-              HomeHeaderTrailing(),
-              SizedBox(width: 16),
-            ],
-          )),
-      body: ZoomDrawer(
-        controller: zoomController,
-        menuScreen: const MainMenuScreen(),
-        mainScreen: Material(
+    return CustomDrawer(
+      controller: zoomController,
+      menuScreen: const MainMenuScreen(),
+      borderRadius: 24.0,
+      showShadow: false,
+      angle: 0,
+      menuBackgroundColor: colorScheme.appBackground,
+      drawerShadowsBackgroundColor: Colors.black.withOpacity(0.2),
+      slideWidth: MediaQuery.of(context).size.width * 0.65,
+      menuScreenWidth: MediaQuery.of(context).size.width * 0.65,
+      mainScreen: AdaptiveScaffold(
+        appBar: AdaptiveAppBar(
+            useNativeToolbar: false,
+            cupertinoNavigationBar: const CupertinoNavigationBar(
+              leading: HomeHeaderLeading(),
+              trailing: HomeHeaderTrailing(),
+            ),
+            appBar: AppBar(
+              leading: const HomeHeaderLeading(),
+              actions: const [
+                HomeHeaderTrailing(),
+                SizedBox(width: 16),
+              ],
+            )),
+        body: Material(
           color: colorScheme.appBackground,
           child: Padding(
             padding: const EdgeInsets.only(top: 10.0),
             child: currentPage,
           ),
         ),
-        borderRadius: 24.0,
-        showShadow: true,
-        angle: -12.0,
-        mainScreenTapClose: true,
-        menuBackgroundColor: colorScheme.appBackground,
-        drawerShadowsBackgroundColor: Colors.black.withOpacity(0.2),
-        slideWidth: MediaQuery.of(context).size.width * 0.85,
-      ),
-      bottomNavigationBar: AdaptiveBottomNavigationBar(
-        useNativeBottomBar: true,
-        items: [
-          AdaptiveNavigationDestination(
-            icon: PlatformInfo.isIOS26OrHigher()
-                ? 'square.grid.2x2.fill'
-                : PlatformInfo.isIOS
-                    ? CupertinoIcons.square_grid_2x2_fill
-                    : Icons.dashboard,
-            label: context.l10n.overview,
-          ),
-          AdaptiveNavigationDestination(
-            icon: PlatformInfo.isIOS26OrHigher()
-                ? 'repeat'
-                : PlatformInfo.isIOS
-                    ? CupertinoIcons.repeat
-                    : Icons.repeat,
-            label: context.l10n.recurring,
-          ),
-         
-          AdaptiveNavigationDestination(
-            icon: PlatformInfo.isIOS26OrHigher()
-                ? 'wallet.pass'
-                : PlatformInfo.isIOS
-                    ? CupertinoIcons.creditcard
-                    : Icons.account_balance_wallet_outlined,
-            label: context.l10n.pockets,
-          ),
-           AdaptiveNavigationDestination(
-            icon: PlatformInfo.isIOS26OrHigher()
-                ? 'chart.bar.fill'
-                : PlatformInfo.isIOS
-                    ? CupertinoIcons.chart_bar_alt_fill
-                    : Icons.bar_chart,
-            label: context.l10n.insights,
-          ),
-        ],
-        selectedIndex: currentIndex.value,
-        onTap: (index) {
-          debugPrint('🔄 Switching to index $index');
-          currentIndex.value = index;
-        },
+        bottomNavigationBar: AdaptiveBottomNavigationBar(
+          useNativeBottomBar: true,
+          items: [
+            AdaptiveNavigationDestination(
+              icon: PlatformInfo.isIOS26OrHigher()
+                  ? 'square.grid.2x2.fill'
+                  : PlatformInfo.isIOS
+                      ? CupertinoIcons.square_grid_2x2_fill
+                      : Icons.dashboard,
+              label: context.l10n.overview,
+            ),
+            AdaptiveNavigationDestination(
+              icon: PlatformInfo.isIOS26OrHigher()
+                  ? 'repeat'
+                  : PlatformInfo.isIOS
+                      ? CupertinoIcons.repeat
+                      : Icons.repeat,
+              label: context.l10n.recurring,
+            ),
+            AdaptiveNavigationDestination(
+              icon: PlatformInfo.isIOS26OrHigher()
+                  ? 'wallet.pass'
+                  : PlatformInfo.isIOS
+                      ? CupertinoIcons.creditcard
+                      : Icons.account_balance_wallet_outlined,
+              label: context.l10n.pockets,
+            ),
+            AdaptiveNavigationDestination(
+              icon: PlatformInfo.isIOS26OrHigher()
+                  ? 'chart.bar.fill'
+                  : PlatformInfo.isIOS
+                      ? CupertinoIcons.chart_bar_alt_fill
+                      : Icons.bar_chart,
+              label: context.l10n.insights,
+            ),
+          ],
+          selectedIndex: currentIndex.value,
+          onTap: (index) {
+            debugPrint('🔄 Switching to index $index');
+            currentIndex.value = index;
+          },
+        ),
       ),
     );
   }

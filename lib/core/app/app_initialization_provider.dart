@@ -65,7 +65,8 @@ class AppInitialization extends _$AppInitialization {
           debugPrint('⚠️ Device registration init failed (non-critical): $e');
         }
 
-        final recurringNotifier = ref.read(recurringTransactionsProvider.notifier);
+        final recurringNotifier =
+            ref.read(recurringTransactionsProvider.notifier);
         unawaited(recurringNotifier.loadRecurringTransactions(auth.uid));
 
         await Future.wait([
@@ -74,9 +75,19 @@ class AppInitialization extends _$AppInitialization {
           // Load WhatsApp binding status
           _loadWhatsAppBinding(),
           // Load analytics/dashboard data
-          _loadAnalytics(auth.uid),
+          _loadAnalytics(auth.uid).timeout(
+            const Duration(seconds: 15),
+            onTimeout: () {
+              debugPrint('⚠️ Analytics load timed out');
+            },
+          ),
           // Load household data
-          _loadHouseholdData(auth.uid),
+          _loadHouseholdData(auth.uid).timeout(
+            const Duration(seconds: 15),
+            onTimeout: () {
+              debugPrint('⚠️ Household data load timed out');
+            },
+          ),
         ]);
 
         debugPrint('✅ All user data loaded');
@@ -119,23 +130,10 @@ class AppInitialization extends _$AppInitialization {
   Future<void> _loadSubscription() async {
     try {
       debugPrint('💳 Loading subscription...');
-      final subscriptionAsync = ref.read(subscriptionNotifierProvider);
-
-      await subscriptionAsync.when(
-        data: (_) {
-          debugPrint('✅ Subscription loaded');
-          return Future.value();
-        },
-        loading: () async {
-          // Wait for subscription to load
-          await Future.delayed(const Duration(milliseconds: 500));
-          debugPrint('⏳ Subscription still loading...');
-        },
-        error: (error, _) {
-          debugPrint('❌ Subscription error: $error');
-          return Future.value();
-        },
-      );
+      debugPrint('💳 Loading subscription...');
+      // Wait for the subscription provider to initialize
+      await ref.read(subscriptionNotifierProvider.future);
+      debugPrint('✅ Subscription loaded');
     } catch (e) {
       try {
         FirebaseCrashlytics.instance.recordError(e, StackTrace.current,

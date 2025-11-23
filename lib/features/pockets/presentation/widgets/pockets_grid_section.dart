@@ -181,6 +181,7 @@ class PocketsGridSection extends HookConsumerWidget {
               : null,
           colorScheme: colorScheme,
           onTotalChanged: notifier.updateTotalBudget,
+          onSave: notifier.saveChanges,
           currency: selectedCurrency,
           onDateSelected: onDateSelected,
         ),

@@ -1309,5 +1309,6 @@
   "monthlyBudget": "月度預算",
   "keyInsights": "關鍵洞察",
   "dailyTrend": "每日趨勢",
-  "past30Days": "過去 30 天"
+  "past30Days": "過去 30 天",
+  "assignToPocket": "分配到口袋"
 }

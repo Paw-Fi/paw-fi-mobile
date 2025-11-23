@@ -14,11 +14,8 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
     DateTime? endDate,
   }) async {
     // Set hasLoadedOnce immediately to prevent infinite retry loops
-    state = state.copyWith(
-      isLoading: true, 
-      clearError: true,
-      hasLoadedOnce: true
-    );
+    state =
+        state.copyWith(isLoading: true, clearError: true, hasLoadedOnce: true);
 
     try {
       if (userId.isEmpty) {
@@ -35,24 +32,29 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
       // contact IDs to avoid missing older rows.
       final contactsResponse = await supabase
           .from('user_contacts')
-          .select('id,user_id,phone_e164,verified,preferred_currency,created_at,updated_at')
+          .select(
+              'id,user_id,phone_e164,verified,preferred_currency,created_at,updated_at')
           .eq('user_id', userId)
           .order('updated_at', ascending: false)
           .order('created_at', ascending: false);
-      
+
       // Debug: Log what we fetched from database (only in debug mode)
       if (kDebugMode) {
         debugPrint('🔍 Analytics: userId = $userId');
         debugPrint('🔍 Analytics: contactsResponse = $contactsResponse');
-        debugPrint('🔍 Analytics: contactsResponse length = ${(contactsResponse as List).length}');
+        debugPrint(
+            '🔍 Analytics: contactsResponse length = ${(contactsResponse as List).length}');
       }
-      
-      final contactsList = (contactsResponse as List).cast<Map<String, dynamic>>();
-      final contactResponse = contactsList.isNotEmpty ? contactsList.first : null;
-      
+
+      final contactsList =
+          (contactsResponse as List).cast<Map<String, dynamic>>();
+      final contactResponse =
+          contactsList.isNotEmpty ? contactsList.first : null;
+
       if (kDebugMode) {
         debugPrint('🔍 Analytics: contactResponse = $contactResponse');
-        debugPrint('🔍 Analytics: preferred_currency from DB = ${contactResponse?['preferred_currency']}');
+        debugPrint(
+            '🔍 Analytics: preferred_currency from DB = ${contactResponse?['preferred_currency']}');
       }
 
       if (contactResponse == null) {
@@ -76,11 +78,12 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
       }
 
       final fetchedContact = UserContact.fromJson(contactResponse);
-      
+
       // Debug: Log parsed contact (only in debug mode)
       if (kDebugMode) {
         debugPrint('🔍 Analytics: fetchedContact.id = ${fetchedContact.id}');
-        debugPrint('🔍 Analytics: fetchedContact.preferredCurrency = ${fetchedContact.preferredCurrency}');
+        debugPrint(
+            '🔍 Analytics: fetchedContact.preferredCurrency = ${fetchedContact.preferredCurrency}');
       }
 
       // Fetch ALL historical data (all time) without date filtering
@@ -102,13 +105,14 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
           'list-expenses',
           body: {
             'userId': userId,
-            'excludeRecurring': true,  // Exclude recurring transactions
-            'personalOnly': true,      // Only personal expenses (split_group_id IS NULL)
-            'limit': 10000,            // Safety limit (10K max)
+            'excludeRecurring': true, // Exclude recurring transactions
+            'personalOnly':
+                true, // Only personal expenses (split_group_id IS NULL)
+            'limit': 10000, // Safety limit (10K max)
             if (startDate != null) 'startDate': startDate.toIso8601String(),
             if (endDate != null) 'endDate': endDate.toIso8601String(),
           },
-        );
+        ).timeout(const Duration(seconds: 10));
 
         if (response.data != null) {
           final jsonData = response.data as Map<String, dynamic>;
@@ -121,29 +125,33 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
         }
       } catch (expenseError) {
         // Handle errors gracefully with fallback
-        debugPrint('[Analytics] Error fetching expenses via edge function: $expenseError');
-        
+        debugPrint(
+            '[Analytics] Error fetching expenses via edge function: $expenseError');
+
         // Fallback to direct DB query if edge function fails
         try {
           var fallbackQuery = supabase
               .from('expenses')
-              .select('id,contact_id,date,amount_cents,currency,category,created_at,raw_text,receipt_image_url,household_id,split_group_id,type,is_recurring')
+              .select(
+                  'id,contact_id,date,amount_cents,currency,category,created_at,raw_text,receipt_image_url,household_id,split_group_id,type,is_recurring')
               .eq('user_id', userId)
               .isFilter('split_group_id', null)
               .or('is_recurring.is.false,is_recurring.is.null');
-          
+
           // Apply date filters if provided
           if (startDate != null) {
-            fallbackQuery = fallbackQuery.gte('date', startDate.toIso8601String());
+            fallbackQuery =
+                fallbackQuery.gte('date', startDate.toIso8601String());
           }
           if (endDate != null) {
-            fallbackQuery = fallbackQuery.lte('date', endDate.toIso8601String());
+            fallbackQuery =
+                fallbackQuery.lte('date', endDate.toIso8601String());
           }
-          
+
           final fallbackResponse = await fallbackQuery
-              .limit(10000)  // Safety limit
+              .limit(10000) // Safety limit
               .order('date', ascending: true);
-              
+
           allExpenses = (fallbackResponse as List)
               .map((e) => ExpenseEntry.fromJson(e as Map<String, dynamic>))
               .toList();
@@ -158,12 +166,13 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
       try {
         dynamic budgetsResponse;
         if (contactIds.length <= 1) {
-          final contactId = contactIds.isNotEmpty ? contactIds.first : fetchedContact.id;
+          final contactId =
+              contactIds.isNotEmpty ? contactIds.first : fetchedContact.id;
           var budgetQuery = supabase
               .from('daily_budgets')
               .select('id,contact_id,date,amount_cents,currency')
               .eq('contact_id', contactId);
-          
+
           // Apply date filters if provided
           if (startDate != null) {
             budgetQuery = budgetQuery.gte('date', startDate.toIso8601String());
@@ -171,16 +180,16 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
           if (endDate != null) {
             budgetQuery = budgetQuery.lte('date', endDate.toIso8601String());
           }
-          
+
           budgetsResponse = await budgetQuery
-              .limit(10000)  // Safety limit
+              .limit(10000) // Safety limit
               .order('date', ascending: true);
         } else {
           var budgetQuery = supabase
               .from('daily_budgets')
               .select('id,contact_id,date,amount_cents,currency')
               .inFilter('contact_id', contactIds);
-          
+
           // Apply date filters if provided
           if (startDate != null) {
             budgetQuery = budgetQuery.gte('date', startDate.toIso8601String());
@@ -188,9 +197,9 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
           if (endDate != null) {
             budgetQuery = budgetQuery.lte('date', endDate.toIso8601String());
           }
-          
+
           budgetsResponse = await budgetQuery
-              .limit(10000)  // Safety limit
+              .limit(10000) // Safety limit
               .order('date', ascending: true);
         }
 
@@ -229,7 +238,8 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
   void updatePreferredCurrency(String currency) {
     state = state.copyWith(
       preferredCurrency: currency.toUpperCase(),
-      contact: state.contact?.copyWith(preferredCurrency: currency.toUpperCase()),
+      contact:
+          state.contact?.copyWith(preferredCurrency: currency.toUpperCase()),
     );
   }
 
@@ -262,7 +272,8 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
       return;
     }
 
-    final totalCurrentCents = currentBudgets.fold<int>(0, (sum, budget) => sum + budget.amountCents);
+    final totalCurrentCents =
+        currentBudgets.fold<int>(0, (sum, budget) => sum + budget.amountCents);
 
     List<DailyBudgetEntry> updatedBudgets;
     if (totalCurrentCents <= 0) {
@@ -273,11 +284,13 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
     } else {
       final ratio = newAmountCents / totalCurrentCents;
       updatedBudgets = currentBudgets
-          .map((budget) => budget.copyWith(amountCents: (budget.amountCents * ratio).round()))
+          .map((budget) => budget.copyWith(
+              amountCents: (budget.amountCents * ratio).round()))
           .toList();
 
       final diff = newAmountCents -
-          updatedBudgets.fold<int>(0, (sum, budget) => sum + budget.amountCents);
+          updatedBudgets.fold<int>(
+              0, (sum, budget) => sum + budget.amountCents);
 
       if (diff != 0 && updatedBudgets.isNotEmpty) {
         final lastBudget = updatedBudgets.last;
@@ -298,7 +311,9 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
     }
 
     final currentBudgets = state.budgets;
-    final currentBudgetsForCurrency = currentBudgets.where((b) => (b.currency ?? '').toUpperCase() == code).toList();
+    final currentBudgetsForCurrency = currentBudgets
+        .where((b) => (b.currency ?? '').toUpperCase() == code)
+        .toList();
 
     if (currentBudgetsForCurrency.isEmpty) {
       final contactId = state.contact?.id;
@@ -318,11 +333,13 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
       return;
     }
 
-    final totalCurrentCents = currentBudgetsForCurrency.fold<int>(0, (sum, budget) => sum + budget.amountCents);
+    final totalCurrentCents = currentBudgetsForCurrency.fold<int>(
+        0, (sum, budget) => sum + budget.amountCents);
     List<DailyBudgetEntry> updatedBudgets = List.of(currentBudgets);
 
     if (totalCurrentCents <= 0) {
-      final perEntryCents = (newAmountCents / currentBudgetsForCurrency.length).round();
+      final perEntryCents =
+          (newAmountCents / currentBudgetsForCurrency.length).round();
       updatedBudgets = updatedBudgets.map((budget) {
         if ((budget.currency ?? '').toUpperCase() == code) {
           return budget.copyWith(amountCents: perEntryCents);
@@ -333,7 +350,8 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
       final ratio = newAmountCents / totalCurrentCents;
       updatedBudgets = updatedBudgets.map((budget) {
         if ((budget.currency ?? '').toUpperCase() == code) {
-          return budget.copyWith(amountCents: (budget.amountCents * ratio).round());
+          return budget.copyWith(
+              amountCents: (budget.amountCents * ratio).round());
         }
         return budget;
       }).toList();

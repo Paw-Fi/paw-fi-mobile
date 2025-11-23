@@ -12,6 +12,8 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/features/households/presentation/pages/household_settings_page.dart';
 import 'package:moneko/features/households/presentation/pages/household_create_page.dart';
 import 'package:moneko/features/profile/presentation/pages/settings_page.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
+import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -29,24 +31,41 @@ class MainMenuScreen extends ConsumerWidget {
     final viewMode = ref.watch(viewModeProvider);
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Material(
-      color: colorScheme.card,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 24),
-            _CurrencySection(colorScheme: colorScheme),
-            const SizedBox(height: 16),
-            _DateRangeSection(colorScheme: colorScheme),
-            const SizedBox(height: 24),
-            if (viewMode.mode == ViewMode.household)
-              _HouseholdSection(colorScheme: colorScheme),
-            const Spacer(),
-            _ProfileRow(user: user, colorScheme: colorScheme),
-            if (PlatformInfo.isIOS26OrHigher()) const SizedBox(height: 80),
-          ],
+    return SafeArea(
+      child: Material(
+        color: colorScheme.card,
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border(
+              right: BorderSide(
+                color: colorScheme.outline.withOpacity(0.1),
+                width: 1,
+              ),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.02),
+                offset: const Offset(2, 0),
+                blurRadius: 10,
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 24),
+              _CurrencySection(colorScheme: colorScheme),
+              const SizedBox(height: 16),
+              _DateRangeSection(colorScheme: colorScheme),
+              const SizedBox(height: 24),
+              if (viewMode.mode == ViewMode.household)
+                Expanded(child: _HouseholdSection(colorScheme: colorScheme))
+              else
+                const Spacer(),
+              _ProfileRow(user: user, colorScheme: colorScheme),
+            ],
+          ),
         ),
       ),
     );
@@ -157,7 +176,26 @@ class _CurrencySection extends ConsumerWidget {
                 color: colorScheme.mutedForeground,
               ),
               const SizedBox(width: 10),
-              const CurrencyDropdownButton(),
+              CurrencyDropdownButton(
+                onAfterSelect: () {
+                  final user = ref.read(authProvider);
+                  if (user.uid.isEmpty) {
+                    return;
+                  }
+
+                  // Refresh core analytics data (Home + Insights)
+                  ref.read(analyticsProvider.notifier).refresh(user.uid);
+
+                  // Refresh recurring transactions list (Recurring page)
+                  ref
+                      .read(recurringTransactionsProvider.notifier)
+                      .refresh(user.uid);
+
+                  // Invalidate all pockets (envelope) states so they reload
+                  // with the newly selected currency when next watched
+                  ref.invalidate(pocketsProvider);
+                },
+              ),
             ],
           ),
         ),
@@ -221,8 +259,7 @@ class _HouseholdSection extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 10),
-            SizedBox(
-              height: 240,
+            Expanded(
               child: ListView.builder(
                 padding: EdgeInsets.zero,
                 itemCount: households.length,
@@ -246,8 +283,7 @@ class _HouseholdSection extends ConsumerWidget {
                         decoration: BoxDecoration(
                           color: isSelected
                               ? colorScheme.primaryContainer.withOpacity(0.4)
-                              : colorScheme.surfaceContainerHighest
-                                  .withOpacity(0.3),
+                              : Colors.transparent,
                           borderRadius: BorderRadius.circular(20),
                         ),
                         padding: const EdgeInsets.symmetric(
@@ -334,45 +370,56 @@ class _ProfileRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AdaptiveListTile(
-      leading: SizedBox(
-        width: 40,
-        height: 40,
-        child: FutureBuilder<Map<String, dynamic>?>(
-          future: Supabase.instance.client
-              .from('users')
-              .select('avatar_url')
-              .eq('id', user.uid)
-              .maybeSingle(),
-          builder: (context, snapshot) {
-            final dbAvatarUrl = snapshot.data != null
-                ? snapshot.data!['avatar_url'] as String?
-                : null;
+    return Row(
+      children: [
+        SizedBox(
+          width: 40,
+          height: 40,
+          child: FutureBuilder<Map<String, dynamic>?>(
+            future: Supabase.instance.client
+                .from('users')
+                .select('avatar_url')
+                .eq('id', user.uid)
+                .maybeSingle(),
+            builder: (context, snapshot) {
+              final dbAvatarUrl = snapshot.data != null
+                  ? snapshot.data!['avatar_url'] as String?
+                  : null;
 
-            String? validatedAvatarUrl;
-            if (dbAvatarUrl != null &&
-                dbAvatarUrl.isNotEmpty &&
-                dbAvatarUrl != 'SKIPPED' &&
-                (dbAvatarUrl.startsWith('http://') ||
-                    dbAvatarUrl.startsWith('https://'))) {
-              validatedAvatarUrl = dbAvatarUrl;
-            }
+              String? validatedAvatarUrl;
+              if (dbAvatarUrl != null &&
+                  dbAvatarUrl.isNotEmpty &&
+                  dbAvatarUrl != 'SKIPPED' &&
+                  (dbAvatarUrl.startsWith('http://') ||
+                      dbAvatarUrl.startsWith('https://'))) {
+                validatedAvatarUrl = dbAvatarUrl;
+              }
 
-            final avatarUrl = validatedAvatarUrl ??
-                (user.photoUrl != null && user.photoUrl!.isNotEmpty
-                    ? user.photoUrl
-                    : null);
+              final avatarUrl = validatedAvatarUrl ??
+                  (user.photoUrl != null && user.photoUrl!.isNotEmpty
+                      ? user.photoUrl
+                      : null);
 
-            return Container(
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-              ),
-              child: ClipOval(
-                child: avatarUrl != null
-                    ? Image.network(
-                        avatarUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
+              return Container(
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                ),
+                child: ClipOval(
+                  child: avatarUrl != null
+                      ? Image.network(
+                          avatarUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            color: colorScheme.muted.withValues(alpha: 0.5),
+                            alignment: Alignment.center,
+                            child: Icon(
+                              Icons.person_rounded,
+                              color: colorScheme.mutedForeground
+                                  .withValues(alpha: 0.8),
+                            ),
+                          ),
+                        )
+                      : Container(
                           color: colorScheme.muted.withValues(alpha: 0.5),
                           alignment: Alignment.center,
                           child: Icon(
@@ -381,54 +428,56 @@ class _ProfileRow extends StatelessWidget {
                                 .withValues(alpha: 0.8),
                           ),
                         ),
-                      )
-                    : Container(
-                        color: colorScheme.muted.withValues(alpha: 0.5),
-                        alignment: Alignment.center,
-                        child: Icon(
-                          Icons.person_rounded,
-                          color: colorScheme.mutedForeground
-                              .withValues(alpha: 0.8),
-                        ),
-                      ),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                user.displayName?.isNotEmpty == true
+                    ? user.displayName!
+                    : user.email,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.foreground,
+                ),
+              ),
+              Text(
+                user.email,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: colorScheme.mutedForeground,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        InkWell(
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const SettingsPage(),
               ),
             );
           },
+          child: Icon(
+            Icons.settings_outlined,
+            size: 20,
+            color: colorScheme.mutedForeground,
+          ),
         ),
-      ),
-      title: Text(
-        user.displayName?.isNotEmpty == true ? user.displayName! : user.email,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-          color: colorScheme.foreground,
-        ),
-      ),
-      subtitle: Text(
-        user.email,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontSize: 13,
-          color: colorScheme.mutedForeground,
-        ),
-      ),
-      trailing: IconButton(
-        onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => const SettingsPage(),
-            ),
-          );
-        },
-        icon: Icon(
-          Icons.settings_outlined,
-          size: 20,
-          color: colorScheme.mutedForeground,
-        ),
-      ),
+      ],
     );
   }
 }

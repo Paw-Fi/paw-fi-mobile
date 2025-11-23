@@ -1773,6 +1773,44 @@ class _UnifiedTransactionSheetState
     }
   }
 
+  void _refreshHouseholdUiAfterExpenseChange(String householdId) {
+    final homeFilter = ref.read(homeFilterProvider);
+    final dateRange = getDateRangeFromFilter(
+      homeFilter.dateRangeFilter,
+      homeFilter.customStartDate,
+      homeFilter.customEndDate,
+    );
+
+    ref.invalidate(householdExpensesProvider(
+      HouseholdExpensesParams(householdId: householdId, limit: 500),
+    ));
+    ref.invalidate(householdSplitsProvider(
+      HouseholdSplitsParams(householdId: householdId),
+    ));
+    ref.invalidate(householdBudgetsProvider(householdId));
+    ref.invalidate(householdSummaryProvider(
+      HouseholdSummaryParams(
+        householdId: householdId,
+        currency: homeFilter.selectedCurrency ?? 'USD',
+        startDate: dateRange['from']!.toIso8601String(),
+        endDate: dateRange['to']!.toIso8601String(),
+      ),
+    ));
+    ref.invalidate(householdMembersProvider(householdId));
+
+    ref.invalidate(pocketsProvider(PocketsScopeParams(
+      scope: PocketsScopeType.household,
+      householdId: householdId,
+    )));
+  }
+
+  void _refreshPersonalUiAfterExpenseChange(String userId) {
+    ref.read(analyticsProvider.notifier).refresh(userId);
+    ref.invalidate(pocketsProvider(const PocketsScopeParams(
+      scope: PocketsScopeType.personal,
+    )));
+  }
+
   Future<void> _handleSave() async {
     setState(() => _isSaving = true);
 
@@ -1862,39 +1900,9 @@ class _UnifiedTransactionSheetState
           // Ensure UI updates immediately
           if (viewMode.mode == ViewMode.household &&
               selectedHousehold != null) {
-            final homeFilter = ref.watch(homeFilterProvider);
-            final dateRange = getDateRangeFromFilter(
-              homeFilter.dateRangeFilter,
-              homeFilter.customStartDate,
-              homeFilter.customEndDate,
-            );
-            ref.invalidate(householdExpensesProvider(
-              HouseholdExpensesParams(
-                  householdId: selectedHousehold, limit: 500),
-            ));
-            ref.invalidate(householdSplitsProvider(
-              HouseholdSplitsParams(householdId: selectedHousehold),
-            ));
-            ref.invalidate(householdBudgetsProvider(selectedHousehold));
-            ref.invalidate(householdSummaryProvider(
-              HouseholdSummaryParams(
-                householdId: selectedHousehold,
-                currency: homeFilter.selectedCurrency ?? 'USD',
-                startDate: dateRange['from']!.toIso8601String(),
-                endDate: dateRange['to']!.toIso8601String(),
-              ),
-            ));
-            ref.invalidate(householdMembersProvider(selectedHousehold));
-
-            ref.invalidate(pocketsProvider(PocketsScopeParams(
-              scope: PocketsScopeType.household,
-              householdId: selectedHousehold,
-            )));
+            _refreshHouseholdUiAfterExpenseChange(selectedHousehold);
           } else {
-            ref.read(analyticsProvider.notifier).refresh(user.uid);
-            ref.invalidate(pocketsProvider(const PocketsScopeParams(
-              scope: PocketsScopeType.personal,
-            )));
+            _refreshPersonalUiAfterExpenseChange(user.uid);
           }
 
           if (!mounted) return;
@@ -1954,39 +1962,9 @@ class _UnifiedTransactionSheetState
           // Ensure UI updates immediately and close sheet
           if (viewMode.mode == ViewMode.household &&
               selectedHousehold != null) {
-            final homeFilter = ref.watch(homeFilterProvider);
-            final dateRange = getDateRangeFromFilter(
-              homeFilter.dateRangeFilter,
-              homeFilter.customStartDate,
-              homeFilter.customEndDate,
-            );
-            ref.invalidate(householdExpensesProvider(
-              HouseholdExpensesParams(
-                  householdId: selectedHousehold, limit: 500),
-            ));
-            ref.invalidate(householdSplitsProvider(
-              HouseholdSplitsParams(householdId: selectedHousehold),
-            ));
-            ref.invalidate(householdBudgetsProvider(selectedHousehold));
-            ref.invalidate(householdSummaryProvider(
-              HouseholdSummaryParams(
-                householdId: selectedHousehold,
-                currency: homeFilter.selectedCurrency ?? 'USD',
-                startDate: dateRange['from']!.toIso8601String(),
-                endDate: dateRange['to']!.toIso8601String(),
-              ),
-            ));
-            ref.invalidate(householdMembersProvider(selectedHousehold));
-
-            ref.invalidate(pocketsProvider(PocketsScopeParams(
-              scope: PocketsScopeType.household,
-              householdId: selectedHousehold,
-            )));
+            _refreshHouseholdUiAfterExpenseChange(selectedHousehold);
           } else {
-            ref.read(analyticsProvider.notifier).refresh(user.uid);
-            ref.invalidate(pocketsProvider(const PocketsScopeParams(
-              scope: PocketsScopeType.personal,
-            )));
+            _refreshPersonalUiAfterExpenseChange(user.uid);
           }
 
           if (!mounted) return;
@@ -2059,38 +2037,15 @@ class _UnifiedTransactionSheetState
         if (!mounted) return;
 
         if (success) {
-          // ✅ FIX: Ensure UI refresh for current view mode
-          // transactionEditNotifier already refreshes analyticsProvider (line 92)
-          // and household providers if expense has householdId (lines 94-110)
-          // We add explicit invalidation here to ensure immediate UI update in BOTH modes
-
+          // Ensure UI refresh for current view mode
           if (viewMode.mode == ViewMode.household) {
-            // In household mode: Ensure all household providers are invalidated
-            // This guarantees the UI updates immediately when viewing household expenses
-            debugPrint(
-                '🔄 [UI REFRESH] Invalidating household providers after expense update');
-            ref.invalidate(householdExpensesProvider);
-            ref.invalidate(householdSplitsProvider);
-            ref.invalidate(householdBudgetsProvider);
-            ref.invalidate(householdSummaryProvider);
-            ref.invalidate(householdMembersProvider);
-
             final currentHouseholdId =
                 ref.read(selectedHouseholdProvider).householdId;
             if (currentHouseholdId != null) {
-              ref.invalidate(pocketsProvider(PocketsScopeParams(
-                scope: PocketsScopeType.household,
-                householdId: currentHouseholdId,
-              )));
+              _refreshHouseholdUiAfterExpenseChange(currentHouseholdId);
             }
           } else {
-            // In personal mode: Force refresh of analytics data to ensure UI updates immediately
-            debugPrint(
-                '🔄 [UI REFRESH] Refreshing analytics data after expense update');
-            ref.read(analyticsProvider.notifier).refresh(user.uid);
-            ref.invalidate(pocketsProvider(const PocketsScopeParams(
-              scope: PocketsScopeType.personal,
-            )));
+            _refreshPersonalUiAfterExpenseChange(user.uid);
           }
 
           // Close the sheet so when user reopens it, they see fresh data

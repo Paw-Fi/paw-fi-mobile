@@ -23,6 +23,7 @@ import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/shared/widgets/moneko-switch.dart';
+import 'package:moneko/features/utils/currency.dart';
 
 /// Modern bottom sheet for adding/editing recurring transactions
 /// Apple-inspired design with clean animations and intuitive UX
@@ -567,7 +568,8 @@ class AddRecurringSheet extends HookConsumerWidget {
                           customSplitType: customSplitType,
                           customSplits: customSplits,
                           amountController: amountController,
-                          currencySymbol: selectedCurrency.value,
+                          currencySymbol:
+                              resolveCurrencySymbol(selectedCurrency.value),
                         );
                       },
                       loading: () => const SizedBox.shrink(),

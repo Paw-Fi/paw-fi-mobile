@@ -1175,5 +1175,6 @@
   "monthlyBudget": "월간 예산",
   "keyInsights": "주요 인사이트",
   "dailyTrend": "일일 추세",
-  "past30Days": "최근 30일"
+  "past30Days": "최근 30일",
+  "assignToPocket": "포켓에 배정하기"
 }

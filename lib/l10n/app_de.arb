@@ -1362,5 +1362,6 @@
   "monthlyBudget": "Monatsbudget",
   "keyInsights": "Wichtige Erkenntnisse",
   "dailyTrend": "Täglicher Trend",
-  "past30Days": "Letzte 30 Tage"
+  "past30Days": "Letzte 30 Tage",
+  "assignToPocket": "Einem Pocket zuweisen"
 }

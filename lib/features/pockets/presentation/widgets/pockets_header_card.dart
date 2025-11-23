@@ -19,6 +19,7 @@ class PocketsHeaderCard extends StatelessWidget {
     required this.onReusePrevious,
     required this.colorScheme,
     required this.onTotalChanged,
+    this.onSave,
     required this.currency,
     this.onDateSelected,
   });
@@ -31,6 +32,7 @@ class PocketsHeaderCard extends StatelessWidget {
   final VoidCallback? onReusePrevious;
   final ColorScheme colorScheme;
   final ValueChanged<double> onTotalChanged;
+  final VoidCallback? onSave;
   final String currency;
   final ValueChanged<DateTime>? onDateSelected;
 
@@ -40,8 +42,10 @@ class PocketsHeaderCard extends StatelessWidget {
     const sliderMin = 0.00;
     const sliderMax = 10000.0;
     final sliderValue = effectiveBudget.clamp(sliderMin, sliderMax).toDouble();
-    final monthLabel =
-        formatLocalizedMonth(context, periodMonth, abbreviated: false);
+    final isCurrentYear = periodMonth.year == DateTime.now().year;
+    final monthLabel = isCurrentYear
+        ? formatLocalizedMonth(context, periodMonth, abbreviated: false)
+        : '${formatLocalizedMonth(context, periodMonth, abbreviated: false)} ${periodMonth.year}';
 
     // Theme-aware colors
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -234,6 +238,7 @@ class PocketsHeaderCard extends StatelessWidget {
                       final val = double.tryParse(controller.text);
                       if (val != null && val >= 0) {
                         onTotalChanged(val.roundToDouble());
+                        onSave?.call();
                         Navigator.pop(context);
                       }
                     },

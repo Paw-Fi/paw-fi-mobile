@@ -47,14 +47,14 @@ class DeviceRegistrationService {
 
     try {
       // Wrap entire initialization in a timeout to prevent hanging
-      await Future.any([
-        _performInitialization(),
-        Future.delayed(const Duration(seconds: 10), () {
+      await _performInitialization().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
           debugPrint(
               '⚠️ Device registration initialization timed out after 10s');
           throw TimeoutException('Device registration timed out');
-        }),
-      ]);
+        },
+      );
     } catch (e) {
       debugPrint('❌ Device registration initialization failed: $e');
       // Mark as initialized anyway to prevent blocking app startup

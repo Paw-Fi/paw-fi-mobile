@@ -115,6 +115,8 @@ Widget buildNetCashflowCard(
         children: [
           Text(
             title.toUpperCase(),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -123,14 +125,17 @@ Widget buildNetCashflowCard(
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            displayText,
-            style: TextStyle(
-              fontSize: 36,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -1.0,
-              color: colorScheme.foreground,
-              height: 1.1,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              displayText,
+              style: TextStyle(
+                fontSize: 36,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -1.0,
+                color: colorScheme.foreground,
+                height: 1.1,
+              ),
             ),
           ),
           const SizedBox(height: 16),

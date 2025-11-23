@@ -5,6 +5,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/navigation/custom_drawer.dart';
 import 'package:moneko/core/navigation/zoom_drawer_provider.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
@@ -27,7 +28,8 @@ class HomeHeaderLeading extends ConsumerWidget {
     final user = ref.watch(authProvider);
     final selectedHouseholdState = ref.watch(selectedHouseholdProvider);
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
-    final zoomController = ref.read(zoomDrawerControllerProvider);
+    final AppDrawerController zoomController =
+        ref.read(zoomDrawerControllerProvider);
 
     return GestureDetector(
       onTap: () => zoomController.toggle?.call(),
@@ -52,9 +54,10 @@ class HomeHeaderLeading extends ConsumerWidget {
                     error: (_, __) => context.l10n.forUs,
                     data: (households) {
                       if (households.isEmpty) return context.l10n.forUs;
-                      
+
                       // Use selected household if available, otherwise first household
-                      final household = selectedHouseholdState.household ?? households.first;
+                      final household =
+                          selectedHouseholdState.household ?? households.first;
                       return household.name;
                     },
                   ),
@@ -126,7 +129,8 @@ class HomeHeaderSliver extends ConsumerWidget {
     final user = ref.watch(authProvider);
     final selectedHouseholdState = ref.watch(selectedHouseholdProvider);
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
-    final zoomController = ref.read(zoomDrawerControllerProvider);
+    final AppDrawerController zoomController =
+        ref.read(zoomDrawerControllerProvider);
 
     return SizedBox(
       height: 65,
@@ -155,9 +159,11 @@ class HomeHeaderSliver extends ConsumerWidget {
                           error: (_, __) => context.l10n.forUs,
                           data: (households) {
                             if (households.isEmpty) return context.l10n.forUs;
-                            
+
                             // Use selected household if available, otherwise first household
-                            final household = selectedHouseholdState.household ?? households.first;
+                            final household =
+                                selectedHouseholdState.household ??
+                                    households.first;
                             return household.name;
                           },
                         ),

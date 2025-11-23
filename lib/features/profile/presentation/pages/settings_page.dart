@@ -15,6 +15,8 @@ import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
 import 'package:moneko/features/subscription/data/models/subscription_details.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -507,6 +509,14 @@ class SettingsPage extends HookConsumerWidget {
 
                       // User profile
                       ref.invalidate(userProfileProvider);
+
+                      // Pockets (budget envelopes)
+                      ref.invalidate(pocketsProvider);
+
+                      // Recurring transactions
+                      ref.invalidate(recurringTransactionsProvider);
+                      ref.invalidate(recurringTransactionSaveProvider);
+                      ref.invalidate(selectedRecurringTabProvider);
 
                       debugPrint('✅ All user-specific state cleared');
 

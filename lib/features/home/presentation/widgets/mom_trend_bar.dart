@@ -129,6 +129,8 @@ class MoMTrendBar extends ConsumerWidget {
           if (title != null) ...[
             Text(
               title.toUpperCase(),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,

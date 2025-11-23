@@ -266,7 +266,9 @@ class _HomePageState extends ConsumerState<HomePage> {
         'language': languageTag,
       };
 
-      // Determine currency based on view mode
+      // Determine currency based on view mode.
+      // Backend will use this as a fallback if no currency is detected in the text/image.
+      // If this is also missing, backend defaults to USD.
       final filterState = ref.read(homeFilterProvider);
       if (viewMode.mode == ViewMode.household &&
           selectedHouseholdState.household?.currency != null) {
@@ -902,6 +904,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                           height: 180,
                           child: Row(
                             children: [
+                              const Expanded(
+                                child: MoMTrendBar(),
+                              ),
+                              const SizedBox(width: 12),
                               Expanded(
                                 child: buildNetCashflowCard(
                                   context,
@@ -913,10 +919,6 @@ class _HomePageState extends ConsumerState<HomePage> {
                                   selectedCurrency:
                                       filterState.selectedCurrency,
                                 ),
-                              ),
-                              const SizedBox(width: 12),
-                              const Expanded(
-                                child: MoMTrendBar(),
                               ),
                             ],
                           ),
