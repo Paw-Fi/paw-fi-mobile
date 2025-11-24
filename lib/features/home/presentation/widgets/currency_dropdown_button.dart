@@ -3,7 +3,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/widgets/currency_selector_modal.dart';
-import 'package:moneko/core/theme/app_theme.dart';
 
 class CurrencyDropdownButton extends ConsumerWidget {
   final VoidCallback? onAfterSelect;
@@ -19,32 +18,24 @@ class CurrencyDropdownButton extends ConsumerWidget {
         await showCurrencySelectorModal(context, ref);
         if (onAfterSelect != null) onAfterSelect!();
       },
-      child: Container
-        (
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: colorScheme.muted,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              code,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: colorScheme.foreground,
-              ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            code,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: colorScheme.onSurface,
             ),
-            const SizedBox(width: 4),
-            Icon(
-              Icons.arrow_drop_down,
-              color: colorScheme.foreground,
-              size: 18,
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 4),
+          Icon(
+            Icons.unfold_more_rounded,
+            color: colorScheme.onSurface,
+            size: 20,
+          ),
+        ],
       ),
     );
   }

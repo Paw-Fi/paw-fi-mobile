@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/features/utils/sub_page_top_padding.dart';
 import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 // removed shared budgets UI from settings; budgets are managed elsewhere
@@ -19,6 +20,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/app/router.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+
 /// Household Settings Page
 /// Manage budgets, privacy preferences, and household settings
 class HouseholdSettingsPage extends ConsumerStatefulWidget {
@@ -42,6 +44,9 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(() {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
@@ -52,40 +57,50 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage>
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Scaffold(
-      backgroundColor: colorScheme.appBackground,
-      appBar: AppBar(
-        backgroundColor: colorScheme.appBackground,
-        elevation: 0,
-        title: Text(
-          context.l10n.householdSettings,
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: colorScheme.foreground,
+    return AdaptiveScaffold(
+      appBar: AdaptiveAppBar(
+        title: context.l10n.householdSettings,
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: EdgeInsets.only(top: getSubPageTopPadding(context)),
+          child: Material(
+            child: Container(
+              color: Theme.of(context).colorScheme.appBackground,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: SizedBox(
+                      height: 48,
+                      width: double.infinity,
+                      child: AdaptiveSegmentedControl(
+                        labels: [
+                          context.l10n.settings,
+                          context.l10n.members,
+                          context.l10n.invitations,
+                        ],
+                        selectedIndex: _tabController.index,
+                        onValueChanged: (index) =>
+                            _tabController.animateTo(index),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _GeneralTab(householdId: widget.householdId),
+                        _MembersTab(householdId: widget.householdId),
+                        _InvitesTab(householdId: widget.householdId),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: colorScheme.primary,
-          unselectedLabelColor: colorScheme.mutedForeground,
-          indicatorColor: colorScheme.primary,
-          tabs: [
-            Tab(text: context.l10n.settings),
-            Tab(text: context.l10n.members),
-            Tab(text: context.l10n.invitations),
-          ],
-        ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _GeneralTab(householdId: widget.householdId),
-          _MembersTab(householdId: widget.householdId),
-          _InvitesTab(householdId: widget.householdId),
-        ],
       ),
     );
   }
@@ -116,7 +131,8 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
   @override
   Widget build(BuildContext context) {
     final householdAsync = ref.watch(householdProvider(widget.householdId));
-    final membersAsync = ref.watch(householdMembersProvider(widget.householdId));
+    final membersAsync =
+        ref.watch(householdMembersProvider(widget.householdId));
     final colorScheme = Theme.of(context).colorScheme;
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
 
@@ -136,9 +152,10 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
           (m) => m.userId == currentUserId,
           orElse: () => throw Exception('Current user not found in household'),
         );
-        
+
         final currentUserRole = currentUserMember?.role ?? HouseholdRole.member;
-        final canEdit = currentUserRole == HouseholdRole.owner || currentUserRole == HouseholdRole.admin;
+        final canEdit = currentUserRole == HouseholdRole.owner ||
+            currentUserRole == HouseholdRole.admin;
 
         // Initialize controller with current name if not already set
         if (_nameController.text.isEmpty) {
@@ -148,194 +165,216 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
           _selectedImageUrl = household.coverImageUrl;
         }
 
-        return ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            // Permission notice for members
-            if (!canEdit) ...[
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: colorScheme.muted.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: colorScheme.border.withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      size: 20,
-                      color: colorScheme.mutedForeground,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        context.l10n.onlyAdminsAndOwnersCanEditHouseholdSettings,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: colorScheme.mutedForeground,
-                        ),
+        return RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(householdProvider(widget.householdId));
+            ref.invalidate(householdMembersProvider(widget.householdId));
+          },
+          child: CustomScrollView(
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.all(16),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    // Permission notice for members
+                    if (!canEdit) ...[
+                      _PermissionNotice(
+                        message: context
+                            .l10n.onlyAdminsAndOwnersCanEditHouseholdSettings,
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
+                      const SizedBox(height: 24),
+                    ],
 
-            // Household Name
-            Text(
-              context.l10n.householdName,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: colorScheme.foreground,
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _nameController,
-              enabled: canEdit,
-              decoration: InputDecoration(
-                hintText: context.l10n.pleaseEnterHouseholdName,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                filled: true,
-                fillColor: canEdit ? colorScheme.card : colorScheme.muted.withValues(alpha: 0.3),
-              ),
-              maxLength: 50,
-            ),
-            const SizedBox(height: 24),
-
-            // Cover Photo
-            Text(
-              context.l10n.coverPhoto,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: colorScheme.foreground,
-              ),
-            ),
-            const SizedBox(height: 8),
-            GestureDetector(
-              onTap: canEdit ? () => _showImagePicker(context, household) : null,
-              child: Container(
-                height: 200,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: colorScheme.border.withValues(alpha: 0.12),
-                  ),
-                ),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    // Image preview
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(15),
-                      child: _selectedImageFile != null
-                          ? Image.file(
-                              _selectedImageFile!,
-                              fit: BoxFit.cover,
-                            )
-                          : _selectedImageUrl != null
-                              ? Image.network(
-                                  _selectedImageUrl!,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stack) =>
-                                      Container(
-                                    color: colorScheme.muted.withValues(alpha: 1.0),
-                                    child: Icon(
-                                      Icons.home_rounded,
-                                      size: 48,
-                                      color: colorScheme.mutedForeground,
-                                    ),
-                                  ),
-                                )
-                              : Container(
-                                  color: colorScheme.muted.withValues(alpha: 1.0),
-                                  child: const Icon(
-                                    Icons.home_rounded,
-                                    size: 48,
-                                    color: Colors.grey,
-                                  ),
-                                ),
+                    // Household Name Section
+                    _SectionHeader(
+                      title: context.l10n.householdName,
                     ),
-                    // Overlay button
+                    const SizedBox(height: 12),
                     Container(
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(15),
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            Colors.black.withValues(alpha: 0.5),
+                        color: colorScheme.card,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: colorScheme.border.withValues(alpha: 0.5),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.03),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 4),
+                      child: TextField(
+                        controller: _nameController,
+                        enabled: canEdit,
+                        decoration: InputDecoration(
+                          hintText: context.l10n.pleaseEnterHouseholdName,
+                          border: InputBorder.none,
+                          hintStyle: TextStyle(
+                            color: colorScheme.mutedForeground,
+                          ),
+                        ),
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: colorScheme.foreground,
+                        ),
+                        maxLength: 50,
+                        buildCounter: (context,
+                                {required currentLength,
+                                required isFocused,
+                                maxLength}) =>
+                            null,
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+
+                    // Cover Photo Section
+                    _SectionHeader(
+                      title: context.l10n.coverPhoto,
+                    ),
+                    const SizedBox(height: 12),
+                    GestureDetector(
+                      onTap: canEdit
+                          ? () => _showImagePicker(context, household)
+                          : null,
+                      child: Container(
+                        height: 200,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: colorScheme.border.withValues(alpha: 0.5),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.03),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            // Image preview
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(15),
+                              child: _selectedImageFile != null
+                                  ? Image.file(
+                                      _selectedImageFile!,
+                                      fit: BoxFit.cover,
+                                    )
+                                  : _selectedImageUrl != null
+                                      ? Image.network(
+                                          _selectedImageUrl!,
+                                          fit: BoxFit.cover,
+                                          errorBuilder:
+                                              (context, error, stack) =>
+                                                  Container(
+                                            color: colorScheme.muted
+                                                .withValues(alpha: 1.0),
+                                            child: Icon(
+                                              Icons.home_rounded,
+                                              size: 48,
+                                              color:
+                                                  colorScheme.mutedForeground,
+                                            ),
+                                          ),
+                                        )
+                                      : Container(
+                                          color: colorScheme.muted
+                                              .withValues(alpha: 1.0),
+                                          child: Icon(
+                                            Icons.home_rounded,
+                                            size: 48,
+                                            color: colorScheme.mutedForeground,
+                                          ),
+                                        ),
+                            ),
+                            // Overlay button
+                            if (canEdit) ...[
+                              Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(15),
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      Colors.transparent,
+                                      Colors.black.withValues(alpha: 0.5),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                bottom: 16,
+                                left: 0,
+                                right: 0,
+                                child: Center(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 8,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color:
+                                          Colors.white.withValues(alpha: 0.9),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.camera_alt,
+                                          size: 18,
+                                          color: colorScheme.primary,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          context.l10n.changeCoverPhoto,
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                            color: colorScheme.primary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
                     ),
-                    Positioned(
-                      bottom: 16,
-                      left: 0,
-                      right: 0,
-                      child: Center(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.9),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.camera_alt,
-                                size: 18,
-                                color: colorScheme.primary,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                context.l10n.changeCoverPhoto,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: colorScheme.primary,
+                    const SizedBox(height: 40),
+
+                    // Save Button
+                    if (canEdit)
+                      PrimaryAdaptiveButton(
+                        onPressed:
+                            _isSaving ? null : () => _saveChanges(household),
+                        child: _isSaving
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
+                              )
+                            : Text(context.l10n.saveChanges),
                       ),
-                    ),
-                  ],
+                    const SizedBox(height: 40),
+                  ]),
                 ),
               ),
-            ),
-            const SizedBox(height: 32),
-
-            // Save Button
-            if (canEdit)
-              PrimaryAdaptiveButton(
-                onPressed: _isSaving ? null : () => _saveChanges(household),
-                child: _isSaving
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      )
-                    : Text(context.l10n.saveChanges),
-              ),
-          ],
+            ],
+          ),
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -387,7 +426,7 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
         name: _nameController.text.trim(),
         coverImageUrl: imageUrl,
       );
-      
+
       // Invalidate providers to refresh UI
       ref.invalidate(householdProvider(widget.householdId));
       ref.invalidate(userHouseholdsProvider(ref.read(authProvider).uid));
@@ -422,7 +461,8 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
       final ext = imageFile.path.contains('.')
           ? '.${imageFile.path.split('.').last.toLowerCase()}'
           : '';
-      final fileName = '${StorageConfig.householdCoversPath}/${user.uid}/${DateTime.now().millisecondsSinceEpoch}$ext';
+      final fileName =
+          '${StorageConfig.householdCoversPath}/${user.uid}/${DateTime.now().millisecondsSinceEpoch}$ext';
 
       await supabase.storage
           .from(StorageConfig.publicBucket)
@@ -461,30 +501,39 @@ class _MembersTab extends ConsumerWidget {
           orElse: () => throw Exception('Current user not found in household'),
         );
         final currentUserRole = currentUserMember.role;
-        final canManageMembers = currentUserRole == HouseholdRole.owner || currentUserRole == HouseholdRole.admin;
+        final canManageMembers = currentUserRole == HouseholdRole.owner ||
+            currentUserRole == HouseholdRole.admin;
 
         return RefreshIndicator(
-          onRefresh: () => ref.read(householdMembersProvider(householdId).notifier).load(),
-          child: ListView.separated(
-            padding: const EdgeInsets.all(0),
-            itemCount: members.length,
-            separatorBuilder: (context, index) => Divider(
-              height: 1,
-              thickness: 0.5,
-              indent: 72,
-              color: colorScheme.border,
-            ),
-            itemBuilder: (context, index) {
-              final member = members[index];
-              return _MemberCard(
-                member: member,
-                householdId: householdId,
-                currentUserRole: currentUserRole,
-                canManageMembers: canManageMembers,
-                onRemove: () => _confirmRemoveMember(context, ref, member),
-                onUpdateRole: (role) => _updateMemberRole(context, ref, member, role),
-              );
-            },
+          onRefresh: () =>
+              ref.read(householdMembersProvider(householdId).notifier).load(),
+          child: CustomScrollView(
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.all(16),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final member = members[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _MemberCard(
+                          member: member,
+                          householdId: householdId,
+                          currentUserRole: currentUserRole,
+                          canManageMembers: canManageMembers,
+                          onRemove: () =>
+                              _confirmRemoveMember(context, ref, member),
+                          onUpdateRole: (role) =>
+                              _updateMemberRole(context, ref, member, role),
+                        ),
+                      );
+                    },
+                    childCount: members.length,
+                  ),
+                ),
+              ),
+            ],
           ),
         );
       },
@@ -501,7 +550,9 @@ class _MembersTab extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             TextButton(
-              onPressed: () => ref.read(householdMembersProvider(householdId).notifier).load(),
+              onPressed: () => ref
+                  .read(householdMembersProvider(householdId).notifier)
+                  .load(),
               child: Text(context.l10n.retry),
             ),
           ],
@@ -510,13 +561,15 @@ class _MembersTab extends ConsumerWidget {
     );
   }
 
-  void _confirmRemoveMember(BuildContext context, WidgetRef ref, HouseholdMember member) {
+  void _confirmRemoveMember(
+      BuildContext context, WidgetRef ref, HouseholdMember member) {
     if (Platform.isIOS) {
       showCupertinoDialog(
         context: context,
         builder: (context) => CupertinoAlertDialog(
           title: Text(context.l10n.removeMember),
-          content: Text('${context.l10n.confirmRemoveMember} ${member.userName ?? member.userEmail}?'),
+          content: Text(
+              '${context.l10n.confirmRemoveMember} ${member.userName ?? member.userEmail}?'),
           actions: [
             CupertinoDialogAction(
               onPressed: () => Navigator.pop(context),
@@ -525,7 +578,9 @@ class _MembersTab extends ConsumerWidget {
             CupertinoDialogAction(
               isDestructiveAction: true,
               onPressed: () async {
-                await ref.read(householdMembersProvider(householdId).notifier).removeMember(member.id);
+                await ref
+                    .read(householdMembersProvider(householdId).notifier)
+                    .removeMember(member.id);
                 if (context.mounted) Navigator.pop(context);
               },
               child: Text(context.l10n.remove),
@@ -538,7 +593,8 @@ class _MembersTab extends ConsumerWidget {
         context: context,
         builder: (context) => AlertDialog(
           title: Text(context.l10n.removeMember),
-          content: Text('${context.l10n.confirmRemoveMember} ${member.userName ?? member.userEmail}?'),
+          content: Text(
+              '${context.l10n.confirmRemoveMember} ${member.userName ?? member.userEmail}?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -546,7 +602,9 @@ class _MembersTab extends ConsumerWidget {
             ),
             TextButton(
               onPressed: () async {
-                await ref.read(householdMembersProvider(householdId).notifier).removeMember(member.id);
+                await ref
+                    .read(householdMembersProvider(householdId).notifier)
+                    .removeMember(member.id);
                 if (context.mounted) Navigator.pop(context);
               },
               style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -558,10 +616,14 @@ class _MembersTab extends ConsumerWidget {
     }
   }
 
-  Future<void> _updateMemberRole(BuildContext context, WidgetRef ref, HouseholdMember member, HouseholdRole role) async {
-    await ref.read(householdMembersProvider(householdId).notifier).updateRole(member.id, role);
+  Future<void> _updateMemberRole(BuildContext context, WidgetRef ref,
+      HouseholdMember member, HouseholdRole role) async {
+    await ref
+        .read(householdMembersProvider(householdId).notifier)
+        .updateRole(member.id, role);
     if (context.mounted) {
-      AppToast.success(context, '${context.l10n.updatedMemberRole} ${member.userName ?? member.userEmail}');
+      AppToast.success(context,
+          '${context.l10n.updatedMemberRole} ${member.userName ?? member.userEmail}');
     }
   }
 }
@@ -588,83 +650,101 @@ class _MemberCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final isOwner = member.role == HouseholdRole.owner;
-    
-    final canManageThisMember = canManageMembers && (
-      (currentUserRole == HouseholdRole.owner && !isOwner) ||
-      (currentUserRole == HouseholdRole.admin && member.role == HouseholdRole.member)
-    );
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: canManageThisMember ? () => _showOptions(context) : null,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            children: [
-              MemberAvatar(
-                role: member.role,
-                avatarUrl: member.avatarUrl,
-                name: member.userName,
-                email: member.userEmail,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      (() {
-                        final name = member.userName?.trim();
-                        if (name != null && name.isNotEmpty) return name;
-                        return member.userEmail ?? context.l10n.unknown;
-                      })(),
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w400,
-                        color: colorScheme.foreground,
+    final canManageThisMember = canManageMembers &&
+        ((currentUserRole == HouseholdRole.owner && !isOwner) ||
+            (currentUserRole == HouseholdRole.admin &&
+                member.role == HouseholdRole.member));
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colorScheme.border.withValues(alpha: 0.5),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: canManageThisMember ? () => _showOptions(context) : null,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                MemberAvatar(
+                  role: member.role,
+                  avatarUrl: member.avatarUrl,
+                  name: member.userName,
+                  email: member.userEmail,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        (() {
+                          final name = member.userName?.trim();
+                          if (name != null && name.isNotEmpty) return name;
+                          return member.userEmail ?? context.l10n.unknown;
+                        })(),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.foreground,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        RoleBadge(role: member.role),
-                        if (member.userEmail != null && member.userName != null) ...[
-                          const SizedBox(width: 8),
-                          Text(
-                            '•',
-                            style: TextStyle(
-                              color: colorScheme.mutedForeground,
-                              fontSize: 12,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              member.userEmail!,
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          RoleBadge(role: member.role),
+                          if (member.userEmail != null &&
+                              member.userName != null) ...[
+                            const SizedBox(width: 8),
+                            Text(
+                              '•',
                               style: TextStyle(
-                                fontSize: 13,
                                 color: colorScheme.mutedForeground,
+                                fontSize: 12,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
                             ),
-                          ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                member.userEmail!,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: colorScheme.mutedForeground,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
                         ],
-                      ],
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              if (canManageThisMember)
-                Icon(
-                  Icons.chevron_right,
-                  color: colorScheme.mutedForeground,
-                  size: 20,
-                ),
-            ],
+                if (canManageThisMember)
+                  Icon(
+                    Icons.more_vert_rounded,
+                    color: colorScheme.mutedForeground,
+                    size: 20,
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -788,8 +868,8 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final membersAsync = ref.watch(householdMembersProvider(widget.householdId));
+    final membersAsync =
+        ref.watch(householdMembersProvider(widget.householdId));
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
 
     final currentUserMember = membersAsync.asData?.value.firstWhere(
@@ -797,459 +877,84 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
       orElse: () => throw Exception('Current user not found in household'),
     );
     final currentUserRole = currentUserMember?.role ?? HouseholdRole.member;
-    final canCreateInvites = currentUserRole == HouseholdRole.owner || currentUserRole == HouseholdRole.admin;
+    final canCreateInvites = currentUserRole == HouseholdRole.owner ||
+        currentUserRole == HouseholdRole.admin;
 
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    final pendingInvites = _invites.where((i) => i.status == InviteStatus.pending).toList();
-    final historyInvites = _invites.where((i) => i.status != InviteStatus.pending).toList();
-
-    return RefreshIndicator(
-      onRefresh: _loadInvites,
-      child: ListView(
-        padding: const EdgeInsets.all(0),
-        children: [
-          // Create button or permission notice
-          if (canCreateInvites) ...[
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: ElevatedButton(
-                onPressed: () => _showCreateInviteDialog(context),
-                child: Text(context.l10n.createInvitation),
-              ),
-            ),
-            Divider(height: 1, thickness: 0.5, color: colorScheme.border),
-          ],
-          if (!canCreateInvites) ...[
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                context.l10n.onlyAdminsAndOwnersCanCreateInvitations,
-                style: TextStyle(fontSize: 13, color: colorScheme.mutedForeground),
-                textAlign: TextAlign.center,
-              ),
-            ),
-            Divider(height: 1, thickness: 0.5, color: colorScheme.border),
-          ],
-
-          // Pending Invitations Section
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Text(
-              context.l10n.pendingInvitations,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: colorScheme.mutedForeground,
-              ),
-            ),
-          ),
-          if (pendingInvites.isNotEmpty) ...[
-            ...pendingInvites.map((invite) => Column(
-              children: [
-                _InviteCard(
-                  invite: invite,
-                  onCopy: canCreateInvites ? () => _copyInviteLink(invite) : null,
-                  onRevoke: canCreateInvites ? () => _revokeInvite(invite) : null,
-                ),
-                Divider(height: 1, thickness: 0.5, indent: 16, color: colorScheme.border),
-              ],
-            )),
-          ] else ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-              child: Text(
-                context.l10n.noPendingInvitations,
-                style: TextStyle(fontSize: 13, color: colorScheme.mutedForeground),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ],
-
-          // History Section
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Text(
-              context.l10n.invitationHistory,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: colorScheme.mutedForeground,
-              ),
-            ),
-          ),
-          if (historyInvites.isNotEmpty) ...[
-            ...historyInvites.map((invite) => Column(
-              children: [
-                _InviteCard(
-                  invite: invite,
-                  onCopy: null,
-                  onRevoke: null,
-                ),
-                Divider(height: 1, thickness: 0.5, indent: 16, color: colorScheme.border),
-              ],
-            )),
-          ] else ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-              child: Text(
-                context.l10n.noInvitationHistory,
-                style: TextStyle(fontSize: 13, color: colorScheme.mutedForeground),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  // ignore: unused_element
-  Widget _oldBuild(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final membersAsync = ref.watch(householdMembersProvider(widget.householdId));
-    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
-
-    final currentUserMember = membersAsync.asData?.value.firstWhere(
-      (m) => m.userId == currentUserId,
-      orElse: () => throw Exception('Current user not found in household'),
-    );
-    final currentUserRole = currentUserMember?.role ?? HouseholdRole.member;
-    final canCreateInvites = currentUserRole == HouseholdRole.owner || currentUserRole == HouseholdRole.admin;
-
-    final pendingInvites = _invites.where((i) => i.status == InviteStatus.pending).toList();
-    final historyInvites = _invites.where((i) => i.status != InviteStatus.pending).toList();
-
-    if (_isLoading) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SizedBox(
-              width: 48,
-              height: 48,
-              child: CircularProgressIndicator(
-                strokeWidth: 3,
-                valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Loading invitations...',
-              style: TextStyle(
-                fontSize: 15,
-                color: colorScheme.mutedForeground,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
+    final pendingInvites =
+        _invites.where((i) => i.status == InviteStatus.pending).toList();
+    final historyInvites =
+        _invites.where((i) => i.status != InviteStatus.pending).toList();
 
     return RefreshIndicator(
       onRefresh: _loadInvites,
       child: CustomScrollView(
         slivers: [
-          // Header
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    context.l10n.invitations,
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
-                      color: colorScheme.foreground,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '${_invites.length} total • ${pendingInvites.length} pending',
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: colorScheme.mutedForeground,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+          SliverPadding(
+            padding: const EdgeInsets.all(16),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                if (canCreateInvites) ...[
+                  _CreateInviteCard(
+                      onPressed: () => _showCreateInviteDialog(context)),
+                  const SizedBox(height: 32),
+                ] else ...[
+                  _PermissionNotice(),
+                  const SizedBox(height: 32),
                 ],
-              ),
+                _SectionHeader(
+                  title: context.l10n.pendingInvitations,
+                  count: pendingInvites.length,
+                ),
+                const SizedBox(height: 12),
+                if (pendingInvites.isEmpty)
+                  _EmptyState(
+                    icon: Icons.mark_email_read_rounded,
+                    message: context.l10n.noPendingInvitations,
+                    subMessage: 'All caught up! No pending invites.',
+                  )
+                else
+                  ...pendingInvites.map((invite) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _InviteCard(
+                          invite: invite,
+                          onCopy: canCreateInvites
+                              ? () => _copyInviteLink(invite)
+                              : null,
+                          onRevoke: canCreateInvites
+                              ? () => _revokeInvite(invite)
+                              : null,
+                        ),
+                      )),
+                const SizedBox(height: 32),
+                _SectionHeader(
+                  title: context.l10n.invitationHistory,
+                  count: historyInvites.length,
+                ),
+                const SizedBox(height: 12),
+                if (historyInvites.isEmpty)
+                  _EmptyState(
+                    icon: Icons.history_toggle_off_rounded,
+                    message: context.l10n.noInvitationHistory,
+                    subMessage: 'Past invitations will appear here.',
+                  )
+                else
+                  ...historyInvites.map((invite) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _InviteCard(
+                          invite: invite,
+                          onCopy: null,
+                          onRevoke: null,
+                        ),
+                      )),
+                const SizedBox(height: 40),
+              ]),
             ),
           ),
-
-          // Permission notice for members
-          if (!canCreateInvites)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        colorScheme.muted.withValues(alpha: 0.3),
-                        colorScheme.muted.withValues(alpha: 0.1),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: colorScheme.border.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: colorScheme.primary.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(
-                          Icons.info_outline_rounded,
-                          size: 20,
-                          color: colorScheme.primary,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          context.l10n.onlyAdminsAndOwnersCanCreateInvitations,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: colorScheme.foreground,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-          // Create Invite Button
-          if (canCreateInvites)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [colorScheme.primary, colorScheme.primary.withValues(alpha: 0.8)],
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: colorScheme.primary.withValues(alpha: 0.3),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(12),
-                      onTap: () => _showCreateInviteDialog(context),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.add_circle_outline_rounded, color: Colors.white, size: 22),
-                            const SizedBox(width: 10),
-                            Text(
-                              context.l10n.createInvitation,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                                letterSpacing: 0.3,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
-          const SliverToBoxAdapter(child: SizedBox(height: 32)),
-
-          // Pending Invites Section
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Icon(Icons.schedule_rounded, size: 16, color: Colors.orange),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    context.l10n.pendingInvitations.toUpperCase(),
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.orange,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          if (pendingInvites.isEmpty)
-            SliverToBoxAdapter(
-              child: _buildEmptyState(
-                context,
-                Icons.mail_outline_rounded,
-                context.l10n.noPendingInvitations,
-                'All invitations have been accepted or expired',
-              ),
-            )
-          else
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _InviteCard(
-                      invite: pendingInvites[index],
-                      onCopy: canCreateInvites ? () => _copyInviteLink(pendingInvites[index]) : null,
-                      onRevoke: canCreateInvites ? () => _revokeInvite(pendingInvites[index]) : null,
-                    ),
-                  ),
-                  childCount: pendingInvites.length,
-                ),
-              ),
-            ),
-
-          const SliverToBoxAdapter(child: SizedBox(height: 24)),
-
-          // History Section
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: colorScheme.mutedForeground.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Icon(Icons.history_rounded, size: 16, color: colorScheme.mutedForeground),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    context.l10n.invitationHistory.toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: colorScheme.mutedForeground,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          if (historyInvites.isEmpty)
-            SliverToBoxAdapter(
-              child: _buildEmptyState(
-                context,
-                Icons.inventory_2_outlined,
-                context.l10n.noInvitationHistory,
-                'Past invitations will appear here',
-              ),
-            )
-          else
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _InviteCard(
-                      invite: historyInvites[index],
-                      onCopy: null,
-                      onRevoke: null,
-                    ),
-                  ),
-                  childCount: historyInvites.length,
-                ),
-              ),
-            ),
-
-          const SliverToBoxAdapter(child: SizedBox(height: 24)),
         ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyState(
-    BuildContext context,
-    IconData icon,
-    String title,
-    String subtitle,
-  ) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
-      child: Center(
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: colorScheme.muted.withValues(alpha: 0.3),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                icon,
-                size: 40,
-                color: colorScheme.mutedForeground.withValues(alpha: 0.5),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: colorScheme.foreground,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              subtitle,
-              style: TextStyle(
-                fontSize: 13,
-                color: colorScheme.mutedForeground,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -1335,7 +1040,8 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
                         setState(() => expiresInDays = selected);
                       }
                     },
-                    child: Text('${context.l10n.expiresIn}: ${expiryLabel(expiresInDays)}'),
+                    child: Text(
+                        '${context.l10n.expiresIn}: ${expiryLabel(expiresInDays)}'),
                   ),
                 ),
               ],
@@ -1348,8 +1054,12 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
               CupertinoDialogAction(
                 onPressed: () async {
                   await _createInvite(
-                    email: emailController.text.isNotEmpty ? emailController.text : null,
-                    message: messageController.text.isNotEmpty ? messageController.text : null,
+                    email: emailController.text.isNotEmpty
+                        ? emailController.text
+                        : null,
+                    message: messageController.text.isNotEmpty
+                        ? messageController.text
+                        : null,
                     expiresInDays: expiresInDays,
                   );
                   if (context.mounted) Navigator.pop(context);
@@ -1389,14 +1099,21 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
                 const SizedBox(height: 16),
                 DropdownButtonFormField<int>(
                   initialValue: expiresInDays,
-                  decoration: InputDecoration(labelText: context.l10n.expiresIn),
+                  decoration:
+                      InputDecoration(labelText: context.l10n.expiresIn),
                   items: [
-                    DropdownMenuItem(value: 1, child: Text(context.l10n.oneDay)),
-                    DropdownMenuItem(value: 3, child: Text(context.l10n.threeDays)),
-                    DropdownMenuItem(value: 7, child: Text(context.l10n.sevenDays)),
-                    DropdownMenuItem(value: 14, child: Text(context.l10n.fourteenDays)),
-                    DropdownMenuItem(value: 30, child: Text(context.l10n.thirtyDays)),
-                    DropdownMenuItem(value: 0, child: Text(context.l10n.unlimited)),
+                    DropdownMenuItem(
+                        value: 1, child: Text(context.l10n.oneDay)),
+                    DropdownMenuItem(
+                        value: 3, child: Text(context.l10n.threeDays)),
+                    DropdownMenuItem(
+                        value: 7, child: Text(context.l10n.sevenDays)),
+                    DropdownMenuItem(
+                        value: 14, child: Text(context.l10n.fourteenDays)),
+                    DropdownMenuItem(
+                        value: 30, child: Text(context.l10n.thirtyDays)),
+                    DropdownMenuItem(
+                        value: 0, child: Text(context.l10n.unlimited)),
                   ],
                   onChanged: (value) {
                     if (value != null) {
@@ -1414,8 +1131,12 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
               FilledButton(
                 onPressed: () async {
                   await _createInvite(
-                    email: emailController.text.isNotEmpty ? emailController.text : null,
-                    message: messageController.text.isNotEmpty ? messageController.text : null,
+                    email: emailController.text.isNotEmpty
+                        ? emailController.text
+                        : null,
+                    message: messageController.text.isNotEmpty
+                        ? messageController.text
+                        : null,
                     expiresInDays: expiresInDays,
                   );
                   if (context.mounted) Navigator.pop(context);
@@ -1566,6 +1287,222 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
   }
 }
 
+class _CreateInviteCard extends StatelessWidget {
+  final VoidCallback onPressed;
+
+  const _CreateInviteCard({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            colorScheme.primary,
+            colorScheme.primary.withValues(alpha: 0.8),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.primary.withValues(alpha: 0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Invite New Member',
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Send a link to join your household',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.white.withValues(alpha: 0.9),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.arrow_forward_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PermissionNotice extends StatelessWidget {
+  final String? message;
+
+  const _PermissionNotice({this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.muted.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: colorScheme.border.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.info_outline_rounded,
+            size: 20,
+            color: colorScheme.mutedForeground,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              message ?? 'Only admins and owners can create invitations.',
+              style: TextStyle(
+                fontSize: 13,
+                color: colorScheme.mutedForeground,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  final int? count;
+
+  const _SectionHeader({
+    required this.title,
+    this.count,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Text(
+          title.toUpperCase(),
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: colorScheme.primary,
+            letterSpacing: 1.0,
+          ),
+        ),
+        if (count != null) ...[
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: colorScheme.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              count.toString(),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.primary,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  final IconData icon;
+  final String message;
+  final String subMessage;
+
+  const _EmptyState({
+    required this.icon,
+    required this.message,
+    required this.subMessage,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: colorScheme.card.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colorScheme.border.withValues(alpha: 0.2),
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            icon,
+            size: 32,
+            color: colorScheme.mutedForeground.withValues(alpha: 0.5),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            message,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: colorScheme.foreground,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subMessage,
+            style: TextStyle(
+              fontSize: 13,
+              color: colorScheme.mutedForeground,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Invite Card Widget - Clean list item
 class _InviteCard extends StatelessWidget {
   final HouseholdInvite invite;
@@ -1581,84 +1518,178 @@ class _InviteCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isExpired = invite.expiresAt != null && invite.expiresAt!.isBefore(DateTime.now());
+    final isExpired =
+        invite.expiresAt != null && invite.expiresAt!.isBefore(DateTime.now());
     final isPending = invite.status == InviteStatus.pending;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colorScheme.border.withValues(alpha: 0.5),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      invite.invitedEmail ?? context.l10n.anyoneWithLink,
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w400,
-                        color: colorScheme.foreground,
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primary.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.link,
+                    size: 20,
+                    color: colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        invite.invitedEmail ?? context.l10n.anyoneWithLink,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.foreground,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        _StatusBadge(status: invite.status, isExpired: isExpired),
-                        const SizedBox(width: 8),
-                        Text('•', style: TextStyle(color: colorScheme.mutedForeground)),
-                        const SizedBox(width: 8),
-                        Text(
-                          invite.expiresAt == null
-                              ? context.l10n.noExpiry
-                              : (isExpired
-                                  ? context.l10n.expired
-                                  : '${context.l10n.expires} ${_formatDate(invite.expiresAt!)}'),
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: colorScheme.mutedForeground,
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          _StatusBadge(
+                              status: invite.status, isExpired: isExpired),
+                          const SizedBox(width: 8),
+                          Text('•',
+                              style: TextStyle(
+                                  color: colorScheme.mutedForeground)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              invite.expiresAt == null
+                                  ? context.l10n.noExpiry
+                                  : (isExpired
+                                      ? context.l10n.expired
+                                      : '${context.l10n.expires} ${_formatDate(invite.expiresAt!)}'),
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: colorScheme.mutedForeground,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (invite.personalMessage != null) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: colorScheme.muted.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '"${invite.personalMessage}"',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: colorScheme.mutedForeground,
+                              fontStyle: FontStyle.italic,
+                            ),
                           ),
                         ),
                       ],
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-          if (invite.personalMessage != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              invite.personalMessage!,
-              style: TextStyle(
-                fontSize: 13,
-                color: colorScheme.mutedForeground,
-                fontStyle: FontStyle.italic,
-              ),
+              ],
             ),
-          ],
-          if (isPending && !isExpired && (onCopy != null || onRevoke != null)) ...[
-            const SizedBox(height: 12),
+          ),
+          if (isPending &&
+              !isExpired &&
+              (onCopy != null || onRevoke != null)) ...[
+            Divider(height: 1, thickness: 0.5, color: colorScheme.border),
             Row(
               children: [
                 if (onCopy != null)
                   Expanded(
-                    child: OutlinedButton(
-                      onPressed: onCopy,
-                      child: Text(context.l10n.copyLink),
+                    child: InkWell(
+                      onTap: onCopy,
+                      borderRadius: const BorderRadius.only(
+                        bottomLeft: Radius.circular(16),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.copy_rounded,
+                                size: 16, color: colorScheme.primary),
+                            const SizedBox(width: 8),
+                            Text(
+                              context.l10n.copyLink,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
-                if (onCopy != null && onRevoke != null) const SizedBox(width: 8),
+                if (onCopy != null && onRevoke != null)
+                  Container(
+                    width: 1,
+                    height: 44,
+                    color: colorScheme.border,
+                  ),
                 if (onRevoke != null)
                   Expanded(
-                    child: OutlinedButton(
-                      onPressed: onRevoke,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: colorScheme.destructive,
+                    child: InkWell(
+                      onTap: onRevoke,
+                      borderRadius: BorderRadius.only(
+                        bottomRight: const Radius.circular(16),
+                        bottomLeft: onCopy == null
+                            ? const Radius.circular(16)
+                            : Radius.zero,
                       ),
-                      child: Text(context.l10n.revoke),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.delete_outline_rounded,
+                                size: 16, color: colorScheme.destructive),
+                            const SizedBox(width: 8),
+                            Text(
+                              context.l10n.revoke,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.destructive,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
               ],
@@ -1740,9 +1771,10 @@ class _StatusBadge extends StatelessWidget {
     };
   }
 
-  String _getLocalizedStatus(BuildContext context, bool isExpired, InviteStatus status) {
+  String _getLocalizedStatus(
+      BuildContext context, bool isExpired, InviteStatus status) {
     if (isExpired) return context.l10n.expired;
-    
+
     switch (status) {
       case InviteStatus.pending:
         return context.l10n.pending;

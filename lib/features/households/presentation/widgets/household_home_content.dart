@@ -441,34 +441,6 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                       context,
                       colorScheme,
                       fixedSummary,
-                      onTap: () {
-                        // Prefer navigating to an existing budget. If none exist at all,
-                        // then open the create screen defaulted to the selected currency.
-                        if (hasAnyBudget) {
-                          // Try to find a budget matching the currently selected currency; otherwise fallback to first.
-                          final match = allBudgets.firstWhere(
-                            (b) => (b.currency as String?)?.toUpperCase() == selectedCurrency,
-                            orElse: () => allBudgets.first,
-                          );
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => BudgetDetailPage(
-                                budget: match,
-                                householdId: household.id,
-                              ),
-                            ),
-                          );
-                        } else {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => CreateBudgetPage(
-                                householdId: household.id,
-                                initialCurrency: selectedCurrency,
-                              ),
-                            ),
-                          );
-                        }
-                      },
                     );
                   },
                 ),

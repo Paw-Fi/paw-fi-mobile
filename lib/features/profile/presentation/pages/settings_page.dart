@@ -523,7 +523,7 @@ class SettingsPage extends HookConsumerWidget {
                       // Sign out from auth last (this will trigger navigation to login)
                       await ref.read(authProvider.notifier).signOut();
                     },
-                   child: Text(context.l10n.signOut),
+                    child: Text(context.l10n.signOut),
                   ),
                 ),
               ],

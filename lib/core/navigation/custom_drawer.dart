@@ -98,7 +98,20 @@ class _CustomDrawerState extends State<CustomDrawer>
   }
 
   void _onDragEnd(DragEndDetails details) {
-    if (_animationController.value > 0.5 || details.primaryVelocity! > 500) {
+    // High velocity swipes
+    if (details.primaryVelocity! > 1000) {
+      open();
+      return;
+    }
+    if (details.primaryVelocity! < -600) {
+      close();
+      return;
+    }
+
+    // Drag position threshold
+    // > 0.6 means you have to drag 60% of the way to open it (harder)
+    // < 0.6 means you only have to drag 40% of the way back to close it (easier)
+    if (_animationController.value > 0.6) {
       open();
     } else {
       close();
@@ -186,7 +199,7 @@ class _CustomDrawerState extends State<CustomDrawer>
                           onHorizontalDragEnd: _onDragEnd,
                           onTap: close,
                           child: Container(
-                            color: Colors.transparent,
+                            color: Colors.black.withOpacity(0.2 * slideValue),
                           ),
                         ),
                     ],

@@ -40,10 +40,10 @@ class MainShell extends HookConsumerWidget {
       borderRadius: 24.0,
       showShadow: false,
       angle: 0,
-      menuBackgroundColor: colorScheme.appBackground,
+      menuBackgroundColor: colorScheme.drawerBackground,
       drawerShadowsBackgroundColor: Colors.black.withOpacity(0.2),
-      slideWidth: MediaQuery.of(context).size.width * 0.65,
-      menuScreenWidth: MediaQuery.of(context).size.width * 0.65,
+      slideWidth: MediaQuery.of(context).size.width * 0.75,
+      menuScreenWidth: MediaQuery.of(context).size.width * 0.75,
       mainScreen: AdaptiveScaffold(
         appBar: AdaptiveAppBar(
             useNativeToolbar: false,

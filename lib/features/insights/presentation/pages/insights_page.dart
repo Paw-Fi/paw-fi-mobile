@@ -33,39 +33,42 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
           await Future.delayed(const Duration(milliseconds: 500));
         },
         child: SafeArea(
-          child: AdaptiveTabBarView(
-            tabs: [
-              context.l10n.runningTab,
-              context.l10n.day30Tab,
-              context.l10n.longTermTab,
-              context.l10n.scenarioTab,
-            ],
-            children: [
-              buildRunningBalanceTab(
-                context,
-                colorScheme,
-                analyticsData,
-                selectedCurrency: filterState.selectedCurrency,
-              ),
-              build30DayLookAheadTab(
-                context,
-                colorScheme,
-                analyticsData,
-                selectedCurrency: filterState.selectedCurrency,
-              ),
-              buildLongTermProjectionTab(
-                context,
-                colorScheme,
-                analyticsData,
-                selectedCurrency: filterState.selectedCurrency,
-              ),
-              _buildScenarioPlanningTabWithProvider(
-                colorScheme,
-                analyticsData,
-                filterState.selectedCurrency,
-              ),
-            ],
-            onTabChanged: (_) {},
+          child: SizedBox(
+            width: double.infinity,
+            child: AdaptiveTabBarView(
+              tabs: [
+                context.l10n.runningTab,
+                context.l10n.day30Tab,
+                context.l10n.longTermTab,
+                context.l10n.scenarioTab,
+              ],
+              children: [
+                buildRunningBalanceTab(
+                  context,
+                  colorScheme,
+                  analyticsData,
+                  selectedCurrency: filterState.selectedCurrency,
+                ),
+                build30DayLookAheadTab(
+                  context,
+                  colorScheme,
+                  analyticsData,
+                  selectedCurrency: filterState.selectedCurrency,
+                ),
+                buildLongTermProjectionTab(
+                  context,
+                  colorScheme,
+                  analyticsData,
+                  selectedCurrency: filterState.selectedCurrency,
+                ),
+                _buildScenarioPlanningTabWithProvider(
+                  colorScheme,
+                  analyticsData,
+                  filterState.selectedCurrency,
+                ),
+              ],
+              onTabChanged: (_) {},
+            ),
           ),
         ),
       ),

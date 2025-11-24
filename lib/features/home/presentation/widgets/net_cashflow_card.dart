@@ -109,7 +109,7 @@ Widget buildNetCashflowCard(
           ),
         ],
       ),
-      padding: const EdgeInsets.all(24.0),
+      padding: const EdgeInsets.all(18.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -130,7 +130,7 @@ Widget buildNetCashflowCard(
             child: Text(
               displayText,
               style: TextStyle(
-                fontSize: 36,
+                fontSize: _netCashflowFontSize(displayText),
                 fontWeight: FontWeight.w700,
                 letterSpacing: -1.0,
                 color: colorScheme.foreground,
@@ -200,6 +200,20 @@ String _netCashflowTitleForFilter(
   final l10n = context.l10n;
   // Always show "This Month" regardless of external filters
   return l10n.netCashflowThisMonth;
+}
+
+double _netCashflowFontSize(String displayText) {
+  final length = displayText.length;
+
+  if (length <= 6) {
+    return 35;
+  } else if (length <= 7) {
+    return 34;
+  } else if (length <= 8) {
+    return 33;
+  } else {
+    return 32;
+  }
 }
 
 double _sumRecurringForMonth(List<RecurringTransaction> items, DateTime now,

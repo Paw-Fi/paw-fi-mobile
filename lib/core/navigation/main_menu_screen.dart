@@ -1,4 +1,3 @@
-import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -33,37 +32,21 @@ class MainMenuScreen extends ConsumerWidget {
 
     return SafeArea(
       child: Material(
-        color: colorScheme.card,
-        child: Container(
-          decoration: BoxDecoration(
-            border: Border(
-              right: BorderSide(
-                color: colorScheme.outline.withOpacity(0.1),
-                width: 1,
-              ),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.02),
-                offset: const Offset(2, 0),
-                blurRadius: 10,
-              ),
-            ],
-          ),
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+        color: Colors.transparent,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 24),
-              _CurrencySection(colorScheme: colorScheme),
-              const SizedBox(height: 16),
-              _DateRangeSection(colorScheme: colorScheme),
-              const SizedBox(height: 24),
-              if (viewMode.mode == ViewMode.household)
-                Expanded(child: _HouseholdSection(colorScheme: colorScheme))
-              else
+              _ProfileHeader(user: user, colorScheme: colorScheme),
+              const SizedBox(height: 40),
+              _SettingsList(colorScheme: colorScheme),
+              if (viewMode.mode == ViewMode.household) ...[
+                const SizedBox(height: 40),
+                Expanded(child: _HouseholdSection(colorScheme: colorScheme)),
+              ] else
                 const Spacer(),
-              _ProfileRow(user: user, colorScheme: colorScheme),
+              const SizedBox(height: 20),
             ],
           ),
         ),
@@ -72,10 +55,8 @@ class MainMenuScreen extends ConsumerWidget {
   }
 }
 
-class _DateRangeSection extends ConsumerWidget {
-  const _DateRangeSection({
-    required this.colorScheme,
-  });
+class _SettingsList extends ConsumerWidget {
+  const _SettingsList({required this.colorScheme});
 
   final ColorScheme colorScheme;
 
@@ -83,118 +64,49 @@ class _DateRangeSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final filterState = ref.watch(homeFilterProvider);
     final DateRangeFilter currentFilter = filterState.dateRangeFilter;
-    final String label = currentFilter.getLabel(context);
+    final String dateLabel = currentFilter.getLabel(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          context.l10n.selectDateRange,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: colorScheme.mutedForeground,
-          ),
-        ),
-        const SizedBox(height: 10),
-        GestureDetector(
-          onTap: () {
-            showDateRangeFilter(context, colorScheme);
+        _SectionLabel(label: context.l10n.currency, colorScheme: colorScheme),
+        const SizedBox(height: 12),
+        CurrencyDropdownButton(
+          onAfterSelect: () {
+            final user = ref.read(authProvider);
+            if (user.uid.isEmpty) return;
+            ref.read(analyticsProvider.notifier).refresh(user.uid);
+            ref.read(recurringTransactionsProvider.notifier).refresh(user.uid);
+            ref.invalidate(pocketsProvider);
           },
-          child: Container(
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerHighest.withOpacity(0.5),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.calendar_today_rounded,
-                  size: 18,
-                  color: colorScheme.mutedForeground,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      color: colorScheme.foreground,
-                    ),
-                  ),
-                ),
-                Icon(
-                  Icons.expand_more_rounded,
-                  size: 18,
-                  color: colorScheme.mutedForeground,
-                ),
-              ],
-            ),
-          ),
         ),
-      ],
-    );
-  }
-}
-
-class _CurrencySection extends ConsumerWidget {
-  const _CurrencySection({
-    required this.colorScheme,
-  });
-
-  final ColorScheme colorScheme;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          context.l10n.currency,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: colorScheme.mutedForeground,
-          ),
-        ),
-        const SizedBox(height: 10),
-        Container(
-          decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerHighest.withOpacity(0.5),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        const SizedBox(height: 32),
+        _SectionLabel(
+            label: context.l10n.selectDateRange, colorScheme: colorScheme),
+        const SizedBox(height: 12),
+        InkWell(
+          onTap: () => showDateRangeFilter(context, colorScheme),
+          borderRadius: BorderRadius.circular(8),
           child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.payments_rounded,
-                size: 18,
-                color: colorScheme.mutedForeground,
+              Flexible(
+                child: Text(
+                  dateLabel,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w500,
+                    color: colorScheme.foreground,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              const SizedBox(width: 10),
-              CurrencyDropdownButton(
-                onAfterSelect: () {
-                  final user = ref.read(authProvider);
-                  if (user.uid.isEmpty) {
-                    return;
-                  }
-
-                  // Refresh core analytics data (Home + Insights)
-                  ref.read(analyticsProvider.notifier).refresh(user.uid);
-
-                  // Refresh recurring transactions list (Recurring page)
-                  ref
-                      .read(recurringTransactionsProvider.notifier)
-                      .refresh(user.uid);
-
-                  // Invalidate all pockets (envelope) states so they reload
-                  // with the newly selected currency when next watched
-                  ref.invalidate(pocketsProvider);
-                },
+              const SizedBox(width: 8),
+              Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: colorScheme.mutedForeground,
+                size: 24,
               ),
             ],
           ),
@@ -204,10 +116,31 @@ class _CurrencySection extends ConsumerWidget {
   }
 }
 
-class _HouseholdSection extends ConsumerWidget {
-  const _HouseholdSection({
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel({
+    required this.label,
     required this.colorScheme,
   });
+
+  final String label;
+  final ColorScheme colorScheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label,
+      style: TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        color: colorScheme.mutedForeground,
+        letterSpacing: 0.5,
+      ),
+    );
+  }
+}
+
+class _HouseholdSection extends ConsumerWidget {
+  const _HouseholdSection({required this.colorScheme});
 
   final ColorScheme colorScheme;
 
@@ -221,9 +154,7 @@ class _HouseholdSection extends ConsumerWidget {
       loading: () => const SizedBox.shrink(),
       error: (_, __) => const SizedBox.shrink(),
       data: (households) {
-        if (households.isEmpty) {
-          return const SizedBox.shrink();
-        }
+        if (households.isEmpty) return const SizedBox.shrink();
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -235,11 +166,12 @@ class _HouseholdSection extends ConsumerWidget {
                   context.l10n.household,
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
                     color: colorScheme.mutedForeground,
+                    letterSpacing: 0.5,
                   ),
                 ),
-                GestureDetector(
+                InkWell(
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
@@ -247,84 +179,87 @@ class _HouseholdSection extends ConsumerWidget {
                       ),
                     );
                   },
-                  child: Container(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Padding(
                     padding: const EdgeInsets.all(4),
                     child: Icon(
-                      Icons.add_rounded,
-                      size: 20,
-                      color: colorScheme.primary,
+                      Icons.add,
+                      size: 26,
+                      color: colorScheme.onSurface,
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 16),
             Expanded(
-              child: ListView.builder(
+              child: ListView.separated(
                 padding: EdgeInsets.zero,
                 itemCount: households.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 16),
                 itemBuilder: (context, index) {
                   final household = households[index];
-                  final bool isSelected = selectedState.householdId != null &&
-                      selectedState.householdId == household.id;
+                  final isSelected = selectedState.householdId == household.id;
 
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? colorScheme.selectedStateBackground
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     child: InkWell(
-                      borderRadius: BorderRadius.circular(18),
                       onTap: () async {
-                        // Preserve selection behavior by delegating to the same notifier
                         final user = ref.read(authProvider);
                         await ref
                             .read(selectedHouseholdProvider.notifier)
                             .selectHousehold(household.id, user.uid);
                       },
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? colorScheme.primaryContainer.withOpacity(0.4)
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
                         child: Row(
                           children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: SizedBox(
-                                width: 40,
-                                height: 40,
-                                child: household.coverImageUrl != null
-                                    ? Image.network(
-                                        household.coverImageUrl!,
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                color: colorScheme.surfaceContainerHighest,
+                                image: household.coverImageUrl != null
+                                    ? DecorationImage(
+                                        image: NetworkImage(
+                                            household.coverImageUrl!),
                                         fit: BoxFit.cover,
                                       )
-                                    : Container(
-                                        color: colorScheme.muted
-                                            .withValues(alpha: 0.5),
-                                        child: Icon(
-                                          Icons.home_rounded,
-                                          size: 22,
-                                          color: colorScheme.mutedForeground
-                                              .withValues(alpha: 0.8),
-                                        ),
-                                      ),
+                                    : null,
                               ),
+                              child: household.coverImageUrl == null
+                                  ? Icon(
+                                      Icons.home_rounded,
+                                      size: 24,
+                                      color: colorScheme.mutedForeground,
+                                    )
+                                  : null,
                             ),
-                            const SizedBox(width: 12),
+                            const SizedBox(width: 16),
                             Expanded(
-                              child: Text(
-                                household.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: colorScheme.foreground,
-                                ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    household.name,
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: isSelected
+                                          ? FontWeight.w600
+                                          : FontWeight.w500,
+                                      color: colorScheme.foreground,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
                               ),
                             ),
                             if (isSelected)
@@ -359,8 +294,8 @@ class _HouseholdSection extends ConsumerWidget {
   }
 }
 
-class _ProfileRow extends StatelessWidget {
-  const _ProfileRow({
+class _ProfileHeader extends StatelessWidget {
+  const _ProfileHeader({
     required this.user,
     required this.colorScheme,
   });
@@ -373,8 +308,8 @@ class _ProfileRow extends StatelessWidget {
     return Row(
       children: [
         SizedBox(
-          width: 40,
-          height: 40,
+          width: 56,
+          height: 56,
           child: FutureBuilder<Map<String, dynamic>?>(
             future: Supabase.instance.client
                 .from('users')
@@ -382,58 +317,36 @@ class _ProfileRow extends StatelessWidget {
                 .eq('id', user.uid)
                 .maybeSingle(),
             builder: (context, snapshot) {
-              final dbAvatarUrl = snapshot.data != null
-                  ? snapshot.data!['avatar_url'] as String?
-                  : null;
-
-              String? validatedAvatarUrl;
-              if (dbAvatarUrl != null &&
-                  dbAvatarUrl.isNotEmpty &&
-                  dbAvatarUrl != 'SKIPPED' &&
-                  (dbAvatarUrl.startsWith('http://') ||
-                      dbAvatarUrl.startsWith('https://'))) {
-                validatedAvatarUrl = dbAvatarUrl;
-              }
-
-              final avatarUrl = validatedAvatarUrl ??
-                  (user.photoUrl != null && user.photoUrl!.isNotEmpty
-                      ? user.photoUrl
-                      : null);
+              final dbAvatarUrl = snapshot.data?['avatar_url'] as String?;
+              final avatarUrl = dbAvatarUrl ?? user.photoUrl;
 
               return Container(
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                ),
-                child: ClipOval(
-                  child: avatarUrl != null
-                      ? Image.network(
-                          avatarUrl,
+                  color: colorScheme.surfaceContainerHighest,
+                  image: avatarUrl != null &&
+                          avatarUrl.isNotEmpty &&
+                          avatarUrl != 'SKIPPED'
+                      ? DecorationImage(
+                          image: NetworkImage(avatarUrl),
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            color: colorScheme.muted.withValues(alpha: 0.5),
-                            alignment: Alignment.center,
-                            child: Icon(
-                              Icons.person_rounded,
-                              color: colorScheme.mutedForeground
-                                  .withValues(alpha: 0.8),
-                            ),
-                          ),
                         )
-                      : Container(
-                          color: colorScheme.muted.withValues(alpha: 0.5),
-                          alignment: Alignment.center,
-                          child: Icon(
-                            Icons.person_rounded,
-                            color: colorScheme.mutedForeground
-                                .withValues(alpha: 0.8),
-                          ),
-                        ),
+                      : null,
                 ),
+                child: avatarUrl == null ||
+                        avatarUrl.isEmpty ||
+                        avatarUrl == 'SKIPPED'
+                    ? Icon(
+                        Icons.person_rounded,
+                        size: 28,
+                        color: colorScheme.mutedForeground,
+                      )
+                    : null,
               );
             },
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 16),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -441,40 +354,40 @@ class _ProfileRow extends StatelessWidget {
               Text(
                 user.displayName?.isNotEmpty == true
                     ? user.displayName!
-                    : user.email,
+                    : 'User',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.foreground,
+                  letterSpacing: -0.5,
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.foreground,
-                ),
               ),
               Text(
                 user.email,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 14,
                   color: colorScheme.mutedForeground,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
         ),
-        const SizedBox(width: 12),
-        InkWell(
-          onTap: () {
+        IconButton(
+          onPressed: () {
             Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (_) => const SettingsPage(),
               ),
             );
           },
-          child: Icon(
+          icon: Icon(
             Icons.settings_outlined,
-            size: 20,
-            color: colorScheme.mutedForeground,
+            size: 24,
+            color: colorScheme.foreground,
           ),
         ),
       ],
