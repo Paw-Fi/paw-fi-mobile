@@ -66,7 +66,7 @@ class AppInitialization extends _$AppInitialization {
         }
 
         final recurringNotifier =
-            ref.read(recurringTransactionsProvider.notifier);
+            ref.read(recurringTransactionsProvider(null).notifier);
         unawaited(recurringNotifier.loadRecurringTransactions(auth.uid));
 
         await Future.wait([
@@ -221,6 +221,11 @@ class AppInitialization extends _$AppInitialization {
       final to = dateRange['to']!;
       final selectedCurrency =
           (filterState.selectedCurrency ?? household.currency).toUpperCase();
+
+      // Preload household recurring transactions
+      unawaited(ref
+          .read(recurringTransactionsProvider(household.id).notifier)
+          .loadRecurringTransactions(userId));
 
       // Preload all household data in parallel
       await Future.wait([

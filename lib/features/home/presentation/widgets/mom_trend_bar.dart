@@ -2,7 +2,6 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/state/derived_selectors.dart';
-
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/utils/date_formatter.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
@@ -14,15 +13,19 @@ class MoMTrendBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
+
+    // This widget is only shown in personal mode; always scope to personal data
+    const String? householdId = null;
+
     // Ensure recurring data is loaded when the widget appears
-    final recState = ref.watch(recurringTransactionsProvider);
+    final recState = ref.watch(recurringTransactionsProvider(householdId));
     final userId = supabase.auth.currentUser?.id;
     if (userId != null && !recState.hasLoadedOnce && !recState.data.isLoading) {
       Future.microtask(() {
-        final s = ref.read(recurringTransactionsProvider);
+        final s = ref.read(recurringTransactionsProvider(householdId));
         if (!s.hasLoadedOnce && !s.data.isLoading) {
           ref
-              .read(recurringTransactionsProvider.notifier)
+              .read(recurringTransactionsProvider(householdId).notifier)
               .loadRecurringTransactions(userId);
         }
       });

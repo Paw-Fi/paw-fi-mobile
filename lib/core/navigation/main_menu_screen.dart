@@ -76,7 +76,16 @@ class _SettingsList extends ConsumerWidget {
             final user = ref.read(authProvider);
             if (user.uid.isEmpty) return;
             ref.read(analyticsProvider.notifier).refresh(user.uid);
-            ref.read(recurringTransactionsProvider.notifier).refresh(user.uid);
+
+            final viewMode = ref.read(viewModeProvider);
+            final selectedHousehold = ref.read(selectedHouseholdProvider);
+            final householdId = viewMode.mode == ViewMode.household
+                ? selectedHousehold.householdId
+                : null;
+
+            ref
+                .read(recurringTransactionsProvider(householdId).notifier)
+                .refresh(user.uid);
             ref.invalidate(pocketsProvider);
           },
         ),

@@ -328,15 +328,18 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       var expenseQuery = supabase
           .from('expenses')
           .select('amount_cents,category,type,household_id,currency,date')
-          .eq('user_id', authUser.uid)
           .eq('currency', selectedCurrency)
           .gte('date', monthStart.toIso8601String())
           .lt('date', monthEnd.toIso8601String());
 
       if (isHousehold) {
+        // In household mode, fetch ALL expenses for the household regardless of user
         expenseQuery = expenseQuery.eq('household_id', householdId!);
       } else {
-        expenseQuery = expenseQuery.isFilter('household_id', null);
+        // In personal mode, fetch only current user's expenses that are NOT in a household
+        expenseQuery = expenseQuery
+            .eq('user_id', authUser.uid)
+            .isFilter('household_id', null);
       }
 
       final expensesRes = await expenseQuery;

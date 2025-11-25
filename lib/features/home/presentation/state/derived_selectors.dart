@@ -1,7 +1,7 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
-import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 
 /// Daily net cashflow series (income - expenses) grouped by date
 final homeCashflowSeriesProvider = Provider<Map<DateTime, double>>((ref) {
@@ -38,7 +38,8 @@ final momTrendProvider = Provider<Map<String, double>>((ref) {
   final data = ref.watch(analyticsProvider);
   final filter = ref.watch(homeFilterProvider);
   final setCurrency = filter.selectedCurrency?.toUpperCase();
-  final recurringExpensesAV = ref.watch(recurringExpensesProvider);
+  // MoM trend is personal-only; always scope recurring to personal data
+  final recurringExpensesAV = ref.watch(recurringExpensesProvider(null));
 
   // Build last 3 month keys: yyyy-MM
   final now = DateTime.now();

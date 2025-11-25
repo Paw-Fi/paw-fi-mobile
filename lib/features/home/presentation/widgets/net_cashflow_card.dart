@@ -9,6 +9,8 @@ import 'package:moneko/features/recurring/presentation/providers/recurring_provi
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/core/core.dart';
 
+import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
+
 Widget buildNetCashflowCard(
   BuildContext context,
   ColorScheme colorScheme,
@@ -24,18 +26,25 @@ Widget buildNetCashflowCard(
       .toList();
 
   return Consumer(builder: (context, ref, _) {
-    final recState = ref.watch(recurringTransactionsProvider);
+    final viewMode = ref.watch(viewModeProvider);
+    // Guard: this card is only used in personal mode
+    if (viewMode.mode != ViewMode.personal) {
+      return const SizedBox.shrink();
+    }
+    const String? householdId = null;
+
+    final recState = ref.watch(recurringTransactionsProvider(householdId));
     final userId = supabase.auth.currentUser?.id;
     if (userId != null && !recState.hasLoadedOnce && !recState.data.isLoading) {
       // Lazy-load recurring data when the card appears
       Future.microtask(() {
         // Double-check again inside task to avoid duplicate triggers
-        final s = ref.read(recurringTransactionsProvider);
+        final s = ref.read(recurringTransactionsProvider(householdId));
         if (!s.hasLoadedOnce && !s.data.isLoading) {
           debugPrint(
               '[NetCashflow] Triggering initial recurring load for user=$userId');
           ref
-              .read(recurringTransactionsProvider.notifier)
+              .read(recurringTransactionsProvider(householdId).notifier)
               .loadRecurringTransactions(userId);
         }
       });
@@ -45,8 +54,9 @@ Widget buildNetCashflowCard(
     final totalIncome = totals.$1;
     final totalSpent = totals.$2;
 
-    final recurringExpensesAV = ref.watch(recurringExpensesProvider);
-    final recurringIncomesAV = ref.watch(recurringIncomesProvider);
+    final recurringExpensesAV =
+        ref.watch(recurringExpensesProvider(householdId));
+    final recurringIncomesAV = ref.watch(recurringIncomesProvider(householdId));
 
     final recurringExpenseThisMonth = recurringExpensesAV.maybeWhen(
       data: (items) {

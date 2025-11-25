@@ -9,6 +9,8 @@ import 'package:moneko/features/recurring/presentation/widgets/add_recurring_she
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
+import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 
 /// Modern recurring transactions page with Apple-inspired design
@@ -23,55 +25,54 @@ class RecurringTransactionsPage extends ConsumerStatefulWidget {
 
 class _RecurringTransactionsPageState
     extends ConsumerState<RecurringTransactionsPage> {
-  @override
-  void initState() {
-    super.initState();
-    // Load initial data (only if not already loaded)
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadData();
-    });
-  }
-
-  /// Load data only if it hasn't been loaded before (respects caching)
-  Future<void> _loadData() async {
-    final user = supabase.auth.currentUser;
-    if (user == null) return;
-
-    final state = ref.read(recurringTransactionsProvider);
-
-    // Only load if we've NEVER loaded successfully before
-    // This prevents unnecessary reloads when navigating back to this page
-    if (!state.hasLoadedOnce) {
-      await ref
-          .read(recurringTransactionsProvider.notifier)
-          .loadRecurringTransactions(user.id);
+  
+  String? _getHouseholdId() {
+    final viewMode = ref.read(viewModeProvider);
+    if (viewMode.mode == ViewMode.household) {
+      return ref.read(selectedHouseholdProvider).householdId;
     }
+    return null;
   }
 
   /// Force refresh (used by pull-to-refresh)
   Future<void> _refresh() async {
     final user = supabase.auth.currentUser;
     if (user == null) return;
-
-    // Force refresh the unified list
-    await ref.read(recurringTransactionsProvider.notifier).refresh(user.id);
+    
+    final householdId = _getHouseholdId();
+    // Force refresh the unified list for current scope
+    await ref.read(recurringTransactionsProvider(householdId).notifier).refresh(user.id);
     await Future.delayed(const Duration(milliseconds: 500));
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    
+    // Determine current scope
+    final viewMode = ref.watch(viewModeProvider);
+    final selectedHousehold = ref.watch(selectedHouseholdProvider);
+    final householdId = viewMode.mode == ViewMode.household 
+        ? selectedHousehold.householdId 
+        : null;
+
+    // Ensure data is loaded for this scope
+    final state = ref.watch(recurringTransactionsProvider(householdId));
+    final user = supabase.auth.currentUser;
+    
+    if (user != null && !state.hasLoadedOnce && !state.data.isLoading) {
+      Future.microtask(() {
+        ref.read(recurringTransactionsProvider(householdId).notifier)
+            .loadRecurringTransactions(user.id);
+      });
+    }
 
     // Watch the filtered providers (they derive from the unified provider)
-    final recurringExpenses = ref.watch(recurringExpensesProvider);
-    final recurringIncomes = ref.watch(recurringIncomesProvider);
+    final recurringExpenses = ref.watch(recurringExpensesProvider(householdId));
+    final recurringIncomes = ref.watch(recurringIncomesProvider(householdId));
     final selectedCurrency =
         ref.watch(homeFilterProvider).selectedCurrency?.toUpperCase();
+        
     return AdaptiveScaffold(
       body: SafeArea(
         child: AdaptiveTabBarView(
@@ -86,6 +87,7 @@ class _RecurringTransactionsPageState
                 recurringExpenses,
                 colorScheme,
                 selectedCurrency,
+                householdId,
               ),
             ),
             _buildRecurringTabView(
@@ -94,6 +96,7 @@ class _RecurringTransactionsPageState
                 recurringIncomes,
                 colorScheme,
                 selectedCurrency,
+                householdId,
               ),
             ),
           ],
@@ -136,6 +139,7 @@ class _RecurringTransactionsPageState
     AsyncValue<List<dynamic>> recurringExpenses,
     ColorScheme colorScheme,
     String? selectedCurrency,
+    String? householdId,
   ) {
     return recurringExpenses.when(
       data: (expenses) {
@@ -170,7 +174,7 @@ class _RecurringTransactionsPageState
                 return RecurringTransactionCard(
                   transaction: expense,
                   onTap: () => _showTransactionDetails(expense),
-                  onDelete: () => _deleteTransaction(expense),
+                  onDelete: () => _deleteTransaction(expense, householdId),
                 );
               },
               childCount: filtered.length,
@@ -187,6 +191,7 @@ class _RecurringTransactionsPageState
     AsyncValue<List<dynamic>> recurringIncomes,
     ColorScheme colorScheme,
     String? selectedCurrency,
+    String? householdId,
   ) {
     return recurringIncomes.when(
       data: (incomes) {
@@ -221,7 +226,7 @@ class _RecurringTransactionsPageState
                 return RecurringTransactionCard(
                   transaction: income,
                   onTap: () => _showTransactionDetails(income),
-                  onDelete: () => _deleteTransaction(income),
+                  onDelete: () => _deleteTransaction(income, householdId),
                 );
               },
               childCount: filtered.length,
@@ -333,7 +338,7 @@ class _RecurringTransactionsPageState
     );
   }
 
-  Future<void> _deleteTransaction(RecurringTransaction transaction) async {
+  Future<void> _deleteTransaction(RecurringTransaction transaction, String? householdId) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -359,7 +364,7 @@ class _RecurringTransactionsPageState
       if (user == null) return;
 
       final success = await ref
-          .read(recurringTransactionsProvider.notifier)
+          .read(recurringTransactionsProvider(householdId).notifier)
           .deleteRecurring(user.id, transaction.id);
 
       if (mounted) {

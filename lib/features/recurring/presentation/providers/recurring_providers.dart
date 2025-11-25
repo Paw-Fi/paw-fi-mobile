@@ -39,43 +39,47 @@ class RecurringTransactionsState {
 // UNIFIED RECURRING TRANSACTIONS PROVIDER (SINGLE SOURCE OF TRUTH)
 // ============================================================================
 
-/// Unified recurring transactions provider - fetches ALL recurring transactions
-/// Uses NEW backend architecture with proper filtering
-final recurringTransactionsProvider =
-    StateNotifierProvider<RecurringTransactionsNotifier, RecurringTransactionsState>(
-        (ref) {
-  return RecurringTransactionsNotifier(ref);
-});
+/// Unified recurring transactions provider - fetches recurring transactions for a specific scope (Personal or Household)
+/// householdId: null for Personal, non-null for Household
+final recurringTransactionsProvider = StateNotifierProvider.family<
+    RecurringTransactionsNotifier, RecurringTransactionsState, String?>(
+  (ref, householdId) {
+    return RecurringTransactionsNotifier(ref, householdId);
+  },
+);
 
-class RecurringTransactionsNotifier extends StateNotifier<RecurringTransactionsState> {
+class RecurringTransactionsNotifier
+    extends StateNotifier<RecurringTransactionsState> {
   final Ref ref;
+  final String? householdId; // Scope: null = Personal, non-null = Household
 
-  RecurringTransactionsNotifier(this.ref)
+  RecurringTransactionsNotifier(this.ref, this.householdId)
       : super(RecurringTransactionsState(
-          data: const AsyncValue.loading(),
+          // Start with an empty dataset so widgets can trigger the first load
+          // even when this provider instance hasn't fetched yet.
+          data: const AsyncValue.data(<RecurringTransaction>[]),
           hasLoadedOnce: false,
         ));
 
-  /// Load ALL recurring transactions (both expenses and income)
-  /// Uses NEW backend filtering: includeRecurring=true
+  /// Load recurring transactions for the current scope (Personal or Household)
   Future<void> loadRecurringTransactions(
     String userId, {
-    String? householdId,
     int limit = 100,
     bool forceRefresh = false,
   }) async {
     // Skip loading if already loaded successfully (unless forced refresh)
     if (state.hasLoadedOnce && !forceRefresh) {
-      debugPrint('📦 RecurringTransactions: Already loaded, skipping');
+      debugPrint('📦 RecurringTransactions($householdId): Already loaded, skipping');
       return;
     }
 
-    debugPrint('🔄 RecurringTransactions: Loading for userId=$userId');
+    debugPrint(
+        '🔄 RecurringTransactions($householdId): Loading for userId=$userId');
     state = state.copyWith(data: const AsyncValue.loading());
 
     try {
       debugPrint('🌐 Using NEW architecture: includeRecurring=true on backend');
-      
+
       // Fetch recurring expenses and incomes in parallel
       // Backend filters at database level for maximum performance
       final results = await Future.wait([
@@ -84,7 +88,7 @@ class RecurringTransactionsNotifier extends StateNotifier<RecurringTransactionsS
           body: {
             'userId': userId,
             'limit': limit,
-            'includeRecurring': true, // Backend filters: ONLY recurring expenses
+            'includeRecurring': true,
             if (householdId != null) 'householdId': householdId,
           },
         ),
@@ -93,7 +97,7 @@ class RecurringTransactionsNotifier extends StateNotifier<RecurringTransactionsS
           body: {
             'userId': userId,
             'limit': limit,
-            'includeRecurring': true, // Backend filters: ONLY recurring income
+            'includeRecurring': true,
             if (householdId != null) 'householdId': householdId,
           },
         ),
@@ -102,69 +106,55 @@ class RecurringTransactionsNotifier extends StateNotifier<RecurringTransactionsS
       final expensesResponse = results[0];
       final incomesResponse = results[1];
 
-      debugPrint('📡 Expenses response status: ${expensesResponse.status}');
-      debugPrint('📡 Expenses response data keys: ${expensesResponse.data?.keys.toList()}');
-      debugPrint('📡 Incomes response status: ${incomesResponse.status}');
-      debugPrint('📡 Incomes response data keys: ${incomesResponse.data?.keys.toList()}');
-
       final allTransactions = <RecurringTransaction>[];
 
       // Process expenses
       if (expensesResponse.data['success'] == true) {
         final expensesData = expensesResponse.data['data'] as List<dynamic>;
-        final meta = expensesResponse.data['meta'];
-        debugPrint('✅ Recurring expenses: ${expensesData.length} (total: ${meta['total']})');
-        debugPrint('📊 First expense sample: ${expensesData.isNotEmpty ? expensesData[0] : "none"}');
-        
         for (final item in expensesData) {
           try {
-            final transaction = RecurringTransaction.fromJson(item as Map<String, dynamic>);
+            final transaction =
+                RecurringTransaction.fromJson(item as Map<String, dynamic>);
             allTransactions.add(transaction);
-            debugPrint('  ✓ Parsed expense: ${transaction.id}, type: ${transaction.type}, recurring: ${transaction.recurrenceRule != null}');
           } catch (parseError) {
             debugPrint('❌ Error parsing expense: $parseError');
-            debugPrint('❌ Item: ${jsonEncode(item)}');
           }
         }
-      } else {
-        debugPrint('❌ Expenses response failed: ${expensesResponse.data['error']}');
       }
 
       // Process incomes
       if (incomesResponse.data['success'] == true) {
         final incomesData = incomesResponse.data['data'] as List<dynamic>;
-        final meta = incomesResponse.data['meta'];
-        debugPrint('✅ Recurring incomes: ${incomesData.length} (total: ${meta['total']})');
-        debugPrint('📊 First income sample: ${incomesData.isNotEmpty ? incomesData[0] : "none"}');
-        
         for (final item in incomesData) {
           try {
-            final transaction = RecurringTransaction.fromJson(item as Map<String, dynamic>);
+            final transaction =
+                RecurringTransaction.fromJson(item as Map<String, dynamic>);
             allTransactions.add(transaction);
-            debugPrint('  ✓ Parsed income: ${transaction.id}, type: ${transaction.type}, recurring: ${transaction.recurrenceRule != null}');
           } catch (parseError) {
             debugPrint('❌ Error parsing income: $parseError');
-            debugPrint('❌ Item: ${jsonEncode(item)}');
           }
         }
-      } else {
-        debugPrint('❌ Incomes response failed: ${incomesResponse.data['error']}');
       }
 
-      // Sort by date (newest first)
-      allTransactions.sort((a, b) => b.date.compareTo(a.date));
+      // Enforce scope on the client to avoid leaking other contexts
+      final scopedTransactions = allTransactions.where((t) {
+        if (householdId == null) {
+          // Personal scope: only personal items
+          return t.householdId == null;
+        }
+        // Household scope: match the current household
+        return t.householdId == householdId;
+      }).toList();
 
-      debugPrint('✅ Total recurring: ${allTransactions.length}');
-      debugPrint('📊 Expenses: ${allTransactions.where((t) => t.type == "expense").length}');
-      debugPrint('📊 Incomes: ${allTransactions.where((t) => t.type == "income").length}');
-      
+      // Sort by date (newest first)
+      scopedTransactions.sort((a, b) => b.date.compareTo(a.date));
+
       state = state.copyWith(
-        data: AsyncValue.data(allTransactions),
+        data: AsyncValue.data(scopedTransactions),
         hasLoadedOnce: true,
       );
     } catch (e, st) {
       debugPrint('❌ Exception: $e');
-      debugPrint('❌ Stack: $st');
       state = state.copyWith(
         data: AsyncValue.error(e, st),
       );
@@ -172,28 +162,24 @@ class RecurringTransactionsNotifier extends StateNotifier<RecurringTransactionsS
   }
 
   /// Refresh recurring transactions list
-  Future<void> refresh(String userId, {String? householdId}) async {
-    debugPrint('🔄 Refresh requested');
+  Future<void> refresh(String userId) async {
+    debugPrint('🔄 Refresh requested for $householdId');
     await loadRecurringTransactions(
       userId,
-      householdId: householdId,
       forceRefresh: true,
     );
   }
 
   /// Add transaction (optimistic update)
   void addRecurring(RecurringTransaction transaction) {
-    debugPrint('➕ Adding: ${transaction.id}, type: ${transaction.type}');
     state.data.whenData((transactions) {
       final updated = [transaction, ...transactions];
       state = state.copyWith(data: AsyncValue.data(updated));
-      debugPrint('✅ Added. Total: ${updated.length}');
     });
   }
 
   /// Update transaction
   void updateRecurring(RecurringTransaction transaction) {
-    debugPrint('🔄 Updating: ${transaction.id}');
     state.data.whenData((transactions) {
       final updated = transactions.map((t) {
         return t.id == transaction.id ? transaction : t;
@@ -204,8 +190,6 @@ class RecurringTransactionsNotifier extends StateNotifier<RecurringTransactionsS
 
   /// Delete transaction
   Future<bool> deleteRecurring(String userId, String transactionId) async {
-    debugPrint('🗑️ Deleting: $transactionId');
-    
     try {
       // Optimistic update
       state.data.whenData((transactions) {
@@ -223,15 +207,12 @@ class RecurringTransactionsNotifier extends StateNotifier<RecurringTransactionsS
       );
 
       if (response.data['success'] == true) {
-        debugPrint('✅ Deleted successfully');
         return true;
       } else {
-        debugPrint('❌ Delete failed, reloading');
         await refresh(userId);
         return false;
       }
     } catch (e) {
-      debugPrint('❌ Exception: $e');
       await refresh(userId);
       return false;
     }
@@ -242,61 +223,30 @@ class RecurringTransactionsNotifier extends StateNotifier<RecurringTransactionsS
 // FILTERED PROVIDERS - Filter from single source of truth
 // ============================================================================
 
-/// Recurring expenses (filtered from unified provider)
-final recurringExpensesProvider = Provider<AsyncValue<List<RecurringTransaction>>>((ref) {
-  final allTransactions = ref.watch(recurringTransactionsProvider);
-  final viewMode = ref.watch(viewModeProvider);
-  final selectedHousehold = ref.watch(selectedHouseholdProvider);
+/// Recurring expenses (filtered from unified provider by scope)
+final recurringExpensesProvider = Provider.family<
+    AsyncValue<List<RecurringTransaction>>, String?>((ref, householdId) {
+  final allTransactions = ref.watch(recurringTransactionsProvider(householdId));
 
   return allTransactions.data.when(
     data: (transactions) {
-      final expenses = transactions.where((t) => t.type == 'expense');
-
-      final filtered = expenses.where((t) {
-        if (viewMode.mode == ViewMode.household) {
-          final selectedId = selectedHousehold.householdId;
-          if (selectedId != null) {
-            // In household mode with a selected household, only show that group's recurring items
-            return t.householdId == selectedId;
-          }
-          // Fallback: show all group-recurring items when no specific household is selected
-          return t.householdId != null;
-        } else {
-          // Personal mode: only show personal recurring items
-          return t.householdId == null;
-        }
-      }).toList();
-
-      return AsyncValue.data(filtered);
+      final expenses = transactions.where((t) => t.type == 'expense').toList();
+      return AsyncValue.data(expenses);
     },
     loading: () => const AsyncValue.loading(),
     error: (error, stack) => AsyncValue.error(error, stack),
   );
 });
 
-/// Recurring incomes (filtered from unified provider)
-final recurringIncomesProvider = Provider<AsyncValue<List<RecurringTransaction>>>((ref) {
-  final allTransactions = ref.watch(recurringTransactionsProvider);
-  final viewMode = ref.watch(viewModeProvider);
-  final selectedHousehold = ref.watch(selectedHouseholdProvider);
+/// Recurring incomes (filtered from unified provider by scope)
+final recurringIncomesProvider = Provider.family<
+    AsyncValue<List<RecurringTransaction>>, String?>((ref, householdId) {
+  final allTransactions = ref.watch(recurringTransactionsProvider(householdId));
 
   return allTransactions.data.when(
     data: (transactions) {
-      final incomes = transactions.where((t) => t.type == 'income');
-
-      final filtered = incomes.where((t) {
-        if (viewMode.mode == ViewMode.household) {
-          final selectedId = selectedHousehold.householdId;
-          if (selectedId != null) {
-            return t.householdId == selectedId;
-          }
-          return t.householdId != null;
-        } else {
-          return t.householdId == null;
-        }
-      }).toList();
-
-      return AsyncValue.data(filtered);
+      final incomes = transactions.where((t) => t.type == 'income').toList();
+      return AsyncValue.data(incomes);
     },
     loading: () => const AsyncValue.loading(),
     error: (error, stack) => AsyncValue.error(error, stack),
@@ -343,26 +293,16 @@ class RecurringTransactionSaveNotifier
     state = const AsyncValue.loading();
 
     try {
-      // IMPORTANT: For recurring transactions:
-      // - 'date' field = accounting date (must be today or in past)
-      // - 'anchor_date' = schedule start date (can be in future)
       final dateFormatter = DateFormat('yyyy-MM-dd');
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
       
-      // If start date is in the future, use today for accounting
-      // Otherwise use the actual start date
       final accountingDate = startDate.isAfter(today) ? today : startDate;
       final formattedAccountingDate = dateFormatter.format(accountingDate);
       
-      debugPrint('💾 Save recurring expense:');
-      debugPrint('  - User selected start: $startDate');
-      debugPrint('  - Accounting date (for DB): $formattedAccountingDate');
-      debugPrint('  - Schedule anchor: ${startDate.toIso8601String()}');
-      
       final recurrenceRule = <String, dynamic>{
         'frequency': frequency,
-        'anchor_date': startDate.toIso8601String(), // User-selected start (can be future)
+        'anchor_date': startDate.toIso8601String(),
         if (endDate != null) 'end_date': endDate.toIso8601String(),
         if (interval != null) 'interval': interval,
         if (hasReminder == true && reminderValue != null && reminderUnit != null)
@@ -373,13 +313,12 @@ class RecurringTransactionSaveNotifier
           },
       };
 
-      // Build request body so we can optionally attach custom split info
       final Map<String, dynamic> requestBody = {
         'userId': userId,
         'amount': amount,
         'category': category,
         'currency': currency,
-        'date': formattedAccountingDate, // Accounting date (today or past)
+        'date': formattedAccountingDate,
         'clientCreatedAt': DateTime.now().toIso8601String(),
         if (description != null && description.isNotEmpty) 'description': description,
         'ownerType': ownerType,
@@ -388,7 +327,6 @@ class RecurringTransactionSaveNotifier
         'recurrence_rule': recurrenceRule,
       };
 
-      // Attach household + custom split configuration when provided
       if (householdId != null) {
         requestBody['householdId'] = householdId;
 
@@ -402,7 +340,6 @@ class RecurringTransactionSaveNotifier
                 'userId': split.member.userId,
               };
 
-              // Add the appropriate field based on split type
               switch (customSplitType) {
                 case SplitType.amount:
                   memberData['amount'] = split.amount;
@@ -414,10 +351,8 @@ class RecurringTransactionSaveNotifier
                   memberData['shares'] = split.shares;
                   break;
                 case SplitType.equal:
-                  // No additional data needed for equal splits
                   break;
               }
-
               return memberData;
             }).toList(),
           };
@@ -437,7 +372,8 @@ class RecurringTransactionSaveNotifier
         final expense = RecurringTransaction.fromJson(
             response.data['data'] as Map<String, dynamic>);
         state = AsyncValue.data(expense);
-        ref.read(recurringTransactionsProvider.notifier).addRecurring(expense);
+        // Update the relevant scope provider
+        ref.read(recurringTransactionsProvider(householdId).notifier).addRecurring(expense);
         return expense;
       } else {
         state = AsyncValue.error(
@@ -474,26 +410,16 @@ class RecurringTransactionSaveNotifier
     state = const AsyncValue.loading();
 
     try {
-      // IMPORTANT: For recurring transactions:
-      // - 'date' field = accounting date (must be today or in past)
-      // - 'anchor_date' = schedule start date (can be in future)
       final dateFormatter = DateFormat('yyyy-MM-dd');
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
       
-      // If start date is in the future, use today for accounting
-      // Otherwise use the actual start date
       final accountingDate = startDate.isAfter(today) ? today : startDate;
       final formattedAccountingDate = dateFormatter.format(accountingDate);
       
-      debugPrint('💾 Save recurring income:');
-      debugPrint('  - User selected start: $startDate');
-      debugPrint('  - Accounting date (for DB): $formattedAccountingDate');
-      debugPrint('  - Schedule anchor: ${startDate.toIso8601String()}');
-      
       final recurrenceRule = <String, dynamic>{
         'frequency': frequency,
-        'anchor_date': startDate.toIso8601String(), // User-selected start (can be future)
+        'anchor_date': startDate.toIso8601String(),
         if (endDate != null) 'end_date': endDate.toIso8601String(),
         if (interval != null) 'interval': interval,
         if (hasReminder == true && reminderValue != null && reminderUnit != null)
@@ -511,7 +437,7 @@ class RecurringTransactionSaveNotifier
           'amount': amount,
           'category': category,
           'currency': currency,
-          'date': formattedAccountingDate, // Accounting date (today or past)
+          'date': formattedAccountingDate,
           'clientCreatedAt': DateTime.now().toIso8601String(),
           if (description != null && description.isNotEmpty) 'description': description,
           if (source != null && source.isNotEmpty) 'source': source,
@@ -527,7 +453,8 @@ class RecurringTransactionSaveNotifier
         final income = RecurringTransaction.fromJson(
             response.data['data'] as Map<String, dynamic>);
         state = AsyncValue.data(income);
-        ref.read(recurringTransactionsProvider.notifier).addRecurring(income);
+        // Update the relevant scope provider
+        ref.read(recurringTransactionsProvider(householdId).notifier).addRecurring(income);
         return income;
       } else {
         state = AsyncValue.error(
@@ -564,27 +491,16 @@ class RecurringTransactionSaveNotifier
     state = const AsyncValue.loading();
 
     try {
-      debugPrint('🔄 Updating recurring expense: $expenseId');
-      
-      // IMPORTANT: For recurring transactions:
-      // - 'date' field = accounting date (must be today or in past)
-      // - 'anchor_date' = schedule start date (can be in future)
       final dateFormatter = DateFormat('yyyy-MM-dd');
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
       
-      // If start date is in the future, use today for accounting
-      // Otherwise use the actual start date
       final accountingDate = startDate.isAfter(today) ? today : startDate;
       final formattedAccountingDate = dateFormatter.format(accountingDate);
       
-      debugPrint('  - User selected start: $startDate');
-      debugPrint('  - Accounting date (for DB): $formattedAccountingDate');
-      debugPrint('  - Schedule anchor: ${startDate.toIso8601String()}');
-      
       final recurrenceRule = <String, dynamic>{
         'frequency': frequency,
-        'anchor_date': startDate.toIso8601String(), // User-selected start (can be future)
+        'anchor_date': startDate.toIso8601String(),
         if (endDate != null) 'end_date': endDate.toIso8601String(),
         if (interval != null) 'interval': interval,
         if (hasReminder == true && reminderValue != null && reminderUnit != null)
@@ -599,7 +515,7 @@ class RecurringTransactionSaveNotifier
         'amount_cents': (amount * 100).round(),
         'category': category,
         'currency': currency,
-        'date': formattedAccountingDate, // Accounting date (today or past)
+        'date': formattedAccountingDate,
         'is_recurring': true,
         'recurrence_rule': recurrenceRule,
       };
@@ -620,11 +536,10 @@ class RecurringTransactionSaveNotifier
         final updatedExpense = RecurringTransaction.fromJson(
             response.data['data'] as Map<String, dynamic>);
         state = AsyncValue.data(updatedExpense);
-        ref.read(recurringTransactionsProvider.notifier).updateRecurring(updatedExpense);
-        debugPrint('✅ Updated successfully');
+        // Update the relevant scope provider
+        ref.read(recurringTransactionsProvider(householdId).notifier).updateRecurring(updatedExpense);
         return updatedExpense;
       } else {
-        debugPrint('❌ Update failed: ${response.data['error']}');
         state = AsyncValue.error(
           response.data['error'] ?? 'Failed to update',
           StackTrace.current,
@@ -632,7 +547,6 @@ class RecurringTransactionSaveNotifier
         return null;
       }
     } catch (e, st) {
-      debugPrint('❌ Exception during update: $e');
       state = AsyncValue.error(e, st);
       return null;
     }
@@ -641,7 +555,7 @@ class RecurringTransactionSaveNotifier
   /// Update recurring income
   Future<RecurringTransaction?> updateRecurringIncome({
     required String userId,
-    required String expenseId, // Uses expenses table
+    required String expenseId,
     required double amount,
     required String category,
     required String currency,
@@ -661,27 +575,16 @@ class RecurringTransactionSaveNotifier
     state = const AsyncValue.loading();
 
     try {
-      debugPrint('🔄 Updating recurring income: $expenseId');
-      
-      // IMPORTANT: For recurring transactions:
-      // - 'date' field = accounting date (must be today or in past)
-      // - 'anchor_date' = schedule start date (can be in future)
       final dateFormatter = DateFormat('yyyy-MM-dd');
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
       
-      // If start date is in the future, use today for accounting
-      // Otherwise use the actual start date
       final accountingDate = startDate.isAfter(today) ? today : startDate;
       final formattedAccountingDate = dateFormatter.format(accountingDate);
       
-      debugPrint('  - User selected start: $startDate');
-      debugPrint('  - Accounting date (for DB): $formattedAccountingDate');
-      debugPrint('  - Schedule anchor: ${startDate.toIso8601String()}');
-      
       final recurrenceRule = <String, dynamic>{
         'frequency': frequency,
-        'anchor_date': startDate.toIso8601String(), // User-selected start (can be future)
+        'anchor_date': startDate.toIso8601String(),
         if (endDate != null) 'end_date': endDate.toIso8601String(),
         if (interval != null) 'interval': interval,
         if (hasReminder == true && reminderValue != null && reminderUnit != null)
@@ -696,7 +599,7 @@ class RecurringTransactionSaveNotifier
         'amount_cents': (amount * 100).round(),
         'category': category,
         'currency': currency,
-        'date': formattedAccountingDate, // Accounting date (today or past)
+        'date': formattedAccountingDate,
         'is_recurring': true,
         'recurrence_rule': recurrenceRule,
       };
@@ -720,11 +623,10 @@ class RecurringTransactionSaveNotifier
         final updatedIncome = RecurringTransaction.fromJson(
             response.data['data'] as Map<String, dynamic>);
         state = AsyncValue.data(updatedIncome);
-        ref.read(recurringTransactionsProvider.notifier).updateRecurring(updatedIncome);
-        debugPrint('✅ Updated successfully');
+        // Update the relevant scope provider
+        ref.read(recurringTransactionsProvider(householdId).notifier).updateRecurring(updatedIncome);
         return updatedIncome;
       } else {
-        debugPrint('❌ Update failed: ${response.data['error']}');
         state = AsyncValue.error(
           response.data['error'] ?? 'Failed to update',
           StackTrace.current,
@@ -732,7 +634,6 @@ class RecurringTransactionSaveNotifier
         return null;
       }
     } catch (e, st) {
-      debugPrint('❌ Exception during update: $e');
       state = AsyncValue.error(e, st);
       return null;
     }
