@@ -5,17 +5,15 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/shared/widgets/outlined-adaptive-button.dart';
 import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:flutter_colorpicker/flutter_colorpicker.dart';
-import 'package:ios_color_picker/show_ios_color_picker.dart';
 import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/shared/widgets/adaptive_color_picker.dart';
 
 class AvatarCustomizerScreen extends ConsumerStatefulWidget {
   const AvatarCustomizerScreen({super.key});
@@ -554,14 +552,10 @@ class _AvatarCustomizerScreenState
                                 spacing: 10,
                                 runSpacing: 10,
                                 children: [
-                                  _colorControl(
-                                      context, context.l10n.hair, 'hair'),
-                                  _colorControl(
-                                      context, context.l10n.eyes, 'eyes'),
-                                  _colorControl(
-                                      context, context.l10n.mouth, 'mouth'),
-                                  _colorControl(context,
-                                      context.l10n.background, 'background'),
+                                  _buildColorControl(context.l10n.hair, 'hair'),
+                                  _buildColorControl(context.l10n.eyes, 'eyes'),
+                                  _buildColorControl(context.l10n.mouth, 'mouth'),
+                                  _buildColorControl(context.l10n.background, 'background'),
                                 ],
                               ),
                             ],
@@ -693,86 +687,7 @@ class _AvatarCustomizerScreenState
     );
   }
 
-  // Compact color selector: tap to cycle palette
-  Widget _colorControl(BuildContext context, String label, String key) {
-    final scheme = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: () => _openColorPicker(context, key),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: scheme.muted.withValues(alpha: 0.25),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: scheme.border),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 18,
-              height: 18,
-              decoration: BoxDecoration(
-                color: _hexToColor(_colors[key]!),
-                shape: BoxShape.circle,
-                border: Border.all(color: scheme.border.withValues(alpha: 0.6)),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(label,
-                style: TextStyle(color: scheme.foreground, fontSize: 13)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _openColorPicker(BuildContext context, String key) {
-    final current = _hexToColor(_colors[key]!);
-
-    if (PlatformInfo.isIOS) {
-      // iOS: Use native iOS color picker
-      final iosColorPickerController = IOSColorPickerController();
-      iosColorPickerController.showIOSCustomColorPicker(
-        startingColor: current,
-        onColorChanged: (color) {
-          setState(() {
-            _colors[key] = _colorToHex(color);
-          });
-        },
-        context: context,
-      );
-    } else {
-      // Android/Other: Use flutter_colorpicker
-      showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: Text(
-                '${context.l10n.select} ${key.toLowerCase()} ${context.l10n.color}'),
-            content: SingleChildScrollView(
-              child: ColorPicker(
-                pickerColor: current,
-                onColorChanged: (color) {
-                  setState(() {
-                    _colors[key] = _colorToHex(color);
-                  });
-                },
-              ),
-            ),
-            actions: <Widget>[
-              TextButton(
-                child: Text(context.l10n.done),
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-              ),
-            ],
-          );
-        },
-      );
-    }
-  }
-
+  
   // ignore: unused_element
   void _cycleColor(String key) {
     final palettes = <String, List<String>>{
@@ -823,5 +738,50 @@ class _AvatarCustomizerScreenState
     setState(() {
       _colors[key] = next;
     });
+  }
+
+  Widget _buildColorControl(String label, String key) {
+    final scheme = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: () {
+        AdaptiveColorPicker.show(
+          context: context,
+          startingColor: _hexToColor(_colors[key]!),
+          onColorChanged: (color) {
+            setState(() {
+              _colors[key] = _colorToHex(color);
+            });
+          },
+          label: label,
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: scheme.onSurface.withValues(alpha: 0.25),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: scheme.outline),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 18,
+              height: 18,
+              decoration: BoxDecoration(
+                color: _hexToColor(_colors[key]!),
+                shape: BoxShape.circle,
+                border: Border.all(color: scheme.outline.withValues(alpha: 0.6)),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(color: scheme.onBackground, fontSize: 13),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

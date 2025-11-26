@@ -2,9 +2,8 @@ import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:flutter_colorpicker/flutter_colorpicker.dart';
-import 'package:ios_color_picker/show_ios_color_picker.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/shared/widgets/adaptive_color_picker.dart';
 
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -532,59 +531,20 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                           0xFF000000)
                                       : const Color(0xFF007AFF); // Default blue
 
-                                  if (PlatformInfo.isIOS) {
-                                    // iOS: Use native iOS color picker
-                                    final iosColorPickerController =
-                                        IOSColorPickerController();
-                                    iosColorPickerController
-                                        .showIOSCustomColorPicker(
-                                      startingColor: currentColor,
-                                      onColorChanged: (color) {
-                                        String two(int n) =>
-                                            n.toRadixString(16).padLeft(2, '0');
-                                        int toByte(double x) =>
-                                            (x * 255.0).round() & 0xff;
-                                        final hex =
-                                            '#${two(toByte(color.r))}${two(toByte(color.g))}${two(toByte(color.b))}';
-                                        selectedColor.value = hex;
-                                      },
-                                      context: context,
-                                    );
-                                  } else {
-                                    // Android/Other: Use flutter_colorpicker
-                                    showDialog(
-                                      context: context,
-                                      builder: (BuildContext dialogContext) {
-                                        return AlertDialog(
-                                          title: Text(context.l10n.selectColor),
-                                          content: SingleChildScrollView(
-                                            child: ColorPicker(
-                                              pickerColor: currentColor,
-                                              onColorChanged: (color) {
-                                                String two(int n) => n
-                                                    .toRadixString(16)
-                                                    .padLeft(2, '0');
-                                                int toByte(double x) =>
-                                                    (x * 255.0).round() & 0xff;
-                                                final hex =
-                                                    '#${two(toByte(color.r))}${two(toByte(color.g))}${two(toByte(color.b))}';
-                                                selectedColor.value = hex;
-                                              },
-                                            ),
-                                          ),
-                                          actions: <Widget>[
-                                            TextButton(
-                                              child: Text(context.l10n.done),
-                                              onPressed: () {
-                                                Navigator.of(dialogContext)
-                                                    .pop();
-                                              },
-                                            ),
-                                          ],
-                                        );
-                                      },
-                                    );
-                                  }
+                                  AdaptiveColorPicker.show(
+                                    context: context,
+                                    startingColor: currentColor,
+                                    onColorChanged: (color) {
+                                      String two(int n) =>
+                                          n.toRadixString(16).padLeft(2, '0');
+                                      int toByte(double x) =>
+                                          (x * 255.0).round() & 0xff;
+                                      final hex =
+                                          '#${two(toByte(color.r))}${two(toByte(color.g))}${two(toByte(color.b))}';
+                                      selectedColor.value = hex;
+                                    },
+                                    label: context.l10n.selectColor,
+                                  );
                                 },
                                 child: Container(
                                   width: 44,
