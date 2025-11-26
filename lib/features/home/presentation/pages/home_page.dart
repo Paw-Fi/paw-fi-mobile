@@ -23,7 +23,7 @@ import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/home/presentation/widgets/mom_trend_bar.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
-import 'package:moneko/features/utils/main_page_top_padding.dart';
+import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 
 // ============================================================================
 // HOME PAGE
@@ -215,42 +215,11 @@ class _HomePageState extends ConsumerState<HomePage> {
     // Show processing modal
     if (!mounted) return;
 
-    final colorScheme = Theme.of(context).colorScheme;
-    showDialog(
+    showBlockingProcessingDialog(
       context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => PopScope(
-        canPop: false,
-        child: Center(
-          child: Container(
-            padding: const EdgeInsets.all(32),
-            decoration: BoxDecoration(
-              color: colorScheme.appBackground,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Image.asset(
-                  'lib/assets/gifs/loading-anim.gif',
-                  width: 80,
-                  height: 80,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  imagePath != null
-                      ? context.l10n.analyzingReceipt
-                      : context.l10n.analyzingExpense,
-                  style: TextStyle(
-                    color: colorScheme.foreground,
-                    fontSize: 16,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+      message: imagePath != null
+          ? context.l10n.analyzingReceipt
+          : context.l10n.analyzingExpense,
     );
 
     try {

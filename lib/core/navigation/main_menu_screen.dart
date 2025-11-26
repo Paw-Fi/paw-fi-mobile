@@ -13,7 +13,16 @@ import 'package:moneko/features/households/presentation/pages/household_create_p
 import 'package:moneko/features/profile/presentation/pages/settings_page.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
+import 'package:moneko/features/income/presentation/providers/income_providers.dart';
+import 'package:moneko/features/goals/presentation/providers/goals_providers.dart';
+import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
+import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
+import 'package:moneko/core/plaid/plaid_link_service.dart';
+import 'package:moneko/core/plaid/plaid_countries.dart';
 
+import 'package:moneko/core/plaid/pages/plaid_sync_walkthrough_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
@@ -21,6 +30,8 @@ import 'package:moneko/core/theme/app_theme.dart';
 /// - Currency selector
 /// - Household selection (when in household mode)
 /// - User profile row with settings gear
+final plaidCountryCodeProvider = StateProvider<String>((ref) => 'US');
+
 class MainMenuScreen extends ConsumerWidget {
   const MainMenuScreen({super.key});
 
@@ -118,6 +129,48 @@ class _SettingsList extends ConsumerWidget {
                 size: 24,
               ),
             ],
+          ),
+        ),
+        const SizedBox(height: 32),
+        _SectionLabel(
+          label: context.l10n.autoSync,
+          colorScheme: colorScheme,
+        ),
+        const SizedBox(height: 8),
+        _PlaidCountrySelector(colorScheme: colorScheme),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 40,
+          child: OutlinedButton.icon(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const PlaidSyncWalkthroughPage(),
+                ),
+              );
+            },
+            style: OutlinedButton.styleFrom(
+              foregroundColor: colorScheme.foreground,
+              side: BorderSide(
+                  color: colorScheme.mutedForeground.withValues(alpha: 0.4)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(999),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+            ),
+            icon: Icon(
+              Icons.sync,
+              size: 18,
+              color: colorScheme.mutedForeground,
+            ),
+            label: Text(
+              context.l10n.autoSync,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: colorScheme.foreground,
+              ),
+            ),
           ),
         ),
       ],

@@ -56,7 +56,7 @@ dependencies:
   path_provider: ^2.1.2
   permission_handler: ^12.0.1
   flutter_colorpicker: ^1.1.0
-  ios_color_picker: ^2.0.2
+  # ios_color_picker: ^2.0.2
   app_settings: ^5.2.0
   markdown_widget: ^2.3.2+6
   app_links: ^6.4.1
@@ -72,6 +72,7 @@ dependencies:
   flutter_zoom_drawer: ^3.2.0
   adaptive_platform_ui: ^0.1.100
   reorderable_grid_view: ^2.2.8
+  plaid_flutter: ^5.0.5
 
 dev_dependencies:
   build_runner: ^2.4.12
