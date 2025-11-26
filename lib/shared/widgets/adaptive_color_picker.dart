@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
-import 'package:ios_color_picker/show_ios_color_picker.dart';
+//import 'package:ios_color_picker/show_ios_color_picker.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 
@@ -32,63 +32,63 @@ class AdaptiveColorPicker {
     //
 
     // ========== iOS COLOR PICKER (USE FOR iOS BUILDS) ==========
-    if (PlatformInfo.isIOS) {
-      // iOS: Use native iOS color picker
-      final iosColorPickerController = IOSColorPickerController();
-      iosColorPickerController.showIOSCustomColorPicker(
-        startingColor: startingColor,
-        onColorChanged: onColorChanged,
-        context: context,
-      );
-    } else {
-      // Android/Other: Use flutter_colorpicker
-      showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: Text(label ?? '${context.l10n.selectColor}'),
-            content: SingleChildScrollView(
-              child: ColorPicker(
-                pickerColor: startingColor,
-                onColorChanged: onColorChanged,
-              ),
-            ),
-            actions: <Widget>[
-              TextButton(
-                child: Text(context.l10n.done),
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-              ),
-            ],
-          );
-        },
-      );
-    }
+    // if (PlatformInfo.isIOS) {
+    //   // iOS: Use native iOS color picker
+    //   final iosColorPickerController = IOSColorPickerController();
+    //   iosColorPickerController.showIOSCustomColorPicker(
+    //     startingColor: startingColor,
+    //     onColorChanged: onColorChanged,
+    //     context: context,
+    //   );
+    // } else {
+    //   // Android/Other: Use flutter_colorpicker
+    //   showDialog(
+    //     context: context,
+    //     builder: (BuildContext context) {
+    //       return AlertDialog(
+    //         title: Text(label ?? '${context.l10n.selectColor}'),
+    //         content: SingleChildScrollView(
+    //           child: ColorPicker(
+    //             pickerColor: startingColor,
+    //             onColorChanged: onColorChanged,
+    //           ),
+    //         ),
+    //         actions: <Widget>[
+    //           TextButton(
+    //             child: Text(context.l10n.done),
+    //             onPressed: () {
+    //               Navigator.of(context).pop();
+    //             },
+    //           ),
+    //         ],
+    //       );
+    //     },
+    //   );
+    // }
     /*
     // ========== WEB COLOR PICKER (USE FOR WEB BUILDS) ==========
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text(label ?? '${context.l10n.selectColor}'),
-          content: SingleChildScrollView(
-            child: ColorPicker(
-              pickerColor: startingColor,
-              onColorChanged: onColorChanged,
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: Text(context.l10n.done),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        );
-      },
-    );
+    // showDialog(
+    //   context: context,
+    //   builder: (BuildContext context) {
+    //     return AlertDialog(
+    //       title: Text(label ?? '${context.l10n.selectColor}'),
+    //       content: SingleChildScrollView(
+    //         child: ColorPicker(
+    //           pickerColor: startingColor,
+    //           onColorChanged: onColorChanged,
+    //         ),
+    //       ),
+    //       actions: <Widget>[
+    //         TextButton(
+    //           child: Text(context.l10n.done),
+    //           onPressed: () {
+    //             Navigator.of(context).pop();
+    //           },
+    //         ),
+    //       ],
+    //     );
+    //   },
+    // );
     */
 
     // ===========================================
