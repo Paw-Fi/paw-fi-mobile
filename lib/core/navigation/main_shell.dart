@@ -45,18 +45,17 @@ class MainShell extends HookConsumerWidget {
       slideWidth: MediaQuery.of(context).size.width * 0.75,
       menuScreenWidth: MediaQuery.of(context).size.width * 0.75,
       mainScreen: AdaptiveScaffold(
-        appBar: AdaptiveAppBar(
+                appBar: AdaptiveAppBar(
             useNativeToolbar: false,
             cupertinoNavigationBar: const CupertinoNavigationBar(
-              leading: HomeHeaderLeading(),
-              trailing: HomeHeaderTrailing(),
+              leading: HomeHeaderSliver(),           
             ),
             appBar: AppBar(
-              leading: const HomeHeaderLeading(),
-              actions: const [
-                HomeHeaderTrailing(),
-                SizedBox(width: 16),
-              ],
+              leadingWidth: 0,
+              leading: const SizedBox.shrink(),
+              titleSpacing: 0,
+              toolbarHeight: 65,
+              title: const HomeHeaderSliver(),
             )),
         body: Material(
           color: colorScheme.appBackground,

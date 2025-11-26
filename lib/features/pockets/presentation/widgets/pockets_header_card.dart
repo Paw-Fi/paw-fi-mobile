@@ -185,6 +185,8 @@ class PocketsHeaderCard extends StatelessWidget {
   void _showBudgetInputSheet(BuildContext context, double currentAmount) {
     final controller =
         TextEditingController(text: currentAmount.toStringAsFixed(0));
+    // Highlight entire value by default for quick replacement
+    controller.selection = TextSelection(baseOffset: 0, extentOffset: controller.text.length);
 
     showModalBottomSheet(
       context: context,

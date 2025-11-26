@@ -634,14 +634,9 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       final authUser = ref.read(authProvider);
       final filter = ref.read(homeFilterProvider);
       final selectedCurrency = filter.selectedCurrency ?? 'USD';
-      final range = getDateRangeFromFilter(
-        filter.dateRangeFilter,
-        filter.customStartDate,
-        filter.customEndDate,
-      );
-
-      final end = range['to'] ?? DateTime.now();
-      final monthStart = DateTime(end.year, end.month, 1);
+      // Persist against the month being viewed, not the global filter window
+      final viewedMonth = params.periodMonth ?? DateTime.now();
+      final monthStart = DateTime(viewedMonth.year, viewedMonth.month, 1);
       final periodMonth = _formatDate(monthStart);
       final isHousehold = params.scope == PocketsScopeType.household;
       final householdId = params.householdId;

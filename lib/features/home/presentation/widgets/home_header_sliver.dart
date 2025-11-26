@@ -1,3 +1,4 @@
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -13,7 +14,6 @@ import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 
 /// Leading widget for app bar that includes:
 /// - Profile/Household avatar
@@ -31,6 +31,19 @@ class HomeHeaderLeading extends ConsumerWidget {
     final AppDrawerController zoomController =
         ref.read(zoomDrawerControllerProvider);
 
+    final name = viewMode.mode == ViewMode.personal
+        ? (user.displayName?.isNotEmpty == true ? user.displayName! : user.email)
+        : householdsAsync.when(
+            loading: () => context.l10n.forUs,
+            error: (_, __) => context.l10n.forUs,
+            data: (households) {
+              if (households.isEmpty) return context.l10n.forUs;
+              final household = selectedHouseholdState.household ?? households.first;
+              return household.name;
+            },
+          ) ??
+            '';
+
     return GestureDetector(
       onTap: () => zoomController.toggle?.call(),
       child: Row(
@@ -44,30 +57,18 @@ class HomeHeaderLeading extends ConsumerWidget {
             colorScheme: colorScheme,
           ),
           const SizedBox(width: 12),
-          Text(
-            viewMode.mode == ViewMode.personal
-                ? (user.displayName?.isNotEmpty == true
-                    ? user.displayName!
-                    : user.email)
-                : householdsAsync.when(
-                    loading: () => context.l10n.forUs,
-                    error: (_, __) => context.l10n.forUs,
-                    data: (households) {
-                      if (households.isEmpty) return context.l10n.forUs;
-
-                      // Use selected household if available, otherwise first household
-                      final household =
-                          selectedHouseholdState.household ?? households.first;
-                      return household.name;
-                    },
-                  ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.3,
-              color: colorScheme.foreground,
+          Flexible(
+            child: Text(
+              name+"ajknhsdjk aslkjd asjks dkjl;ajks jlk",
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              softWrap: false,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.3,
+                color: colorScheme.foreground,
+              ),
             ),
           ),
         ],
@@ -133,51 +134,61 @@ class HomeHeaderSliver extends ConsumerWidget {
         ref.read(zoomDrawerControllerProvider);
 
     return SizedBox(
-      height: 65,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(0, 5, 16, 5),
+        padding: EdgeInsets.only(right: 10,left: PlatformInfo.isAndroid ? 10 : 0),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          mainAxisAlignment: MainAxisAlignment.start,
           children: [
-            Expanded(
-              child: ListTile(
+            Flexible(
+              child: GestureDetector(
                 onTap: () => zoomController.toggle?.call(),
-                leading: _HeaderAvatarButton(
-                  user: user,
-                  viewMode: viewMode,
-                  householdsAsync: householdsAsync,
-                  selectedHouseholdState: selectedHouseholdState,
-                  colorScheme: colorScheme,
-                ),
-                title: Text(
-                  viewMode.mode == ViewMode.personal
-                      ? (user.displayName?.isNotEmpty == true
-                          ? user.displayName!
-                          : user.email)
-                      : householdsAsync.when(
-                          loading: () => context.l10n.forUs,
-                          error: (_, __) => context.l10n.forUs,
-                          data: (households) {
-                            if (households.isEmpty) return context.l10n.forUs;
-
-                            // Use selected household if available, otherwise first household
-                            final household =
-                                selectedHouseholdState.household ??
-                                    households.first;
-                            return household.name;
-                          },
+                behavior: HitTestBehavior.opaque,
+                child: Row(
+                  children: [
+                    _HeaderAvatarButton(
+                      user: user,
+                      viewMode: viewMode,
+                      householdsAsync: householdsAsync,
+                      selectedHouseholdState: selectedHouseholdState,
+                      colorScheme: colorScheme,
+                    ),
+                    const SizedBox(width: 12),
+                    Flexible(
+                      child: Text(
+                        viewMode.mode == ViewMode.personal
+                            ? (user.displayName?.isNotEmpty == true
+                                ? user.displayName!
+                                : user.email)
+                            : householdsAsync.when(
+                                loading: () => context.l10n.forUs,
+                                error: (_, __) => context.l10n.forUs,
+                                data: (households) {
+                                  if (households.isEmpty) {
+                                    return context.l10n.forUs;
+                                  }
+                                  final household =
+                                      selectedHouseholdState.household ??
+                                          households.first;
+                                  return household.name;
+                                },
+                              )??
+                                '',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        softWrap: false,
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.3,
+                          color: colorScheme.foreground,
                         ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.3,
-                    color: colorScheme.foreground,
-                  ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
+            const SizedBox(width: 12),
             const HomeHeaderTrailing(),
           ],
         ),
