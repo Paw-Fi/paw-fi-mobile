@@ -7,12 +7,12 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/navigation/zoom_drawer_provider.dart';
-import 'package:moneko/features/auth/presentation/widgets/impersonation_banner.dart';
 import 'package:moneko/features/home/presentation/pages/home_page.dart';
 import 'package:moneko/features/home/presentation/widgets/home_header_sliver.dart';
 import 'package:moneko/features/insights/presentation/pages/insights_page.dart';
 import 'package:moneko/features/recurring/pages/recurring_transactions_page.dart';
 import 'package:moneko/features/pockets/presentation/pages/pockets_page.dart';
+import 'package:moneko/features/chat/chat.dart';
 import 'main_menu_screen.dart';
 
 /// Main navigation shell with bottom navigation bar
@@ -30,6 +30,7 @@ class MainShell extends HookConsumerWidget {
       const RecurringTransactionsPage(),
       const PocketsPage(),
       const AnalyticsPage(),
+      const ChatPage(),
     ];
 
     final currentPage = pages[currentIndex.value];
@@ -45,10 +46,10 @@ class MainShell extends HookConsumerWidget {
       slideWidth: MediaQuery.of(context).size.width * 0.75,
       menuScreenWidth: MediaQuery.of(context).size.width * 0.75,
       mainScreen: AdaptiveScaffold(
-                appBar: AdaptiveAppBar(
+        appBar: AdaptiveAppBar(
             useNativeToolbar: false,
             cupertinoNavigationBar: const CupertinoNavigationBar(
-              leading: HomeHeaderSliver(),           
+              leading: HomeHeaderSliver(),
             ),
             appBar: AppBar(
               leadingWidth: 0,
@@ -98,6 +99,14 @@ class MainShell extends HookConsumerWidget {
                       ? CupertinoIcons.chart_bar_alt_fill
                       : Icons.bar_chart,
               label: context.l10n.insights,
+            ),
+            AdaptiveNavigationDestination(
+              icon: PlatformInfo.isIOS26OrHigher()
+                  ? 'message.fill'
+                  : PlatformInfo.isIOS
+                      ? CupertinoIcons.chat_bubble_2_fill
+                      : Icons.chat,
+              label: 'Chat',
             ),
           ],
           selectedIndex: currentIndex.value,
