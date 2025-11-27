@@ -86,6 +86,25 @@ class DeepLinkService {
       return;
     }
 
+    if (DeepLinks.isPlaidCallback(uri)) {
+      final params = uri.queryParameters;
+      debugPrint('🏦 Plaid deep link received with params: $params');
+
+      final linkToken = params['link_token'];
+      final oauthStateId = params['oauth_state_id'];
+      final status = params['status'];
+      final errorCode = params['error_code'];
+      final errorMessage = params['error_message'];
+
+      debugPrint('🏦 Plaid link_token: $linkToken');
+      debugPrint('🏦 Plaid oauth_state_id: $oauthStateId');
+      debugPrint('🏦 Plaid status: $status');
+      debugPrint('🏦 Plaid error_code: $errorCode');
+      debugPrint('🏦 Plaid error_message: $errorMessage');
+
+      return;
+    }
+
     // Handle payment callback: moneko://payment?status=success/failed/canceled
     if (DeepLinks.isPaymentCallback(uri)) {
       final status = uri.queryParameters['status'];
