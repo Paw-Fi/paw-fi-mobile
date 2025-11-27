@@ -1,18 +1,18 @@
 {
-  "assignToPocket": {
-    "en": "Assign to Pocket",
-    "de": "Einem Pocket zuweisen",
-    "es": "Asignar al Pocket",
-    "fr": "Affecter au Pocket",
-    "it": "Assegna al Pocket",
-    "ja": "ポケットに割り当てる",
-    "kr": "포켓에 배정하기",
-    "nl": "Toewijzen aan Pocket",
-    "ur": "Pocket میں شامل کریں",
-    "ru": "Назначить в Pocket",
-    "uk": "Призначити до Pocket",
-    "zh": "分配到口袋",
-    "zh_TW": "分配到口袋",
-    "vi": "Gán vào Pocket"
+  "groceries": {
+    "en": "Groceries",
+    "de": "Lebensmittel",
+    "es": "Supermercado",
+    "fr": "Courses",
+    "it": "Spesa",
+    "ja": "食料品",
+    "kr": "식료품",
+    "nl": "Boodschappen",
+    "ur": "گروسری",
+    "ru": "Продукты",
+    "uk": "Продукти",
+    "zh": "买菜",
+    "zh_TW": "日常採買",
+    "vi": "Tạp hóa"
   }
 }
