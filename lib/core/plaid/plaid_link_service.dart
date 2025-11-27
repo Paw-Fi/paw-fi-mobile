@@ -27,6 +27,8 @@ Future<PlaidLinkResult?> openPlaidLink(String linkToken) async {
     }
   }
 
+  void closeLink() => unawaited(PlaidLink.close());
+
   successSub = PlaidLink.onSuccess.listen((success) {
     final publicToken = success.publicToken;
     final institution = success.metadata.institution;
@@ -37,15 +39,18 @@ Future<PlaidLinkResult?> openPlaidLink(String linkToken) async {
         institutionName: institution?.name,
       ),
     );
+    closeLink();
   });
 
   exitSub = PlaidLink.onExit.listen((exit) {
     // User closed/cancelled Link.
     completeOnce(null);
+    closeLink();
   });
 
   eventSub = PlaidLink.onEvent.listen((event) {
-    // Optional: log events or analytics if desired.
+    final name = event.name.toLowerCase();
+    if (name.contains('handoff') || name.contains('exit')) closeLink();
   });
 
   final configuration = LinkTokenConfiguration(token: linkToken);
@@ -58,6 +63,9 @@ Future<PlaidLinkResult?> openPlaidLink(String linkToken) async {
   await successSub.cancel();
   await exitSub.cancel();
   await eventSub.cancel();
+
+  // Extra safety: ensure the Plaid UI is closed before returning to app UI
+  closeLink();
 
   return result;
 }

@@ -1,18 +1,34 @@
 {
-  "groceries": {
-    "en": "Groceries",
-    "de": "Lebensmittel",
-    "es": "Supermercado",
-    "fr": "Courses",
-    "it": "Spesa",
-    "ja": "食料品",
-    "kr": "식료품",
-    "nl": "Boodschappen",
-    "ur": "گروسری",
-    "ru": "Продукты",
-    "uk": "Продукти",
-    "zh": "买菜",
-    "zh_TW": "日常採買",
-    "vi": "Tạp hóa"
+  "ok": {
+    "en": "OK",
+    "de": "OK",
+    "es": "OK",
+    "fr": "OK",
+    "it": "OK",
+    "ja": "OK",
+    "kr": "확인",
+    "nl": "OK",
+    "ur": "ٹھیک ہے",
+    "ru": "ОК",
+    "uk": "ОК",
+    "zh": "确定",
+    "zh_TW": "確定",
+    "vi": "OK"
+  },
+  "attention": {
+    "en": "Attention",
+    "de": "Achtung",
+    "es": "Atención",
+    "fr": "Attention",
+    "it": "Attenzione",
+    "ja": "注意",
+    "kr": "주의",
+    "nl": "Attentie",
+    "ur": "توجہ",
+    "ru": "Внимание",
+    "uk": "Увага",
+    "zh": "注意",
+    "zh_TW": "注意",
+    "vi": "Chú ý"
   }
 }

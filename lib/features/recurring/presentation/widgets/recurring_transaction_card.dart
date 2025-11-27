@@ -109,7 +109,10 @@ class RecurringTransactionCard extends ConsumerWidget {
               child: TransactionListTile(
                 onTap: onTap,
                 category: transaction.category,
-                title: getCategoryTranslation(context, transaction.category),
+                title: transaction.description ??
+                    getCategoryTranslation(context, transaction.category),
+                description: transaction.description,
+                date: transaction.date,
                 amount: transaction.amount,
                 currency: transaction.currency,
                 isIncome: isIncome,

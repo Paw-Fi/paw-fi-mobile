@@ -889,7 +889,6 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   Widget _buildTransactionItem(
       BuildContext context, ExpenseEntry expense, UserContact? contact) {
     final colorScheme = Theme.of(context).colorScheme;
-    final dateFormat = DateFormat('MMM d, yyyy');
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isIncome = (expense.type ?? 'expense').toLowerCase() == 'income';
 
@@ -921,7 +920,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
             category: expense.category ?? 'uncategorized',
             title: getCategoryTranslation(
                 context, expense.category ?? 'uncategorized'),
-            subtitle: dateFormat.format(expense.date),
+            description: expense.rawText,
+            date: expense.date,
             amount: expense.amount,
             currency: expense.currency ?? 'USD',
             isIncome: isIncome,

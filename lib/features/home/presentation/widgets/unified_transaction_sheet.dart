@@ -63,7 +63,7 @@ String _formatRelativeDate(DateTime date, BuildContext context) {
 /// Shows unified transaction sheet
 /// For existing expenses: shows details with option to change sharing
 /// For new expenses: shows confirmation with option to choose sharing
-void showUnifiedTransactionSheet(
+Future<void> showUnifiedTransactionSheet(
   BuildContext context, {
   ExpenseEntry? existingExpense,
   ParsedExpense? newExpense,
@@ -73,7 +73,7 @@ void showUnifiedTransactionSheet(
   assert(existingExpense != null || newExpense != null,
       'Must provide either existingExpense or newExpense');
 
-  showModalBottomSheet(
+  return showModalBottomSheet<void>(
     context: context,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
@@ -541,24 +541,13 @@ class _UnifiedTransactionSheetState
                       notes: (() {
                         // Prefer AI-provided description when it matches the UI language;
                         // otherwise fall back to a localized, minimal description.
-                        final locale = Localizations.localeOf(context);
-                        final desc = displayDescription;
-                        String? effective = desc;
+                        String? effective = displayDescription;
                         if (effective != null) {
                           final isReceipt = effective
                               .trimLeft()
                               .toLowerCase()
                               .startsWith('receipt:');
                           if (isReceipt) effective = null;
-                        }
-                        if (locale.languageCode.startsWith('zh')) {
-                          final hasCJK = effective != null &&
-                              RegExp(r'[\u4E00-\u9FFF]').hasMatch(effective);
-                          if (!hasCJK) {
-                            // Use localized category name as a safe fallback
-                            effective = getCategoryTranslation(
-                                context, displayCategory);
-                          }
                         }
                         // Final fallback
                         return effective ??

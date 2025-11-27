@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:moneko/core/ui/widgets/transaction_selection_sheet.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/features/home/presentation/widgets/category_picker_bottom_sheet.dart';
 
 /// Shows a category picker for expense or income transactions
 /// 
@@ -18,15 +18,26 @@ Future<String?> showCategoryPicker({
   required String currentCategory,
   required bool isIncome,
 }) async {
-  final categories = isIncome ? getIncomeCategories() : getExpenseCategories();
-  final initial = categories.contains(currentCategory) 
-      ? currentCategory 
-      : (isIncome ? 'salary' : categories.first);
-  
-  return await showTransactionSelectionSheet<String>(
+  final normalizedCurrent = currentCategory.toLowerCase();
+  final baseCategories = isIncome ? getIncomeCategories() : getExpenseCategories();
+  final categories = baseCategories.contains(normalizedCurrent)
+      ? baseCategories
+      : [...baseCategories, normalizedCurrent];
+
+  return await showModalBottomSheet<String>(
     context: context,
-    items: categories,
-    getLabel: (category) => getCategoryTranslation(context, category),
-    initial: initial,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (sheetContext) {
+      return CategoryPickerBottomSheet(
+        allCategories: categories,
+        selectedCategories: <String>[normalizedCurrent],
+        isSingleSelect: true,
+        onChanged: (value) {
+          final next = value.isNotEmpty ? value.first : null;
+          Navigator.of(sheetContext).pop(next);
+        },
+      );
+    },
   );
 }

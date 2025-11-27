@@ -2,6 +2,7 @@ import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -12,14 +13,12 @@ class CategoryPickerBottomSheet extends StatelessWidget {
     required this.allCategories,
     required this.selectedCategories,
     required this.onChanged,
-    this.title = 'Categories',
     this.isSingleSelect = false,
   });
 
   final List<String> allCategories;
   final List<String> selectedCategories;
   final ValueChanged<List<String>> onChanged;
-  final String title;
   final bool isSingleSelect;
 
   @override
@@ -28,7 +27,7 @@ class CategoryPickerBottomSheet extends StatelessWidget {
       allCategories: allCategories,
       selectedCategories: selectedCategories,
       onChanged: onChanged,
-      title: title,
+      title: "",
       isSingleSelect: isSingleSelect,
       onClose: () => Navigator.of(context).pop(),
     );
@@ -78,7 +77,7 @@ class CategoryPicker extends HookWidget {
       };
     }, [searchController]);
 
-    final grouped = _buildGroups(allCategories);
+    final grouped = _buildGroups(context, allCategories);
     final filtered = _filterGroups(context, grouped, searchQuery.value);
 
     void handleToggle(String key) {
@@ -169,7 +168,7 @@ class CategoryPicker extends HookWidget {
                         decoration: InputDecoration(
                           isDense: true,
                           border: InputBorder.none,
-                          hintText: 'Search',
+                          hintText: context.l10n.search,
                           hintStyle: TextStyle(
                             color: colorScheme.mutedForeground,
                             fontSize: 14,
@@ -206,55 +205,30 @@ class CategoryPicker extends HookWidget {
   }
 }
 
-Map<String, List<String>> _buildGroups(List<String> categories) {
-  const Map<String, String> groupLabels = {
-    'entertainment': 'Entertainment',
-    'entertainment_subscriptions': 'Entertainment',
-    'shopping': 'Shopping',
-    'restaurants': 'Food & drinks',
-    'food': 'Food & drinks',
-    'groceries': 'Food & drinks',
-    'transport': 'Transport',
-    'transportation': 'Transport',
-    'travel': 'Travel',
-    'flights': 'Travel',
-    'vacation': 'Travel',
-    'health': 'Health',
-    'medical': 'Health',
-    'healthcare': 'Health',
-    'housing': 'Housing',
-    'rent': 'Housing',
-    'mortgage': 'Housing',
-    'bills': 'Housing',
-    'insurance': 'Housing',
-    'savings': 'Savings',
-    'investment': 'Savings',
-    'investments': 'Savings',
-    'income': 'Income',
-    'salary': 'Income',
-    'bonus': 'Income',
-    'pets': 'Family & pets',
-    'kids': 'Family & kids',
-    'family': 'Family & kids',
-    'gifts': 'Gifts & charity',
-    'gift': 'Gifts & charity',
-    'charity': 'Gifts & charity',
-  };
-
+Map<String, List<String>> _buildGroups(
+  BuildContext context,
+  List<String> categories,
+) {
+  final allowed = categories.toSet();
   final Map<String, List<String>> groups = {};
-  for (final raw in categories) {
-    final key = raw.toLowerCase();
-    final label = groupLabels[key] ?? 'Other';
-    groups.putIfAbsent(label, () => <String>[]).add(raw);
+
+  categoryGroups.forEach((groupKey, groupCategories) {
+    final items = groupCategories.where(allowed.contains).toList();
+    if (items.isEmpty) return;
+
+    final title = getCategoryGroupTranslation(context, groupKey);
+    groups[title] = items;
+  });
+
+  // Add any categories not covered by the known groups to Other
+  final groupedItems = groups.values.expand((e) => e).toSet();
+  final remaining = allowed.difference(groupedItems).toList()..sort();
+  if (remaining.isNotEmpty) {
+    final miscTitle = getCategoryGroupTranslation(context, 'misc');
+    groups[miscTitle] = [...?groups[miscTitle], ...remaining];
   }
 
-  final sorted = <String, List<String>>{};
-  final titles = groups.keys.toList()..sort();
-  for (final title in titles) {
-    final items = groups[title]!..sort();
-    sorted[title] = items;
-  }
-  return sorted;
+  return groups;
 }
 
 Map<String, List<String>> _filterGroups(

@@ -149,13 +149,13 @@ class _SettingsList extends ConsumerWidget {
             ],
           ),
         ),
-        const SizedBox(height: 32),
-        _SectionLabel(
-          label: context.l10n.autoSync,
-          colorScheme: colorScheme,
-        ),
-        const SizedBox(height: 12),
-        _PlaidSyncCard(colorScheme: colorScheme),
+        //const SizedBox(height: 32),
+        // _SectionLabel(
+        //   label: context.l10n.autoSync,
+        //   colorScheme: colorScheme,
+        // ),
+        // const SizedBox(height: 12),
+        // _PlaidSyncCard(colorScheme: colorScheme),
       ],
     );
   }

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/utils/currency.dart';
@@ -6,8 +8,10 @@ import 'package:moneko/features/utils/currency.dart';
 class TransactionListTile extends StatelessWidget {
   final String category;
   final String title;
+  final String? description;
   final String? subtitle;
   final Widget? subtitleWidget;
+  final DateTime? date;
   final double amount;
   final String currency;
   final bool isIncome;
@@ -19,8 +23,10 @@ class TransactionListTile extends StatelessWidget {
     super.key,
     required this.category,
     required this.title,
+    this.description,
     this.subtitle,
     this.subtitleWidget,
+    this.date,
     required this.amount,
     required this.currency,
     required this.isIncome,
@@ -29,6 +35,25 @@ class TransactionListTile extends StatelessWidget {
     this.dense = true,
   });
 
+  String? _formatDate(BuildContext context, DateTime date) {
+    final locale = Localizations.localeOf(context).toString();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final dateOnly = DateTime(date.year, date.month, date.day);
+
+    if (dateOnly == today) {
+      return '${context.l10n.today}, ${DateFormat.jm(locale).format(date)}';
+    }
+    if (dateOnly == yesterday) {
+      return context.l10n.yesterday;
+    }
+    if (date.year == now.year) {
+      return DateFormat.MMMd(locale).format(date);
+    }
+    return DateFormat.yMMMd(locale).format(date);
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -36,6 +61,14 @@ class TransactionListTile extends StatelessWidget {
     final icon = getCategoryIcon(category);
     final sign = isIncome ? '+' : '-';
     final formattedAmount = formatCurrency(amount.abs(), currency);
+    final displayTitle = description?.trim().isNotEmpty == true
+        ? description!
+        : title;
+    final displaySubtitle = subtitleWidget != null
+        ? null
+        : (date != null
+            ? _formatDate(context, date!)
+            : subtitle);
 
     return ListTile(
       onTap: onTap,
@@ -51,7 +84,7 @@ class TransactionListTile extends StatelessWidget {
         child: Icon(icon, color: color, size: 20),
       ),
       title: Text(
-        title,
+        displayTitle,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
@@ -61,9 +94,9 @@ class TransactionListTile extends StatelessWidget {
         ),
       ),
       subtitle: subtitleWidget ??
-          (subtitle != null
+          (displaySubtitle != null
               ? Text(
-                  subtitle!,
+                  displaySubtitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(

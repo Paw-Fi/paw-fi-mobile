@@ -1598,5 +1598,7 @@
   "environmentalGreen": "Environmental / Green",
   "miscellaneous": "Miscellaneous",
   "other": "Other",
-  "uncategorized": "Uncategorized"
+  "uncategorized": "Uncategorized",
+  "ok": "OK",
+  "attention": "Attention"
 }

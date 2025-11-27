@@ -1,27 +1,30 @@
 import 'dart:io' show Platform;
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/auth/auth.dart';
-import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
-import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/core/plaid/plaid_link_service.dart';
 import 'package:moneko/core/navigation/main_menu_screen.dart'; // For plaidCountryCodeProvider
 import 'package:moneko/core/plaid/plaid_countries.dart';
 import 'package:moneko/core/plaid/plaid_country_flags.dart';
 import 'package:moneko/core/plaid/plaid_country_selector_modal.dart';
+import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
+import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
+import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
+import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
-import 'package:moneko/features/home/presentation/state/state.dart';
-import 'package:moneko/features/income/presentation/providers/income_providers.dart';
-import 'package:moneko/features/goals/presentation/providers/goals_providers.dart';
-import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
-import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
+import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
+import 'package:moneko/features/recurring/presentation/widgets/add_recurring_sheet.dart';
+import 'package:moneko/core/plaid/models/synced_transaction.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:moneko/core/theme/app_theme.dart';
+
 
 class PlaidSyncWalkthroughPage extends ConsumerStatefulWidget {
   const PlaidSyncWalkthroughPage({super.key});
@@ -36,7 +39,12 @@ class _PlaidSyncWalkthroughPageState
   final PageController _pageController = PageController();
   int _currentPage = 0;
   bool _isSyncing = false;
+  bool _showSyncProgress = false;
+  double _fakeProgress = 0.0;
   bool _isSuccess = false;
+  bool _postRefreshScheduled = false;
+  bool _postRefreshComplete = false;
+  List<SyncedTransaction> _addedTransactions = [];
 
   final int _numPages = 4; // Intro, Security, Benefits, Country selection
 
@@ -44,6 +52,92 @@ class _PlaidSyncWalkthroughPageState
   void dispose() {
     _pageController.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleDeleteTransaction(SyncedTransaction tx) async {
+    final uid = Supabase.instance.client.auth.currentUser?.id;
+    if (uid == null) return;
+    try {
+      final res = await Supabase.instance.client.functions.invoke(
+        'delete-expense',
+        body: {
+          'userId': uid,
+          'expenseId': tx.expense.id,
+        },
+      );
+
+      if (res.data != null && res.data['success'] == true) {
+        setState(() {
+          _addedTransactions =
+              _addedTransactions.where((t) => t.expense.id != tx.expense.id).toList();
+        });
+        if (mounted) {
+          AppToast.success(context, context.l10n.transactionDeleted);
+        }
+      } else {
+        if (mounted) {
+          AppToast.error(context, context.l10n.anErrorOccurred);
+        }
+      }
+    } catch (err) {
+      if (mounted) {
+        AppToast.error(context, '${context.l10n.error}: $err');
+      }
+    }
+  }
+
+  Future<void> _handleEditTransaction(SyncedTransaction tx) async {
+    if (tx.isRecurring) {
+      final recur = _toRecurringTransaction(tx);
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (ctx) {
+          return FractionallySizedBox(
+            heightFactor: 0.96,
+            child: AddRecurringSheet(
+              type: recur.type,
+              existingTransaction: recur,
+            ),
+          );
+        },
+      );
+    } else {
+      await showUnifiedTransactionSheet(
+        context,
+        existingExpense: tx.expense,
+      );
+    }
+  }
+
+  RecurringTransaction _toRecurringTransaction(SyncedTransaction tx) {
+    RecurrenceRule? recurrence;
+    if (tx.recurrenceRule != null && tx.recurrenceRule!['anchor_date'] != null) {
+      try {
+        recurrence = RecurrenceRule.fromJson(tx.recurrenceRule!);
+      } catch (_) {
+        recurrence = null;
+      }
+    }
+
+    return RecurringTransaction(
+      id: tx.expense.id,
+      date: tx.expense.date,
+      category: tx.expense.category ?? 'other',
+      description: tx.expense.rawText,
+      source: null,
+      amount: tx.expense.amount,
+      currency: tx.expense.currency ?? 'USD',
+      ownerType: 'me',
+      privacyScope: 'full',
+      householdId: tx.expense.householdId,
+      recurrenceRule: recurrence,
+      type: (tx.expense.type ?? 'expense').toLowerCase(),
+      attachments: const [],
+      createdAt: tx.expense.createdAt,
+      updatedAt: tx.expense.updatedAt,
+    );
   }
 
   void _nextPage() {
@@ -55,9 +149,112 @@ class _PlaidSyncWalkthroughPageState
     }
   }
 
+  void _startFakeProgress() {
+    setState(() => _fakeProgress = 0.0);
+    void tick() {
+      if (!_isSyncing || !mounted) return;
+      setState(() {
+        final remaining = 1.0 - _fakeProgress;
+        // Slow the ramp further (~2x): smaller step per tick
+        final increment = (remaining * 0.045).clamp(0.0025, 0.03);
+        _fakeProgress = (_fakeProgress + increment).clamp(0.0, 0.97);
+      });
+      Future.delayed(const Duration(milliseconds: 300), tick);
+    }
+
+    tick();
+  }
+
+  void _finishFakeProgress({required bool success}) {
+    if (!mounted) return;
+    setState(() {
+      _fakeProgress = success ? 1.0 : 0.0;
+    });
+  }
+
+  void _handleFinish() {
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  Map<String, DateTime?> _currentFilterRange() {
+    final filter = ref.read(homeFilterProvider);
+    final range = getDateRangeFromFilter(
+      filter.dateRangeFilter,
+      filter.customStartDate,
+      filter.customEndDate,
+    );
+    return {
+      'startDate': range['from'],
+      'endDate': range['to'],
+    };
+  }
+
+  Future<void> _refreshAfterSync(String userId) async {
+    final viewMode = ref.read(viewModeProvider);
+    final selectedHousehold = ref.read(selectedHouseholdProvider);
+    final householdId =
+        viewMode.mode == ViewMode.household ? selectedHousehold.householdId : null;
+
+    if (viewMode.mode == ViewMode.household) {
+      ref.invalidate(userHouseholdsProvider(userId));
+      ref.invalidate(householdExpensesProvider);
+      ref.invalidate(householdSplitsProvider);
+      ref.invalidate(householdBudgetsProvider);
+      ref.invalidate(householdSummaryProvider);
+      ref.invalidate(householdMembersProvider);
+    } else {
+      final range = _currentFilterRange();
+      ref.read(analyticsProvider.notifier).refresh(
+            userId,
+            startDate: range['startDate'],
+            endDate: range['endDate'],
+          );
+    }
+
+    await ref
+        .read(recurringTransactionsProvider(householdId).notifier)
+        .refresh(userId);
+
+    final now = DateTime.now();
+    final monthStart = DateTime(now.year, now.month, 1);
+    final pocketsScope = viewMode.mode == ViewMode.household
+        ? PocketsScopeParams(
+            scope: PocketsScopeType.household,
+            householdId: householdId,
+            periodMonth: monthStart,
+          )
+        : PocketsScopeParams(
+            scope: PocketsScopeType.personal,
+            periodMonth: monthStart,
+          );
+    ref.invalidate(pocketsProvider(pocketsScope));
+    await ref.read(analyticsProvider.notifier).loadData(
+          userId,
+          startDate: monthStart,
+          endDate: DateTime(monthStart.year, monthStart.month + 1, 1),
+        );
+
+    await Future.delayed(const Duration(milliseconds: 500));
+  }
+
+  void _schedulePostRefresh(String userId) {
+    if (_postRefreshScheduled) return;
+    _postRefreshScheduled = true;
+    Future.delayed(const Duration(seconds: 2), () async {
+      await _refreshAfterSync(userId);
+      if (mounted) {
+        setState(() => _postRefreshComplete = true);
+      }
+    });
+  }
+
   Future<void> _performSync() async {
     setState(() {
       _isSyncing = true;
+      _postRefreshScheduled = false;
+      _postRefreshComplete = false;
     });
 
     final user = ref.read(authProvider);
@@ -65,6 +262,7 @@ class _PlaidSyncWalkthroughPageState
       setState(() => _isSyncing = false);
       return;
     }
+    final userId = user.uid;
     final selectedCountryCode = ref.read(plaidCountryCodeProvider);
 
     // We don't use the blocking dialog here because we have a UI for it,
@@ -99,7 +297,11 @@ class _PlaidSyncWalkthroughPageState
       final linkResult = await openPlaidLink(linkToken);
       if (linkResult == null) {
         // User cancelled Plaid Link
-        setState(() => _isSyncing = false);
+        setState(() {
+          _isSyncing = false;
+          _fakeProgress = 0.0;
+          _showSyncProgress = false;
+        });
         return;
       }
 
@@ -118,6 +320,12 @@ class _PlaidSyncWalkthroughPageState
         throw Exception('Failed to exchange token');
       }
 
+      // Start visible progress only for the long-running sync
+      setState(() {
+        _showSyncProgress = true;
+      });
+      _startFakeProgress();
+
       final syncResponse = await client.functions.invoke(
         'plaid-sync-transactions',
       );
@@ -126,42 +334,27 @@ class _PlaidSyncWalkthroughPageState
         throw Exception('Failed to sync transactions');
       }
 
-      // Refresh providers
-      ref.invalidate(analyticsProvider);
-      ref.invalidate(userHouseholdsProvider);
-      ref.invalidate(householdExpensesProvider);
-      ref.invalidate(householdSplitsProvider);
-      ref.invalidate(householdBudgetsProvider);
-      ref.invalidate(householdSummaryProvider);
-      ref.invalidate(householdMembersProvider);
-      ref.invalidate(selectedHouseholdProvider);
-      ref.invalidate(viewModeProvider);
-      ref.invalidate(homeFilterProvider);
-      ref.invalidate(incomeSummaryProvider);
-      ref.invalidate(incomeListProvider);
-      ref.invalidate(goalsListProvider);
-      ref.invalidate(goalSummaryProvider);
-      ref.invalidate(subscriptionManagementProvider);
-      ref.invalidate(userProfileProvider);
-      ref.invalidate(pocketsProvider);
-      ref.invalidate(recurringTransactionsProvider);
-      ref.invalidate(recurringTransactionSaveProvider);
-      ref.invalidate(selectedRecurringTabProvider);
-
       if (mounted) {
+        _finishFakeProgress(success: true);
         setState(() {
           _isSuccess = true;
           _isSyncing = false;
+          _showSyncProgress = false;
         });
+        _schedulePostRefresh(userId);
         // Animate to success page (which effectively is a 4th page overlay or replacement)
       }
     } catch (e) {
       if (mounted) {
+        _finishFakeProgress(success: false);
         AppToast.error(
           context,
           '${context.l10n.failedToSyncCurrencyPreference}: ${e.toString()}',
         );
-        setState(() => _isSyncing = false);
+        setState(() {
+          _isSyncing = false;
+          _showSyncProgress = false;
+        });
       }
     }
   }
@@ -171,7 +364,72 @@ class _PlaidSyncWalkthroughPageState
     final colorScheme = Theme.of(context).colorScheme;
 
     if (_isSuccess) {
-      return _SuccessPage(onFinish: () => Navigator.of(context).pop());
+      return Scaffold(
+        backgroundColor: colorScheme.surface,
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 120,
+                    height: 120,
+                    decoration: BoxDecoration(
+                      color: colorScheme.primaryContainer.withValues(alpha: 0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.check_circle,
+                      size: 72,
+                      color: colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Sync complete!',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                      color: colorScheme.foreground,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    _postRefreshComplete
+                        ? 'Your data is up to date.'
+                        : 'Finishing up and refreshing your data...',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: colorScheme.mutedForeground,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  if (!_postRefreshComplete)
+                    const CircularProgressIndicator()
+                  else
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: _handleFinish,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: colorScheme.primary,
+                          foregroundColor: colorScheme.onPrimary,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: const Text('Done'),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
     }
 
     return WillPopScope(
@@ -273,6 +531,50 @@ class _PlaidSyncWalkthroughPageState
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    if (_isSyncing && _showSyncProgress) ...[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Syncing your bank...',
+                            style: TextStyle(
+                              color: colorScheme.foreground,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          Text(
+                            '${(_fakeProgress * 100).clamp(0, 100).floor()}%',
+                            style: TextStyle(
+                              color: colorScheme.mutedForeground,
+                              fontFeatures: const [FontFeature.tabularFigures()],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: LinearProgressIndicator(
+                          minHeight: 8,
+                          value: _fakeProgress,
+                          backgroundColor:
+                              colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+                          color: colorScheme.primary,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'This can take up to a minute. Please keep this page open.',
+                          style: TextStyle(
+                            color: colorScheme.mutedForeground,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
                     SizedBox(
                       width: double.infinity,
                       height: 58,
@@ -580,98 +882,6 @@ class _CountrySelectionStep extends ConsumerWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _SuccessPage extends StatelessWidget {
-  const _SuccessPage({required this.onFinish});
-
-  final VoidCallback onFinish;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Scaffold(
-      backgroundColor: colorScheme.surface,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(32.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Spacer(),
-              TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0.0, end: 1.0),
-                duration: const Duration(milliseconds: 600),
-                curve: Curves.elasticOut,
-                builder: (context, value, child) {
-                  return Transform.scale(
-                    scale: value,
-                    child: child,
-                  );
-                },
-                child: Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    color: Colors.green.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.check_rounded,
-                    size: 64,
-                    color: Colors.green,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 32),
-              Text(
-                'Connected!',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w800,
-                  color: colorScheme.foreground,
-                  letterSpacing: -1.0,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Your bank account has been successfully linked. We are now syncing your transaction history.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 17,
-                  height: 1.5,
-                  color: colorScheme.mutedForeground,
-                ),
-              ),
-              const Spacer(),
-              SizedBox(
-                width: double.infinity,
-                height: 58,
-                child: FilledButton(
-                  onPressed: onFinish,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: colorScheme.primary,
-                    foregroundColor: colorScheme.onPrimary,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  ),
-                  child: const Text(
-                    'Done',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
