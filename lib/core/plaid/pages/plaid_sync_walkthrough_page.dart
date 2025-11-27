@@ -1,4 +1,5 @@
-import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -65,20 +66,21 @@ class _PlaidSyncWalkthroughPageState
       return;
     }
     final selectedCountryCode = ref.read(plaidCountryCodeProvider);
-    
-    // We don't use the blocking dialog here because we have a UI for it, 
+
+    // We don't use the blocking dialog here because we have a UI for it,
     // but for consistency with the original code, or to show progress clearly:
     // showBlockingProcessingDialog(context: context, message: context.l10n.autoSync);
     // However, standard blocking dialogs on top of a nice walkthrough might be jarring.
     // Let's try to keep it inline or use the blocking dialog if strictly necessary for the flow.
     // The user request says "once connected, the walkthrough proceed to last step with finish".
-    
+
     final client = Supabase.instance.client;
 
     try {
       final linkTokenResponse = await client.functions.invoke(
         'plaid-create-link-token',
         body: {
+          'platform': Platform.isAndroid ? 'android' : 'ios',
           if (selectedCountryCode.isNotEmpty)
             'countryCode': selectedCountryCode,
         },
@@ -167,25 +169,71 @@ class _PlaidSyncWalkthroughPageState
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    
+
     if (_isSuccess) {
       return _SuccessPage(onFinish: () => Navigator.of(context).pop());
     }
 
-    return AdaptiveScaffold(
-      appBar: AdaptiveAppBar(
-        leading:  IconButton(
-          icon: Icon(Icons.close, color: colorScheme.onSurface),
-          onPressed: () => Navigator.of(context).pop(),
-        ),      
-      ),
-      body: SafeArea(
-        child: Material(
+    return WillPopScope(
+      onWillPop: () async {
+        return !_isSyncing;
+      },
+      child: Scaffold(
+        backgroundColor: colorScheme.surface,
+        body: SafeArea(
           child: Column(
             children: [
+              // Custom Minimal Header
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 24.0, vertical: 16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Page Indicator (Apple style: subtle dots or progress)
+                    Row(
+                      children: List.generate(
+                        _numPages,
+                        (index) => AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          margin: const EdgeInsets.only(right: 8),
+                          height: 6,
+                          width: _currentPage == index ? 24 : 6,
+                          decoration: BoxDecoration(
+                            color: _currentPage == index
+                                ? colorScheme.primary
+                                : colorScheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Close Button
+                    IconButton(
+                      onPressed:
+                          _isSyncing ? null : () => Navigator.of(context).pop(),
+                      icon: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: colorScheme.surfaceContainerHighest
+                              .withValues(alpha: 0.5),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.close_rounded,
+                          size: 20,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
               Expanded(
                 child: PageView(
                   controller: _pageController,
+                  physics: const BouncingScrollPhysics(),
                   onPageChanged: (int page) {
                     setState(() {
                       _currentPage = page;
@@ -193,63 +241,53 @@ class _PlaidSyncWalkthroughPageState
                   },
                   children: [
                     _WalkthroughStep(
-                      icon: Icons.account_balance_rounded,
-                      title: 'Connect Your Bank',
+                      icon: Icons.account_balance_wallet_rounded,
+                      title: 'Effortless\nTracking',
                       description:
-                          'Link your bank account to automatically import your transactions and balances.',
+                          'Connect your bank to automatically import transactions and balances. Say goodbye to manual entry.',
+                      colorScheme: colorScheme,
+                      isFirst: true,
+                    ),
+                    _WalkthroughStep(
+                      icon: Icons.shield_rounded,
+                      title: 'Private &\nSecure',
+                      description:
+                          'Your data is encrypted with bank-grade security. We never see your credentials, and access is read-only.',
                       colorScheme: colorScheme,
                     ),
                     _WalkthroughStep(
-                      icon: Icons.lock_outline_rounded,
-                      title: 'Secure & Private',
+                      icon: Icons.insights_rounded,
+                      title: 'Real-time\nInsights',
                       description:
-                          'We use bank-grade encryption. We never see your credentials and only have read-only access to your data.',
-                      colorScheme: colorScheme,
-                    ),
-                    _WalkthroughStep(
-                      icon: Icons.auto_graph_rounded,
-                      title: 'Stay Updated',
-                      description:
-                          'Keep your budget effortless. Your expenses and income will be categorized automatically.',
+                          'Get instant notifications on spending, spot trends, and stay on top of your budget as it happens.',
                       colorScheme: colorScheme,
                     ),
                     _CountrySelectionStep(colorScheme: colorScheme),
                   ],
                 ),
               ),
+
+              // Bottom Action Area
               Padding(
-                padding: const EdgeInsets.all(24.0),
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(
-                        _numPages,
-                        (index) => AnimatedContainer(
-                          duration: const Duration(milliseconds: 300),
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          height: 8,
-                          width: _currentPage == index ? 24 : 8,
-                          decoration: BoxDecoration(
-                            color: _currentPage == index
-                                ? colorScheme.primary
-                                : colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
                     SizedBox(
                       width: double.infinity,
-                      height: 56,
+                      height: 58,
                       child: _currentPage == _numPages - 1
                           ? FilledButton(
                               onPressed: _isSyncing ? null : _performSync,
                               style: FilledButton.styleFrom(
-                                  shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              )),
+                                backgroundColor: colorScheme.primary,
+                                foregroundColor: colorScheme.onPrimary,
+                                elevation: 0,
+                                shadowColor: Colors.transparent,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                              ),
                               child: _isSyncing
                                   ? SizedBox(
                                       width: 24,
@@ -259,29 +297,59 @@ class _PlaidSyncWalkthroughPageState
                                         color: colorScheme.onPrimary,
                                       ),
                                     )
-                                  : Text(
+                                  : const Text(
                                       'Sync Now',
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w600,
+                                      style: TextStyle(
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: -0.5,
                                       ),
                                     ),
                             )
                           : FilledButton(
                               onPressed: _nextPage,
                               style: FilledButton.styleFrom(
-                                  shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              )),
+                                backgroundColor: colorScheme.primary,
+                                foregroundColor: colorScheme.onPrimary,
+                                elevation: 0,
+                                shadowColor: Colors.transparent,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                              ),
                               child: const Text(
-                                'Next',
+                                'Continue',
                                 style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w600,
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: -0.5,
                                 ),
                               ),
                             ),
                     ),
+                    const SizedBox(height: 16),
+                    // "Powered by Plaid" or similar trust signal could go here
+                    if (_currentPage == _numPages - 1)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.lock_outline_rounded,
+                              size: 12, color: colorScheme.outline),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Secured by Plaid',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: colorScheme.outline,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      )
+                    else
+                      const SizedBox(
+                          height:
+                              16), // Spacer to keep button position consistent-ish
                   ],
                 ),
               ),
@@ -299,12 +367,14 @@ class _WalkthroughStep extends StatelessWidget {
     required this.title,
     required this.description,
     required this.colorScheme,
+    this.isFirst = false,
   });
 
   final IconData icon;
   final String title;
   final String description;
   final ColorScheme colorScheme;
+  final bool isFirst;
 
   @override
   Widget build(BuildContext context) {
@@ -313,28 +383,53 @@ class _WalkthroughStep extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          // Icon Container with subtle glow/shadow
           Container(
-            width: 120,
-            height: 120,
+            width: 140,
+            height: 140,
             decoration: BoxDecoration(
-              color: colorScheme.primaryContainer.withValues(alpha: 0.3),
+              color: colorScheme.surface,
               shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: colorScheme.primary.withValues(alpha: 0.1),
+                  blurRadius: 40,
+                  offset: const Offset(0, 20),
+                  spreadRadius: 10,
+                ),
+              ],
+              border: Border.all(
+                color:
+                    colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                width: 1,
+              ),
             ),
-            child: Icon(
-              icon,
-              size: 56,
-              color: colorScheme.primary,
+            child: Center(
+              child: Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer.withValues(alpha: 0.3),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  icon,
+                  size: 48,
+                  color: colorScheme.primary,
+                ),
+              ),
             ),
           ),
-          const SizedBox(height: 40),
+          const SizedBox(height: 48),
           Text(
             title,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: colorScheme.onSurface,
-              letterSpacing: -0.5,
+              fontSize: 34,
+              fontWeight: FontWeight.w800,
+              color: colorScheme.foreground,
+              letterSpacing: -1.0,
+              height: 1.1,
             ),
           ),
           const SizedBox(height: 16),
@@ -342,9 +437,10 @@ class _WalkthroughStep extends StatelessWidget {
             description,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 16,
+              fontSize: 17,
               height: 1.5,
-              color: colorScheme.onSurfaceVariant,
+              color: colorScheme.mutedForeground,
+              letterSpacing: -0.3,
             ),
           ),
         ],
@@ -371,29 +467,43 @@ class _CountrySelectionStep extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: 32.0),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Container(
+            width: 100,
+            height: 100,
+            decoration: BoxDecoration(
+              color: colorScheme.primaryContainer.withValues(alpha: 0.2),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.public_rounded,
+              size: 48,
+              color: colorScheme.primary,
+            ),
+          ),
+          const SizedBox(height: 40),
           Text(
-            'Choose your bank country',
+            'Select Region',
             style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: colorScheme.onSurface,
-              letterSpacing: -0.3,
+              fontSize: 32,
+              fontWeight: FontWeight.w800,
+              color: colorScheme.foreground,
+              letterSpacing: -1.0,
             ),
           ),
           const SizedBox(height: 12),
           Text(
-            'We will show banks available in the country you select.',
+            'Choose your banking region to see available institutions.',
+            textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 15,
+              fontSize: 17,
               height: 1.5,
-              color: colorScheme.onSurfaceVariant,
+              color: colorScheme.mutedForeground,
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 40),
           InkWell(
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: BorderRadius.circular(20),
             onTap: () async {
               final result = await showPlaidCountrySelectorModal(context, ref);
               if (result != null) {
@@ -401,49 +511,69 @@ class _CountrySelectionStep extends ConsumerWidget {
               }
             },
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(999),
+                color:
+                    colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: colorScheme.outlineVariant,
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.5),
                 ),
               ),
               child: Row(
                 children: [
                   Container(
-                    width: 32,
-                    height: 32,
+                    width: 40,
+                    height: 40,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(
-                        color: colorScheme.border.withValues(alpha: 0.3),
-                        width: 1,
-                      ),
+                      color: colorScheme.surface,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
                     child: ClipOval(
-                      child: Image.asset(
-                        flagPath,
-                        fit: BoxFit.cover,
+                      child: Padding(
+                        padding: const EdgeInsets.all(0),
+                        child: Image.asset(
+                          flagPath,
+                          fit: BoxFit.cover,
+                        ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 16),
                   Expanded(
-                    child: Text(
-                      selectedOption.label,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: colorScheme.foreground,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Country',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.mutedForeground,
+                            textBaseline: TextBaseline.alphabetic,
+                          ),
+                        ),
+                        Text(
+                          selectedOption.label,
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.foreground,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 8),
                   Icon(
                     Icons.keyboard_arrow_down_rounded,
-                    size: 20,
-                    color: colorScheme.mutedForeground,
+                    color: colorScheme.foreground,
                   ),
                 ],
               ),
@@ -472,54 +602,69 @@ class _SuccessPage extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Spacer(),
-              Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  color: Colors.green.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.check_circle_outline_rounded,
-                  size: 64,
-                  color: Colors.green,
+              TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.0, end: 1.0),
+                duration: const Duration(milliseconds: 600),
+                curve: Curves.elasticOut,
+                builder: (context, value, child) {
+                  return Transform.scale(
+                    scale: value,
+                    child: child,
+                  );
+                },
+                child: Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    color: Colors.green.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.check_rounded,
+                    size: 64,
+                    color: Colors.green,
+                  ),
                 ),
               ),
               const SizedBox(height: 32),
               Text(
-                'All Set!',
+                'Connected!',
                 style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.onSurface,
+                  fontSize: 32,
+                  fontWeight: FontWeight.w800,
+                  color: colorScheme.foreground,
+                  letterSpacing: -1.0,
                 ),
               ),
               const SizedBox(height: 16),
               Text(
-                'Your bank account has been successfully connected. Your transactions are now syncing.',
+                'Your bank account has been successfully linked. We are now syncing your transaction history.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 17,
                   height: 1.5,
-                  color: colorScheme.onSurfaceVariant,
+                  color: colorScheme.mutedForeground,
                 ),
               ),
               const Spacer(),
               SizedBox(
                 width: double.infinity,
-                height: 56,
+                height: 58,
                 child: FilledButton(
                   onPressed: onFinish,
                   style: FilledButton.styleFrom(
+                    backgroundColor: colorScheme.primary,
+                    foregroundColor: colorScheme.onPrimary,
+                    elevation: 0,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(20),
                     ),
                   ),
                   child: const Text(
-                    'Finish',
+                    'Done',
                     style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),

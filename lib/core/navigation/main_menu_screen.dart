@@ -13,22 +13,42 @@ import 'package:moneko/features/households/presentation/pages/household_create_p
 import 'package:moneko/features/profile/presentation/pages/settings_page.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
-import 'package:moneko/features/income/presentation/providers/income_providers.dart';
-import 'package:moneko/features/goals/presentation/providers/goals_providers.dart';
-import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
-import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
-import 'package:moneko/core/ui/notifications/app_toast.dart';
-import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
-import 'package:moneko/core/plaid/plaid_link_service.dart';
 import 'package:moneko/core/plaid/pages/plaid_sync_walkthrough_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:intl/intl.dart';
 
 /// Zoom drawer content focused on budgeting context:
 /// - Currency selector
 /// - Household selection (when in household mode)
 /// - User profile row with settings gear
 final plaidCountryCodeProvider = StateProvider<String>((ref) => 'US');
+
+/// Latest Plaid sync time for the current user (null = never synced).
+final plaidLastSyncProvider = FutureProvider<DateTime?>((ref) async {
+  final user = ref.watch(authProvider);
+  if (user.uid.isEmpty) return null;
+
+  final client = Supabase.instance.client;
+  final response = await client
+      .from('bank_connections')
+      .select('last_synced_at')
+      .eq('user_id', user.uid)
+      .order('last_synced_at', ascending: false)
+      .limit(5);
+
+  final rows = response as List<dynamic>?;
+  if (rows == null || rows.isEmpty) return null;
+
+  for (final row in rows) {
+    final raw = (row as Map<String, dynamic>)['last_synced_at'] as String?;
+    if (raw != null && raw.isNotEmpty) {
+      final parsed = DateTime.tryParse(raw)?.toLocal();
+      if (parsed != null) return parsed;
+    }
+  }
+  return null;
+});
 
 class MainMenuScreen extends ConsumerWidget {
   const MainMenuScreen({super.key});
@@ -135,40 +155,7 @@ class _SettingsList extends ConsumerWidget {
           colorScheme: colorScheme,
         ),
         const SizedBox(height: 12),
-        SizedBox(
-          height: 40,
-          child: OutlinedButton.icon(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const PlaidSyncWalkthroughPage(),
-                ),
-              );
-            },
-            style: OutlinedButton.styleFrom(
-              foregroundColor: colorScheme.foreground,
-              side: BorderSide(
-                  color: colorScheme.mutedForeground.withValues(alpha: 0.4)),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(999),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-            ),
-            icon: Icon(
-              Icons.sync,
-              size: 18,
-              color: colorScheme.mutedForeground,
-            ),
-            label: Text(
-              context.l10n.autoSync,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: colorScheme.foreground,
-              ),
-            ),
-          ),
-        ),
+        _PlaidSyncCard(colorScheme: colorScheme),
       ],
     );
   }
@@ -192,6 +179,250 @@ class _SectionLabel extends StatelessWidget {
         fontWeight: FontWeight.w600,
         color: colorScheme.mutedForeground,
         letterSpacing: 0.5,
+      ),
+    );
+  }
+}
+
+class _PlaidSyncCard extends ConsumerWidget {
+  const _PlaidSyncCard({required this.colorScheme});
+
+  final ColorScheme colorScheme;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lastSyncAsync = ref.watch(plaidLastSyncProvider);
+
+    return lastSyncAsync.when(
+      loading: () => Container(
+        height: 120,
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+      error: (_, __) => _SyncButton(colorScheme: colorScheme),
+      data: (lastSync) {
+        if (lastSync == null) {
+          return _SyncBanner(colorScheme: colorScheme);
+        }
+        final formatted = DateFormat('MMM d, h:mm a').format(lastSync);
+        return _SyncedCard(
+          colorScheme: colorScheme,
+          subtitle: 'Last sync: $formatted',
+        );
+      },
+    );
+  }
+}
+
+class _SyncBanner extends StatelessWidget {
+  const _SyncBanner({required this.colorScheme});
+
+  final ColorScheme colorScheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            colorScheme.primary.withValues(alpha: 0.08),
+            colorScheme.surface,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: colorScheme.primary.withValues(alpha: 0.15),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.primary.withValues(alpha: 0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: colorScheme.primary.withValues(alpha: 0.1),
+                ),
+                child: Icon(Icons.auto_awesome_rounded,
+                    color: colorScheme.primary, size: 24),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Automate your tracking',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: colorScheme.foreground,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Connect your bank to automatically import transactions and keep your budget up to date.',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: colorScheme.mutedForeground,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: _SyncButton(colorScheme: colorScheme),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SyncedCard extends StatelessWidget {
+  const _SyncedCard({required this.colorScheme, required this.subtitle});
+
+  final ColorScheme colorScheme;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.green.withValues(alpha: 0.1),
+            ),
+            child: const Icon(Icons.check_circle_rounded,
+                color: Colors.green, size: 22),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Bank Sync Active',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.foreground,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: colorScheme.mutedForeground,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _SyncButton(colorScheme: colorScheme, compact: true),
+        ],
+      ),
+    );
+  }
+}
+
+class _SyncButton extends StatelessWidget {
+  const _SyncButton({required this.colorScheme, this.compact = false});
+
+  final ColorScheme colorScheme;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    if (compact) {
+      return IconButton(
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const PlaidSyncWalkthroughPage(),
+            ),
+          );
+        },
+        icon: Icon(Icons.sync_rounded, color: colorScheme.primary),
+        style: IconButton.styleFrom(
+          backgroundColor: colorScheme.primary.withValues(alpha: 0.1),
+          padding: const EdgeInsets.all(8),
+        ),
+      );
+    }
+
+    return FilledButton.icon(
+      onPressed: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => const PlaidSyncWalkthroughPage(),
+          ),
+        );
+      },
+      style: FilledButton.styleFrom(
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
+        elevation: 0,
+        padding: const EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: 14,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+      icon: const Icon(Icons.link_rounded, size: 20),
+      label: const Text(
+        'Connect Bank',
+        style: TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }

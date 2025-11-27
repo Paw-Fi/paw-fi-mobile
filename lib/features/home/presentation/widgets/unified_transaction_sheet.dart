@@ -18,6 +18,7 @@ import 'package:moneko/features/home/presentation/state/analytics_provider.dart'
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/features/home/presentation/widgets/category_picker_bottom_sheet.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/datetime.dart';
@@ -30,7 +31,6 @@ import 'package:moneko/features/home/presentation/state/view_mode_provider.dart'
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/core/l10n/l10n.dart';
-import 'package:moneko/core/ui/widgets/transaction_category_picker.dart';
 import 'package:moneko/core/ui/widgets/transaction_currency_picker.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/shared/widgets/destructive-adaptive-button.dart';
@@ -1277,25 +1277,44 @@ class _UnifiedTransactionSheetState
             widget.newExpense!.isIncome)
         : ((widget.existingExpense?.type?.toLowerCase() == 'income'));
 
-    final result = await showCategoryPicker(
-      context: context,
-      currentCategory: currentCategory,
-      isIncome: isIncomeMode,
-    );
-
-    if (result != null) {
-      if (isNewExpense) {
-        final current = ref.read(pendingExpenseProvider);
-        if (current != null) {
-          ref.read(pendingExpenseProvider.notifier).state =
-              current.copyWith(category: result);
-        }
-      } else {
-        setState(() {
-          _editedCategory = result;
-        });
+    final baseCategories =
+        isIncomeMode ? getIncomeCategories() : getExpenseCategories();
+    final normalizedCurrent = currentCategory.toLowerCase();
+    final categories = () {
+      if (!baseCategories.contains(normalizedCurrent)) {
+        return [...baseCategories, normalizedCurrent];
       }
-    }
+      return baseCategories;
+    }();
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return CategoryPickerBottomSheet(
+          allCategories: categories,
+          selectedCategories: <String>[normalizedCurrent],
+          isSingleSelect: true,
+          onChanged: (value) {
+            final next = value.isNotEmpty ? value.first : null;
+            if (next == null) return;
+
+            if (isNewExpense) {
+              final current = ref.read(pendingExpenseProvider);
+              if (current != null) {
+                ref.read(pendingExpenseProvider.notifier).state =
+                    current.copyWith(category: next);
+              }
+            } else {
+              setState(() {
+                _editedCategory = next;
+              });
+            }
+          },
+        );
+      },
+    );
   }
 
   void _handleEditDate(DateTime currentDate) async {

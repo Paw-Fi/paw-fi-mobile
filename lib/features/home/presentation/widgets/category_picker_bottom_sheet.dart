@@ -4,26 +4,68 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
-class CategoryPickerBottomSheet extends HookWidget {
+class CategoryPickerBottomSheet extends StatelessWidget {
   const CategoryPickerBottomSheet({
     super.key,
     required this.allCategories,
     required this.selectedCategories,
     required this.onChanged,
     this.title = 'Categories',
+    this.isSingleSelect = false,
   });
 
   final List<String> allCategories;
   final List<String> selectedCategories;
   final ValueChanged<List<String>> onChanged;
   final String title;
+  final bool isSingleSelect;
 
   @override
   Widget build(BuildContext context) {
+    return CategoryPicker(
+      allCategories: allCategories,
+      selectedCategories: selectedCategories,
+      onChanged: onChanged,
+      title: title,
+      isSingleSelect: isSingleSelect,
+      onClose: () => Navigator.of(context).pop(),
+    );
+  }
+}
+
+/// Low-level picker content that can be embedded in any surface or sheet.
+class CategoryPicker extends HookWidget {
+  const CategoryPicker({
+    super.key,
+    required this.allCategories,
+    required this.selectedCategories,
+    required this.onChanged,
+    required this.title,
+    this.isSingleSelect = false,
+    this.onClose,
+  });
+
+  final List<String> allCategories;
+  final List<String> selectedCategories;
+  final ValueChanged<List<String>> onChanged;
+  final String title;
+  final bool isSingleSelect;
+  final VoidCallback? onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final searchBackground = colorScheme.brightness == Brightness.dark
+        ? AppTheme.darkInputBg
+        : AppTheme.lightInputBg;
     final searchController = useTextEditingController();
     final searchQuery = useState<String>('');
-    final selected = useState<Set<String>>(selectedCategories.toSet());
+    final initialSelected = isSingleSelect && selectedCategories.isNotEmpty
+        ? <String>{selectedCategories.first}
+        : selectedCategories.toSet();
+    final selected = useState<Set<String>>(initialSelected);
 
     useEffect(() {
       void listener() {
@@ -40,15 +82,25 @@ class CategoryPickerBottomSheet extends HookWidget {
     final filtered = _filterGroups(context, grouped, searchQuery.value);
 
     void handleToggle(String key) {
-      final current = selected.value;
-      final next = <String>{...current};
-      if (next.contains(key)) {
-        next.remove(key);
-      } else {
-        next.add(key);
+      final current = <String>{...selected.value};
+
+      if (isSingleSelect) {
+        current
+          ..clear()
+          ..add(key);
+        selected.value = current;
+        onChanged(current.toList());
+        onClose?.call();
+        return;
       }
-      selected.value = next;
-      onChanged(next.toList());
+
+      if (current.contains(key)) {
+        current.remove(key);
+      } else {
+        current.add(key);
+      }
+      selected.value = current;
+      onChanged(current.toList());
     }
 
     return Container(
@@ -56,7 +108,7 @@ class CategoryPickerBottomSheet extends HookWidget {
         maxHeight: MediaQuery.of(context).size.height * 0.9,
       ),
       decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
+        color: Theme.of(context).colorScheme.appBackground,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: SafeArea(
@@ -70,7 +122,7 @@ class CategoryPickerBottomSheet extends HookWidget {
                 children: [
                   _CategoryPickerHeader(
                     title: title,
-                    onClose: () => Navigator.of(context).pop(),
+                    onClose: onClose ?? () => Navigator.of(context).pop(),
                   ),
                   const SizedBox(height: 8),
                   Expanded(
@@ -93,28 +145,57 @@ class CategoryPickerBottomSheet extends HookWidget {
               left: 16,
               right: 16,
               bottom: 16,
-              child: AdaptiveCard(
-                borderRadius: BorderRadius.circular(28),
+              child: Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: AdaptiveTextField(
-                  controller: searchController,
-                  placeholder: 'Search',
-                  prefixIcon: Icon(
-                    PlatformInfo.isIOS ? CupertinoIcons.search : Icons.search,
-                  ),
-                  suffixIcon: searchQuery.value.isNotEmpty
-                      ? IconButton(
-                          icon: Icon(
-                            PlatformInfo.isIOS
-                                ? CupertinoIcons.xmark_circle_fill
-                                : Icons.clear,
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: searchBackground,
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(color: colorScheme.border),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      PlatformInfo.isIOS
+                          ? CupertinoIcons.search
+                          : Icons.search,
+                      color: colorScheme.primary,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: searchController,
+                        decoration: InputDecoration(
+                          isDense: true,
+                          border: InputBorder.none,
+                          hintText: 'Search',
+                          hintStyle: TextStyle(
+                            color: colorScheme.mutedForeground,
+                            fontSize: 14,
                           ),
-                          onPressed: () {
-                            searchController.clear();
-                          },
-                        )
-                      : null,
+                        ),
+                        style: TextStyle(
+                          color: colorScheme.foreground,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    if (searchQuery.value.isNotEmpty) ...[
+                      const SizedBox(width: 4),
+                      GestureDetector(
+                        onTap: () => searchController.clear(),
+                        child: Icon(
+                          PlatformInfo.isIOS
+                              ? CupertinoIcons.xmark_circle_fill
+                              : Icons.clear,
+                          color: colorScheme.mutedForeground,
+                          size: 18,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ),

@@ -7,6 +7,7 @@ import 'package:moneko/features/home/presentation/constants/category_constants.d
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/transaction_edit_state.dart';
 import 'package:moneko/features/home/presentation/state/transaction_edit_notifier.dart';
+import 'package:moneko/features/home/presentation/widgets/category_picker_bottom_sheet.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/currency_flags.dart';
 import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
@@ -222,6 +223,37 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
       }
       return baseCategories;
     }();
+
+    Future<void> openPicker() async {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (sheetContext) {
+          return CategoryPickerBottomSheet(
+            allCategories: categories,
+            selectedCategories:
+                _selectedCategory != null ? <String>[_selectedCategory!] : const [],
+            isSingleSelect: true,
+            onChanged: (value) {
+              setState(() {
+                _selectedCategory = value.isNotEmpty ? value.first : null;
+                _error = null;
+              });
+            },
+          );
+        },
+      );
+    }
+
+    final selectedCategoryColor = _selectedCategory != null
+        ? getCategoryColor(_selectedCategory!)
+        : colorScheme.border;
+    final selectedCategoryIcon =
+        _selectedCategory != null ? getCategoryIcon(_selectedCategory!) : null;
+    final selectedCategoryLabel = _selectedCategory != null
+        ? getCategoryTranslation(context, _selectedCategory!)
+        : null;
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -234,53 +266,49 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
               style: TextStyle(color: colorScheme.destructive, fontSize: 12),
             ),
           ),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: categories.map((category) {
-            final isSelected = _selectedCategory == category;
-            final categoryColor = getCategoryColor(category);
-            
-            return GestureDetector(
-              onTap: () {
-                setState(() {
-                  _selectedCategory = category;
-                  _error = null;
-                });
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(
-                  color: isSelected 
-                      ? categoryColor.withValues(alpha: 0.2)
-                      : colorScheme.muted,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: isSelected ? categoryColor : colorScheme.border,
-                    width: isSelected ? 2 : 1,
+        InkWell(
+          onTap: openPicker,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: colorScheme.muted,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: _selectedCategory != null
+                    ? selectedCategoryColor
+                    : colorScheme.border,
+              ),
+            ),
+            child: Row(
+              children: [
+                if (selectedCategoryIcon != null) ...[
+                  Icon(
+                    selectedCategoryIcon,
+                    color: selectedCategoryColor,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 10),
+                ],
+                Expanded(
+                  child: Text(
+                    selectedCategoryLabel ?? context.l10n.tapToSelectCategories,
+                    style: TextStyle(
+                      color: _selectedCategory != null
+                          ? selectedCategoryColor
+                          : colorScheme.foreground,
+                      fontWeight:
+                          _selectedCategory != null ? FontWeight.w600 : FontWeight.w400,
+                    ),
                   ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      getCategoryIcon(category),
-                      color: isSelected ? categoryColor : colorScheme.foreground,
-                      size: 16,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      getCategoryTranslation(context, category),
-                      style: TextStyle(
-                        color: isSelected ? categoryColor : colorScheme.foreground,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                      ),
-                    ),
-                  ],
+                Icon(
+                  Icons.chevron_right,
+                  color: colorScheme.mutedForeground,
+                  size: 20,
                 ),
-              ),
-            );
-          }).toList(),
+              ],
+            ),
+          ),
         ),
       ],
     );
