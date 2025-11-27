@@ -1,3 +1,4 @@
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -7,6 +8,9 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/core/plaid/plaid_link_service.dart';
 import 'package:moneko/core/navigation/main_menu_screen.dart'; // For plaidCountryCodeProvider
+import 'package:moneko/core/plaid/plaid_countries.dart';
+import 'package:moneko/core/plaid/plaid_country_flags.dart';
+import 'package:moneko/core/plaid/plaid_country_selector_modal.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
@@ -33,7 +37,7 @@ class _PlaidSyncWalkthroughPageState
   bool _isSyncing = false;
   bool _isSuccess = false;
 
-  final int _numPages = 3; // Intro, Security, Benefits
+  final int _numPages = 4; // Intro, Security, Benefits, Country selection
 
   @override
   void dispose() {
@@ -168,121 +172,121 @@ class _PlaidSyncWalkthroughPageState
       return _SuccessPage(onFinish: () => Navigator.of(context).pop());
     }
 
-    return Scaffold(
-      backgroundColor: colorScheme.surface,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
+    return AdaptiveScaffold(
+      appBar: AdaptiveAppBar(
+        leading:  IconButton(
           icon: Icon(Icons.close, color: colorScheme.onSurface),
           onPressed: () => Navigator.of(context).pop(),
-        ),
+        ),      
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: PageView(
-                controller: _pageController,
-                onPageChanged: (int page) {
-                  setState(() {
-                    _currentPage = page;
-                  });
-                },
-                children: [
-                  _WalkthroughStep(
-                    icon: Icons.account_balance_rounded,
-                    title: 'Connect Your Bank',
-                    description:
-                        'Link your bank account to automatically import your transactions and balances.',
-                    colorScheme: colorScheme,
-                  ),
-                  _WalkthroughStep(
-                    icon: Icons.lock_outline_rounded,
-                    title: 'Secure & Private',
-                    description:
-                        'We use bank-grade encryption. We never see your credentials and only have read-only access to your data.',
-                    colorScheme: colorScheme,
-                  ),
-                  _WalkthroughStep(
-                    icon: Icons.auto_graph_rounded,
-                    title: 'Stay Updated',
-                    description:
-                        'Keep your budget effortless. Your expenses and income will be categorized automatically.',
-                    colorScheme: colorScheme,
-                  ),
-                ],
+        child: Material(
+          child: Column(
+            children: [
+              Expanded(
+                child: PageView(
+                  controller: _pageController,
+                  onPageChanged: (int page) {
+                    setState(() {
+                      _currentPage = page;
+                    });
+                  },
+                  children: [
+                    _WalkthroughStep(
+                      icon: Icons.account_balance_rounded,
+                      title: 'Connect Your Bank',
+                      description:
+                          'Link your bank account to automatically import your transactions and balances.',
+                      colorScheme: colorScheme,
+                    ),
+                    _WalkthroughStep(
+                      icon: Icons.lock_outline_rounded,
+                      title: 'Secure & Private',
+                      description:
+                          'We use bank-grade encryption. We never see your credentials and only have read-only access to your data.',
+                      colorScheme: colorScheme,
+                    ),
+                    _WalkthroughStep(
+                      icon: Icons.auto_graph_rounded,
+                      title: 'Stay Updated',
+                      description:
+                          'Keep your budget effortless. Your expenses and income will be categorized automatically.',
+                      colorScheme: colorScheme,
+                    ),
+                    _CountrySelectionStep(colorScheme: colorScheme),
+                  ],
+                ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(
-                      _numPages,
-                      (index) => AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        margin: const EdgeInsets.symmetric(horizontal: 4),
-                        height: 8,
-                        width: _currentPage == index ? 24 : 8,
-                        decoration: BoxDecoration(
-                          color: _currentPage == index
-                              ? colorScheme.primary
-                              : colorScheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(4),
+              Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(
+                        _numPages,
+                        (index) => AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          height: 8,
+                          width: _currentPage == index ? 24 : 8,
+                          decoration: BoxDecoration(
+                            color: _currentPage == index
+                                ? colorScheme.primary
+                                : colorScheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 32),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: _currentPage == _numPages - 1
-                        ? FilledButton(
-                            onPressed: _isSyncing ? null : _performSync,
-                            style: FilledButton.styleFrom(
-                                shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            )),
-                            child: _isSyncing
-                                ? SizedBox(
-                                    width: 24,
-                                    height: 24,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.5,
-                                      color: colorScheme.onPrimary,
+                    const SizedBox(height: 32),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: _currentPage == _numPages - 1
+                          ? FilledButton(
+                              onPressed: _isSyncing ? null : _performSync,
+                              style: FilledButton.styleFrom(
+                                  shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              )),
+                              child: _isSyncing
+                                  ? SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.5,
+                                        color: colorScheme.onPrimary,
+                                      ),
+                                    )
+                                  : Text(
+                                      'Sync Now',
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
-                                  )
-                                : Text(
-                                    'Sync Now',
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                          )
-                        : FilledButton(
-                            onPressed: _nextPage,
-                            style: FilledButton.styleFrom(
-                                shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            )),
-                            child: const Text(
-                              'Next',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
+                            )
+                          : FilledButton(
+                              onPressed: _nextPage,
+                              style: FilledButton.styleFrom(
+                                  shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              )),
+                              child: const Text(
+                                'Next',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
-                          ),
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -341,6 +345,108 @@ class _WalkthroughStep extends StatelessWidget {
               fontSize: 16,
               height: 1.5,
               color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CountrySelectionStep extends ConsumerWidget {
+  const _CountrySelectionStep({
+    required this.colorScheme,
+  });
+
+  final ColorScheme colorScheme;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selectedCode = ref.watch(plaidCountryCodeProvider);
+    final selectedOption =
+        plaidCountryOptions.firstWhere((o) => o.code == selectedCode);
+    final flagPath = getPlaidCountryFlagPath(selectedCode);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Choose your bank country',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: colorScheme.onSurface,
+              letterSpacing: -0.3,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'We will show banks available in the country you select.',
+            style: TextStyle(
+              fontSize: 15,
+              height: 1.5,
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 24),
+          InkWell(
+            borderRadius: BorderRadius.circular(999),
+            onTap: () async {
+              final result = await showPlaidCountrySelectorModal(context, ref);
+              if (result != null) {
+                ref.read(plaidCountryCodeProvider.notifier).state = result;
+              }
+            },
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: colorScheme.outlineVariant,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: colorScheme.border.withValues(alpha: 0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: ClipOval(
+                      child: Image.asset(
+                        flagPath,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      selectedOption.label,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: colorScheme.foreground,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    size: 20,
+                    color: colorScheme.mutedForeground,
+                  ),
+                ],
+              ),
             ),
           ),
         ],

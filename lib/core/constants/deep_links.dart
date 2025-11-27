@@ -33,6 +33,8 @@ class DeepLinks {
   /// - moneko://payment?status=canceled
   static const String paymentCallback = '$appScheme://payment';
 
+  static const String plaidCallback = '$appScheme://plaid';
+
   // ==================== WhatsApp Verification Deep Links ====================
 
   /// WhatsApp verification callback URL
@@ -149,6 +151,10 @@ class DeepLinks {
   /// Format: moneko://home
   static bool isHomeLink(Uri uri) {
     return uri.scheme == appScheme && uri.host == 'home';
+  }
+
+  static bool isPlaidCallback(Uri uri) {
+    return uri.scheme == appScheme && uri.host == 'plaid';
   }
 
   /// Legacy OAuth callback (kept for backward compatibility)

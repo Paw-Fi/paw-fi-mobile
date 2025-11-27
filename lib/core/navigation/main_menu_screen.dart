@@ -20,8 +20,6 @@ import 'package:moneko/features/profile/presentation/providers/user_profile_prov
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/core/plaid/plaid_link_service.dart';
-import 'package:moneko/core/plaid/plaid_countries.dart';
-
 import 'package:moneko/core/plaid/pages/plaid_sync_walkthrough_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -136,8 +134,6 @@ class _SettingsList extends ConsumerWidget {
           label: context.l10n.autoSync,
           colorScheme: colorScheme,
         ),
-        const SizedBox(height: 8),
-        _PlaidCountrySelector(colorScheme: colorScheme),
         const SizedBox(height: 12),
         SizedBox(
           height: 40,
