@@ -6,7 +6,9 @@ import '../providers/household_providers.dart';
 import '../providers/selected_household_provider.dart';
 import '../pages/household_onboarding_page.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
+import 'package:moneko/features/home/presentation/widgets/date_range_filter_modal.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
+import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'household_budget_overview_card.dart';
 import 'household_member_spending_card.dart';
@@ -20,13 +22,17 @@ import 'package:moneko/features/income/presentation/providers/income_providers.d
 import 'package:moneko/features/households/presentation/widgets/group_fairness_meter.dart';
 import 'package:moneko/features/households/presentation/widgets/settlement_suggestions_card.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
+import 'package:moneko/features/households/presentation/widgets/financial_calendar_widget.dart';
+
 /// Household home content that handles loading, empty, and data states
 /// Returns Sliver widgets for use in CustomScrollView
 class HouseholdHomeContent extends ConsumerStatefulWidget {
   const HouseholdHomeContent({super.key});
 
   @override
-  ConsumerState<HouseholdHomeContent> createState() => _HouseholdHomeContentState();
+  ConsumerState<HouseholdHomeContent> createState() =>
+      _HouseholdHomeContentState();
 }
 
 class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
@@ -96,14 +102,15 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
 
       // Find current user's split line within the group
       final line = (group.splitLines ?? const <ExpenseSplitLine>[])
-          .firstWhere((l) => l.userId == currentUserId, orElse: () => ExpenseSplitLine(
-                id: '',
-                splitGroupId: '',
-                userId: '',
-                isSettled: false,
-                createdAt: DateTime.fromMillisecondsSinceEpoch(0),
-                updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
-              ));
+          .firstWhere((l) => l.userId == currentUserId,
+              orElse: () => ExpenseSplitLine(
+                    id: '',
+                    splitGroupId: '',
+                    userId: '',
+                    isSettled: false,
+                    createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+                    updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
+                  ));
 
       // User not part of this split, skip this expense
       if (line.userId != currentUserId) continue;
@@ -158,7 +165,8 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
             child: LayoutBuilder(
               builder: (context, constraints) {
                 return SizedBox(
-                  height: MediaQuery.of(context).size.height - 200, // Account for app bar
+                  height: MediaQuery.of(context).size.height -
+                      200, // Account for app bar
                   child: const HouseholdOnboardingPage(),
                 );
               },
@@ -167,25 +175,25 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
         } else {
           // Initialize selected household if not set
           final selectedState = ref.watch(selectedHouseholdProvider);
-          
+
           if (selectedState.householdId == null && !selectedState.isLoading) {
             // Auto-initialize on first load
             Future.microtask(() {
               ref.read(selectedHouseholdProvider.notifier).initialize(userId);
             });
           }
-          
+
           // Determine which household to show
           final household = selectedState.household ?? households.first;
 
           // Load income summary for household
           Future.microtask(() {
             ref.read(incomeSummaryProvider.notifier).loadSummary(
-              userId,
-              householdId: household.id,
-            );
+                  userId,
+                  householdId: household.id,
+                );
           });
-          
+
           // Filters
           final filterState = ref.watch(homeFilterProvider);
           final dateRange = getDateRangeFromFilter(
@@ -195,14 +203,16 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
           );
           final from = dateRange['from']!;
           final to = dateRange['to']!;
-          final selectedCurrency = (filterState.selectedCurrency ?? household.currency).toUpperCase();
+          final selectedCurrency =
+              (filterState.selectedCurrency ?? household.currency)
+                  .toUpperCase();
 
           // Data providers with date filtering
           final expensesAsync = ref.watch(
             householdExpensesProvider(
               HouseholdExpensesParams(
                 householdId: household.id,
-                limit: 10000,  // Safety limit (10K max)
+                limit: 10000, // Safety limit (10K max)
                 startDate: from,
                 endDate: to,
               ),
@@ -214,7 +224,8 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
               HouseholdSplitsParams(householdId: household.id),
             ),
           );
-          final budgetsAsync = ref.watch(householdBudgetsProvider(household.id));
+          final budgetsAsync =
+              ref.watch(householdBudgetsProvider(household.id));
           final summaryAsync = ref.watch(
             householdSummaryProvider(
               HouseholdSummaryParams(
@@ -225,7 +236,18 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
               ),
             ),
           );
-          final membersAsync = ref.watch(householdMembersProvider(household.id));
+          final membersAsync =
+              ref.watch(householdMembersProvider(household.id));
+          final recurringAsync =
+              ref.watch(recurringTransactionsProvider(household.id));
+
+          // Per-card date filters for household cards
+          final householdCategoryFilterState = ref.watch(
+            cardDateFilterProvider(HomeCardFilterId.householdCategoryBreakdown),
+          );
+          final householdSpendingBreakdownFilterState = ref.watch(
+            cardDateFilterProvider(HomeCardFilterId.householdSpendingBreakdown),
+          );
 
           // UI
           return SliverList(
@@ -261,22 +283,24 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                   // Calculate user's personal share from transactions + splits (real-time)
                   // This ensures immediate updates when expenses are added/edited/deleted
                   int myTotalCents = 0;
-                  
+
                   // Create lookup map for split groups
                   final byGroupId = {for (final g in splits) g.id: g};
-                  
+
                   for (final t in transactions) {
-                    final tdate = DateTime(t.date.year, t.date.month, t.date.day);
+                    final tdate =
+                        DateTime(t.date.year, t.date.month, t.date.day);
                     final code = (t.currency ?? '').trim().toUpperCase();
                     final currencyOk = code.isEmpty || code == selectedCurrency;
-                    final isSpend = (t.type ?? 'expense').toLowerCase() != 'income';
-                    
+                    final isSpend =
+                        (t.type ?? 'expense').toLowerCase() != 'income';
+
                     if (!isSpend) continue;
                     if (!currencyOk) continue;
                     if (tdate.isBefore(from) || tdate.isAfter(to)) continue;
-                    
+
                     final splitGroupId = t.splitGroupId;
-                    
+
                     // CASE 1: No split - attribute full amount if user created it
                     if (splitGroupId == null) {
                       if (t.userId == userId) {
@@ -284,7 +308,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                       }
                       continue;
                     }
-                    
+
                     // CASE 2: Has split - add user's allocated portion
                     final group = byGroupId[splitGroupId];
                     if (group == null || group.splitLines == null) {
@@ -294,7 +318,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                       }
                       continue;
                     }
-                    
+
                     // Find user's split line and add their share
                     final userLine = group.splitLines!.firstWhere(
                       (line) => line.userId == userId,
@@ -307,7 +331,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                         updatedAt: DateTime.now(),
                       ),
                     );
-                    
+
                     if (userLine.userId == userId) {
                       final shareAmount = (userLine.amountCents ?? 0).abs();
                       myTotalCents += shareAmount;
@@ -330,14 +354,17 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (_) => HouseholdExpensesPage(household: household),
+                            builder: (_) =>
+                                HouseholdExpensesPage(household: household),
                           ),
                         );
                       },
                       child: buildSpendingCard(
                         context,
                         colorScheme,
-                        [syntheticExpense], // Single entry with real-time calculated total
+                        [
+                          syntheticExpense
+                        ], // Single entry with real-time calculated total
                         null,
                         filterState.dateRangeFilter,
                         selectedCurrency: selectedCurrency,
@@ -345,6 +372,21 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                     ),
                   );
                 },
+              ),
+
+              const SizedBox(height: 16),
+
+              // ═══════════════════════════════════════════════════════════════
+              // FINANCIAL CALENDAR WIDGET
+              // ═══════════════════════════════════════════════════════════════
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: FinancialCalendarWidget(
+                  transactions: expensesAsync.asData?.value ?? [],
+                  recurringTransactions:
+                      recurringAsync.data.asData?.value ?? [],
+                  currency: selectedCurrency,
+                ),
               ),
 
               const SizedBox(height: 16),
@@ -399,7 +441,8 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                     final hasAnyBudget = allBudgets.isNotEmpty;
 
                     // Ensure "Spent by household" excludes income and respects date/currency
-                    final allExpenses = expensesAsync.asData?.value ?? const <ExpenseEntry>[];
+                    final allExpenses =
+                        expensesAsync.asData?.value ?? const <ExpenseEntry>[];
                     int spentCents = 0;
                     int incomeCents = 0;
                     int txCount = 0;
@@ -407,7 +450,8 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                       final d = DateTime(e.date.year, e.date.month, e.date.day);
                       final inRange = !d.isBefore(from) && !d.isAfter(to);
                       final code = (e.currency ?? '').trim().toUpperCase();
-                      final currencyOk = code.isEmpty || code == selectedCurrency;
+                      final currencyOk =
+                          code.isEmpty || code == selectedCurrency;
                       if (!inRange || !currencyOk) continue;
                       final t = (e.type ?? 'expense').toLowerCase();
                       if (t == 'income') {
@@ -525,7 +569,8 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (_) => HouseholdExpensesPage(household: household),
+                          builder: (_) =>
+                              HouseholdExpensesPage(household: household),
                         ),
                       );
                     },
@@ -631,33 +676,34 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                 loading: () => const SizedBox.shrink(),
                 error: (e, st) => const SizedBox.shrink(),
                 data: (allExpenses) {
-                  // Transactions for recent list (include income)
-                  final filteredTransactions = allExpenses.where((e) {
-                    final d = DateTime(e.date.year, e.date.month, e.date.day);
-                    final dateOk = !d.isBefore(from) && !d.isAfter(to);
-                    final rawCurrency = (e.currency ?? '').trim().toUpperCase();
-                    final currencyOk = rawCurrency.isEmpty || rawCurrency == selectedCurrency;
-                    return dateOk && currencyOk;
-                  }).toList();
-
-                  // ⚠️ IMPORTANT: Pass filteredExpenses (ALL expenses), not personal share
-                  // This was a bug fix - previously used personal share which was incorrect
+                  // Pass ALL household expenses; widget applies its own
+                  // per-card date and currency filtering, scoped to this
+                  // household.
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: buildCategoryBreakdownCard(
-                      context,
-                      colorScheme,
-                      filteredTransactions, // include income for recent list
-                      null,
-                      selectedCurrency: selectedCurrency,
-                      householdId: household.id,
-                      onViewAll: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => HouseholdExpensesPage(household: household),
-                          ),
-                        );
-                      },
+                    child: GestureDetector(
+                      onLongPress: () => showCardDateRangeFilter(
+                        context,
+                        colorScheme,
+                        HomeCardFilterId.householdCategoryBreakdown,
+                      ),
+                      child: buildCategoryBreakdownCard(
+                        context,
+                        colorScheme,
+                        allExpenses,
+                        null,
+                        householdCategoryFilterState.dateRangeFilter,
+                        selectedCurrency: selectedCurrency,
+                        householdId: household.id,
+                        onViewAll: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  HouseholdExpensesPage(household: household),
+                            ),
+                          );
+                        },
+                      ),
                     ),
                   );
                 },
@@ -683,36 +729,32 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                 loading: () => const SizedBox.shrink(),
                 error: (e, st) => const SizedBox.shrink(),
                 data: (allExpenses) {
-                  // Filter expenses by date range and selected currency
-                  final filteredExpenses = allExpenses.where((e) {
-                    final d = DateTime(e.date.year, e.date.month, e.date.day);
-                    final dateOk = !d.isBefore(from) && !d.isAfter(to);
-                    final rawCurrency = (e.currency ?? '').trim().toUpperCase();
-                    final currencyOk = rawCurrency.isEmpty || rawCurrency == selectedCurrency;
-                    final t = (e.type ?? 'expense').toLowerCase();
-                    final isSpend = t != 'income';
-                    return dateOk && currencyOk && isSpend;
-                  }).toList();
-
-                  // ⚠️ IMPORTANT: Pass filteredExpenses (ALL expenses), not personal share
-                  // This was a bug fix - previously used personal share which was incorrect
+                  // Pass ALL household expenses; chart applies its own
+                  // per-card date and currency filtering, scoped to this
+                  // household.
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     child: GestureDetector(
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (_) => HouseholdExpensesPage(household: household),
+                            builder: (_) =>
+                                HouseholdExpensesPage(household: household),
                           ),
                         );
                       },
+                      onLongPress: () => showCardDateRangeFilter(
+                        context,
+                        colorScheme,
+                        HomeCardFilterId.householdSpendingBreakdown,
+                      ),
                       child: buildSpendingBreakdownChart(
                         context,
                         colorScheme,
-                        filteredExpenses, // ALL household expenses (not personal share)
+                        allExpenses,
                         const <DailyBudgetEntry>[],
                         null,
-                        filterState.dateRangeFilter,
+                        householdSpendingBreakdownFilterState.dateRangeFilter,
                         selectedCurrency: selectedCurrency,
                       ),
                     ),

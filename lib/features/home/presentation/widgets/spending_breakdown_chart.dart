@@ -4,6 +4,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
+import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -17,8 +18,25 @@ Widget buildSpendingBreakdownChart(
   DateRangeFilter dateRangeFilter, {
   String? selectedCurrency,
 }) {
-  final categorySummaries = _getCategorySummaries(expenses);
-  final totalSpent = _getTotalSpent(expenses);
+  // Resolve this card's date range and filter the full lists locally.
+  final range = getDateRangeFromFilter(dateRangeFilter, null, null);
+  final from = range['from']!;
+  final to = range['to']!;
+  final selectedCode = selectedCurrency?.toUpperCase();
+
+  final filteredExpenses = expenses.where((e) {
+    final d = DateTime(e.date.year, e.date.month, e.date.day);
+    final dateOk = !d.isBefore(from) && !d.isAfter(to);
+    final rawCode = (e.currency ?? '').trim().toUpperCase();
+    final currencyOk =
+        selectedCode == null || rawCode.isEmpty || rawCode == selectedCode;
+    final type = (e.type ?? 'expense').toLowerCase();
+    final isSpend = type != 'income';
+    return dateOk && currencyOk && isSpend;
+  }).toList();
+
+  final categorySummaries = _getCategorySummaries(filteredExpenses);
+  final totalSpent = _getTotalSpent(filteredExpenses);
 
   // selectedCurrency is never null (defaults to USD)
   final displayText = formatCurrency(totalSpent, selectedCurrency ?? 'USD');
@@ -27,7 +45,7 @@ Widget buildSpendingBreakdownChart(
 
   return Container(
     decoration: BoxDecoration(
-      color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+      color: colorScheme.cardSurface,
       borderRadius: BorderRadius.circular(24),
       border: Border.all(
         color: colorScheme.outline.withValues(alpha: 0.05),

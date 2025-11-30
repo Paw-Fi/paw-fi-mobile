@@ -107,6 +107,10 @@ extension AppColorScheme on ColorScheme {
   Color get selectedStateBackground => brightness == Brightness.dark
       ? AppTheme.darkSelectedStateBackground
       : AppTheme.lightSelectedStateBackground;
+
+  /// Surface color for cards (matching Apple-style cards)
+  Color get cardSurface =>
+      brightness == Brightness.dark ? const Color(0xFF1C1C1E) : Colors.white;
 }
 
 /// Moneko app theme configuration matching web's Tailwind design system

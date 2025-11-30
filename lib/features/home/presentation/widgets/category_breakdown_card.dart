@@ -8,6 +8,7 @@ import 'package:moneko/features/home/presentation/widgets/unified_transaction_sh
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -16,23 +17,23 @@ import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 Widget buildCategoryBreakdownCard(
   BuildContext context,
   ColorScheme colorScheme,
-  List<ExpenseEntry> expenses,
-  UserContact? contact, {
+  List<ExpenseEntry> allExpenses,
+  UserContact? contact,
+  DateRangeFilter dateFilter, {
   String? selectedCurrency,
   String? householdId,
   required VoidCallback onViewAll,
 }) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
   // Recent transactions - show latest 5 by transaction date (to match
   // TransactionsPage behavior and user expectation of "recent" by date).
-  final recent = expenses.toList()
+  final recent = allExpenses.toList()
     ..sort((a, b) => b.date.compareTo(a.date));
   final latest = recent.take(5).toList();
 
-  final isDark = Theme.of(context).brightness == Brightness.dark;
-
   return Container(
     decoration: BoxDecoration(
-      color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+      color: colorScheme.cardSurface,
       borderRadius: BorderRadius.circular(24),
       border: Border.all(
         color: colorScheme.outline.withValues(alpha: 0.05),

@@ -5,6 +5,7 @@ import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dart';
+import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
 /// Interactive spending card with swipeable chart and current point highlight
@@ -37,13 +38,35 @@ class _SpendingCardState extends State<SpendingCard> {
   Widget build(BuildContext context) {
     final intervalType = getChartIntervalTypeFromFilter(widget.dateFilter);
 
+    // Resolve date range for this card and filter expenses by date, currency, and type
+    final range = getDateRangeFromFilter(
+      widget.dateFilter,
+      null,
+      null,
+    );
+    final from = range['from']!;
+    final to = range['to']!;
+    final selectedCode = widget.selectedCurrency?.toUpperCase();
+
+    final filteredExpenses = widget.expenses.where((expense) {
+      final d =
+          DateTime(expense.date.year, expense.date.month, expense.date.day);
+      final dateOk = !d.isBefore(from) && !d.isAfter(to);
+      final rawCode = (expense.currency ?? '').trim().toUpperCase();
+      final currencyOk =
+          selectedCode == null || rawCode.isEmpty || rawCode == selectedCode;
+      final isIncome = (expense.type ?? 'expense').toLowerCase() == 'income';
+      return dateOk && currencyOk && !isIncome;
+    }).toList();
+
     // Group expenses by appropriate interval
-    final periodTotals = groupExpensesByInterval(widget.expenses, intervalType);
+    final periodTotals =
+        groupExpensesByInterval(filteredExpenses, intervalType);
     final sortedDates = periodTotals.keys.toList()..sort();
 
     // Compute total spent robustly
     final bucketsTotal = periodTotals.values.fold(0.0, (a, b) => a + b);
-    final directTotal = _getTotalSpent(widget.expenses);
+    final directTotal = _getTotalSpent(filteredExpenses);
     final totalSpent = bucketsTotal > 0 ? bucketsTotal : directTotal;
 
     final displayText =
@@ -113,7 +136,7 @@ class _SpendingCardState extends State<SpendingCard> {
       },
       child: Container(
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+          color: widget.colorScheme.cardSurface,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
             color: widget.colorScheme.outline.withValues(alpha: 0.05),
@@ -384,9 +407,7 @@ class _SpendingCardState extends State<SpendingCard> {
   }
 
   double _getTotalSpent(List<ExpenseEntry> expenses) {
-    return widget.expenses
-        .where((e) => (e.type ?? 'expense').toLowerCase() != 'income')
-        .fold(0.0, (sum, e) => sum + e.amount.abs());
+    return expenses.fold(0.0, (sum, e) => sum + e.amount.abs());
   }
 }
 
