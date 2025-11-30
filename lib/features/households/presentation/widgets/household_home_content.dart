@@ -692,7 +692,6 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                         colorScheme,
                         allExpenses,
                         null,
-                        householdCategoryFilterState.dateRangeFilter,
                         selectedCurrency: selectedCurrency,
                         householdId: household.id,
                         onViewAll: () {

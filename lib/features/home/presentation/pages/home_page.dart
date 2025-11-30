@@ -934,7 +934,6 @@ class _HomePageState extends ConsumerState<HomePage> {
                             colorScheme,
                             personalExpensesAll,
                             analyticsData.contact,
-                            categoryFilterState.dateRangeFilter,
                             selectedCurrency: filterState.selectedCurrency,
                             onViewAll: () {
                               Navigator.of(context).push(

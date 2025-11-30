@@ -8,7 +8,6 @@ import 'package:moneko/features/home/presentation/widgets/unified_transaction_sh
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
-import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -19,7 +18,7 @@ Widget buildCategoryBreakdownCard(
   ColorScheme colorScheme,
   List<ExpenseEntry> allExpenses,
   UserContact? contact,
-  DateRangeFilter dateFilter, {
+ {
   String? selectedCurrency,
   String? householdId,
   required VoidCallback onViewAll,

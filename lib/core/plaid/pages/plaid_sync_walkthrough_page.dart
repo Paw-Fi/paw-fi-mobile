@@ -25,7 +25,6 @@ import 'package:moneko/core/plaid/models/synced_transaction.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
-
 class PlaidSyncWalkthroughPage extends ConsumerStatefulWidget {
   const PlaidSyncWalkthroughPage({super.key});
 
@@ -68,8 +67,9 @@ class _PlaidSyncWalkthroughPageState
 
       if (res.data != null && res.data['success'] == true) {
         setState(() {
-          _addedTransactions =
-              _addedTransactions.where((t) => t.expense.id != tx.expense.id).toList();
+          _addedTransactions = _addedTransactions
+              .where((t) => t.expense.id != tx.expense.id)
+              .toList();
         });
         if (mounted) {
           AppToast.success(context, context.l10n.transactionDeleted);
@@ -113,7 +113,8 @@ class _PlaidSyncWalkthroughPageState
 
   RecurringTransaction _toRecurringTransaction(SyncedTransaction tx) {
     RecurrenceRule? recurrence;
-    if (tx.recurrenceRule != null && tx.recurrenceRule!['anchor_date'] != null) {
+    if (tx.recurrenceRule != null &&
+        tx.recurrenceRule!['anchor_date'] != null) {
       try {
         recurrence = RecurrenceRule.fromJson(tx.recurrenceRule!);
       } catch (_) {
@@ -194,8 +195,9 @@ class _PlaidSyncWalkthroughPageState
   Future<void> _refreshAfterSync(String userId) async {
     final viewMode = ref.read(viewModeProvider);
     final selectedHousehold = ref.read(selectedHouseholdProvider);
-    final householdId =
-        viewMode.mode == ViewMode.household ? selectedHousehold.householdId : null;
+    final householdId = viewMode.mode == ViewMode.household
+        ? selectedHousehold.householdId
+        : null;
 
     if (viewMode.mode == ViewMode.household) {
       ref.invalidate(userHouseholdsProvider(userId));
@@ -377,7 +379,8 @@ class _PlaidSyncWalkthroughPageState
                     width: 120,
                     height: 120,
                     decoration: BoxDecoration(
-                      color: colorScheme.primaryContainer.withValues(alpha: 0.2),
+                      color:
+                          colorScheme.primaryContainer.withValues(alpha: 0.2),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
@@ -546,7 +549,9 @@ class _PlaidSyncWalkthroughPageState
                             '${(_fakeProgress * 100).clamp(0, 100).floor()}%',
                             style: TextStyle(
                               color: colorScheme.mutedForeground,
-                              fontFeatures: const [FontFeature.tabularFigures()],
+                              fontFeatures: const [
+                                FontFeature.tabularFigures()
+                              ],
                             ),
                           ),
                         ],
@@ -557,8 +562,8 @@ class _PlaidSyncWalkthroughPageState
                         child: LinearProgressIndicator(
                           minHeight: 8,
                           value: _fakeProgress,
-                          backgroundColor:
-                              colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+                          backgroundColor: colorScheme.surfaceContainerHighest
+                              .withValues(alpha: 0.6),
                           color: colorScheme.primary,
                         ),
                       ),
