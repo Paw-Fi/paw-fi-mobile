@@ -46,7 +46,7 @@ Widget buildHouseholdBudgetOverviewCard(
   final card = Container(
     width: double.infinity,
     decoration: BoxDecoration(
-      color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+      color: colorScheme.cardSurface,
       borderRadius: BorderRadius.circular(24),
       border: Border.all(
         color: colorScheme.outline.withValues(alpha: 0.05),

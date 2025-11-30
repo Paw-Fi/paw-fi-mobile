@@ -8,6 +8,7 @@ import 'package:moneko/features/home/presentation/widgets/unified_transaction_sh
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -16,14 +17,37 @@ import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 Widget buildCategoryBreakdownCard(
   BuildContext context,
   ColorScheme colorScheme,
-  List<ExpenseEntry> expenses,
-  UserContact? contact, {
+  List<ExpenseEntry> allExpenses,
+  UserContact? contact,
+  DateRangeFilter dateFilter, {
   String? selectedCurrency,
   String? householdId,
   required VoidCallback onViewAll,
 }) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+
+  // Resolve this card's date range and filter the full expense list locally.
+  final range = getDateRangeFromFilter(dateFilter, null, null);
+  final from = range['from']!;
+  final to = range['to']!;
+  final selectedCode = selectedCurrency?.toUpperCase();
+
+  final filtered = allExpenses.where((e) {
+    // Optional household scoping when used in household mode.
+    if (householdId != null && e.householdId != householdId) {
+      return false;
+    }
+
+    final d = DateTime(e.date.year, e.date.month, e.date.day);
+    final dateOk = !d.isBefore(from) && !d.isAfter(to);
+    final rawCode = (e.currency ?? '').trim().toUpperCase();
+    final currencyOk =
+        selectedCode == null || rawCode.isEmpty || rawCode == selectedCode;
+    return dateOk && currencyOk;
+  }).toList();
+
   // Recent transactions - show latest 5 by updatedAt (fallback to createdAt)
-  final recent = expenses.toList()
+  final recent = filtered.toList()
     ..sort((a, b) {
       final ad = a.updatedAt ?? a.createdAt;
       final bd = b.updatedAt ?? b.createdAt;
@@ -31,11 +55,9 @@ Widget buildCategoryBreakdownCard(
     });
   final latest = recent.take(5).toList();
 
-  final isDark = Theme.of(context).brightness == Brightness.dark;
-
   return Container(
     decoration: BoxDecoration(
-      color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+      color: colorScheme.cardSurface,
       borderRadius: BorderRadius.circular(24),
       border: Border.all(
         color: colorScheme.outline.withValues(alpha: 0.05),

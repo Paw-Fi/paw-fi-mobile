@@ -3,8 +3,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/widgets/currency_dropdown_button.dart';
-import 'package:moneko/features/home/presentation/widgets/date_range_filter_modal.dart';
-import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
@@ -91,10 +89,6 @@ class _SettingsList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final filterState = ref.watch(homeFilterProvider);
-    final DateRangeFilter currentFilter = filterState.dateRangeFilter;
-    final String dateLabel = currentFilter.getLabel(context);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -117,37 +111,6 @@ class _SettingsList extends ConsumerWidget {
                 .refresh(user.uid);
             ref.invalidate(pocketsProvider);
           },
-        ),
-        const SizedBox(height: 32),
-        _SectionLabel(
-            label: context.l10n.selectDateRange, colorScheme: colorScheme),
-        const SizedBox(height: 12),
-        InkWell(
-          onTap: () => showDateRangeFilter(context, colorScheme),
-          borderRadius: BorderRadius.circular(8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(
-                child: Text(
-                  dateLabel,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                    color: colorScheme.foreground,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Icon(
-                Icons.keyboard_arrow_down_rounded,
-                color: colorScheme.mutedForeground,
-                size: 24,
-              ),
-            ],
-          ),
         ),
         //const SizedBox(height: 32),
         // _SectionLabel(

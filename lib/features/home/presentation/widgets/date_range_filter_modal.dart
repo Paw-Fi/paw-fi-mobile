@@ -6,16 +6,17 @@ import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
-/// Shows the date range filter sheet.
+/// Shows the **per-card** date range filter sheet.
 ///
 /// The sheet is tall by default to avoid overflow with longer locales.
 /// You can override the height by passing [height].
 /// - If [height] is null: defaults to 70% of screen height.
 /// - If 0 < [height] <= 1: treated as a fraction of screen height.
 /// - If [height] > 1: treated as absolute pixels.
-void showDateRangeFilter(
+void showCardDateRangeFilter(
   BuildContext context,
-  ColorScheme colorScheme, {
+  ColorScheme colorScheme,
+  HomeCardFilterId cardId, {
   double? height,
 }) {
   double resolveHeight(BuildContext c, double? h) {
@@ -76,16 +77,12 @@ void showDateRangeFilter(
                           ),
                           onTap: () async {
                             final container = ProviderScope.containerOf(ctx);
-                            container.read(homeFilterProvider.notifier).setFilter(filter);
-                            // Close first to avoid using context across async gap
+                            container
+                                .read(cardDateFilterProvider(cardId).notifier)
+                                .setFilter(filter);
+
+                            // Close after updating the per-card filter.
                             Navigator.pop(ctx);
-                            // Persist selection in local storage for next app launch (no context use)
-                            try {
-                              final service = container.read(dateRangePreferenceServiceProvider);
-                              await service.setSelectedDateRange(filter.name);
-                            } catch (e) {
-                              debugPrint('Error saving date range preference: $e');
-                            }
                           },
                         );
                       }).toList(),

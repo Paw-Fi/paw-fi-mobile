@@ -7,6 +7,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
+import 'package:moneko/features/home/presentation/widgets/date_range_filter_modal.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
@@ -24,6 +25,8 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/home/presentation/widgets/mom_trend_bar.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
+import 'package:moneko/features/households/presentation/widgets/financial_calendar_widget.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 
 // ============================================================================
 // HOME PAGE
@@ -129,56 +132,6 @@ class _HomePageState extends ConsumerState<HomePage> {
   void dispose() {
     _textController.dispose();
     super.dispose();
-  }
-
-  /// Helper to get date range from current filter
-  Map<String, DateTime?> _getDateRangeFromFilter() {
-    final filter = ref.read(homeFilterProvider).dateRangeFilter;
-    final now = DateTime.now();
-    DateTime? startDate;
-    DateTime? endDate = now;
-
-    switch (filter) {
-      case DateRangeFilter.today:
-        startDate = DateTime(now.year, now.month, now.day);
-        break;
-      case DateRangeFilter.yesterday:
-        final yesterday = now.subtract(const Duration(days: 1));
-        startDate = DateTime(yesterday.year, yesterday.month, yesterday.day);
-        endDate = DateTime(
-            yesterday.year, yesterday.month, yesterday.day, 23, 59, 59);
-        break;
-      case DateRangeFilter.thisWeek:
-        // Start from Monday
-        final weekday = now.weekday;
-        startDate = now.subtract(Duration(days: weekday - 1));
-        break;
-      case DateRangeFilter.lastWeek:
-        final weekday = now.weekday;
-        final lastMonday = now.subtract(Duration(days: weekday + 6));
-        final lastSunday = now.subtract(Duration(days: weekday));
-        startDate = DateTime(lastMonday.year, lastMonday.month, lastMonday.day);
-        endDate = DateTime(
-            lastSunday.year, lastSunday.month, lastSunday.day, 23, 59, 59);
-        break;
-      case DateRangeFilter.last30Days:
-        startDate = now.subtract(const Duration(days: 30));
-        break;
-      case DateRangeFilter.thisMonth:
-        startDate = DateTime(now.year, now.month, 1);
-        break;
-      case DateRangeFilter.allTime:
-        startDate = null;
-        endDate = null;
-        break;
-      case DateRangeFilter.custom:
-        // For custom, use filter's custom dates if available
-        startDate = null;
-        endDate = null;
-        break;
-    }
-
-    return {'startDate': startDate, 'endDate': endDate};
   }
 
   Future<void> _handleCameraCapture() async {
@@ -741,29 +694,55 @@ class _HomePageState extends ConsumerState<HomePage> {
     final colorScheme = Theme.of(context).colorScheme;
     final analyticsData = ref.watch(analyticsProvider);
     final filterState = ref.watch(homeFilterProvider);
-    final filteredExpenses = ref.watch(homeFilteredExpensesProvider);
-    final filteredBudgets = ref.watch(homeFilteredBudgetsProvider);
     final user = ref.watch(authProvider);
     final viewMode = ref.watch(viewModeProvider);
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
+
+    // Global currency remains shared; date ranges move to per-card filters
+    final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
+
+    // Base personal transactions (non-household); cards will apply their own date windows
+    final personalExpensesAll =
+        analyticsData.allExpenses.where((e) => e.householdId == null).toList();
+
+    // Spending card: this month by default (per-card filter)
+    final spendingFilterState =
+        ref.watch(cardDateFilterProvider(HomeCardFilterId.spending));
+
+    // Net cashflow card: its own per-card filter (still uses allExpenses for previous-period math)
+    final netFilterState =
+        ref.watch(cardDateFilterProvider(HomeCardFilterId.netCashflow));
+    final netRange = getDateRangeFromFilter(
+      netFilterState.dateRangeFilter,
+      netFilterState.customStartDate,
+      netFilterState.customEndDate,
+    );
+    final netFrom = netRange['from']!;
+    final netTo = netRange['to']!;
+
+    // Budgets filtered for the net cashflow / spending breakdown cards (by date + currency)
+    final netBudgets = analyticsData.allBudgets.where((budget) {
+      final d = DateTime(budget.date.year, budget.date.month, budget.date.day);
+      final dateOk = !d.isBefore(netFrom) && !d.isAfter(netTo);
+      final currencyOk = selectedCurrency == null ||
+          (budget.currency?.toUpperCase() == selectedCurrency);
+      return dateOk && currencyOk;
+    }).toList();
+
+    // Category breakdown card: its own per-card filter, includes both income and expenses
+    final categoryFilterState =
+        ref.watch(cardDateFilterProvider(HomeCardFilterId.categoryBreakdown));
+
+    // Spending breakdown chart: its own per-card filter, uses expenses + budgets
+    final spendingBreakdownFilterState =
+        ref.watch(cardDateFilterProvider(HomeCardFilterId.spendingBreakdown));
 
     // Listen for date filter changes and reload analytics with date filters
     ref.listen<HomeFilterState>(homeFilterProvider, (previous, next) {
       if (previous?.dateRangeFilter != next.dateRangeFilter) {
         debugPrint(
             '🔄 Date filter changed: ${previous?.dateRangeFilter} → ${next.dateRangeFilter}');
-
-        final dateRange = _getDateRangeFromFilter();
-        final startDate = dateRange['startDate'];
-        final endDate = dateRange['endDate'];
-
-        debugPrint(
-            '🔄 Reloading analytics with date range: $startDate to $endDate');
-        ref.read(analyticsProvider.notifier).loadData(
-              user.uid,
-              startDate: startDate,
-              endDate: endDate,
-            );
+        ref.read(analyticsProvider.notifier).refresh(user.uid);
       }
     });
 
@@ -796,12 +775,9 @@ class _HomePageState extends ConsumerState<HomePage> {
               const SizedBox(height: 24),
               AdaptiveButton(
                 onPressed: () {
-                  final dateRange = _getDateRangeFromFilter();
-                  ref.read(analyticsProvider.notifier).refresh(
-                        user.uid,
-                        startDate: dateRange['startDate'],
-                        endDate: dateRange['endDate'],
-                      );
+                  // Retry by reloading all-time analytics; per-card filters
+                  // control what each widget displays.
+                  ref.read(analyticsProvider.notifier).refresh(user.uid);
                 },
                 label: context.l10n.retry,
               ),
@@ -832,12 +808,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                       '✅ Invalidated: households, expenses, splits, budgets, summary, members');
                 } else {
                   // In personal mode: refresh analytics with current date filters
-                  final dateRange = _getDateRangeFromFilter();
-                  ref.read(analyticsProvider.notifier).refresh(
-                        user.uid,
-                        startDate: dateRange['startDate'],
-                        endDate: dateRange['endDate'],
-                      );
+                  // TODO: Once global date filter is fully removed, refresh should
+                  // simply reload all-time analytics without a date window.
+                  ref.read(analyticsProvider.notifier).refresh(user.uid);
                 }
                 await Future.delayed(const Duration(milliseconds: 500));
               },
@@ -848,17 +821,24 @@ class _HomePageState extends ConsumerState<HomePage> {
                     const HouseholdHomeContent()
                   else ...[
                     // Personal mode - show analytics content
-                    // Spending Card with Line Chart
+                    // Spending Card with Line Chart (receives full personal history)
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        child: buildSpendingCard(
-                          context,
-                          colorScheme,
-                          filteredExpenses,
-                          analyticsData.contact,
-                          filterState.dateRangeFilter,
-                          selectedCurrency: filterState.selectedCurrency,
+                        child: GestureDetector(
+                          onLongPress: () => showCardDateRangeFilter(
+                            context,
+                            colorScheme,
+                            HomeCardFilterId.spending,
+                          ),
+                          child: buildSpendingCard(
+                            context,
+                            colorScheme,
+                            personalExpensesAll,
+                            analyticsData.contact,
+                            spendingFilterState.dateRangeFilter,
+                            selectedCurrency: filterState.selectedCurrency,
+                          ),
                         ),
                       ),
                     ),
@@ -878,15 +858,23 @@ class _HomePageState extends ConsumerState<HomePage> {
                               ),
                               const SizedBox(width: 12),
                               Expanded(
-                                child: buildNetCashflowCard(
-                                  context,
-                                  colorScheme,
-                                  filteredBudgets,
-                                  ref.watch(homeFilteredTransactionsProvider),
-                                  analyticsData.contact,
-                                  filterState.dateRangeFilter,
-                                  selectedCurrency:
-                                      filterState.selectedCurrency,
+                                child: GestureDetector(
+                                  onLongPress: () => showCardDateRangeFilter(
+                                    context,
+                                    colorScheme,
+                                    HomeCardFilterId.netCashflow,
+                                  ),
+                                  child: buildNetCashflowCard(
+                                    context,
+                                    colorScheme,
+                                    netBudgets,
+                                    // Pass ALL expenses to allow internal filtering for previous period
+                                    analyticsData.allExpenses,
+                                    analyticsData.contact,
+                                    netFilterState.dateRangeFilter,
+                                    selectedCurrency:
+                                        filterState.selectedCurrency,
+                                  ),
                                 ),
                               ),
                             ],
@@ -897,23 +885,65 @@ class _HomePageState extends ConsumerState<HomePage> {
 
                     const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
+                    // Financial Calendar (Personal)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: Consumer(
+                          builder: (context, ref, _) {
+                            final recurringAsync =
+                                ref.watch(recurringTransactionsProvider(null));
+
+                            // Trigger load if needed
+                            if (user.uid.isNotEmpty &&
+                                !recurringAsync.hasLoadedOnce &&
+                                !recurringAsync.data.isLoading) {
+                              Future.microtask(() => ref
+                                  .read(recurringTransactionsProvider(null)
+                                      .notifier)
+                                  .loadRecurringTransactions(user.uid));
+                            }
+
+                            return FinancialCalendarWidget(
+                              transactions: personalExpensesAll,
+                              recurringTransactions:
+                                  recurringAsync.data.valueOrNull ?? [],
+                              currency: selectedCurrency ??
+                                  analyticsData.contact?.preferredCurrency ??
+                                  'USD',
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+
+                    const SliverToBoxAdapter(child: SizedBox(height: 16)),
+
                     // Category Breakdown
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        child: buildCategoryBreakdownCard(
-                          context,
-                          colorScheme,
-                          ref.watch(homeFilteredTransactionsProvider),
-                          analyticsData.contact,
-                          selectedCurrency: filterState.selectedCurrency,
-                          onViewAll: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => const TransactionsPage(),
-                              ),
-                            );
-                          },
+                        child: GestureDetector(
+                          onLongPress: () => showCardDateRangeFilter(
+                            context,
+                            colorScheme,
+                            HomeCardFilterId.categoryBreakdown,
+                          ),
+                          child: buildCategoryBreakdownCard(
+                            context,
+                            colorScheme,
+                            personalExpensesAll,
+                            analyticsData.contact,
+                            categoryFilterState.dateRangeFilter,
+                            selectedCurrency: filterState.selectedCurrency,
+                            onViewAll: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const TransactionsPage(),
+                                ),
+                              );
+                            },
+                          ),
                         ),
                       ),
                     ),
@@ -922,14 +952,21 @@ class _HomePageState extends ConsumerState<HomePage> {
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        child: buildSpendingBreakdownChart(
-                          context,
-                          colorScheme,
-                          filteredExpenses,
-                          filteredBudgets,
-                          analyticsData.contact,
-                          filterState.dateRangeFilter,
-                          selectedCurrency: filterState.selectedCurrency,
+                        child: GestureDetector(
+                          onLongPress: () => showCardDateRangeFilter(
+                            context,
+                            colorScheme,
+                            HomeCardFilterId.spendingBreakdown,
+                          ),
+                          child: buildSpendingBreakdownChart(
+                            context,
+                            colorScheme,
+                            personalExpensesAll,
+                            analyticsData.allBudgets,
+                            analyticsData.contact,
+                            spendingBreakdownFilterState.dateRangeFilter,
+                            selectedCurrency: filterState.selectedCurrency,
+                          ),
                         ),
                       ),
                     ),
@@ -993,4 +1030,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       ],
     );
   }
+
+  // Global date helpers have been removed; per-card filters now own all
+  // date-range logic, and analytics loads all-time data.
 }
