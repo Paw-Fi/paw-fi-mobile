@@ -22,13 +22,10 @@ Widget buildCategoryBreakdownCard(
   String? householdId,
   required VoidCallback onViewAll,
 }) {
-  // Recent transactions - show latest 5 by updatedAt (fallback to createdAt)
+  // Recent transactions - show latest 5 by transaction date (to match
+  // TransactionsPage behavior and user expectation of "recent" by date).
   final recent = expenses.toList()
-    ..sort((a, b) {
-      final ad = a.updatedAt ?? a.createdAt;
-      final bd = b.updatedAt ?? b.createdAt;
-      return bd.compareTo(ad);
-    });
+    ..sort((a, b) => b.date.compareTo(a.date));
   final latest = recent.take(5).toList();
 
   final isDark = Theme.of(context).brightness == Brightness.dark;

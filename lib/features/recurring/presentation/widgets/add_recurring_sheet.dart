@@ -390,7 +390,12 @@ class AddRecurringSheet extends HookConsumerWidget {
                       children: [
                         Expanded(
                           child: GestureDetector(
-                            onTap: () => selectedType.value = 'expense',
+                            onTap: () {
+                              if (selectedType.value != 'expense') {
+                                selectedType.value = 'expense';
+                                selectedCategory.value = null;
+                              }
+                            },
                             child: Container(
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               decoration: BoxDecoration(
@@ -415,7 +420,12 @@ class AddRecurringSheet extends HookConsumerWidget {
                         ),
                         Expanded(
                           child: GestureDetector(
-                            onTap: () => selectedType.value = 'income',
+                            onTap: () {
+                              if (selectedType.value != 'income') {
+                                selectedType.value = 'income';
+                                selectedCategory.value = null;
+                              }
+                            },
                             child: Container(
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               decoration: BoxDecoration(
@@ -497,8 +507,10 @@ class AddRecurringSheet extends HookConsumerWidget {
                     onTap: () async {
                       final result = await showCategoryPicker(
                         context: context,
-                        currentCategory: selectedCategory.value ??
-                            (isExpense ? 'other' : 'salary'),
+                        // When no category is selected, pass an empty string so
+                        // the picker shows with no preselection. Existing
+                        // transactions still pass their actual category.
+                        currentCategory: selectedCategory.value ?? '',
                         isIncome: !isExpense,
                       );
                       if (result != null) {

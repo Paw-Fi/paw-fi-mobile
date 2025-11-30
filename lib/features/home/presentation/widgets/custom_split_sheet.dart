@@ -538,99 +538,101 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Entire split sheet with grey background
-        Container(
-          decoration: BoxDecoration(
-            color: isDark
-                ? const Color(0xFF1C1C1E)
-                : const Color(0xFFF4F4F4),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            children: [
-              // Split Type Selector - minimal with pipe separators
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildTypeChip(colorScheme, context.l10n.amount, SplitType.amount),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Text(
-                      '|',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: colorScheme.mutedForeground.withValues(alpha: 0.3),
+    return Material(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Entire split sheet with grey background
+          Container(
+            decoration: BoxDecoration(
+              color: isDark
+                  ? const Color(0xFF1C1C1E)
+                  : const Color(0xFFF4F4F4),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              children: [
+                // Split Type Selector - minimal with pipe separators
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _buildTypeChip(colorScheme, context.l10n.amount, SplitType.amount),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Text(
+                        '|',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: colorScheme.mutedForeground.withValues(alpha: 0.3),
+                        ),
                       ),
                     ),
-                  ),
-                  _buildTypeChip(colorScheme, context.l10n.percent, SplitType.percentage),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Text(
-                      '|',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: colorScheme.mutedForeground.withValues(alpha: 0.3),
+                    _buildTypeChip(colorScheme, context.l10n.percent, SplitType.percentage),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Text(
+                        '|',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: colorScheme.mutedForeground.withValues(alpha: 0.3),
+                        ),
                       ),
                     ),
-                  ),
-                  _buildTypeChip(colorScheme, context.l10n.splitShare, SplitType.shares),
-                ],
-              ),
-
-              const SizedBox(height: 16),
-
-              // Member List
-              ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                padding: EdgeInsets.zero,
-                itemCount: _memberSplits.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 8),
-                itemBuilder: (context, index) {
-                  return _buildMemberRow(colorScheme, index, isDark);
-                },
-              ),
-            ],
-          ),
-        ),
-
-        // Validation Error
-        if (_validationError != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: colorScheme.destructive.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: colorScheme.destructive.withValues(alpha: 0.3)),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.error_outline,
-                      color: colorScheme.destructive, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _validationError!,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: colorScheme.destructive,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                    _buildTypeChip(colorScheme, context.l10n.splitShare, SplitType.shares),
+                  ],
+                ),
+      
+                const SizedBox(height: 16),
+      
+                // Member List
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  padding: EdgeInsets.zero,
+                  itemCount: _memberSplits.length,
+                  separatorBuilder: (context, index) => const SizedBox(height: 8),
+                  itemBuilder: (context, index) {
+                    return _buildMemberRow(colorScheme, index, isDark);
+                  },
+                ),
+              ],
             ),
           ),
-      ],
+      
+          // Validation Error
+          if (_validationError != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: colorScheme.destructive.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: colorScheme.destructive.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.error_outline,
+                        color: colorScheme.destructive, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _validationError!,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: colorScheme.destructive,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 

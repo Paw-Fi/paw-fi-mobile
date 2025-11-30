@@ -18,11 +18,19 @@ Future<String?> showCategoryPicker({
   required String currentCategory,
   required bool isIncome,
 }) async {
-  final normalizedCurrent = currentCategory.toLowerCase();
-  final baseCategories = isIncome ? getIncomeCategories() : getExpenseCategories();
-  final categories = baseCategories.contains(normalizedCurrent)
+  final normalizedCurrent = currentCategory.trim().toLowerCase();
+  final baseCategories =
+      isIncome ? getIncomeCategories() : getExpenseCategories();
+
+  // If there is no current category, don't preselect anything.
+  final categories = normalizedCurrent.isEmpty
       ? baseCategories
-      : [...baseCategories, normalizedCurrent];
+      : (baseCategories.contains(normalizedCurrent)
+          ? baseCategories
+          : [...baseCategories, normalizedCurrent]);
+
+  final initialSelected =
+      normalizedCurrent.isEmpty ? <String>[] : <String>[normalizedCurrent];
 
   return await showModalBottomSheet<String>(
     context: context,
@@ -31,7 +39,7 @@ Future<String?> showCategoryPicker({
     builder: (sheetContext) {
       return CategoryPickerBottomSheet(
         allCategories: categories,
-        selectedCategories: <String>[normalizedCurrent],
+        selectedCategories: initialSelected,
         isSingleSelect: true,
         onChanged: (value) {
           final next = value.isNotEmpty ? value.first : null;

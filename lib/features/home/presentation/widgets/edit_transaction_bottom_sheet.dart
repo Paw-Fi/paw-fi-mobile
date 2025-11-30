@@ -236,10 +236,14 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
                 _selectedCategory != null ? <String>[_selectedCategory!] : const [],
             isSingleSelect: true,
             onChanged: (value) {
+              final next = value.isNotEmpty ? value.first : null;
               setState(() {
-                _selectedCategory = value.isNotEmpty ? value.first : null;
+                _selectedCategory = next;
                 _error = null;
               });
+              if (next != null) {
+                Navigator.of(sheetContext).pop();
+              }
             },
           );
         },

@@ -29,7 +29,10 @@ class CategoryPickerBottomSheet extends StatelessWidget {
       onChanged: onChanged,
       title: "",
       isSingleSelect: isSingleSelect,
-      onClose: () => Navigator.of(context).pop(),
+      // Let CategoryPicker handle closing behavior. For single-select flows,
+      // it will call onChanged and then onClose to pop the sheet exactly once
+      // with the selected value. For multi-select, the header close button
+      // will use the default Navigator.pop(context).
     );
   }
 }

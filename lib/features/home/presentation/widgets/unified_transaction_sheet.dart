@@ -1300,6 +1300,7 @@ class _UnifiedTransactionSheetState
                 _editedCategory = next;
               });
             }
+            Navigator.of(sheetContext).pop();
           },
         );
       },
