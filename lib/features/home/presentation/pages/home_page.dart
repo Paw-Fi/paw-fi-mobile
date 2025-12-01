@@ -718,7 +718,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                                     isExpanded: config
                                                             .viewMode ==
                                                         DashboardWidgetViewMode
-                                                            .expanded,
+                                                            .full,
                                                   );
                                                 },
                                               ),

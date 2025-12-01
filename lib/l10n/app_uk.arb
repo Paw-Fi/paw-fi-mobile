@@ -1588,5 +1588,12 @@
   "categoryGroupCommunityServices": "Спільнота та Послуги",
   "categoryGroupMisc": "Різне",
   "ok": "ОК",
-  "attention": "Увага"
+  "attention": "Увага",
+  "viewModeMini": "Міні",
+  "viewModeCompact": "Компактний",
+  "viewModeFull": "Повний",
+  "configureWidget": "Налаштувати Віджет",
+  "viewMode": "Режим Відображення",
+  "compactView": "Компактний Вид",
+  "expandedView": "Розширений Вид"
 }

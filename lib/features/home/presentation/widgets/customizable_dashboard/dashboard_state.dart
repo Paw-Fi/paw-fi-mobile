@@ -59,24 +59,24 @@ class PersonalDashboardController
         state = AsyncValue.data(configs);
       } else {
         // Default Layout
-        state = AsyncValue.data([
-          const DashboardWidgetConfig(
+        state = const AsyncValue.data([
+          DashboardWidgetConfig(
               id: 'spending',
               type: DashboardWidgetType.spendingSummary,
               order: 0),
-          const DashboardWidgetConfig(
+          DashboardWidgetConfig(
               id: 'net_cashflow',
               type: DashboardWidgetType.netCashflow,
               order: 1),
-          const DashboardWidgetConfig(
+          DashboardWidgetConfig(
               id: 'calendar',
               type: DashboardWidgetType.financialCalendar,
               order: 2),
-          const DashboardWidgetConfig(
+          DashboardWidgetConfig(
               id: 'categories',
               type: DashboardWidgetType.categoryBreakdown,
               order: 3),
-          const DashboardWidgetConfig(
+          DashboardWidgetConfig(
               id: 'spending_chart',
               type: DashboardWidgetType.spendingBreakdownChart,
               order: 4),
@@ -171,36 +171,36 @@ class HouseholdDashboardController
         state = AsyncValue.data(configs);
       } else {
         // Default Layout
-        state = AsyncValue.data([
-          const DashboardWidgetConfig(
+        state = const AsyncValue.data([
+          DashboardWidgetConfig(
               id: 'spent_by_you',
               type: DashboardWidgetType.householdSpentByYou,
               order: 0),
-          const DashboardWidgetConfig(
+          DashboardWidgetConfig(
               id: 'calendar',
               type: DashboardWidgetType.householdFinancialCalendar,
               order: 1),
-          const DashboardWidgetConfig(
+          DashboardWidgetConfig(
               id: 'budget_overview',
               type: DashboardWidgetType.householdBudgetOverview,
               order: 2),
-          const DashboardWidgetConfig(
+          DashboardWidgetConfig(
               id: 'fairness',
               type: DashboardWidgetType.householdFairness,
               order: 3),
-          const DashboardWidgetConfig(
+          DashboardWidgetConfig(
               id: 'settlement',
               type: DashboardWidgetType.householdSettlement,
               order: 4),
-          const DashboardWidgetConfig(
+          DashboardWidgetConfig(
               id: 'member_spending',
               type: DashboardWidgetType.householdMemberSpending,
               order: 5),
-          const DashboardWidgetConfig(
+          DashboardWidgetConfig(
               id: 'categories',
               type: DashboardWidgetType.householdCategoryBreakdown,
               order: 6),
-          const DashboardWidgetConfig(
+          DashboardWidgetConfig(
               id: 'spending_chart',
               type: DashboardWidgetType.householdSpendingBreakdownChart,
               order: 7),

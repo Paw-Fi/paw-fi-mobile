@@ -1546,5 +1546,12 @@
   "categoryGroupCommunityServices": "Сообщество и Услуги",
   "categoryGroupMisc": "Прочее",
   "ok": "ОК",
-  "attention": "Внимание"
+  "attention": "Внимание",
+  "viewModeMini": "Мини",
+  "viewModeCompact": "Компактный",
+  "viewModeFull": "Полный",
+  "configureWidget": "Настроить Виджет",
+  "viewMode": "Режим Отображения",
+  "compactView": "Компактный Вид",
+  "expandedView": "Развернутый Вид"
 }

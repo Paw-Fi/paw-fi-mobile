@@ -1595,5 +1595,12 @@
   "categoryGroupCommunityServices": "Cộng đồng & Dịch vụ",
   "categoryGroupMisc": "Linh tinh",
   "ok": "OK",
-  "attention": "Chú ý"
+  "attention": "Chú ý",
+  "viewModeMini": "Mini",
+  "viewModeCompact": "Gọn",
+  "viewModeFull": "Đầy đủ",
+  "configureWidget": "Cấu hình widget",
+  "viewMode": "Chế độ Xem",
+  "compactView": "Chế độ Gọn",
+  "expandedView": "Chế độ Mở Rộng"
 }

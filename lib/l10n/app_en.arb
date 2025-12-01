@@ -1604,5 +1604,8 @@
   "configureWidget": "Configure Widget",
   "viewMode": "View Mode",
   "compactView": "Compact View",
-  "expandedView": "Expanded View"
+  "expandedView": "Expanded View",
+  "viewModeMini": "Mini",
+  "viewModeCompact": "Compact",
+  "viewModeFull": "Full"
 }

@@ -1542,5 +1542,12 @@
   "categoryGroupCommunityServices": "کمیونٹی اور خدمات",
   "categoryGroupMisc": "متفرقہ",
   "ok": "ٹھیک ہے",
-  "attention": "توجہ"
+  "attention": "توجہ",
+  "viewModeMini": "چھوٹا",
+  "viewModeCompact": "مختصر",
+  "viewModeFull": "مکمل",
+  "configureWidget": "ویجٹ ترتیب دیں",
+  "viewMode": "دیکھنے کا طریقہ",
+  "compactView": "کمپیکٹ منظر",
+  "expandedView": "ایکسپینڈڈ منظر"
 }

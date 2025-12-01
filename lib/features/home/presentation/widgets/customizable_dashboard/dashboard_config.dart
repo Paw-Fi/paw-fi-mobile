@@ -20,9 +20,9 @@ enum DashboardWidgetType {
 }
 
 enum DashboardWidgetViewMode {
-  standard,
-  compact,
-  expanded,
+  mini, // 1x1
+  wide, // 2x1
+  full, // 2x2
 }
 
 class DashboardWidgetConfig {
@@ -43,7 +43,7 @@ class DashboardWidgetConfig {
     this.isVisible = true,
     this.dateRange = DateRangeFilter.thisMonth,
     required this.order,
-    this.viewMode = DashboardWidgetViewMode.standard,
+    this.viewMode = DashboardWidgetViewMode.wide,
     this.customStartDate,
     this.customEndDate,
   });
@@ -96,7 +96,7 @@ class DashboardWidgetConfig {
       order: json['order'] as int? ?? 0,
       viewMode: DashboardWidgetViewMode.values.firstWhere(
         (e) => e.name == (json['viewMode'] as String?),
-        orElse: () => DashboardWidgetViewMode.standard,
+        orElse: () => DashboardWidgetViewMode.wide,
       ),
       customStartDate: json['customStartDate'] != null
           ? DateTime.tryParse(json['customStartDate'] as String)

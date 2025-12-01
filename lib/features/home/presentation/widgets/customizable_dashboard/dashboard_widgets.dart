@@ -295,8 +295,6 @@ class WidgetConfigurationSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final showViewMode = config.type == DashboardWidgetType.financialCalendar ||
-        config.type == DashboardWidgetType.householdFinancialCalendar;
 
     return Container(
       decoration: BoxDecoration(
@@ -322,38 +320,59 @@ class WidgetConfigurationSheet extends StatelessWidget {
               ),
               Divider(height: 1, color: colorScheme.outlineVariant),
 
-              // View Mode Section (Only for supported widgets)
-              if (showViewMode) ...[
-                Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  child: Text(
-                    context.l10n.viewMode,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: colorScheme.primary,
-                    ),
+              // View Mode Section
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Text(
+                  context.l10n.viewMode,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: colorScheme.primary,
                   ),
                 ),
-                _buildViewModeOption(
-                  context,
-                  label: context.l10n.compactView,
-                  isSelected:
-                      config.viewMode == DashboardWidgetViewMode.compact,
-                  onTap: () =>
-                      onUpdate(viewMode: DashboardWidgetViewMode.compact),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.all(4),
+                  child: Row(
+                    children: [
+                      _buildSegmentOption(
+                        context,
+                        label: context.l10n.viewModeMini,
+                        isSelected:
+                            config.viewMode == DashboardWidgetViewMode.mini,
+                        onTap: () =>
+                            onUpdate(viewMode: DashboardWidgetViewMode.mini),
+                      ),
+                      _buildSegmentOption(
+                        context,
+                        label: context.l10n.viewModeWide,
+                        isSelected:
+                            config.viewMode == DashboardWidgetViewMode.wide,
+                        onTap: () =>
+                            onUpdate(viewMode: DashboardWidgetViewMode.wide),
+                      ),
+                      _buildSegmentOption(
+                        context,
+                        label: context.l10n.viewModeFull,
+                        isSelected:
+                            config.viewMode == DashboardWidgetViewMode.full,
+                        onTap: () =>
+                            onUpdate(viewMode: DashboardWidgetViewMode.full),
+                      ),
+                    ],
+                  ),
                 ),
-                _buildViewModeOption(
-                  context,
-                  label: context.l10n.expandedView,
-                  isSelected:
-                      config.viewMode == DashboardWidgetViewMode.expanded,
-                  onTap: () =>
-                      onUpdate(viewMode: DashboardWidgetViewMode.expanded),
-                ),
-                Divider(height: 1, color: colorScheme.outlineVariant),
-              ],
+              ),
+              const SizedBox(height: 16),
+              Divider(height: 1, color: colorScheme.outlineVariant),
 
               // Date Range Section
               Padding(
@@ -419,22 +438,43 @@ class WidgetConfigurationSheet extends StatelessWidget {
     );
   }
 
-  Widget _buildViewModeOption(BuildContext context,
+  Widget _buildSegmentOption(BuildContext context,
       {required String label,
       required bool isSelected,
       required VoidCallback onTap}) {
     final colorScheme = Theme.of(context).colorScheme;
-    return ListTile(
-      title: Text(
-        label,
-        style: TextStyle(
-          color: isSelected ? colorScheme.primary : colorScheme.onSurface,
-          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? colorScheme.surface : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 2,
+                      offset: const Offset(0, 1),
+                    ),
+                  ]
+                : null,
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: TextStyle(
+              color: isSelected
+                  ? colorScheme.primary
+                  : colorScheme.onSurfaceVariant,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              fontSize: 13,
+            ),
+          ),
         ),
       ),
-      trailing:
-          isSelected ? Icon(Icons.check, color: colorScheme.primary) : null,
-      onTap: onTap,
     );
   }
 }

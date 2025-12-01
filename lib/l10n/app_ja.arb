@@ -1596,5 +1596,12 @@
   "categoryGroupCommunityServices": "コミュニティとサービス",
   "categoryGroupMisc": "その他",
   "ok": "OK",
-  "attention": "注意"
+  "attention": "注意",
+  "viewModeMini": "ミニ",
+  "viewModeCompact": "コンパクト",
+  "viewModeFull": "フル表示",
+  "configureWidget": "ウィジェットを設定",
+  "viewMode": "表示モード",
+  "compactView": "コンパクト表示",
+  "expandedView": "拡張表示"
 }

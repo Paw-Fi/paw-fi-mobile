@@ -1595,5 +1595,12 @@
   "categoryGroupCommunityServices": "社区与服务",
   "categoryGroupMisc": "杂项",
   "ok": "确定",
-  "attention": "注意"
+  "attention": "注意",
+  "viewModeMini": "迷你",
+  "viewModeCompact": "紧凑",
+  "viewModeFull": "完整",
+  "configureWidget": "配置小组件",
+  "viewMode": "查看模式",
+  "compactView": "紧凑视图",
+  "expandedView": "展开视图"
 }

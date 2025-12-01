@@ -1543,5 +1543,12 @@
   "categoryGroupCommunityServices": "社區與服務",
   "categoryGroupMisc": "雜項",
   "ok": "確定",
-  "attention": "注意"
+  "attention": "注意",
+  "viewModeMini": "迷你",
+  "viewModeCompact": "緊湊",
+  "viewModeFull": "完整",
+  "configureWidget": "配置小元件",
+  "viewMode": "檢視模式",
+  "compactView": "緊湊檢視",
+  "expandedView": "展開檢視"
 }

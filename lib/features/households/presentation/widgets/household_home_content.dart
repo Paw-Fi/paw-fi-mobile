@@ -410,7 +410,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                                   recurringAsync.data.asData?.value ?? [],
                               currency: selectedCurrency,
                               isExpanded: config.viewMode ==
-                                  DashboardWidgetViewMode.expanded,
+                                  DashboardWidgetViewMode.full,
                             ),
                           );
                         });

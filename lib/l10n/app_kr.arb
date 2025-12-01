@@ -1409,5 +1409,12 @@
   "categoryGroupCommunityServices": "커뮤니티 및 서비스",
   "categoryGroupMisc": "기타",
   "ok": "확인",
-  "attention": "주의"
+  "attention": "주의",
+  "viewModeMini": "미니",
+  "viewModeCompact": "컴팩트",
+  "viewModeFull": "전체 보기",
+  "configureWidget": "위젯 설정",
+  "viewMode": "보기 모드",
+  "compactView": "컴팩트 보기",
+  "expandedView": "확장 보기"
 }

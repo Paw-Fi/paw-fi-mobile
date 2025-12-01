@@ -1598,5 +1598,12 @@
   "categoryGroupCommunityServices": "Comunidad y Servicios",
   "categoryGroupMisc": "Varios",
   "ok": "OK",
-  "attention": "Atención"
+  "attention": "Atención",
+  "viewModeMini": "Mini",
+  "viewModeCompact": "Compacto",
+  "viewModeFull": "Completa",
+  "configureWidget": "Configurar Widget",
+  "viewMode": "Modo de Vista",
+  "compactView": "Vista Compacta",
+  "expandedView": "Vista Ampliada"
 }

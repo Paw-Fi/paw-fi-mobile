@@ -1543,5 +1543,12 @@
   "categoryGroupCommunityServices": "Gemeenschap & Diensten",
   "categoryGroupMisc": "Diversen",
   "ok": "OK",
-  "attention": "Attentie"
+  "attention": "Attentie",
+  "viewModeMini": "Mini",
+  "viewModeCompact": "Compact",
+  "viewModeFull": "Volledig",
+  "configureWidget": "Widget configureren",
+  "viewMode": "Weergavemodus",
+  "compactView": "Compacte Weergave",
+  "expandedView": "Uitgebreide Weergave"
 }
