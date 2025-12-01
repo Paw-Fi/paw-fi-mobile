@@ -1600,5 +1600,9 @@
   "other": "Other",
   "uncategorized": "Uncategorized",
   "ok": "OK",
-  "attention": "Attention"
+  "attention": "Attention",
+  "configureWidget": "Configure Widget",
+  "viewMode": "View Mode",
+  "compactView": "Compact View",
+  "expandedView": "Expanded View"
 }

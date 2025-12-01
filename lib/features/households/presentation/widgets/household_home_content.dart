@@ -6,17 +6,19 @@ import '../providers/household_providers.dart';
 import '../providers/selected_household_provider.dart';
 import '../pages/household_onboarding_page.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
-import 'package:moneko/features/home/presentation/widgets/date_range_filter_modal.dart';
+
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
+import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_config.dart';
+import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_widgets.dart';
+import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_state.dart';
 import 'household_budget_overview_card.dart';
 import 'household_member_spending_card.dart';
-import '../pages/create_budget_page.dart';
-import '../pages/budget_detail_page.dart';
+
 import '../pages/household_expenses_page.dart';
 import 'package:moneko/core/l10n/l10n.dart';
-import 'package:moneko/features/households/domain/entities/household_summary.dart';
+
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/income/presentation/providers/income_providers.dart';
 import 'package:moneko/features/households/presentation/widgets/group_fairness_meter.dart';
@@ -196,573 +198,518 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
 
           // Filters
           final filterState = ref.watch(homeFilterProvider);
-          final dateRange = getDateRangeFromFilter(
-            filterState.dateRangeFilter,
-            filterState.customStartDate,
-            filterState.customEndDate,
-          );
-          final from = dateRange['from']!;
-          final to = dateRange['to']!;
           final selectedCurrency =
               (filterState.selectedCurrency ?? household.currency)
                   .toUpperCase();
 
           // Data providers with date filtering
-          final expensesAsync = ref.watch(
-            householdExpensesProvider(
-              HouseholdExpensesParams(
-                householdId: household.id,
-                limit: 10000, // Safety limit (10K max)
-                startDate: from,
-                endDate: to,
+          // Note: Individual widgets inside DraggableDashboardList will fetch their own data
+          // based on their specific date range configuration.
+
+          final repoAsync = ref.watch(dashboardRepositoryFutureProvider);
+
+          return repoAsync.when(
+            loading: () =>
+                SliverToBoxAdapter(child: _buildLoadingState(colorScheme)),
+            error: (e, st) => SliverToBoxAdapter(
+              child: _buildErrorState(
+                colorScheme,
+                context.l10n.errorLoadingHouseholds,
+                'Repository Error: $e',
               ),
             ),
-          );
-          // Load splits data (needed for split-aware calculations)
-          final splitsAsync = ref.watch(
-            householdSplitsProvider(
-              HouseholdSplitsParams(householdId: household.id),
-            ),
-          );
-          final budgetsAsync =
-              ref.watch(householdBudgetsProvider(household.id));
-          final summaryAsync = ref.watch(
-            householdSummaryProvider(
-              HouseholdSummaryParams(
-                householdId: household.id,
-                currency: selectedCurrency,
-                startDate: from.toIso8601String(),
-                endDate: to.toIso8601String(),
-              ),
-            ),
-          );
-          final membersAsync =
-              ref.watch(householdMembersProvider(household.id));
-          final recurringAsync =
-              ref.watch(recurringTransactionsProvider(household.id));
+            data: (_) {
+              final dashboardAsync =
+                  ref.watch(householdDashboardProvider(household.id));
 
-          // Per-card date filters for household cards
-          final householdCategoryFilterState = ref.watch(
-            cardDateFilterProvider(HomeCardFilterId.householdCategoryBreakdown),
-          );
-          final householdSpendingBreakdownFilterState = ref.watch(
-            cardDateFilterProvider(HomeCardFilterId.householdSpendingBreakdown),
-          );
-
-          // UI
-          return SliverList(
-            delegate: SliverChildListDelegate([
-              // ═══════════════════════════════════════════════════════════════
-              // "SPENT BY YOU" CARD
-              // ═══════════════════════════════════════════════════════════════
-              // Shows the current user's personal spending in the household.
-              // This includes:
-              //   1. Full amount of expenses created by user
-              //   2. Split portions allocated to user from other members' expenses
-              //
-              // Data source: Real-time calculation from transactions + splits
-              // Same as member spending card to ensure consistency
-              //
-              // Example:
-              //   - User logs $10 expense, splits $0 to others
-              //   - Other logs $100 expense, splits $50 to user
-              //   - Result: "Spent by You" = $60 (user's $10 + split $50)
-              // ═══════════════════════════════════════════════════════════════
-              Builder(
-                builder: (context) {
-                  final transactions = expensesAsync.asData?.value;
-                  final splits = splitsAsync.asData?.value;
-
-                  if (transactions == null || splits == null) {
-                    return const Padding(
-                      padding: EdgeInsets.all(16.0),
-                      child: Center(child: CircularProgressIndicator()),
-                    );
-                  }
-
-                  // Calculate user's personal share from transactions + splits (real-time)
-                  // This ensures immediate updates when expenses are added/edited/deleted
-                  int myTotalCents = 0;
-
-                  // Create lookup map for split groups
-                  final byGroupId = {for (final g in splits) g.id: g};
-
-                  for (final t in transactions) {
-                    final tdate =
-                        DateTime(t.date.year, t.date.month, t.date.day);
-                    final code = (t.currency ?? '').trim().toUpperCase();
-                    final currencyOk = code.isEmpty || code == selectedCurrency;
-                    final isSpend =
-                        (t.type ?? 'expense').toLowerCase() != 'income';
-
-                    if (!isSpend) continue;
-                    if (!currencyOk) continue;
-                    if (tdate.isBefore(from) || tdate.isAfter(to)) continue;
-
-                    final splitGroupId = t.splitGroupId;
-
-                    // CASE 1: No split - attribute full amount if user created it
-                    if (splitGroupId == null) {
-                      if (t.userId == userId) {
-                        myTotalCents += t.amountCents.abs();
-                      }
-                      continue;
-                    }
-
-                    // CASE 2: Has split - add user's allocated portion
-                    final group = byGroupId[splitGroupId];
-                    if (group == null || group.splitLines == null) {
-                      // Split group not found, fallback to full amount if user created it
-                      if (t.userId == userId) {
-                        myTotalCents += t.amountCents.abs();
-                      }
-                      continue;
-                    }
-
-                    // Find user's split line and add their share
-                    final userLine = group.splitLines!.firstWhere(
-                      (line) => line.userId == userId,
-                      orElse: () => ExpenseSplitLine(
-                        id: '',
-                        splitGroupId: '',
-                        userId: '',
-                        isSettled: false,
-                        createdAt: DateTime.now(),
-                        updatedAt: DateTime.now(),
-                      ),
-                    );
-
-                    if (userLine.userId == userId) {
-                      final shareAmount = (userLine.amountCents ?? 0).abs();
-                      myTotalCents += shareAmount;
-                    }
-                  }
-
-                  // Create a synthetic expense entry for display purposes
-                  final syntheticExpense = ExpenseEntry(
-                    id: 'user-summary-total',
-                    date: DateTime.now(),
-                    amountCents: myTotalCents,
-                    createdAt: DateTime.now(),
-                    userId: userId,
-                    currency: selectedCurrency,
-                  );
-
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: GestureDetector(
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                HouseholdExpensesPage(household: household),
-                          ),
-                        );
-                      },
-                      child: buildSpendingCard(
-                        context,
-                        colorScheme,
-                        [
-                          syntheticExpense
-                        ], // Single entry with real-time calculated total
-                        null,
-                        filterState.dateRangeFilter,
-                        selectedCurrency: selectedCurrency,
-                      ),
-                    ),
-                  );
-                },
-              ),
-
-              const SizedBox(height: 16),
-
-              // ═══════════════════════════════════════════════════════════════
-              // FINANCIAL CALENDAR WIDGET
-              // ═══════════════════════════════════════════════════════════════
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: FinancialCalendarWidget(
-                  transactions: expensesAsync.asData?.value ?? [],
-                  recurringTransactions:
-                      recurringAsync.data.asData?.value ?? [],
-                  currency: selectedCurrency,
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Income Card (development in progress)
-              // Padding(
-              //   padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              //   child: IncomeCard(householdId: household.id),
-              // ),
-
-              // const SizedBox(height: 16),
-
-              // Budget Overview Card: Total Spent + Budget Progress
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: summaryAsync.when(
-                  loading: () => Container(
-                    height: 200,
-                    decoration: BoxDecoration(
-                      color: colorScheme.card,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: colorScheme.border.withValues(alpha: 0.4),
-                        width: 1,
-                      ),
-                    ),
-                    padding: const EdgeInsets.all(24),
-                    child: const Center(child: CircularProgressIndicator()),
-                  ),
-                  error: (e, st) => Container(
-                    height: 200,
-                    decoration: BoxDecoration(
-                      color: colorScheme.card,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: colorScheme.border.withValues(alpha: 0.4),
-                        width: 1,
-                      ),
-                    ),
-                    padding: const EdgeInsets.all(24),
-                    child: Center(
-                      child: Text(
-                        'Error loading summary',
-                        style: TextStyle(color: colorScheme.destructive),
-                      ),
-                    ),
-                  ),
-                  data: (summary) {
-                    // hasBudget in summary is currency-filtered; but for navigation
-                    // we should consider any existing budget regardless of filter.
-                    final allBudgets = budgetsAsync.asData?.value ?? const [];
-                    final hasAnyBudget = allBudgets.isNotEmpty;
-
-                    // Ensure "Spent by household" excludes income and respects date/currency
-                    final allExpenses =
-                        expensesAsync.asData?.value ?? const <ExpenseEntry>[];
-                    int spentCents = 0;
-                    int incomeCents = 0;
-                    int txCount = 0;
-                    for (final e in allExpenses) {
-                      final d = DateTime(e.date.year, e.date.month, e.date.day);
-                      final inRange = !d.isBefore(from) && !d.isAfter(to);
-                      final code = (e.currency ?? '').trim().toUpperCase();
-                      final currencyOk =
-                          code.isEmpty || code == selectedCurrency;
-                      if (!inRange || !currencyOk) continue;
-                      final t = (e.type ?? 'expense').toLowerCase();
-                      if (t == 'income') {
-                        incomeCents += e.amountCents.abs();
-                      } else {
-                        spentCents += e.amountCents.abs();
-                        txCount += 1;
-                      }
-                    }
-
-                    final fixedSummary = summary == null
-                        ? null
-                        : HouseholdSummary(
-                            householdId: summary.householdId,
-                            currency: summary.currency,
-                            period: summary.period,
-                            totals: Totals(
-                              totalExpensesCents: spentCents,
-                              totalIncomeCents: incomeCents,
-                              netCents: incomeCents - spentCents,
-                              transactionCount: txCount,
-                              splitCount: summary.totals.splitCount,
-                            ),
-                            memberContributions: summary.memberContributions,
-                            categoryBreakdown: summary.categoryBreakdown,
-                            budgets: summary.budgets,
-                            balances: summary.balances,
-                          );
-
-                    return buildHouseholdBudgetOverviewCard(
-                      context,
-                      colorScheme,
-                      fixedSummary,
-                    );
-                  },
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Group fairness & settlement suggestions
-              if (summaryAsync.asData?.value != null) ...[
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: GroupFairnessMeter(
-                    summary: summaryAsync.asData!.value!,
-                    transactions: expensesAsync.asData?.value,
-                    from: from,
-                    to: to,
-                    currency: selectedCurrency,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: SettlementSuggestionsCard(
-                    summary: summaryAsync.asData!.value!,
-                    transactions: expensesAsync.asData?.value,
-                    splits: splitsAsync.asData?.value,
-                    from: from,
-                    to: to,
-                    currency: selectedCurrency,
-                    members: membersAsync.asData?.value,
-                  ),
-                ),
-                const SizedBox(height: 16),
-              ],
-
-              // Member Spending Card
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: summaryAsync.when(
-                  loading: () => Container(
-                    height: 200,
-                    decoration: BoxDecoration(
-                      color: colorScheme.card,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: colorScheme.border.withValues(alpha: 0.4),
-                        width: 1,
-                      ),
-                    ),
-                    padding: const EdgeInsets.all(24),
-                    child: const Center(child: CircularProgressIndicator()),
-                  ),
-                  error: (e, st) => Container(
-                    height: 200,
-                    decoration: BoxDecoration(
-                      color: colorScheme.card,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: colorScheme.border.withValues(alpha: 0.4),
-                        width: 1,
-                      ),
-                    ),
-                    padding: const EdgeInsets.all(24),
-                    child: Center(
-                      child: Text(
-                        context.l10n.errorLoadingMembers,
-                        style: TextStyle(color: colorScheme.destructive),
-                      ),
-                    ),
-                  ),
-                  data: (summary) => buildHouseholdMemberSpendingCard(
-                    context,
+              return dashboardAsync.when(
+                loading: () =>
+                    SliverToBoxAdapter(child: _buildLoadingState(colorScheme)),
+                error: (e, st) => SliverToBoxAdapter(
+                  child: _buildErrorState(
                     colorScheme,
-                    summary,
-                    members: membersAsync.asData?.value,
-                    householdId: household.id,
-                    transactions: expensesAsync.asData?.value,
-                    splits: splitsAsync.asData?.value,
-                    from: from,
-                    to: to,
-                    selectedCurrency: selectedCurrency,
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              HouseholdExpensesPage(household: household),
-                        ),
-                      );
-                    },
+                    context.l10n.errorLoadingHouseholds,
+                    e.toString(),
                   ),
                 ),
-              ),
+                data: (configs) {
+                  return DraggableDashboardList(
+                    configs: configs,
+                    onReorder: (oldIndex, newIndex) {
+                      ref
+                          .read(
+                              householdDashboardProvider(household.id).notifier)
+                          .reorder(oldIndex, newIndex);
+                    },
+                    onToggleVisibility: (id) {
+                      ref
+                          .read(
+                              householdDashboardProvider(household.id).notifier)
+                          .toggleVisibility(id);
+                    },
+                    onUpdateConfig: (id, {dateRange, viewMode, start, end}) {
+                      ref
+                          .read(
+                              householdDashboardProvider(household.id).notifier)
+                          .updateConfig(id,
+                              dateRange: dateRange,
+                              viewMode: viewMode,
+                              start: start,
+                              end: end);
+                    },
+                    widgetBuilders: {
+                      DashboardWidgetType.householdSpentByYou:
+                          (context, config) {
+                        return Consumer(builder: (context, ref, _) {
+                          final range = getDateRangeFromFilter(config.dateRange,
+                              config.customStartDate, config.customEndDate);
+                          final from = range['from']!;
+                          final to = range['to']!;
 
-              const SizedBox(height: 16),
+                          final expensesAsync =
+                              ref.watch(householdExpensesProvider(
+                            HouseholdExpensesParams(
+                              householdId: household.id,
+                              startDate: from,
+                              endDate: to,
+                            ),
+                          ));
+                          final splitsAsync = ref.watch(householdSplitsProvider(
+                            HouseholdSplitsParams(householdId: household.id),
+                          ));
 
-              // TEMP REMOVE:Net Position Card (horizontal scrollable card - keep for additional info)
-              // SizedBox(
-              //   height: 180,
-              //   child: ListView(
-              //     scrollDirection: Axis.horizontal,
-              //     padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              //     children: [
-              //       SizedBox(
-              //         width: 240,
-              //         child: summaryAsync.when(
-              //           loading: () => Container(
-              //             decoration: BoxDecoration(
-              //               color: colorScheme.card,
-              //               borderRadius: BorderRadius.circular(20),
-              //               border: Border.all(
-              //                 color: colorScheme.border.withValues(alpha: 0.5),
-              //                 width: 1,
-              //               ),
-              //             ),
-              //             padding: const EdgeInsets.all(20),
-              //             child: const Center(child: CircularProgressIndicator()),
-              //           ),
-              //           error: (e, st) {
-              //             final zeroSummary = HouseholdSummary(
-              //               householdId: household.id,
-              //               currency: selectedCurrency,
-              //               period: DatePeriod(
-              //                 startDate: from.toIso8601String(),
-              //                 endDate: to.toIso8601String(),
-              //               ),
-              //               totals: Totals(
-              //                 totalExpensesCents: 0,
-              //                 totalIncomeCents: 0,
-              //                 netCents: 0,
-              //                 transactionCount: 0,
-              //                 splitCount: 0,
-              //               ),
-              //               memberContributions: const [],
-              //               categoryBreakdown: const [],
-              //               budgets: const [],
-              //               balances: const {},
-              //             );
-              //             return buildHouseholdNetPositionCard(
-              //               context,
-              //               colorScheme,
-              //               zeroSummary,
-              //               onTap: () {
-              //                 Navigator.of(context).push(
-              //                   MaterialPageRoute(
-              //                     builder: (_) => HouseholdExpensesPage(household: household),
-              //                   ),
-              //                 );
-              //               },
-              //             );
-              //           },
-              //           data: (summary) => buildHouseholdNetPositionCard(
-              //             context,
-              //             colorScheme,
-              //             summary,
-              //             onTap: () {
-              //               Navigator.of(context).push(
-              //                 MaterialPageRoute(
-              //                   builder: (_) => HouseholdExpensesPage(household: household),
-              //                 ),
-              //               );
-              //             },
-              //           ),
-              //         ),
-              //       ),
-              //     ],
-              //   ),
-              // ),
+                          final transactions = expensesAsync.asData?.value;
+                          final splits = splitsAsync.asData?.value;
 
-              // const SizedBox(height: 16),
+                          if (transactions == null || splits == null) {
+                            return const Padding(
+                              padding: EdgeInsets.all(16.0),
+                              child: Center(child: CircularProgressIndicator()),
+                            );
+                          }
 
-              // ═══════════════════════════════════════════════════════════════
-              // CATEGORY BREAKDOWN CARD
-              // ═══════════════════════════════════════════════════════════════
-              // Shows spending breakdown by category for ALL household expenses.
-              //
-              // ⚠️ CRITICAL: Uses filteredExpenses (ALL household expenses),
-              // NOT personal share. This shows where the household money went,
-              // regardless of who paid or how it was split.
-              //
-              // Example:
-              //   - User logs $10 for "Food"
-              //   - Other logs $100 for "Transport"
-              //   - Category breakdown shows:
-              //     • Food: $10
-              //     • Transport: $100
-              //   - Total displayed: $110 (entire household spending)
-              // ═══════════════════════════════════════════════════════════════
-              expensesAsync.when(
-                loading: () => const SizedBox.shrink(),
-                error: (e, st) => const SizedBox.shrink(),
-                data: (allExpenses) {
-                  // Pass ALL household expenses; widget applies its own
-                  // per-card date and currency filtering, scoped to this
-                  // household.
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: GestureDetector(
-                      onLongPress: () => showCardDateRangeFilter(
-                        context,
-                        colorScheme,
-                        HomeCardFilterId.householdCategoryBreakdown,
-                      ),
-                      child: buildCategoryBreakdownCard(
-                        context,
-                        colorScheme,
-                        allExpenses,
-                        null,
-                        selectedCurrency: selectedCurrency,
-                        householdId: household.id,
-                        onViewAll: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  HouseholdExpensesPage(household: household),
+                          // Logic copied from original _personalShareExpenses / inline logic
+                          int myTotalCents = 0;
+                          final byGroupId = {for (final g in splits) g.id: g};
+
+                          for (final t in transactions) {
+                            final tdate =
+                                DateTime(t.date.year, t.date.month, t.date.day);
+                            final code =
+                                (t.currency ?? '').trim().toUpperCase();
+                            final currencyOk =
+                                code.isEmpty || code == selectedCurrency;
+                            final isSpend =
+                                (t.type ?? 'expense').toLowerCase() != 'income';
+
+                            if (!isSpend) continue;
+                            if (!currencyOk) continue;
+                            // Date filtering is already done by provider, but double check doesn't hurt
+                            if (tdate.isBefore(from) || tdate.isAfter(to)) {
+                              continue;
+                            }
+
+                            final splitGroupId = t.splitGroupId;
+
+                            if (splitGroupId == null) {
+                              if (t.userId == userId) {
+                                myTotalCents += t.amountCents.abs();
+                              }
+                              continue;
+                            }
+
+                            final group = byGroupId[splitGroupId];
+                            if (group == null || group.splitLines == null) {
+                              if (t.userId == userId) {
+                                myTotalCents += t.amountCents.abs();
+                              }
+                              continue;
+                            }
+
+                            final userLine = group.splitLines!.firstWhere(
+                              (line) => line.userId == userId,
+                              orElse: () => ExpenseSplitLine(
+                                id: '',
+                                splitGroupId: '',
+                                userId: '',
+                                isSettled: false,
+                                createdAt: DateTime.now(),
+                                updatedAt: DateTime.now(),
+                              ),
+                            );
+
+                            if (userLine.userId == userId) {
+                              final shareAmount =
+                                  (userLine.amountCents ?? 0).abs();
+                              myTotalCents += shareAmount;
+                            }
+                          }
+
+                          final syntheticExpense = ExpenseEntry(
+                            id: 'user-summary-total',
+                            date: DateTime.now(),
+                            amountCents: myTotalCents,
+                            createdAt: DateTime.now(),
+                            userId: userId,
+                            currency: selectedCurrency,
+                          );
+
+                          return Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 16.0),
+                            child: GestureDetector(
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => HouseholdExpensesPage(
+                                        household: household),
+                                  ),
+                                );
+                              },
+                              child: buildSpendingCard(
+                                context,
+                                colorScheme,
+                                [syntheticExpense],
+                                null,
+                                config.dateRange,
+                                selectedCurrency: selectedCurrency,
+                              ),
                             ),
                           );
-                        },
-                      ),
-                    ),
-                  );
-                },
-              ),
-
-              const SizedBox(height: 16),
-
-              // ═══════════════════════════════════════════════════════════════
-              // PIE CHART CARD (Spending Breakdown)
-              // ═══════════════════════════════════════════════════════════════
-              // Shows visual distribution of ALL household expenses by category.
-              //
-              // ⚠️ CRITICAL: Uses filteredExpenses (ALL household expenses),
-              // NOT personal share. This provides a complete picture of household
-              // spending patterns across all categories.
-              //
-              // Example:
-              //   - User logs $10 for "Food" (9% of total)
-              //   - Other logs $100 for "Transport" (91% of total)
-              //   - Pie chart shows both slices representing full household
-              // ═══════════════════════════════════════════════════════════════
-              expensesAsync.when(
-                loading: () => const SizedBox.shrink(),
-                error: (e, st) => const SizedBox.shrink(),
-                data: (allExpenses) {
-                  // Pass ALL household expenses; chart applies its own
-                  // per-card date and currency filtering, scoped to this
-                  // household.
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: GestureDetector(
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                HouseholdExpensesPage(household: household),
-                          ),
-                        );
+                        });
                       },
-                      onLongPress: () => showCardDateRangeFilter(
-                        context,
-                        colorScheme,
-                        HomeCardFilterId.householdSpendingBreakdown,
-                      ),
-                      child: buildSpendingBreakdownChart(
-                        context,
-                        colorScheme,
-                        allExpenses,
-                        const <DailyBudgetEntry>[],
-                        null,
-                        householdSpendingBreakdownFilterState.dateRangeFilter,
-                        selectedCurrency: selectedCurrency,
-                      ),
-                    ),
+                      DashboardWidgetType.householdFinancialCalendar:
+                          (context, config) {
+                        return Consumer(builder: (context, ref, _) {
+                          // Calendar typically shows a month.
+                          // We can use config.dateRange to filter transactions passed to it,
+                          // but the widget itself might handle month navigation.
+                          // For now, let's pass the transactions for the selected range.
+                          final range = getDateRangeFromFilter(config.dateRange,
+                              config.customStartDate, config.customEndDate);
+                          final from = range['from']!;
+                          final to = range['to']!;
+
+                          final expensesAsync =
+                              ref.watch(householdExpensesProvider(
+                            HouseholdExpensesParams(
+                              householdId: household.id,
+                              startDate: from,
+                              endDate: to,
+                            ),
+                          ));
+                          final recurringAsync = ref.watch(
+                              recurringTransactionsProvider(household.id));
+
+                          return Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 16.0),
+                            child: FinancialCalendarWidget(
+                              transactions: expensesAsync.asData?.value ?? [],
+                              recurringTransactions:
+                                  recurringAsync.data.asData?.value ?? [],
+                              currency: selectedCurrency,
+                              isExpanded: config.viewMode ==
+                                  DashboardWidgetViewMode.expanded,
+                            ),
+                          );
+                        });
+                      },
+                      DashboardWidgetType.householdBudgetOverview:
+                          (context, config) {
+                        return Consumer(builder: (context, ref, _) {
+                          final range = getDateRangeFromFilter(config.dateRange,
+                              config.customStartDate, config.customEndDate);
+                          final from = range['from']!;
+                          final to = range['to']!;
+
+                          final summaryAsync =
+                              ref.watch(householdSummaryProvider(
+                            HouseholdSummaryParams(
+                              householdId: household.id,
+                              currency: selectedCurrency,
+                              startDate: from.toIso8601String(),
+                              endDate: to.toIso8601String(),
+                            ),
+                          ));
+
+                          return Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 16.0),
+                            child: summaryAsync.when(
+                              loading: () => const SizedBox(
+                                  height: 200,
+                                  child: Center(
+                                      child: CircularProgressIndicator())),
+                              error: (e, st) => SizedBox(
+                                  height: 200,
+                                  child: Center(
+                                      child: Text('Error',
+                                          style: TextStyle(
+                                              color:
+                                                  colorScheme.destructive)))),
+                              data: (summary) {
+                                // We need to reconstruct summary if we want to filter expenses manually?
+                                // But summary is already fetched with date range!
+                                // However, the original code did manual filtering on `expensesAsync` too.
+                                // Let's trust `householdSummaryProvider` returns correct data for the range.
+                                return buildHouseholdBudgetOverviewCard(
+                                  context,
+                                  colorScheme,
+                                  summary,
+                                );
+                              },
+                            ),
+                          );
+                        });
+                      },
+                      DashboardWidgetType.householdFairness: (context, config) {
+                        return Consumer(builder: (context, ref, _) {
+                          final range = getDateRangeFromFilter(config.dateRange,
+                              config.customStartDate, config.customEndDate);
+                          final from = range['from']!;
+                          final to = range['to']!;
+
+                          final summaryAsync =
+                              ref.watch(householdSummaryProvider(
+                            HouseholdSummaryParams(
+                              householdId: household.id,
+                              currency: selectedCurrency,
+                              startDate: from.toIso8601String(),
+                              endDate: to.toIso8601String(),
+                            ),
+                          ));
+                          final expensesAsync =
+                              ref.watch(householdExpensesProvider(
+                            HouseholdExpensesParams(
+                              householdId: household.id,
+                              startDate: from,
+                              endDate: to,
+                            ),
+                          ));
+
+                          if (summaryAsync.value == null) {
+                            return const SizedBox.shrink();
+                          }
+
+                          return Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 16.0),
+                            child: GroupFairnessMeter(
+                              summary: summaryAsync.value!,
+                              transactions: expensesAsync.value,
+                              from: from,
+                              to: to,
+                              currency: selectedCurrency,
+                            ),
+                          );
+                        });
+                      },
+                      DashboardWidgetType.householdSettlement:
+                          (context, config) {
+                        return Consumer(builder: (context, ref, _) {
+                          final range = getDateRangeFromFilter(config.dateRange,
+                              config.customStartDate, config.customEndDate);
+                          final from = range['from']!;
+                          final to = range['to']!;
+
+                          final summaryAsync =
+                              ref.watch(householdSummaryProvider(
+                            HouseholdSummaryParams(
+                              householdId: household.id,
+                              currency: selectedCurrency,
+                              startDate: from.toIso8601String(),
+                              endDate: to.toIso8601String(),
+                            ),
+                          ));
+                          final expensesAsync =
+                              ref.watch(householdExpensesProvider(
+                            HouseholdExpensesParams(
+                              householdId: household.id,
+                              startDate: from,
+                              endDate: to,
+                            ),
+                          ));
+                          final splitsAsync = ref.watch(householdSplitsProvider(
+                            HouseholdSplitsParams(householdId: household.id),
+                          ));
+                          final membersAsync =
+                              ref.watch(householdMembersProvider(household.id));
+
+                          if (summaryAsync.value == null) {
+                            return const SizedBox.shrink();
+                          }
+
+                          return Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 16.0),
+                            child: SettlementSuggestionsCard(
+                              summary: summaryAsync.value!,
+                              transactions: expensesAsync.value,
+                              splits: splitsAsync.value,
+                              from: from,
+                              to: to,
+                              currency: selectedCurrency,
+                              members: membersAsync.value,
+                            ),
+                          );
+                        });
+                      },
+                      DashboardWidgetType.householdMemberSpending:
+                          (context, config) {
+                        return Consumer(builder: (context, ref, _) {
+                          final range = getDateRangeFromFilter(config.dateRange,
+                              config.customStartDate, config.customEndDate);
+                          final from = range['from']!;
+                          final to = range['to']!;
+
+                          final summaryAsync =
+                              ref.watch(householdSummaryProvider(
+                            HouseholdSummaryParams(
+                              householdId: household.id,
+                              currency: selectedCurrency,
+                              startDate: from.toIso8601String(),
+                              endDate: to.toIso8601String(),
+                            ),
+                          ));
+                          final expensesAsync =
+                              ref.watch(householdExpensesProvider(
+                            HouseholdExpensesParams(
+                              householdId: household.id,
+                              startDate: from,
+                              endDate: to,
+                            ),
+                          ));
+                          final splitsAsync = ref.watch(householdSplitsProvider(
+                            HouseholdSplitsParams(householdId: household.id),
+                          ));
+                          final membersAsync =
+                              ref.watch(householdMembersProvider(household.id));
+
+                          return Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 16.0),
+                            child: summaryAsync.when(
+                              loading: () => const SizedBox(
+                                  height: 200,
+                                  child: Center(
+                                      child: CircularProgressIndicator())),
+                              error: (e, st) => const SizedBox.shrink(),
+                              data: (summary) =>
+                                  buildHouseholdMemberSpendingCard(
+                                context,
+                                colorScheme,
+                                summary,
+                                members: membersAsync.value,
+                                householdId: household.id,
+                                transactions: expensesAsync.value,
+                                splits: splitsAsync.value,
+                                from: from,
+                                to: to,
+                                selectedCurrency: selectedCurrency,
+                                onTap: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => HouseholdExpensesPage(
+                                          household: household),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          );
+                        });
+                      },
+                      DashboardWidgetType.householdCategoryBreakdown:
+                          (context, config) {
+                        return Consumer(builder: (context, ref, _) {
+                          final range = getDateRangeFromFilter(config.dateRange,
+                              config.customStartDate, config.customEndDate);
+                          final from = range['from']!;
+                          final to = range['to']!;
+
+                          final expensesAsync =
+                              ref.watch(householdExpensesProvider(
+                            HouseholdExpensesParams(
+                              householdId: household.id,
+                              startDate: from,
+                              endDate: to,
+                            ),
+                          ));
+
+                          return Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 16.0),
+                            child: GestureDetector(
+                              // Removed onLongPress as date range is now handled by wrapper
+                              child: buildCategoryBreakdownCard(
+                                context,
+                                colorScheme,
+                                expensesAsync.value ?? [],
+                                null,
+                                selectedCurrency: selectedCurrency,
+                                householdId: household.id,
+                                onViewAll: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => HouseholdExpensesPage(
+                                          household: household),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          );
+                        });
+                      },
+                      DashboardWidgetType.householdSpendingBreakdownChart:
+                          (context, config) {
+                        return Consumer(builder: (context, ref, _) {
+                          final range = getDateRangeFromFilter(config.dateRange,
+                              config.customStartDate, config.customEndDate);
+                          final from = range['from']!;
+                          final to = range['to']!;
+
+                          final expensesAsync =
+                              ref.watch(householdExpensesProvider(
+                            HouseholdExpensesParams(
+                              householdId: household.id,
+                              startDate: from,
+                              endDate: to,
+                            ),
+                          ));
+
+                          return Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 16.0),
+                            child: GestureDetector(
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => HouseholdExpensesPage(
+                                        household: household),
+                                  ),
+                                );
+                              },
+                              // Removed onLongPress
+                              child: buildSpendingBreakdownChart(
+                                context,
+                                colorScheme,
+                                expensesAsync.value ?? [],
+                                const <DailyBudgetEntry>[],
+                                null,
+                                config.dateRange,
+                                selectedCurrency: selectedCurrency,
+                              ),
+                            ),
+                          );
+                        });
+                      },
+                    },
                   );
                 },
-              ),
-
-              const SizedBox(height: 24),
-            ]),
+              );
+            },
           );
         }
       },

@@ -10,6 +10,7 @@ class FinancialCalendarWidget extends StatefulWidget {
   final List<RecurringTransaction> recurringTransactions;
   final String currency;
   final DateTime? initialMonth;
+  final bool isExpanded;
 
   const FinancialCalendarWidget({
     super.key,
@@ -17,6 +18,7 @@ class FinancialCalendarWidget extends StatefulWidget {
     required this.recurringTransactions,
     required this.currency,
     this.initialMonth,
+    this.isExpanded = false,
   });
 
   @override
@@ -76,13 +78,6 @@ class _FinancialCalendarWidgetState extends State<FinancialCalendarWidget> {
     }
 
     // 2. Recurring Transactions (Projected)
-    // Only include if date is today or in the future
-    // Or should we include them for past dates if no actual transaction exists?
-    // User said "calculates and includes".
-    // To avoid double counting, we'll only add recurring if it's in the future relative to now.
-    // However, for a "calendar view" of the month, seeing what was *supposed* to happen vs what happened is complex.
-    // Simple approach: If date >= today, add recurring.
-
     final isFutureOrToday =
         !date.isBefore(DateTime(_today.year, _today.month, _today.day));
 
@@ -91,27 +86,12 @@ class _FinancialCalendarWidgetState extends State<FinancialCalendarWidget> {
         if (!r.isActive) continue;
         if (r.currency.toUpperCase() != widget.currency) continue;
 
-        // Check if this recurring transaction occurs on 'date'
-        // We use getNextOccurrence from the start of the day
-        // If the next occurrence IS this day, then it matches.
-
-        // We need to be careful. getNextOccurrence(date) returns the next one >= date.
-        // So if we ask for getNextOccurrence(date) and it returns date, it's a match.
-        // But we must ensure we don't match if the *actual* start date of the recurring rule is after 'date'.
-
-        // Also, getNextOccurrence logic in the model might be tricky.
-        // Let's rely on the model's logic.
-
         final next = r.getNextOccurrence(date);
         final isMatch = next.year == date.year &&
             next.month == date.month &&
             next.day == date.day;
 
         if (isMatch) {
-          // Check if this specific occurrence is already covered by an actual transaction?
-          // That's hard to know without linking.
-          // For now, we add it.
-
           final amount = r.amount;
           if (r.type.toLowerCase() == 'income') {
             totalIncome += amount;
@@ -124,8 +104,6 @@ class _FinancialCalendarWidgetState extends State<FinancialCalendarWidget> {
 
     return {'expense': totalExpense, 'income': totalIncome};
   }
-
-  bool _isExpanded = false;
 
   @override
   Widget build(BuildContext context) {
@@ -156,7 +134,7 @@ class _FinancialCalendarWidgetState extends State<FinancialCalendarWidget> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              if (_isExpanded) ...[
+              if (widget.isExpanded) ...[
                 IconButton(
                   onPressed: _previousMonth,
                   icon: Icon(Icons.chevron_left, color: colorScheme.foreground),
@@ -182,40 +160,13 @@ class _FinancialCalendarWidgetState extends State<FinancialCalendarWidget> {
                   constraints: const BoxConstraints(),
                   visualDensity: VisualDensity.compact,
                 ),
-              ] else ...[
-                Padding(
-                  padding: const EdgeInsets.only(left: 4.0),
-                  child: Text(
-                    'Last 7 Days',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: colorScheme.foreground,
-                    ),
-                  ),
-                ),
+              ] else
                 const Spacer(),
-              ],
-              if (_isExpanded) const Spacer(),
-              IconButton(
-                onPressed: () {
-                  setState(() {
-                    _isExpanded = !_isExpanded;
-                  });
-                },
-                icon: Icon(
-                  _isExpanded ? Icons.expand_less : Icons.expand_more,
-                  color: colorScheme.mutedForeground,
-                ),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                visualDensity: VisualDensity.compact,
-              ),
             ],
           ),
-          const SizedBox(height: 8),
+          if (widget.isExpanded) const SizedBox(height: 8),
 
-          if (_isExpanded)
+          if (widget.isExpanded)
             _buildExpandedView(colorScheme)
           else
             _buildCollapsedView(colorScheme),
@@ -362,7 +313,7 @@ class _FinancialCalendarWidgetState extends State<FinancialCalendarWidget> {
                 alignment: Alignment.centerLeft,
                 child: Text(
                   '+${NumberFormat.compact().format(totals['income'])}',
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 9,
                     fontWeight: FontWeight.w600,
                     color: AppTheme.success,
@@ -375,7 +326,7 @@ class _FinancialCalendarWidgetState extends State<FinancialCalendarWidget> {
                 alignment: Alignment.centerLeft,
                 child: Text(
                   '-${NumberFormat.compact().format(totals['expense'])}',
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 9,
                     fontWeight: FontWeight.w600,
                     color: AppTheme.danger,

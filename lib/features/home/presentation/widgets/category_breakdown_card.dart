@@ -30,125 +30,127 @@ Widget buildCategoryBreakdownCard(
     ..sort((a, b) => b.date.compareTo(a.date));
   final latest = recent.take(5).toList();
 
-  return Container(
-    decoration: BoxDecoration(
-      color: colorScheme.cardSurface,
-      borderRadius: BorderRadius.circular(24),
-      border: Border.all(
-        color: colorScheme.outline.withValues(alpha: 0.05),
-        width: 1,
-      ),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
-          blurRadius: 32,
-          offset: const Offset(0, 8),
-          spreadRadius: -4,
+  return Material(
+    child: Container(
+      decoration: BoxDecoration(
+        color: colorScheme.cardSurface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: colorScheme.outline.withValues(alpha: 0.05),
+          width: 1,
         ),
-      ],
-    ),
-    padding: const EdgeInsets.all(24.0),
-    child: Consumer(
-      builder: (context, ref, _) {
-        if (latest.isEmpty) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 24.0),
-              child: Text(
-                context.l10n.noTransactionsFound,
-                style: TextStyle(color: colorScheme.mutedForeground),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
+            blurRadius: 32,
+            offset: const Offset(0, 8),
+            spreadRadius: -4,
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(24.0),
+      child: Consumer(
+        builder: (context, ref, _) {
+          if (latest.isEmpty) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24.0),
+                child: Text(
+                  context.l10n.noTransactionsFound,
+                  style: TextStyle(color: colorScheme.mutedForeground),
+                ),
               ),
-            ),
-          );
-        }
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              context.l10n.recentTransactions.toUpperCase(),
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 1.0,
-                color: colorScheme.mutedForeground,
+            );
+          }
+    
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                context.l10n.recentTransactions.toUpperCase(),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.0,
+                  color: colorScheme.mutedForeground,
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            ...latest.map((e) {
-              final isIncome = (e.type ?? 'expense').toLowerCase() == 'income';
-              return Slidable(
-                key: ValueKey(e.id),
-                endActionPane: ActionPane(
-                  motion: const ScrollMotion(),
-                  extentRatio: 0.22,
-                  children: [
-                    SlidableAction(
-                      onPressed: (_) async {
-                        final l10n = context.l10n;
-                        final uid =
-                            Supabase.instance.client.auth.currentUser?.id;
-                        if (uid == null) return;
-                        try {
-                          final res = await Supabase.instance.client.functions
-                              .invoke('delete-expense', body: {
-                            'userId': uid,
-                            'expenseId': e.id,
-                          });
-
-                          if (!context.mounted) return;
-
-                          if (res.data != null &&
-                              (res.data['success'] == true)) {
-                            if (householdId == null) {
-                              ref.read(analyticsProvider.notifier).refresh(uid);
+              const SizedBox(height: 16),
+              ...latest.map((e) {
+                final isIncome = (e.type ?? 'expense').toLowerCase() == 'income';
+                return Slidable(
+                  key: ValueKey(e.id),
+                  endActionPane: ActionPane(
+                    motion: const ScrollMotion(),
+                    extentRatio: 0.22,
+                    children: [
+                      SlidableAction(
+                        onPressed: (_) async {
+                          final l10n = context.l10n;
+                          final uid =
+                              Supabase.instance.client.auth.currentUser?.id;
+                          if (uid == null) return;
+                          try {
+                            final res = await Supabase.instance.client.functions
+                                .invoke('delete-expense', body: {
+                              'userId': uid,
+                              'expenseId': e.id,
+                            });
+    
+                            if (!context.mounted) return;
+    
+                            if (res.data != null &&
+                                (res.data['success'] == true)) {
+                              if (householdId == null) {
+                                ref.read(analyticsProvider.notifier).refresh(uid);
+                              } else {
+                                ref.invalidate(householdExpensesProvider);
+                                ref.invalidate(householdSplitsProvider);
+                                ref.invalidate(householdSummaryProvider);
+                              }
+                              AppToast.success(context, l10n.transactionDeleted);
                             } else {
-                              ref.invalidate(householdExpensesProvider);
-                              ref.invalidate(householdSplitsProvider);
-                              ref.invalidate(householdSummaryProvider);
+                              AppToast.error(context, l10n.anErrorOccurred);
                             }
-                            AppToast.success(context, l10n.transactionDeleted);
-                          } else {
-                            AppToast.error(context, l10n.anErrorOccurred);
+                          } catch (err) {
+                            if (context.mounted) {
+                              AppToast.error(context, '${l10n.error}: $err');
+                            }
                           }
-                        } catch (err) {
-                          if (context.mounted) {
-                            AppToast.error(context, '${l10n.error}: $err');
-                          }
-                        }
-                      },
-                      backgroundColor: const Color(0xFFFE4A49),
-                      foregroundColor: Colors.white,
-                      icon: Icons.delete,
-                      label: context.l10n.delete,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ],
+                        },
+                        backgroundColor: const Color(0xFFFE4A49),
+                        foregroundColor: Colors.white,
+                        icon: Icons.delete,
+                        label: context.l10n.delete,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ],
+                  ),
+                  child: TransactionListTile(
+                    onTap: () => showUnifiedTransactionSheet(context,
+                        existingExpense: e, contact: contact),
+                    category: e.category ?? 'other',
+                    title: getCategoryTranslation(context, e.category ?? 'other'),
+                    description: e.rawText,
+                    date: e.date,
+                    amount: e.amount,
+                    currency: selectedCurrency ?? 'USD',
+                    isIncome: isIncome,
+                  ),
+                );
+              }),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.center,
+                child: TextButton(
+                  onPressed: onViewAll,
+                  child: Text(context.l10n.viewAll),
                 ),
-                child: TransactionListTile(
-                  onTap: () => showUnifiedTransactionSheet(context,
-                      existingExpense: e, contact: contact),
-                  category: e.category ?? 'other',
-                  title: getCategoryTranslation(context, e.category ?? 'other'),
-                  description: e.rawText,
-                  date: e.date,
-                  amount: e.amount,
-                  currency: selectedCurrency ?? 'USD',
-                  isIncome: isIncome,
-                ),
-              );
-            }),
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.center,
-              child: TextButton(
-                onPressed: onViewAll,
-                child: Text(context.l10n.viewAll),
               ),
-            ),
-          ],
-        );
-      },
+            ],
+          );
+        },
+      ),
     ),
   );
 }

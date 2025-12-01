@@ -10,9 +10,13 @@ String getChartIntervalTypeFromFilter(DateRangeFilter filter) {
       return 'hourly'; // Show hourly intervals for single day views
     case DateRangeFilter.thisWeek:
     case DateRangeFilter.lastWeek:
+    case DateRangeFilter.last7Days:
     case DateRangeFilter.last30Days:
     case DateRangeFilter.thisMonth:
+    case DateRangeFilter.lastMonth:
       return 'daily'; // Show daily intervals for week/month views
+    case DateRangeFilter.thisYear:
+      return 'monthly'; // Show monthly intervals for year view
     case DateRangeFilter.allTime:
       return 'yearly'; // Show yearly intervals for all-time view
     case DateRangeFilter.custom:
@@ -52,7 +56,9 @@ Map<DateTime, double> groupExpensesByInterval(
   String intervalType,
 ) {
   // Exclude income entries; this util is used for spending charts
-  final spendOnly = expenses.where((e) => (e.type ?? 'expense').toLowerCase() != 'income').toList();
+  final spendOnly = expenses
+      .where((e) => (e.type ?? 'expense').toLowerCase() != 'income')
+      .toList();
   if (spendOnly.isEmpty) return {};
 
   switch (intervalType) {
@@ -72,12 +78,12 @@ Map<DateTime, double> groupExpensesByInterval(
 /// Groups expenses into 6 4-hour blocks for a single day
 Map<DateTime, double> _groupByHourRanges(List<ExpenseEntry> expenses) {
   final Map<DateTime, double> buckets = {};
-  
+
   // Get the date from the first expense
   if (expenses.isEmpty) return buckets;
   final baseDate = expenses.first.date;
   final today = DateTime(baseDate.year, baseDate.month, baseDate.day);
-  
+
   // Create 6 4-hour buckets
   final hourRanges = [
     HourRange(0, 4, '0-4'),
@@ -99,7 +105,8 @@ Map<DateTime, double> _groupByHourRanges(List<ExpenseEntry> expenses) {
     final hour = expense.date.hour;
     for (var range in hourRanges) {
       if (hour >= range.startHour && hour < range.endHour) {
-        final key = DateTime(today.year, today.month, today.day, range.startHour);
+        final key =
+            DateTime(today.year, today.month, today.day, range.startHour);
         buckets[key] = (buckets[key] ?? 0) + expense.amount.abs();
         break;
       }
@@ -112,54 +119,61 @@ Map<DateTime, double> _groupByHourRanges(List<ExpenseEntry> expenses) {
 /// Groups expenses into exactly 7 days going backwards from today
 Map<DateTime, double> _groupBySevenDays(List<ExpenseEntry> expenses) {
   if (expenses.isEmpty) return {};
-  
+
   final Map<DateTime, double> buckets = {};
-  
+
   // Anchor the last bucket to "today" (local, date only)
-  final sortedExpenses = expenses.toList()..sort((a, b) => a.date.compareTo(b.date));
-  final oldestDate = DateTime(sortedExpenses.first.date.year, sortedExpenses.first.date.month, sortedExpenses.first.date.day);
-  final newestDate = DateTime(sortedExpenses.last.date.year, sortedExpenses.last.date.month, sortedExpenses.last.date.day);
+  final sortedExpenses = expenses.toList()
+    ..sort((a, b) => a.date.compareTo(b.date));
+  final oldestDate = DateTime(sortedExpenses.first.date.year,
+      sortedExpenses.first.date.month, sortedExpenses.first.date.day);
+  final newestDate = DateTime(sortedExpenses.last.date.year,
+      sortedExpenses.last.date.month, sortedExpenses.last.date.day);
   final today = DateTime.now();
   final todayOnly = DateTime(today.year, today.month, today.day);
-  
+
   // If newest expense is in the future (unlikely), clamp to that day, otherwise to today
   final endDate = newestDate.isAfter(todayOnly) ? newestDate : todayOnly;
-  
+
   // Calculate day span
   final daySpan = endDate.difference(oldestDate).inDays + 1;
-  
+
   // Create 7 evenly distributed buckets going backwards from endDate
   final bucketSize = (daySpan / 7).ceil().clamp(1, 999);
-  
+
   for (int i = 6; i >= 0; i--) {
     final bucketStart = endDate.subtract(Duration(days: i * bucketSize));
-    final normalizedDate = DateTime(bucketStart.year, bucketStart.month, bucketStart.day);
+    final normalizedDate =
+        DateTime(bucketStart.year, bucketStart.month, bucketStart.day);
     buckets[normalizedDate] = 0.0;
   }
 
   // Fill buckets with expense data
   for (final expense in expenses) {
-    final expenseDate = DateTime(expense.date.year, expense.date.month, expense.date.day);
-    
+    final expenseDate =
+        DateTime(expense.date.year, expense.date.month, expense.date.day);
+
     // Find which bucket this expense belongs to
     DateTime? targetBucket;
     final sortedBuckets = buckets.keys.toList()..sort();
-    
+
     for (int i = 0; i < sortedBuckets.length; i++) {
       final bucketDate = sortedBuckets[i];
-      final bucketEnd = i < sortedBuckets.length - 1 
+      final bucketEnd = i < sortedBuckets.length - 1
           ? sortedBuckets[i + 1]
           : bucketDate.add(Duration(days: bucketSize));
-      
-      if ((expenseDate.isAtSameMomentAs(bucketDate) || expenseDate.isAfter(bucketDate)) && 
+
+      if ((expenseDate.isAtSameMomentAs(bucketDate) ||
+              expenseDate.isAfter(bucketDate)) &&
           expenseDate.isBefore(bucketEnd)) {
         targetBucket = bucketDate;
         break;
       }
     }
-    
+
     if (targetBucket != null) {
-      buckets[targetBucket] = (buckets[targetBucket] ?? 0) + expense.amount.abs();
+      buckets[targetBucket] =
+          (buckets[targetBucket] ?? 0) + expense.amount.abs();
     }
   }
 
@@ -173,7 +187,8 @@ Map<DateTime, double> _groupByMonthPairs(List<ExpenseEntry> expenses) {
 
   // Anchor the last bucket to the current month pair that includes "today"
   final now = DateTime.now();
-  int pairStartMonth = (now.month % 2 == 0) ? now.month - 1 : now.month; // 1,3,5,7,9,11
+  int pairStartMonth =
+      (now.month % 2 == 0) ? now.month - 1 : now.month; // 1,3,5,7,9,11
   int year = now.year;
 
   // Build 6 pairs going back in time
@@ -242,7 +257,8 @@ String formatDateForInterval(DateTime date, String intervalType) {
     case 'monthly':
       // Format as month pair (e.g., "Jan-Feb")
       final firstMonth = DateFormat('MMM').format(date);
-      final secondMonth = DateFormat('MMM').format(DateTime(date.year, date.month + 1));
+      final secondMonth =
+          DateFormat('MMM').format(DateTime(date.year, date.month + 1));
       return '$firstMonth-$secondMonth';
     case 'yearly':
       return date.year.toString();
@@ -272,11 +288,11 @@ BarChartPeriodData groupExpensesForBarChart(
 ) {
   // Use the same grouping function as line chart
   final periodTotalsMap = groupExpensesByInterval(expenses, intervalType);
-  
+
   // Convert to bar chart format with string labels
   final Map<String, double> periodTotals = {};
   final Map<String, DateTime> periodDates = {};
-  
+
   for (final entry in periodTotalsMap.entries) {
     final date = entry.key;
     final label = formatDateForInterval(date, intervalType);

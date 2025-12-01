@@ -109,10 +109,16 @@ String _budgetTitleForFilter(BuildContext context, DateRangeFilter filter) {
       return l10n.sumOfDailyBudgetsThisWeek;
     case DateRangeFilter.lastWeek:
       return l10n.sumOfDailyBudgetsLastWeek;
+    case DateRangeFilter.last7Days:
+      return l10n.sumOfDailyBudgetsForSelectedRange;
     case DateRangeFilter.thisMonth:
       return l10n.sumOfDailyBudgetsThisMonth;
+    case DateRangeFilter.lastMonth:
+      return l10n.sumOfDailyBudgetsForSelectedRange;
     case DateRangeFilter.last30Days:
       return l10n.sumOfDailyBudgetsLast30Days;
+    case DateRangeFilter.thisYear:
+      return l10n.sumOfDailyBudgetsForSelectedRange;
     case DateRangeFilter.allTime:
       // Use generic label to avoid introducing new l10n keys per locale
       return l10n.sumOfDailyBudgetsForSelectedRange;

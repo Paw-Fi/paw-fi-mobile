@@ -7,12 +7,11 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
-import 'package:moneko/features/home/presentation/widgets/date_range_filter_modal.dart';
-import 'package:moneko/features/home/presentation/models/models.dart';
+
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:moneko/features/utils/currency.dart';
+
 import 'package:moneko/features/households/presentation/widgets/household_home_content.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
@@ -27,6 +26,9 @@ import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/features/households/presentation/widgets/financial_calendar_widget.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
+import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_config.dart';
+import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_state.dart';
+import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_widgets.dart';
 
 // ============================================================================
 // HOME PAGE
@@ -154,7 +156,8 @@ class _HomePageState extends ConsumerState<HomePage> {
       }
     } catch (e) {
       if (mounted) {
-        _showToast('${context.l10n.failedToCapturePhoto}: ${e.toString()}');
+        AppToast.error(
+            context, '${context.l10n.failedToCapturePhoto}: ${e.toString()}');
       }
     }
   }
@@ -191,12 +194,12 @@ class _HomePageState extends ConsumerState<HomePage> {
       // Determine currency based on view mode.
       // Backend will use this as a fallback if no currency is detected in the text/image.
       // If this is also missing, backend defaults to USD.
-      final filterState = ref.read(homeFilterProvider);
       if (viewMode.mode == ViewMode.household &&
           selectedHouseholdState.household?.currency != null) {
         body['currency'] =
             selectedHouseholdState.household!.currency.toUpperCase();
       } else {
+        final filterState = ref.read(homeFilterProvider);
         final selectedCurrency = filterState.selectedCurrency;
         if (selectedCurrency != null && selectedCurrency.isNotEmpty) {
           body['currency'] = selectedCurrency.toUpperCase();
@@ -314,7 +317,7 @@ class _HomePageState extends ConsumerState<HomePage> {
               );
             } else if (incomes.isNotEmpty && expenses.isNotEmpty) {
               // We don't auto-merge mixed types. Ask user to submit separately.
-              _showToast(
+              AppToast.info(context,
                   '${context.l10n.failedToAnalyzeNoData} (mixed income and expense detected; please submit separately)');
             } else if (incomes.isNotEmpty) {
               // Multiple income items - combine into a single summarized income
@@ -324,14 +327,14 @@ class _HomePageState extends ConsumerState<HomePage> {
               _showMultiExpenseConfirmation(expenses, imagePath);
             }
           } else {
-            _showToast(context.l10n.noExpenseInformationExtracted);
+            AppToast.info(context, context.l10n.noExpenseInformationExtracted);
           }
         } else {
-          _showToast(context.l10n.failedToAnalyzeNoData);
+          AppToast.info(context, context.l10n.failedToAnalyzeNoData);
         }
       } else {
         final error = response.data?['error'] ?? context.l10n.failedToAnalyze;
-        _showToast('${context.l10n.failedToAnalyze}: $error');
+        AppToast.error(context, '${context.l10n.failedToAnalyze}: $error');
       }
     } catch (e) {
       debugPrint('=== ERROR IN ANALYSIS: $e ===');
@@ -452,243 +455,6 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  Future<void> _showBudgetUpdateSheet() async {
-    final analytics = ref.read(analyticsProvider);
-    final contact = analytics.contact;
-    final user = ref.read(authProvider);
-    final filterState = ref.read(homeFilterProvider);
-
-    final colorScheme = Theme.of(context).colorScheme;
-
-    // Determine the currency for the budget update
-    final selectedCurrency =
-        filterState.selectedCurrency ?? contact?.preferredCurrency;
-    final currencySymbol = resolveCurrencySymbol(selectedCurrency);
-
-    // Get initial amount for the selected currency
-    final initialAmount = selectedCurrency != null
-        ? _totalBudgetAmountForCurrency(analytics.budgets, selectedCurrency)
-        : _totalBudgetAmount(analytics.budgets);
-    String rawAmountInput =
-        initialAmount > 0 ? formatAmount(initialAmount) : '';
-
-    String? validationError;
-
-    final amount = await showModalBottomSheet<double>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: colorScheme.card,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (sheetContext) {
-        final sheetColorScheme = Theme.of(sheetContext).colorScheme;
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 24,
-            left: 24,
-            right: 24,
-            top: 24,
-          ),
-          child: StatefulBuilder(
-            builder: (context, setModalState) {
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    context.l10n.updateBudget,
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      color: sheetColorScheme.foreground,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    context.l10n.enterNewTotalDailyBudget,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: sheetColorScheme.mutedForeground,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    initialValue: rawAmountInput,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    decoration: InputDecoration(
-                      prefixText: currencySymbol,
-                      labelText: context.l10n.budgetAmount,
-                      errorText: validationError,
-                    ),
-                    autofocus: true,
-                    onChanged: (value) {
-                      rawAmountInput = value;
-                    },
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.of(sheetContext).pop(),
-                        child: Text(context.l10n.cancel),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: AdaptiveButton(
-                          onPressed: () {
-                            final normalizedInput =
-                                rawAmountInput.replaceAll(',', '').trim();
-                            final parsed = double.tryParse(normalizedInput);
-
-                            if (parsed == null || parsed < 0) {
-                              setModalState(() {
-                                validationError =
-                                    context.l10n.enterValidAmountGreaterThan0;
-                              });
-                              return;
-                            }
-
-                            FocusScope.of(sheetContext).unfocus();
-                            Navigator.of(sheetContext).pop(parsed);
-                          },
-                          label: context.l10n.save,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              );
-            },
-          ),
-        );
-      },
-    );
-
-    final capturedAmount = amount;
-
-    if (capturedAmount == null) {
-      return;
-    }
-
-    if (!mounted) return;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        final dialogScheme = Theme.of(dialogContext).colorScheme;
-        return PopScope(
-          canPop: false,
-          child: Center(
-            child: Container(
-              padding: const EdgeInsets.all(28),
-              decoration: BoxDecoration(
-                color: dialogScheme.background,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const CircularProgressIndicator(),
-                  const SizedBox(height: 16),
-                  Text(
-                    context.l10n.updatingBudget,
-                    style:
-                        TextStyle(color: dialogScheme.foreground, fontSize: 16),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-
-    try {
-      final payload = <String, dynamic>{
-        'userId': user.uid,
-        'amount': capturedAmount,
-      };
-
-      if (contact != null) {
-        // Only add phone if it exists (WhatsApp connected)
-        if (contact.phoneE164 != null) {
-          payload['phone'] = contact.phoneE164;
-        }
-      }
-
-      // Add currency to payload (selected currency or preferred currency)
-      if (selectedCurrency != null && selectedCurrency.isNotEmpty) {
-        payload['currency'] = selectedCurrency;
-      }
-
-      final response = await supabase.functions.invoke(
-        'set-budget',
-        body: payload,
-      );
-      debugPrint('Set budget response: $response');
-
-      final data = response.data as Map<String, dynamic>?;
-
-      if (response.status >= 400) {
-        final responseError = data?['error'] as String?;
-        throw Exception(
-            responseError ?? 'Failed with status ${response.status}');
-      }
-
-      if (data == null || data['ok'] != true) {
-        final errorMessage = data?['error'] as String? ?? 'Unknown error';
-        throw Exception(errorMessage);
-      }
-
-      // Update local state with currency-specific budget
-      if (selectedCurrency != null && selectedCurrency.isNotEmpty) {
-        ref
-            .read(analyticsProvider.notifier)
-            .setBudgetAmountForCurrency(selectedCurrency, capturedAmount);
-      } else {
-        // Fallback to old method if no currency specified
-        ref.read(analyticsProvider.notifier).setBudgetAmount(capturedAmount);
-      }
-
-      // Refresh analytics data if user is logged in
-      if (user.uid.isNotEmpty) {
-        ref.read(analyticsProvider.notifier).loadData(user.uid);
-      }
-
-      if (mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
-        final replyMessage = (data['reply'] as String?)?.trim();
-        _showToast(replyMessage?.isNotEmpty == true
-            ? replyMessage!
-            : context.l10n.budgetUpdated);
-      }
-    } catch (e) {
-      if (mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
-        _showToast('${context.l10n.failedToUpdateBudget}: ${e.toString()}');
-      }
-    }
-  }
-
-  void _showToast(String message) {
-    AppToast.info(context, message);
-  }
-
-  double _totalBudgetAmount(List<DailyBudgetEntry> budgets) {
-    return budgets.fold(0.0, (sum, entry) => sum + entry.amount);
-  }
-
-  double _totalBudgetAmountForCurrency(
-      List<DailyBudgetEntry> budgets, String currencyCode) {
-    final code = currencyCode.toUpperCase();
-    return budgets
-        .where((b) => (b.currency ?? '').toUpperCase() == code)
-        .fold(0.0, (sum, entry) => sum + entry.amount);
-  }
-
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -706,8 +472,6 @@ class _HomePageState extends ConsumerState<HomePage> {
         analyticsData.allExpenses.where((e) => e.householdId == null).toList();
 
     // Spending card: this month by default (per-card filter)
-    final spendingFilterState =
-        ref.watch(cardDateFilterProvider(HomeCardFilterId.spending));
 
     // Net cashflow card: its own per-card filter (still uses allExpenses for previous-period math)
     final netFilterState =
@@ -730,12 +494,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     }).toList();
 
     // Category breakdown card: its own per-card filter, includes both income and expenses
-    final categoryFilterState =
-        ref.watch(cardDateFilterProvider(HomeCardFilterId.categoryBreakdown));
-
     // Spending breakdown chart: its own per-card filter, uses expenses + budgets
-    final spendingBreakdownFilterState =
-        ref.watch(cardDateFilterProvider(HomeCardFilterId.spendingBreakdown));
 
     // Listen for date filter changes and reload analytics with date filters
     ref.listen<HomeFilterState>(homeFilterProvider, (previous, next) {
@@ -820,155 +579,198 @@ class _HomePageState extends ConsumerState<HomePage> {
                   if (viewMode.mode == ViewMode.household)
                     const HouseholdHomeContent()
                   else ...[
-                    // Personal mode - show analytics content
-                    // Spending Card with Line Chart (receives full personal history)
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        child: GestureDetector(
-                          onLongPress: () => showCardDateRangeFilter(
-                            context,
-                            colorScheme,
-                            HomeCardFilterId.spending,
+                    // Personal mode - show customizable dashboard
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final repoAsync =
+                            ref.watch(dashboardRepositoryFutureProvider);
+
+                        return repoAsync.when(
+                          loading: () => const SliverToBoxAdapter(
+                            child: SizedBox(
+                              height: 200,
+                              child: Center(child: CircularProgressIndicator()),
+                            ),
                           ),
-                          child: buildSpendingCard(
-                            context,
-                            colorScheme,
-                            personalExpensesAll,
-                            analyticsData.contact,
-                            spendingFilterState.dateRangeFilter,
-                            selectedCurrency: filterState.selectedCurrency,
+                          error: (e, st) => SliverToBoxAdapter(
+                            child: Text('Error initializing repository: $e'),
                           ),
-                        ),
-                      ),
-                    ),
+                          data: (_) {
+                            final dashboardAsync =
+                                ref.watch(personalDashboardProvider(user.uid));
 
-                    const SliverToBoxAdapter(child: SizedBox(height: 16)),
-
-                    // Budget and Net Cashflow Cards (Horizontal Scroll)
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        child: SizedBox(
-                          height: 180,
-                          child: Row(
-                            children: [
-                              const Expanded(
-                                child: MoMTrendBar(),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: GestureDetector(
-                                  onLongPress: () => showCardDateRangeFilter(
-                                    context,
-                                    colorScheme,
-                                    HomeCardFilterId.netCashflow,
-                                  ),
-                                  child: buildNetCashflowCard(
-                                    context,
-                                    colorScheme,
-                                    netBudgets,
-                                    // Pass ALL expenses to allow internal filtering for previous period
-                                    analyticsData.allExpenses,
-                                    analyticsData.contact,
-                                    netFilterState.dateRangeFilter,
-                                    selectedCurrency:
-                                        filterState.selectedCurrency,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    const SliverToBoxAdapter(child: SizedBox(height: 16)),
-
-                    // Financial Calendar (Personal)
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        child: Consumer(
-                          builder: (context, ref, _) {
-                            final recurringAsync =
-                                ref.watch(recurringTransactionsProvider(null));
-
-                            // Trigger load if needed
-                            if (user.uid.isNotEmpty &&
-                                !recurringAsync.hasLoadedOnce &&
-                                !recurringAsync.data.isLoading) {
-                              Future.microtask(() => ref
-                                  .read(recurringTransactionsProvider(null)
-                                      .notifier)
-                                  .loadRecurringTransactions(user.uid));
-                            }
-
-                            return FinancialCalendarWidget(
-                              transactions: personalExpensesAll,
-                              recurringTransactions:
-                                  recurringAsync.data.valueOrNull ?? [],
-                              currency: selectedCurrency ??
-                                  analyticsData.contact?.preferredCurrency ??
-                                  'USD',
+                            return dashboardAsync.when(
+                              loading: () => const SliverToBoxAdapter(
+                                  child: SizedBox(
+                                      height: 200,
+                                      child: Center(
+                                          child: CircularProgressIndicator()))),
+                              error: (e, st) => SliverToBoxAdapter(
+                                  child: Text('Error loading dashboard: $e')),
+                              data: (configs) {
+                                return DraggableDashboardList(
+                                  configs: configs,
+                                  onReorder: (oldIndex, newIndex) {
+                                    ref
+                                        .read(
+                                            personalDashboardProvider(user.uid)
+                                                .notifier)
+                                        .reorder(oldIndex, newIndex);
+                                  },
+                                  onToggleVisibility: (id) {
+                                    ref
+                                        .read(
+                                            personalDashboardProvider(user.uid)
+                                                .notifier)
+                                        .toggleVisibility(id);
+                                  },
+                                  onUpdateConfig: (id,
+                                      {dateRange, viewMode, start, end}) {
+                                    ref
+                                        .read(
+                                            personalDashboardProvider(user.uid)
+                                                .notifier)
+                                        .updateConfig(id,
+                                            dateRange: dateRange,
+                                            viewMode: viewMode,
+                                            start: start,
+                                            end: end);
+                                  },
+                                  widgetBuilders: {
+                                    DashboardWidgetType.spendingSummary:
+                                        (context, config) => Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 16.0),
+                                              child: buildSpendingCard(
+                                                context,
+                                                colorScheme,
+                                                personalExpensesAll,
+                                                analyticsData.contact,
+                                                config.dateRange,
+                                                selectedCurrency: filterState
+                                                    .selectedCurrency,
+                                              ),
+                                            ),
+                                    DashboardWidgetType.netCashflow: (context,
+                                            config) =>
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 16.0),
+                                          child: SizedBox(
+                                            height: 180,
+                                            child: Row(
+                                              children: [
+                                                const Expanded(
+                                                    child: MoMTrendBar()),
+                                                const SizedBox(width: 12),
+                                                Expanded(
+                                                  child: buildNetCashflowCard(
+                                                    context,
+                                                    colorScheme,
+                                                    netBudgets,
+                                                    analyticsData.allExpenses,
+                                                    analyticsData.contact,
+                                                    config.dateRange,
+                                                    selectedCurrency:
+                                                        filterState
+                                                            .selectedCurrency,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                    DashboardWidgetType.financialCalendar:
+                                        (context, config) => Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 16.0),
+                                              child: Consumer(
+                                                builder: (context, ref, _) {
+                                                  final recurringAsync = ref.watch(
+                                                      recurringTransactionsProvider(
+                                                          null));
+                                                  if (user.uid.isNotEmpty &&
+                                                      !recurringAsync
+                                                          .hasLoadedOnce &&
+                                                      !recurringAsync
+                                                          .data.isLoading) {
+                                                    Future.microtask(() => ref
+                                                        .read(
+                                                            recurringTransactionsProvider(
+                                                                    null)
+                                                                .notifier)
+                                                        .loadRecurringTransactions(
+                                                            user.uid));
+                                                  }
+                                                  return FinancialCalendarWidget(
+                                                    transactions:
+                                                        personalExpensesAll,
+                                                    recurringTransactions:
+                                                        recurringAsync.data
+                                                                .valueOrNull ??
+                                                            [],
+                                                    currency: selectedCurrency ??
+                                                        analyticsData.contact
+                                                            ?.preferredCurrency ??
+                                                        'USD',
+                                                    isExpanded: config
+                                                            .viewMode ==
+                                                        DashboardWidgetViewMode
+                                                            .expanded,
+                                                  );
+                                                },
+                                              ),
+                                            ),
+                                    DashboardWidgetType.categoryBreakdown:
+                                        (context, config) => Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 16.0),
+                                              child: buildCategoryBreakdownCard(
+                                                context,
+                                                colorScheme,
+                                                personalExpensesAll,
+                                                analyticsData.contact,
+                                                selectedCurrency: filterState
+                                                    .selectedCurrency,
+                                                onViewAll: () {
+                                                  Navigator.of(context).push(
+                                                      MaterialPageRoute(
+                                                          builder: (_) =>
+                                                              const TransactionsPage()));
+                                                },
+                                              ),
+                                            ),
+                                    DashboardWidgetType.spendingBreakdownChart:
+                                        (context, config) => Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 16.0),
+                                              child:
+                                                  buildSpendingBreakdownChart(
+                                                context,
+                                                colorScheme,
+                                                personalExpensesAll,
+                                                analyticsData.allBudgets,
+                                                analyticsData.contact,
+                                                config.dateRange,
+                                                selectedCurrency: filterState
+                                                    .selectedCurrency,
+                                              ),
+                                            ),
+                                  },
+                                );
+                              },
                             );
                           },
-                        ),
-                      ),
+                        );
+                      },
                     ),
 
-                    const SliverToBoxAdapter(child: SizedBox(height: 16)),
-
-                    // Category Breakdown
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        child: GestureDetector(
-                          onLongPress: () => showCardDateRangeFilter(
-                            context,
-                            colorScheme,
-                            HomeCardFilterId.categoryBreakdown,
-                          ),
-                          child: buildCategoryBreakdownCard(
-                            context,
-                            colorScheme,
-                            personalExpensesAll,
-                            analyticsData.contact,
-                            selectedCurrency: filterState.selectedCurrency,
-                            onViewAll: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => const TransactionsPage(),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        child: GestureDetector(
-                          onLongPress: () => showCardDateRangeFilter(
-                            context,
-                            colorScheme,
-                            HomeCardFilterId.spendingBreakdown,
-                          ),
-                          child: buildSpendingBreakdownChart(
-                            context,
-                            colorScheme,
-                            personalExpensesAll,
-                            analyticsData.allBudgets,
-                            analyticsData.contact,
-                            spendingBreakdownFilterState.dateRangeFilter,
-                            selectedCurrency: filterState.selectedCurrency,
-                          ),
-                        ),
-                      ),
-                    ),
+                    // Edit Button
+                    const SliverToBoxAdapter(child: EditDashboardButton()),
 
                     const SliverToBoxAdapter(child: SizedBox(height: 24)),
                   ], // end of else block for Personal mode
