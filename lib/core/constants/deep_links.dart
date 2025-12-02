@@ -147,6 +147,17 @@ class DeepLinks {
            uri.pathSegments.isNotEmpty;
   }
 
+  /// Widget quick actions
+  /// moneko://text
+  static bool isWidgetTextLink(Uri uri) {
+    return uri.scheme == appScheme && uri.host == 'text';
+  }
+
+  /// moneko://camera
+  static bool isWidgetCameraLink(Uri uri) {
+    return uri.scheme == appScheme && uri.host == 'camera';
+  }
+
   /// Check if a URI is a home deep link
   /// Format: moneko://home
   static bool isHomeLink(Uri uri) {

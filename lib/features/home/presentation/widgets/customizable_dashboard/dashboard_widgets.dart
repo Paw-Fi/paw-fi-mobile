@@ -353,7 +353,7 @@ class WidgetConfigurationSheet extends StatelessWidget {
                       ),
                       _buildSegmentOption(
                         context,
-                        label: context.l10n.viewModeWide,
+                        label: context.l10n.viewModeCompact,
                         isSelected:
                             config.viewMode == DashboardWidgetViewMode.wide,
                         onTap: () =>

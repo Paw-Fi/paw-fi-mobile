@@ -43,12 +43,15 @@ class SettingsPage extends HookConsumerWidget {
 
     final selectedCurrency =
         useState<String?>(contact?.preferredCurrency?.toUpperCase());
+    final selectedTimezone = useState<String?>(contact?.preferredTimezone);
     final nameReloadKey = useState(0);
+    final deviceTimezone = _currentDeviceTimezone();
 
     useEffect(() {
       selectedCurrency.value = contact?.preferredCurrency?.toUpperCase();
+      selectedTimezone.value = contact?.preferredTimezone;
       return null;
-    }, [contact?.preferredCurrency]);
+    }, [contact?.preferredCurrency, contact?.preferredTimezone]);
 
     Future<void> handleNotificationToggle() async {
       try {
@@ -87,6 +90,32 @@ class SettingsPage extends HookConsumerWidget {
     final selectedLocale = ref.watch(localeProvider);
     const supportedLocales = AppLocalizations.supportedLocales;
     final dropdownValue = _coerceToSupported(selectedLocale, supportedLocales);
+    final timezoneDisplay =
+        selectedTimezone.value ?? deviceTimezone ?? 'UTC';
+    final timezoneSubtitle = selectedTimezone.value == null
+        ? 'Defaults to your device time'
+        : 'Used for dates and reminders';
+
+    Future<void> handleTimezoneChange(String timezone) async {
+      try {
+        await Supabase.instance.client.functions.invoke(
+          'update-preferred-timezone',
+          body: {
+            'userId': authState.uid,
+            'timezone': timezone,
+          },
+        );
+        selectedTimezone.value = timezone;
+        ref.invalidate(analyticsProvider);
+        if (context.mounted) {
+          AppToast.success(context, 'Timezone updated');
+        }
+      } catch (e) {
+        if (context.mounted) {
+          AppToast.error(context, 'Failed to update timezone: $e');
+        }
+      }
+    }
 
     return AdaptiveScaffold(
       appBar: AdaptiveAppBar(
@@ -391,6 +420,48 @@ class SettingsPage extends HookConsumerWidget {
                 ),
                 const SizedBox(height: 24),
 
+                // Timezone Section
+                const _SectionHeader(title: 'Timezone'),
+                const SizedBox(height: 12),
+                AdaptiveListTile(
+                  leading: Icon(
+                    Icons.schedule_outlined,
+                    size: 20,
+                    color: colorScheme.mutedForeground,
+                  ),
+                  title: Text(
+                    timezoneDisplay,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: colorScheme.foreground,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  subtitle: Text(
+                    timezoneSubtitle,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: colorScheme.mutedForeground,
+                    ),
+                  ),
+                  trailing: Icon(
+                    Icons.chevron_right,
+                    size: 18,
+                    color: colorScheme.mutedForeground,
+                  ),
+                  onTap: () async {
+                    final result = await _showTimezonePicker(
+                      context: context,
+                      current: selectedTimezone.value ?? deviceTimezone,
+                      deviceTimezone: deviceTimezone,
+                    );
+                    if (result != null && result.isNotEmpty) {
+                      await handleTimezoneChange(result);
+                    }
+                  },
+                ),
+                const SizedBox(height: 24),
+
                 // Appearance Section
                 _SectionHeader(title: context.l10n.appearance),
                 const SizedBox(height: 12),
@@ -554,6 +625,175 @@ class _SectionHeader extends StatelessWidget {
     );
   }
 }
+
+String _currentDeviceTimezone() {
+  try {
+    final now = DateTime.now();
+    final name = now.timeZoneName;
+    if (name.contains('/')) return name;
+
+    final offset = now.timeZoneOffset;
+    final sign = offset.isNegative ? '-' : '+';
+    final hours = offset.inHours.abs().toString().padLeft(2, '0');
+    final minutes =
+        (offset.inMinutes.abs() % 60).toString().padLeft(2, '0');
+    return 'UTC$sign$hours:$minutes';
+  } catch (_) {
+    return 'UTC';
+  }
+}
+
+Future<String?> _showTimezonePicker({
+  required BuildContext context,
+  required String? current,
+  required String deviceTimezone,
+}) async {
+  final colorScheme = Theme.of(context).colorScheme;
+  final options = <String>{
+    deviceTimezone,
+    ..._timezoneOptions,
+  }.toList();
+  String selected = current ?? deviceTimezone;
+
+  return showModalBottomSheet<String>(
+    context: context,
+    backgroundColor: colorScheme.card,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
+    builder: (ctx) {
+      return StatefulBuilder(
+        builder: (ctx, setState) {
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Choose timezone',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.foreground,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          Icons.close,
+                          color: colorScheme.mutedForeground,
+                          size: 20,
+                        ),
+                        onPressed: () => Navigator.of(ctx).pop(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 320,
+                    child: ListView.builder(
+                      itemCount: options.length,
+                      itemBuilder: (context, index) {
+                        final tz = options[index];
+                        final isDevice = tz == deviceTimezone;
+                        return RadioListTile<String>(
+                          value: tz,
+                          groupValue: selected,
+                          onChanged: (val) {
+                            if (val == null) return;
+                            setState(() => selected = val);
+                          },
+                          activeColor: colorScheme.primary,
+                          title: Text(
+                            tz,
+                            style: TextStyle(color: colorScheme.foreground),
+                          ),
+                          subtitle: isDevice
+                              ? Text(
+                                  'Device timezone',
+                                  style: TextStyle(
+                                    color: colorScheme.mutedForeground,
+                                    fontSize: 12,
+                                  ),
+                                )
+                              : null,
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: AdaptiveButton(
+                          style: AdaptiveButtonStyle.plain,
+                          onPressed: () => Navigator.of(ctx).pop(),
+                          label: 'Cancel',
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: AdaptiveButton(
+                          onPressed: () =>
+                              Navigator.of(ctx).pop<String>(selected),
+                          label: 'Save',
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
+}
+
+const List<String> _timezoneOptions = [
+  'UTC',
+  'UTC+01:00',
+  'UTC+02:00',
+  'UTC+03:00',
+  'UTC+05:30',
+  'UTC+07:00',
+  'UTC+08:00',
+  'UTC+09:00',
+  'UTC+10:00',
+  'UTC-03:00',
+  'UTC-05:00',
+  'UTC-06:00',
+  'UTC-08:00',
+  'Europe/London',
+  'Europe/Berlin',
+  'Europe/Paris',
+  'Europe/Madrid',
+  'Europe/Moscow',
+  'Asia/Singapore',
+  'Asia/Hong_Kong',
+  'Asia/Shanghai',
+  'Asia/Tokyo',
+  'Asia/Kuala_Lumpur',
+  'Asia/Jakarta',
+  'Asia/Bangkok',
+  'Asia/Dubai',
+  'America/New_York',
+  'America/Toronto',
+  'America/Chicago',
+  'America/Denver',
+  'America/Los_Angeles',
+  'America/Mexico_City',
+  'America/Sao_Paulo',
+  'Australia/Sydney',
+  'Australia/Melbourne',
+  'Pacific/Auckland',
+];
 
 Future<void> _showEditNameSheet({
   required BuildContext context,

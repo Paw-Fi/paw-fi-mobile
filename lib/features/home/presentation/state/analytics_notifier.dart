@@ -33,7 +33,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
       final contactsResponse = await supabase
           .from('user_contacts')
           .select(
-              'id,user_id,phone_e164,verified,preferred_currency,created_at,updated_at')
+              'id,user_id,phone_e164,verified,preferred_currency,preferred_timezone,created_at,updated_at')
           .eq('user_id', userId)
           .order('updated_at', ascending: false)
           .order('created_at', ascending: false);
@@ -55,6 +55,8 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
         debugPrint('🔍 Analytics: contactResponse = $contactResponse');
         debugPrint(
             '🔍 Analytics: preferred_currency from DB = ${contactResponse?['preferred_currency']}');
+        debugPrint(
+            '🔍 Analytics: preferred_timezone from DB = ${contactResponse?['preferred_timezone']}');
       }
 
       if (contactResponse == null) {

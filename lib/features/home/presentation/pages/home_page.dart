@@ -10,6 +10,7 @@ import 'package:moneko/features/home/presentation/widgets/widgets.dart';
 
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/home/presentation/state/widget_launch_provider.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'package:moneko/features/households/presentation/widgets/household_home_content.dart';
@@ -502,6 +503,28 @@ class _HomePageState extends ConsumerState<HomePage> {
         debugPrint(
             '🔄 Date filter changed: ${previous?.dateRangeFilter} → ${next.dateRangeFilter}');
         ref.read(analyticsProvider.notifier).refresh(user.uid);
+      }
+    });
+
+    // Listen for widget launch actions
+    ref.listen<WidgetLaunchAction>(widgetLaunchProvider, (previous, next) {
+      if (next == WidgetLaunchAction.none) return;
+
+      // Reset state immediately to prevent re-triggering
+      ref.read(widgetLaunchProvider.notifier).state = WidgetLaunchAction.none;
+
+      if (next == WidgetLaunchAction.textInput) {
+        debugPrint('📱 Widget action: Text Input');
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _showTextInputDrawer();
+        });
+      } else if (next == WidgetLaunchAction.cameraInput) {
+        debugPrint('📱 Widget action: Camera Input');
+        // Give the app a beat to become active after being launched from the widget
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          await Future.delayed(const Duration(milliseconds: 200));
+          if (mounted) _handleCameraCapture();
+        });
       }
     });
 

@@ -13,6 +13,7 @@ import 'package:moneko/features/home/presentation/widgets/home_header_sliver.dar
 import 'package:moneko/features/insights/presentation/pages/insights_page.dart';
 import 'package:moneko/features/recurring/pages/recurring_transactions_page.dart';
 import 'package:moneko/features/pockets/presentation/pages/pockets_page.dart';
+import 'package:moneko/features/home/presentation/state/widget_launch_provider.dart';
 import 'main_menu_screen.dart';
 
 /// Main navigation shell with bottom navigation bar
@@ -31,6 +32,17 @@ class MainShell extends HookConsumerWidget {
       const PocketsPage(),
       const AnalyticsPage(),
     ];
+
+    // Keep the HomePage mounted so its listener can respond to widget launches
+    // even when another tab is selected. Also auto-switch to Overview on a widget action.
+    ref.listen<WidgetLaunchAction>(widgetLaunchProvider, (previous, next) {
+      if (next == WidgetLaunchAction.textInput ||
+          next == WidgetLaunchAction.cameraInput) {
+        if (currentIndex.value != 0) {
+          currentIndex.value = 0;
+        }
+      }
+    });
 
     final currentPage = pages[currentIndex.value];
 
@@ -61,7 +73,10 @@ class MainShell extends HookConsumerWidget {
           color: colorScheme.appBackground,
           child: Padding(
             padding: const EdgeInsets.only(top: 10.0),
-            child: currentPage,
+            child: IndexedStack(
+              index: currentIndex.value,
+              children: pages,
+            ),
           ),
         ),
         bottomNavigationBar: AdaptiveBottomNavigationBar(

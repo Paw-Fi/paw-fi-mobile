@@ -13,6 +13,7 @@ import 'package:moneko/features/home/presentation/state/view_mode_provider.dart'
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/presentation/widgets/household_invitation_sheet.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/home/presentation/state/widget_launch_provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
@@ -102,6 +103,18 @@ class DeepLinkService {
       debugPrint('🏦 Plaid error_code: $errorCode');
       debugPrint('🏦 Plaid error_message: $errorMessage');
 
+      return;
+    }
+
+    // Widget quick actions: moneko://text and moneko://camera
+    if (DeepLinks.isWidgetTextLink(uri)) {
+      debugPrint('🧭 Widget deep link: text');
+      ref.read(widgetLaunchProvider.notifier).state = WidgetLaunchAction.textInput;
+      return;
+    }
+    if (DeepLinks.isWidgetCameraLink(uri)) {
+      debugPrint('🧭 Widget deep link: camera');
+      ref.read(widgetLaunchProvider.notifier).state = WidgetLaunchAction.cameraInput;
       return;
     }
 

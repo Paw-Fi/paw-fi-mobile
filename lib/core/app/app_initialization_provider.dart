@@ -11,6 +11,7 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
+import 'package:moneko/core/resources/lib/supabase.dart';
 
 part 'app_initialization_provider.g.dart';
 
@@ -89,6 +90,8 @@ class AppInitialization extends _$AppInitialization {
             },
           ),
         ]);
+
+        await _ensureTimezoneSaved();
 
         debugPrint('✅ All user data loaded');
       } else {
@@ -262,6 +265,60 @@ class AppInitialization extends _$AppInitialization {
       } catch (_) {}
       debugPrint('❌ Error loading household data: $e');
       // Non-critical error, continue with app initialization
+    }
+  }
+
+  /// Capture device timezone once and persist to user_contacts if missing.
+  Future<void> _ensureTimezoneSaved() async {
+    try {
+      final auth = ref.read(authProvider);
+      if (auth.isEmpty) return;
+
+      final analyticsState = ref.read(analyticsProvider);
+      final hasTimezone =
+          (analyticsState.contact?.preferredTimezone ?? '').trim().isNotEmpty;
+      if (hasTimezone) return;
+
+      final timezone = await _getDeviceTimezone();
+      if (timezone == null || timezone.isEmpty) return;
+
+      await supabase.functions
+          .invoke(
+            'update-preferred-timezone',
+            body: {
+              'userId': auth.uid,
+              'timezone': timezone,
+            },
+          )
+          .timeout(const Duration(seconds: 8));
+
+      // Refresh analytics in the background to pick up the saved timezone
+      unawaited(ref.read(analyticsProvider.notifier).loadData(auth.uid));
+      debugPrint('🕒 Timezone saved to profile: $timezone');
+    } catch (e, st) {
+      debugPrint('⚠️ Timezone initialization failed (non-critical): $e');
+      try {
+        FirebaseCrashlytics.instance
+            .recordError(e, st, fatal: false, reason: 'timezone_init_error');
+      } catch (_) {}
+    }
+  }
+
+  Future<String?> _getDeviceTimezone() async {
+    try {
+      final now = DateTime.now();
+      final name = now.timeZoneName;
+      if (name.contains('/')) return name; // Already IANA-like
+
+      final offset = now.timeZoneOffset;
+      final sign = offset.isNegative ? '-' : '+';
+      final hours = offset.inHours.abs().toString().padLeft(2, '0');
+      final minutes =
+          (offset.inMinutes.abs() % 60).toString().padLeft(2, '0');
+      return 'UTC$sign$hours:$minutes';
+    } catch (e) {
+      debugPrint('⚠️ Failed to detect device timezone: $e');
+      return null;
     }
   }
 

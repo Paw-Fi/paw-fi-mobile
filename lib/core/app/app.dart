@@ -1,4 +1,6 @@
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:home_widget/home_widget.dart';
+import 'package:moneko/features/home/presentation/state/widget_launch_provider.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/app/router.dart';
@@ -35,24 +37,49 @@ class _AppState extends ConsumerState<App> {
           _deepLinkService.initialize(ref, context);
         } catch (e, s) {
           try {
-            FirebaseCrashlytics.instance.recordError(e, s, fatal: false, reason: 'deeplink_init_error');
+            FirebaseCrashlytics.instance
+                .recordError(e, s, fatal: false, reason: 'deeplink_init_error');
           } catch (_) {}
           debugPrint('DeepLink initialization error: $e');
           debugPrint(s.toString());
         }
         _deepLinkInitialized = true;
-        
+
         // Store in global container for FCM integration
         DeepLinkContainer.deepLinkService = _deepLinkService;
         DeepLinkContainer.ref = ref;
       }
     });
+
+    // Check for widget launch
+    _checkForWidgetLaunch();
+  }
+
+  void _checkForWidgetLaunch() {
+    HomeWidget.setAppGroupId('group.moneko.mobile');
+    HomeWidget.initiallyLaunchedFromHomeWidget().then(_launchedFromWidget);
+  }
+
+  void _launchedFromWidget(Uri? uri) {
+    if (uri != null) {
+      debugPrint('🚀 Launched from widget: $uri');
+      if (uri.scheme == 'moneko') {
+        if (uri.host == 'text') {
+          ref.read(widgetLaunchProvider.notifier).state =
+              WidgetLaunchAction.textInput;
+        } else if (uri.host == 'camera') {
+          ref.read(widgetLaunchProvider.notifier).state =
+              WidgetLaunchAction.cameraInput;
+        }
+      }
+    }
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     // Deep link initialization happens post-frame to avoid early platform-channel churn
+    HomeWidget.widgetClicked.listen(_launchedFromWidget);
   }
 
   @override
@@ -89,7 +116,7 @@ class _AppState extends ConsumerState<App> {
       ),
       localizationsDelegates: const [
         ...AppLocalizations.localizationsDelegates,
-       GlobalMaterialLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate, // Important!
         DefaultWidgetsLocalizations.delegate,
       ],
