@@ -25,3 +25,8 @@ final currencyPreferenceServiceProvider = Provider<CurrencyPreferenceService>(
 final dateRangePreferenceServiceProvider = Provider<DateRangePreferenceService>(
   (ref) => DateRangePreferenceService(),
 );
+
+/// Simple counter used to force widget sync when pockets configuration
+/// changes (e.g. budgets or envelope category mappings). Incrementing this
+/// will cause [WidgetSyncManager] to recompute widget data.
+final widgetSyncVersionProvider = StateProvider<int>((ref) => 0);

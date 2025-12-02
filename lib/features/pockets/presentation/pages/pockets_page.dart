@@ -170,7 +170,7 @@ class PocketsPage extends HookConsumerWidget {
   }
 }
 
-class _PocketsMonthView extends ConsumerWidget {
+class _PocketsMonthView extends HookConsumerWidget {
   const _PocketsMonthView({
     required this.scopeParams,
     required this.colorScheme,
@@ -187,20 +187,25 @@ class _PocketsMonthView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final pocketsState = ref.watch(pocketsProvider(scopeParams));
     final pocketsNotifier = ref.read(pocketsProvider(scopeParams).notifier);
+    
+    // Trigger load when this view is first displayed
+    // At this point, analytics is guaranteed to be loaded with correct currency
+    // Use Future.microtask to defer the load until after the build phase completes
+    useEffect(() {
+      Future.microtask(() => pocketsNotifier.load());
+      return null;
+    }, [scopeParams]);
 
     Future<void> refresh() async {
-      // Invalidate only this month's provider
-      ref.invalidate(pocketsProvider(scopeParams));
-
       final user = ref.read(authProvider);
-      final monthStart = scopeParams.periodMonth!;
-      final monthEnd = DateTime(monthStart.year, monthStart.month + 1, 1);
-
-      await ref.read(analyticsProvider.notifier).loadData(
-            user.uid,
-            startDate: monthStart,
-            endDate: monthEnd,
-          );
+      // Load all analytics data first - filtering is done locally
+      await ref.read(analyticsProvider.notifier).loadData(user.uid);
+      
+      // Invalidate and reload pockets data
+      ref.invalidate(pocketsProvider(scopeParams));
+      // After invalidation, the provider is recreated but won't auto-load
+      // We need to explicitly trigger load on the new notifier
+      await ref.read(pocketsProvider(scopeParams).notifier).load();
     }
 
     final showCopyBudget =

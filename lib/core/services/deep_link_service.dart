@@ -63,8 +63,9 @@ class DeepLinkService {
     // Handle Supabase OAuth callback: io.supabase.moneko://login-callback
     if (DeepLinks.isOAuthCallback(uri)) {
       debugPrint('🔐 Supabase OAuth callback received');
-      debugPrint('🔐 Access token: ${uri.fragment.contains('access_token') ? 'Present' : 'Missing'}');
-      
+      debugPrint(
+          '🔐 Access token: ${uri.fragment.contains('access_token') ? 'Present' : 'Missing'}');
+
       // Supabase auth tokens are in the URL fragment (#access_token=...)
       // Navigate to auth callback screen which will process the session
       final navCtx = rootNavigatorKey.currentContext;
@@ -76,7 +77,7 @@ class DeepLinkService {
       }
       return;
     }
-    
+
     // Legacy OAuth callback support: moneko://auth/callback (kept for backward compatibility)
     if (DeepLinks.isLegacyOAuthCallback(uri)) {
       debugPrint('🔐 Legacy OAuth callback received');
@@ -106,15 +107,34 @@ class DeepLinkService {
       return;
     }
 
-    // Widget quick actions: moneko://text and moneko://camera
+    // Widget quick actions: moneko://text, moneko://camera, moneko://pockets
     if (DeepLinks.isWidgetTextLink(uri)) {
       debugPrint('🧭 Widget deep link: text');
-      ref.read(widgetLaunchProvider.notifier).state = WidgetLaunchAction.textInput;
+      ref.read(widgetLaunchProvider.notifier).state =
+          const WidgetLaunchEvent(type: WidgetLaunchActionType.textInput);
       return;
     }
     if (DeepLinks.isWidgetCameraLink(uri)) {
       debugPrint('🧭 Widget deep link: camera');
-      ref.read(widgetLaunchProvider.notifier).state = WidgetLaunchAction.cameraInput;
+      ref.read(widgetLaunchProvider.notifier).state =
+          const WidgetLaunchEvent(type: WidgetLaunchActionType.cameraInput);
+      return;
+    }
+    if (DeepLinks.isWidgetPocketsLink(uri)) {
+      debugPrint('🧭 Widget deep link: pockets');
+      ref.read(widgetLaunchProvider.notifier).state =
+          const WidgetLaunchEvent(type: WidgetLaunchActionType.openPockets);
+      return;
+    }
+    if (DeepLinks.isWidgetConfigureLink(uri)) {
+      debugPrint('🧭 Widget deep link: configure');
+      final widgetId = uri.queryParameters['widgetId'];
+      if (widgetId != null) {
+        ref.read(widgetLaunchProvider.notifier).state = WidgetLaunchEvent(
+          type: WidgetLaunchActionType.configure,
+          params: {'widgetId': widgetId},
+        );
+      }
       return;
     }
 
@@ -131,7 +151,7 @@ class DeepLinkService {
       if (navCtx != null && navCtx.mounted) {
         final ctx = navCtx;
         if (status == 'success') {
-          AppToast.success(ctx,ctx.l10n.paymentSuccessfulCheckingSubscription);
+          AppToast.success(ctx, ctx.l10n.paymentSuccessfulCheckingSubscription);
           // Navigate to dashboard after a short delay to let subscription load
           Future.delayed(const Duration(seconds: 2), () {
             final delayed = rootNavigatorKey.currentContext;
@@ -142,9 +162,9 @@ class DeepLinkService {
           });
         } else if (status == 'failed') {
           final error = uri.queryParameters['error'] ?? ctx.l10n.paymentFailed;
-          AppToast.error(ctx,error);
+          AppToast.error(ctx, error);
         } else if (status == 'canceled') {
-          AppToast.info(ctx,ctx.l10n.paymentCanceled);
+          AppToast.info(ctx, ctx.l10n.paymentCanceled);
         }
       }
       return;
@@ -159,7 +179,7 @@ class DeepLinkService {
       // Use global navigator key to get a valid context
       // This ensures the modal can be shown even when app comes from background
       final navigatorContext = rootNavigatorKey.currentContext;
-      
+
       if (navigatorContext == null) {
         debugPrint('⚠️ Navigator context is null, waiting...');
         // Wait a bit longer and try again
@@ -203,7 +223,8 @@ class DeepLinkService {
       } else if (uri.scheme == 'https' || uri.scheme == 'http') {
         // Universal link format: https://moneko.io/invites/abc123
         // Token is the second path segment after 'invites'
-        if (uri.pathSegments.length >= 2 && uri.pathSegments.first == 'invites') {
+        if (uri.pathSegments.length >= 2 &&
+            uri.pathSegments.first == 'invites') {
           token = uri.pathSegments[1];
         }
       }
@@ -245,7 +266,7 @@ class DeepLinkService {
     if (DeepLinks.isExpenseLink(uri)) {
       final expenseId = uri.pathSegments.first;
       debugPrint('💸 Expense deep link received: $expenseId');
-      
+
       _handleExpenseDeepLink(expenseId, ref);
       return;
     }
@@ -254,8 +275,9 @@ class DeepLinkService {
     if (DeepLinks.isHouseholdLink(uri)) {
       final householdId = uri.pathSegments.first;
       final subRoute = uri.pathSegments.length > 1 ? uri.pathSegments[1] : null;
-      debugPrint('🏠 Household deep link received: $householdId (sub: $subRoute)');
-      
+      debugPrint(
+          '🏠 Household deep link received: $householdId (sub: $subRoute)');
+
       _handleHouseholdDeepLink(householdId, ref, subRoute: subRoute);
       return;
     }
@@ -291,7 +313,7 @@ class DeepLinkService {
   void _handleExpenseDeepLink(String expenseId, WidgetRef ref) async {
     // Wait a bit to ensure app is fully loaded
     await Future.delayed(const Duration(milliseconds: 300));
-    
+
     final navigatorContext = rootNavigatorKey.currentContext;
     if (navigatorContext == null) {
       debugPrint('⚠️ Navigator context is null for expense deep link');
@@ -302,23 +324,24 @@ class DeepLinkService {
       // Fetch the expense from analytics provider
       final user = ref.read(authProvider);
       await ref.read(analyticsProvider.notifier).loadData(user.uid);
-      
+
       final analytics = ref.read(analyticsProvider);
       final expense = analytics.allExpenses.cast<dynamic>().firstWhere(
-        (e) => e.id == expenseId,
-        orElse: () => null,
-      );
-      
+            (e) => e.id == expenseId,
+            orElse: () => null,
+          );
+
       if (expense == null) {
         debugPrint('⚠️ Expense not found: $expenseId');
         if (navigatorContext.mounted) {
-          AppToast.info(navigatorContext, navigatorContext.l10n.expenseNotFoundOrDeleted);
+          AppToast.info(
+              navigatorContext, navigatorContext.l10n.expenseNotFoundOrDeleted);
         }
         return;
       }
-      
+
       debugPrint('✅ Found expense, showing detail sheet');
-      
+
       // Show expense detail sheet
       if (navigatorContext.mounted) {
         showUnifiedTransactionSheet(
@@ -332,16 +355,13 @@ class DeepLinkService {
   }
 
   /// Handle household deep link - switch to household mode and select household
-  void _handleHouseholdDeepLink(
-    String householdId,
-    WidgetRef ref,
-    {String? subRoute}
-  ) async {
+  void _handleHouseholdDeepLink(String householdId, WidgetRef ref,
+      {String? subRoute}) async {
     debugPrint('🏠 Switching to household mode for: $householdId');
-    
+
     // Wait a bit to ensure app is fully loaded
     await Future.delayed(const Duration(milliseconds: 300));
-    
+
     final navigatorContext = rootNavigatorKey.currentContext;
     if (navigatorContext == null) {
       debugPrint('⚠️ Navigator context is null for household deep link');
@@ -351,18 +371,20 @@ class DeepLinkService {
     try {
       // Switch to household view mode and set the household ID
       ref.read(viewModeProvider.notifier).setHouseholdMode(householdId);
-      
+
       // Also update the selected household provider (needs user ID)
       final user = ref.read(authProvider);
-      await ref.read(selectedHouseholdProvider.notifier).selectHousehold(householdId, user.uid);
-      
+      await ref
+          .read(selectedHouseholdProvider.notifier)
+          .selectHousehold(householdId, user.uid);
+
       // Navigate to dashboard (which will show household content)
       if (navigatorContext.mounted) {
         navigatorContext.go('/dashboard');
       }
-      
+
       debugPrint('✅ Switched to household: $householdId');
-      
+
       // Handle sub-routes if any
       if (subRoute != null) {
         debugPrint('📍 Sub-route requested: $subRoute');
@@ -374,16 +396,17 @@ class DeepLinkService {
   }
 
   /// Show WhatsApp verification modal
-  void _showVerificationModal(BuildContext context, String? otp, WidgetRef ref) {
+  void _showVerificationModal(
+      BuildContext context, String? otp, WidgetRef ref) {
     showWhatsAppVerificationModal(
       context,
       otpFromUrl: otp,
       onVerificationSuccess: () {
         debugPrint('✅ Verification success callback triggered');
-        
+
         // Update WhatsApp binding status immediately without fetching from DB
         ref.read(whatsAppBindingProvider.notifier).setVerified();
-        
+
         // Show success message
         AppToast.success(context, context.l10n.whatsappVerifiedSuccessfully);
       },

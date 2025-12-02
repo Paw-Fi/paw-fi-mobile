@@ -70,26 +70,28 @@ class AppInitialization extends _$AppInitialization {
             ref.read(recurringTransactionsProvider(null).notifier);
         unawaited(recurringNotifier.loadRecurringTransactions(auth.uid));
 
+        // Load critical data that should block initialization
         await Future.wait([
-          // Load subscription
+          // Load subscription (critical for feature gating)
           _loadSubscription(),
-          // Load WhatsApp binding status
+          // Load WhatsApp binding status (critical for UI)
           _loadWhatsAppBinding(),
-          // Load analytics/dashboard data
-          _loadAnalytics(auth.uid).timeout(
-            const Duration(seconds: 15),
-            onTimeout: () {
-              debugPrint('⚠️ Analytics load timed out');
-            },
-          ),
-          // Load household data
+        ]);
+
+        // Start analytics load in background - it has its own retry logic
+        // Don't block initialization on analytics - home page will show loading state
+        unawaited(_loadAnalytics(auth.uid));
+
+        // Start household data load in background with timeout
+        // This is less critical and can load after app is visible
+        unawaited(
           _loadHouseholdData(auth.uid).timeout(
-            const Duration(seconds: 15),
+            const Duration(seconds: 20),
             onTimeout: () {
               debugPrint('⚠️ Household data load timed out');
             },
           ),
-        ]);
+        );
 
         await _ensureTimezoneSaved();
 

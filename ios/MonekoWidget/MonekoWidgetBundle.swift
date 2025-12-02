@@ -11,6 +11,9 @@ import SwiftUI
 @main
 struct MonekoWidgetBundle: WidgetBundle {
     var body: some Widget {
-        MonekoWidget()
+        if #available(iOS 17.0, *) {
+            MonekoWidget()
+            MonekoTopCategoriesWidget()
+        }
     }
 }

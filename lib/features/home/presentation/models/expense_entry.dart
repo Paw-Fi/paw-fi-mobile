@@ -45,20 +45,42 @@ class ExpenseEntry {
   factory ExpenseEntry.fromJson(Map<String, dynamic> json) {
     // Extract user data from nested users object if available
     final userData = json['users'] as Map<String, dynamic>?;
+
+    String stringOrEmpty(dynamic value) =>
+        value == null ? '' : value.toString();
+
+    DateTime parseDate(dynamic value) {
+      final s = value?.toString();
+      if (s == null || s.isEmpty) {
+        return DateTime.fromMillisecondsSinceEpoch(0);
+      }
+      return DateTime.parse(s);
+    }
+
+    int parseAmountCents(dynamic value) {
+      if (value is int) return value;
+      if (value is num) return value.round();
+      if (value is String) {
+        final parsed = num.tryParse(value);
+        if (parsed != null) return parsed.round();
+      }
+      return 0;
+    }
     
     return ExpenseEntry(
-      id: json['id'] as String,
+      id: stringOrEmpty(json['id']),
       contactId: json['contact_id'] as String?,
       userId: json['user_id'] as String?,
       userName: userData?['full_name'] as String?,
       userAvatarUrl: userData?['avatar_url'] as String?,
       householdId: json['household_id'] as String?,
-      date: DateTime.parse(json['date'] as String),
-      amountCents: json['amount_cents'] as int,
+      date: parseDate(json['date']),
+      amountCents: parseAmountCents(json['amount_cents']),
       currency: canonicalizeCurrencyCode(json['currency'] as String?),
       category: json['category'] as String?,
-      createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at'] as String) : null,
+      createdAt: parseDate(json['created_at']),
+      updatedAt:
+          json['updated_at'] != null ? parseDate(json['updated_at']) : null,
       rawText: json['raw_text'] as String?,
       receiptImageUrl: json['receipt_image_url'] as String?,
       sharedMemberIds: json['shared_member_ids'] != null

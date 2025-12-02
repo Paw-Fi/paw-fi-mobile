@@ -56,9 +56,9 @@ class _HomePageState extends ConsumerState<HomePage> {
       final user = ref.read(authProvider);
       final analyticsData = ref.read(analyticsProvider);
 
-      // Only load if we've NEVER loaded successfully before
-      // Don't reload if data already exists, even if there was a previous error
-      if (!(analyticsData.hasLoadedOnce ?? false)) {
+      // Only load if we've NEVER loaded successfully before AND not currently loading
+      // App initialization may have already started the load in background
+      if (!(analyticsData.hasLoadedOnce ?? false) && !analyticsData.isLoading) {
         ref.read(analyticsProvider.notifier).loadData(user.uid);
       }
 
@@ -497,28 +497,24 @@ class _HomePageState extends ConsumerState<HomePage> {
     // Category breakdown card: its own per-card filter, includes both income and expenses
     // Spending breakdown chart: its own per-card filter, uses expenses + budgets
 
-    // Listen for date filter changes and reload analytics with date filters
-    ref.listen<HomeFilterState>(homeFilterProvider, (previous, next) {
-      if (previous?.dateRangeFilter != next.dateRangeFilter) {
-        debugPrint(
-            '🔄 Date filter changed: ${previous?.dateRangeFilter} → ${next.dateRangeFilter}');
-        ref.read(analyticsProvider.notifier).refresh(user.uid);
-      }
-    });
+    // Date filter changes no longer trigger analytics refresh
+    // All data is fetched once and filtered locally in the UI
+    // This prevents race conditions and unnecessary network requests
 
     // Listen for widget launch actions
-    ref.listen<WidgetLaunchAction>(widgetLaunchProvider, (previous, next) {
-      if (next == WidgetLaunchAction.none) return;
+    // Listen for widget launch actions
+    ref.listen<WidgetLaunchEvent>(widgetLaunchProvider, (previous, next) {
+      if (next.type == WidgetLaunchActionType.none) return;
 
       // Reset state immediately to prevent re-triggering
-      ref.read(widgetLaunchProvider.notifier).state = WidgetLaunchAction.none;
+      ref.read(widgetLaunchProvider.notifier).state = const WidgetLaunchEvent();
 
-      if (next == WidgetLaunchAction.textInput) {
+      if (next.type == WidgetLaunchActionType.textInput) {
         debugPrint('📱 Widget action: Text Input');
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) _showTextInputDrawer();
         });
-      } else if (next == WidgetLaunchAction.cameraInput) {
+      } else if (next.type == WidgetLaunchActionType.cameraInput) {
         debugPrint('📱 Widget action: Camera Input');
         // Give the app a beat to become active after being launched from the widget
         WidgetsBinding.instance.addPostFrameCallback((_) async {

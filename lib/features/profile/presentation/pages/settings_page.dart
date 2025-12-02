@@ -27,6 +27,7 @@ import 'package:moneko/features/income/presentation/providers/income_providers.d
 import 'package:moneko/features/goals/presentation/providers/goals_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/shared/widgets/moneko_list_picker.dart';
 
 class SettingsPage extends HookConsumerWidget {
   const SettingsPage({super.key});
@@ -46,6 +47,7 @@ class SettingsPage extends HookConsumerWidget {
     final selectedTimezone = useState<String?>(contact?.preferredTimezone);
     final nameReloadKey = useState(0);
     final deviceTimezone = _currentDeviceTimezone();
+    final deviceOffsetMinutes = DateTime.now().timeZoneOffset.inMinutes;
 
     useEffect(() {
       selectedCurrency.value = contact?.preferredCurrency?.toUpperCase();
@@ -90,13 +92,30 @@ class SettingsPage extends HookConsumerWidget {
     final selectedLocale = ref.watch(localeProvider);
     const supportedLocales = AppLocalizations.supportedLocales;
     final dropdownValue = _coerceToSupported(selectedLocale, supportedLocales);
-    final timezoneDisplay =
-        selectedTimezone.value ?? deviceTimezone ?? 'UTC';
+    final timezoneValue = selectedTimezone.value ?? deviceTimezone ?? 'UTC';
+    final timezoneDisplay = _formatTimezoneLabel(
+      _resolveTimezoneOption(
+        timezone: timezoneValue,
+        fallbackOffsetMinutes: deviceOffsetMinutes,
+        preferFallback: timezoneValue == deviceTimezone,
+      ),
+    );
     final timezoneSubtitle = selectedTimezone.value == null
         ? 'Defaults to your device time'
         : 'Used for dates and reminders';
+    final timezoneOptions = _buildTimezoneOptionsList(
+      deviceTimezone: deviceTimezone,
+      currentTimezone: selectedTimezone.value,
+      deviceOffsetMinutes: deviceOffsetMinutes,
+    );
+    final currentTimezoneOption = timezoneOptions.firstWhere(
+      (option) => option.value == timezoneValue,
+      orElse: () => timezoneOptions.first,
+    );
 
     Future<void> handleTimezoneChange(String timezone) async {
+      final previous = selectedTimezone.value;
+      selectedTimezone.value = timezone;
       try {
         await Supabase.instance.client.functions.invoke(
           'update-preferred-timezone',
@@ -105,12 +124,12 @@ class SettingsPage extends HookConsumerWidget {
             'timezone': timezone,
           },
         );
-        selectedTimezone.value = timezone;
         ref.invalidate(analyticsProvider);
         if (context.mounted) {
           AppToast.success(context, 'Timezone updated');
         }
       } catch (e) {
+        selectedTimezone.value = previous;
         if (context.mounted) {
           AppToast.error(context, 'Failed to update timezone: $e');
         }
@@ -445,18 +464,22 @@ class SettingsPage extends HookConsumerWidget {
                     ),
                   ),
                   trailing: Icon(
-                    Icons.chevron_right,
+                    Icons.unfold_more,
                     size: 18,
                     color: colorScheme.mutedForeground,
                   ),
                   onTap: () async {
-                    final result = await _showTimezonePicker(
+                    final selection = await MonekoListPicker.show<_TimezoneOption>(
                       context: context,
-                      current: selectedTimezone.value ?? deviceTimezone,
-                      deviceTimezone: deviceTimezone,
+                      items: timezoneOptions,
+                      initial: currentTimezoneOption,
+                      title: 'Choose timezone',
+                      labelBuilder: (option) => _formatTimezoneLabel(option) +
+                          (option.value == deviceTimezone ? ' (Device)' : ''),
                     );
-                    if (result != null && result.isNotEmpty) {
-                      await handleTimezoneChange(result);
+                    if (selection != null &&
+                        selection.value != selectedTimezone.value) {
+                      await handleTimezoneChange(selection.value);
                     }
                   },
                 ),
@@ -643,157 +666,142 @@ String _currentDeviceTimezone() {
   }
 }
 
-Future<String?> _showTimezonePicker({
-  required BuildContext context,
-  required String? current,
-  required String deviceTimezone,
-}) async {
-  final colorScheme = Theme.of(context).colorScheme;
-  final options = <String>{
-    deviceTimezone,
-    ..._timezoneOptions,
-  }.toList();
-  String selected = current ?? deviceTimezone;
+int? _parseOffsetMinutes(String timezone) {
+  if (timezone == 'UTC' || timezone == 'GMT') return 0;
 
-  return showModalBottomSheet<String>(
-    context: context,
-    backgroundColor: colorScheme.card,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-    ),
-    builder: (ctx) {
-      return StatefulBuilder(
-        builder: (ctx, setState) {
-          return SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Choose timezone',
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w600,
-                            color: colorScheme.foreground,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        icon: Icon(
-                          Icons.close,
-                          color: colorScheme.mutedForeground,
-                          size: 20,
-                        ),
-                        onPressed: () => Navigator.of(ctx).pop(),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    height: 320,
-                    child: ListView.builder(
-                      itemCount: options.length,
-                      itemBuilder: (context, index) {
-                        final tz = options[index];
-                        final isDevice = tz == deviceTimezone;
-                        return RadioListTile<String>(
-                          value: tz,
-                          groupValue: selected,
-                          onChanged: (val) {
-                            if (val == null) return;
-                            setState(() => selected = val);
-                          },
-                          activeColor: colorScheme.primary,
-                          title: Text(
-                            tz,
-                            style: TextStyle(color: colorScheme.foreground),
-                          ),
-                          subtitle: isDevice
-                              ? Text(
-                                  'Device timezone',
-                                  style: TextStyle(
-                                    color: colorScheme.mutedForeground,
-                                    fontSize: 12,
-                                  ),
-                                )
-                              : null,
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: AdaptiveButton(
-                          style: AdaptiveButtonStyle.plain,
-                          onPressed: () => Navigator.of(ctx).pop(),
-                          label: 'Cancel',
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: AdaptiveButton(
-                          onPressed: () =>
-                              Navigator.of(ctx).pop<String>(selected),
-                          label: 'Save',
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      );
-    },
+  final match =
+      RegExp(r'^(?:UTC|GMT)?([+-])(\d{2}):(\d{2})$').firstMatch(timezone);
+  if (match == null) return null;
+
+  final sign = match.group(1) == '-' ? -1 : 1;
+  final hours = int.parse(match.group(2)!);
+  final minutes = int.parse(match.group(3)!);
+  return sign * (hours * 60 + minutes);
+}
+
+String _formatOffsetMinutes(int offsetMinutes) {
+  final sign = offsetMinutes >= 0 ? '+' : '-';
+  final absMinutes = offsetMinutes.abs();
+  final hours = (absMinutes ~/ 60).toString().padLeft(2, '0');
+  final minutes = (absMinutes % 60).toString().padLeft(2, '0');
+  return '$sign$hours:$minutes';
+}
+
+class _TimezoneOption {
+  const _TimezoneOption({
+    required this.value,
+    required this.offsetMinutes,
+    this.label,
+  });
+
+  final String value;
+  final int offsetMinutes;
+  final String? label;
+}
+
+const List<_TimezoneOption> _timezoneOptions = [
+  _TimezoneOption(value: 'America/Los_Angeles', offsetMinutes: -480),
+  _TimezoneOption(value: 'UTC-08:00', offsetMinutes: -480),
+  _TimezoneOption(value: 'America/Denver', offsetMinutes: -420),
+  _TimezoneOption(value: 'America/Chicago', offsetMinutes: -360),
+  _TimezoneOption(value: 'America/Mexico_City', offsetMinutes: -360),
+  _TimezoneOption(value: 'UTC-06:00', offsetMinutes: -360),
+  _TimezoneOption(value: 'America/New_York', offsetMinutes: -300),
+  _TimezoneOption(value: 'America/Toronto', offsetMinutes: -300),
+  _TimezoneOption(value: 'UTC-05:00', offsetMinutes: -300),
+  _TimezoneOption(value: 'America/Sao_Paulo', offsetMinutes: -180),
+  _TimezoneOption(value: 'UTC-03:00', offsetMinutes: -180),
+  _TimezoneOption(value: 'UTC', offsetMinutes: 0),
+  _TimezoneOption(value: 'Europe/London', offsetMinutes: 0),
+  _TimezoneOption(value: 'UTC+01:00', offsetMinutes: 60),
+  _TimezoneOption(value: 'Europe/Berlin', offsetMinutes: 60),
+  _TimezoneOption(value: 'Europe/Paris', offsetMinutes: 60),
+  _TimezoneOption(value: 'Europe/Madrid', offsetMinutes: 60),
+  _TimezoneOption(value: 'UTC+02:00', offsetMinutes: 120),
+  _TimezoneOption(value: 'Europe/Moscow', offsetMinutes: 180),
+  _TimezoneOption(value: 'UTC+03:00', offsetMinutes: 180),
+  _TimezoneOption(value: 'Asia/Dubai', offsetMinutes: 240),
+  _TimezoneOption(value: 'UTC+05:30', offsetMinutes: 330),
+  _TimezoneOption(value: 'Asia/Jakarta', offsetMinutes: 420),
+  _TimezoneOption(value: 'Asia/Bangkok', offsetMinutes: 420),
+  _TimezoneOption(value: 'UTC+07:00', offsetMinutes: 420),
+  _TimezoneOption(value: 'Asia/Singapore', offsetMinutes: 480),
+  _TimezoneOption(value: 'Asia/Hong_Kong', offsetMinutes: 480),
+  _TimezoneOption(value: 'Asia/Shanghai', offsetMinutes: 480),
+  _TimezoneOption(value: 'Asia/Kuala_Lumpur', offsetMinutes: 480),
+  _TimezoneOption(value: 'UTC+08:00', offsetMinutes: 480),
+  _TimezoneOption(value: 'Asia/Tokyo', offsetMinutes: 540),
+  _TimezoneOption(value: 'UTC+09:00', offsetMinutes: 540),
+  _TimezoneOption(value: 'Australia/Sydney', offsetMinutes: 600),
+  _TimezoneOption(value: 'Australia/Melbourne', offsetMinutes: 600),
+  _TimezoneOption(value: 'UTC+10:00', offsetMinutes: 600),
+  _TimezoneOption(value: 'Pacific/Auckland', offsetMinutes: 720),
+];
+
+final Map<String, _TimezoneOption> _timezoneOptionsMap = {
+  for (final option in _timezoneOptions) option.value: option,
+};
+
+String _formatTimezoneLabel(_TimezoneOption option) {
+  final baseLabel = option.label ?? option.value;
+  return '(GMT ${_formatOffsetMinutes(option.offsetMinutes)}) $baseLabel';
+}
+
+_TimezoneOption _resolveTimezoneOption({
+  required String timezone,
+  required int fallbackOffsetMinutes,
+  bool preferFallback = false,
+}) {
+  final known = _timezoneOptionsMap[timezone];
+  final parsedOffset = _parseOffsetMinutes(timezone);
+  final offsetMinutes = parsedOffset ??
+      (preferFallback ? fallbackOffsetMinutes : null) ??
+      known?.offsetMinutes ??
+      fallbackOffsetMinutes;
+  return _TimezoneOption(
+    value: timezone,
+    offsetMinutes: offsetMinutes,
+    label: known?.label,
   );
 }
 
-const List<String> _timezoneOptions = [
-  'UTC',
-  'UTC+01:00',
-  'UTC+02:00',
-  'UTC+03:00',
-  'UTC+05:30',
-  'UTC+07:00',
-  'UTC+08:00',
-  'UTC+09:00',
-  'UTC+10:00',
-  'UTC-03:00',
-  'UTC-05:00',
-  'UTC-06:00',
-  'UTC-08:00',
-  'Europe/London',
-  'Europe/Berlin',
-  'Europe/Paris',
-  'Europe/Madrid',
-  'Europe/Moscow',
-  'Asia/Singapore',
-  'Asia/Hong_Kong',
-  'Asia/Shanghai',
-  'Asia/Tokyo',
-  'Asia/Kuala_Lumpur',
-  'Asia/Jakarta',
-  'Asia/Bangkok',
-  'Asia/Dubai',
-  'America/New_York',
-  'America/Toronto',
-  'America/Chicago',
-  'America/Denver',
-  'America/Los_Angeles',
-  'America/Mexico_City',
-  'America/Sao_Paulo',
-  'Australia/Sydney',
-  'Australia/Melbourne',
-  'Pacific/Auckland',
-];
+List<_TimezoneOption> _buildTimezoneOptionsList({
+  required String deviceTimezone,
+  required String? currentTimezone,
+  required int deviceOffsetMinutes,
+}) {
+  final options = <String, _TimezoneOption>{
+    for (final option in _timezoneOptions) option.value: option,
+  };
+
+  void addIfMissing(
+    String? timezone, {
+    bool preferFallback = false,
+    bool force = false,
+  }) {
+    if (timezone == null || timezone.isEmpty) return;
+    if (force || !options.containsKey(timezone)) {
+      options[timezone] = _resolveTimezoneOption(
+        timezone: timezone,
+        fallbackOffsetMinutes: deviceOffsetMinutes,
+        preferFallback: preferFallback,
+      );
+    }
+  }
+
+  addIfMissing(deviceTimezone, preferFallback: true, force: true);
+  addIfMissing(currentTimezone);
+
+  final sorted = options.values.toList()
+    ..sort((a, b) {
+      final offsetComparison =
+          a.offsetMinutes.compareTo(b.offsetMinutes);
+      if (offsetComparison != 0) return offsetComparison;
+      return (a.label ?? a.value).compareTo(b.label ?? b.value);
+    });
+
+  return sorted;
+}
 
 Future<void> _showEditNameSheet({
   required BuildContext context,

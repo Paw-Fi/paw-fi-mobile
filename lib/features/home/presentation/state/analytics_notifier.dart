@@ -1,21 +1,41 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/state/analytics_data.dart';
 
-/// Analytics data provider
+/// Analytics data provider with robust error handling and retry logic
 class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
   AnalyticsNotifier() : super(AnalyticsData());
 
+  static const int _maxRetries = 2;
+  static const Duration _retryDelay = Duration(seconds: 2);
+  static const Duration _edgeFunctionTimeout = Duration(seconds: 20);
+  static const Duration _fallbackQueryTimeout = Duration(seconds: 15);
+
+  /// Track current load operation to prevent race conditions
+  int _loadOperationId = 0;
+
+  /// Load all analytics data for a user.
+  /// Always fetches ALL transactions (no date filtering) - local filtering is done in UI.
   Future<void> loadData(
     String userId, {
-    DateTime? startDate,
-    DateTime? endDate,
+    int retryCount = 0,
   }) async {
-    // Set hasLoadedOnce immediately to prevent infinite retry loops
-    state =
-        state.copyWith(isLoading: true, clearError: true, hasLoadedOnce: true);
+    // Prevent concurrent loads - if already loading, skip this request
+    // Exception: retries should continue (same operation)
+    if (state.isLoading && retryCount == 0) {
+      debugPrint('[Analytics] Skipping load - already in progress');
+      return;
+    }
+
+    // Increment operation ID to track this specific load
+    final currentOperationId = ++_loadOperationId;
+
+    // Only set loading state, NOT hasLoadedOnce - that's set on success only
+    state = state.copyWith(isLoading: true, clearError: true);
 
     try {
       if (userId.isEmpty) {
@@ -102,7 +122,10 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
       // This uses list-expenses with proper filters instead of direct DB query
       // EXCLUDE recurring transactions and household expenses
       List<ExpenseEntry> allExpenses = [];
+      bool expenseLoadFailed = false;
       try {
+        // Fetch ALL transactions without date filtering
+        // Local filtering is done in UI components
         final response = await supabase.functions.invoke(
           'list-expenses',
           body: {
@@ -110,11 +133,10 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
             'excludeRecurring': true, // Exclude recurring transactions
             'personalOnly':
                 true, // Only personal expenses (split_group_id IS NULL)
-            'limit': 10000, // Safety limit (10K max)
-            if (startDate != null) 'startDate': startDate.toIso8601String(),
-            if (endDate != null) 'endDate': endDate.toIso8601String(),
+            'limit': 1000, // Reduced limit for faster initial load
+            // No date filters - fetch all data
           },
-        ).timeout(const Duration(seconds: 10));
+        ).timeout(_edgeFunctionTimeout);
 
         if (response.data != null) {
           final jsonData = response.data as Map<String, dynamic>;
@@ -132,75 +154,45 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
 
         // Fallback to direct DB query if edge function fails
         try {
-          var fallbackQuery = supabase
+          final fallbackResponse = await supabase
               .from('expenses')
               .select(
                   'id,contact_id,date,amount_cents,currency,category,created_at,raw_text,receipt_image_url,household_id,split_group_id,type,is_recurring')
               .eq('user_id', userId)
               .isFilter('split_group_id', null)
-              .or('is_recurring.is.false,is_recurring.is.null');
-
-          // Apply date filters if provided
-          if (startDate != null) {
-            fallbackQuery =
-                fallbackQuery.gte('date', startDate.toIso8601String());
-          }
-          if (endDate != null) {
-            fallbackQuery =
-                fallbackQuery.lte('date', endDate.toIso8601String());
-          }
-
-          final fallbackResponse = await fallbackQuery
-              .limit(10000) // Safety limit
-              .order('date', ascending: true);
+              .or('is_recurring.is.false,is_recurring.is.null')
+              .limit(10000)
+              .order('date', ascending: false)
+              .timeout(_fallbackQueryTimeout);
 
           allExpenses = (fallbackResponse as List)
               .map((e) => ExpenseEntry.fromJson(e as Map<String, dynamic>))
               .toList();
         } catch (fallbackError) {
           debugPrint('[Analytics] Fallback fetch also failed: $fallbackError');
+          expenseLoadFailed = true;
           allExpenses = [];
         }
       }
 
-      // Fetch budgets with date filters and safety limits
+      // Fetch ALL budgets without date filtering
       List<DailyBudgetEntry> allBudgets = [];
       try {
         dynamic budgetsResponse;
         if (contactIds.length <= 1) {
           final contactId =
               contactIds.isNotEmpty ? contactIds.first : fetchedContact.id;
-          var budgetQuery = supabase
+          budgetsResponse = await supabase
               .from('daily_budgets')
               .select('id,contact_id,date,amount_cents,currency')
-              .eq('contact_id', contactId);
-
-          // Apply date filters if provided
-          if (startDate != null) {
-            budgetQuery = budgetQuery.gte('date', startDate.toIso8601String());
-          }
-          if (endDate != null) {
-            budgetQuery = budgetQuery.lte('date', endDate.toIso8601String());
-          }
-
-          budgetsResponse = await budgetQuery
+              .eq('contact_id', contactId)
               .limit(10000) // Safety limit
               .order('date', ascending: true);
         } else {
-          var budgetQuery = supabase
+          budgetsResponse = await supabase
               .from('daily_budgets')
               .select('id,contact_id,date,amount_cents,currency')
-              .inFilter('contact_id', contactIds);
-
-          // Apply date filters if provided
-          if (startDate != null) {
-            budgetQuery = budgetQuery.gte('date', startDate.toIso8601String());
-          }
-          if (endDate != null) {
-            budgetQuery = budgetQuery.lte('date', endDate.toIso8601String());
-          }
-
-          budgetsResponse = await budgetQuery
+              .inFilter('contact_id', contactIds)
               .limit(10000) // Safety limit
               .order('date', ascending: true);
         }
@@ -214,8 +206,35 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
         allBudgets = [];
       }
 
+      // Check if this operation is still current (not superseded by a newer load)
+      if (_loadOperationId != currentOperationId) {
+        debugPrint('[Analytics] Operation $currentOperationId superseded, abandoning');
+        return;
+      }
+
+      // Check if we should retry due to expense load failure
+      if (expenseLoadFailed && retryCount < _maxRetries) {
+        debugPrint(
+            '[Analytics] Expense load failed, scheduling retry ${retryCount + 1}/$_maxRetries');
+        await Future.delayed(_retryDelay);
+        // Check again after delay
+        if (_loadOperationId != currentOperationId) {
+          debugPrint('[Analytics] Operation $currentOperationId superseded during retry delay');
+          return;
+        }
+        // Retry with incremented count
+        return loadData(userId, retryCount: retryCount + 1);
+      }
+
+      // Final check before updating state
+      if (_loadOperationId != currentOperationId) {
+        debugPrint('[Analytics] Operation $currentOperationId superseded before state update');
+        return;
+      }
+
       // Store ALL data in both allExpenses/allBudgets AND expenses/budgets
       // Filtering will be done locally in the home page
+      // Set hasLoadedOnce = true ONLY on successful completion
       state = state.copyWith(
         contact: fetchedContact,
         expenses: allExpenses,
@@ -224,17 +243,46 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
         allBudgets: allBudgets,
         preferredCurrency: fetchedContact.preferredCurrency?.toUpperCase(),
         isLoading: false,
+        hasLoadedOnce: true, // Mark as loaded AFTER successful data fetch
       );
+
+      debugPrint(
+          '✅ Analytics loaded: ${allExpenses.length} expenses, ${allBudgets.length} budgets');
     } catch (e) {
+      debugPrint('[Analytics] Error loading data: $e');
+
+      // Check if this operation is still current
+      if (_loadOperationId != currentOperationId) {
+        debugPrint('[Analytics] Operation $currentOperationId superseded during error handling');
+        return;
+      }
+
+      // If we haven't exhausted retries, try again
+      if (retryCount < _maxRetries) {
+        debugPrint(
+            '[Analytics] Scheduling retry ${retryCount + 1}/$_maxRetries after error');
+        await Future.delayed(_retryDelay);
+        // Check again after delay
+        if (_loadOperationId != currentOperationId) {
+          debugPrint('[Analytics] Operation $currentOperationId superseded during error retry delay');
+          return;
+        }
+        return loadData(userId, retryCount: retryCount + 1);
+      }
+
+      // All retries exhausted - set error state but don't set hasLoadedOnce
+      // This allows the home page to show retry button
       state = state.copyWith(
         error: 'Failed to load data: $e',
         isLoading: false,
+        // Don't set hasLoadedOnce - allow retry from home page
       );
     }
   }
 
-  void refresh(String userId, {DateTime? startDate, DateTime? endDate}) {
-    loadData(userId, startDate: startDate, endDate: endDate);
+  /// Refresh analytics data - simply reloads all data
+  void refresh(String userId) {
+    loadData(userId);
   }
 
   void updatePreferredCurrency(String currency) {

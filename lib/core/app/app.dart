@@ -66,10 +66,18 @@ class _AppState extends ConsumerState<App> {
       if (uri.scheme == 'moneko') {
         if (uri.host == 'text') {
           ref.read(widgetLaunchProvider.notifier).state =
-              WidgetLaunchAction.textInput;
+              const WidgetLaunchEvent(type: WidgetLaunchActionType.textInput);
         } else if (uri.host == 'camera') {
           ref.read(widgetLaunchProvider.notifier).state =
-              WidgetLaunchAction.cameraInput;
+              const WidgetLaunchEvent(type: WidgetLaunchActionType.cameraInput);
+        } else if (uri.host == 'configure_widget') {
+          final widgetId = uri.queryParameters['widgetId'];
+          if (widgetId != null) {
+            ref.read(widgetLaunchProvider.notifier).state = WidgetLaunchEvent(
+              type: WidgetLaunchActionType.configure,
+              params: {'widgetId': widgetId},
+            );
+          }
         }
       }
     }

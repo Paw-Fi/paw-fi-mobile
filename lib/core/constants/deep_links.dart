@@ -1,5 +1,5 @@
 /// Deep link URL constants for the Moneko app
-/// 
+///
 /// These URLs are used for:
 /// - OAuth authentication callbacks (Google Sign-In)
 /// - Payment redirects (Stripe checkout)
@@ -17,7 +17,7 @@ class DeepLinks {
 
   /// OAuth callback URL for Google Sign-In
   /// Format: io.supabase.moneko://login-callback
-  /// 
+  ///
   /// This follows Supabase's recommended pattern for mobile OAuth.
   /// Must be whitelisted in Supabase Dashboard → Authentication → URL Configuration
   static const String oauthCallback = '$supabaseScheme://login-callback';
@@ -26,7 +26,7 @@ class DeepLinks {
 
   /// Payment callback base URL
   /// Format: moneko://payment
-  /// 
+  ///
   /// The checkout page will append status query parameters:
   /// - moneko://payment?status=success
   /// - moneko://payment?status=failed&error=...
@@ -57,21 +57,21 @@ class DeepLinks {
   static String paymentSuccess({String? sessionId}) {
     final params = <String, String>{'status': 'success'};
     if (sessionId != null) params['session_id'] = sessionId;
-    return Uri.parse(paymentCallback).replace(queryParameters: params).toString();
+    return Uri.parse(paymentCallback)
+        .replace(queryParameters: params)
+        .toString();
   }
 
   /// Payment failed callback with status and error parameters
   static String paymentFailed(String error) {
-    return Uri.parse(paymentCallback)
-        .replace(queryParameters: {'status': 'failed', 'error': error})
-        .toString();
+    return Uri.parse(paymentCallback).replace(
+        queryParameters: {'status': 'failed', 'error': error}).toString();
   }
 
   /// Payment canceled callback with status parameter
   static String paymentCanceled() {
     return Uri.parse(paymentCallback)
-        .replace(queryParameters: {'status': 'canceled'})
-        .toString();
+        .replace(queryParameters: {'status': 'canceled'}).toString();
   }
 
   // ==================== Helper Methods ====================
@@ -119,32 +119,32 @@ class DeepLinks {
   /// Format: moneko://expense/{expense_id}
   static bool isExpenseLink(Uri uri) {
     return uri.scheme == appScheme &&
-           uri.host == 'expense' &&
-           uri.pathSegments.isNotEmpty;
+        uri.host == 'expense' &&
+        uri.pathSegments.isNotEmpty;
   }
 
   /// Check if a URI is a household deep link
   /// Format: moneko://household/{household_id}
   static bool isHouseholdLink(Uri uri) {
     return uri.scheme == appScheme &&
-           uri.host == 'household' &&
-           uri.pathSegments.isNotEmpty;
+        uri.host == 'household' &&
+        uri.pathSegments.isNotEmpty;
   }
 
   /// Check if a URI is a budget deep link
   /// Format: moneko://budget/{budget_id}
   static bool isBudgetLink(Uri uri) {
     return uri.scheme == appScheme &&
-           uri.host == 'budget' &&
-           uri.pathSegments.isNotEmpty;
+        uri.host == 'budget' &&
+        uri.pathSegments.isNotEmpty;
   }
 
   /// Check if a URI is a split deep link
   /// Format: moneko://split/{split_id}
   static bool isSplitLink(Uri uri) {
     return uri.scheme == appScheme &&
-           uri.host == 'split' &&
-           uri.pathSegments.isNotEmpty;
+        uri.host == 'split' &&
+        uri.pathSegments.isNotEmpty;
   }
 
   /// Widget quick actions
@@ -156,6 +156,16 @@ class DeepLinks {
   /// moneko://camera
   static bool isWidgetCameraLink(Uri uri) {
     return uri.scheme == appScheme && uri.host == 'camera';
+  }
+
+  /// moneko://pockets
+  static bool isWidgetPocketsLink(Uri uri) {
+    return uri.scheme == appScheme && uri.host == 'pockets';
+  }
+
+  /// moneko://configure_widget?widgetId=123
+  static bool isWidgetConfigureLink(Uri uri) {
+    return uri.scheme == appScheme && uri.host == 'configure_widget';
   }
 
   /// Check if a URI is a home deep link
@@ -170,11 +180,14 @@ class DeepLinks {
 
   /// Legacy OAuth callback (kept for backward compatibility)
   /// Format: moneko://auth/callback
-  @Deprecated('Use oauthCallback instead. This is kept for backward compatibility.')
+  @Deprecated(
+      'Use oauthCallback instead. This is kept for backward compatibility.')
   static const String legacyOAuthCallback = '$appScheme://auth/callback';
 
   /// Check if a URI is a legacy OAuth callback
   static bool isLegacyOAuthCallback(Uri uri) {
-    return uri.scheme == appScheme && uri.host == 'auth' && uri.path == '/callback';
+    return uri.scheme == appScheme &&
+        uri.host == 'auth' &&
+        uri.path == '/callback';
   }
 }

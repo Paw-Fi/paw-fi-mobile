@@ -7,13 +7,18 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/navigation/zoom_drawer_provider.dart';
-import 'package:moneko/features/auth/presentation/widgets/impersonation_banner.dart';
+
 import 'package:moneko/features/home/presentation/pages/home_page.dart';
 import 'package:moneko/features/home/presentation/widgets/home_header_sliver.dart';
 import 'package:moneko/features/insights/presentation/pages/insights_page.dart';
 import 'package:moneko/features/recurring/pages/recurring_transactions_page.dart';
 import 'package:moneko/features/pockets/presentation/pages/pockets_page.dart';
 import 'package:moneko/features/home/presentation/state/widget_launch_provider.dart';
+import 'package:moneko/features/home/presentation/services/widget_sync_manager.dart';
+import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
+import 'package:moneko/core/services/widget_service.dart';
 import 'main_menu_screen.dart';
 
 /// Main navigation shell with bottom navigation bar
@@ -35,12 +40,34 @@ class MainShell extends HookConsumerWidget {
 
     // Keep the HomePage mounted so its listener can respond to widget launches
     // even when another tab is selected. Also auto-switch to Overview on a widget action.
-    ref.listen<WidgetLaunchAction>(widgetLaunchProvider, (previous, next) {
-      if (next == WidgetLaunchAction.textInput ||
-          next == WidgetLaunchAction.cameraInput) {
+    // Keep the HomePage mounted so its listener can respond to widget launches
+    // even when another tab is selected. Also auto-switch to Overview on a widget action.
+    ref.listen<WidgetLaunchEvent>(widgetLaunchProvider, (previous, next) {
+      if (next.type == WidgetLaunchActionType.textInput ||
+          next.type == WidgetLaunchActionType.cameraInput) {
+        // Quick actions stay on Overview (index 0) as before.
         if (currentIndex.value != 0) {
           currentIndex.value = 0;
         }
+      } else if (next.type == WidgetLaunchActionType.openPockets) {
+        // Any tap on the widget surface should open the Pockets tab.
+        if (currentIndex.value != 2) {
+          currentIndex.value = 2;
+        }
+        // Reset state
+        ref.read(widgetLaunchProvider.notifier).state =
+            const WidgetLaunchEvent();
+      } else if (next.type == WidgetLaunchActionType.configure) {
+        final widgetIdStr = next.params?['widgetId'];
+        if (widgetIdStr != null) {
+          final widgetId = int.tryParse(widgetIdStr);
+          if (widgetId != null) {
+            _showWidgetConfigurationDialog(context, ref, widgetId);
+          }
+        }
+        // Reset state
+        ref.read(widgetLaunchProvider.notifier).state =
+            const WidgetLaunchEvent();
       }
     });
 
@@ -57,10 +84,10 @@ class MainShell extends HookConsumerWidget {
       slideWidth: MediaQuery.of(context).size.width * 0.75,
       menuScreenWidth: MediaQuery.of(context).size.width * 0.75,
       mainScreen: AdaptiveScaffold(
-                appBar: AdaptiveAppBar(
+        appBar: AdaptiveAppBar(
             useNativeToolbar: false,
             cupertinoNavigationBar: const CupertinoNavigationBar(
-              leading: HomeHeaderSliver(),           
+              leading: HomeHeaderSliver(),
             ),
             appBar: AppBar(
               leadingWidth: 0,
@@ -71,12 +98,17 @@ class MainShell extends HookConsumerWidget {
             )),
         body: Material(
           color: colorScheme.appBackground,
-          child: Padding(
-            padding: const EdgeInsets.only(top: 10.0),
-            child: IndexedStack(
-              index: currentIndex.value,
-              children: pages,
-            ),
+          child: Stack(
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 10.0),
+                child: IndexedStack(
+                  index: currentIndex.value,
+                  children: pages,
+                ),
+              ),
+              const WidgetSyncManager(),
+            ],
           ),
         ),
         bottomNavigationBar: AdaptiveBottomNavigationBar(
@@ -122,6 +154,91 @@ class MainShell extends HookConsumerWidget {
           },
         ),
       ),
+    );
+  }
+
+  void _showWidgetConfigurationDialog(
+      BuildContext context, WidgetRef ref, int widgetId) {
+    showDialog(
+      context: context,
+      builder: (context) => _WidgetConfigurationDialog(widgetId: widgetId),
+    );
+  }
+}
+
+class _WidgetConfigurationDialog extends HookConsumerWidget {
+  final int widgetId;
+
+  const _WidgetConfigurationDialog({required this.widgetId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(authProvider);
+    final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
+    final availableCurrencies = ref.watch(availableCurrenciesProvider);
+
+    final selectedScope = useState<String>('personal');
+    final selectedCurrency = useState<String>('USD');
+
+    return AlertDialog(
+      title: const Text('Configure Widget'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Scope Selector
+          DropdownButtonFormField<String>(
+            value: selectedScope.value,
+            decoration: const InputDecoration(labelText: 'Household'),
+            items: [
+              const DropdownMenuItem(
+                value: 'personal',
+                child: Text('Personal'),
+              ),
+              ...?householdsAsync.valueOrNull?.map((h) => DropdownMenuItem(
+                    value: h.id,
+                    child: Text(h.name),
+                  )),
+            ],
+            onChanged: (value) {
+              if (value != null) selectedScope.value = value;
+            },
+          ),
+          const SizedBox(height: 16),
+          // Currency Selector
+          DropdownButtonFormField<String>(
+            value: selectedCurrency.value,
+            decoration: const InputDecoration(labelText: 'Currency'),
+            items: (availableCurrencies.isNotEmpty
+                    ? availableCurrencies
+                    : ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD'])
+                .map((c) => DropdownMenuItem(
+                      value: c,
+                      child: Text(c),
+                    ))
+                .toList(),
+            onChanged: (value) {
+              if (value != null) selectedCurrency.value = value;
+            },
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () async {
+            await WidgetService().saveWidgetConfiguration(
+              widgetId: widgetId,
+              scopeId: selectedScope.value,
+              currency: selectedCurrency.value,
+            );
+            if (context.mounted) Navigator.pop(context);
+          },
+          child: const Text('Save'),
+        ),
+      ],
     );
   }
 }

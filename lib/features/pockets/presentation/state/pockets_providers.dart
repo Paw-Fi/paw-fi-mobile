@@ -5,7 +5,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/features/auth/auth.dart';
-import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
+import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 
@@ -153,19 +153,31 @@ class UncategorizedCategory {
 }
 
 class PocketsNotifier extends StateNotifier<PocketsState> {
-  PocketsNotifier(this.ref, this.params) : super(PocketsState.initial()) {
-    _load();
-  }
+  PocketsNotifier(this.ref, this.params) : super(PocketsState.initial());
+  
+  // NOTE: We intentionally do NOT auto-load in constructor.
+  // The UI should call load() explicitly when the pockets page is displayed.
+  // At that point, analytics data is guaranteed to be loaded with correct currency.
 
   final Ref ref;
   final PocketsScopeParams params;
+  
+  bool _hasLoadedOnce = false;
+  
+  /// Public method to trigger data loading. Should be called by the UI
+  /// when the pockets page is displayed (not on provider creation).
+  Future<void> load() async {
+    // Avoid duplicate loads if already loading
+    if (state.isLoading && _hasLoadedOnce) return;
+    _hasLoadedOnce = true;
+    await _load();
+  }
 
   Future<void> _load() async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final authUser = ref.read(authProvider);
       final filter = ref.read(homeFilterProvider);
-      final selectedCurrency = filter.selectedCurrency ?? 'USD';
 
       final DateTime targetDate;
       if (params.periodMonth != null) {
@@ -203,6 +215,18 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         );
         return;
       }
+
+      // Resolve currency for this scope/month.
+      // Must match main_menu_screen.dart / CurrencyDropdownButton behavior:
+      // 1. Home filter's selectedCurrency (set by HomePage + currency selector)
+      // 2. Analytics preferred currency
+      // 3. Fallback to USD
+      final analytics = ref.read(analyticsProvider);
+      final selectedCurrency =
+          (filter.selectedCurrency?.toUpperCase() ??
+                  analytics.preferredCurrency?.toUpperCase() ??
+                  'USD')
+              .toUpperCase();
 
       // Fetch or create budget for the current month/scope
       final budgetQuery = supabase
@@ -682,6 +706,14 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
 
       // Reload from backend to ensure consistency
       await _load();
+
+      // Also refresh analytics so widgets and summaries reflect updated
+      // budgets and envelope allocations (used by WidgetSyncManager).
+      ref.read(analyticsProvider.notifier).refresh(authUser.uid);
+
+      // Force widget sync so both budget and top-spending widgets
+      // reflect the latest pocket configuration.
+      ref.read(widgetSyncVersionProvider.notifier).state++;
     } catch (e) {
       state = state.copyWith(error: e.toString());
     }
@@ -695,6 +727,12 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         'created_at': DateTime.now().toIso8601String(),
       });
       await _load();
+
+      // Re-sync widgets so envelope/category changes affect envelope
+      // spending and top-spending breakdowns immediately.
+      final authUser = ref.read(authProvider);
+      ref.read(analyticsProvider.notifier).refresh(authUser.uid);
+      ref.read(widgetSyncVersionProvider.notifier).state++;
     } catch (e) {
       state = state.copyWith(error: e.toString());
     }

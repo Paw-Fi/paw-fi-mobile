@@ -14,6 +14,7 @@ enum AppToastType { info, success, warning, error }
 class AppToast {
   static OverlayEntry? _currentToast;
   static Timer? _dismissTimer;
+  static ScaffoldMessengerState? _currentMessengerBanner;
 
   static Color _getColorForType(AppToastType type, BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -51,7 +52,17 @@ class AppToast {
     // Dismiss any existing toast
     _dismissCurrentToast();
 
-    final overlay = Overlay.of(context);
+    // Try to resolve an overlay for the provided context. Using maybeOf avoids
+    // a crash when the context does not have an Overlay ancestor (e.g. using a
+    // navigatorKey context).
+    final overlay = _resolveOverlayState(context);
+    if (overlay == null) {
+      // Fallback to a MaterialBanner at the top of the Scaffold when no overlay
+      // is available. This keeps user-visible feedback instead of silently
+      // dropping the toast (common during cold start/deep links).
+      _showMaterialBannerFallback(context, message, type, duration);
+      return;
+    }
     final color = _getColorForType(type, context);
     final icon = _getIconForType(type);
 
@@ -77,6 +88,8 @@ class AppToast {
     _dismissTimer = null;
     _currentToast?.remove();
     _currentToast = null;
+    _currentMessengerBanner?.hideCurrentMaterialBanner();
+    _currentMessengerBanner = null;
   }
 
   /// Show a toast with an action button (e.g., Retry)
@@ -91,7 +104,11 @@ class AppToast {
     // Dismiss any existing toast
     _dismissCurrentToast();
 
-    final overlay = Overlay.of(context);
+    final overlay = _resolveOverlayState(context);
+    if (overlay == null) {
+      _showMaterialBannerFallback(context, message, type, duration);
+      return;
+    }
     final color = _getColorForType(type, context);
     final icon = _getIconForType(type);
 
@@ -132,6 +149,63 @@ class AppToast {
   static void error(BuildContext context, String message,
           {Duration duration = const Duration(seconds: 4)}) =>
       show(context, message, type: AppToastType.error, duration: duration);
+
+  /// Safely resolve an [OverlayState] for the provided [context].
+  ///
+  /// - Uses [Overlay.maybeOf] to avoid throwing when there is no ancestor
+  ///   overlay.
+  /// - Falls back to the nearest navigator overlay (covers navigatorKey
+  ///   contexts used by deep links and background callbacks).
+  static OverlayState? _resolveOverlayState(BuildContext context) {
+    final overlay = Overlay.maybeOf(context, rootOverlay: true);
+    if (overlay != null) return overlay;
+
+    return Navigator.maybeOf(context, rootNavigator: true)?.overlay;
+  }
+
+  /// Fallback to a MaterialBanner at the top of the screen when no overlay is
+  /// available (e.g. navigatorKey context during app cold start/deep link).
+  static void _showMaterialBannerFallback(
+    BuildContext context,
+    String message,
+    AppToastType type,
+    Duration duration,
+  ) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) {
+      debugPrint('AppToast: No Overlay or ScaffoldMessenger; toast dropped.');
+      return;
+    }
+
+    final color = _getColorForType(type, context);
+    final icon = _getIconForType(type);
+
+    _currentMessengerBanner = messenger;
+    messenger.hideCurrentMaterialBanner();
+    messenger.showMaterialBanner(
+      MaterialBanner(
+        elevation: 0,
+        backgroundColor: color,
+        leading: Icon(icon, color: Colors.white),
+        content: Text(
+          message,
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+        ),
+        actions: [
+          TextButton(
+            onPressed: _dismissCurrentToast,
+            child: const Text('Dismiss', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+        forceActionsBelow: false,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      ),
+    );
+
+    _dismissTimer = Timer(duration, () {
+      _dismissCurrentToast();
+    });
+  }
 }
 
 /// Internal widget for toast display with animation

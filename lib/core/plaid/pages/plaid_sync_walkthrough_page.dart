@@ -12,7 +12,6 @@ import 'package:moneko/core/plaid/plaid_countries.dart';
 import 'package:moneko/core/plaid/plaid_country_flags.dart';
 import 'package:moneko/core/plaid/plaid_country_selector_modal.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
-import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
@@ -179,18 +178,6 @@ class _PlaidSyncWalkthroughPageState
     }
   }
 
-  Map<String, DateTime?> _currentFilterRange() {
-    final filter = ref.read(homeFilterProvider);
-    final range = getDateRangeFromFilter(
-      filter.dateRangeFilter,
-      filter.customStartDate,
-      filter.customEndDate,
-    );
-    return {
-      'startDate': range['from'],
-      'endDate': range['to'],
-    };
-  }
 
   Future<void> _refreshAfterSync(String userId) async {
     final viewMode = ref.read(viewModeProvider);
@@ -207,12 +194,8 @@ class _PlaidSyncWalkthroughPageState
       ref.invalidate(householdSummaryProvider);
       ref.invalidate(householdMembersProvider);
     } else {
-      final range = _currentFilterRange();
-      ref.read(analyticsProvider.notifier).refresh(
-            userId,
-            startDate: range['startDate'],
-            endDate: range['endDate'],
-          );
+      // Refresh analytics - fetches all data, filtering is done locally
+      ref.read(analyticsProvider.notifier).refresh(userId);
     }
 
     await ref
@@ -232,11 +215,8 @@ class _PlaidSyncWalkthroughPageState
             periodMonth: monthStart,
           );
     ref.invalidate(pocketsProvider(pocketsScope));
-    await ref.read(analyticsProvider.notifier).loadData(
-          userId,
-          startDate: monthStart,
-          endDate: DateTime(monthStart.year, monthStart.month + 1, 1),
-        );
+    // Load all analytics data - filtering is done locally
+    await ref.read(analyticsProvider.notifier).loadData(userId);
 
     await Future.delayed(const Duration(milliseconds: 500));
   }
