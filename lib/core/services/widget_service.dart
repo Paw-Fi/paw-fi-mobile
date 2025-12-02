@@ -174,6 +174,7 @@ class WidgetPocketData {
   final double budget;
   final String color; // Hex string
   final String? currency; // Optional 3-letter code
+  final String? icon; // Optional icon identifier (pocket or category key)
 
   WidgetPocketData({
     required this.name,
@@ -181,6 +182,7 @@ class WidgetPocketData {
     required this.budget,
     required this.color,
     this.currency,
+    this.icon,
   });
 
   Map<String, dynamic> toJson() => {
@@ -189,6 +191,7 @@ class WidgetPocketData {
         'budget': budget,
         'color': color,
         if (currency != null) 'currency': currency,
+        if (icon != null) 'icon': icon,
       };
 
   double get progress {

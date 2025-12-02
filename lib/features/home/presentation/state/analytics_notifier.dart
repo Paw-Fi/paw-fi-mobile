@@ -11,9 +11,9 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
   AnalyticsNotifier() : super(AnalyticsData());
 
   static const int _maxRetries = 2;
-  static const Duration _retryDelay = Duration(seconds: 2);
-  static const Duration _edgeFunctionTimeout = Duration(seconds: 20);
-  static const Duration _fallbackQueryTimeout = Duration(seconds: 15);
+  static const Duration _retryDelay = Duration(seconds: 1);
+  static const Duration _primaryQueryTimeout = Duration(seconds: 10);
+  static const Duration _fallbackQueryTimeout = Duration(seconds: 8);
 
   /// Track current load operation to prevent race conditions
   int _loadOperationId = 0;
@@ -123,58 +123,60 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
           .cast<String>()
           .toList();
 
-      // Fetch ALL PERSONAL expenses using optimized edge function
-      // This uses list-expenses with proper filters instead of direct DB query
+      // Fetch ALL PERSONAL expenses using direct DB query (faster, more reliable)
       // EXCLUDE recurring transactions and household expenses
       List<ExpenseEntry> allExpenses = [];
       bool expenseLoadFailed = false;
+      
+      debugPrint('[Analytics] Fetching expenses via direct DB query...');
       try {
-        // Fetch ALL transactions without date filtering
-        // Local filtering is done in UI components
-        final response = await supabase.functions.invoke(
-          'list-expenses',
-          body: {
-            'userId': userId,
-            'excludeRecurring': true, // Exclude recurring transactions
-            'personalOnly':
-                true, // Only personal expenses (split_group_id IS NULL)
-            'limit': 1000, // Reduced limit for faster initial load
-            // No date filters - fetch all data
-          },
-        ).timeout(_edgeFunctionTimeout);
+        // Primary: Direct DB query - faster and more reliable than edge function
+        final response = await supabase
+            .from('expenses')
+            .select(
+                'id,contact_id,date,amount_cents,currency,category,created_at,raw_text,receipt_image_url,household_id,split_group_id,type,is_recurring')
+            .eq('user_id', userId)
+            .isFilter('split_group_id', null) // Personal only
+            .or('is_recurring.is.false,is_recurring.is.null') // Exclude recurring
+            .limit(5000) // Safety limit
+            .order('date', ascending: false)
+            .timeout(_primaryQueryTimeout);
 
-        if (response.data != null) {
-          final jsonData = response.data as Map<String, dynamic>;
-          final expensesData = jsonData['data'] as List<dynamic>?;
-          if (expensesData != null) {
-            allExpenses = expensesData
-                .map((e) => ExpenseEntry.fromJson(e as Map<String, dynamic>))
-                .toList();
-          }
-        }
-      } catch (expenseError) {
-        // Handle errors gracefully with fallback
-        debugPrint(
-            '[Analytics] Error fetching expenses via edge function: $expenseError');
-
-        // Fallback to direct DB query if edge function fails
+        allExpenses = (response as List)
+            .map((e) => ExpenseEntry.fromJson(e as Map<String, dynamic>))
+            .toList();
+        debugPrint('[Analytics] Direct DB query succeeded: ${allExpenses.length} expenses');
+      } catch (primaryError) {
+        debugPrint('[Analytics] Primary DB query failed: $primaryError');
+        
+        // Fallback: Try simpler query without filters, then filter in memory
         try {
+          debugPrint('[Analytics] Trying fallback query...');
           final fallbackResponse = await supabase
               .from('expenses')
               .select(
                   'id,contact_id,date,amount_cents,currency,category,created_at,raw_text,receipt_image_url,household_id,split_group_id,type,is_recurring')
               .eq('user_id', userId)
-              .isFilter('split_group_id', null)
-              .or('is_recurring.is.false,is_recurring.is.null')
-              .limit(10000)
+              .limit(5000)
               .order('date', ascending: false)
               .timeout(_fallbackQueryTimeout);
 
-          allExpenses = (fallbackResponse as List)
+          // Filter in memory using raw JSON before parsing
+          final filteredData = (fallbackResponse as List)
+              .where((e) {
+                final json = e as Map<String, dynamic>;
+                final splitGroupId = json['split_group_id'];
+                final isRecurring = json['is_recurring'];
+                return splitGroupId == null && (isRecurring == null || isRecurring == false);
+              })
+              .toList();
+          
+          allExpenses = filteredData
               .map((e) => ExpenseEntry.fromJson(e as Map<String, dynamic>))
               .toList();
+          debugPrint('[Analytics] Fallback query succeeded: ${allExpenses.length} expenses');
         } catch (fallbackError) {
-          debugPrint('[Analytics] Fallback fetch also failed: $fallbackError');
+          debugPrint('[Analytics] Fallback query also failed: $fallbackError');
           expenseLoadFailed = true;
           allExpenses = [];
         }

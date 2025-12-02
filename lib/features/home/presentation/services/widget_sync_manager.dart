@@ -137,7 +137,7 @@ class WidgetSyncManager extends HookConsumerWidget {
             // Fetch envelopes for this budget/currency
             final envelopesRes = await client
                 .from('budget_envelopes')
-                .select('id,name,budget_percentage,color')
+                .select('id,name,budget_percentage,color,icon')
                 .eq('user_id', user.uid)
                 .eq('currency', currency)
                 .eq('budget_id', budgetId)
@@ -200,6 +200,10 @@ class WidgetSyncManager extends HookConsumerWidget {
               final envelopeBudget = totalBudget * (pct / 100.0);
               final spent = spentById[id] ?? 0.0;
               final color = row['color'] as String? ?? '#7458FF';
+              // Icon can be stored as a string name or another type (e.g. int codepoint).
+              // Preserve whatever identifier exists by converting to string.
+              final dynamic rawIcon = row['icon'];
+              final String? icon = rawIcon != null ? rawIcon.toString() : null;
 
               pockets.add(
                 WidgetPocketData(
@@ -208,6 +212,7 @@ class WidgetSyncManager extends HookConsumerWidget {
                   budget: envelopeBudget,
                   color: color,
                   currency: currency,
+                  icon: icon,
                 ),
               );
             }
@@ -381,6 +386,9 @@ class WidgetSyncManager extends HookConsumerWidget {
                       budget: 0,
                       color: hex,
                       currency: currency,
+                      // Use the raw category key as an icon identifier so
+                      // platform widgets can map it to a native icon.
+                      icon: e.key,
                     );
                   })
                   .toList();
@@ -455,6 +463,7 @@ class WidgetSyncManager extends HookConsumerWidget {
                       budget: budgetAmount,
                       color: hex,
                       currency: currency,
+                      icon: b.name,
                     ),
                   );
                 }
@@ -471,6 +480,7 @@ class WidgetSyncManager extends HookConsumerWidget {
                             budget: 0,
                             color: hex,
                             currency: currency,
+                            icon: cat.category,
                           );
                         })
                     .toList();

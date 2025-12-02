@@ -11,6 +11,7 @@ struct PocketData: Codable, Identifiable {
     let budget: Double
     let color: String
     let currency: String?
+    let icon: String?
 }
 
 struct MonekoEntry: TimelineEntry {
@@ -146,9 +147,9 @@ extension MonekoEntry {
             remainingBudget: "$750",
             progress: 0.65,
             pockets: [
-                PocketData(name: "Groceries", spent: 450, budget: 600, color: "#7458FF", currency: "USD"),
-                PocketData(name: "Transport", spent: 120, budget: 200, color: "#16CDA2", currency: "USD"),
-                PocketData(name: "Dining", spent: 300, budget: 400, color: "#FFC219", currency: "USD")
+                PocketData(name: "Groceries", spent: 450, budget: 600, color: "#7458FF", currency: "USD", icon: "shopping_bag"),
+                PocketData(name: "Transport", spent: 120, budget: 200, color: "#16CDA2", currency: "USD", icon: "directions_car"),
+                PocketData(name: "Dining", spent: 300, budget: 400, color: "#FFC219", currency: "USD", icon: "restaurant")
             ],
             configuration: nil
         )
@@ -434,9 +435,11 @@ struct LargeWidgetView: View {
                 ForEach(entry.pockets) { pocket in
                     VStack(alignment: .leading, spacing: 6) {
                         HStack {
-                            Circle()
-                                .fill(Color(hex: pocket.color))
-                                .frame(width: 10, height: 10)
+                            IconCircleView(
+                                iconName: pocket.icon,
+                                fallbackColorHex: pocket.color,
+                                size: 18
+                            )
 
                             Text(pocket.name)
                                 .font(.subheadline)
@@ -512,9 +515,11 @@ struct TopCategoriesLargeWidgetView: View {
             VStack(spacing: 12) {
                 ForEach(entry.pockets.prefix(4)) { pocket in
                     HStack {
-                        Circle()
-                            .fill(Color(hex: pocket.color))
-                            .frame(width: 8, height: 8)
+                        IconCircleView(
+                            iconName: pocket.icon,
+                            fallbackColorHex: pocket.color,
+                            size: 16
+                        )
 
                         Text(pocket.name)
                             .font(.subheadline)
@@ -624,6 +629,121 @@ extension Color {
             blue:  Double(b) / 255,
             opacity: Double(a) / 255
         )
+    }
+}
+
+/// Renders an icon inside a colored circular pill, falling back to a plain
+/// color dot if no icon mapping exists. This mirrors the pocket/category
+/// icons used in the Flutter UI while using SF Symbols on iOS.
+struct IconCircleView: View {
+    let iconName: String?
+    let fallbackColorHex: String
+    let size: CGFloat
+
+    var body: some View {
+        // When no explicit icon is set, fall back to the same
+        // semantic default as the pockets page (the "savings"
+        // / piggy-bank icon). If that mapping is unavailable,
+        // use a generic money symbol.
+        let systemName: String = {
+            if let iconName, let mapped = mapIconIdentifierToSymbol(iconName) {
+                return mapped
+            }
+            if let savingsMapped = mapIconIdentifierToSymbol("savings") {
+                return savingsMapped
+            }
+            return "savings.fill"
+        }()
+
+        ZStack {
+            Circle()
+                .fill(Color(hex: fallbackColorHex).opacity(0.15))
+                .frame(width: size + 8, height: size + 8)
+            Image(systemName: systemName)
+                .font(.system(size: size * 0.7, weight: .semibold))
+                .foregroundColor(Color(hex: fallbackColorHex))
+        }
+    }
+}
+
+/// Maps a cross-platform icon identifier (pocket icon name or category key)
+/// to an SF Symbol name for display in the widget.
+fileprivate func mapIconIdentifierToSymbol(_ identifier: String) -> String? {
+    let key = identifier.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+
+    switch key {
+    // Pocket icon names (see pocket_icon_constants.dart)
+    case "shopping_bag":
+        return "bag.fill"
+    case "restaurant":
+        return "fork.knife"
+    case "directions_car":
+        return "car.fill"
+    case "home":
+        return "house.fill"
+    case "flight":
+        return "airplane"
+    case "medical_services":
+        return "cross.case.fill"
+    case "school":
+        return "book.fill"
+    case "pets":
+        return "pawprint.fill"
+    case "sports_esports":
+        return "gamecontroller.fill"
+    case "fitness_center":
+        return "figure.strengthtraining.traditional"
+    case "local_cafe":
+        return "cup.and.saucer.fill"
+    case "local_bar":
+        return "wineglass.fill"
+    case "movie":
+        return "film.fill"
+    case "music_note":
+        return "music.note"
+    case "savings", "savings_outlined":
+        return "banknote.fill"
+    case "account_balance":
+        return "building.columns.fill"
+
+    // Category keys (subset; others fall back to default)
+    case "groceries":
+        return "cart.fill"
+    case "food & drinks", "restaurants", "takeout & delivery":
+        return "fork.knife"
+    case "coffee & tea":
+        return "cup.and.saucer.fill"
+    case "snacks":
+        return "takeoutbag.and.cup.and.straw.fill"
+    case "public transport":
+        return "tram.fill"
+    case "taxi & ride apps":
+        return "car.fill"
+    case "fuel / gas":
+        return "fuelpump.fill"
+    case "travel", "flights":
+        return "airplane"
+    case "hotels":
+        return "bed.double.fill"
+    case "medical care", "pharmacy":
+        return "cross.case.fill"
+    case "fitness & gym", "sports & exercise":
+        return "figure.run"
+    case "movies & shows":
+        return "film.fill"
+    case "music & streaming":
+        return "music.note.list"
+    case "games & apps":
+        return "gamecontroller.fill"
+    case "gifts", "bonus":
+        return "gift.fill"
+    case "income", "salary":
+        return "banknote.fill"
+    case "investments":
+        return "chart.line.uptrend.xyaxis"
+
+    default:
+        return nil
     }
 }
 
