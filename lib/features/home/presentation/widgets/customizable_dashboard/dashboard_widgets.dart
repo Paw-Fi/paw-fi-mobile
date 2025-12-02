@@ -231,7 +231,7 @@ class DraggableDashboardList extends ConsumerWidget {
           return SizedBox.shrink(key: ValueKey(config.id));
         }
 
-        return ReorderableDragStartListener(
+        return ReorderableDelayedDragStartListener(
           key: ValueKey(config.id),
           index: index,
           enabled: isEditMode,
@@ -348,14 +348,18 @@ class WidgetConfigurationSheet extends StatelessWidget {
                         label: context.l10n.viewModeMini,
                         isSelected:
                             config.viewMode == DashboardWidgetViewMode.mini,
+                        isSupported: config.type.supportedViewModes
+                            .contains(DashboardWidgetViewMode.mini),
                         onTap: () =>
                             onUpdate(viewMode: DashboardWidgetViewMode.mini),
                       ),
                       _buildSegmentOption(
                         context,
-                        label: context.l10n.viewModeCompact,
+                        label: context.l10n.viewModeWide,
                         isSelected:
                             config.viewMode == DashboardWidgetViewMode.wide,
+                        isSupported: config.type.supportedViewModes
+                            .contains(DashboardWidgetViewMode.wide),
                         onTap: () =>
                             onUpdate(viewMode: DashboardWidgetViewMode.wide),
                       ),
@@ -364,6 +368,8 @@ class WidgetConfigurationSheet extends StatelessWidget {
                         label: context.l10n.viewModeFull,
                         isSelected:
                             config.viewMode == DashboardWidgetViewMode.full,
+                        isSupported: config.type.supportedViewModes
+                            .contains(DashboardWidgetViewMode.full),
                         onTap: () =>
                             onUpdate(viewMode: DashboardWidgetViewMode.full),
                       ),
@@ -441,11 +447,12 @@ class WidgetConfigurationSheet extends StatelessWidget {
   Widget _buildSegmentOption(BuildContext context,
       {required String label,
       required bool isSelected,
+      required bool isSupported,
       required VoidCallback onTap}) {
     final colorScheme = Theme.of(context).colorScheme;
     return Expanded(
       child: GestureDetector(
-        onTap: onTap,
+        onTap: isSupported ? onTap : null,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 8),
@@ -466,9 +473,11 @@ class WidgetConfigurationSheet extends StatelessWidget {
           child: Text(
             label,
             style: TextStyle(
-              color: isSelected
-                  ? colorScheme.primary
-                  : colorScheme.onSurfaceVariant,
+              color: isSupported
+                  ? (isSelected
+                      ? colorScheme.primary
+                      : colorScheme.onSurfaceVariant)
+                  : colorScheme.outline.withValues(alpha: 0.5),
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               fontSize: 13,
             ),

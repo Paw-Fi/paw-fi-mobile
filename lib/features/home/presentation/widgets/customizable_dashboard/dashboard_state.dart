@@ -80,6 +80,10 @@ class PersonalDashboardController
               id: 'spending_chart',
               type: DashboardWidgetType.spendingBreakdownChart,
               order: 4),
+          DashboardWidgetConfig(
+              id: 'where_the_money_went',
+              type: DashboardWidgetType.whereTheMoneyWent,
+              order: 5),
         ]);
       }
     } catch (e, st) {
@@ -204,6 +208,10 @@ class HouseholdDashboardController
               id: 'spending_chart',
               type: DashboardWidgetType.householdSpendingBreakdownChart,
               order: 7),
+          DashboardWidgetConfig(
+              id: 'where_the_money_went',
+              type: DashboardWidgetType.householdWhereTheMoneyWent,
+              order: 8),
         ]);
       }
     } catch (e, st) {

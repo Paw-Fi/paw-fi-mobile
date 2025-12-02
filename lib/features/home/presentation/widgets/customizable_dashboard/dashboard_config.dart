@@ -7,6 +7,7 @@ enum DashboardWidgetType {
   financialCalendar,
   categoryBreakdown,
   spendingBreakdownChart,
+  whereTheMoneyWent,
 
   // Household Home Widgets
   householdSpentByYou,
@@ -17,6 +18,17 @@ enum DashboardWidgetType {
   householdMemberSpending,
   householdCategoryBreakdown,
   householdSpendingBreakdownChart,
+  householdWhereTheMoneyWent;
+
+  List<DashboardWidgetViewMode> get supportedViewModes {
+    switch (this) {
+      case DashboardWidgetType.financialCalendar:
+      case DashboardWidgetType.householdFinancialCalendar:
+        return [DashboardWidgetViewMode.wide, DashboardWidgetViewMode.full];
+      default:
+        return [DashboardWidgetViewMode.wide];
+    }
+  }
 }
 
 enum DashboardWidgetViewMode {

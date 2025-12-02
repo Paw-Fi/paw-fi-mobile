@@ -1550,5 +1550,6 @@
   "configureWidget": "Widget configureren",
   "viewMode": "Weergavemodus",
   "compactView": "Compacte Weergave",
-  "expandedView": "Uitgebreide Weergave"
+  "expandedView": "Uitgebreide Weergave",
+  "viewModeWide": "Breed formaat"
 }

@@ -58,11 +58,6 @@ function updateLocale(locale) {
   for (const key of Object.keys(translations)) {
     const perLocale = translations[key];
     if (!perLocale || !(locale in perLocale)) continue;
-
-    if (Object.prototype.hasOwnProperty.call(arbJson, key)) {
-      continue; // don’t overwrite existing keys
-    }
-
     arbJson[key] = perLocale[locale];
     addedCount += 1;
   }

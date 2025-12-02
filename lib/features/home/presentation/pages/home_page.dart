@@ -30,6 +30,8 @@ import 'package:moneko/features/recurring/presentation/providers/recurring_provi
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_config.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_state.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_widgets.dart';
+import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/widgets/where_the_money_went_widget.dart';
+import 'package:moneko/features/insights/presentation/widgets/category_guide_dialog.dart';
 
 // ============================================================================
 // HOME PAGE
@@ -777,6 +779,20 @@ class _HomePageState extends ConsumerState<HomePage> {
                                                 config.dateRange,
                                                 selectedCurrency: filterState
                                                     .selectedCurrency,
+                                              ),
+                                            ),
+                                    DashboardWidgetType.whereTheMoneyWent:
+                                        (context, config) => Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 16.0),
+                                              child: WhereTheMoneyWentWidget(
+                                                expenses: personalExpensesAll,
+                                                currency: filterState
+                                                    .selectedCurrency,
+                                                onHelpTap: () =>
+                                                    showCategoryGuide(
+                                                        context, colorScheme),
                                               ),
                                             ),
                                   },

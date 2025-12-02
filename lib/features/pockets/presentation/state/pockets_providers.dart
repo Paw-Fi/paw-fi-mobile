@@ -166,14 +166,69 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
   
   /// Public method to trigger data loading. Should be called by the UI
   /// when the pockets page is displayed (not on provider creation).
+  /// 
+  /// This method ensures analytics data is loaded first (for preferredCurrency),
+  /// then loads pockets data. It properly waits for analytics to finish loading
+  /// even if another load is already in progress.
   Future<void> load() async {
     // Avoid duplicate loads if already loading
     if (state.isLoading && _hasLoadedOnce) return;
     _hasLoadedOnce = true;
+    
+    final authUser = ref.read(authProvider);
+    if (authUser.isEmpty) {
+      debugPrint('[Pockets] No auth user, cannot load');
+      state = state.copyWith(isLoading: false, error: 'Not authenticated');
+      return;
+    }
+    
+    // Wait for analytics to be ready - we need preferredCurrency
+    // This handles the case where analytics is already loading from app init
+    await _waitForAnalyticsReady(authUser.uid);
+    
     await _load();
+  }
+  
+  /// Waits for analytics to be loaded, with timeout protection.
+  /// If analytics is currently loading, waits for it to finish.
+  /// If analytics is not loading and not loaded, triggers a load.
+  Future<void> _waitForAnalyticsReady(String userId) async {
+    const maxWaitTime = Duration(seconds: 30);
+    const pollInterval = Duration(milliseconds: 200);
+    final startTime = DateTime.now();
+    
+    while (true) {
+      final analytics = ref.read(analyticsProvider);
+      
+      // If already loaded successfully, we're good
+      if (analytics.hasLoadedOnce == true) {
+        debugPrint('[Pockets] Analytics ready (hasLoadedOnce=true), proceeding');
+        return;
+      }
+      
+      // If not loading and not loaded, trigger a load
+      if (!analytics.isLoading) {
+        debugPrint('[Pockets] Analytics not loading, triggering load...');
+        // Don't await - just trigger and continue polling
+        ref.read(analyticsProvider.notifier).loadData(userId);
+      } else {
+        debugPrint('[Pockets] Analytics is loading, waiting...');
+      }
+      
+      // Check timeout
+      final elapsed = DateTime.now().difference(startTime);
+      if (elapsed > maxWaitTime) {
+        debugPrint('[Pockets] Timeout (${elapsed.inSeconds}s) waiting for analytics, proceeding with available data');
+        return;
+      }
+      
+      // Wait before next poll
+      await Future.delayed(pollInterval);
+    }
   }
 
   Future<void> _load() async {
+    debugPrint('[Pockets] Starting _load for scope: ${params.scope}, month: ${params.periodMonth}');
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final authUser = ref.read(authProvider);
@@ -227,6 +282,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
                   analytics.preferredCurrency?.toUpperCase() ??
                   'USD')
               .toUpperCase();
+      
+      debugPrint('[Pockets] Using currency: $selectedCurrency (filter: ${filter.selectedCurrency}, analytics: ${analytics.preferredCurrency}, hasLoaded: ${analytics.hasLoadedOnce})');
 
       // Fetch or create budget for the current month/scope
       final budgetQuery = supabase

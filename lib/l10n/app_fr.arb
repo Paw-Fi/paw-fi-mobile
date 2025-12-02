@@ -1603,5 +1603,6 @@
   "configureWidget": "Configurer le widget",
   "viewMode": "Mode d'Affichage",
   "compactView": "Vue Compacte",
-  "expandedView": "Vue Étendue"
+  "expandedView": "Vue Étendue",
+  "viewModeWide": "Large"
 }

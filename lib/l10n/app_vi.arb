@@ -1602,5 +1602,6 @@
   "configureWidget": "Cấu hình widget",
   "viewMode": "Chế độ Xem",
   "compactView": "Chế độ Gọn",
-  "expandedView": "Chế độ Mở Rộng"
+  "expandedView": "Chế độ Mở Rộng",
+  "viewModeWide": "Rộng"
 }

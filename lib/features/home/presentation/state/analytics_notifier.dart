@@ -42,7 +42,9 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
         state = state.copyWith(
           error: 'Please log in to view analytics',
           isLoading: false,
+          hasLoadedOnce: true, // Mark as loaded so other providers don't wait forever
         );
+        debugPrint('[Analytics] Empty userId, setting error state with hasLoadedOnce=true');
         return;
       }
 
@@ -82,6 +84,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
       if (contactResponse == null) {
         // No contact found - this is okay for mobile-only users
         // Set empty state and show empty expenses/budgets
+        // IMPORTANT: Still set hasLoadedOnce = true so other providers know we're done
         state = state.copyWith(
           contact: null,
           expenses: [],
@@ -90,7 +93,9 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
           allBudgets: [],
           preferredCurrency: null,
           isLoading: false,
+          hasLoadedOnce: true, // Mark as loaded even with no contact
         );
+        debugPrint('[Analytics] No contact found, setting empty state with hasLoadedOnce=true');
         return;
       }
 
@@ -270,13 +275,15 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
         return loadData(userId, retryCount: retryCount + 1);
       }
 
-      // All retries exhausted - set error state but don't set hasLoadedOnce
-      // This allows the home page to show retry button
+      // All retries exhausted - set error state
+      // Set hasLoadedOnce = true so other providers don't wait forever
+      // Home page can still show retry button based on error state
       state = state.copyWith(
         error: 'Failed to load data: $e',
         isLoading: false,
-        // Don't set hasLoadedOnce - allow retry from home page
+        hasLoadedOnce: true, // Mark as "attempted" so other providers don't wait
       );
+      debugPrint('[Analytics] All retries exhausted, setting error state with hasLoadedOnce=true');
     }
   }
 

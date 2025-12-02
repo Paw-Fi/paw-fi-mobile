@@ -1595,5 +1595,6 @@
   "configureWidget": "Налаштувати Віджет",
   "viewMode": "Режим Відображення",
   "compactView": "Компактний Вид",
-  "expandedView": "Розширений Вид"
+  "expandedView": "Розширений Вид",
+  "viewModeWide": "Широкий"
 }

@@ -1599,9 +1599,10 @@
   "attention": "注意",
   "viewModeMini": "ミニ",
   "viewModeCompact": "コンパクト",
-  "viewModeFull": "フル表示",
+  "viewModeFull": "フル",
   "configureWidget": "ウィジェットを設定",
   "viewMode": "表示モード",
   "compactView": "コンパクト表示",
-  "expandedView": "拡張表示"
+  "expandedView": "拡張表示",
+  "viewModeWide": "ワイド"
 }

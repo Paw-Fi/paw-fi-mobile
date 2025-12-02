@@ -1553,5 +1553,6 @@
   "configureWidget": "Настроить Виджет",
   "viewMode": "Режим Отображения",
   "compactView": "Компактный Вид",
-  "expandedView": "Развернутый Вид"
+  "expandedView": "Развернутый Вид",
+  "viewModeWide": "Широкий"
 }

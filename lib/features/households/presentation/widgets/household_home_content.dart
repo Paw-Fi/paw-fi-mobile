@@ -26,6 +26,8 @@ import 'package:moneko/features/households/presentation/widgets/settlement_sugge
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/households/presentation/widgets/financial_calendar_widget.dart';
+import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/widgets/where_the_money_went_widget.dart';
+import 'package:moneko/features/insights/presentation/widgets/category_guide_dialog.dart';
 
 /// Household home content that handles loading, empty, and data states
 /// Returns Sliver widgets for use in CustomScrollView
@@ -701,6 +703,35 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                                 config.dateRange,
                                 selectedCurrency: selectedCurrency,
                               ),
+                            ),
+                          );
+                        });
+                      },
+                      DashboardWidgetType.householdWhereTheMoneyWent:
+                          (context, config) {
+                        return Consumer(builder: (context, ref, _) {
+                          final range = getDateRangeFromFilter(config.dateRange,
+                              config.customStartDate, config.customEndDate);
+                          final from = range['from']!;
+                          final to = range['to']!;
+
+                          final expensesAsync =
+                              ref.watch(householdExpensesProvider(
+                            HouseholdExpensesParams(
+                              householdId: household.id,
+                              startDate: from,
+                              endDate: to,
+                            ),
+                          ));
+
+                          return Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 16.0),
+                            child: WhereTheMoneyWentWidget(
+                              expenses: expensesAsync.value ?? [],
+                              currency: selectedCurrency,
+                              onHelpTap: () =>
+                                  showCategoryGuide(context, colorScheme),
                             ),
                           );
                         });

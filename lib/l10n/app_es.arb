@@ -1601,9 +1601,10 @@
   "attention": "Atención",
   "viewModeMini": "Mini",
   "viewModeCompact": "Compacto",
-  "viewModeFull": "Completa",
+  "viewModeFull": "Completo",
   "configureWidget": "Configurar Widget",
   "viewMode": "Modo de Vista",
   "compactView": "Vista Compacta",
-  "expandedView": "Vista Ampliada"
+  "expandedView": "Vista Ampliada",
+  "viewModeWide": "Amplio"
 }

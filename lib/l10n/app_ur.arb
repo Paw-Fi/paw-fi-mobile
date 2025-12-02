@@ -1543,11 +1543,12 @@
   "categoryGroupMisc": "متفرقہ",
   "ok": "ٹھیک ہے",
   "attention": "توجہ",
-  "viewModeMini": "چھوٹا",
-  "viewModeCompact": "مختصر",
+  "viewModeMini": "منی",
+  "viewModeCompact": "کمپیکٹ",
   "viewModeFull": "مکمل",
   "configureWidget": "ویجٹ ترتیب دیں",
   "viewMode": "دیکھنے کا طریقہ",
   "compactView": "کمپیکٹ منظر",
-  "expandedView": "ایکسپینڈڈ منظر"
+  "expandedView": "ایکسپینڈڈ منظر",
+  "viewModeWide": "وائیڈ"
 }

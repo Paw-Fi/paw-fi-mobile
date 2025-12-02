@@ -1550,5 +1550,6 @@
   "configureWidget": "配置小元件",
   "viewMode": "檢視模式",
   "compactView": "緊湊檢視",
-  "expandedView": "展開檢視"
+  "expandedView": "展開檢視",
+  "viewModeWide": "寬"
 }

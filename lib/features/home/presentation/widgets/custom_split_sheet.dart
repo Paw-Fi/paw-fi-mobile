@@ -119,17 +119,18 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
     super.initState();
     // Initialize with provided values or defaults
     _selectedType = widget.initialSplitType ?? SplitType.amount;
-    
-    if (widget.initialSplits != null) {
+
+    if (widget.initialSplits != null && widget.initialSplits!.isNotEmpty) {
       // Use provided initial splits
-      _memberSplits = List.from(widget.initialSplits!);
-      debugPrint('🔧 [SPLIT EDITOR] Initialized with provided splits: $_selectedType');
+      _initializeSplitsFromInitial();
+      debugPrint(
+          '🔧 [SPLIT EDITOR] Initialized with provided splits: $_selectedType');
     } else {
       // Initialize with default equal splits
       _initializeSplits();
       debugPrint('🔧 [SPLIT EDITOR] Initialized with default equal splits');
     }
-    
+
     _initializeControllers();
     // notify parent with initial state after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) => _queueNotify());
@@ -145,6 +146,11 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
   }
 
   void _initializeSplits() {
+    if (widget.members.isEmpty) {
+      _memberSplits = <MemberSplit>[];
+      return;
+    }
+
     _memberSplits = widget.members.map((member) {
       return MemberSplit(
         member: member,
@@ -157,9 +163,45 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
 
   void _initializeControllers() {
     _controllers = List.generate(
-      widget.members.length,
+      _memberSplits.length,
       (index) => TextEditingController(text: _getFormattedValue(index)),
     );
+  }
+
+  void _initializeSplitsFromInitial() {
+    if (widget.members.isEmpty) {
+      _memberSplits = <MemberSplit>[];
+      return;
+    }
+
+    final Map<String?, MemberSplit> byUserId = {
+      for (final split in widget.initialSplits!) split.member.userId: split,
+    };
+
+    _memberSplits = widget.members.map((member) {
+      final existing = byUserId[member.userId];
+      if (existing != null) {
+        return MemberSplit(
+          member: member,
+          amount: existing.amount,
+          percentage: existing.percentage,
+          shares: existing.shares,
+          includedInAmount: existing.includedInAmount,
+          includedInPercentage: existing.includedInPercentage,
+        );
+      }
+
+      // Fallback for new members that have no existing split line
+      return MemberSplit(
+        member: member,
+        amount: widget.members.isNotEmpty
+            ? widget.totalAmount / widget.members.length
+            : 0,
+        percentage:
+            widget.members.isNotEmpty ? 100.0 / widget.members.length : 0,
+        shares: 1,
+      );
+    }).toList();
   }
 
   String _getFormattedValue(int index) {

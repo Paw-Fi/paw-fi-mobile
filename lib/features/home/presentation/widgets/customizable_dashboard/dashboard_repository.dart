@@ -88,23 +88,23 @@ class DashboardRepository {
         return decoded.map((e) => DashboardWidgetConfig.fromJson(e)).toList();
       }
 
-      // 2. Try Remote
+      // 2. Try Remote (DISABLED FOR NOW per user request)
       // Assuming 'dashboard_layout' column exists in 'households' table
-      final response = await _supabase
-          .from('households')
-          .select('dashboard_layout')
-          .eq('id', householdId)
-          .maybeSingle();
+      // final response = await _supabase
+      //     .from('households')
+      //     .select('dashboard_layout')
+      //     .eq('id', householdId)
+      //     .maybeSingle();
 
-      if (response != null && response['dashboard_layout'] != null) {
-        final List<dynamic> remoteList = response['dashboard_layout'];
-        final configs =
-            remoteList.map((e) => DashboardWidgetConfig.fromJson(e)).toList();
+      // if (response != null && response['dashboard_layout'] != null) {
+      //   final List<dynamic> remoteList = response['dashboard_layout'];
+      //   final configs =
+      //       remoteList.map((e) => DashboardWidgetConfig.fromJson(e)).toList();
 
-        // Cache locally
-        await _saveLocalHousehold(householdId, configs);
-        return configs;
-      }
+      //   // Cache locally
+      //   await _saveLocalHousehold(householdId, configs);
+      //   return configs;
+      // }
     } catch (e) {
       debugPrint('Error loading household layout: $e');
     }
@@ -116,15 +116,15 @@ class DashboardRepository {
     // 1. Save Local
     await _saveLocalHousehold(householdId, configs);
 
-    // 2. Save Remote
-    try {
-      final jsonList = configs.map((e) => e.toJson()).toList();
-      await _supabase.from('households').update({
-        'dashboard_layout': jsonList,
-      }).eq('id', householdId);
-    } catch (e) {
-      debugPrint('Error saving household layout to Supabase: $e');
-    }
+    // 2. Save Remote (DISABLED FOR NOW per user request)
+    // try {
+    //   final jsonList = configs.map((e) => e.toJson()).toList();
+    //   await _supabase.from('households').update({
+    //     'dashboard_layout': jsonList,
+    //   }).eq('id', householdId);
+    // } catch (e) {
+    //   debugPrint('Error saving household layout to Supabase: $e');
+    // }
   }
 
   Future<void> _saveLocalHousehold(

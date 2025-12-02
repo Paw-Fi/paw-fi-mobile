@@ -1606,6 +1606,7 @@
   "compactView": "Compact View",
   "expandedView": "Expanded View",
   "viewModeMini": "Mini",
-  "viewModeCompact": "Compact",
-  "viewModeFull": "Full"
+  "viewModeWide": "Wide",
+  "viewModeFull": "Full",
+  "viewModeCompact": "Compact"
 }

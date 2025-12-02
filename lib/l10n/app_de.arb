@@ -1599,9 +1599,10 @@
   "attention": "Achtung",
   "viewModeMini": "Mini",
   "viewModeCompact": "Kompakt",
-  "viewModeFull": "Vollständig",
+  "viewModeFull": "Voll",
   "configureWidget": "Widget konfigurieren",
   "viewMode": "Ansichtsmodus",
   "compactView": "Kompakte Ansicht",
-  "expandedView": "Erweiterte Ansicht"
+  "expandedView": "Erweiterte Ansicht",
+  "viewModeWide": "Breit"
 }
