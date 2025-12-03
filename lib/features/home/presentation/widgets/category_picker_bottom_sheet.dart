@@ -14,12 +14,14 @@ class CategoryPickerBottomSheet extends StatelessWidget {
     required this.selectedCategories,
     required this.onChanged,
     this.isSingleSelect = false,
+    this.title="",
   });
 
   final List<String> allCategories;
   final List<String> selectedCategories;
   final ValueChanged<List<String>> onChanged;
   final bool isSingleSelect;
+  final String title;
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +29,7 @@ class CategoryPickerBottomSheet extends StatelessWidget {
       allCategories: allCategories,
       selectedCategories: selectedCategories,
       onChanged: onChanged,
-      title: "",
+      title: title,
       isSingleSelect: isSingleSelect,
       // Let CategoryPicker handle closing behavior. For single-select flows,
       // it will call onChanged and then onClose to pop the sheet exactly once

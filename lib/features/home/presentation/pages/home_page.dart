@@ -52,17 +52,9 @@ class _HomePageState extends ConsumerState<HomePage> {
   void initState() {
     super.initState();
 
-    // Load data on first mount
+    // Initialize filters on first mount
+    // NOTE: Analytics data is loaded by app_initialization_provider - no need to trigger here
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final user = ref.read(authProvider);
-      final analyticsData = ref.read(analyticsProvider);
-
-      // Only load if we've NEVER loaded successfully before AND not currently loading
-      // App initialization may have already started the load in background
-      if (!(analyticsData.hasLoadedOnce ?? false) && !analyticsData.isLoading) {
-        ref.read(analyticsProvider.notifier).loadData(user.uid);
-      }
-
       // Initialize currency filter on first load (one-time)
       // Check provider state instead of local flag to prevent race conditions
       final currentCurrency = ref.read(homeFilterProvider).selectedCurrency;
@@ -711,22 +703,11 @@ class _HomePageState extends ConsumerState<HomePage> {
                                                       horizontal: 16.0),
                                               child: Consumer(
                                                 builder: (context, ref, _) {
+                                                  // NOTE: Recurring transactions are loaded by app_initialization_provider
+                                                  // Just watch the data here - no need to trigger load
                                                   final recurringAsync = ref.watch(
                                                       recurringTransactionsProvider(
                                                           null));
-                                                  if (user.uid.isNotEmpty &&
-                                                      !recurringAsync
-                                                          .hasLoadedOnce &&
-                                                      !recurringAsync
-                                                          .data.isLoading) {
-                                                    Future.microtask(() => ref
-                                                        .read(
-                                                            recurringTransactionsProvider(
-                                                                    null)
-                                                                .notifier)
-                                                        .loadRecurringTransactions(
-                                                            user.uid));
-                                                  }
                                                   return FinancialCalendarWidget(
                                                     transactions:
                                                         personalExpensesAll,

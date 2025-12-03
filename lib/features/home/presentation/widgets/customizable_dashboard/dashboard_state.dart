@@ -214,7 +214,7 @@ class HouseholdDashboardController
           DashboardWidgetType.householdFairness,
           DashboardWidgetType.householdSettlement,
           DashboardWidgetType.householdMemberSpending,
-          DashboardWidgetType.householdCategoryBreakdown,
+          DashboardWidgetType.householdRecentTransactions,
           DashboardWidgetType.householdSpendingBreakdownChart,
           DashboardWidgetType.householdWhereTheMoneyWent,
         ];
@@ -270,7 +270,7 @@ class HouseholdDashboardController
               order: 5),
           DashboardWidgetConfig(
               id: 'categories',
-              type: DashboardWidgetType.householdCategoryBreakdown,
+              type: DashboardWidgetType.householdRecentTransactions,
               order: 6),
           DashboardWidgetConfig(
               id: 'spending_chart',

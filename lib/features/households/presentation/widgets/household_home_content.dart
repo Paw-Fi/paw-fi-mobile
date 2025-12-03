@@ -20,7 +20,6 @@ import '../pages/household_expenses_page.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
-import 'package:moneko/features/income/presentation/providers/income_providers.dart';
 import 'package:moneko/features/households/presentation/widgets/group_fairness_meter.dart';
 import 'package:moneko/features/households/presentation/widgets/settlement_suggestions_card.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -177,26 +176,12 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
             ),
           );
         } else {
-          // Initialize selected household if not set
+          // NOTE: Selected household is initialized by app_initialization_provider
+          // Just watch the state here - no need to re-initialize
           final selectedState = ref.watch(selectedHouseholdProvider);
-
-          if (selectedState.householdId == null && !selectedState.isLoading) {
-            // Auto-initialize on first load
-            Future.microtask(() {
-              ref.read(selectedHouseholdProvider.notifier).initialize(userId);
-            });
-          }
 
           // Determine which household to show
           final household = selectedState.household ?? households.first;
-
-          // Load income summary for household
-          Future.microtask(() {
-            ref.read(incomeSummaryProvider.notifier).loadSummary(
-                  userId,
-                  householdId: household.id,
-                );
-          });
 
           // Filters
           final filterState = ref.watch(homeFilterProvider);
@@ -537,8 +522,6 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               summary: summaryAsync.value!,
                               transactions: expensesAsync.value,
                               splits: splitsAsync.value,
-                              from: from,
-                              to: to,
                               currency: selectedCurrency,
                               members: membersAsync.value,
                             ),
@@ -608,7 +591,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                           );
                         });
                       },
-                      DashboardWidgetType.householdCategoryBreakdown:
+                      DashboardWidgetType.householdRecentTransactions:
                           (context, config) {
                         return Consumer(builder: (context, ref, _) {
                           final range = getDateRangeFromFilter(config.dateRange,

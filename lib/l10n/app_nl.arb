@@ -568,8 +568,8 @@
   "balanceSummary": "Saldo-overzicht",
   "youAreOwed": "Jij krijgt nog",
   "youOwe": "Jij moet nog",
-  "youOweOthers": "Jij moet anderen nog",
-  "othersOweYou": "Anderen moeten jou nog",
+  "youOweOthers": "Jij moet",
+  "othersOweYou": "moet jou nog",
   "viewDetails": "Bekijk details",
   "settleUp": "Verrekenen",
   "markExpensesAsSettled": "Markeer uitgaven als 'verrekend' om de saldo's bij te werken",
@@ -1551,5 +1551,10 @@
   "viewMode": "Weergavemodus",
   "compactView": "Compacte Weergave",
   "expandedView": "Uitgebreide Weergave",
-  "viewModeWide": "Breed formaat"
+  "viewModeWide": "Breed formaat",
+  "selectCategoriesMultiple": "Categorieën kiezen (meerdere)",
+  "settlingWith": "Verrekenen met",
+  "offsetByWhatTheyOweYou": "Compenseer met wat zij jou verschuldigd zijn",
+  "owesYou": "Is jou nog geld schuldig",
+  "viewHistory": "Geschiedenis bekijken"
 }

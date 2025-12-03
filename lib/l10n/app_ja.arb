@@ -569,8 +569,8 @@
   "balanceSummary": "残高サマリー",
   "youAreOwed": "あなたが受け取る額",
   "youOwe": "あなたが支払う額",
-  "youOweOthers": "他の人への未払い",
-  "othersOweYou": "他の人からの未受け取り",
+  "youOweOthers": "未払い",
+  "othersOweYou": "からの未受け取り",
   "viewDetails": "詳細を表示",
   "settleUp": "清算する",
   "markExpensesAsSettled": "支出を「清算済み」として残高を更新します",
@@ -1604,5 +1604,10 @@
   "viewMode": "表示モード",
   "compactView": "コンパクト表示",
   "expandedView": "拡張表示",
-  "viewModeWide": "ワイド"
+  "viewModeWide": "ワイド",
+  "selectCategoriesMultiple": "カテゴリを選択（複数）",
+  "settlingWith": "精算相手：",
+  "offsetByWhatTheyOweYou": "相手があなたに借りている分で相殺",
+  "owesYou": "あなたに借りている",
+  "viewHistory": "履歴を表示"
 }

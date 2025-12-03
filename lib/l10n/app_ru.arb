@@ -570,8 +570,8 @@
   "allMembers": "Все участники",
   "balanceSummary": "Баланс",
   "youOwe": "Вы должны",
-  "youOweOthers": "Вы должны другим",
-  "othersOweYou": "Другие должны вам",
+  "youOweOthers": "Вы должны",
+  "othersOweYou": "должны вам",
   "viewDetails": "Подробнее",
   "settleUp": "Рассчитаться",
   "markExpensesAsSettled": "Отметьте расходы как погашенные, чтобы обновить баланс",
@@ -1554,5 +1554,10 @@
   "viewMode": "Режим Отображения",
   "compactView": "Компактный Вид",
   "expandedView": "Развернутый Вид",
-  "viewModeWide": "Широкий"
+  "viewModeWide": "Широкий",
+  "selectCategoriesMultiple": "Выберите категории (множественный выбор)",
+  "settlingWith": "Расчёт с",
+  "offsetByWhatTheyOweYou": "Компенсировать тем, что они вам должны",
+  "owesYou": "Должен вам",
+  "viewHistory": "Просмотр истории"
 }

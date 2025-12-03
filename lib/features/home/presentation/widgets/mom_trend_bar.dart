@@ -17,19 +17,10 @@ class MoMTrendBar extends ConsumerWidget {
     // This widget is only shown in personal mode; always scope to personal data
     const String? householdId = null;
 
-    // Ensure recurring data is loaded when the widget appears
+    // NOTE: Recurring transactions are loaded by app_initialization_provider
+    // Just watch the data here - no need to trigger load
+    // ignore: unused_local_variable
     final recState = ref.watch(recurringTransactionsProvider(householdId));
-    final userId = supabase.auth.currentUser?.id;
-    if (userId != null && !recState.hasLoadedOnce && !recState.data.isLoading) {
-      Future.microtask(() {
-        final s = ref.read(recurringTransactionsProvider(householdId));
-        if (!s.hasLoadedOnce && !s.data.isLoading) {
-          ref
-              .read(recurringTransactionsProvider(householdId).notifier)
-              .loadRecurringTransactions(userId);
-        }
-      });
-    }
     final map = ref.watch(momTrendProvider);
     appLog('widget_viewed: mom_trend_bar');
 

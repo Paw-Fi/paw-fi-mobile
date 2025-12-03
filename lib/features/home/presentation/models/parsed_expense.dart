@@ -1,5 +1,7 @@
 // Data model for parsed (but not yet saved) transaction from AI analysis
 
+import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+
 class ParsedExpense {
   // true = income, false = expense
   final bool isIncome;
@@ -26,7 +28,7 @@ class ParsedExpense {
     return ParsedExpense(
       isIncome: (json['type']?.toString().toLowerCase() == 'income') || (json['isIncome'] == true),
       amount: (json['amount'] as num).toDouble(),
-      category: json['category'] as String,
+      category: normalizeCategory(json['category'] as String),
       currency: json['currency'] as String,
       currencySymbol: json['currencySymbol'] as String? ?? '\$',
       date: DateTime.parse(json['date'] as String),

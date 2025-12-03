@@ -568,8 +568,8 @@
   "balanceSummary": "Баланс",
   "youAreOwed": "Вам винні",
   "youOwe": "Ви винні",
-  "youOweOthers": "Ви винні іншим",
-  "othersOweYou": "Інші винні вам",
+  "youOweOthers": "Ви винні",
+  "othersOweYou": "винні вам",
   "viewDetails": "Детальніше",
   "settleUp": "Розрахуватись",
   "markExpensesAsSettled": "Позначте витрати як \"Розраховані\", щоб оновити баланс",
@@ -1596,5 +1596,10 @@
   "viewMode": "Режим Відображення",
   "compactView": "Компактний Вид",
   "expandedView": "Розширений Вид",
-  "viewModeWide": "Широкий"
+  "viewModeWide": "Широкий",
+  "selectCategoriesMultiple": "Виберіть категорії (декілька)",
+  "settlingWith": "Розрахунок із",
+  "offsetByWhatTheyOweYou": "Компенсувати тим, що вони вам винні",
+  "owesYou": "Винний вам",
+  "viewHistory": "Переглянути історію"
 }

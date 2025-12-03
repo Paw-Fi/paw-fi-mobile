@@ -431,7 +431,7 @@ final Map<String, IconData> categoryIcons = {
 };
 
 Color getCategoryColor(String? category) {
-  final key = (category ?? 'uncategorized').toLowerCase();
+  final key = normalizeCategory(category ?? 'uncategorized');
   final mapped = categoryColors[key];
   if (mapped != null) return mapped;
 
@@ -440,14 +440,14 @@ Color getCategoryColor(String? category) {
 }
 
 IconData getCategoryIcon(String? category) {
-  final key = (category ?? 'uncategorized').toLowerCase();
+  final key = normalizeCategory(category ?? 'uncategorized');
   return categoryIcons[key] ?? Icons.category;
 }
 
 /// Translates category names to localized strings
 String getCategoryTranslation(BuildContext context, String? category) {
   final l10n = context.l10n;
-  final key = (category ?? 'uncategorized').toLowerCase();
+  final key = normalizeCategory(category ?? 'uncategorized');
 
   final translations = <String, String>{
     // Life & Home
@@ -650,6 +650,138 @@ List<String> getExpenseCategories() {
       .toList();
   keys.sort((a, b) => a.compareTo(b));
   return keys;
+}
+
+/// Normalizes category names from external sources (AI, backend) to canonical categories
+String normalizeCategory(String rawCategory) {
+  final normalized = rawCategory.toLowerCase().trim();
+  
+  // Category mappings for common aliases
+  const categoryMappings = <String, String>{
+    'food': 'food & drinks',
+    'food and drinks': 'food & drinks',
+    'restaurant': 'restaurants',
+    'takeout': 'takeout & delivery',
+    'delivery': 'takeout & delivery',
+    'coffee': 'coffee & tea',
+    'tea': 'coffee & tea',
+    'snack': 'snacks',
+    'grocery': 'groceries',
+    'home': 'home repairs',
+    'furniture': 'furniture',
+    'appliance': 'appliances',
+    'decor': 'home decor',
+    'rent': 'rent',
+    'mortgage': 'mortgage',
+    'electric': 'electricity',
+    'gas': 'heating & gas',
+    'internet': 'internet',
+    'phone': 'phone bill',
+    'trash': 'trash & recycling',
+    'security': 'home security',
+    'laundry': 'laundry / dry cleaning',
+    'moving': 'moving costs',
+    'storage': 'storage',
+    'transport': 'transportation',
+    'uber': 'rideshare',
+    'taxi': 'rideshare',
+    'bus': 'public transit',
+    'train': 'public transit',
+    'subway': 'public transit',
+    'metro': 'public transit',
+    'gasoline': 'gas & fuel',
+    'fuel': 'gas & fuel',
+    'parking': 'parking',
+    'tolls': 'tolls',
+    'car': 'car maintenance',
+    'auto': 'car maintenance',
+    'insurance': 'insurance',
+    'health': 'healthcare',
+    'dental': 'healthcare',
+    'vision': 'healthcare',
+    'pharmacy': 'healthcare',
+    'doctor': 'healthcare',
+    'hospital': 'healthcare',
+    'gym': 'fitness',
+    'fitness': 'fitness',
+    'sports': 'fitness',
+    'education': 'education',
+    'school': 'education',
+    'university': 'education',
+    'college': 'education',
+    'course': 'education',
+    'book': 'books & supplies',
+    'books': 'books & supplies',
+    'supplies': 'books & supplies',
+    'clothing': 'clothing',
+    'shoes': 'clothing',
+    'accessories': 'clothing',
+    'entertainment': 'entertainment',
+    'movie': 'entertainment',
+    'cinema': 'entertainment',
+    'theater': 'entertainment',
+    'concert': 'entertainment',
+    'music': 'entertainment',
+    'game': 'entertainment',
+    'gaming': 'entertainment',
+    'streaming': 'entertainment',
+    'netflix': 'entertainment',
+    'disney': 'entertainment',
+    'travel': 'travel',
+    'vacation': 'travel',
+    'hotel': 'travel',
+    'airbnb': 'travel',
+    'flight': 'travel',
+    'airline': 'travel',
+    'gift': 'gifts & donations',
+    'donation': 'gifts & donations',
+    'charity': 'gifts & donations',
+    'pet': 'pets',
+    'pet food': 'pets',
+    'pet supplies': 'pets',
+    'vet': 'pets',
+    'personal': 'personal care',
+    'haircut': 'personal care',
+    'salon': 'personal care',
+    'spa': 'personal care',
+    'beauty': 'personal care',
+    'cosmetics': 'personal care',
+    'skincare': 'personal care',
+    'bank': 'banking',
+    'atm': 'banking',
+    'fee': 'banking',
+    'interest': 'banking',
+    'tax': 'taxes',
+    'government': 'taxes',
+    'fine': 'taxes',
+    'legal': 'legal',
+    'lawyer': 'legal',
+    'court': 'legal',
+    'business': 'business expenses',
+    'office': 'business expenses',
+    'work': 'business expenses',
+    'professional': 'business expenses',
+  };
+  
+  // Direct mapping lookup
+  if (categoryMappings.containsKey(normalized)) {
+    return categoryMappings[normalized]!;
+  }
+  
+  // Fuzzy matching for partial matches
+  for (final entry in categoryMappings.entries) {
+    if (normalized.contains(entry.key) || entry.key.contains(normalized)) {
+      return entry.value;
+    }
+  }
+  
+  // Check if it's already a valid canonical category
+  if (categoryColors.containsKey(normalized)) {
+    return normalized;
+  }
+  
+  // Return as-is if no mapping found (will be treated as "other")
+  return normalized;
 }
 
 String _titleCase(String value) {

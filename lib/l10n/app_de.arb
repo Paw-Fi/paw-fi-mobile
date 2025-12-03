@@ -568,8 +568,8 @@
   "balanceSummary": "Saldenübersicht",
   "youAreOwed": "Du erhältst",
   "youOwe": "Du schuldest",
-  "youOweOthers": "Du schuldest anderen",
-  "othersOweYou": "Andere schulden dir",
+  "youOweOthers": "Du schuldest",
+  "othersOweYou": "schuldet dir",
   "viewDetails": "Details ansehen",
   "settleUp": "Abrechnen",
   "markExpensesAsSettled": "Markiere Ausgaben als beglichen, um Salden zu aktualisieren",
@@ -1604,5 +1604,10 @@
   "viewMode": "Ansichtsmodus",
   "compactView": "Kompakte Ansicht",
   "expandedView": "Erweiterte Ansicht",
-  "viewModeWide": "Breit"
+  "viewModeWide": "Breit",
+  "selectCategoriesMultiple": "Kategorien auswählen (Mehrfachauswahl)",
+  "settlingWith": "Abrechnen mit",
+  "offsetByWhatTheyOweYou": "Ausgleichen mit dem, was sie dir schulden",
+  "owesYou": "Schuldet dir",
+  "viewHistory": "Verlauf anzeigen"
 }

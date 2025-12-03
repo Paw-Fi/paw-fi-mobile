@@ -167,9 +167,12 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
   /// Public method to trigger data loading. Should be called by the UI
   /// when the pockets page is displayed (not on provider creation).
   /// 
-  /// This method ensures analytics data is loaded first (for preferredCurrency),
-  /// then loads pockets data. It properly waits for analytics to finish loading
-  /// even if another load is already in progress.
+  /// This method loads pockets data using the best available currency:
+  /// 1. From homeFilterProvider.selectedCurrency (user selection)
+  /// 2. From analyticsProvider.preferredCurrency (if loaded)
+  /// 3. Fallback to 'USD'
+  /// 
+  /// No polling required - just use what's available.
   Future<void> load() async {
     // Avoid duplicate loads if already loading
     if (state.isLoading && _hasLoadedOnce) return;
@@ -182,49 +185,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       return;
     }
     
-    // Wait for analytics to be ready - we need preferredCurrency
-    // This handles the case where analytics is already loading from app init
-    await _waitForAnalyticsReady(authUser.uid);
-    
     await _load();
-  }
-  
-  /// Waits for analytics to be loaded, with timeout protection.
-  /// If analytics is currently loading, waits for it to finish.
-  /// If analytics is not loading and not loaded, triggers a load.
-  Future<void> _waitForAnalyticsReady(String userId) async {
-    const maxWaitTime = Duration(seconds: 30);
-    const pollInterval = Duration(milliseconds: 200);
-    final startTime = DateTime.now();
-    
-    while (true) {
-      final analytics = ref.read(analyticsProvider);
-      
-      // If already loaded successfully, we're good
-      if (analytics.hasLoadedOnce == true) {
-        debugPrint('[Pockets] Analytics ready (hasLoadedOnce=true), proceeding');
-        return;
-      }
-      
-      // If not loading and not loaded, trigger a load
-      if (!analytics.isLoading) {
-        debugPrint('[Pockets] Analytics not loading, triggering load...');
-        // Don't await - just trigger and continue polling
-        ref.read(analyticsProvider.notifier).loadData(userId);
-      } else {
-        debugPrint('[Pockets] Analytics is loading, waiting...');
-      }
-      
-      // Check timeout
-      final elapsed = DateTime.now().difference(startTime);
-      if (elapsed > maxWaitTime) {
-        debugPrint('[Pockets] Timeout (${elapsed.inSeconds}s) waiting for analytics, proceeding with available data');
-        return;
-      }
-      
-      // Wait before next poll
-      await Future.delayed(pollInterval);
-    }
   }
 
   Future<void> _load() async {

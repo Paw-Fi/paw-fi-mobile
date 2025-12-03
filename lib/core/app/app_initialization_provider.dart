@@ -79,22 +79,16 @@ class AppInitialization extends _$AppInitialization {
           _loadWhatsAppBinding(),
         ]);
 
-        // Start analytics load in background - it has its own retry logic
-        // Don't block initialization on analytics - home page will show loading state
-        unawaited(_loadAnalytics(auth.uid));
+        // Load analytics - this is critical for home page, so await it
+        // Analytics notifier has its own retry logic and connection warmup
+        await _loadAnalytics(auth.uid);
 
-        // Start household data load in background with timeout
-        // This is less critical and can load after app is visible
-        unawaited(
-          _loadHouseholdData(auth.uid).timeout(
-            const Duration(seconds: 20),
-            onTimeout: () {
-              debugPrint('⚠️ Household data load timed out');
-            },
-          ),
-        );
+        // Now that analytics is loaded, save timezone if needed (simple, no polling)
+        _saveTimezoneIfMissing(auth.uid);
 
-        await _ensureTimezoneSaved();
+        // Start household data load in background (non-blocking)
+        // This can load after app is visible
+        unawaited(_loadHouseholdData(auth.uid));
 
         debugPrint('✅ All user data loaded');
       } else {
@@ -135,7 +129,6 @@ class AppInitialization extends _$AppInitialization {
   /// Load subscription data
   Future<void> _loadSubscription() async {
     try {
-      debugPrint('💳 Loading subscription...');
       debugPrint('💳 Loading subscription...');
       // Wait for the subscription provider to initialize
       await ref.read(subscriptionNotifierProvider.future);
@@ -182,28 +175,57 @@ class AppInitialization extends _$AppInitialization {
     }
   }
 
+  /// Wait for a StateNotifierProvider containing AsyncValue to resolve.
+  /// Polls at regular intervals until data is available, error occurs, or timeout.
+  Future<T?> _waitForAsyncValue<T>(
+    AsyncValue<T> Function() readState, {
+    Duration timeout = const Duration(seconds: 15),
+    Duration pollInterval = const Duration(milliseconds: 150),
+  }) async {
+    final stopwatch = Stopwatch()..start();
+
+    while (stopwatch.elapsed < timeout) {
+      final state = readState();
+
+      // If we have data and not in a loading state, return it
+      if (state.hasValue && !state.isLoading) {
+        return state.value;
+      }
+
+      // If there's an error and not loading, return null (caller handles)
+      if (state.hasError && !state.isLoading) {
+        debugPrint('⚠️ AsyncValue resolved with error: ${state.error}');
+        return null;
+      }
+
+      // Still loading - wait and retry
+      await Future.delayed(pollInterval);
+    }
+
+    // Timeout reached - return whatever value we have (might be null)
+    final finalState = readState();
+    debugPrint(
+        '⚠️ Timeout (${timeout.inSeconds}s) waiting for AsyncValue, hasValue=${finalState.hasValue}, isLoading=${finalState.isLoading}');
+    return finalState.valueOrNull;
+  }
+
   /// Load household data (for "For Us" mode)
   Future<void> _loadHouseholdData(String userId) async {
     try {
       debugPrint('🏠 Loading household data...');
 
-      // Load user's households
-      final householdsState = ref.read(userHouseholdsProvider(userId));
+      // Trigger the provider to start loading (creates it if not exists)
+      // The StateNotifier constructor calls load() automatically
+      ref.read(userHouseholdsProvider(userId));
 
-      // Wait for data to load
-      final households = await householdsState.when(
-        data: (data) async => data,
-        loading: () async {
-          // Wait a bit for data to load
-          await Future.delayed(const Duration(milliseconds: 100));
-          final state = ref.read(userHouseholdsProvider(userId));
-          return state.value ?? [];
-        },
-        error: (_, __) async => <Household>[],
+      // Wait for the provider to finish loading with proper polling
+      final households = await _waitForAsyncValue<List<Household>>(
+        () => ref.read(userHouseholdsProvider(userId)),
+        timeout: const Duration(seconds: 15),
       );
 
-      if (households.isEmpty) {
-        debugPrint('📭 No households found for user');
+      if (households == null || households.isEmpty) {
+        debugPrint('📭 No households found for user (or load failed)');
         return;
       }
 
@@ -271,39 +293,53 @@ class AppInitialization extends _$AppInitialization {
     }
   }
 
-  /// Capture device timezone once and persist to user_contacts if missing.
-  Future<void> _ensureTimezoneSaved() async {
+  /// Save device timezone to user profile if not already set.
+  /// This is fire-and-forget - we don't block on it.
+  void _saveTimezoneIfMissing(String userId) {
+    // Run in background - don't await, don't block
+    unawaited(_doSaveTimezone(userId));
+  }
+
+  Future<void> _doSaveTimezone(String userId) async {
     try {
-      final auth = ref.read(authProvider);
-      if (auth.isEmpty) return;
-
+      // Check current analytics state - no polling, just read current value
       final analyticsState = ref.read(analyticsProvider);
-      final hasTimezone =
-          (analyticsState.contact?.preferredTimezone ?? '').trim().isNotEmpty;
-      if (hasTimezone) return;
+      
+      // If analytics hasn't loaded yet, skip - timezone will be saved on next launch
+      if (analyticsState.hasLoadedOnce != true) {
+        debugPrint('🕒 Skipping timezone save - analytics not ready yet');
+        return;
+      }
 
+      // Check if timezone already exists
+      final existingTimezone = analyticsState.contact?.preferredTimezone ?? '';
+      if (existingTimezone.trim().isNotEmpty) {
+        debugPrint('🕒 Timezone already set: $existingTimezone');
+        return;
+      }
+
+      // Get device timezone
       final timezone = await _getDeviceTimezone();
-      if (timezone == null || timezone.isEmpty) return;
+      if (timezone == null || timezone.isEmpty) {
+        debugPrint('🕒 Could not detect device timezone');
+        return;
+      }
 
+      // Save to backend (with reasonable timeout)
       await supabase.functions
           .invoke(
             'update-preferred-timezone',
             body: {
-              'userId': auth.uid,
+              'userId': userId,
               'timezone': timezone,
             },
           )
-          .timeout(const Duration(seconds: 8));
+          .timeout(const Duration(seconds: 10));
 
-      // Refresh analytics in the background to pick up the saved timezone
-      unawaited(ref.read(analyticsProvider.notifier).loadData(auth.uid));
       debugPrint('🕒 Timezone saved to profile: $timezone');
-    } catch (e, st) {
-      debugPrint('⚠️ Timezone initialization failed (non-critical): $e');
-      try {
-        FirebaseCrashlytics.instance
-            .recordError(e, st, fatal: false, reason: 'timezone_init_error');
-      } catch (_) {}
+    } catch (e) {
+      // Non-critical - just log and continue
+      debugPrint('⚠️ Timezone save failed (non-critical): $e');
     }
   }
 

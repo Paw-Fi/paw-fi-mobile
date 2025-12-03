@@ -7,7 +7,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
-import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
@@ -197,11 +196,8 @@ class _PocketsMonthView extends HookConsumerWidget {
     }, [scopeParams]);
 
     Future<void> refresh() async {
-      final user = ref.read(authProvider);
-      // Load all analytics data first - filtering is done locally
-      await ref.read(analyticsProvider.notifier).loadData(user.uid);
-      
-      // Invalidate and reload pockets data
+      // Invalidate and reload pockets data only - analytics is managed by app_initialization_provider
+      // Using invalidate triggers a fresh fetch without duplicate BE calls
       ref.invalidate(pocketsProvider(scopeParams));
       // After invalidation, the provider is recreated but won't auto-load
       // We need to explicitly trigger load on the new notifier

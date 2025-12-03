@@ -276,6 +276,10 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
   }
 
   String _getFormattedValue(int index) {
+    // Guard against out-of-bounds access
+    if (index < 0 || index >= _memberSplits.length) {
+      return '0.00';
+    }
     final split = _memberSplits[index];
     switch (_selectedType) {
       case SplitType.amount:
@@ -290,6 +294,8 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
   }
 
   void _updateControllerText(int index, String newText) {
+    // Guard against out-of-bounds access
+    if (index < 0 || index >= _controllers.length) return;
     if (_controllers[index].text != newText) {
       _isUpdatingProgrammatically = true;
       _controllers[index].text = newText;
@@ -299,6 +305,8 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
 
   void _handleValueChange(int index, String text) {
     if (_isUpdatingProgrammatically) return;
+    // Guard against out-of-bounds access
+    if (index < 0 || index >= _memberSplits.length) return;
 
     double? parsedDouble;
     int? parsedInt;
@@ -351,7 +359,13 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
   }
 
   void _autoAdjustOthers(int editedIndex, SplitType type) {
-    final allIndices = List.generate(widget.members.length, (i) => i);
+    // Guard: use _memberSplits.length to match internal state, not widget.members.length
+    if (_memberSplits.isEmpty || editedIndex < 0 || editedIndex >= _memberSplits.length) {
+      _validate();
+      _queueNotify();
+      return;
+    }
+    final allIndices = List.generate(_memberSplits.length, (i) => i);
 
     switch (type) {
       case SplitType.amount:
@@ -424,21 +438,23 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
   }
 
   List<int> _includedIndicesForType(SplitType type) {
+    // Use _memberSplits.length to match internal state, not widget.members.length
+    final length = _memberSplits.length;
     switch (type) {
       case SplitType.amount:
-        return List.generate(widget.members.length, (i) => i)
+        return List.generate(length, (i) => i)
             .where((i) => _memberSplits[i].includedInAmount)
             .toList();
       case SplitType.percentage:
-        return List.generate(widget.members.length, (i) => i)
+        return List.generate(length, (i) => i)
             .where((i) => _memberSplits[i].includedInPercentage)
             .toList();
       case SplitType.shares:
-        return List.generate(widget.members.length, (i) => i)
+        return List.generate(length, (i) => i)
             .where((i) => (_memberSplits[i].shares ?? 0) > 0)
             .toList();
       case SplitType.equal:
-        return List.generate(widget.members.length, (i) => i);
+        return List.generate(length, (i) => i);
     }
   }
 
@@ -536,6 +552,8 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
   }
 
   bool _isMemberIncludedAt(int index) {
+    // Guard against out-of-bounds access
+    if (index < 0 || index >= _memberSplits.length) return false;
     switch (_selectedType) {
       case SplitType.amount:
         return _memberSplits[index].includedInAmount;
@@ -549,6 +567,8 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
   }
 
   void _setMemberIncludedAt(int index, bool included) {
+    // Guard against out-of-bounds access
+    if (index < 0 || index >= _memberSplits.length) return;
     switch (_selectedType) {
       case SplitType.amount:
         setState(() {
@@ -775,6 +795,10 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
   }
 
   Widget _buildMemberRow(ColorScheme colorScheme, int index, bool isDark) {
+    // Guard against out-of-bounds access
+    if (index < 0 || index >= _memberSplits.length) {
+      return const SizedBox.shrink();
+    }
     final memberSplit = _memberSplits[index];
     final member = memberSplit.member;
     final showCheckbox = _selectedType == SplitType.shares ||
@@ -829,7 +853,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
           // Split Input
           if (_selectedType == SplitType.equal)
             Text(
-              '${widget.currencySymbol}${(widget.totalAmount / widget.members.length).toStringAsFixed(2)}',
+              '${widget.currencySymbol}${widget.members.isNotEmpty ? (widget.totalAmount / widget.members.length).toStringAsFixed(2) : '0.00'}',
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
@@ -847,6 +871,10 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
   }
 
   Widget _buildSplitInput(ColorScheme colorScheme, int index, {bool enabled = true}) {
+    // Guard against out-of-bounds access
+    if (index < 0 || index >= _controllers.length) {
+      return const SizedBox.shrink();
+    }
     String suffix = '';
 
     switch (_selectedType) {
@@ -895,6 +923,10 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
   }
 
   String _getOweText(int index) {
+    // Guard against out-of-bounds access
+    if (index < 0 || index >= _memberSplits.length) {
+      return '${context.l10n.owes} ${widget.currencySymbol}0.00';
+    }
     final split = _memberSplits[index];
     double amount = 0;
 
@@ -912,7 +944,9 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
             : 0;
         break;
       case SplitType.equal:
-        amount = widget.totalAmount / widget.members.length;
+        amount = widget.members.isNotEmpty 
+            ? widget.totalAmount / widget.members.length 
+            : 0;
         break;
     }
 

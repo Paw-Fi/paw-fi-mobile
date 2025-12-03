@@ -1,25 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// User avatar widget with fallback to initials
-/// 
+///
 /// Displays user's avatar image if available, otherwise shows initials
 /// Supports both fixed sizes and flexible sizing
 class UserAvatar extends StatelessWidget {
   /// User's avatar URL (optional)
   final String? avatarUrl;
-  
+
   /// User's display name for fallback initials
   final String? name;
-  
+
+  /// User's ID for fetching avatar (optional)
+  final String? userId;
+
   /// Size of the avatar
   /// Can be a preset ('small', 'medium', 'large') or a custom double value
   final dynamic size;
-  
+
   /// Border width (optional)
   final double? borderWidth;
-  
+
   /// Border color (optional)
   final Color? borderColor;
 
@@ -27,6 +30,7 @@ class UserAvatar extends StatelessWidget {
     super.key,
     this.avatarUrl,
     this.name,
+    this.userId,
     this.size = 'medium',
     this.borderWidth,
     this.borderColor,
@@ -37,7 +41,7 @@ class UserAvatar extends StatelessWidget {
     if (size is double || size is int) {
       return (size as num).toDouble();
     }
-    
+
     switch (size as String) {
       case 'tiny':
         return 16;
@@ -66,16 +70,34 @@ class UserAvatar extends StatelessWidget {
   /// Extract initials from name
   String _getInitials(String? name) {
     if (name == null || name.isEmpty) return '?';
-    
+
     final parts = name.trim().split(' ');
     if (parts.isEmpty) return '?';
-    
+
     if (parts.length == 1) {
       // Single word: take first character
       return parts[0][0].toUpperCase();
     } else {
       // Multiple words: take first character of first two words
       return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+  }
+
+  /// Fetch avatar URL from Supabase
+  Future<String?> _fetchAvatarUrl() async {
+    if (userId == null) return null;
+    try {
+      final supabase = Supabase.instance.client;
+      final response = await supabase
+          .from('users')
+          .select('avatar_url')
+          .eq('id', userId!)
+          .maybeSingle();
+
+      return response?['avatar_url'] as String?;
+    } catch (e) {
+      debugPrint('Error fetching user avatar: $e');
+      return null;
     }
   }
 
@@ -86,9 +108,60 @@ class UserAvatar extends StatelessWidget {
     final fontSize = _getFontSize(avatarSize);
     final initials = _getInitials(name);
 
+    // If we have a direct URL, use it
+    if (avatarUrl != null && avatarUrl!.isNotEmpty) {
+      return _buildAvatarContainer(
+        context,
+        colorScheme,
+        avatarSize,
+        _buildImage(colorScheme, avatarUrl!, avatarSize, initials, fontSize),
+      );
+    }
+
+    // If we have a userId, fetch the URL
+    if (userId != null) {
+      return FutureBuilder<String?>(
+        future: _fetchAvatarUrl(),
+        builder: (context, snapshot) {
+          final fetchedUrl = snapshot.data;
+          if (fetchedUrl != null && fetchedUrl.isNotEmpty) {
+            return _buildAvatarContainer(
+              context,
+              colorScheme,
+              avatarSize,
+              _buildImage(
+                  colorScheme, fetchedUrl, avatarSize, initials, fontSize),
+            );
+          }
+          // Fallback to initials while loading or if no URL
+          return _buildAvatarContainer(
+            context,
+            colorScheme,
+            avatarSize,
+            _buildInitials(colorScheme, initials, fontSize),
+          );
+        },
+      );
+    }
+
+    // Fallback to initials
+    return _buildAvatarContainer(
+      context,
+      colorScheme,
+      avatarSize,
+      _buildInitials(colorScheme, initials, fontSize),
+    );
+  }
+
+  Widget _buildAvatarContainer(
+    BuildContext context,
+    ColorScheme colorScheme,
+    double size,
+    Widget child,
+  ) {
     return Container(
-      width: avatarSize,
-      height: avatarSize,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: colorScheme.primary.withValues(alpha: 0.1),
@@ -99,40 +172,47 @@ class UserAvatar extends StatelessWidget {
               )
             : null,
       ),
-      child: avatarUrl != null && avatarUrl!.isNotEmpty
-          ? ClipOval(
-              child: Image.network(
-                avatarUrl!,
-                width: avatarSize,
-                height: avatarSize,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  // Fallback to initials on image load error
-                  return _buildInitials(colorScheme, initials, fontSize);
-                },
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  // Show loading indicator
-                  return Center(
-                    child: SizedBox(
-                      width: avatarSize * 0.5,
-                      height: avatarSize * 0.5,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          colorScheme.primary,
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            )
-          : _buildInitials(colorScheme, initials, fontSize),
+      child: child,
     );
   }
 
-  Widget _buildInitials(ColorScheme colorScheme, String initials, double fontSize) {
+  Widget _buildImage(
+    ColorScheme colorScheme,
+    String url,
+    double size,
+    String initials,
+    double fontSize,
+  ) {
+    return ClipOval(
+      child: Image.network(
+        url,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return _buildInitials(colorScheme, initials, fontSize);
+        },
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Center(
+            child: SizedBox(
+              width: size * 0.5,
+              height: size * 0.5,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  colorScheme.primary,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildInitials(
+      ColorScheme colorScheme, String initials, double fontSize) {
     return Center(
       child: Text(
         initials,

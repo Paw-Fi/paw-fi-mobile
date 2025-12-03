@@ -1,9 +1,9 @@
-import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/shared/widgets/outlined-adaptive-button.dart';
 import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
-
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../../core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
@@ -13,14 +13,15 @@ import 'package:moneko/features/home/presentation/state/home_filter_provider.dar
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 
-/// Bottom sheet for settling up balances
 class SettleUpSheet extends ConsumerStatefulWidget {
   final String householdId;
-  final String? specificMemberId; // If settling with specific member
-  final double? amount; // Specific amount to settle
-  final bool isExpressNetting; // Whether opened from net suggestions
-  final List<ExpenseSplitGroup>? splits; // Reuse already-fetched splits
+  final String? specificMemberId;
+  final double? amount;
+  final bool isExpressNetting;
+  final List<ExpenseSplitGroup>? splits;
+  final String? currency;
 
   const SettleUpSheet({
     super.key,
@@ -29,6 +30,7 @@ class SettleUpSheet extends ConsumerStatefulWidget {
     this.amount,
     this.isExpressNetting = false,
     this.splits,
+    this.currency,
   });
 
   @override
@@ -38,20 +40,18 @@ class SettleUpSheet extends ConsumerStatefulWidget {
 class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
   String? _selectedMemberId;
   bool _isProcessing = false;
-  int _youOweCents = 0; // Sum where payer = member, line user = current
-  int _youAreOwedCents = 0; // Sum where payer = current, line user = member
-  List<_LineItem> _lineItems = const []; // you owe
-  List<_LineItem> _theyOweItems = const []; // they owe you
+  int _youOweCents = 0;
+  int _youAreOwedCents = 0;
+  List<_LineItem> _lineItems = const [];
+  List<_LineItem> _theyOweItems = const [];
 
   @override
   void initState() {
     super.initState();
     _selectedMemberId = widget.specificMemberId;
-    // Initial load of unsettled amount if member preselected
     if (_selectedMemberId != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        _recomputeFromSplits();
-      });
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _recomputeFromSplits());
     }
   }
 
@@ -67,12 +67,18 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
     final theyOwe = <_LineItem>[];
 
     for (final g in groups) {
+      if (widget.currency != null && widget.currency!.isNotEmpty) {
+        final groupCode = (g.currency).trim().toUpperCase();
+        final selectedCode = widget.currency!.trim().toUpperCase();
+        if (groupCode != selectedCode) continue;
+      }
+
       final lines = g.splitLines ?? const <ExpenseSplitLine>[];
       for (final l in lines) {
         if (l.isSettled) continue;
         final amount = (l.amountCents ?? 0).abs();
         if (amount <= 0) continue;
-        // You owe: payer = member, your line
+
         if (g.payerUserId == memberId && l.userId == currentUserId) {
           youOwe += amount;
           items.add(_LineItem(
@@ -83,7 +89,6 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
             amountCents: amount,
           ));
         }
-        // You are owed: payer = you, member's line
         if (g.payerUserId == currentUserId && l.userId == memberId) {
           youAreOwed += amount;
           theyOwe.add(_LineItem(
@@ -110,413 +115,298 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final homeFilter = ref.watch(homeFilterProvider);
-    final currency = (homeFilter.selectedCurrency ?? 'USD').toUpperCase();
+    final currency =
+        widget.currency ?? (homeFilter.selectedCurrency ?? 'USD').toUpperCase();
     final membersAsync =
         ref.watch(householdMembersProvider(widget.householdId));
     final userId = Supabase.instance.client.auth.currentUser?.id;
 
-    final maxHeight = MediaQuery.of(context).size.height * 0.8;
-    return SafeArea(
-      top: false,
-      bottom: false,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: maxHeight),
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: colorScheme.appBackground,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Drag handle
-                      Center(
-                        child: Container(
-                          width: 40,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: colorScheme.border,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
+    final netCents = (_youOweCents - _youAreOwedCents);
+    final displayCents =
+        widget.isExpressNetting ? (netCents > 0 ? netCents : 0) : _youOweCents;
+
+    // Use recomputed values. If 0, it means nothing to settle (or loading/init).
+    // We don't fallback to widget.amount because it might be stale or misleading if we recomputed.
+    final amountToShow = displayCents / 100.0;
+    final nothingToSettle = displayCents <= 0;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
+      child: SafeArea(
+        top: true,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Drag Handle
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: colorScheme.outline.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Header
+            Text(
+              context.l10n.settleUp,
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: colorScheme.foreground,
+                letterSpacing: -0.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+
+            // Member Selection
+            if (widget.specificMemberId == null)
+              membersAsync.when(
+                data: (members) {
+                  final filtered =
+                      members.where((m) => m.userId != userId).toList();
+
+                  // Auto-select if there's only one other member
+                  if (filtered.length == 1 && _selectedMemberId == null) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) {
+                        setState(() {
+                          _selectedMemberId = filtered.first.userId;
+                        });
+                        _recomputeFromSplits();
+                      }
+                    });
+                  }
+
+                  return _MemberSelector(
+                    members: filtered,
+                    selectedId: _selectedMemberId,
+                    onSelect: (id) {
+                      setState(() {
+                        _selectedMemberId = id;
+                        _youOweCents = 0;
+                        _youAreOwedCents = 0;
+                        _lineItems = const [];
+                        _theyOweItems = const [];
+                      });
+                      _recomputeFromSplits();
+                    },
+                    scheme: colorScheme,
+                  );
+                },
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (_, __) => const SizedBox.shrink(),
+              )
+            else
+              membersAsync.when(
+                data: (members) {
+                  final m = members.firstWhere(
+                      (m) => m.userId == widget.specificMemberId,
+                      orElse: () => HouseholdMember(
+                          id: '',
+                          householdId: '',
+                          userId: '',
+                          role: HouseholdRole.member,
+                          joinedAt: DateTime.now(),
+                          createdAt: DateTime.now(),
+                          updatedAt: DateTime.now()));
+                  final name = m.userName ?? m.userEmail ?? 'Member';
+                  return Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHighest
+                            .withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text("${context.l10n.settlingWith} ",
+                              style: TextStyle(
+                                  color: colorScheme.mutedForeground)),
+                          Text(name,
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: colorScheme.foreground)),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
+              ),
+
+            const SizedBox(height: 32),
+
+            // Amount Display
+            Column(
+              children: [
+                Text(
+                  context.l10n.amountToSettle,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: colorScheme.mutedForeground,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _selectedMemberId == null && widget.specificMemberId == null
+                      ? context.l10n.pleaseSelectMember
+                      : nothingToSettle
+                          ? context.l10n.nothingToSettle
+                          : formatCurrency(amountToShow, currency),
+                  style: TextStyle(
+                    fontSize: (_selectedMemberId == null &&
+                                widget.specificMemberId == null) ||
+                            nothingToSettle
+                        ? 24
+                        : 48,
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.foreground,
+                    letterSpacing: -1,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                if (widget.isExpressNetting && !nothingToSettle)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: colorScheme.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        context.l10n.expressNetting,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.primary,
                         ),
                       ),
-                      const SizedBox(height: 16),
+                    ),
+                  ),
+              ],
+            ),
 
-                      // Title
-                      Text(
-                        context.l10n.settleUp,
+            const SizedBox(height: 32),
+
+            // Breakdown (Simplified)
+            if (_lineItems.isNotEmpty || _theyOweItems.isNotEmpty)
+              Flexible(
+                child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    context.l10n.breakdown,
                         style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
                           color: colorScheme.foreground,
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        context.l10n.markExpensesAsSettled,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: colorScheme.mutedForeground,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Member selector (accordion; always visible for consistency)
-                      membersAsync.when(
-                        loading: () => const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 24),
-                          child: Center(child: CircularProgressIndicator()),
-                        ),
-                        error: (e, _) => Padding(
-                          padding: const EdgeInsets.only(top: 12, bottom: 24),
-                          child: Text(context.l10n.errorLoadingMembers,
-                              style: TextStyle(color: colorScheme.destructive)),
-                        ),
-                        data: (members) {
-                          final filteredMembers =
-                              members.where((m) => m.userId != userId).toList();
-                          final initialSelection =
-                              _selectedMemberId ?? widget.specificMemberId;
-                          HouseholdMember? selectedMember;
-                          if (initialSelection != null &&
-                              filteredMembers
-                                  .any((m) => m.userId == initialSelection)) {
-                            selectedMember = filteredMembers.firstWhere(
-                                (m) => m.userId == initialSelection);
-                          }
-
-                          return Theme(
-                            data: Theme.of(context)
-                                .copyWith(dividerColor: colorScheme.border),
-                            child: ExpansionTile(
-                              initiallyExpanded:
-                                  widget.specificMemberId == null,
-                              tilePadding:
-                                  const EdgeInsets.symmetric(horizontal: 0.0),
-                              childrenPadding:
-                                  const EdgeInsets.only(top: 8.0, bottom: 8.0),
-                              title: Text(
-                                context.l10n.whoAreYouSettlingWith,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: colorScheme.foreground,
-                                ),
-                              ),
-                              children: [
-                                InkWell(
-                                  onTap: () async {
-                                    final selected =
-                                        await showModalBottomSheet<String>(
-                                      context: context,
-                                      useRootNavigator: true,
-                                      backgroundColor: colorScheme.surface,
-                                      shape: const RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.vertical(
-                                            top: Radius.circular(20)),
-                                      ),
-                                      builder: (context) => SafeArea(
-                                        child: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Padding(
-                                              padding: const EdgeInsets.all(16),
-                                              child: Text(
-                                                context.l10n.selectMember,
-                                                style: TextStyle(
-                                                  fontSize: 18,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: colorScheme.foreground,
-                                                ),
-                                              ),
-                                            ),
-                                            Flexible(
-                                              child: ListView.builder(
-                                                shrinkWrap: true,
-                                                itemCount:
-                                                    filteredMembers.length,
-                                                itemBuilder: (context, index) {
-                                                  final m =
-                                                      filteredMembers[index];
-                                                  final name = m.userName ??
-                                                      m.userEmail ??
-                                                      context.l10n.member;
-                                                  return ListTile(
-                                                    title: Text(name,
-                                                        style: TextStyle(
-                                                            color: colorScheme
-                                                                .foreground)),
-                                                    onTap: () => Navigator.pop(
-                                                        context, m.userId),
-                                                    trailing: m.userId ==
-                                                            initialSelection
-                                                        ? Icon(Icons.check,
-                                                            color: colorScheme
-                                                                .primary)
-                                                        : null,
-                                                  );
-                                                },
-                                              ),
-                                            ),
-                                            const SizedBox(height: 16),
-                                          ],
-                                        ),
-                                      ),
-                                    );
-
-                                    if (selected != null) {
-                                      setState(() {
-                                        _selectedMemberId = selected;
-                                        _youOweCents = 0;
-                                        _youAreOwedCents = 0;
-                                        _lineItems = const [];
-                                      });
-                                      _recomputeFromSplits();
-                                    }
-                                  },
-                                  child: InputDecorator(
-                                    decoration: InputDecoration(
-                                      labelText: context.l10n.selectMember,
-                                      border: const OutlineInputBorder(),
-                                      suffixIcon:
-                                          const Icon(Icons.arrow_drop_down),
-                                    ),
-                                    child: Text(
-                                      selectedMember?.userName ??
-                                          selectedMember?.userEmail ??
-                                          '',
-                                      style: TextStyle(
-                                          color: colorScheme.foreground),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-
-                      // Detailed breakdown (accordion)
-                      Theme(
-                        data: Theme.of(context)
-                            .copyWith(dividerColor: colorScheme.border),
-                        child: ExpansionTile(
-                          initiallyExpanded: false,
-                          tilePadding:
-                              const EdgeInsets.symmetric(horizontal: 0.0),
-                          childrenPadding:
-                              const EdgeInsets.only(top: 8.0, bottom: 8.0),
-                          title: Text(context.l10n.breakdown,
-                              style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: colorScheme.foreground)),
-                          children: [
-                            Builder(builder: (_) {
-                              final bothEmpty =
-                                  _lineItems.isEmpty && _theyOweItems.isEmpty;
-                              if (bothEmpty) {
-                                return Padding(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 8),
-                                  child: Text(context.l10n.noOutstandingItems,
-                                      style: TextStyle(
-                                          color: colorScheme.mutedForeground)),
-                                );
-                              }
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (_lineItems.isNotEmpty) ...[
-                                    Text(context.l10n.youOwe,
-                                        style: TextStyle(
-                                            fontSize: 12,
-                                            color:
-                                                colorScheme.mutedForeground)),
-                                    const SizedBox(height: 6),
-                                    ...List.generate(
-                                        _lineItems.length,
-                                        (i) => Padding(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      vertical: 6),
-                                              child: _LineTile(
-                                                  item: _lineItems[i],
-                                                  scheme: colorScheme,
-                                                  tone: _AmountTone.warn),
-                                            )),
-                                    Divider(
-                                        height: 12, color: colorScheme.border),
-                                  ],
-                                  if (widget.isExpressNetting &&
-                                      _theyOweItems.isNotEmpty) ...[
-                                    Text(context.l10n.theyOweYou,
-                                        style: TextStyle(
-                                            fontSize: 12,
-                                            color:
-                                                colorScheme.mutedForeground)),
-                                    const SizedBox(height: 6),
-                                    ...List.generate(
-                                        _theyOweItems.length,
-                                        (i) => Padding(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      vertical: 6),
-                                              child: _LineTile(
-                                                  item: _theyOweItems[i],
-                                                  scheme: colorScheme,
-                                                  tone: _AmountTone.ok),
-                                            )),
-                                  ],
-                                ],
-                              );
-                            }),
-                          ],
-                        ),
-                      ),
-
-                      // Mode and amount display (moved to bottom for better UX)
                       const SizedBox(height: 12),
-                      Builder(builder: (context) {
-                        final netCents = (_youOweCents - _youAreOwedCents);
-                        final displayCents = widget.isExpressNetting
-                            ? (netCents > 0 ? netCents : 0)
-                            : _youOweCents;
-                        final amountToShow = displayCents > 0
-                            ? (displayCents / 100.0)
-                            : widget.amount;
-                        if (amountToShow == null) {
-                          return const SizedBox.shrink();
-                        }
-                        return Column(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: colorScheme.muted,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        if (widget.isExpressNetting)
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 8, vertical: 4),
-                                            decoration: BoxDecoration(
-                                              color: colorScheme.primary
-                                                  .withValues(alpha: 0.12),
-                                              borderRadius:
-                                                  BorderRadius.circular(6),
-                                            ),
-                                            child: Text(
-                                                context.l10n.expressNetting,
-                                                style: TextStyle(
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.w600,
-                                                    color:
-                                                        colorScheme.primary)),
-                                          )
-                                        else
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 8, vertical: 4),
-                                            decoration: BoxDecoration(
-                                              color: colorScheme.muted
-                                                  .withValues(alpha: 0.5),
-                                              borderRadius:
-                                                  BorderRadius.circular(6),
-                                            ),
-                                            child: Text(
-                                                context.l10n.detailedSettlement,
-                                                style: TextStyle(
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: colorScheme
-                                                        .mutedForeground)),
-                                          ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          context.l10n.amountToSettle,
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: colorScheme.mutedForeground,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          formatCurrency(amountToShow, currency),
-                                          style: TextStyle(
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.bold,
-                                            color: colorScheme.foreground,
-                                          ),
-                                        ),
-                                        if (widget.isExpressNetting)
-                                          Padding(
-                                            padding:
-                                                const EdgeInsets.only(top: 8),
-                                            child: Text(
-                                              context.l10n.expressNettingHint,
-                                              style: TextStyle(
-                                                  fontSize: 12,
-                                                  color: colorScheme
-                                                      .mutedForeground),
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
+                      ..._lineItems.map(
+                        (item) => TransactionListTile(
+                          category: 'other',
+                          title: item.description ?? 'Expense',
+                          description: item.description,
+                          date: item.createdAt,
+                          amount: item.amountCents / 100.0,
+                          currency: currency,
+                          isIncome: false,
+                          trailingWidget: Text(
+                            context.l10n.youOwe,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFFFF453A),
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (widget.isExpressNetting && _theyOweItems.isNotEmpty)
+                        ...[
+                          const SizedBox(height: 12),
+                          Text(context.l10n.offsetByWhatTheyOweYou,
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  color: colorScheme.mutedForeground)),
+                          const SizedBox(height: 8),
+                          ..._theyOweItems.map(
+                            (item) => TransactionListTile(
+                              category: 'other',
+                              title: item.description ?? 'Expense',
+                              description: item.description,
+                              date: item.createdAt,
+                              amount: item.amountCents / 100.0,
+                              currency: currency,
+                              isIncome: true,
+                              trailingWidget: Text(
+                                context.l10n.owesYou,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF30D158),
+                                ),
                               ),
                             ),
-                            const SizedBox(height: 16),
-                          ],
-                        );
-                      }),
-                      const SizedBox(height: 16),
+                          ),
+                        ]
                     ],
                   ),
                 ),
-              ),
+              )
+            else
+              const SizedBox(height: 24),
 
-              // Actions
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedAdaptiveButton(
-                      onPressed:
-                          _isProcessing ? null : () => Navigator.pop(context),
-                      child: Text(context.l10n.cancel),
-                    ),
+            const SizedBox(height: 24),
+
+            // Actions
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedAdaptiveButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(context.l10n.cancel),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: PrimaryAdaptiveButton(
-                      onPressed: _isProcessing ? null : _confirmAndSettle,
-                      child: Text(context.l10n.settle),
-                    ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: PrimaryAdaptiveButton(
+                    onPressed: (_isProcessing || nothingToSettle)
+                        ? null
+                        : _confirmAndSettle,
+                    child: _isProcessing
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white))
+                        : Text(context.l10n.settle),
                   ),
-                ],
-              ),
-            ],
-          ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -570,7 +460,6 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
   Future<void> _confirmAndSettle() async {
     if (!await _showConfirm()) return;
     if (_selectedMemberId == null && widget.specificMemberId == null) {
-      // Show error
       if (mounted) {
         AppToast.info(context, context.l10n.pleaseSelectMember);
       }
@@ -590,13 +479,14 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
               memberUserId: memberId,
               youOweCentsBefore: _youOweCents,
               youAreOwedCentsBefore: _youAreOwedCents,
+              currency: widget.currency,
             )
           : await service.settleAllDebtsToMemberAndNotify(
               householdId: widget.householdId,
               memberUserId: memberId,
               youOweCentsBefore: _youOweCents,
+              currency: widget.currency,
             );
-      // Invalidate Riverpod providers so parent views refresh immediately
       try {
         final homeFilter = ref.read(homeFilterProvider);
         final range = getDateRangeFromFilter(
@@ -604,7 +494,6 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
           homeFilter.customStartDate,
           homeFilter.customEndDate,
         );
-        // Expenses
         ref.invalidate(householdExpensesProvider(
           HouseholdExpensesParams(
             householdId: widget.householdId,
@@ -613,11 +502,9 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
             endDate: range['to'],
           ),
         ));
-        // Splits
         ref.invalidate(householdSplitsProvider(
           HouseholdSplitsParams(householdId: widget.householdId),
         ));
-        // Summary
         final currency = (homeFilter.selectedCurrency ?? 'USD').toUpperCase();
         ref.invalidate(householdSummaryProvider(
           HouseholdSummaryParams(
@@ -627,10 +514,10 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
             endDate: range['to']!.toIso8601String(),
           ),
         ));
-        // Budgets (not strictly needed for settlement suggestions, but keep UI consistent)
         ref.invalidate(householdBudgetsProvider(widget.householdId));
-        // Members (balances/labels might be displayed elsewhere)
         ref.invalidate(householdMembersProvider(widget.householdId));
+        ref.invalidate(householdSettlementHistoryProvider(
+            SettlementHistoryParams(householdId: widget.householdId)));
       } catch (_) {}
 
       if (mounted) {
@@ -650,10 +537,84 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
         setState(() {
           _isProcessing = false;
         });
-        // Refresh from passed-in splits without extra fetches
         _recomputeFromSplits();
       }
     }
+  }
+}
+
+class _MemberSelector extends StatelessWidget {
+  final List<HouseholdMember> members;
+  final String? selectedId;
+  final ValueChanged<String> onSelect;
+  final ColorScheme scheme;
+
+  const _MemberSelector({
+    required this.members,
+    required this.selectedId,
+    required this.onSelect,
+    required this.scheme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 80,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: members.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (context, index) {
+          final m = members[index];
+          final isSelected = m.userId == selectedId;
+          final name = m.userName ?? m.userEmail ?? 'Member';
+          return GestureDetector(
+            onTap: () => onSelect(m.userId),
+            child: Column(
+              children: [
+                FutureBuilder<String?>(
+                  future: _getUserAvatarUrl(m.userId),
+                  builder: (context, snapshot) {
+                    final avatarUrl = snapshot.data;
+                    return Container(
+                      width: 50,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? scheme.primary
+                            : scheme.surfaceContainerHighest,
+                        shape: BoxShape.circle,
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      alignment: Alignment.center,
+                      child: avatarUrl != null && avatarUrl.isNotEmpty
+                          ? Image.network(
+                              avatarUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => _InitialAvatar(
+                                  name: name, scheme: scheme, isSelected: isSelected),
+                            )
+                          : _InitialAvatar(
+                              name: name, scheme: scheme, isSelected: isSelected),
+                    );
+                  },
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  name,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight:
+                        isSelected ? FontWeight.w600 : FontWeight.normal,
+                    color: isSelected ? scheme.primary : scheme.mutedForeground,
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
 }
 
@@ -671,60 +632,38 @@ class _LineItem {
       required this.amountCents});
 }
 
-enum _AmountTone { neutral, ok, warn }
+/// Fetch user avatar URL from Supabase users table.
+Future<String?> _getUserAvatarUrl(String userId) async {
+  try {
+    final supabase = Supabase.instance.client;
+    final response = await supabase
+        .from('users')
+        .select('avatar_url')
+        .eq('id', userId)
+        .maybeSingle();
+    return response?['avatar_url'] as String?;
+  } catch (e) {
+    debugPrint('Error fetching user avatar: $e');
+    return null;
+  }
+}
 
-class _LineTile extends StatelessWidget {
-  final _LineItem item;
+class _InitialAvatar extends StatelessWidget {
+  final String name;
   final ColorScheme scheme;
-  final _AmountTone tone;
-  const _LineTile(
-      {required this.item,
-      required this.scheme,
-      this.tone = _AmountTone.neutral});
+  final bool isSelected;
+  const _InitialAvatar(
+      {required this.name, required this.scheme, required this.isSelected});
+
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                item.description?.isNotEmpty == true
-                    ? item.description!
-                    : context.l10n.expense,
-                style: TextStyle(fontSize: 14, color: scheme.foreground),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 2),
-              Text(
-                _fmtDate(item.createdAt),
-                style: TextStyle(fontSize: 12, color: scheme.mutedForeground),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          (item.amountCents / 100).toStringAsFixed(2),
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: switch (tone) {
-              _AmountTone.ok => scheme.primary,
-              _AmountTone.warn => scheme.destructive,
-              _ => scheme.foreground,
-            },
-          ),
-        ),
-      ],
+    return Text(
+      name.isNotEmpty ? name[0].toUpperCase() : '?',
+      style: TextStyle(
+        fontSize: 20,
+        fontWeight: FontWeight.w600,
+        color: isSelected ? scheme.onPrimary : scheme.onSurfaceVariant,
+      ),
     );
-  }
-
-  String _fmtDate(DateTime d) {
-    final mm = d.month.toString().padLeft(2, '0');
-    final dd = d.day.toString().padLeft(2, '0');
-    return '${d.year}-$mm-$dd';
   }
 }

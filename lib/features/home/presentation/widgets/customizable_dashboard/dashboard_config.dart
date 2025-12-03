@@ -16,7 +16,7 @@ enum DashboardWidgetType {
   householdFairness,
   householdSettlement,
   householdMemberSpending,
-  householdCategoryBreakdown,
+  householdRecentTransactions,
   householdSpendingBreakdownChart,
   householdWhereTheMoneyWent;
 
@@ -116,10 +116,24 @@ class DashboardWidgetConfig {
   }
 
   factory DashboardWidgetConfig.fromJson(Map<String, dynamic> json) {
+    // Handle migration from old enum names
+    final String? typeName = json['type'] as String?;
+    String migratedTypeName = typeName ?? 'spendingSummary';
+    
+    print('🔍 DashboardConfig.fromJson: original type=$typeName');
+    
+    if (migratedTypeName == 'categoryBreakdown') {
+      migratedTypeName = 'recentTransactions';
+      print('🔄 Migrated categoryBreakdown -> recentTransactions');
+    } else if (migratedTypeName == 'householdCategoryBreakdown') {
+      migratedTypeName = 'householdRecentTransactions';
+      print('🔄 Migrated householdCategoryBreakdown -> householdRecentTransactions');
+    }
+    
     return DashboardWidgetConfig(
       id: json['id'] as String,
       type: DashboardWidgetType.values.firstWhere(
-        (e) => e.name == json['type'],
+        (e) => e.name == migratedTypeName,
         orElse: () => DashboardWidgetType.spendingSummary,
       ),
       isVisible: json['isVisible'] as bool? ?? true,

@@ -5,11 +5,11 @@ import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 enum HomeCardFilterId {
   spending,
   netCashflow,
-  categoryBreakdown,
+  recentTransactions,
   spendingBreakdown,
   householdSpending,
   householdBudgetOverview,
-  householdCategoryBreakdown,
+  householdRecentTransactions,
   householdSpendingBreakdown,
   householdMemberSpending,
 }

@@ -480,7 +480,7 @@ final householdExpensesProvider =
           .select('id, contact_id, user_id, household_id, date, amount_cents, currency, category, raw_text, receipt_image_url, created_at, updated_at, split_group_id, type, is_recurring')
           .eq('household_id', params.householdId)
           .not('split_group_id', 'is', null) // Explicit filter for household expenses
-          .or('is_recurring.is.false,is_recurring.is.null');
+          .or('is_recurring.eq.false,is_recurring.is.null');
       
       // Apply date filters if provided
       if (params.startDate != null) {
@@ -587,4 +587,206 @@ final householdProvider =
     FutureProvider.family<Household?, String>((ref, householdId) async {
   final repository = ref.watch(householdRepositoryProvider);
   return repository.getHousehold(householdId);
+});
+
+// ============================================================================
+// HOUSEHOLD SETTLEMENT HISTORY (derived from settled split lines)
+// ============================================================================
+
+class SettlementHistoryParams {
+  final String householdId;
+  final int limit;
+  const SettlementHistoryParams({required this.householdId, this.limit = 200});
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SettlementHistoryParams &&
+          runtimeType == other.runtimeType &&
+          householdId == other.householdId &&
+          limit == other.limit;
+
+  @override
+  int get hashCode => householdId.hashCode ^ limit.hashCode;
+}
+
+class SettlementLine {
+  final String splitGroupId;
+  final int amountCents;
+  final DateTime settledAt;
+  final String? description;
+  final String? expenseId;
+
+  const SettlementLine({
+    required this.splitGroupId,
+    required this.amountCents,
+    required this.settledAt,
+    this.description,
+    this.expenseId,
+  });
+}
+
+class SettlementEvent {
+  final DateTime settledAt;
+  final String payerUserId;
+  final String participantUserId;
+  final String currency;
+  final int amountCents;
+  final int lineCount;
+  final String? description;
+  final String? splitGroupId;
+  final List<SettlementLine> lines;
+
+  const SettlementEvent({
+    required this.settledAt,
+    required this.payerUserId,
+    required this.participantUserId,
+    required this.currency,
+    required this.amountCents,
+    required this.lineCount,
+    this.description,
+    this.splitGroupId,
+    this.lines = const [],
+  });
+}
+
+/// Settlements timeline provider (newest first)
+final householdSettlementHistoryProvider = FutureProvider.autoDispose
+    .family<List<SettlementEvent>, SettlementHistoryParams>((ref, params) async {
+  try {
+    final supabase = ref.watch(supabaseClientProvider);
+    final currentUserId = supabase.auth.currentUser?.id;
+    if (currentUserId == null) {
+      print(
+          '[settlement_history] no current user; skip load household=${params.householdId}');
+      return const <SettlementEvent>[];
+    }
+    print(
+        '[settlement_history] start household=${params.householdId} limit=${params.limit} user=$currentUserId');
+
+    // Query 1: lines where current user is participant
+    final responseParticipant = await supabase
+        .from('expense_split_lines')
+        .select(
+            'settled_at, amount_cents, user_id, split_group_id, expense_split_groups!inner(payer_user_id, currency, household_id, description, expense_id)')
+        .eq('is_settled', true)
+        .not('settled_at', 'is', null)
+        .eq('expense_split_groups.household_id', params.householdId)
+        .eq('user_id', currentUserId)
+        .order('settled_at', ascending: false)
+        .limit(params.limit)
+        .timeout(const Duration(seconds: 10));
+
+    // Query 2: lines where current user is payer
+    final responsePayer = await supabase
+        .from('expense_split_lines')
+        .select(
+            'settled_at, amount_cents, user_id, split_group_id, expense_split_groups!inner(payer_user_id, currency, household_id, description, expense_id)')
+        .eq('is_settled', true)
+        .not('settled_at', 'is', null)
+        .eq('expense_split_groups.household_id', params.householdId)
+        .eq('expense_split_groups.payer_user_id', currentUserId)
+        .order('settled_at', ascending: false)
+        .limit(params.limit)
+        .timeout(const Duration(seconds: 10));
+
+    print(
+        '[settlement_history] raw response types: participant=${responseParticipant.runtimeType} payer=${responsePayer.runtimeType} household=${params.householdId}');
+
+    final rows = <Map<String, dynamic>>[
+      ...(responseParticipant as List).cast<Map<String, dynamic>>(),
+      ...(responsePayer as List).cast<Map<String, dynamic>>(),
+    ];
+    print(
+        '[settlement_history] fetched rows=${rows.length} household=${params.householdId}');
+    if (rows.isNotEmpty) {
+      final sample = rows.first;
+      print(
+          '[settlement_history] sample settled_at=${sample['settled_at']} payer=${(sample['expense_split_groups'] as Map?)?['payer_user_id']} participant=${sample['user_id']} amount=${sample['amount_cents']} currency=${(sample['expense_split_groups'] as Map?)?['currency']}');
+    } else {
+      print('[settlement_history] no rows returned for household=${params.householdId}');
+    }
+
+    // Aggregate by payer + participant + currency + settled minute to reduce noise
+    final Map<String, SettlementEvent> grouped = {};
+    int skippedMissingDate = 0;
+    int skippedMissingIds = 0;
+    int skippedZeroAmount = 0;
+    for (final row in rows) {
+      final settledAtStr = row['settled_at'] as String?;
+      final settledAt =
+          settledAtStr != null ? DateTime.parse(settledAtStr) : null;
+      if (settledAt == null) {
+        skippedMissingDate++;
+        continue;
+      }
+      final minute =
+          DateTime(settledAt.year, settledAt.month, settledAt.day, settledAt.hour, settledAt.minute);
+
+      final group = row['expense_split_groups'] as Map<String, dynamic>? ?? {};
+      final payerId = group['payer_user_id'] as String? ?? '';
+      final participantId = row['user_id'] as String? ?? '';
+      if (payerId.isEmpty || participantId.isEmpty) {
+        skippedMissingIds++;
+        continue;
+      }
+
+      final currency = (group['currency'] as String? ?? '').toUpperCase();
+      final amount = (row['amount_cents'] as int? ?? 0).abs();
+      if (amount <= 0) {
+        skippedZeroAmount++;
+        continue;
+      }
+      // Use epoch millis for the time bucket to avoid locale/colon issues in keys
+      final key =
+          '${payerId}_${participantId}_${currency}_${minute.millisecondsSinceEpoch}';
+
+      final line = SettlementLine(
+        splitGroupId: (row['split_group_id'] as String?) ?? '',
+        amountCents: amount,
+        settledAt: settledAt,
+        description: group['description'] as String?,
+        expenseId: group['expense_id'] as String?,
+      );
+
+      final existing = grouped[key];
+      if (existing == null) {
+        grouped[key] = SettlementEvent(
+          settledAt: minute,
+          payerUserId: payerId,
+          participantUserId: participantId,
+          currency: currency,
+          amountCents: amount,
+          lineCount: 1,
+          description: group['description'] as String?,
+          splitGroupId: row['split_group_id'] as String?,
+          lines: [line],
+        );
+      } else {
+        final updatedLines = [...existing.lines, line];
+        grouped[key] = SettlementEvent(
+          settledAt: existing.settledAt,
+          payerUserId: existing.payerUserId,
+          participantUserId: existing.participantUserId,
+          currency: existing.currency,
+          amountCents: existing.amountCents + amount,
+          lineCount: updatedLines.length,
+          description: existing.description ?? group['description'] as String?,
+          splitGroupId:
+              existing.splitGroupId ?? row['split_group_id'] as String?,
+          lines: updatedLines,
+        );
+      }
+    }
+
+    final events = grouped.values.toList()
+      ..sort((a, b) => b.settledAt.compareTo(a.settledAt));
+    print(
+        '[settlement_history] aggregated events=${events.length} skippedMissingDate=$skippedMissingDate skippedMissingIds=$skippedMissingIds skippedZeroAmount=$skippedZeroAmount household=${params.householdId}');
+    return events;
+  } catch (e, st) {
+    print(
+        '[settlement_history] error household=${params.householdId}: $e\n$st');
+    return const <SettlementEvent>[];
+  }
 });

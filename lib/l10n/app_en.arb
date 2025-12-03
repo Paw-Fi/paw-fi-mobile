@@ -695,8 +695,8 @@
   "balanceSummary": "Balance Summary",
   "youAreOwed": "You are owed",
   "youOwe": "You owe",
-  "youOweOthers": "You owe others",
-  "othersOweYou": "Others owe you",
+  "youOweOthers": "You owe",
+  "othersOweYou": "owes you",
   "viewDetails": "View Details",
   "settleUp": "Settle Up",
   "markExpensesAsSettled": "Mark expenses as settled to update balances",
@@ -1608,5 +1608,10 @@
   "viewModeMini": "Mini",
   "viewModeWide": "Wide",
   "viewModeFull": "Full",
-  "viewModeCompact": "Compact"
+  "viewModeCompact": "Compact",
+  "selectCategoriesMultiple": "Select Categories (Multiple)",
+  "settlingWith": "Settling with",
+  "offsetByWhatTheyOweYou": "Offset by what they owe you",
+  "owesYou": "Owes you",
+  "viewHistory": "View History"
 }

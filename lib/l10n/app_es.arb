@@ -565,8 +565,8 @@
   "balanceSummary": "Resumen de saldos",
   "youAreOwed": "Te deben",
   "youOwe": "Debes",
-  "youOweOthers": "Debes a otros",
-  "othersOweYou": "Otros te deben",
+  "youOweOthers": "Debes a",
+  "othersOweYou": "Te deben",
   "viewDetails": "Ver detalles",
   "settleUp": "Saldar deudas",
   "markExpensesAsSettled": "Marca los gastos como saldados para actualizar los saldos",
@@ -1606,5 +1606,10 @@
   "viewMode": "Modo de Vista",
   "compactView": "Vista Compacta",
   "expandedView": "Vista Ampliada",
-  "viewModeWide": "Amplio"
+  "viewModeWide": "Amplio",
+  "selectCategoriesMultiple": "Seleccionar categorías (selección múltiple)",
+  "settlingWith": "Saldando con",
+  "offsetByWhatTheyOweYou": "Compensar con lo que te deben",
+  "owesYou": "Te debe",
+  "viewHistory": "Ver historial"
 }

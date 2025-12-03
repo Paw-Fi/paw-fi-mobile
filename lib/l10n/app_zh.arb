@@ -567,8 +567,8 @@
   "balanceSummary": "结算总览",
   "youAreOwed": "他人欠您",
   "youOwe": "您欠他人",
-  "youOweOthers": "您欠他人",
-  "othersOweYou": "他人欠您",
+  "youOweOthers": "您欠",
+  "othersOweYou": "欠您",
   "viewDetails": "查看详情",
   "settleUp": "结算",
   "markExpensesAsSettled": "将支出标记为已结算以更新余额",
@@ -1603,5 +1603,10 @@
   "viewMode": "查看模式",
   "compactView": "紧凑视图",
   "expandedView": "展开视图",
-  "viewModeWide": "宽"
+  "viewModeWide": "宽",
+  "selectCategoriesMultiple": "选择类别（可多选）",
+  "settlingWith": "与ta结算",
+  "offsetByWhatTheyOweYou": "用对方欠你的金额抵扣",
+  "owesYou": "欠你",
+  "viewHistory": "查看历史记录"
 }

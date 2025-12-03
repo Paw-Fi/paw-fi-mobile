@@ -64,6 +64,44 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
     final currentPct = double.tryParse(percentageController.text) ?? 0.0;
     final sliderValue = useState<double>(currentPct.clamp(0, effectiveMax));
 
+    final amountController = useTextEditingController();
+    final amountFocusNode = useFocusNode();
+
+    // Sync amount controller with slider value when slider changes (and not editing amount)
+    useEffect(() {
+      if (!amountFocusNode.hasFocus) {
+        final amount = totalBudget * (sliderValue.value / 100.0);
+        amountController.text = formatAmount(amount);
+      }
+      return null;
+    }, [sliderValue.value, totalBudget]);
+
+    // Handle amount input focus loss
+    useEffect(() {
+      void onFocusChange() {
+        if (!amountFocusNode.hasFocus) {
+          final text = amountController.text;
+          final amount = double.tryParse(text) ?? 0.0;
+          final clampedAmount = amount.clamp(0.0, totalBudget);
+
+          double newPct = 0.0;
+          if (totalBudget > 0) {
+            newPct = (clampedAmount / totalBudget) * 100.0;
+          }
+
+          // Update slider and percentage controller
+          sliderValue.value = newPct.clamp(0.0, effectiveMax);
+          percentageController.text = sliderValue.value.toStringAsFixed(1);
+
+          // Re-format the amount text
+          amountController.text = formatAmount(clampedAmount);
+        }
+      }
+
+      amountFocusNode.addListener(onFocusChange);
+      return () => amountFocusNode.removeListener(onFocusChange);
+    }, [amountFocusNode, totalBudget]);
+
     useEffect(() {
       final val = double.tryParse(percentageController.text);
       if (val != null && val != sliderValue.value) {
@@ -400,6 +438,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                           backgroundColor: Colors.transparent,
                           builder: (sheetContext) {
                             return CategoryPickerBottomSheet(
+                              title:context.l10n.selectCategoriesMultiple,
                               allCategories: allCategories,
                               selectedCategories: selectedCategories.value,
                               onChanged: (value) {
@@ -770,16 +809,44 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    formatCurrency(
-                                        totalBudget *
-                                            (sliderValue.value / 100.0),
-                                        currency),
-                                    style: TextStyle(
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.w700,
-                                      color: colorScheme.foreground,
-                                      letterSpacing: -0.5,
+                                  SizedBox(
+                                    width: 200,
+                                    child: TextField(
+                                      controller: amountController,
+                                      focusNode: amountFocusNode,
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                              decimal: true),
+                                      style: TextStyle(
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.w700,
+                                        color: colorScheme.foreground,
+                                        letterSpacing: -0.5,
+                                      ),
+                                      decoration: InputDecoration(
+                                        prefixText:
+                                            resolveCurrencySymbol(currency),
+                                        prefixStyle: TextStyle(
+                                          fontSize: 28,
+                                          fontWeight: FontWeight.w700,
+                                          color: colorScheme.foreground,
+                                          letterSpacing: -0.5,
+                                        ),
+                                        isDense: true,
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                                vertical: 4),
+                                        enabledBorder: UnderlineInputBorder(
+                                          borderSide: BorderSide(
+                                              color: colorScheme.foreground,
+                                              width: 1),
+                                        ),
+                                        focusedBorder: UnderlineInputBorder(
+                                          borderSide: BorderSide(
+                                              color: colorScheme.foreground,
+                                              width: 2),
+                                        ),
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(height: 4),
@@ -810,7 +877,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                               activeTrackColor: colorScheme.primary,
                               inactiveTrackColor:
                                   colorScheme.primary.withOpacity(0.1),
-                              thumbColor: colorScheme.surface,
+                              thumbColor: Colors.white,
                               overlayColor:
                                   colorScheme.primary.withOpacity(0.1),
                               thumbShape: const RoundSliderThumbShape(
@@ -1015,7 +1082,6 @@ class _BudgetDistributionPreview extends StatelessWidget {
                   color: colorScheme.foreground,
                 ),
               ),
-             
             ],
           ),
           const SizedBox(height: 12),

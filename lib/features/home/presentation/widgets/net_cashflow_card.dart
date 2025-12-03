@@ -33,19 +33,9 @@ Widget buildNetCashflowCard(
     }
     const String? householdId = null;
 
-    final recState = ref.watch(recurringTransactionsProvider(householdId));
-    final userId = supabase.auth.currentUser?.id;
-    if (userId != null && !recState.hasLoadedOnce && !recState.data.isLoading) {
-      // Lazy-load recurring data when the card appears
-      Future.microtask(() {
-        final s = ref.read(recurringTransactionsProvider(householdId));
-        if (!s.hasLoadedOnce && !s.data.isLoading) {
-          ref
-              .read(recurringTransactionsProvider(householdId).notifier)
-              .loadRecurringTransactions(userId);
-        }
-      });
-    }
+    // NOTE: Recurring transactions are loaded by app_initialization_provider
+    // The derived providers below (recurringExpensesProvider, recurringIncomesProvider)
+    // automatically watch the base provider
 
     // 1. Define Date Ranges
     final currentRange = _getDateRangeForFilter(filter, now);

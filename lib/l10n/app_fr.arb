@@ -568,8 +568,8 @@
   "balanceSummary": "Résumé des soldes",
   "youAreOwed": "On vous doit",
   "youOwe": "Vous devez",
-  "youOweOthers": "Vous devez aux autres",
-  "othersOweYou": "D'autres vous doivent",
+  "youOweOthers": "Vous devez à",
+  "othersOweYou": "vous doit",
   "viewDetails": "Voir les détails",
   "settleUp": "Régler les comptes",
   "markExpensesAsSettled": "Marquer les dépenses comme réglées pour mettre à jour les soldes.",
@@ -1604,5 +1604,10 @@
   "viewMode": "Mode d'Affichage",
   "compactView": "Vue Compacte",
   "expandedView": "Vue Étendue",
-  "viewModeWide": "Large"
+  "viewModeWide": "Large",
+  "selectCategoriesMultiple": "Sélectionner des catégories (sélection multiple)",
+  "settlingWith": "Régler avec",
+  "offsetByWhatTheyOweYou": "Compensé par ce qu’ils vous doivent",
+  "owesYou": "Vous doit",
+  "viewHistory": "Voir l’historique"
 }

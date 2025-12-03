@@ -11,9 +11,18 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
   AnalyticsNotifier() : super(AnalyticsData());
 
   static const int _maxRetries = 2;
-  static const Duration _retryDelay = Duration(seconds: 1);
-  static const Duration _primaryQueryTimeout = Duration(seconds: 10);
-  static const Duration _fallbackQueryTimeout = Duration(seconds: 8);
+  static const Duration _baseRetryDelay = Duration(seconds: 2);
+  // Increased timeouts to handle cold-start connection establishment
+  static const Duration _primaryQueryTimeout = Duration(seconds: 25);
+  static const Duration _fallbackQueryTimeout = Duration(seconds: 30);
+  static const Duration _warmupTimeout = Duration(seconds: 10);
+  static const int _primaryExpenseBatchSize = 1000;
+  static const int _fallbackExpenseBatchSize = 400;
+  static const int _maxExpenseBatches = 30;
+  static const Duration _batchYieldDelay = Duration(milliseconds: 20);
+  
+  /// Track if connection has been warmed up this session
+  bool _connectionWarmedUp = false;
 
   /// Track current load operation to prevent race conditions
   int _loadOperationId = 0;
@@ -113,6 +122,12 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
             '🔍 Analytics: fetchedContact.preferredCurrency = ${fetchedContact.preferredCurrency}');
       }
 
+      // Warm up the connection before making expensive queries
+      // This establishes the connection pool and reduces cold-start timeouts
+      if (!_connectionWarmedUp) {
+        await _warmupConnection(userId);
+      }
+
       // Fetch ALL historical data (all time) without date filtering
       // Ensures insights are computed from the complete history
 
@@ -123,58 +138,49 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
           .cast<String>()
           .toList();
 
-      // Fetch ALL PERSONAL expenses using direct DB query (faster, more reliable)
-      // EXCLUDE recurring transactions and household expenses
+      // Fetch ALL PERSONAL expenses using batched DB queries to avoid
+      // exceeding per-request timeouts. Batching keeps payloads small and
+      // greatly reduces the chance of hitting slow responses.
       List<ExpenseEntry> allExpenses = [];
       bool expenseLoadFailed = false;
-      
-      debugPrint('[Analytics] Fetching expenses via direct DB query...');
-      try {
-        // Primary: Direct DB query - faster and more reliable than edge function
-        final response = await supabase
-            .from('expenses')
-            .select(
-                'id,contact_id,date,amount_cents,currency,category,created_at,raw_text,receipt_image_url,household_id,split_group_id,type,is_recurring')
-            .eq('user_id', userId)
-            .isFilter('split_group_id', null) // Personal only
-            .or('is_recurring.is.false,is_recurring.is.null') // Exclude recurring
-            .limit(5000) // Safety limit
-            .order('date', ascending: false)
-            .timeout(_primaryQueryTimeout);
 
-        allExpenses = (response as List)
-            .map((e) => ExpenseEntry.fromJson(e as Map<String, dynamic>))
-            .toList();
-        debugPrint('[Analytics] Direct DB query succeeded: ${allExpenses.length} expenses');
+      debugPrint('[Analytics] Fetching expenses via batched DB query...');
+      try {
+        final rawExpenses = await _fetchExpensesInBatches(
+          userId: userId,
+          contactIds: contactIds,
+          applyPersonalFiltersInQuery: true,
+          batchSize: _primaryExpenseBatchSize,
+          perBatchTimeout: _primaryQueryTimeout,
+        );
+
+        allExpenses = rawExpenses.map(ExpenseEntry.fromJson).toList();
+        debugPrint('[Analytics] Batched DB query succeeded: ${allExpenses.length} expenses');
       } catch (primaryError) {
         debugPrint('[Analytics] Primary DB query failed: $primaryError');
-        
-        // Fallback: Try simpler query without filters, then filter in memory
-        try {
-          debugPrint('[Analytics] Trying fallback query...');
-          final fallbackResponse = await supabase
-              .from('expenses')
-              .select(
-                  'id,contact_id,date,amount_cents,currency,category,created_at,raw_text,receipt_image_url,household_id,split_group_id,type,is_recurring')
-              .eq('user_id', userId)
-              .limit(5000)
-              .order('date', ascending: false)
-              .timeout(_fallbackQueryTimeout);
 
-          // Filter in memory using raw JSON before parsing
-          final filteredData = (fallbackResponse as List)
-              .where((e) {
-                final json = e as Map<String, dynamic>;
+        // Fallback: run a simpler batched query (no filters) and filter in
+        // memory after receiving the smaller payloads.
+        try {
+          debugPrint('[Analytics] Trying fallback batched query...');
+          final fallbackRaw = await _fetchExpensesInBatches(
+            userId: userId,
+            contactIds: contactIds,
+            applyPersonalFiltersInQuery: false,
+            batchSize: _fallbackExpenseBatchSize,
+            perBatchTimeout: _fallbackQueryTimeout,
+          );
+
+          final filteredData = fallbackRaw
+              .where((json) {
                 final splitGroupId = json['split_group_id'];
                 final isRecurring = json['is_recurring'];
                 return splitGroupId == null && (isRecurring == null || isRecurring == false);
               })
               .toList();
-          
-          allExpenses = filteredData
-              .map((e) => ExpenseEntry.fromJson(e as Map<String, dynamic>))
-              .toList();
-          debugPrint('[Analytics] Fallback query succeeded: ${allExpenses.length} expenses');
+
+          allExpenses = filteredData.map(ExpenseEntry.fromJson).toList();
+          debugPrint('[Analytics] Fallback batched query succeeded: ${allExpenses.length} expenses');
         } catch (fallbackError) {
           debugPrint('[Analytics] Fallback query also failed: $fallbackError');
           expenseLoadFailed = true;
@@ -221,9 +227,10 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
 
       // Check if we should retry due to expense load failure
       if (expenseLoadFailed && retryCount < _maxRetries) {
+        final backoffDelay = _baseRetryDelay * (1 << retryCount); // 2s, 4s, 8s...
         debugPrint(
-            '[Analytics] Expense load failed, scheduling retry ${retryCount + 1}/$_maxRetries');
-        await Future.delayed(_retryDelay);
+            '[Analytics] Expense load failed, scheduling retry ${retryCount + 1}/$_maxRetries after ${backoffDelay.inSeconds}s');
+        await Future.delayed(backoffDelay);
         // Check again after delay
         if (_loadOperationId != currentOperationId) {
           debugPrint('[Analytics] Operation $currentOperationId superseded during retry delay');
@@ -264,11 +271,12 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
         return;
       }
 
-      // If we haven't exhausted retries, try again
+      // If we haven't exhausted retries, try again with exponential backoff
       if (retryCount < _maxRetries) {
+        final backoffDelay = _baseRetryDelay * (1 << retryCount); // 2s, 4s, 8s...
         debugPrint(
-            '[Analytics] Scheduling retry ${retryCount + 1}/$_maxRetries after error');
-        await Future.delayed(_retryDelay);
+            '[Analytics] Scheduling retry ${retryCount + 1}/$_maxRetries after ${backoffDelay.inSeconds}s');
+        await Future.delayed(backoffDelay);
         // Check again after delay
         if (_loadOperationId != currentOperationId) {
           debugPrint('[Analytics] Operation $currentOperationId superseded during error retry delay');
@@ -437,5 +445,109 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
   /// Clear all user data (on logout)
   void clear() {
     state = AnalyticsData();
+    _connectionWarmedUp = false; // Reset warmup flag on logout
+  }
+
+  /// Warm up the Supabase connection before making expensive queries.
+  /// This helps avoid cold-start timeouts by establishing the connection pool.
+  Future<void> _warmupConnection(String userId) async {
+    try {
+      debugPrint('[Analytics] Warming up Supabase connection...');
+      final stopwatch = Stopwatch()..start();
+      
+      // Simple lightweight query to establish connection
+      await supabase
+          .from('user_contacts')
+          .select('id')
+          .eq('user_id', userId)
+          .limit(1)
+          .timeout(_warmupTimeout);
+      
+      stopwatch.stop();
+      _connectionWarmedUp = true;
+      debugPrint('[Analytics] Connection warmed up in ${stopwatch.elapsedMilliseconds}ms');
+    } catch (e) {
+      // If warmup fails, we'll still try the main query
+      // The increased timeouts should handle it
+      debugPrint('[Analytics] Connection warmup failed (non-critical): $e');
+      _connectionWarmedUp = true; // Mark as attempted to avoid repeated warmup failures
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchExpensesInBatches({
+    required String userId,
+    required List<String> contactIds,
+    required bool applyPersonalFiltersInQuery,
+    required int batchSize,
+    required Duration perBatchTimeout,
+  }) async {
+    final results = <Map<String, dynamic>>[];
+    int offset = 0;
+    int batchNumber = 0;
+    final stopwatch = Stopwatch()..start();
+
+    while (true) {
+      if (batchNumber >= _maxExpenseBatches) {
+        debugPrint(
+            '[Analytics] Max expense batches ($_maxExpenseBatches) reached while fetching expenses');
+        break;
+      }
+
+      final batch = await _fetchExpenseBatch(
+        userId: userId,
+        contactIds: contactIds,
+        applyPersonalFiltersInQuery: applyPersonalFiltersInQuery,
+        from: offset,
+        to: offset + batchSize - 1,
+        timeout: perBatchTimeout,
+      );
+
+      results.addAll(batch);
+      batchNumber += 1;
+
+      if (batch.length < batchSize) {
+        break; // Finished fetching all pages
+      }
+
+      offset += batchSize;
+      // Give the event loop a moment to breathe before the next network call
+      await Future.delayed(_batchYieldDelay);
+    }
+
+    stopwatch.stop();
+    debugPrint(
+        '[Analytics] Batched fetch completed in ${stopwatch.elapsedMilliseconds}ms across $batchNumber batches');
+    return results;
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchExpenseBatch({
+    required String userId,
+    required List<String> contactIds,
+    required bool applyPersonalFiltersInQuery,
+    required int from,
+    required int to,
+    required Duration timeout,
+  }) async {
+    var query = supabase
+        .from('expenses')
+        .select(
+            'id,contact_id,user_id,date,amount_cents,currency,category,created_at,raw_text,receipt_image_url,household_id,split_group_id,type,is_recurring');
+
+    if (contactIds.isNotEmpty) {
+      query = query.inFilter('contact_id', contactIds);
+    } else {
+      query = query.eq('user_id', userId);
+    }
+
+    if (applyPersonalFiltersInQuery) {
+      query = query
+          .isFilter('split_group_id', null)
+          .or('is_recurring.is.false,is_recurring.is.null');
+    }
+
+    final orderedQuery = query.order('date', ascending: false);
+
+    final response = await orderedQuery.range(from, to).timeout(timeout);
+    return (response as List).cast<Map<String, dynamic>>();
   }
 }

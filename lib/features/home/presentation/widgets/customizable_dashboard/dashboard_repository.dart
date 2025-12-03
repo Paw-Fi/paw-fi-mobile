@@ -28,22 +28,23 @@ class DashboardRepository {
       }
 
       // 2. Try Remote (Supabase) if local is empty
-      // Assuming 'home_layout' column exists in 'users' table
-      final response = await _supabase
-          .from('users')
-          .select('home_layout')
-          .eq('id', userId)
-          .maybeSingle();
+      // Assuming 'home_layout' column exists in 'users' table 
+      // TODO: Re-enable this when we have a way to sync layouts between devices
+      // final response = await _supabase
+      //     .from('users')
+      //     .select('home_layout')
+      //     .eq('id', userId)
+      //     .maybeSingle();
 
-      if (response != null && response['home_layout'] != null) {
-        final List<dynamic> remoteList = response['home_layout'];
-        final configs =
-            remoteList.map((e) => DashboardWidgetConfig.fromJson(e)).toList();
+      // if (response != null && response['home_layout'] != null) {
+      //   final List<dynamic> remoteList = response['home_layout'];
+      //   final configs =
+      //       remoteList.map((e) => DashboardWidgetConfig.fromJson(e)).toList();
 
-        // Cache locally
-        await _saveLocalPersonal(userId, configs);
-        return configs;
-      }
+      //   // Cache locally
+      //   await _saveLocalPersonal(userId, configs);
+      //   return configs;
+      // }
     } catch (e) {
       debugPrint('Error loading personal layout: $e');
     }

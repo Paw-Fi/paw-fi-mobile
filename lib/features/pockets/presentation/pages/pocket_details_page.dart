@@ -627,7 +627,7 @@ class _SpendingBreakdownCard extends StatelessWidget {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              item.category,
+                              getCategoryTranslation(context, item.category),
                               style: TextStyle(
                                 fontSize: 12,
                                 color: colorScheme.foreground,

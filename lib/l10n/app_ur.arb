@@ -569,8 +569,8 @@
   "balanceSummary": "بیلنس کا خلاصہ",
   "youAreOwed": "آپ کو رقم ملنی ہے",
   "youOwe": "آپ کے ذمہ ہیں",
-  "youOweOthers": "آپ نے دوسروں کو دینے ہیں",
-  "othersOweYou": "دوسروں نے آپ کو دینے ہیں",
+  "youOweOthers": "آپ نے دینے ہیں",
+  "othersOweYou": "نے آپ کو دینے ہیں",
   "viewDetails": "تفصیلات دیکھیں",
   "settleUp": "حساب برابر کریں",
   "markExpensesAsSettled": "بیلنس اپ ڈیٹ کرنے کے لیے اخراجات کو 'طے شدہ' کے طور پر نشان زد کریں",
@@ -1550,5 +1550,10 @@
   "viewMode": "دیکھنے کا طریقہ",
   "compactView": "کمپیکٹ منظر",
   "expandedView": "ایکسپینڈڈ منظر",
-  "viewModeWide": "وائیڈ"
+  "viewModeWide": "وائیڈ",
+  "selectCategoriesMultiple": "زمرے منتخب کریں (متعدد)",
+  "settlingWith": "جس سے حساب کر رہے ہیں",
+  "offsetByWhatTheyOweYou": "جو وہ آپ کے مقروض ہیں اس سے حساب پورا کریں",
+  "owesYou": "مقروض ہے",
+  "viewHistory": "ہسٹری دیکھیں"
 }

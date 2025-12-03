@@ -568,8 +568,8 @@
   "balanceSummary": "餘額總覽",
   "youAreOwed": "他人欠您",
   "youOwe": "您欠他人",
-  "youOweOthers": "您欠他人",
-  "othersOweYou": "他人欠您",
+  "youOweOthers": "您欠",
+  "othersOweYou": "欠您",
   "viewDetails": "查看詳情",
   "settleUp": "結算",
   "markExpensesAsSettled": "將支出標記為已結算以更新餘額",
@@ -1551,5 +1551,10 @@
   "viewMode": "檢視模式",
   "compactView": "緊湊檢視",
   "expandedView": "展開檢視",
-  "viewModeWide": "寬"
+  "viewModeWide": "寬",
+  "selectCategoriesMultiple": "選擇類別（可多選）",
+  "settlingWith": "與ta結算",
+  "offsetByWhatTheyOweYou": "用對方欠你的金額抵扣",
+  "owesYou": "欠你",
+  "viewHistory": "查看歷史記錄"
 }

@@ -843,7 +843,7 @@ class _UnifiedTransactionSheetState
                     ),
                   );
                 }
-                if (_householdMembers == null) {
+                if (_householdMembers == null || _householdMembers!.isEmpty) {
                   return Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -1732,8 +1732,14 @@ class _UnifiedTransactionSheetState
         return;
       }
 
-      // Wait for members to load first
+      // Wait for members to load first (with timeout to prevent infinite loop)
+      const maxWaitTime = Duration(seconds: 10);
+      final waitStart = DateTime.now();
       while (_householdMembers == null && _isLoadingMembers) {
+        if (DateTime.now().difference(waitStart) > maxWaitTime) {
+          debugPrint('⚠️ [LOAD SPLIT] Timeout waiting for household members');
+          return;
+        }
         await Future.delayed(const Duration(milliseconds: 100));
       }
 

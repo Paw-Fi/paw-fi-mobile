@@ -7,6 +7,7 @@ import 'package:moneko/features/auth/presentation/widgets/wallet_login_button.da
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:moneko/shared/widgets/otp_input.dart';
 
 import 'dart:async';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -723,20 +724,13 @@ class _OTPVerificationView extends HookConsumerWidget {
                   const SizedBox(height: 32),
 
                   // OTP Input Field
-                  TextField(
-                    maxLength: 6,
-                    keyboardType: TextInputType.number,
-                    textAlign: TextAlign.center,
-                    enabled: !isVerifying.value,
-                    decoration: const InputDecoration(
-                      counterText: '',
-                      hintText: '••••••',
-                    ),
+                  OtpInput(
+                    length: 6,
                     onChanged: (value) {
                       otpValue.value = value;
                     },
-                    onSubmitted: (_) {
-                      if (otpValue.value.length == 6) {
+                    onCompleted: (value) {
+                      if (value.length == 6 && !isVerifying.value) {
                         handleVerifyOtp();
                       }
                     },
@@ -777,20 +771,30 @@ class _OTPVerificationView extends HookConsumerWidget {
                   if (error.value != null) const SizedBox(height: 16),
 
                   // Verify Button
-                  SizedBox(
-                    width: double.infinity,
-                    child: PrimaryAdaptiveButton(
-                      onPressed: (isVerifying.value || otpValue.value.length != 6)
-                          ? null
-                          : handleVerifyOtp,
-                      child: isVerifying.value
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : Text(context.l10n.verifyEmail),
-                    ),
+                  ValueListenableBuilder(
+                    valueListenable: otpValue,
+                    builder: (context, _, __) {
+                      return ValueListenableBuilder(
+                        valueListenable: isVerifying,
+                        builder: (context, _, __) {
+                          return SizedBox(
+                            width: double.infinity,
+                            child: PrimaryAdaptiveButton(
+                              onPressed: (isVerifying.value || otpValue.value.length != 6)
+                                  ? null
+                                  : handleVerifyOtp,
+                              child: isVerifying.value
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  : Text(context.l10n.verifyEmail),
+                            ),
+                          );
+                        },
+                      );
+                    },
                   ),
                   const SizedBox(height: 24),
 

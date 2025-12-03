@@ -489,8 +489,8 @@
   "balanceSummary": "정산 요약",
   "youAreOwed": "받을 돈",
   "youOwe": "보낼 돈",
-  "youOweOthers": "내가 보낼 돈",
-  "othersOweYou": "내가 받을 돈",
+  "youOweOthers": "보낼 돈",
+  "othersOweYou": "받을 돈",
   "viewDetails": "상세 보기",
   "settleUp": "정산하기",
   "markExpensesAsSettled": "정산 완료로 표시하여 잔액을 업데이트하세요.",
@@ -1417,5 +1417,10 @@
   "viewMode": "보기 모드",
   "compactView": "컴팩트 보기",
   "expandedView": "확장 보기",
-  "viewModeWide": "와이드"
+  "viewModeWide": "와이드",
+  "selectCategoriesMultiple": "카테고리 선택(여러 개)",
+  "settlingWith": "정산 대상:",
+  "offsetByWhatTheyOweYou": "상대가 당신에게 빚진 금액으로 정산",
+  "owesYou": "당신에게 빚이 있어",
+  "viewHistory": "히스토리 보기"
 }

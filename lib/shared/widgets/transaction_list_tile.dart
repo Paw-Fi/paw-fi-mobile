@@ -63,9 +63,11 @@ class TransactionListTile extends StatelessWidget {
     final icon = getCategoryIcon(category);
     final sign = isIncome ? '+' : '-';
     final formattedAmount = formatCurrency(amount.abs(), currency);
-    final displayTitle = description?.trim().isNotEmpty == true
-        ? description!
-        : title;
+    final trimmedDescription = description?.trim() ?? '';
+    final trimmedTitle = title.trim();
+    final displayTitle = trimmedDescription.isNotEmpty
+        ? trimmedDescription
+        : (trimmedTitle.isNotEmpty ? trimmedTitle : category);
 
     Widget? subtitleNode;
     if (subtitleWidget != null) {

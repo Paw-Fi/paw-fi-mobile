@@ -569,8 +569,8 @@
   "balanceSummary": "Riepilogo saldi",
   "youAreOwed": "Hai da ricevere",
   "youOwe": "Devi",
-  "youOweOthers": "Devi agli altri",
-  "othersOweYou": "Gli altri ti devono",
+  "youOweOthers": "Devi a",
+  "othersOweYou": "ti deve",
   "viewDetails": "Vedi dettagli",
   "settleUp": "Salda i conti",
   "markExpensesAsSettled": "Segna le spese come saldate per aggiornare i saldi",
@@ -1551,5 +1551,10 @@
   "viewMode": "Modalità Vista",
   "compactView": "Vista Compatta",
   "expandedView": "Vista Estesa",
-  "viewModeWide": "Ampio"
+  "viewModeWide": "Ampio",
+  "selectCategoriesMultiple": "Seleziona categorie (selezione multipla)",
+  "settlingWith": "Regolare con",
+  "offsetByWhatTheyOweYou": "Compensa con quanto ti devono",
+  "owesYou": "Ti deve",
+  "viewHistory": "Visualizza cronologia"
 }

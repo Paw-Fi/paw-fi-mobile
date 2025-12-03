@@ -8,7 +8,8 @@ class HouseholdService {
   HouseholdService(this._supabase);
 
   void _log(String message, {Object? error, StackTrace? stackTrace}) {
-    appLog(message, name: 'HouseholdService', error: error, stackTrace: stackTrace);
+    appLog(message,
+        name: 'HouseholdService', error: error, stackTrace: stackTrace);
   }
 
   String _currentUserDisplayName() {
@@ -69,13 +70,17 @@ class HouseholdService {
         'ownerId': userId,
       });
 
-      final response = await _supabase.from('households').insert({
-        'name': name,
-        'currency': currency.toUpperCase(),
-        'cover_image_url': coverImageUrl,
-        'theme_color': themeColor,
-        'owner_id': userId,
-      }).select().single();
+      final response = await _supabase
+          .from('households')
+          .insert({
+            'name': name,
+            'currency': currency.toUpperCase(),
+            'cover_image_url': coverImageUrl,
+            'theme_color': themeColor,
+            'owner_id': userId,
+          })
+          .select()
+          .single();
 
       _log('Household created successfully: ${response['id']}');
       return response;
@@ -377,7 +382,7 @@ class HouseholdService {
     bool? countSplitPortionOnly,
   }) async {
     final userId = _supabase.auth.currentUser?.id;
-    
+
     if (userId == null) {
       throw Exception('User not authenticated');
     }
@@ -432,11 +437,8 @@ class HouseholdService {
       data['user_id'] = userId;
     }
 
-    final response = await _supabase
-        .from('shared_budgets')
-        .insert(data)
-        .select()
-        .single();
+    final response =
+        await _supabase.from('shared_budgets').insert(data).select().single();
 
     return response;
   }
@@ -504,8 +506,7 @@ class HouseholdService {
     };
 
     if (defaultTransactionShareScope != null) {
-      updates['default_transaction_share_scope'] =
-          defaultTransactionShareScope;
+      updates['default_transaction_share_scope'] = defaultTransactionShareScope;
     }
     if (defaultAccountShareScope != null) {
       updates['default_account_share_scope'] = defaultAccountShareScope;
@@ -521,7 +522,8 @@ class HouseholdService {
       updates['nudge_quiet_hours_end'] = nudgeQuietHoursEnd;
     }
 
-    final response = await _supabase.from('sharing_prefs').upsert(updates).select().single();
+    final response =
+        await _supabase.from('sharing_prefs').upsert(updates).select().single();
 
     return response;
   }
@@ -557,8 +559,7 @@ class HouseholdService {
   // REALTIME SUBSCRIPTIONS
   // ============================================================================
 
-  Stream<List<Map<String, dynamic>>> watchHouseholdMembers(
-      String householdId) {
+  Stream<List<Map<String, dynamic>>> watchHouseholdMembers(String householdId) {
     return _supabase
         .from('household_members')
         .stream(primaryKey: ['id'])
@@ -566,8 +567,7 @@ class HouseholdService {
         .map((data) => data.cast<Map<String, dynamic>>());
   }
 
-  Stream<List<Map<String, dynamic>>> watchHouseholdInvites(
-      String householdId) {
+  Stream<List<Map<String, dynamic>>> watchHouseholdInvites(String householdId) {
     return _supabase
         .from('invites')
         .stream(primaryKey: ['id'])
@@ -575,8 +575,7 @@ class HouseholdService {
         .map((data) => data.cast<Map<String, dynamic>>());
   }
 
-  Stream<List<Map<String, dynamic>>> watchHouseholdBudgets(
-      String householdId) {
+  Stream<List<Map<String, dynamic>>> watchHouseholdBudgets(String householdId) {
     return _supabase
         .from('shared_budgets')
         .stream(primaryKey: ['id'])
@@ -628,15 +627,24 @@ class HouseholdService {
   Future<int> settleAllDebtsToMember({
     required String householdId,
     required String memberUserId,
+    String? currency,
   }) async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) throw Exception('User not authenticated');
 
-    final groups = await _supabase
+    final normalizedCurrency = currency?.toUpperCase();
+
+    var query = _supabase
         .from('expense_split_groups')
         .select('id')
         .eq('household_id', householdId)
         .eq('payer_user_id', memberUserId);
+
+    if (normalizedCurrency != null) {
+      query = query.eq('currency', normalizedCurrency);
+    }
+
+    final groups = await query;
 
     final groupIds = (groups as List)
         .map((e) => (e as Map<String, dynamic>)['id'] as String)
@@ -668,6 +676,7 @@ class HouseholdService {
     required String householdId,
     required String memberUserId,
     int? youOweCentsBefore,
+    String? currency,
   }) async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) throw Exception('User not authenticated');
@@ -675,9 +684,12 @@ class HouseholdService {
     // Use supplied precomputed value if provided (avoid extra reads)
     final amountCents = youOweCentsBefore ?? 0;
 
+    final normalizedCurrency = currency?.toUpperCase();
+
     final count = await settleAllDebtsToMember(
       householdId: householdId,
       memberUserId: memberUserId,
+      currency: normalizedCurrency,
     );
 
     if (count > 0) {
@@ -687,13 +699,14 @@ class HouseholdService {
         'amount_cents': amountCents,
         'line_count': count,
         'actor_name': _currentUserDisplayName(),
+        if (normalizedCurrency != null) 'currency': normalizedCurrency,
       };
       // Notify the counterparty only (exclude current user)
       try {
         await _supabase.from('notification_events').insert({
           'household_id': householdId,
           'user_id': memberUserId,
-          'event_type': 'settlement_completed',
+          'event_type': 'split_settled',
           'payload': payload,
         });
       } catch (_) {}
@@ -718,23 +731,33 @@ class HouseholdService {
     required String memberUserId,
     int? youOweCentsBefore,
     int? youAreOwedCentsBefore,
+    String? currency,
   }) async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) throw Exception('User not authenticated');
+
+    final normalizedCurrency = currency?.toUpperCase();
 
     // Direction 1: current user owes member
     final count1 = await settleAllDebtsToMember(
       householdId: householdId,
       memberUserId: memberUserId,
+      currency: normalizedCurrency,
     );
 
     // Direction 2: member owes current user
     // Fetch groups where current user is the payer
-    final groups2 = await _supabase
+    var query2 = _supabase
         .from('expense_split_groups')
         .select('id')
         .eq('household_id', householdId)
         .eq('payer_user_id', userId);
+
+    if (normalizedCurrency != null) {
+      query2 = query2.eq('currency', normalizedCurrency);
+    }
+
+    final groups2 = await query2;
     final groupIds2 = (groups2 as List)
         .map((e) => (e as Map<String, dynamic>)['id'] as String)
         .toList();
@@ -775,12 +798,13 @@ class HouseholdService {
           'net_pay_cents': (oweCents - recvCents).clamp(0, 1 << 31),
         },
         'actor_name': _currentUserDisplayName(),
+        if (normalizedCurrency != null) 'currency': normalizedCurrency,
       };
       try {
         await _supabase.from('notification_events').insert({
           'household_id': householdId,
           'user_id': memberUserId,
-          'event_type': 'settlement_completed',
+          'event_type': 'split_settled',
           'payload': payload,
         });
       } catch (_) {}

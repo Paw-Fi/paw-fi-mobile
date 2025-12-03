@@ -57,65 +57,51 @@ class SelectedHouseholdNotifier extends StateNotifier<SelectedHouseholdState> {
     try {
       debugPrint('🔍 Initializing selected household for user: $userId');
 
-      // Get user's households
-      final householdsAsync = ref.read(userHouseholdsProvider(userId));
+      // Wait for households to be loaded with proper polling
+      final households = await _waitForHouseholds(userId);
       
-      await householdsAsync.when(
-        data: (households) async {
-          if (households.isEmpty) {
-            debugPrint('📭 No households found for user');
-            state = const SelectedHouseholdState(isLoading: false);
-            return;
-          }
+      if (households == null || households.isEmpty) {
+        debugPrint('📭 No households found for user (or load failed)');
+        state = const SelectedHouseholdState(isLoading: false);
+        return;
+      }
 
-          // Try to load saved selection from local storage
-          final savedId = prefs.getString(_kSelectedHouseholdIdKey);
-          debugPrint('💾 Saved household ID from storage: $savedId');
+      // Try to load saved selection from local storage
+      final savedId = prefs.getString(_kSelectedHouseholdIdKey);
+      debugPrint('💾 Saved household ID from storage: $savedId');
 
-          String? selectedId;
-          Household? selectedHousehold;
+      String? selectedId;
+      Household? selectedHousehold;
 
-          if (savedId != null) {
-            // Check if saved household still exists
-            selectedHousehold = households.firstWhere(
-              (h) => h.id == savedId,
-              orElse: () => households.first,
-            );
-            selectedId = selectedHousehold.id;
-            
-            if (savedId != selectedId) {
-              debugPrint('⚠️ Saved household not found, falling back to first');
-            } else {
-              debugPrint('✅ Restored saved household: ${selectedHousehold.name}');
-            }
-          } else {
-            // No saved selection, use first household
-            selectedHousehold = households.first;
-            selectedId = selectedHousehold.id;
-            debugPrint('🆕 No saved selection, using first household: ${selectedHousehold.name}');
-          }
+      if (savedId != null) {
+        // Check if saved household still exists
+        selectedHousehold = households.firstWhere(
+          (h) => h.id == savedId,
+          orElse: () => households.first,
+        );
+        selectedId = selectedHousehold.id;
+        
+        if (savedId != selectedId) {
+          debugPrint('⚠️ Saved household not found, falling back to first');
+        } else {
+          debugPrint('✅ Restored saved household: ${selectedHousehold.name}');
+        }
+      } else {
+        // No saved selection, use first household
+        selectedHousehold = households.first;
+        selectedId = selectedHousehold.id;
+        debugPrint('🆕 No saved selection, using first household: ${selectedHousehold.name}');
+      }
 
-          // Update state
-          state = SelectedHouseholdState(
-            householdId: selectedId,
-            household: selectedHousehold,
-            isLoading: false,
-          );
-
-          // Persist to storage
-          await _saveToStorage(selectedId);
-        },
-        loading: () {
-          debugPrint('⏳ Waiting for households to load...');
-        },
-        error: (error, stack) {
-          debugPrint('❌ Error loading households: $error');
-          state = SelectedHouseholdState(
-            isLoading: false,
-            error: error.toString(),
-          );
-        },
+      // Update state
+      state = SelectedHouseholdState(
+        householdId: selectedId,
+        household: selectedHousehold,
+        isLoading: false,
       );
+
+      // Persist to storage
+      await _saveToStorage(selectedId);
     } catch (e, stack) {
       debugPrint('❌ Error initializing selected household: $e');
       debugPrint('Stack: $stack');
@@ -124,6 +110,40 @@ class SelectedHouseholdNotifier extends StateNotifier<SelectedHouseholdState> {
         error: e.toString(),
       );
     }
+  }
+
+  /// Wait for households provider to finish loading with proper polling.
+  /// Returns the list of households or null if timeout/error.
+  Future<List<Household>?> _waitForHouseholds(
+    String userId, {
+    Duration timeout = const Duration(seconds: 15),
+    Duration pollInterval = const Duration(milliseconds: 150),
+  }) async {
+    final stopwatch = Stopwatch()..start();
+
+    while (stopwatch.elapsed < timeout) {
+      final state = ref.read(userHouseholdsProvider(userId));
+
+      // If we have data and not loading, return it
+      if (state.hasValue && !state.isLoading) {
+        return state.value;
+      }
+
+      // If there's an error and not loading, return null
+      if (state.hasError && !state.isLoading) {
+        debugPrint('⚠️ Households resolved with error: ${state.error}');
+        return null;
+      }
+
+      // Still loading - wait and retry
+      await Future.delayed(pollInterval);
+    }
+
+    // Timeout reached
+    final finalState = ref.read(userHouseholdsProvider(userId));
+    debugPrint(
+        '⚠️ Timeout (${timeout.inSeconds}s) waiting for households, hasValue=${finalState.hasValue}');
+    return finalState.valueOrNull;
   }
 
   /// Select a household by ID

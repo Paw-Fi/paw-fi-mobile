@@ -18,45 +18,97 @@ class EditDashboardButton extends ConsumerWidget {
     final isEditMode = ref.watch(isEditModeProvider);
     final colorScheme = Theme.of(context).colorScheme;
 
+    void toggleEditMode() {
+      ref.read(isEditModeProvider.notifier).state = !isEditMode;
+    }
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 24.0),
-        child: GestureDetector(
-          onTap: () {
-            ref.read(isEditModeProvider.notifier).state = !isEditMode;
-          },
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 32,
-                height: 1,
-                color: isEditMode
-                    ? colorScheme.primary.withValues(alpha: 0.3)
-                    : colorScheme.mutedForeground.withValues(alpha: 0.3),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                isEditMode ? context.l10n.done : "Edit Widgets",
-                style: TextStyle(
-                  fontSize: 13,
-                  color: isEditMode
-                      ? colorScheme.primary
-                      : colorScheme.mutedForeground,
-                  fontWeight: FontWeight.w500,
+        child: isEditMode
+            ? Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  GestureDetector(
+                    onTap: toggleEditMode,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: colorScheme.primary,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: colorScheme.primary.withValues(alpha: 0.25),
+                            blurRadius: 16,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 10),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                         
+                            Text(
+                              context.l10n.done,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.onPrimary,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                               Icon(Icons.check_rounded,
+                                size: 16, color: colorScheme.onPrimary),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    "Hold and drag to reorder widgets",
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: colorScheme.mutedForeground
+                          .withValues(alpha: 0.9),
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 0.1,
+                    ),
+                  ),
+                ],
+              )
+            : GestureDetector(
+                onTap: toggleEditMode,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 1,
+                      color: colorScheme.mutedForeground
+                          .withValues(alpha: 0.3),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      "Edit Widgets",
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: colorScheme.mutedForeground,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Container(
+                      width: 32,
+                      height: 1,
+                      color: colorScheme.mutedForeground
+                          .withValues(alpha: 0.3),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 12),
-              Container(
-                width: 32,
-                height: 1,
-                color: isEditMode
-                    ? colorScheme.primary.withValues(alpha: 0.3)
-                    : colorScheme.mutedForeground.withValues(alpha: 0.3),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
