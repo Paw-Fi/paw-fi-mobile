@@ -35,14 +35,25 @@ class TransactionsPage extends ConsumerStatefulWidget {
 class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   String searchQuery = '';
   String selectedCategory = 'all';
-  String selectedPeriod = '1M';
+  // Default period depends on context: for personal view use last 30 days (1M),
+  // for household view show all time by default so group expenses are visible.
+  late String selectedPeriod;
   String selectedType = 'all'; // all | expense | income
   int currentChartIndex = 0;
   DateTime? _customStartDate;
   DateTime? _customEndDate;
 
+  // When true, ignore date range filtering and always show all-time data.
+  final bool _ignoreDateFilter = true;
+
   final TextEditingController _searchController = TextEditingController();
   final PageController _chartPageController = PageController();
+
+  @override
+  void initState() {
+    super.initState();
+    selectedPeriod = widget.householdId != null ? 'All' : '1M';
+  }
 
   @override
   void dispose() {
@@ -66,37 +77,42 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     }
 
     // Filter by period
-    if (selectedPeriod == 'Custom' &&
-        _customStartDate != null &&
-        _customEndDate != null) {
-      final start = DateTime(_customStartDate!.year, _customStartDate!.month,
-          _customStartDate!.day);
-      final end = DateTime(
-          _customEndDate!.year, _customEndDate!.month, _customEndDate!.day);
-      expenses = expenses.where((ex) {
-        final d = DateTime(ex.date.year, ex.date.month, ex.date.day);
-        return !d.isBefore(start) && !d.isAfter(end);
-      }).toList();
-    } else if (selectedPeriod != 'All') {
-      final now = DateTime.now();
-      DateTime startDate;
-      switch (selectedPeriod) {
-        case '1W':
-          startDate = DateTime(now.year, now.month, now.day - 7);
-          break;
-        case '1M':
-          startDate = DateTime(now.year, now.month - 1, now.day);
-          break;
-        case '6M':
-          startDate = DateTime(now.year, now.month - 6, now.day);
-          break;
-        case '1Y':
-          startDate = DateTime(now.year - 1, now.month, now.day);
-          break;
-        default:
-          startDate = DateTime(now.year, now.month - 1, now.day);
+    if (!_ignoreDateFilter) {
+      if (selectedPeriod == 'Custom' &&
+          _customStartDate != null &&
+          _customEndDate != null) {
+        final start = DateTime(_customStartDate!.year, _customStartDate!.month,
+            _customStartDate!.day);
+        final end = DateTime(
+            _customEndDate!.year, _customEndDate!.month, _customEndDate!.day);
+        expenses = expenses.where((ex) {
+          final d = DateTime(ex.date.year, ex.date.month, ex.date.day);
+          return !d.isBefore(start) && !d.isAfter(end);
+        }).toList();
+      } else if (selectedPeriod != 'All') {
+        final now = DateTime.now();
+        DateTime startDate;
+        switch (selectedPeriod) {
+          case '1W':
+            startDate = DateTime(now.year, now.month, now.day - 7);
+            break;
+          case '1M':
+            startDate = DateTime(now.year, now.month - 1, now.day);
+            break;
+          case '6M':
+            startDate = DateTime(now.year, now.month - 6, now.day);
+            break;
+          case '1Y':
+            startDate = DateTime(now.year - 1, now.month, now.day);
+            break;
+          case 'All':
+            startDate = DateTime(1970);
+            break;
+          default:
+            startDate = DateTime(now.year, now.month - 1, now.day);
+        }
+        expenses = expenses.where((e) => !e.date.isBefore(startDate)).toList();
       }
-      expenses = expenses.where((e) => !e.date.isBefore(startDate)).toList();
     }
 
     // Filter by search query
@@ -197,7 +213,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     // Resolve base expenses source (household-specific or global analytics)
     if (widget.householdId != null) {
       final expensesAsync = ref.watch(householdExpensesProvider(
-        HouseholdExpensesParams(householdId: widget.householdId!, limit: 1000),
+        HouseholdExpensesParams(householdId: widget.householdId!),
       ));
       return expensesAsync.when(
         loading: () => Scaffold(
@@ -891,6 +907,10 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isIncome = (expense.type ?? 'expense').toLowerCase() == 'income';
+    final currentUserId = ref.watch(authProvider).uid;
+    final isYou = widget.householdId != null &&
+        expense.userId != null &&
+        expense.userId == currentUserId;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -925,6 +945,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
             amount: expense.amount,
             currency: expense.currency ?? 'USD',
             isIncome: isIncome,
+            showYouLabel: isYou,
           ),
         ),
       ),

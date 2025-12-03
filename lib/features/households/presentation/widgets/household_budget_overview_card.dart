@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 
 /// Budget overview card showing total spent, budget progress, and remaining budget
@@ -13,8 +14,10 @@ Widget buildHouseholdBudgetOverviewCard(
 }) {
   final totalExpensesCents = summary?.totals.totalExpensesCents ?? 0;
   final currency = (summary?.currency ?? 'USD').toUpperCase();
+  final symbol = resolveCurrencySymbol(currency);
   final totalSpentAmount = totalExpensesCents / 100.0;
-  final formattedTotalSpent = formatCurrency(totalSpentAmount, currency);
+  final formattedTotalSpent =
+      '$symbol${formatLocalizedNumber(context, totalSpentAmount)}';
   final transactionCount = summary?.totals.transactionCount ?? 0;
 
   // Budget data
@@ -37,6 +40,14 @@ Widget buildHouseholdBudgetOverviewCard(
 
   final budgetSpentAmount = totalBudgetSpentCents / 100.0;
   final budgetRemainingAmount = totalBudgetRemainingCents / 100.0;
+  final formattedBudgetSpent =
+      '$symbol${formatLocalizedNumber(context, budgetSpentAmount)}';
+  final formattedBudgetRemaining = '$symbol${
+    formatLocalizedNumber(
+      context,
+      budgetRemainingAmount.abs(),
+    )
+  }';
   final budgetPercentage = totalBudgetCents > 0
       ? (totalBudgetSpentCents / totalBudgetCents * 100).clamp(0, 100)
       : 0.0;
@@ -209,7 +220,7 @@ Widget buildHouseholdBudgetOverviewCard(
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      formatCurrency(budgetSpentAmount, currency),
+                      formattedBudgetSpent,
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -240,7 +251,7 @@ Widget buildHouseholdBudgetOverviewCard(
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      formatCurrency(budgetRemainingAmount.abs(), currency),
+                      formattedBudgetRemaining,
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,

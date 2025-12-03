@@ -11,3 +11,4 @@ export 'text_input_drawer.dart';
 export 'date_range_filter_modal.dart';
 export 'currency_selector_modal.dart';
 export 'home_header_sliver.dart';
+export 'customizable_dashboard/widgets/where_the_money_went_widget.dart';

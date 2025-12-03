@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
@@ -93,9 +94,10 @@ Widget buildNetCashflowCard(
 
     final isNegative = currentNet < 0;
     final absAmount = currentNet.abs();
-    final formattedAmount =
-        formatCurrency(absAmount, selectedCurrency ?? 'USD');
-    final displayText = isNegative ? '-$formattedAmount' : formattedAmount;
+    final symbol = resolveCurrencySymbol(selectedCurrency ?? 'USD');
+    final localizedAmount = formatLocalizedNumber(context, absAmount);
+    final displayText =
+        isNegative ? '-$symbol$localizedAmount' : '$symbol$localizedAmount';
 
     final title = _netCashflowTitleForFilter(context, filter);
     final isDark = Theme.of(context).brightness == Brightness.dark;

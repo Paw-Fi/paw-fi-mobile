@@ -6,6 +6,7 @@ import 'package:moneko/features/home/presentation/constants/category_constants.d
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
@@ -39,7 +40,10 @@ Widget buildSpendingBreakdownChart(
   final totalSpent = _getTotalSpent(filteredExpenses);
 
   // selectedCurrency is never null (defaults to USD)
-  final displayText = formatCurrency(totalSpent, selectedCurrency ?? 'USD');
+  final currencyCode = selectedCurrency ?? 'USD';
+  final symbol = resolveCurrencySymbol(currencyCode);
+  final localizedTotal = formatLocalizedNumber(context, totalSpent);
+  final displayText = '$symbol$localizedTotal';
 
   final isDark = Theme.of(context).brightness == Brightness.dark;
 

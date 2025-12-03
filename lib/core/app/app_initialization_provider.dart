@@ -62,6 +62,7 @@ class AppInitialization extends _$AppInitialization {
             },
           );
           debugPrint('✅ Device registration initialized');
+          unawaited(ref.read(deviceRegistrationServiceProvider).clearAllNotifications());
         } catch (e) {
           debugPrint('⚠️ Device registration init failed (non-critical): $e');
         }

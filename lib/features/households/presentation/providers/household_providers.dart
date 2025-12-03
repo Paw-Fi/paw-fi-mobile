@@ -440,7 +440,7 @@ class HouseholdExpensesParams {
 
   const HouseholdExpensesParams({
     required this.householdId,
-    this.limit = 500,  // Increased default from 10 to 500 for better UX
+    this.limit = 1000,  // Increased default from 500 to 1000 for better UX
     this.startDate,
     this.endDate,
   });
@@ -491,7 +491,7 @@ final householdExpensesProvider =
       }
       
       final expenses = await expensesQuery
-          .order('updated_at', ascending: false)
+          .order('date', ascending: false)
           .limit(params.limit);
 
       final expensesList = (expenses as List).cast<Map<String, dynamic>>();

@@ -7,6 +7,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/utils/sub_page_top_padding.dart';
 import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+import 'package:moneko/shared/widgets/destructive-adaptive-button.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 // removed shared budgets UI from settings; budgets are managed elsewhere
 import '../../domain/entities/household.dart';
@@ -121,6 +122,7 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
   String? _selectedImageUrl;
   File? _selectedImageFile;
   bool _isSaving = false;
+   bool _isDeleting = false;
 
   @override
   void dispose() {
@@ -146,6 +148,8 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
             ),
           );
         }
+
+        final isOwner = household.ownerId == currentUserId;
 
         // Get current user's role
         final currentUserMember = membersAsync.asData?.value.firstWhere(
@@ -369,6 +373,29 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
                               )
                             : Text(context.l10n.saveChanges),
                       ),
+                    if (isOwner) ...[
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: DestructiveAdaptiveButton(
+                          onPressed: _isDeleting
+                              ? null
+                              : () => _confirmDeleteHousehold(household),
+                          child: _isDeleting
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white,
+                                    ),
+                                  ),
+                                )
+                              : Text(context.l10n.delete),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 40),
                   ]),
                 ),
@@ -399,6 +426,72 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
         });
       },
     );
+  }
+
+  Future<void> _confirmDeleteHousehold(Household household) async {
+    final pageContext = context;
+    final l10n = pageContext.l10n;
+
+    AdaptiveAlertDialog.show(
+      context: pageContext,
+      title: l10n.delete,
+      message: l10n.confirmDeleteBudget,
+      icon: 'trash.fill',
+      actions: [
+        AlertAction(
+          title: l10n.cancel,
+          onPressed: () {
+            Navigator.of(pageContext).pop(false);
+          },
+        ),
+        AlertAction(
+          title: l10n.delete,
+          style: AlertActionStyle.destructive,
+          onPressed: () async {
+            Navigator.of(pageContext).pop(true);
+            await _deleteHousehold(pageContext);
+          },
+        ),
+      ],
+    );
+  }
+
+  Future<void> _deleteHousehold(BuildContext pageContext) async {
+    if (!mounted || _isDeleting) return;
+
+    setState(() {
+      _isDeleting = true;
+    });
+
+    try {
+      final repository = ref.read(householdRepositoryProvider);
+      await repository.deleteHousehold(widget.householdId);
+
+      final user = ref.read(authProvider);
+      final userId = user.uid;
+
+      await ref.read(userHouseholdsProvider(userId).notifier).load();
+      await ref.read(selectedHouseholdProvider.notifier).initialize(userId);
+
+      if (!mounted) return;
+
+      if (Navigator.of(pageContext).canPop()) {
+        Navigator.of(pageContext).pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        AppToast.error(
+          pageContext,
+          'Failed to delete household: $e',
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isDeleting = false;
+        });
+      }
+    }
   }
 
   Future<void> _saveChanges(Household household) async {

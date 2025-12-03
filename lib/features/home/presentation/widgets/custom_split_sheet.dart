@@ -1,6 +1,7 @@
 // Custom split configuration sheet
 // Allows users to split expenses by amount, percentage, or shares
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:moneko/features/households/domain/entities/household.dart';
@@ -137,6 +138,21 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
   }
 
   @override
+  void didUpdateWidget(covariant CustomSplitEditor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    final membersChanged = _membersChanged(oldWidget.members, widget.members);
+    final totalChanged = oldWidget.totalAmount != widget.totalAmount;
+    final splitTypeChanged = widget.initialSplitType != null &&
+        widget.initialSplitType != _selectedType &&
+        widget.initialSplitType != oldWidget.initialSplitType;
+
+    if (membersChanged || totalChanged || splitTypeChanged) {
+      _reconcileSplits(splitTypeChanged: splitTypeChanged);
+    }
+  }
+
+  @override
   void dispose() {
     _debounce?.cancel();
     for (var controller in _controllers) {
@@ -166,6 +182,61 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
       _memberSplits.length,
       (index) => TextEditingController(text: _getFormattedValue(index)),
     );
+  }
+
+  bool _membersChanged(List<HouseholdMember> previous, List<HouseholdMember> current) {
+    if (previous.length != current.length) return true;
+
+    final previousIds = previous.map((m) => m.userId).toList();
+    final currentIds = current.map((m) => m.userId).toList();
+
+    return !listEquals(previousIds, currentIds);
+  }
+
+  void _reconcileSplits({required bool splitTypeChanged}) {
+    final existingByUserId = {
+      for (final split in _memberSplits) split.member.userId: split,
+    };
+
+    final updatedSplits = widget.members.map((member) {
+      final existing = existingByUserId[member.userId];
+      if (existing != null) {
+        return MemberSplit(
+          member: member,
+          amount: existing.amount,
+          percentage: existing.percentage,
+          shares: existing.shares,
+          includedInAmount: existing.includedInAmount,
+          includedInPercentage: existing.includedInPercentage,
+        );
+      }
+
+      return MemberSplit(
+        member: member,
+        amount: widget.members.isNotEmpty
+            ? widget.totalAmount / widget.members.length
+            : 0,
+        percentage:
+            widget.members.isNotEmpty ? 100.0 / widget.members.length : 0,
+        shares: 1,
+      );
+    }).toList();
+
+    for (final controller in _controllers) {
+      controller.dispose();
+    }
+
+    setState(() {
+      if (splitTypeChanged && widget.initialSplitType != null) {
+        _selectedType = widget.initialSplitType!;
+      }
+      _memberSplits = updatedSplits;
+      _initializeControllers();
+      _validationError = null;
+    });
+
+    _validate();
+    _queueNotify();
   }
 
   void _initializeSplitsFromInitial() {

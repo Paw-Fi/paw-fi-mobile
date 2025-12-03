@@ -272,8 +272,6 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               ref.watch(householdExpensesProvider(
                             HouseholdExpensesParams(
                               householdId: household.id,
-                              startDate: from,
-                              endDate: to,
                             ),
                           ));
                           final splitsAsync = ref.watch(householdSplitsProvider(
@@ -387,17 +385,11 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                           // We can use config.dateRange to filter transactions passed to it,
                           // but the widget itself might handle month navigation.
                           // For now, let's pass the transactions for the selected range.
-                          final range = getDateRangeFromFilter(config.dateRange,
-                              config.customStartDate, config.customEndDate);
-                          final from = range['from']!;
-                          final to = range['to']!;
 
                           final expensesAsync =
                               ref.watch(householdExpensesProvider(
                             HouseholdExpensesParams(
                               householdId: household.id,
-                              startDate: from,
-                              endDate: to,
                             ),
                           ));
                           final recurringAsync = ref.watch(
@@ -485,8 +477,6 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               ref.watch(householdExpensesProvider(
                             HouseholdExpensesParams(
                               householdId: household.id,
-                              startDate: from,
-                              endDate: to,
                             ),
                           ));
 
@@ -528,8 +518,6 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               ref.watch(householdExpensesProvider(
                             HouseholdExpensesParams(
                               householdId: household.id,
-                              startDate: from,
-                              endDate: to,
                             ),
                           ));
                           final splitsAsync = ref.watch(householdSplitsProvider(
@@ -578,8 +566,6 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               ref.watch(householdExpensesProvider(
                             HouseholdExpensesParams(
                               householdId: household.id,
-                              startDate: from,
-                              endDate: to,
                             ),
                           ));
                           final splitsAsync = ref.watch(householdSplitsProvider(
@@ -634,20 +620,25 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               ref.watch(householdExpensesProvider(
                             HouseholdExpensesParams(
                               householdId: household.id,
-                              startDate: from,
-                              endDate: to,
                             ),
                           ));
+
+                          final allExpenses = expensesAsync.value ?? [];
+                          final filteredExpenses = allExpenses.where((e) {
+                            final d =
+                                DateTime(e.date.year, e.date.month, e.date.day);
+                            return !d.isBefore(from) && !d.isAfter(to);
+                          }).toList();
 
                           return Padding(
                             padding:
                                 const EdgeInsets.symmetric(horizontal: 16.0),
                             child: GestureDetector(
                               // Removed onLongPress as date range is now handled by wrapper
-                              child: buildCategoryBreakdownCard(
+                              child: buildRecentTransactionsCard(
                                 context,
                                 colorScheme,
-                                expensesAsync.value ?? [],
+                                filteredExpenses,
                                 null,
                                 selectedCurrency: selectedCurrency,
                                 householdId: household.id,
@@ -676,10 +667,15 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               ref.watch(householdExpensesProvider(
                             HouseholdExpensesParams(
                               householdId: household.id,
-                              startDate: from,
-                              endDate: to,
                             ),
                           ));
+
+                          final allExpenses = expensesAsync.value ?? [];
+                          final filteredExpenses = allExpenses.where((e) {
+                            final d =
+                                DateTime(e.date.year, e.date.month, e.date.day);
+                            return !d.isBefore(from) && !d.isAfter(to);
+                          }).toList();
 
                           return Padding(
                             padding:
@@ -697,7 +693,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               child: buildSpendingBreakdownChart(
                                 context,
                                 colorScheme,
-                                expensesAsync.value ?? [],
+                                filteredExpenses,
                                 const <DailyBudgetEntry>[],
                                 null,
                                 config.dateRange,
@@ -719,16 +715,21 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               ref.watch(householdExpensesProvider(
                             HouseholdExpensesParams(
                               householdId: household.id,
-                              startDate: from,
-                              endDate: to,
                             ),
                           ));
+
+                          final allExpenses = expensesAsync.value ?? [];
+                          final filteredExpenses = allExpenses.where((e) {
+                            final d =
+                                DateTime(e.date.year, e.date.month, e.date.day);
+                            return !d.isBefore(from) && !d.isAfter(to);
+                          }).toList();
 
                           return Padding(
                             padding:
                                 const EdgeInsets.symmetric(horizontal: 16.0),
                             child: WhereTheMoneyWentWidget(
-                              expenses: expensesAsync.value ?? [],
+                              expenses: filteredExpenses,
                               currency: selectedCurrency,
                               onHelpTap: () =>
                                   showCategoryGuide(context, colorScheme),

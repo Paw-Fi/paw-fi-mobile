@@ -149,6 +149,7 @@ class PocketDetailsPage extends HookConsumerWidget {
                   IconButton(
                     icon: Icon(Icons.edit, color: textColor),
                     onPressed: () {
+                      final rootNavigator = Navigator.of(context);
                       // Combine both saved and editing pockets for complete rebalancing
                       final seenIds = <String>{};
                       final allPockets = <PocketEnvelope>[
@@ -168,13 +169,16 @@ class PocketDetailsPage extends HookConsumerWidget {
                         context: context,
                         isScrollControlled: true,
                         backgroundColor: Colors.transparent,
-                        builder: (context) => EditPocketEnvelopeSheet(
+                        builder: (sheetContext) => EditPocketEnvelopeSheet(
                           scopeParams: scopeParams,
                           existingEnvelope: pocket,
                           totalBudget: totalBudget,
                           unallocatedBudget: unallocatedBudget,
                           budgetId: state.budgetId,
                           allPockets: allPockets,
+                          onDeleteCompleted: () {
+                            rootNavigator.pop();
+                          },
                         ),
                       );
                     },

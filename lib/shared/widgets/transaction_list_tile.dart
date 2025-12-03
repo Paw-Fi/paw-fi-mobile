@@ -18,6 +18,7 @@ class TransactionListTile extends StatelessWidget {
   final VoidCallback? onTap;
   final Widget? trailingWidget;
   final bool dense;
+  final bool showYouLabel;
 
   const TransactionListTile({
     super.key,
@@ -33,6 +34,7 @@ class TransactionListTile extends StatelessWidget {
     this.onTap,
     this.trailingWidget,
     this.dense = true,
+    this.showYouLabel = false,
   });
 
   String? _formatDate(BuildContext context, DateTime date) {
@@ -64,11 +66,71 @@ class TransactionListTile extends StatelessWidget {
     final displayTitle = description?.trim().isNotEmpty == true
         ? description!
         : title;
-    final displaySubtitle = subtitleWidget != null
-        ? null
-        : (date != null
-            ? _formatDate(context, date!)
-            : subtitle);
+
+    Widget? subtitleNode;
+    if (subtitleWidget != null) {
+      subtitleNode = subtitleWidget;
+    } else if (date != null) {
+      final base = _formatDate(context, date!);
+      if (base != null && base.isNotEmpty) {
+        if (showYouLabel) {
+          subtitleNode = Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: Text(
+                  base,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: colorScheme.mutedForeground,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: colorScheme.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  'You',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.primary,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ),
+            ],
+          );
+        } else {
+          subtitleNode = Text(
+            base,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 12,
+              color: colorScheme.mutedForeground,
+            ),
+          );
+        }
+      }
+    } else if (subtitle != null) {
+      subtitleNode = Text(
+        subtitle!,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 12,
+          color: colorScheme.mutedForeground,
+        ),
+      );
+    }
 
     return ListTile(
       onTap: onTap,
@@ -93,18 +155,7 @@ class TransactionListTile extends StatelessWidget {
           color: colorScheme.foreground,
         ),
       ),
-      subtitle: subtitleWidget ??
-          (displaySubtitle != null
-              ? Text(
-                  displaySubtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: colorScheme.mutedForeground,
-                  ),
-                )
-              : null),
+      subtitle: subtitleNode,
       trailing: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.end,

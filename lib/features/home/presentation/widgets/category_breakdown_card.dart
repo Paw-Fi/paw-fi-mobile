@@ -13,7 +13,7 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 
-Widget buildCategoryBreakdownCard(
+Widget buildRecentTransactionsCard(
   BuildContext context,
   ColorScheme colorScheme,
   List<ExpenseEntry> allExpenses,
@@ -27,7 +27,12 @@ Widget buildCategoryBreakdownCard(
   // Recent transactions - show latest 5 by transaction date (to match
   // TransactionsPage behavior and user expectation of "recent" by date).
   final recent = allExpenses.toList()
-    ..sort((a, b) => b.date.compareTo(a.date));
+    ..sort((a, b) {
+      final byDate = b.date.compareTo(a.date);
+      if (byDate != 0) return byDate;
+      // If date/time are exactly the same, break ties by createdAt (newest first).
+      return b.createdAt.compareTo(a.createdAt);
+    });
   final latest = recent.take(5).toList();
 
   return Material(

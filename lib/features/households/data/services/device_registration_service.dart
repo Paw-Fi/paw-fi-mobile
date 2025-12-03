@@ -544,4 +544,13 @@ class DeviceRegistrationService {
       }
     }
   }
+
+  Future<void> clearAllNotifications() async {
+    try {
+      await _localNotifications.cancelAll();
+      debugPrint('🧹 Cleared all local notifications');
+    } catch (e) {
+      debugPrint('⚠️ Failed to clear local notifications: $e');
+    }
+  }
 }

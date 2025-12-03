@@ -3,6 +3,7 @@ import 'package:fl_chart/fl_chart.dart';
 
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
@@ -69,8 +70,10 @@ class _SpendingCardState extends State<SpendingCard> {
     final directTotal = _getTotalSpent(filteredExpenses);
     final totalSpent = bucketsTotal > 0 ? bucketsTotal : directTotal;
 
-    final displayText =
-        formatCurrency(totalSpent, widget.selectedCurrency ?? 'USD');
+    final currencyCode = widget.selectedCurrency ?? 'USD';
+    final symbol = resolveCurrencySymbol(currencyCode);
+    final localizedTotal = formatLocalizedNumber(context, totalSpent);
+    final displayText = '$symbol$localizedTotal';
 
     // If no data, synthesize a flat 0-line chart
     List<DateTime> effectiveDates = sortedDates;
@@ -251,8 +254,12 @@ class _SpendingCardState extends State<SpendingCard> {
                           final date = visibleDates[spot.spotIndex];
                           final formattedDate =
                               formatDateForInterval(date, intervalType);
-                          final amount = formatCurrency(
-                              spot.y, widget.selectedCurrency ?? 'USD');
+                          final currencyCode =
+                              widget.selectedCurrency ?? 'USD';
+                          final symbol = resolveCurrencySymbol(currencyCode);
+                          final localizedY =
+                              formatLocalizedNumber(context, spot.y);
+                          final amount = '$symbol$localizedY';
                           return LineTooltipItem(
                             '$formattedDate\n',
                             TextStyle(

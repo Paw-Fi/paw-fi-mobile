@@ -2,6 +2,38 @@ import WidgetKit
 import SwiftUI
 import AppIntents
 
+// MARK: - Theme
+
+struct Theme {
+    static let lightBackground = Color(hex: "#F9FAFB")
+    static let darkBackground = Color(hex: "#0A0E1A")
+    
+    static let lightForeground = Color(hex: "#1F2937")
+    static let darkForeground = Color(hex: "#F1F5F9")
+    
+    static let lightPrimary = Color(hex: "#7458FF")
+    static let darkPrimary = Color(hex: "#8B70FF")
+    
+    static let lightMuted = Color(hex: "#6B7280")
+    static let darkMuted = Color(hex: "#9CA3AF")
+    
+    static let lightCard = Color(hex: "#FFFFFF")
+    static let darkCard = Color(hex: "#1C1C1E")
+}
+
+extension View {
+    @ViewBuilder
+    func widgetBackground(_ colorScheme: ColorScheme) -> some View {
+        if #available(iOS 17.0, *) {
+            self.containerBackground(for: .widget) {
+                Color.clear
+            }
+        } else {
+            self.background(Color.clear)
+        }
+    }
+}
+
 // MARK: - Data Models
 
 struct PocketData: Codable, Identifiable {
@@ -20,14 +52,14 @@ struct MonekoEntry: TimelineEntry {
     let remainingBudget: String
     let progress: Double
     let pockets: [PocketData]
-    let configuration: ConfigurationAppIntent? // Optional for static widget
+    let configuration: ConfigurationAppIntent?
 }
 
 // MARK: - Providers
 
 struct Provider: TimelineProvider {
     func placeholder(in context: Context) -> MonekoEntry {
-        MonekoEntry.placeholder
+        MonekoEntry.pocketPlaceholder
     }
 
     func getSnapshot(in context: Context, completion: @escaping (MonekoEntry) -> ()) {
@@ -39,23 +71,28 @@ struct Provider: TimelineProvider {
     }
     
     private func loadData() -> MonekoEntry {
-        // Load default/legacy data (no scope suffix)
-        return DataLoader.load(scopeId: nil, currency: nil)
+        return DataLoader.load(configuration: nil)
     }
 }
 
 @available(iOS 17.0, *)
 struct AppIntentProvider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> MonekoEntry {
-        MonekoEntry.placeholder
+        MonekoEntry.pocketPlaceholder
     }
 
     func snapshot(for configuration: ConfigurationAppIntent, in context: Context) async -> MonekoEntry {
-        return DataLoader.load(scopeId: configuration.household?.id, currency: configuration.currency?.id)
+        if context.isPreview {
+            return MonekoEntry.pocketPlaceholder
+        }
+        return DataLoader.load(configuration: configuration)
     }
 
     func timeline(for configuration: ConfigurationAppIntent, in context: Context) async -> Timeline<MonekoEntry> {
-        let entry = DataLoader.load(scopeId: configuration.household?.id, currency: configuration.currency?.id)
+        if context.isPreview {
+            return Timeline(entries: [MonekoEntry.pocketPlaceholder], policy: .never)
+        }
+        let entry = DataLoader.load(configuration: configuration)
         return Timeline(entries: [entry], policy: .never)
     }
 }
@@ -63,21 +100,25 @@ struct AppIntentProvider: AppIntentTimelineProvider {
 @available(iOS 17.0, *)
 struct TopCategoriesAppIntentProvider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> MonekoEntry {
-        MonekoEntry.placeholder
+        MonekoEntry.categoryPlaceholder
     }
 
     func snapshot(for configuration: ConfigurationAppIntent, in context: Context) async -> MonekoEntry {
+        if context.isPreview {
+            return MonekoEntry.categoryPlaceholder
+        }
         return DataLoader.load(
-            scopeId: configuration.household?.id,
-            currency: configuration.currency?.id,
+            configuration: configuration,
             pocketsKeyBase: "top_categories"
         )
     }
 
     func timeline(for configuration: ConfigurationAppIntent, in context: Context) async -> Timeline<MonekoEntry> {
+        if context.isPreview {
+            return Timeline(entries: [MonekoEntry.categoryPlaceholder], policy: .never)
+        }
         let entry = DataLoader.load(
-            scopeId: configuration.household?.id,
-            currency: configuration.currency?.id,
+            configuration: configuration,
             pocketsKeyBase: "top_categories"
         )
         return Timeline(entries: [entry], policy: .never)
@@ -87,27 +128,16 @@ struct TopCategoriesAppIntentProvider: AppIntentTimelineProvider {
 // MARK: - Data Loader
 
 struct DataLoader {
-    static func load(scopeId: String?, currency: String?, pocketsKeyBase: String = "pockets_data") -> MonekoEntry {
+    static func load(configuration: ConfigurationAppIntent?, pocketsKeyBase: String = "pockets_data") -> MonekoEntry {
         let userDefaults = UserDefaults(suiteName: "group.moneko.mobile")
         
-        // Construct keys based on configuration
-        // If scopeId is provided, use it. If not, fallback to default keys (no suffix)
-        // Note: WidgetService saves with suffix: {scopeId}_{currency}
-        // scopeId 'personal' is used for personal scope.
+        let scopeId = configuration?.household?.id
+        let currency = configuration?.currency?.id
         
         var suffix = ""
         if let s = scopeId, let c = currency {
             suffix = "_\(s)_\(c)"
-        } else if let s = scopeId {
-             // Try to find default currency? Or just fail?
-             // For now, if currency is missing, we might not find data.
-             // But let's assume if scope is 'personal', we might have legacy data without suffix?
-             // No, WidgetService saves legacy data to 'total_spent' etc. AND 'total_spent_personal_USD'.
-             // So if scopeId is nil, we read legacy keys.
         }
-        
-        // If we have a specific configuration, use the suffix.
-        // If scopeId is "personal" and currency is "USD", suffix is "_personal_USD".
         
         let totalSpentKey = "total_spent\(suffix)"
         let remainingKey = "remaining_budget\(suffix)"
@@ -134,13 +164,13 @@ struct DataLoader {
             remainingBudget: remainingBudget,
             progress: progress,
             pockets: pockets,
-            configuration: nil
+            configuration: configuration
         )
     }
 }
 
 extension MonekoEntry {
-    static var placeholder: MonekoEntry {
+    static var categoryPlaceholder: MonekoEntry {
         MonekoEntry(
             date: Date(),
             totalSpent: "$1,250",
@@ -151,7 +181,24 @@ extension MonekoEntry {
                 PocketData(name: "Transport", spent: 120, budget: 200, color: "#16CDA2", currency: "USD", icon: "directions_car"),
                 PocketData(name: "Dining", spent: 300, budget: 400, color: "#FFC219", currency: "USD", icon: "restaurant")
             ],
-            configuration: nil
+            configuration: ConfigurationAppIntent(household: HouseholdEntity(id: "personal", name: "Personal"), currency: CurrencyEntity(id: "USD"))
+        )
+    }
+    
+    static var pocketPlaceholder: MonekoEntry {
+        MonekoEntry(
+            date: Date(),
+            totalSpent: "$850",
+            remainingBudget: "$1,150",
+            progress: 0.42,
+            pockets: [
+                PocketData(name: "Pocket 1", spent: 250, budget: 500, color: "#7458FF", currency: "USD", icon: "savings"),
+                PocketData(name: "Pocket 2", spent: 100, budget: 300, color: "#16CDA2", currency: "USD", icon: "savings"),
+                PocketData(name: "Pocket 3", spent: 50, budget: 200, color: "#FFC219", currency: "USD", icon: "savings"),
+                PocketData(name: "Pocket 4", spent: 300, budget: 400, color: "#F05252", currency: "USD", icon: "savings"),
+                PocketData(name: "Pocket 5", spent: 150, budget: 600, color: "#3F83F8", currency: "USD", icon: "savings")
+            ],
+            configuration: ConfigurationAppIntent(household: HouseholdEntity(id: "personal", name: "Personal"), currency: CurrencyEntity(id: "USD"))
         )
     }
 }
@@ -254,70 +301,110 @@ struct MapItem: Codable {
 struct MonekoWidgetEntryView : View {
     var entry: MonekoEntry
     @Environment(\.widgetFamily) var family
+    @Environment(\.colorScheme) var colorScheme
 
     var body: some View {
-        switch family {
-        case .systemSmall:
-            SmallWidgetView(entry: entry)
-        case .systemMedium:
-            MediumWidgetView(entry: entry)
-        case .systemLarge:
-            LargeWidgetView(entry: entry)
-        case .accessoryCircular:
-            LockScreenCircularView()
-        case .accessoryRectangular:
-            LockScreenRectangularView()
-        case .accessoryInline:
-            Text("Moneko")
-        @unknown default:
-            SmallWidgetView(entry: entry)
+        if shouldShowSetup {
+            SetupWidgetView()
+        } else {
+            switch family {
+            case .systemSmall:
+                SmallWidgetView(entry: entry)
+            case .systemMedium:
+                MediumWidgetView(entry: entry)
+            case .systemLarge:
+                LargeWidgetView(entry: entry)
+            case .accessoryCircular:
+                LockScreenCircularView()
+            case .accessoryRectangular:
+                LockScreenRectangularView()
+            case .accessoryInline:
+                Text("Moneko")
+            @unknown default:
+                SmallWidgetView(entry: entry)
+            }
         }
+    }
+    
+    var shouldShowSetup: Bool {
+        if let config = entry.configuration {
+            return config.household == nil
+        }
+        return false
     }
 }
 
-// Entry view for the \"Top Spending\" widget variant.
 struct TopCategoriesWidgetEntryView: View {
     var entry: MonekoEntry
     @Environment(\.widgetFamily) var family
+    @Environment(\.colorScheme) var colorScheme
 
     var body: some View {
-        switch family {
-        case .systemSmall:
-            SmallWidgetView(entry: entry)
-        case .systemMedium:
-            MediumWidgetView(entry: entry)
-        case .systemLarge:
-            TopCategoriesLargeWidgetView(entry: entry)
-        case .accessoryCircular:
-            LockScreenCircularView()
-        case .accessoryRectangular:
-            LockScreenRectangularView()
-        case .accessoryInline:
-            Text("Moneko")
-        @unknown default:
-            TopCategoriesLargeWidgetView(entry: entry)
+        if shouldShowSetup {
+            SetupWidgetView()
+        } else {
+            switch family {
+            case .systemSmall:
+                SmallWidgetView(entry: entry)
+            case .systemMedium:
+                MediumWidgetView(entry: entry)
+            case .systemLarge:
+                TopCategoriesLargeWidgetView(entry: entry)
+            case .accessoryCircular:
+                LockScreenCircularView()
+            case .accessoryRectangular:
+                LockScreenRectangularView()
+            case .accessoryInline:
+                Text("Moneko")
+            @unknown default:
+                TopCategoriesLargeWidgetView(entry: entry)
+            }
         }
+    }
+    
+    var shouldShowSetup: Bool {
+        if let config = entry.configuration {
+            return config.household == nil
+        }
+        return false
     }
 }
 
-// ... (Keep existing View Components: SmallWidgetView, MediumWidgetView, LargeWidgetView, etc.)
-// I will re-paste them here to ensure the file is complete and correct.
+struct SetupWidgetView: View {
+    @Environment(\.colorScheme) var colorScheme
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "gearshape.fill")
+                .font(.system(size: 32))
+                .foregroundColor(colorScheme == .dark ? Theme.darkMuted : Theme.lightMuted)
+            
+            Text("Long press to edit")
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundColor(colorScheme == .dark ? Theme.darkMuted : Theme.lightMuted)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .widgetBackground(colorScheme)
+    }
+}
 
 struct SmallWidgetView: View {
     let entry: MonekoEntry
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Image(systemName: "chart.pie.fill")
-                    .foregroundColor(Color(hex: "#7458FF"))
+                    .foregroundColor(colorScheme == .dark ? Theme.darkPrimary : Theme.lightPrimary)
                 Spacer()
                 Link(destination: URL(string: "moneko://pockets")!) {
                     Image(systemName: "plus")
                         .font(.system(size: 14, weight: .bold))
                         .foregroundColor(.white)
                         .frame(width: 24, height: 24)
-                        .background(Color(hex: "#7458FF"))
+                        .background(colorScheme == .dark ? Theme.darkPrimary : Theme.lightPrimary)
                         .clipShape(Circle())
                 }
             }
@@ -326,22 +413,24 @@ struct SmallWidgetView: View {
             
             Text("Spent")
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundColor(colorScheme == .dark ? Theme.darkMuted : Theme.lightMuted)
             
             Text(entry.totalSpent)
                 .font(.system(size: 20, weight: .bold))
+                .foregroundColor(colorScheme == .dark ? Theme.darkForeground : Theme.lightForeground)
                 .minimumScaleFactor(0.8)
             
-            ProgressBar(value: entry.progress, color: Color(hex: "#7458FF"))
+            ProgressBar(value: entry.progress, color: colorScheme == .dark ? Theme.darkPrimary : Theme.lightPrimary)
                 .frame(height: 6)
         }
         .padding()
-        .background(Color("WidgetBackground"))
+        .widgetBackground(colorScheme)
     }
 }
 
 struct MediumWidgetView: View {
     let entry: MonekoEntry
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
         HStack(spacing: 16) {
@@ -349,19 +438,20 @@ struct MediumWidgetView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("This Month")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(colorScheme == .dark ? Theme.darkMuted : Theme.lightMuted)
                     .textCase(.uppercase)
                 
                 Text(entry.totalSpent)
                     .font(.system(size: 26, weight: .bold))
+                    .foregroundColor(colorScheme == .dark ? Theme.darkForeground : Theme.lightForeground)
                 
                 Text("Left: \(entry.remainingBudget)")
                     .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(colorScheme == .dark ? Theme.darkMuted : Theme.lightMuted)
                 
                 Spacer()
                 
-                ProgressBar(value: entry.progress, color: Color(hex: "#7458FF"))
+                ProgressBar(value: entry.progress, color: colorScheme == .dark ? Theme.darkPrimary : Theme.lightPrimary)
                     .frame(height: 8)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -377,7 +467,7 @@ struct MediumWidgetView: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
-                    .background(Color(hex: "#7458FF"))
+                    .background(colorScheme == .dark ? Theme.darkPrimary : Theme.lightPrimary)
                     .cornerRadius(12)
                 }
                 
@@ -387,103 +477,110 @@ struct MediumWidgetView: View {
                         Text("Scan")
                     }
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(Color(hex: "#7458FF"))
+                    .foregroundColor(colorScheme == .dark ? Theme.darkPrimary : Theme.lightPrimary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
-                    .background(Color(hex: "#7458FF").opacity(0.15))
+                    .background((colorScheme == .dark ? Theme.darkPrimary : Theme.lightPrimary).opacity(0.15))
                     .cornerRadius(12)
                 }
             }
             .frame(width: 100)
         }
         .padding()
-        .background(Color("WidgetBackground"))
+        .widgetBackground(colorScheme)
     }
 }
 
 struct LargeWidgetView: View {
     let entry: MonekoEntry
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 14) {
             // Header
             HStack {
-                VStack(alignment: .leading) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text("Spent")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .font(.caption2)
+                        .foregroundColor(colorScheme == .dark ? Theme.darkMuted : Theme.lightMuted)
                         .textCase(.uppercase)
                     Text(entry.totalSpent)
-                        .font(.title2)
+                        .font(.title3)
                         .fontWeight(.bold)
+                        .foregroundColor(colorScheme == .dark ? Theme.darkForeground : Theme.lightForeground)
                 }
                 Spacer()
                 Link(destination: URL(string: "moneko://pockets")!) {
                     Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 32))
-                        .foregroundColor(Color(hex: "#7458FF"))
+                        .font(.system(size: 28))
+                        .foregroundColor(colorScheme == .dark ? Theme.darkPrimary : Theme.lightPrimary)
                 }
             }
             
-            ProgressBar(value: entry.progress, color: Color(hex: "#7458FF"))
-                .frame(height: 8)
+            ProgressBar(value: entry.progress, color: colorScheme == .dark ? Theme.darkPrimary : Theme.lightPrimary)
+                .frame(height: 6)
 
             Divider()
+                .overlay(colorScheme == .dark ? Theme.darkMuted.opacity(0.5) : Theme.lightMuted.opacity(0.2))
 
             // Budget envelopes list – always show all pockets
             VStack(spacing: 12) {
-                ForEach(entry.pockets) { pocket in
+                ForEach(entry.pockets.prefix(5)) { pocket in
                     VStack(alignment: .leading, spacing: 6) {
                         HStack {
                             IconCircleView(
                                 iconName: pocket.icon,
                                 fallbackColorHex: pocket.color,
-                                size: 18
+                                size: 16
                             )
 
                             Text(pocket.name)
-                                .font(.subheadline)
-                                .fontWeight(.medium)
+                                .font(.system(size: 13, weight: .medium))
                                 .lineLimit(1)
+                                .foregroundColor(colorScheme == .dark ? Theme.darkForeground : Theme.lightForeground)
 
                             Spacer()
 
-                            Text(formatCurrency(pocket.spent, currencyCode: pocket.currency))
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
+                            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                                Text(formatCurrency(pocket.spent, currencyCode: pocket.currency))
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(colorScheme == .dark ? Theme.darkForeground : Theme.lightForeground)
+                                
+                                Text("/")
+                                    .font(.system(size: 12, weight: .regular))
+                                    .foregroundColor(colorScheme == .dark ? Theme.darkMuted : Theme.lightMuted)
+                                    .padding(.horizontal, 1)
+
+                                Text(formatCurrency(pocket.budget, currencyCode: pocket.currency))
+                                    .font(.system(size: 12, weight: .regular))
+                                    .foregroundColor(colorScheme == .dark ? Theme.darkMuted : Theme.lightMuted)
+                            }
                         }
 
                         ProgressBar(
                             value: pocket.budget > 0 ? min(pocket.spent / pocket.budget, 1.0) : 0.0,
                             color: Color(hex: pocket.color)
                         )
-                        .frame(height: 6)
-
-                        HStack {
-                            Spacer()
-                            Text("of \(formatCurrency(pocket.budget, currencyCode: pocket.currency))")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
+                        .frame(height: 5)
                     }
                 }
                 if entry.pockets.isEmpty {
                     Text("No pockets yet")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(colorScheme == .dark ? Theme.darkMuted : Theme.lightMuted)
                 }
             }
 
             Spacer()
         }
         .padding()
-        .background(Color("WidgetBackground"))
+        .widgetBackground(colorScheme)
     }
 }
 
-// Original large layout used for the \"Top Spending\" widget variant
 struct TopCategoriesLargeWidgetView: View {
     let entry: MonekoEntry
+    @Environment(\.colorScheme) var colorScheme
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -492,24 +589,26 @@ struct TopCategoriesLargeWidgetView: View {
                 VStack(alignment: .leading) {
                     Text("Spent")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(colorScheme == .dark ? Theme.darkMuted : Theme.lightMuted)
                         .textCase(.uppercase)
                     Text(entry.totalSpent)
                         .font(.title2)
                         .fontWeight(.bold)
+                        .foregroundColor(colorScheme == .dark ? Theme.darkForeground : Theme.lightForeground)
                 }
                 Spacer()
                 Link(destination: URL(string: "moneko://pockets")!) {
                     Image(systemName: "plus.circle.fill")
                         .font(.system(size: 32))
-                        .foregroundColor(Color(hex: "#7458FF"))
+                        .foregroundColor(colorScheme == .dark ? Theme.darkPrimary : Theme.lightPrimary)
                 }
             }
 
-            ProgressBar(value: entry.progress, color: Color(hex: "#7458FF"))
+            ProgressBar(value: entry.progress, color: colorScheme == .dark ? Theme.darkPrimary : Theme.lightPrimary)
                 .frame(height: 8)
 
             Divider()
+                .overlay(colorScheme == .dark ? Theme.darkMuted.opacity(0.5) : Theme.lightMuted.opacity(0.2))
 
             // Pockets List (top categories)
             VStack(spacing: 12) {
@@ -525,25 +624,26 @@ struct TopCategoriesLargeWidgetView: View {
                             .font(.subheadline)
                             .fontWeight(.medium)
                             .lineLimit(1)
+                            .foregroundColor(colorScheme == .dark ? Theme.darkForeground : Theme.lightForeground)
 
                         Spacer()
 
                         Text(formatCurrency(pocket.spent, currencyCode: pocket.currency))
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(colorScheme == .dark ? Theme.darkMuted : Theme.lightMuted)
                     }
                 }
                 if entry.pockets.isEmpty {
                     Text("No expenses yet this month")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(colorScheme == .dark ? Theme.darkMuted : Theme.lightMuted)
                 }
             }
 
             Spacer()
         }
         .padding()
-        .background(Color("WidgetBackground"))
+        .widgetBackground(colorScheme)
     }
 }
 
@@ -632,27 +732,18 @@ extension Color {
     }
 }
 
-/// Renders an icon inside a colored circular pill, falling back to a plain
-/// color dot if no icon mapping exists. This mirrors the pocket/category
-/// icons used in the Flutter UI while using SF Symbols on iOS.
 struct IconCircleView: View {
     let iconName: String?
     let fallbackColorHex: String
     let size: CGFloat
 
     var body: some View {
-        // When no explicit icon is set, fall back to the same
-        // semantic default as the pockets page (the "savings"
-        // / piggy-bank icon). If that mapping is unavailable,
-        // use a generic money symbol.
         let systemName: String = {
             if let iconName, let mapped = mapIconIdentifierToSymbol(iconName) {
                 return mapped
             }
-            if let savingsMapped = mapIconIdentifierToSymbol("savings") {
-                return savingsMapped
-            }
-            return "savings.fill"
+            // Fallback to banknote
+            return "banknote.fill"
         }()
 
         ZStack {
@@ -666,13 +757,10 @@ struct IconCircleView: View {
     }
 }
 
-/// Maps a cross-platform icon identifier (pocket icon name or category key)
-/// to an SF Symbol name for display in the widget.
 fileprivate func mapIconIdentifierToSymbol(_ identifier: String) -> String? {
     let key = identifier.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 
     switch key {
-    // Pocket icon names (see pocket_icon_constants.dart)
     case "shopping_bag":
         return "bag.fill"
     case "restaurant":
@@ -705,8 +793,6 @@ fileprivate func mapIconIdentifierToSymbol(_ identifier: String) -> String? {
         return "banknote.fill"
     case "account_balance":
         return "building.columns.fill"
-
-    // Category keys (subset; others fall back to default)
     case "groceries":
         return "cart.fill"
     case "food & drinks", "restaurants", "takeout & delivery":
@@ -741,13 +827,10 @@ fileprivate func mapIconIdentifierToSymbol(_ identifier: String) -> String? {
         return "banknote.fill"
     case "investments":
         return "chart.line.uptrend.xyaxis"
-
     default:
         return nil
     }
 }
-
-
 
 @available(iOS 17.0, *)
 struct MonekoWidget: Widget {

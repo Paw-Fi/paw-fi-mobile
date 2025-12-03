@@ -29,6 +29,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
     required this.unallocatedBudget,
     required this.budgetId,
     this.allPockets = const [],
+    this.onDeleteCompleted,
   });
 
   final PocketsScopeParams scopeParams;
@@ -37,6 +38,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
   final double unallocatedBudget;
   final String? budgetId;
   final List<PocketEnvelope> allPockets;
+  final VoidCallback? onDeleteCompleted;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -272,6 +274,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
       if (!isEditing) return;
 
       final l10n = context.l10n;
+      final navigator = Navigator.of(context);
 
       AdaptiveAlertDialog.show(
         context: context,
@@ -282,7 +285,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           AlertAction(
             title: l10n.cancel,
             onPressed: () {
-              Navigator.of(context).pop(false);
+              navigator.pop(false);
             },
           ),
           AlertAction(
@@ -299,7 +302,11 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                 ref.invalidate(pocketsProvider(scopeParams));
 
                 if (context.mounted) {
-                  Navigator.of(context).pop();
+                  // First close the confirmation dialog, then the bottom sheet.
+                  navigator.pop();
+                  navigator.pop();
+
+                  onDeleteCompleted?.call();
                   AppToast.success(context, l10n.pocketDeleted);
                 }
               } catch (e) {

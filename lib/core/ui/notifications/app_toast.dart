@@ -52,22 +52,28 @@ class AppToast {
     // Dismiss any existing toast
     _dismissCurrentToast();
 
+    final effectiveContext = _findUsableContext(context);
+    if (effectiveContext == null) {
+      debugPrint('AppToast: No mounted context available; toast dropped.');
+      return;
+    }
+
     // Try to resolve an overlay for the provided context. Using maybeOf avoids
     // a crash when the context does not have an Overlay ancestor (e.g. using a
     // navigatorKey context).
-    final overlay = _resolveOverlayState(context);
+    final overlay = _resolveOverlayState(effectiveContext);
     if (overlay == null) {
       // Fallback to a MaterialBanner at the top of the Scaffold when no overlay
       // is available. This keeps user-visible feedback instead of silently
       // dropping the toast (common during cold start/deep links).
-      _showMaterialBannerFallback(context, message, type, duration);
+      _showMaterialBannerFallback(effectiveContext, message, type, duration);
       return;
     }
-    final color = _getColorForType(type, context);
+    final color = _getColorForType(type, effectiveContext);
     final icon = _getIconForType(type);
 
     // Create overlay entry with animation
-    _currentToast = OverlayEntry(
+    final entry = OverlayEntry(
       builder: (context) => _ToastWidget(
         message: message,
         color: color,
@@ -75,12 +81,12 @@ class AppToast {
       ),
     );
 
-    overlay.insert(_currentToast!);
+    _currentToast = entry;
+
+    overlay.insert(entry);
 
     // Auto-dismiss after duration
-    _dismissTimer = Timer(duration, () {
-      _dismissCurrentToast();
-    });
+    _dismissTimer = Timer(duration, _dismissCurrentToast);
   }
 
   static void _dismissCurrentToast() {
@@ -104,16 +110,22 @@ class AppToast {
     // Dismiss any existing toast
     _dismissCurrentToast();
 
-    final overlay = _resolveOverlayState(context);
-    if (overlay == null) {
-      _showMaterialBannerFallback(context, message, type, duration);
+    final effectiveContext = _findUsableContext(context);
+    if (effectiveContext == null) {
+      debugPrint('AppToast: No mounted context available; action toast dropped.');
       return;
     }
-    final color = _getColorForType(type, context);
+
+    final overlay = _resolveOverlayState(effectiveContext);
+    if (overlay == null) {
+      _showMaterialBannerFallback(effectiveContext, message, type, duration);
+      return;
+    }
+    final color = _getColorForType(type, effectiveContext);
     final icon = _getIconForType(type);
 
     // Create overlay entry with animation and action button
-    _currentToast = OverlayEntry(
+    final entry = OverlayEntry(
       builder: (context) => _ToastWidget(
         message: message,
         color: color,
@@ -126,12 +138,12 @@ class AppToast {
       ),
     );
 
-    overlay.insert(_currentToast!);
+    _currentToast = entry;
+
+    overlay.insert(entry);
 
     // Auto-dismiss after duration
-    _dismissTimer = Timer(duration, () {
-      _dismissCurrentToast();
-    });
+    _dismissTimer = Timer(duration, _dismissCurrentToast);
   }
 
   static void info(BuildContext context, String message,
@@ -163,6 +175,21 @@ class AppToast {
     return Navigator.maybeOf(context, rootNavigator: true)?.overlay;
   }
 
+  static BuildContext? _findUsableContext(BuildContext context) {
+    if (context.mounted) return context;
+
+    final rootContext = WidgetsBinding.instance.renderViewElement;
+    if (rootContext != null && rootContext.mounted) return rootContext;
+
+    return null;
+  }
+
+  static bool _hasMaterialLocalizations(BuildContext context) {
+    // Use `Localizations.of` for backwards compatibility with Flutter SDKs
+    // where `maybeOf` is not available.
+    return Localizations.of<MaterialLocalizations>(context, MaterialLocalizations) != null;
+  }
+
   /// Fallback to a MaterialBanner at the top of the screen when no overlay is
   /// available (e.g. navigatorKey context during app cold start/deep link).
   static void _showMaterialBannerFallback(
@@ -172,8 +199,8 @@ class AppToast {
     Duration duration,
   ) {
     final messenger = ScaffoldMessenger.maybeOf(context);
-    if (messenger == null) {
-      debugPrint('AppToast: No Overlay or ScaffoldMessenger; toast dropped.');
+    if (messenger == null || !_hasMaterialLocalizations(context)) {
+      debugPrint('AppToast: No Overlay/ScaffoldMessenger or missing MaterialLocalizations; toast dropped.');
       return;
     }
 

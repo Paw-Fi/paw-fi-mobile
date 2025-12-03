@@ -4,6 +4,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'dashboard_config.dart';
 import 'dashboard_state.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 // ============================================================================
 // EDIT BUTTON
@@ -24,21 +25,36 @@ class EditDashboardButton extends ConsumerWidget {
           onTap: () {
             ref.read(isEditModeProvider.notifier).state = !isEditMode;
           },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            decoration: BoxDecoration(
-              color: isEditMode
-                  ? colorScheme.primary
-                  : colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(30),
-            ),
-            child: Text(
-              isEditMode ? context.l10n.done : "Edit Widgets",
-              style: TextStyle(
-                color: isEditMode ? colorScheme.onPrimary : colorScheme.primary,
-                fontWeight: FontWeight.w600,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 32,
+                height: 1,
+                color: isEditMode
+                    ? colorScheme.primary.withValues(alpha: 0.3)
+                    : colorScheme.mutedForeground.withValues(alpha: 0.3),
               ),
-            ),
+              const SizedBox(width: 12),
+              Text(
+                isEditMode ? context.l10n.done : "Edit Widgets",
+                style: TextStyle(
+                  fontSize: 13,
+                  color: isEditMode
+                      ? colorScheme.primary
+                      : colorScheme.mutedForeground,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                width: 32,
+                height: 1,
+                color: isEditMode
+                    ? colorScheme.primary.withValues(alpha: 0.3)
+                    : colorScheme.mutedForeground.withValues(alpha: 0.3),
+              ),
+            ],
           ),
         ),
       ),
@@ -92,6 +108,7 @@ class _DashboardWidgetWrapperState extends ConsumerState<DashboardWidgetWrapper>
   Widget build(BuildContext context) {
     final isEditMode = ref.watch(isEditModeProvider);
     final colorScheme = Theme.of(context).colorScheme;
+    final hasConfigOptions = widget.config.type.hasEditableOptions;
 
     if (isEditMode) {
       if (!_shakeController.isAnimating) {
@@ -130,31 +147,47 @@ class _DashboardWidgetWrapperState extends ConsumerState<DashboardWidgetWrapper>
           if (isEditMode)
             Positioned(
               top: 8,
-              right: 8,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Edit Settings (Date Range)
-                  if (widget.config.isVisible)
+              right: 30,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                decoration: BoxDecoration(
+                  color: colorScheme.surface.withValues(alpha: 0.85),
+                  borderRadius: BorderRadius.circular(32),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.15),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Edit Settings (Date Range)
+                    if (widget.config.isVisible && hasConfigOptions) ...[
+                      _buildCircleButton(
+                        context,
+                        icon: Icons.edit,
+                        color: colorScheme.primary,
+                        onTap: widget.onEdit,
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    // Visibility Toggle
                     _buildCircleButton(
                       context,
-                      icon: Icons.edit,
-                      color: colorScheme.primary,
-                      onTap: widget.onEdit,
+                      icon: widget.config.isVisible
+                          ? Icons.visibility
+                          : Icons.visibility_off,
+                      color: widget.config.isVisible
+                          ? colorScheme.secondary
+                          : colorScheme.outline,
+                      onTap: widget.onToggleVisibility,
                     ),
-                  const SizedBox(width: 8),
-                  // Visibility Toggle
-                  _buildCircleButton(
-                    context,
-                    icon: widget.config.isVisible
-                        ? Icons.visibility
-                        : Icons.visibility_off,
-                    color: widget.config.isVisible
-                        ? colorScheme.secondary
-                        : colorScheme.outline,
-                    onTap: widget.onToggleVisibility,
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
         ],
@@ -259,6 +292,9 @@ class DraggableDashboardList extends ConsumerWidget {
             DateTime? end})
         onUpdate,
   ) {
+    if (!config.type.hasEditableOptions) {
+      return;
+    }
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -295,6 +331,12 @@ class WidgetConfigurationSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final supportsViewMode = config.type.supportsViewMode;
+    final supportsDateRange = config.type.supportsDateRange;
+
+    if (!supportsViewMode && !supportsDateRange) {
+      return const SizedBox.shrink();
+    }
 
     return Container(
       decoration: BoxDecoration(
@@ -320,122 +362,129 @@ class WidgetConfigurationSheet extends StatelessWidget {
               ),
               Divider(height: 1, color: colorScheme.outlineVariant),
 
-              // View Mode Section
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Text(
-                  context.l10n.viewMode,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: colorScheme.primary,
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  padding: const EdgeInsets.all(4),
-                  child: Row(
-                    children: [
-                      _buildSegmentOption(
-                        context,
-                        label: context.l10n.viewModeMini,
-                        isSelected:
-                            config.viewMode == DashboardWidgetViewMode.mini,
-                        isSupported: config.type.supportedViewModes
-                            .contains(DashboardWidgetViewMode.mini),
-                        onTap: () =>
-                            onUpdate(viewMode: DashboardWidgetViewMode.mini),
-                      ),
-                      _buildSegmentOption(
-                        context,
-                        label: context.l10n.viewModeWide,
-                        isSelected:
-                            config.viewMode == DashboardWidgetViewMode.wide,
-                        isSupported: config.type.supportedViewModes
-                            .contains(DashboardWidgetViewMode.wide),
-                        onTap: () =>
-                            onUpdate(viewMode: DashboardWidgetViewMode.wide),
-                      ),
-                      _buildSegmentOption(
-                        context,
-                        label: context.l10n.viewModeFull,
-                        isSelected:
-                            config.viewMode == DashboardWidgetViewMode.full,
-                        isSupported: config.type.supportedViewModes
-                            .contains(DashboardWidgetViewMode.full),
-                        onTap: () =>
-                            onUpdate(viewMode: DashboardWidgetViewMode.full),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Divider(height: 1, color: colorScheme.outlineVariant),
-
-              // Date Range Section
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Text(
-                  context.l10n.dateRange,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: colorScheme.primary,
-                  ),
-                ),
-              ),
-              ...DateRangeFilter.values.map((range) {
-                final isSelected = range == config.dateRange;
-                return ListTile(
-                  title: Text(
-                    range.getLabel(context),
+              if (supportsViewMode) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 12),
+                  child: Text(
+                    context.l10n.viewMode,
                     style: TextStyle(
-                      color: isSelected
-                          ? colorScheme.primary
-                          : colorScheme.onSurface,
-                      fontWeight:
-                          isSelected ? FontWeight.w600 : FontWeight.normal,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: colorScheme.primary,
                     ),
                   ),
-                  trailing: isSelected
-                      ? Icon(Icons.check, color: colorScheme.primary)
-                      : null,
-                  onTap: () async {
-                    if (range == DateRangeFilter.custom) {
-                      final picked = await showDateRangePicker(
-                        context: context,
-                        firstDate: DateTime(2000),
-                        lastDate: DateTime.now(),
-                        builder: (context, child) {
-                          return Theme(
-                            data: Theme.of(context).copyWith(
-                              colorScheme: colorScheme,
-                            ),
-                            child: child!,
-                          );
-                        },
-                      );
-                      if (picked != null) {
-                        onUpdate(
-                            dateRange: range,
-                            start: picked.start,
-                            end: picked.end);
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.all(4),
+                    child: Row(
+                      children: [
+                        _buildSegmentOption(
+                          context,
+                          label: context.l10n.viewModeMini,
+                          isSelected:
+                              config.viewMode == DashboardWidgetViewMode.mini,
+                          isSupported: config.type.supportedViewModes
+                              .contains(DashboardWidgetViewMode.mini),
+                          onTap: () =>
+                              onUpdate(viewMode: DashboardWidgetViewMode.mini),
+                        ),
+                        _buildSegmentOption(
+                          context,
+                          label: context.l10n.viewModeWide,
+                          isSelected:
+                              config.viewMode == DashboardWidgetViewMode.wide,
+                          isSupported: config.type.supportedViewModes
+                              .contains(DashboardWidgetViewMode.wide),
+                          onTap: () =>
+                              onUpdate(viewMode: DashboardWidgetViewMode.wide),
+                        ),
+                        _buildSegmentOption(
+                          context,
+                          label: context.l10n.viewModeFull,
+                          isSelected:
+                              config.viewMode == DashboardWidgetViewMode.full,
+                          isSupported: config.type.supportedViewModes
+                              .contains(DashboardWidgetViewMode.full),
+                          onTap: () =>
+                              onUpdate(viewMode: DashboardWidgetViewMode.full),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (supportsDateRange) ...[
+                  const SizedBox(height: 16),
+                  Divider(height: 1, color: colorScheme.outlineVariant),
+                ],
+              ],
+
+              if (!supportsViewMode && supportsDateRange)
+                const SizedBox(height: 8),
+
+              if (supportsDateRange) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 12),
+                  child: Text(
+                    context.l10n.dateRange,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: colorScheme.primary,
+                    ),
+                  ),
+                ),
+                ...DateRangeFilter.values.map((range) {
+                  final isSelected = range == config.dateRange;
+                  return ListTile(
+                    title: Text(
+                      range.getLabel(context),
+                      style: TextStyle(
+                        color: isSelected
+                            ? colorScheme.primary
+                            : colorScheme.onSurface,
+                        fontWeight:
+                            isSelected ? FontWeight.w600 : FontWeight.normal,
+                      ),
+                    ),
+                    trailing: isSelected
+                        ? Icon(Icons.check, color: colorScheme.primary)
+                        : null,
+                    onTap: () async {
+                      if (range == DateRangeFilter.custom) {
+                        final picked = await showDateRangePicker(
+                          context: context,
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime.now(),
+                          builder: (context, child) {
+                            return Theme(
+                              data: Theme.of(context).copyWith(
+                                colorScheme: colorScheme,
+                              ),
+                              child: child!,
+                            );
+                          },
+                        );
+                        if (picked != null) {
+                          onUpdate(
+                              dateRange: range,
+                              start: picked.start,
+                              end: picked.end);
+                        }
+                      } else {
+                        onUpdate(dateRange: range);
                       }
-                    } else {
-                      onUpdate(dateRange: range);
-                    }
-                  },
-                );
-              }),
+                    },
+                  );
+                }),
+              ],
               const SizedBox(height: 16),
             ],
           ),

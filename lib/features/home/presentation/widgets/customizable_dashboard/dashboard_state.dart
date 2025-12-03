@@ -56,7 +56,40 @@ class PersonalDashboardController
     try {
       final configs = await _repository.loadPersonalLayout(_userId);
       if (configs != null && configs.isNotEmpty) {
-        state = AsyncValue.data(configs);
+        // Migration: Ensure all default widgets are present
+        final currentTypes = configs.map((c) => c.type).toSet();
+        final defaultTypes = [
+          DashboardWidgetType.spendingSummary,
+          DashboardWidgetType.netCashflow,
+          DashboardWidgetType.financialCalendar,
+          DashboardWidgetType.recentTransactions,
+          DashboardWidgetType.spendingBreakdownChart,
+          DashboardWidgetType.whereTheMoneyWent,
+        ];
+
+        final missingTypes =
+            defaultTypes.where((t) => !currentTypes.contains(t));
+
+        if (missingTypes.isNotEmpty) {
+          final maxOrder =
+              configs.map((c) => c.order).reduce((a, b) => a > b ? a : b);
+          var nextOrder = maxOrder + 1;
+
+          final newConfigs = List<DashboardWidgetConfig>.from(configs);
+          for (final type in missingTypes) {
+            newConfigs.add(DashboardWidgetConfig(
+              id: type.name, // Use type name as ID for new widgets
+              type: type,
+              order: nextOrder++,
+              isVisible: true, // Default to visible so user sees it
+            ));
+          }
+          state = AsyncValue.data(newConfigs);
+          // Auto-save the migrated config
+          save(newConfigs);
+        } else {
+          state = AsyncValue.data(configs);
+        }
       } else {
         // Default Layout
         state = const AsyncValue.data([
@@ -74,7 +107,7 @@ class PersonalDashboardController
               order: 2),
           DashboardWidgetConfig(
               id: 'categories',
-              type: DashboardWidgetType.categoryBreakdown,
+              type: DashboardWidgetType.recentTransactions,
               order: 3),
           DashboardWidgetConfig(
               id: 'spending_chart',
@@ -172,7 +205,42 @@ class HouseholdDashboardController
     try {
       final configs = await _repository.loadHouseholdLayout(_householdId);
       if (configs != null && configs.isNotEmpty) {
-        state = AsyncValue.data(configs);
+        // Migration: Ensure all default widgets are present
+        final currentTypes = configs.map((c) => c.type).toSet();
+        final defaultTypes = [
+          DashboardWidgetType.householdSpentByYou,
+          DashboardWidgetType.householdFinancialCalendar,
+          DashboardWidgetType.householdBudgetOverview,
+          DashboardWidgetType.householdFairness,
+          DashboardWidgetType.householdSettlement,
+          DashboardWidgetType.householdMemberSpending,
+          DashboardWidgetType.householdCategoryBreakdown,
+          DashboardWidgetType.householdSpendingBreakdownChart,
+          DashboardWidgetType.householdWhereTheMoneyWent,
+        ];
+
+        final missingTypes =
+            defaultTypes.where((t) => !currentTypes.contains(t));
+
+        if (missingTypes.isNotEmpty) {
+          final maxOrder =
+              configs.map((c) => c.order).reduce((a, b) => a > b ? a : b);
+          var nextOrder = maxOrder + 1;
+
+          final newConfigs = List<DashboardWidgetConfig>.from(configs);
+          for (final type in missingTypes) {
+            newConfigs.add(DashboardWidgetConfig(
+              id: type.name,
+              type: type,
+              order: nextOrder++,
+              isVisible: true,
+            ));
+          }
+          state = AsyncValue.data(newConfigs);
+          save(newConfigs);
+        } else {
+          state = AsyncValue.data(configs);
+        }
       } else {
         // Default Layout
         state = const AsyncValue.data([

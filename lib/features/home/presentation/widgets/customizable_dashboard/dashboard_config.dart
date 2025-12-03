@@ -5,7 +5,7 @@ enum DashboardWidgetType {
   spendingSummary,
   netCashflow, // Includes MoM trend for now or separate? Let's keep them separate items
   financialCalendar,
-  categoryBreakdown,
+  recentTransactions,
   spendingBreakdownChart,
   whereTheMoneyWent,
 
@@ -23,12 +23,34 @@ enum DashboardWidgetType {
   List<DashboardWidgetViewMode> get supportedViewModes {
     switch (this) {
       case DashboardWidgetType.financialCalendar:
-      case DashboardWidgetType.householdFinancialCalendar:
         return [DashboardWidgetViewMode.wide, DashboardWidgetViewMode.full];
+      case DashboardWidgetType.householdFinancialCalendar:
+        return [DashboardWidgetViewMode.wide];
       default:
         return [DashboardWidgetViewMode.wide];
     }
   }
+
+  bool get supportsDateRange {
+    switch (this) {
+      case DashboardWidgetType.spendingSummary:
+      case DashboardWidgetType.recentTransactions:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  bool get supportsViewMode {
+    switch (this) {
+      case DashboardWidgetType.financialCalendar:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  bool get hasEditableOptions => supportsDateRange || supportsViewMode;
 }
 
 enum DashboardWidgetViewMode {

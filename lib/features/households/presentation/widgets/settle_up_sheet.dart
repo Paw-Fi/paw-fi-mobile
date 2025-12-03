@@ -12,6 +12,7 @@ import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/features/utils/currency.dart';
 
 /// Bottom sheet for settling up balances
 class SettleUpSheet extends ConsumerStatefulWidget {
@@ -109,6 +110,8 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final homeFilter = ref.watch(homeFilterProvider);
+    final currency = (homeFilter.selectedCurrency ?? 'USD').toUpperCase();
     final membersAsync =
         ref.watch(householdMembersProvider(widget.householdId));
     final userId = Supabase.instance.client.auth.currentUser?.id;
@@ -458,7 +461,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
-                                          '\$${amountToShow.toStringAsFixed(2)}',
+                                          formatCurrency(amountToShow, currency),
                                           style: TextStyle(
                                             fontSize: 20,
                                             fontWeight: FontWeight.bold,

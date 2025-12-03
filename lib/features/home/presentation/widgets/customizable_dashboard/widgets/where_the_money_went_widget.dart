@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/insights/presentation/widgets/charts/charts.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 class WhereTheMoneyWentWidget extends StatelessWidget {
   final List<ExpenseEntry> expenses;
@@ -18,6 +19,7 @@ class WhereTheMoneyWentWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Filter expenses by selected currency if applicable
     var filteredExpenses = expenses;
@@ -27,51 +29,56 @@ class WhereTheMoneyWentWidget extends StatelessWidget {
           expenses.where((e) => e.currency?.toUpperCase() == curr).toList();
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: colorScheme.outlineVariant, width: 1),
-      ),
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                context.l10n.whereTheMoneyWent,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(width: 8),
-              if (onHelpTap != null)
-                IconButton(
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  icon: Icon(
-                    Icons.help_outline,
-                    size: 18,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                  onPressed: onHelpTap,
-                ),
-            ],
+    return Material(
+      child: Container(
+        decoration: BoxDecoration(
+          color: colorScheme.cardSurface,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: colorScheme.outline.withValues(alpha: 0.05),
+            width: 1,
           ),
-          const SizedBox(height: 4),
-          Text(
-            context.l10n.categoryTotalsForSelectedRange,
-            style: TextStyle(
-              fontSize: 12,
-              color: colorScheme.onSurfaceVariant,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
+              blurRadius: 32,
+              offset: const Offset(0, 8),
+              spreadRadius: -4,
             ),
-          ),
-          const SizedBox(height: 24),
-          buildCategoryBarChart(context, colorScheme, filteredExpenses),
-        ],
+          ],
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  context.l10n.whereTheMoneyWent.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1.0,
+                    color: colorScheme.mutedForeground,
+                  ),
+                ),
+                if (onHelpTap != null)
+                  IconButton(
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    icon: Icon(
+                      Icons.help_outline,
+                      size: 16,
+                      color: colorScheme.mutedForeground,
+                    ),
+                    onPressed: onHelpTap,
+                  ),
+              ],
+            ),        
+            buildCategoryBarChart(context, colorScheme, filteredExpenses),
+          ],
+        ),
       ),
     );
   }
