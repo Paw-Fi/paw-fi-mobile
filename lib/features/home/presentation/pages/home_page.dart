@@ -664,39 +664,45 @@ class _HomePageState extends ConsumerState<HomePage> {
                                                 personalExpensesAll,
                                                 analyticsData.contact,
                                                 config.dateRange,
-                                                selectedCurrency: filterState
-                                                    .selectedCurrency,
+                                                selectedCurrency:
+                                                    filterState.selectedCurrency,
+                                                customStartDate:
+                                                    config.customStartDate,
+                                                customEndDate:
+                                                    config.customEndDate,
                                               ),
                                             ),
-                                    DashboardWidgetType.netCashflow: (context,
-                                            config) =>
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 16.0),
-                                          child: SizedBox(
-                                            height: 180,
-                                            child: Row(
-                                              children: [
-                                                const Expanded(
-                                                    child: MoMTrendBar()),
-                                                const SizedBox(width: 12),
-                                                Expanded(
-                                                  child: buildNetCashflowCard(
-                                                    context,
-                                                    colorScheme,
-                                                    netBudgets,
-                                                    analyticsData.allExpenses,
-                                                    analyticsData.contact,
-                                                    config.dateRange,
-                                                    selectedCurrency:
-                                                        filterState
-                                                            .selectedCurrency,
-                                                  ),
+                                    DashboardWidgetType.netCashflow:
+                                        (context, config) => Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 16.0),
+                                              child: SizedBox(
+                                                height: 180,
+                                                child: Row(
+                                                  children: [
+                                                    const Expanded(
+                                                        child: MoMTrendBar()),
+                                                    const SizedBox(width: 12),
+                                                    Expanded(
+                                                      child:
+                                                          buildNetCashflowCard(
+                                                        context,
+                                                        colorScheme,
+                                                        netBudgets,
+                                                        analyticsData
+                                                            .allExpenses,
+                                                        analyticsData.contact,
+                                                        config.dateRange,
+                                                        selectedCurrency:
+                                                            filterState
+                                                                .selectedCurrency,
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
-                                              ],
+                                              ),
                                             ),
-                                          ),
-                                        ),
                                     DashboardWidgetType.financialCalendar:
                                         (context, config) => Padding(
                                               padding:
@@ -713,12 +719,14 @@ class _HomePageState extends ConsumerState<HomePage> {
                                                     transactions:
                                                         personalExpensesAll,
                                                     recurringTransactions:
-                                                        recurringAsync.data
+                                                        recurringAsync
+                                                                .data
                                                                 .valueOrNull ??
                                                             [],
                                                     currency: selectedCurrency ??
-                                                        analyticsData.contact
-                                                            ?.preferredCurrency ??
+                                                        analyticsData
+                                                                .contact
+                                                                ?.preferredCurrency ??
                                                         'USD',
                                                     isExpanded: config
                                                             .viewMode ==
@@ -733,18 +741,21 @@ class _HomePageState extends ConsumerState<HomePage> {
                                               padding:
                                                   const EdgeInsets.symmetric(
                                                       horizontal: 16.0),
-                                              child: buildRecentTransactionsCard(
+                                              child:
+                                                  buildRecentTransactionsCard(
                                                 context,
                                                 colorScheme,
-                                                analyticsData.allExpenses,
+                                                personalExpensesAll,
                                                 analyticsData.contact,
-                                                selectedCurrency: filterState
-                                                    .selectedCurrency,
+                                                selectedCurrency:
+                                                    filterState.selectedCurrency,
                                                 onViewAll: () {
                                                   Navigator.of(context).push(
-                                                      MaterialPageRoute(
-                                                          builder: (_) =>
-                                                              const TransactionsPage()));
+                                                    MaterialPageRoute(
+                                                      builder: (_) =>
+                                                          const TransactionsPage(),
+                                                    ),
+                                                  );
                                                 },
                                               ),
                                             ),
@@ -761,24 +772,47 @@ class _HomePageState extends ConsumerState<HomePage> {
                                                 analyticsData.allBudgets,
                                                 analyticsData.contact,
                                                 config.dateRange,
-                                                selectedCurrency: filterState
-                                                    .selectedCurrency,
+                                                selectedCurrency:
+                                                    filterState.selectedCurrency,
+                                                customStartDate:
+                                                    config.customStartDate,
+                                                customEndDate:
+                                                    config.customEndDate,
                                               ),
                                             ),
                                     DashboardWidgetType.whereTheMoneyWent:
-                                        (context, config) => Padding(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 16.0),
-                                              child: WhereTheMoneyWentWidget(
-                                                expenses: personalExpensesAll,
-                                                currency: filterState
-                                                    .selectedCurrency,
-                                                onHelpTap: () =>
-                                                    showCategoryGuide(
-                                                        context, colorScheme),
-                                              ),
-                                            ),
+                                        (context, config) {
+                                      final range = getDateRangeFromFilter(
+                                        config.dateRange,
+                                        config.customStartDate,
+                                        config.customEndDate,
+                                      );
+                                      final from = range['from']!;
+                                      final to = range['to']!;
+
+                                      final dateFilteredExpenses =
+                                          personalExpensesAll.where((e) {
+                                        final d = DateTime(
+                                            e.date.year,
+                                            e.date.month,
+                                            e.date.day);
+                                        return !d.isBefore(from) &&
+                                            !d.isAfter(to);
+                                      }).toList();
+
+                                      return Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 16.0),
+                                        child: WhereTheMoneyWentWidget(
+                                          expenses: dateFilteredExpenses,
+                                          currency:
+                                              filterState.selectedCurrency,
+                                          onHelpTap: () => showCategoryGuide(
+                                              context, colorScheme),
+                                          dateRange: config.dateRange,
+                                        ),
+                                      );
+                                    },
                                   },
                                 );
                               },

@@ -2074,6 +2074,18 @@ class _UnifiedTransactionSheetState
         // Send full datetime as created_at in UTC to preserve timezone consistency
         updates['created_at'] = expenseDateTime.toUtc().toIso8601String();
 
+        // For existing household expenses without a split group, we may need to
+        // create the first split group using the inline CustomSplitEditor
+        final existingHouseholdId = widget.existingExpense!.householdId;
+        final existingSplitGroupId = widget.existingExpense!.splitGroupId;
+
+        final shouldCreateSplitGroupForExisting = _isSharedWithHousehold &&
+            existingHouseholdId != null &&
+            existingSplitGroupId == null &&
+            _customSplitType != null &&
+            _customSplits != null &&
+            _customSplits!.isNotEmpty;
+
         // Handle receipt image upload for existing expenses
         if (_localImagePath != null) {
           debugPrint(
@@ -2088,19 +2100,60 @@ class _UnifiedTransactionSheetState
           }
         }
 
-        // Only update if there are actual changes
-        if (updates.isEmpty) {
+        // Build optional extra body for split creation
+        Map<String, dynamic>? extraBody;
+        if (shouldCreateSplitGroupForExisting) {
+          final splitTypeStr = _customSplitType!.toString().split('.').last;
+          extraBody = {
+            'householdId': existingHouseholdId,
+            'customSplits': {
+              'splitType': splitTypeStr,
+              'memberSplits': _customSplits!
+                  .map((split) {
+                    final memberUserId = split.member.userId;
+                    final member = <String, dynamic>{
+                      'userId': memberUserId,
+                    };
+                    switch (_customSplitType!) {
+                      case SplitType.amount:
+                        member['amount'] = split.amount;
+                        break;
+                      case SplitType.percentage:
+                        member['percentage'] = split.percentage;
+                        break;
+                      case SplitType.shares:
+                        member['shares'] = split.shares;
+                        break;
+                      case SplitType.equal:
+                        break;
+                    }
+                    return member;
+                  })
+                  .toList(),
+            },
+          };
+
+          final payerId = _selectedPayerUserId ?? ref.read(authProvider).uid;
+          extraBody['payerUserId'] = payerId;
+        }
+
+        // Only update if there are actual changes or we need to create a split
+        if (updates.isEmpty && extraBody == null) {
           if (!mounted) return;
           Navigator.of(context).pop();
           return;
         }
 
-        debugPrint('💾 Updating expense with: $updates');
+        debugPrint('💾 Updating expense with: $updates extraBody=$extraBody');
 
         // Call update API (this already handles provider refresh internally)
         final success = await ref
             .read(transactionEditProvider.notifier)
-            .updateExpense(widget.existingExpense!.id, updates);
+            .updateExpense(
+              widget.existingExpense!.id,
+              updates,
+              extraBody: extraBody,
+            );
 
         if (!mounted) return;
 

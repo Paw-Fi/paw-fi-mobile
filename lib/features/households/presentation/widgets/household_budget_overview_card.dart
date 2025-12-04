@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/widget_text_styles.dart';
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
-import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 
 /// Budget overview card showing total spent, budget progress, and remaining budget
 Widget buildHouseholdBudgetOverviewCard(
   BuildContext context,
   ColorScheme colorScheme,
-  HouseholdSummary? summary, {
+  HouseholdSummary? summary,
+  DateRangeFilter dateFilter, {
   VoidCallback? onTap,
 }) {
   final totalExpensesCents = summary?.totals.totalExpensesCents ?? 0;
@@ -76,15 +79,25 @@ Widget buildHouseholdBudgetOverviewCard(
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Header Row: Title and Transaction Count
+        // Header Row: Title and Date Range
         Row(
           children: [
-            Text(
-              context.l10n.spentByHousehold,
-              style: TextStyle(
-                fontSize: 14,
-                color: colorScheme.mutedForeground,
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  context.l10n.spentByHousehold,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: colorScheme.mutedForeground,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  dateFilter.getLabel(context),
+                  style: WidgetTextStyles.dateLabel(colorScheme.mutedForeground),
+                ),
+              ],
             ),
             const SizedBox(width: 4),
             Builder(
@@ -119,9 +132,7 @@ Widget buildHouseholdBudgetOverviewCard(
         const SizedBox(height: 8),
         Text(
           formattedTotalSpent,
-          style: TextStyle(
-            fontSize: 32,
-            fontWeight: FontWeight.bold,
+          style: WidgetTextStyles.amount.copyWith(
             color: colorScheme.foreground,
           ),
         ),

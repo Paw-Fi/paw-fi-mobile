@@ -1,19 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:moneko/core/l10n/l10n.dart';
-import 'package:moneko/features/home/presentation/models/models.dart';
-import 'package:moneko/features/insights/presentation/widgets/charts/charts.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/widget_text_styles.dart';
+import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
+import 'package:moneko/features/insights/presentation/widgets/charts/charts.dart';
 
 class WhereTheMoneyWentWidget extends StatelessWidget {
   final List<ExpenseEntry> expenses;
   final String? currency;
   final VoidCallback? onHelpTap;
+  final DateRangeFilter dateRange;
 
   const WhereTheMoneyWentWidget({
     super.key,
     required this.expenses,
     this.currency,
     this.onHelpTap,
+    required this.dateRange,
   });
 
   @override
@@ -54,14 +58,24 @@ class WhereTheMoneyWentWidget extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  context.l10n.whereTheMoneyWent.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1.0,
-                    color: colorScheme.mutedForeground,
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      context.l10n.whereTheMoneyWent.toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.0,
+                        color: colorScheme.mutedForeground,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      dateRange.getLabel(context),
+                      style: WidgetTextStyles.dateLabel(colorScheme.mutedForeground),
+                    ),
+                  ],
                 ),
                 if (onHelpTap != null)
                   IconButton(

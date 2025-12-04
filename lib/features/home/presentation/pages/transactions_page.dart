@@ -540,7 +540,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
           Text(
             displayText,
             style: TextStyle(
-              fontSize: 32,
+              fontSize: 24,
               fontWeight: FontWeight.bold,
               color: colorScheme.foreground,
             ),

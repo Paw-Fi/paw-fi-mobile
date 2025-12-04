@@ -18,9 +18,15 @@ Widget buildSpendingBreakdownChart(
   UserContact? contact,
   DateRangeFilter dateRangeFilter, {
   String? selectedCurrency,
+  DateTime? customStartDate,
+  DateTime? customEndDate,
 }) {
   // Resolve this card's date range and filter the full lists locally.
-  final range = getDateRangeFromFilter(dateRangeFilter, null, null);
+  final range = getDateRangeFromFilter(
+    dateRangeFilter,
+    customStartDate,
+    customEndDate,
+  );
   final from = range['from']!;
   final to = range['to']!;
   final selectedCode = selectedCurrency?.toUpperCase();

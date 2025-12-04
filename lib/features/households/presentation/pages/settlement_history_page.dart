@@ -253,10 +253,10 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
           Text(
             '0.00',
             style: TextStyle(
-              fontSize: 36,
+              fontSize: 24,
               fontWeight: FontWeight.bold,
               color: colorScheme.foreground,
-              letterSpacing: -1,
+              letterSpacing: -0.5,
             ),
           )
         else
@@ -264,10 +264,10 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
             (e) => Text(
               formatCurrency(e.value, e.key.toUpperCase()),
               style: TextStyle(
-                fontSize: 36,
+                fontSize: 24,
                 fontWeight: FontWeight.bold,
                 color: colorScheme.foreground,
-                letterSpacing: -1,
+                letterSpacing: -0.5,
               ),
             ),
           ),

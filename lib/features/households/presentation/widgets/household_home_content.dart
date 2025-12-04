@@ -323,15 +323,47 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                             );
 
                             if (userLine.userId == userId) {
-                              final shareAmount =
-                                  (userLine.amountCents ?? 0).abs();
-                              myTotalCents += shareAmount;
+                              int share = userLine.amountCents ?? 0;
+                              if (share == 0) {
+                                final total = group.totalAmountCents;
+                                final lines =
+                                    group.splitLines ?? const <ExpenseSplitLine>[];
+                                if (total != 0 && lines.isNotEmpty) {
+                                  switch (group.splitType) {
+                                    case SplitType.equal:
+                                      share = (total / lines.length).round();
+                                      break;
+                                    case SplitType.percentage:
+                                      final pct = userLine.percentage ?? 0;
+                                      share = (total * pct / 100).round();
+                                      break;
+                                    case SplitType.amount:
+                                      share = 0;
+                                      break;
+                                    case SplitType.shares:
+                                      final totalShares = lines
+                                          .map((l) => l.shares ?? 0)
+                                          .fold<int>(0, (a, b) => a + b);
+                                      final userShares = userLine.shares ?? 0;
+                                      if (totalShares > 0 && userShares > 0) {
+                                        share =
+                                            (total * userShares / totalShares)
+                                                .round();
+                                      }
+                                      break;
+                                  }
+                                }
+                              }
+                              myTotalCents += share.abs();
                             }
                           }
 
                           final syntheticExpense = ExpenseEntry(
                             id: 'user-summary-total',
-                            date: DateTime.now(),
+                            // Use the card's date range end so this entry
+                            // always falls within the selected window
+                            // (today, yesterday, this month, etc.).
+                            date: to,
                             amountCents: myTotalCents,
                             createdAt: DateTime.now(),
                             userId: userId,
@@ -435,6 +467,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                                   context,
                                   colorScheme,
                                   summary,
+                                  config.dateRange,
                                 );
                               },
                             ),
@@ -477,6 +510,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               from: from,
                               to: to,
                               currency: selectedCurrency,
+                              dateRange: config.dateRange,
                             ),
                           );
                         });
@@ -598,6 +632,12 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                             HouseholdExpensesParams(householdId: household.id),
                           ));
 
+                          final allExpenses = expensesAsync.value ?? [];
+                          final currencyFilteredExpenses = allExpenses.where((e) {
+                            final code = (e.currency ?? '').trim().toUpperCase();
+                            return code.isEmpty || code == selectedCurrency;
+                          }).toList();
+
                           return Padding(
                             padding:
                                 const EdgeInsets.symmetric(horizontal: 16.0),
@@ -606,7 +646,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               child: buildRecentTransactionsCard(
                                 context,
                                 colorScheme,
-                                expensesAsync.value ?? [],
+                                currencyFilteredExpenses,
                                 null,
                                 selectedCurrency: selectedCurrency,
                                 householdId: household.id,
@@ -710,6 +750,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               currency: selectedCurrency,
                               onHelpTap: () =>
                                   showCategoryGuide(context, colorScheme),
+                              dateRange: config.dateRange,
                             ),
                           );
                         });

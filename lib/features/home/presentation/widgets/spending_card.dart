@@ -16,6 +16,8 @@ class SpendingCard extends StatefulWidget {
   final UserContact? contact;
   final DateRangeFilter dateFilter;
   final String? selectedCurrency;
+  final DateTime? customStartDate;
+  final DateTime? customEndDate;
 
   const SpendingCard({
     super.key,
@@ -24,6 +26,8 @@ class SpendingCard extends StatefulWidget {
     required this.contact,
     required this.dateFilter,
     this.selectedCurrency,
+    this.customStartDate,
+    this.customEndDate,
   });
 
   @override
@@ -42,8 +46,8 @@ class _SpendingCardState extends State<SpendingCard> {
     // Resolve date range for this card and filter expenses by date, currency, and type
     final range = getDateRangeFromFilter(
       widget.dateFilter,
-      null,
-      null,
+      widget.customStartDate,
+      widget.customEndDate,
     );
     final from = range['from']!;
     final to = range['to']!;
@@ -455,12 +459,16 @@ Widget buildSpendingCard(
     List<ExpenseEntry> expenses,
     UserContact? contact,
     DateRangeFilter dateFilter,
-    {String? selectedCurrency}) {
+    {String? selectedCurrency,
+    DateTime? customStartDate,
+    DateTime? customEndDate}) {
   return SpendingCard(
     colorScheme: colorScheme,
     expenses: expenses,
     contact: contact,
     dateFilter: dateFilter,
     selectedCurrency: selectedCurrency,
+    customStartDate: customStartDate,
+    customEndDate: customEndDate,
   );
 }

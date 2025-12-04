@@ -17,8 +17,9 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
   /// Returns true on success, false on failure
   Future<bool> updateExpense(
     String expenseId,
-    Map<String, dynamic> updates,
-  ) async {
+    Map<String, dynamic> updates, {
+    Map<String, dynamic>? extraBody,
+  }) async {
     if (state.isLoading) {
       debugPrint('⚠️ Update already in progress, ignoring');
       return false;
@@ -81,14 +82,20 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       if (kDebugMode) {
         debugPrint('🌐 Calling update-expense API...');
       }
-      
+
+      final requestBody = <String, dynamic>{
+        'userId': user.uid,
+        'expenseId': expenseId,
+        'updates': updates,
+      };
+
+      if (extraBody != null && extraBody.isNotEmpty) {
+        requestBody.addAll(extraBody);
+      }
+
       final response = await supabase.functions.invoke(
         'update-expense',
-        body: {
-          'userId': user.uid,
-          'expenseId': expenseId,
-          'updates': updates,
-        },
+        body: requestBody,
       );
       
       // Check response

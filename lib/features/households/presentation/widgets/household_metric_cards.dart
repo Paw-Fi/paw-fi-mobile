@@ -6,6 +6,8 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/widget_text_styles.dart';
+
 Widget buildHouseholdBudgetCard(
   BuildContext context,
   ColorScheme colorScheme,
@@ -62,12 +64,8 @@ Widget buildHouseholdBudgetCard(
         const SizedBox(height: 16),
         Text(
           formatCurrency((remainingAmount ?? totalAmount), currencyCode.toUpperCase()),
-          style: TextStyle(
-            fontSize: 32,
-            fontWeight: FontWeight.w700,
+          style: WidgetTextStyles.amount.copyWith(
             color: colorScheme.foreground,
-            letterSpacing: -0.5,
-            height: 1.1,
           ),
         ),
         const Spacer(),
@@ -162,12 +160,8 @@ Widget buildHouseholdNetPositionCard(
         const SizedBox(height: 16),
         Text(
           displayText,
-          style: TextStyle(
-            fontSize: 32,
-            fontWeight: FontWeight.w700,
+          style: WidgetTextStyles.amount.copyWith(
             color: colorScheme.foreground,
-            letterSpacing: -0.5,
-            height: 1.1,
           ),
         ),
         const Spacer(),
@@ -281,12 +275,8 @@ Widget buildHouseholdTotalSpentCard(
         const SizedBox(height: 16),
         Text(
           formatted,
-          style: TextStyle(
-            fontSize: 32,
-            fontWeight: FontWeight.w700,
+          style: WidgetTextStyles.amount.copyWith(
             color: colorScheme.foreground,
-            letterSpacing: -0.5,
-            height: 1.1,
           ),
         ),
         const Spacer(),

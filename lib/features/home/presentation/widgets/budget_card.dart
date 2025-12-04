@@ -64,9 +64,9 @@ Widget buildBudgetCard(
             Text(
               displayText,
               style: TextStyle(
-                fontSize: 36,
+                fontSize: 24,
                 fontWeight: FontWeight.w700,
-                letterSpacing: -1.0,
+                letterSpacing: -0.5,
                 color: colorScheme.foreground,
                 height: 1.1,
               ),

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/widget_text_styles.dart';
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
-import 'package:moneko/core/theme/app_theme.dart';
-import '../../../../../core/l10n/l10n.dart';
+import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 
 class GroupFairnessMeter extends StatelessWidget {
   final HouseholdSummary summary;
@@ -11,6 +13,7 @@ class GroupFairnessMeter extends StatelessWidget {
   final DateTime? from; // Kept for backward compatibility but unused
   final DateTime? to; // Kept for backward compatibility but unused
   final String? currency; // Kept for backward compatibility but unused
+  final DateRangeFilter dateRange;
 
   const GroupFairnessMeter({
     super.key,
@@ -19,6 +22,7 @@ class GroupFairnessMeter extends StatelessWidget {
     this.from,
     this.to,
     this.currency,
+    required this.dateRange,
   });
 
   void _showExplanation(BuildContext context, ColorScheme colorScheme) {
@@ -147,9 +151,19 @@ class GroupFairnessMeter extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(context.l10n.groupFairness,
-                  style: TextStyle(
-                      fontSize: 14, color: colorScheme.mutedForeground)),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(context.l10n.groupFairness,
+                      style: TextStyle(
+                          fontSize: 14, color: colorScheme.mutedForeground)),
+                  const SizedBox(height: 4),
+                  Text(
+                    dateRange.getLabel(context),
+                    style: WidgetTextStyles.dateLabel(colorScheme.mutedForeground),
+                  ),
+                ],
+              ),
               const SizedBox(width: 6),
               GestureDetector(
                 onTap: () => _showExplanation(context, colorScheme),
