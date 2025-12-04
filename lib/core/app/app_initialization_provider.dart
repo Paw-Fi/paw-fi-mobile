@@ -34,71 +34,29 @@ class AppInitialization extends _$AppInitialization {
 
   Future<void> _initialize() async {
     try {
-      debugPrint('🚀 Starting app initialization...');
-      // Check if user is authenticated
-      final auth = ref.read(authProvider);
-      debugPrint('🔐 Auth loaded: ${!auth.isEmpty}');
-
-      if (!auth.isEmpty) {
-        // User is authenticated - load all user-specific data in parallel
-        debugPrint('👤 Loading user data...');
-
-        // Initialize device registration (push notifications)
-        // Keep all app init calls centralized here for consistency
-        try {
-          debugPrint('🔔 Initializing device registration...');
-          await ref
-              .read(deviceRegistrationServiceProvider)
-              .initialize()
-              .timeout(
-            const Duration(seconds: 10),
-            onTimeout: () {
-              debugPrint(
-                  '⚠️ Device registration timed out after 10s (non-critical)');
-            },
-          );
-          debugPrint('✅ Device registration initialized');
-          unawaited(ref.read(deviceRegistrationServiceProvider).clearAllNotifications());
-        } catch (e) {
-          debugPrint('⚠️ Device registration init failed (non-critical): $e');
-        }
-
-        final recurringNotifier =
-            ref.read(recurringTransactionsProvider(null).notifier);
-        unawaited(recurringNotifier.loadRecurringTransactions(auth.uid));
-
-        // Load critical data that should block initialization
-        await Future.wait([
-          // Load subscription (critical for feature gating)
-          _loadSubscription(),
-          // Load WhatsApp binding status (critical for UI)
-          _loadWhatsAppBinding(),
-        ]);
-
-        // Load analytics - this is critical for home page, so await it
-        // Analytics notifier has its own retry logic and connection warmup
-        await _loadAnalytics(auth.uid);
-
-        // Now that analytics is loaded, save timezone if needed (simple, no polling)
-        _saveTimezoneIfMissing(auth.uid);
-
-        // Start household data load in background (non-blocking)
-        // This can load after app is visible
-        unawaited(_loadHouseholdData(auth.uid));
-
-        debugPrint('✅ All user data loaded');
-      } else {
-        debugPrint('👋 User not authenticated, skipping data load');
-      }
-
-      // Mark as initialized
-      state = AppInitState.initialized;
-      debugPrint('🎉 App initialization complete');
-
-      // IMPORTANT: Version check happens AFTER initialization
-      // This ensures the splash screen doesn't block on version check
-      // The force update dialog will show on top of the app if needed
-      _checkAppVersion();
+      final initStopwatch = Stopwatch()..start();
+      debugPrint('🚀 [INIT] Starting app initialization...');
+      
+      // CRITICAL: Wrap entire initialization in timeout to prevent hanging
+      // With small dataset, init should complete in <3s, 10s is generous safety margin
+      await _performInitialization().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          debugPrint('❌ [INIT] CRITICAL: Initialization timed out after 10s!');
+          debugPrint('⚠️ [INIT] This indicates a serious issue - small dataset should load in <3s');
+          try {
+            FirebaseCrashlytics.instance.recordError(
+              TimeoutException('App initialization timeout after 10s'),
+              StackTrace.current,
+              fatal: false,
+              reason: 'app_initialization_timeout',
+            );
+          } catch (_) {}
+        },
+      );
+      
+      initStopwatch.stop();
+      debugPrint('✅ [INIT] Total initialization time: ${initStopwatch.elapsedMilliseconds}ms');
     } catch (e) {
       // Record non-fatal so we can analyze initialization failures in production
       try {
@@ -106,8 +64,117 @@ class AppInitialization extends _$AppInitialization {
             fatal: false, reason: 'app_initialization_error');
       } catch (_) {}
       debugPrint('❌ Error during app initialization: $e');
-      // Even if there's an error, mark as initialized to avoid stuck splash screen
+    } finally {
+      // CRITICAL: Always mark as initialized in finally block
+      // This guarantees we never hang on splash screen, regardless of what happens
       state = AppInitState.initialized;
+      debugPrint('🎉 App initialization complete (state set to initialized)');
+    }
+  }
+
+  /// Perform the actual initialization work
+  /// Separated so we can wrap it in timeout and finally block
+  Future<void> _performInitialization() async {
+    // Check if user is authenticated
+    final auth = ref.read(authProvider);
+    debugPrint('🔐 Auth loaded: ${!auth.isEmpty}');
+
+    if (!auth.isEmpty) {
+      // User is authenticated - load all user-specific data
+      debugPrint('👤 Loading user data...');
+
+      // Initialize device registration (push notifications)
+      try {
+        debugPrint('🔔 Initializing device registration...');
+        await ref
+            .read(deviceRegistrationServiceProvider)
+            .initialize()
+            .timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {
+            debugPrint(
+                '⚠️ Device registration timed out after 10s (non-critical)');
+          },
+        );
+        debugPrint('✅ Device registration initialized');
+        unawaited(ref.read(deviceRegistrationServiceProvider).clearAllNotifications());
+      } catch (e) {
+        debugPrint('⚠️ Device registration init failed (non-critical): $e');
+      }
+
+      // Start recurring transactions load in background
+      final recurringNotifier =
+          ref.read(recurringTransactionsProvider(null).notifier);
+      unawaited(recurringNotifier.loadRecurringTransactions(auth.uid));
+
+      // Warm up Supabase connection before making RPC calls
+      // This prevents cold-start issues on fresh installs
+      await _warmupSupabaseConnection(auth.uid);
+
+      // Load critical data with aggressive timeout (should be <1s)
+      debugPrint('⏱️ [INIT] Loading critical data (subscription + WhatsApp)...');
+      final criticalStopwatch = Stopwatch()..start();
+      
+      try {
+        await Future.wait([
+          // Load subscription (critical for feature gating)
+          _loadSubscription(),
+          // Load WhatsApp binding status (critical for UI)
+          _loadWhatsAppBinding(),
+        ]).timeout(const Duration(seconds: 5));
+        
+        criticalStopwatch.stop();
+        debugPrint('✅ [INIT] Critical data loaded in ${criticalStopwatch.elapsedMilliseconds}ms');
+      } on TimeoutException {
+        criticalStopwatch.stop();
+        debugPrint('❌ [INIT] CRITICAL: Data load timed out after 5s - this should never happen with small dataset!');
+      }
+
+      // Load analytics in background - do NOT block initialization
+      // Analytics has its own 45s RPC timeout which is too long for init phase
+      // Let it load in background and home page will show loading state
+      debugPrint('📊 Starting analytics load in background (non-blocking)...');
+      unawaited(_loadAnalytics(auth.uid));
+
+      // Save timezone if needed (fire-and-forget)
+      _saveTimezoneIfMissing(auth.uid);
+
+      // Start household data load in background (non-blocking)
+      unawaited(_loadHouseholdData(auth.uid));
+
+      debugPrint('✅ All user data loaded');
+    } else {
+      debugPrint('👋 User not authenticated, skipping data load');
+    }
+
+    // IMPORTANT: Version check happens AFTER initialization
+    _checkAppVersion();
+  }
+
+  /// Warm up Supabase connection to prevent cold-start timeouts
+  /// This is critical for fresh installs where the first RPC call may hang
+  Future<void> _warmupSupabaseConnection(String userId) async {
+    try {
+      debugPrint('🔥 Warming up Supabase connection...');
+      final stopwatch = Stopwatch()..start();
+      
+      // Make a lightweight query to establish connection
+      // This prevents the main RPC call from timing out on fresh installs
+      await supabase
+          .from('user_contacts')
+          .select('id')
+          .eq('user_id', userId)
+          .limit(1)
+          .timeout(const Duration(seconds: 10));
+      
+      // Small delay to let connection stabilize
+      await Future.delayed(const Duration(milliseconds: 100));
+      
+      stopwatch.stop();
+      debugPrint('✅ Connection warmed up in ${stopwatch.elapsedMilliseconds}ms');
+    } catch (e) {
+      // Non-critical - if warmup fails, main query will still attempt
+      debugPrint('⚠️ Connection warmup failed (non-critical): $e');
     }
   }
 
@@ -125,49 +192,62 @@ class AppInitialization extends _$AppInitialization {
   /// Load subscription data
   Future<void> _loadSubscription() async {
     try {
-      debugPrint('💳 Loading subscription...');
+      debugPrint('💳 [INIT] Loading subscription...');
+      final stopwatch = Stopwatch()..start();
+      
       // Wait for the subscription provider to initialize
       await ref.read(subscriptionNotifierProvider.future);
-      debugPrint('✅ Subscription loaded');
+      
+      stopwatch.stop();
+      debugPrint('✅ [INIT] Subscription loaded in ${stopwatch.elapsedMilliseconds}ms');
     } catch (e) {
       try {
         FirebaseCrashlytics.instance.recordError(e, StackTrace.current,
             fatal: false, reason: 'subscription_load_error');
       } catch (_) {}
-      debugPrint('❌ Error loading subscription: $e');
+      debugPrint('❌ [INIT] Error loading subscription: $e');
     }
   }
 
   /// Load WhatsApp binding status
   Future<void> _loadWhatsAppBinding() async {
     try {
-      debugPrint('💬 Loading WhatsApp binding...');
+      debugPrint('💬 [INIT] Loading WhatsApp binding...');
+      final stopwatch = Stopwatch()..start();
+      
       // This will trigger the provider to load
       final bindingAsync = ref.read(whatsAppBindingProvider.future);
       await bindingAsync;
-      debugPrint('✅ WhatsApp binding loaded');
+      
+      stopwatch.stop();
+      debugPrint('✅ [INIT] WhatsApp binding loaded in ${stopwatch.elapsedMilliseconds}ms');
     } catch (e) {
       try {
         FirebaseCrashlytics.instance.recordError(e, StackTrace.current,
             fatal: false, reason: 'whatsapp_binding_error');
       } catch (_) {}
-      debugPrint('❌ Error loading WhatsApp binding: $e');
+      debugPrint('❌ [INIT] Error loading WhatsApp binding: $e');
     }
   }
 
   /// Load analytics/dashboard data
+  /// This is called in background and should not block initialization
   Future<void> _loadAnalytics(String userId) async {
     try {
-      debugPrint('📊 Loading analytics...');
+      debugPrint('📊 [BACKGROUND] Loading analytics...');
+      final stopwatch = Stopwatch()..start();
+      
       // Load analytics data which includes user contact and expenses
       await ref.read(analyticsProvider.notifier).loadData(userId);
-      debugPrint('✅ Analytics loaded');
+      
+      stopwatch.stop();
+      debugPrint('✅ [BACKGROUND] Analytics loaded in ${stopwatch.elapsedMilliseconds}ms');
     } catch (e) {
       try {
         FirebaseCrashlytics.instance.recordError(e, StackTrace.current,
             fatal: false, reason: 'analytics_load_error');
       } catch (_) {}
-      debugPrint('❌ Error loading analytics: $e');
+      debugPrint('❌ [BACKGROUND] Error loading analytics: $e');
     }
   }
 

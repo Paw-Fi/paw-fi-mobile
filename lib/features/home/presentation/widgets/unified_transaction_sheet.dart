@@ -520,11 +520,13 @@ class _UnifiedTransactionSheetState
 
                   const SizedBox(height: 12),
 
-                  // Date Card
+                  // Date Card (show exact calendar date, not relative labels)
                   _buildDetailCard(
                     colorScheme: colorScheme,
                     label: context.l10n.date,
-                    value: _formatRelativeDate(displayDate, context),
+                    value: DateFormat.yMMMMd(
+                      Localizations.localeOf(context).toString(),
+                    ).format(toLocalTime(displayDate)),
                     onTap: () => _handleEditDate(displayDate),
                   ),
 

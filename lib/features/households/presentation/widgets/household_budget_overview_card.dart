@@ -81,6 +81,7 @@ Widget buildHouseholdBudgetOverviewCard(
       children: [
         // Header Row: Title and Date Range
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,

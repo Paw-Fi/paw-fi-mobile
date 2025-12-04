@@ -7,7 +7,10 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/home/presentation/widgets/widgets.dart';
+import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/pockets/presentation/widgets/pockets_grid_section.dart';
@@ -22,6 +25,8 @@ class PocketsPage extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final viewMode = ref.watch(viewModeProvider);
+    final user = ref.watch(authProvider);
+    final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
     final selectedHouseholdState = ref.watch(selectedHouseholdProvider);
     // Always start at the current month
     final now = DateTime.now();
@@ -165,6 +170,14 @@ class PocketsPage extends HookConsumerWidget {
           ),
         ],
       ),
+      floatingActionButton: shouldShowHomeFab(viewMode, householdsAsync)
+          ? Padding(
+              padding: PlatformInfo.isIOS26OrHigher()
+                  ? const EdgeInsets.only(bottom: 80, right: 6)
+                  : const EdgeInsets.all(0),
+              child: const HomeAiExpandableFab(),
+            )
+          : null,
     );
   }
 }

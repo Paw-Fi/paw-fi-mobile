@@ -22,6 +22,7 @@ class SettleUpSheet extends ConsumerStatefulWidget {
   final bool isExpressNetting;
   final List<ExpenseSplitGroup>? splits;
   final String? currency;
+  final bool settleTheyOweYou;
 
   const SettleUpSheet({
     super.key,
@@ -31,6 +32,7 @@ class SettleUpSheet extends ConsumerStatefulWidget {
     this.isExpressNetting = false,
     this.splits,
     this.currency,
+    this.settleTheyOweYou = false,
   });
 
   @override
@@ -123,14 +125,37 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
         ref.watch(householdMembersProvider(widget.householdId));
     final userId = Supabase.instance.client.auth.currentUser?.id;
 
-    final netCents = (_youOweCents - _youAreOwedCents);
-    final displayCents =
-        widget.isExpressNetting ? (netCents > 0 ? netCents : 0) : _youOweCents;
+    final hasSelectedMember =
+        _selectedMemberId != null || widget.specificMemberId != null;
+    final hasOutstanding = _youOweCents > 0 || _youAreOwedCents > 0;
 
-    // Use recomputed values. If 0, it means nothing to settle (or loading/init).
-    // We don't fallback to widget.amount because it might be stale or misleading if we recomputed.
-    final amountToShow = displayCents / 100.0;
-    final nothingToSettle = displayCents <= 0;
+    // Determine when there is actually something the current user can mark as settled.
+    // For express netting, any non-zero dues in either direction can be settled.
+    // For detailed mode, we gate by the selected direction.
+    final bool nothingToSettle;
+    if (!hasSelectedMember) {
+      nothingToSettle = true;
+    } else if (widget.isExpressNetting) {
+      nothingToSettle = !hasOutstanding;
+    } else if (widget.settleTheyOweYou) {
+      nothingToSettle = _youAreOwedCents <= 0;
+    } else {
+      nothingToSettle = _youOweCents <= 0;
+    }
+
+    double? amountToShow;
+    if (nothingToSettle) {
+      amountToShow = null;
+    } else if (widget.isExpressNetting) {
+      final netCents = (_youOweCents - _youAreOwedCents).abs();
+      amountToShow = netCents / 100.0;
+    } else if (widget.settleTheyOweYou) {
+      amountToShow = _youAreOwedCents / 100.0;
+    } else {
+      amountToShow = _youOweCents / 100.0;
+    }
+
+    final isNetPayer = _youOweCents >= _youAreOwedCents;
 
     return Container(
       decoration: BoxDecoration(
@@ -266,41 +291,71 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  _selectedMemberId == null && widget.specificMemberId == null
+                  !hasSelectedMember
                       ? context.l10n.pleaseSelectMember
                       : nothingToSettle
                           ? context.l10n.nothingToSettle
-                          : formatCurrency(amountToShow, currency),
+                          : formatCurrency(amountToShow ?? 0, currency),
                   style: TextStyle(
-                    fontSize: (_selectedMemberId == null &&
-                                widget.specificMemberId == null) ||
-                            nothingToSettle
-                        ? 24
-                        : 48,
+                    fontSize: !hasSelectedMember || !hasOutstanding ? 24 : 48,
                     fontWeight: FontWeight.w700,
                     color: colorScheme.foreground,
                     letterSpacing: -1,
                   ),
                   textAlign: TextAlign.center,
                 ),
-                if (widget.isExpressNetting && !nothingToSettle)
+                if (hasSelectedMember && !nothingToSettle)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      widget.isExpressNetting
+                          ? (isNetPayer
+                              ? context.l10n.youOwe
+                              : context.l10n.theyOweYou)
+                          : (widget.settleTheyOweYou
+                              ? context.l10n.theyOweYou
+                              : context.l10n.youOwe),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: colorScheme.mutedForeground,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                if (widget.isExpressNetting &&
+                    hasSelectedMember &&
+                    !nothingToSettle)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: colorScheme.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        context.l10n.expressNetting,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.primary,
+                    child: Column(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: colorScheme.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            context.l10n.expressNetting,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: colorScheme.primary,
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(height: 4),
+                        Text(
+                          context.l10n.expressNettingHint,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: colorScheme.mutedForeground,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                     ),
                   ),
               ],
@@ -312,11 +367,11 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
             if (_lineItems.isNotEmpty || _theyOweItems.isNotEmpty)
               Flexible(
                 child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    context.l10n.breakdown,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.l10n.breakdown,
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -324,32 +379,40 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      ..._lineItems.map(
-                        (item) => TransactionListTile(
-                          category: 'other',
-                          title: item.description ?? 'Expense',
-                          description: item.description,
-                          date: item.createdAt,
-                          amount: item.amountCents / 100.0,
-                          currency: currency,
-                          isIncome: false,
-                          trailingWidget: Text(
-                            context.l10n.youOwe,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFFFF453A),
+                      // In express netting mode we show both sides:
+                      // - items you owe them
+                      // - items they owe you (with an offset label).
+                      // In detailed mode, we only show the direction being settled.
+                      if (widget.isExpressNetting || !widget.settleTheyOweYou)
+                        ..._lineItems.map(
+                          (item) => TransactionListTile(
+                            category: 'other',
+                            title: item.description ?? 'Expense',
+                            description: item.description,
+                            date: item.createdAt,
+                            amount: item.amountCents / 100.0,
+                            currency: currency,
+                            isIncome: false,
+                            trailingWidget: Text(
+                              context.l10n.youOwe,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFFFF453A),
+                              ),
                             ),
                           ),
                         ),
-                      ),
                       if (widget.isExpressNetting && _theyOweItems.isNotEmpty)
                         ...[
                           const SizedBox(height: 12),
-                          Text(context.l10n.offsetByWhatTheyOweYou,
-                              style: TextStyle(
-                                  fontSize: 13,
-                                  color: colorScheme.mutedForeground)),
+                          Text(
+                            context.l10n.offsetByWhatTheyOweYou,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: colorScheme.mutedForeground,
+                            ),
+                          ),
                           const SizedBox(height: 8),
                           ..._theyOweItems.map(
                             (item) => TransactionListTile(
@@ -370,7 +433,27 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                               ),
                             ),
                           ),
-                        ]
+                        ],
+                      if (!widget.isExpressNetting && widget.settleTheyOweYou)
+                        ..._theyOweItems.map(
+                          (item) => TransactionListTile(
+                            category: 'other',
+                            title: item.description ?? 'Expense',
+                            description: item.description,
+                            date: item.createdAt,
+                            amount: item.amountCents / 100.0,
+                            currency: currency,
+                            isIncome: true,
+                            trailingWidget: Text(
+                              context.l10n.owesYou,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF30D158),
+                              ),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -392,9 +475,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                 const SizedBox(width: 16),
                 Expanded(
                   child: PrimaryAdaptiveButton(
-                    onPressed: (_isProcessing || nothingToSettle)
-                        ? null
-                        : _confirmAndSettle,
+                    onPressed: _isProcessing ? null : _confirmAndSettle,
                     child: _isProcessing
                         ? const SizedBox(
                             width: 20,
@@ -429,10 +510,10 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
             CupertinoDialogAction(
                 onPressed: () => Navigator.pop(c, false),
                 child: Text(context.l10n.cancel)),
-            CupertinoDialogAction(
-                isDestructiveAction: true,
-                onPressed: () => Navigator.pop(c, true),
-                child: Text(context.l10n.settle)),
+            PrimaryAdaptiveButton(
+              onPressed: () => Navigator.pop(c, true),
+              child: Text(context.l10n.settle),
+            ),
           ],
         ),
       );
@@ -447,9 +528,10 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
             TextButton(
                 onPressed: () => Navigator.pop(c, false),
                 child: Text(context.l10n.cancel)),
-            FilledButton(
-                onPressed: () => Navigator.pop(c, true),
-                child: Text(context.l10n.settle)),
+            PrimaryAdaptiveButton(
+              onPressed: () => Navigator.pop(c, true),
+              child: Text(context.l10n.settle),
+            ),
           ],
         ),
       );
@@ -481,12 +563,19 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
               youAreOwedCentsBefore: _youAreOwedCents,
               currency: widget.currency,
             )
-          : await service.settleAllDebtsToMemberAndNotify(
-              householdId: widget.householdId,
-              memberUserId: memberId,
-              youOweCentsBefore: _youOweCents,
-              currency: widget.currency,
-            );
+          : widget.settleTheyOweYou
+              ? await service.settleAllDebtsFromMemberAndNotify(
+                  householdId: widget.householdId,
+                  memberUserId: memberId,
+                  theyOweYouCentsBefore: _youAreOwedCents,
+                  currency: widget.currency,
+                )
+              : await service.settleAllDebtsToMemberAndNotify(
+                  householdId: widget.householdId,
+                  memberUserId: memberId,
+                  youOweCentsBefore: _youOweCents,
+                  currency: widget.currency,
+                );
       try {
         final homeFilter = ref.read(homeFilterProvider);
         final range = getDateRangeFromFilter(

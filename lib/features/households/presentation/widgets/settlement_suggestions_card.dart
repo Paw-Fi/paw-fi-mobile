@@ -280,7 +280,8 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
                 physics: const NeverScrollableScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                 itemCount: mySuggestions.length,
-                separatorBuilder: (c, i) => const SizedBox(height: 12),
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   final s = mySuggestions[index];
                   final isPayer = s.fromUserId == currentUserId;
@@ -296,6 +297,7 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
                       splits: widget.splits,
                       targetUserId: isPayer ? s.toUserId : s.fromUserId,
                       currency: widget.currency,
+                      settleTheyOweYou: !_netTransfers && !isPayer,
                     ),
                   );
                 },
@@ -634,6 +636,7 @@ Future<void> _openSettleUpSheet(
   List<ExpenseSplitGroup>? splits,
   String? targetUserId,
   String? currency,
+  bool settleTheyOweYou = false,
 }) async {
   await showModalBottomSheet<bool>(
     context: context,
@@ -651,6 +654,7 @@ Future<void> _openSettleUpSheet(
           isExpressNetting: isExpress,
           splits: splits,
           currency: currency,
+          settleTheyOweYou: settleTheyOweYou,
         ),
       );
     },

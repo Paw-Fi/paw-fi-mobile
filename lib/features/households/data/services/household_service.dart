@@ -666,6 +666,51 @@ class HouseholdService {
     return (updated as List).length;
   }
 
+  /// Mark all unsettled lines where the given member owes the current user as settled.
+  /// Returns number of lines updated.
+  Future<int> settleAllDebtsFromMember({
+    required String householdId,
+    required String memberUserId,
+    String? currency,
+  }) async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) throw Exception('User not authenticated');
+
+    final normalizedCurrency = currency?.toUpperCase();
+
+    // Fetch groups where current user is the payer.
+    var query = _supabase
+        .from('expense_split_groups')
+        .select('id')
+        .eq('household_id', householdId)
+        .eq('payer_user_id', userId);
+
+    if (normalizedCurrency != null) {
+      query = query.eq('currency', normalizedCurrency);
+    }
+
+    final groups = await query;
+
+    final groupIds = (groups as List)
+        .map((e) => (e as Map<String, dynamic>)['id'] as String)
+        .toList();
+
+    if (groupIds.isEmpty) return 0;
+
+    final updated = await _supabase
+        .from('expense_split_lines')
+        .update({
+          'is_settled': true,
+          'settled_at': DateTime.now().toIso8601String(),
+        })
+        .inFilter('split_group_id', groupIds)
+        .eq('user_id', memberUserId)
+        .eq('is_settled', false)
+        .select('id');
+
+    return (updated as List).length;
+  }
+
   // ============================================================================
   // SETTLEMENT RECORDING (optional metadata logging)
   // ============================================================================
@@ -702,6 +747,49 @@ class HouseholdService {
         if (normalizedCurrency != null) 'currency': normalizedCurrency,
       };
       // Notify the counterparty only (exclude current user)
+      try {
+        await _supabase.from('notification_events').insert({
+          'household_id': householdId,
+          'user_id': memberUserId,
+          'event_type': 'split_settled',
+          'payload': payload,
+        });
+      } catch (_) {}
+    }
+
+    return count;
+  }
+
+  /// Settle all dues where [memberUserId] owes the current user and notify the member.
+  /// Optional: provide [theyOweYouCentsBefore] to include in notification payload without extra reads.
+  Future<int> settleAllDebtsFromMemberAndNotify({
+    required String householdId,
+    required String memberUserId,
+    int? theyOweYouCentsBefore,
+    String? currency,
+  }) async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) throw Exception('User not authenticated');
+
+    final amountCents = theyOweYouCentsBefore ?? 0;
+
+    final normalizedCurrency = currency?.toUpperCase();
+
+    final count = await settleAllDebtsFromMember(
+      householdId: householdId,
+      memberUserId: memberUserId,
+      currency: normalizedCurrency,
+    );
+
+    if (count > 0) {
+      final payload = {
+        'from_user_id': userId,
+        'to_user_id': memberUserId,
+        'amount_cents': amountCents,
+        'line_count': count,
+        'actor_name': _currentUserDisplayName(),
+        if (normalizedCurrency != null) 'currency': normalizedCurrency,
+      };
       try {
         await _supabase.from('notification_events').insert({
           'household_id': householdId,

@@ -83,6 +83,23 @@ Widget buildRecentTransactionsCard(
               const SizedBox(height: 16),
               ...latest.map((e) {
                 final isIncome = (e.type ?? 'expense').toLowerCase() == 'income';
+
+                // Use the same semantics as the unified transaction sheet:
+                // date comes from the transaction's logical date field, while
+                // the time component comes from createdAt. This avoids
+                // showing 00:00 when the original transaction time was later
+                // in the day (e.g. 14:25).
+                final displayDateTime = DateTime(
+                  e.date.year,
+                  e.date.month,
+                  e.date.day,
+                  e.createdAt.hour,
+                  e.createdAt.minute,
+                  e.createdAt.second,
+                  e.createdAt.millisecond,
+                  e.createdAt.microsecond,
+                );
+
                 return Slidable(
                   key: ValueKey(e.id),
                   endActionPane: ActionPane(
@@ -137,7 +154,7 @@ Widget buildRecentTransactionsCard(
                     category: e.category ?? 'other',
                     title: getCategoryTranslation(context, e.category ?? 'other'),
                     description: e.rawText,
-                    date: e.date,
+                    date: displayDateTime,
                     amount: e.amount,
                     currency: selectedCurrency ?? 'USD',
                     isIncome: isIncome,
