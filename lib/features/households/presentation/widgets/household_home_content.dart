@@ -484,6 +484,17 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                       DashboardWidgetType.householdSettlement:
                           (context, config) {
                         return Consumer(builder: (context, ref, _) {
+                          // Non-editable: Get ALL household expenses (no date filtering)
+                          final expensesAsync = ref.watch(householdExpensesProvider(
+                            HouseholdExpensesParams(householdId: household.id),
+                          ));
+                          final splitsAsync = ref.watch(householdSplitsProvider(
+                            HouseholdSplitsParams(householdId: household.id),
+                          ));
+                          final membersAsync =
+                              ref.watch(householdMembersProvider(household.id));
+
+                          // Get summary for current date range
                           final range = getDateRangeFromFilter(config.dateRange,
                               config.customStartDate, config.customEndDate);
                           final from = range['from']!;
@@ -498,17 +509,6 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               endDate: to.toIso8601String(),
                             ),
                           ));
-                          final expensesAsync =
-                              ref.watch(householdExpensesProvider(
-                            HouseholdExpensesParams(
-                              householdId: household.id,
-                            ),
-                          ));
-                          final splitsAsync = ref.watch(householdSplitsProvider(
-                            HouseholdSplitsParams(householdId: household.id),
-                          ));
-                          final membersAsync =
-                              ref.watch(householdMembersProvider(household.id));
 
                           if (summaryAsync.value == null) {
                             return const SizedBox.shrink();
@@ -519,7 +519,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                                 const EdgeInsets.symmetric(horizontal: 16.0),
                             child: SettlementSuggestionsCard(
                               summary: summaryAsync.value!,
-                              transactions: expensesAsync.value,
+                              transactions: expensesAsync.value ?? [],
                               splits: splitsAsync.value,
                               currency: selectedCurrency,
                               members: membersAsync.value,
@@ -530,6 +530,17 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                       DashboardWidgetType.householdMemberSpending:
                           (context, config) {
                         return Consumer(builder: (context, ref, _) {
+                          // Non-editable: Get ALL household expenses (no date filtering)
+                          final expensesAsync = ref.watch(householdExpensesProvider(
+                            HouseholdExpensesParams(householdId: household.id),
+                          ));
+                          final splitsAsync = ref.watch(householdSplitsProvider(
+                            HouseholdSplitsParams(householdId: household.id),
+                          ));
+                          final membersAsync =
+                              ref.watch(householdMembersProvider(household.id));
+
+                          // Get summary for current date range
                           final range = getDateRangeFromFilter(config.dateRange,
                               config.customStartDate, config.customEndDate);
                           final from = range['from']!;
@@ -544,17 +555,6 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               endDate: to.toIso8601String(),
                             ),
                           ));
-                          final expensesAsync =
-                              ref.watch(householdExpensesProvider(
-                            HouseholdExpensesParams(
-                              householdId: household.id,
-                            ),
-                          ));
-                          final splitsAsync = ref.watch(householdSplitsProvider(
-                            HouseholdSplitsParams(householdId: household.id),
-                          ));
-                          final membersAsync =
-                              ref.watch(householdMembersProvider(household.id));
 
                           return Padding(
                             padding:
@@ -572,7 +572,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                                 summary,
                                 members: membersAsync.value,
                                 householdId: household.id,
-                                transactions: expensesAsync.value,
+                                transactions: expensesAsync.value ?? [],
                                 splits: splitsAsync.value,
                                 from: from,
                                 to: to,
@@ -593,28 +593,10 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                       DashboardWidgetType.householdRecentTransactions:
                           (context, config) {
                         return Consumer(builder: (context, ref, _) {
-                          final range = getDateRangeFromFilter(config.dateRange,
-                              config.customStartDate, config.customEndDate);
-                          final from = range['from']!;
-                          final to = range['to']!;
-
-                          final expensesAsync =
-                              ref.watch(householdExpensesProvider(
-                            HouseholdExpensesParams(
-                              householdId: household.id,
-                            ),
+                          // Non-editable: Get ALL household expenses (no date filtering)
+                          final expensesAsync = ref.watch(householdExpensesProvider(
+                            HouseholdExpensesParams(householdId: household.id),
                           ));
-
-                          final allExpenses = expensesAsync.value ?? [];
-                          // Filter by date AND currency
-                          final filteredExpenses = allExpenses.where((e) {
-                            final d =
-                                DateTime(e.date.year, e.date.month, e.date.day);
-                            final dateOk = !d.isBefore(from) && !d.isAfter(to);
-                            final code = (e.currency ?? '').trim().toUpperCase();
-                            final currencyOk = code.isEmpty || code == selectedCurrency;
-                            return dateOk && currencyOk;
-                          }).toList();
 
                           return Padding(
                             padding:
@@ -624,7 +606,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               child: buildRecentTransactionsCard(
                                 context,
                                 colorScheme,
-                                filteredExpenses,
+                                expensesAsync.value ?? [],
                                 null,
                                 selectedCurrency: selectedCurrency,
                                 householdId: household.id,
@@ -632,7 +614,8 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                                   Navigator.of(context).push(
                                     MaterialPageRoute(
                                       builder: (_) => HouseholdExpensesPage(
-                                          household: household),
+                                        household: household,
+                                      ),
                                     ),
                                   );
                                 },

@@ -736,7 +736,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                               child: buildRecentTransactionsCard(
                                                 context,
                                                 colorScheme,
-                                                personalExpensesAll,
+                                                analyticsData.allExpenses,
                                                 analyticsData.contact,
                                                 selectedCurrency: filterState
                                                     .selectedCurrency,

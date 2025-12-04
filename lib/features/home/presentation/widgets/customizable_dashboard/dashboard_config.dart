@@ -34,7 +34,13 @@ enum DashboardWidgetType {
   bool get supportsDateRange {
     switch (this) {
       case DashboardWidgetType.spendingSummary:
-      case DashboardWidgetType.recentTransactions:
+      case DashboardWidgetType.householdSpentByYou:
+      case DashboardWidgetType.householdBudgetOverview:
+      case DashboardWidgetType.householdFairness:
+      case DashboardWidgetType.spendingBreakdownChart:
+      case DashboardWidgetType.householdSpendingBreakdownChart:
+      case DashboardWidgetType.whereTheMoneyWent:
+      case DashboardWidgetType.householdWhereTheMoneyWent:
         return true;
       default:
         return false;
@@ -44,6 +50,7 @@ enum DashboardWidgetType {
   bool get supportsViewMode {
     switch (this) {
       case DashboardWidgetType.financialCalendar:
+      case DashboardWidgetType.householdFinancialCalendar:
         return true;
       default:
         return false;
