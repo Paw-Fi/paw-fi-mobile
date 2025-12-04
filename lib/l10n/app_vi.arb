@@ -1608,5 +1608,13 @@
   "settlingWith": "Thanh toán với",
   "offsetByWhatTheyOweYou": "Bù trừ bằng số tiền họ nợ bạn",
   "owesYou": "Nợ bạn",
-  "viewHistory": "Xem lịch sử"
+  "viewHistory": "Xem lịch sử",
+  "editWidgets": "Chỉnh sửa tiện ích",
+  "settlementsWillAppearHere": "Các khoản thanh toán sẽ xuất hiện ở đây khi chi phí được thanh toán",
+  "totalSettled": "Tổng đã thanh toán",
+  "settlements": "Thanh toán",
+  "items": "mục",
+  "settledSuccessfully": "Thanh toán thành công",
+  "from": "Từ",
+  "to": "Đến"
 }

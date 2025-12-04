@@ -18,7 +18,6 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
-import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
@@ -159,8 +158,6 @@ class _HomePageState extends ConsumerState<HomePage> {
   Future<void> _processExpense({String? text, String? imagePath}) async {
     final user = ref.read(authProvider);
     final contact = ref.read(analyticsProvider).contact;
-    final viewMode = ref.read(viewModeProvider);
-    final selectedHouseholdState = ref.read(selectedHouseholdProvider);
 
     // Show processing modal
     if (!mounted) return;
@@ -185,21 +182,15 @@ class _HomePageState extends ConsumerState<HomePage> {
         'language': languageTag,
       };
 
-      // Determine currency based on view mode.
+      // Always use selected currency as default (same as personal expense)
       // Backend will use this as a fallback if no currency is detected in the text/image.
       // If this is also missing, backend defaults to USD.
-      if (viewMode.mode == ViewMode.household &&
-          selectedHouseholdState.household?.currency != null) {
-        body['currency'] =
-            selectedHouseholdState.household!.currency.toUpperCase();
-      } else {
-        final filterState = ref.read(homeFilterProvider);
-        final selectedCurrency = filterState.selectedCurrency;
-        if (selectedCurrency != null && selectedCurrency.isNotEmpty) {
-          body['currency'] = selectedCurrency.toUpperCase();
-        } else if (contact?.preferredCurrency != null) {
-          body['currency'] = contact!.preferredCurrency!.toUpperCase();
-        }
+      final filterState = ref.read(homeFilterProvider);
+      final selectedCurrency = filterState.selectedCurrency;
+      if (selectedCurrency != null && selectedCurrency.isNotEmpty) {
+        body['currency'] = selectedCurrency.toUpperCase();
+      } else if (contact?.preferredCurrency != null) {
+        body['currency'] = contact!.preferredCurrency!.toUpperCase();
       }
 
       // Add either text or image to the request

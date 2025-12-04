@@ -1609,5 +1609,13 @@
   "settlingWith": "Régler avec",
   "offsetByWhatTheyOweYou": "Compensé par ce qu’ils vous doivent",
   "owesYou": "Vous doit",
-  "viewHistory": "Voir l’historique"
+  "viewHistory": "Voir l’historique",
+  "editWidgets": "Modifier les widgets",
+  "settlementsWillAppearHere": "Les règlements apparaîtront ici une fois les dépenses réglées",
+  "totalSettled": "Total réglé",
+  "settlements": "Règlements",
+  "items": "articles",
+  "settledSuccessfully": "Réglé avec succès",
+  "from": "De",
+  "to": "À"
 }

@@ -1556,5 +1556,13 @@
   "settlingWith": "Regolare con",
   "offsetByWhatTheyOweYou": "Compensa con quanto ti devono",
   "owesYou": "Ti deve",
-  "viewHistory": "Visualizza cronologia"
+  "viewHistory": "Visualizza cronologia",
+  "editWidgets": "Modifica widget",
+  "settlementsWillAppearHere": "I regolamenti appariranno qui una volta che le spese sono state saldate",
+  "totalSettled": "Totale saldato",
+  "settlements": "Regolamenti",
+  "items": "elementi",
+  "settledSuccessfully": "Saldato con successo",
+  "from": "Da",
+  "to": "A"
 }

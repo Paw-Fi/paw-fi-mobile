@@ -1608,5 +1608,13 @@
   "settlingWith": "与ta结算",
   "offsetByWhatTheyOweYou": "用对方欠你的金额抵扣",
   "owesYou": "欠你",
-  "viewHistory": "查看历史记录"
+  "viewHistory": "查看历史记录",
+  "editWidgets": "编辑小组件",
+  "settlementsWillAppearHere": "费用结算后，结算记录将显示在这里",
+  "totalSettled": "总结算金额",
+  "settlements": "结算",
+  "items": "项目",
+  "settledSuccessfully": "结算成功",
+  "from": "从",
+  "to": "到"
 }

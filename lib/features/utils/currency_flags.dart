@@ -9,6 +9,7 @@ String? getCurrencyFlagPath(String currencyCode) {
     'USD': 'us',
     'EUR': 'europe',
     'GBP': 'uk',
+    'ARS': 'argentina',
     'AUD': 'au',
     'CAD': 'ca',
     'CNY': 'cn',

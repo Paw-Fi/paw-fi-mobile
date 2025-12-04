@@ -1611,5 +1611,13 @@
   "settlingWith": "Saldando con",
   "offsetByWhatTheyOweYou": "Compensar con lo que te deben",
   "owesYou": "Te debe",
-  "viewHistory": "Ver historial"
+  "viewHistory": "Ver historial",
+  "editWidgets": "Editar widgets",
+  "settlementsWillAppearHere": "Las liquidaciones aparecerán aquí una vez que los gastos se liquiden",
+  "totalSettled": "Total liquidado",
+  "settlements": "Liquidaciones",
+  "items": "artículos",
+  "settledSuccessfully": "Liquidado con éxito",
+  "from": "De",
+  "to": "A"
 }

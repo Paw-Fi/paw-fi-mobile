@@ -62,6 +62,7 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
 
     return AdaptiveScaffold(
       appBar: AdaptiveAppBar(
+        useNativeToolbar: false,
         title:  context.l10n.settlement
       ),
       body: RefreshIndicator(
@@ -164,7 +165,7 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Settlements will appear here once expenses are settled',
+                          context.l10n.settlementsWillAppearHere,
                           style: TextStyle(
                             fontSize: 16,
                             color: colorScheme.mutedForeground,
@@ -239,7 +240,7 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
     return Column(
       children: [
         Text(
-          'Total Settled',
+          context.l10n.totalSettled,
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w500,
@@ -277,13 +278,13 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
             _buildStatBadge(
               context,
               Icons.receipt_long_rounded,
-              '$totalTransactions Transactions',
+              '$totalTransactions ${context.l10n.transactions.toLowerCase()}',
             ),
             const SizedBox(width: 12),
             _buildStatBadge(
               context,
               Icons.handshake_rounded,
-              '${events.length} Settlements',
+              '${events.length} ${context.l10n.settlements.toLowerCase()}',
             ),
           ],
         ),
@@ -537,7 +538,7 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
                       ),
                       const SizedBox(width: 12),
                       Text(
-                        '${event.lines.isNotEmpty ? event.lines.length : event.lineCount} items',
+                        '${event.lines.isNotEmpty ? event.lines.length : event.lineCount} ${context.l10n.items}',
                         style: TextStyle(
                           fontSize: 13,
                           color: colorScheme.mutedForeground,
@@ -766,7 +767,7 @@ class _SettlementDetailsSheetState extends State<SettlementDetailsSheet> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Settled Successfully',
+                    context.l10n.settledSuccessfully,
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w600,
@@ -804,7 +805,7 @@ class _SettlementDetailsSheetState extends State<SettlementDetailsSheet> {
                       children: [
                         _buildDetailRow(
                           context,
-                          'From',
+                          context.l10n.from,
                           widget.nameFor(widget.event.participantUserId),
                           icon: Icons.arrow_outward_rounded,
                         ),
@@ -814,7 +815,7 @@ class _SettlementDetailsSheetState extends State<SettlementDetailsSheet> {
                         ),
                         _buildDetailRow(
                           context,
-                          'To',
+                          context.l10n.to,
                           widget.nameFor(widget.event.payerUserId),
                           icon: Icons.arrow_downward_rounded,
                         ),
@@ -826,7 +827,7 @@ class _SettlementDetailsSheetState extends State<SettlementDetailsSheet> {
                           ),
                           _buildDetailRow(
                             context,
-                            'Note',
+                            context.l10n.note,
                             widget.event.description!,
                             icon: Icons.notes_rounded,
                           ),
@@ -843,7 +844,7 @@ class _SettlementDetailsSheetState extends State<SettlementDetailsSheet> {
                     Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        'Transactions',
+                        context.l10n.transactions,
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
@@ -882,7 +883,7 @@ class _SettlementDetailsSheetState extends State<SettlementDetailsSheet> {
                                         Text(
                                           line.description?.isNotEmpty == true
                                               ? line.description!
-                                              : 'Expense',
+                                              : context.l10n.expense,
                                           style: TextStyle(
                                             fontSize: 14,
                                             fontWeight: FontWeight.w600,
@@ -928,7 +929,7 @@ class _SettlementDetailsSheetState extends State<SettlementDetailsSheet> {
                     width: double.infinity,
                     child: PrimaryAdaptiveButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Done'),
+                      child: Text(context.l10n.done),
                     ),
                   ),
                 ],

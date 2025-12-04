@@ -598,7 +598,7 @@
   "startLoggingExpenses": "Начните записывать расходы, и они появятся здесь",
   "tryAdjustingFilters": "Попробуйте изменить фильтры",
   "split": "Разделить",
-  "note": "Заметка",
+  "note": "Примечание",
   "currencyCannotBeChangedWhenSharing": "Валюту нельзя изменить, если расход общий",
   "createBudget": "Создать бюджет",
   "pleaseEnterABudgetName": "Введите название бюджета",
@@ -1559,5 +1559,13 @@
   "settlingWith": "Расчёт с",
   "offsetByWhatTheyOweYou": "Компенсировать тем, что они вам должны",
   "owesYou": "Должен вам",
-  "viewHistory": "Просмотр истории"
+  "viewHistory": "Просмотр истории",
+  "editWidgets": "Редактировать виджеты",
+  "settlementsWillAppearHere": "Расчеты появятся здесь после урегулирования расходов",
+  "totalSettled": "Всего урегулировано",
+  "settlements": "Расчеты",
+  "items": "элементы",
+  "settledSuccessfully": "Успешно урегулировано",
+  "from": "От",
+  "to": "Кому"
 }

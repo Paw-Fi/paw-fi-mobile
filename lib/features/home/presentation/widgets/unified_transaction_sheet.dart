@@ -495,7 +495,6 @@ class _UnifiedTransactionSheetState
                     label: context.l10n.currency,
                     value: currency.toUpperCase(),
                     onTap: () => _handleEditCurrency(currency),
-                    disabled: _isSharedWithHousehold,
                   ),
 
                   const SizedBox(height: 12),
@@ -995,11 +994,6 @@ class _UnifiedTransactionSheetState
   }
 
   Future<void> _handleEditCurrency(String currentCurrency) async {
-    if (_isSharedWithHousehold) {
-      AppToast.info(context, context.l10n.currencyCannotBeChangedWhenSharing);
-      return;
-    }
-
     final selected = await showCurrencyPicker(
       context: context,
       currentCurrency: currentCurrency,

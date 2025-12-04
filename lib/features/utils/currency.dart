@@ -3,6 +3,7 @@ import 'package:moneko/features/home/presentation/models/models.dart';
 
 const Map<String, String> currencyOptions = {
   'AED': 'د.إ',
+  'ARS': 'ARS\$',
   'AUD': 'A\$',
   'BRL': 'R\$',
   'CAD': 'C\$',

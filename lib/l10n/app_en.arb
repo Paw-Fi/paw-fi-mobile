@@ -1613,5 +1613,13 @@
   "settlingWith": "Settling with",
   "offsetByWhatTheyOweYou": "Offset by what they owe you",
   "owesYou": "Owes you",
-  "viewHistory": "View History"
+  "viewHistory": "View History",
+  "editWidgets": "Edit Widgets",
+  "settlementsWillAppearHere": "Settlements will appear here once expenses are settled",
+  "totalSettled": "Total Settled",
+  "settlements": "Settlements",
+  "items": "items",
+  "settledSuccessfully": "Settled Successfully",
+  "from": "From",
+  "to": "To"
 }

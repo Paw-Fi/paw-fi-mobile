@@ -596,7 +596,7 @@
   "startLoggingExpenses": "Почніть додавати витрати, щоб побачити їх тут",
   "tryAdjustingFilters": "Спробуйте змінити фільтри",
   "split": "Розділити",
-  "note": "Нотатка",
+  "note": "Примітка",
   "currencyCannotBeChangedWhenSharing": "Валюту не можна змінити, якщо ви ділитеся витратою з домогосподарством",
   "createBudget": "Створити бюджет",
   "pleaseEnterABudgetName": "Будь ласка, введіть назву бюджету",
@@ -1601,5 +1601,13 @@
   "settlingWith": "Розрахунок із",
   "offsetByWhatTheyOweYou": "Компенсувати тим, що вони вам винні",
   "owesYou": "Винний вам",
-  "viewHistory": "Переглянути історію"
+  "viewHistory": "Переглянути історію",
+  "editWidgets": "Редагувати віджети",
+  "settlementsWillAppearHere": "Розрахунки з'являться тут після врегулювання витрат",
+  "totalSettled": "Загалом врегульовано",
+  "settlements": "Розрахунки",
+  "items": "елементи",
+  "settledSuccessfully": "Успішно врегульовано",
+  "from": "Від",
+  "to": "Кому"
 }

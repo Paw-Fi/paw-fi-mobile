@@ -1556,5 +1556,13 @@
   "settlingWith": "Verrekenen met",
   "offsetByWhatTheyOweYou": "Compenseer met wat zij jou verschuldigd zijn",
   "owesYou": "Is jou nog geld schuldig",
-  "viewHistory": "Geschiedenis bekijken"
+  "viewHistory": "Geschiedenis bekijken",
+  "editWidgets": "Widgets bewerken",
+  "settlementsWillAppearHere": "Vereffeningen verschijnen hier zodra uitgaven zijn vereffend",
+  "totalSettled": "Totaal vereffend",
+  "settlements": "Vereffeningen",
+  "items": "items",
+  "settledSuccessfully": "Succesvol vereffend",
+  "from": "Van",
+  "to": "Aan"
 }

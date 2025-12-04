@@ -1556,5 +1556,13 @@
   "settlingWith": "與ta結算",
   "offsetByWhatTheyOweYou": "用對方欠你的金額抵扣",
   "owesYou": "欠你",
-  "viewHistory": "查看歷史記錄"
+  "viewHistory": "查看歷史記錄",
+  "editWidgets": "編輯小工具",
+  "settlementsWillAppearHere": "費用結算後，結算記錄將顯示在這裡",
+  "totalSettled": "總結算金額",
+  "settlements": "結算",
+  "items": "項目",
+  "settledSuccessfully": "結算成功",
+  "from": "從",
+  "to": "到"
 }

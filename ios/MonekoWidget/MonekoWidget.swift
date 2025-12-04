@@ -399,7 +399,7 @@ struct SmallWidgetView: View {
                 Image(systemName: "chart.pie.fill")
                     .foregroundColor(colorScheme == .dark ? Theme.darkPrimary : Theme.lightPrimary)
                 Spacer()
-                Link(destination: URL(string: "moneko://pockets")!) {
+                Link(destination: URL(string: "moneko://text")!) {
                     Image(systemName: "plus")
                         .font(.system(size: 14, weight: .bold))
                         .foregroundColor(.white)
@@ -458,7 +458,7 @@ struct MediumWidgetView: View {
             
             // Right: Actions
             VStack(spacing: 12) {
-                Link(destination: URL(string: "moneko://pockets")!) {
+                Link(destination: URL(string: "moneko://text")!) {
                     HStack {
                         Image(systemName: "square.and.pencil")
                         Text("Add")
@@ -510,7 +510,7 @@ struct LargeWidgetView: View {
                         .foregroundColor(colorScheme == .dark ? Theme.darkForeground : Theme.lightForeground)
                 }
                 Spacer()
-                Link(destination: URL(string: "moneko://pockets")!) {
+                Link(destination: URL(string: "moneko://text")!) {
                     Image(systemName: "plus.circle.fill")
                         .font(.system(size: 28))
                         .foregroundColor(colorScheme == .dark ? Theme.darkPrimary : Theme.lightPrimary)
@@ -597,7 +597,7 @@ struct TopCategoriesLargeWidgetView: View {
                         .foregroundColor(colorScheme == .dark ? Theme.darkForeground : Theme.lightForeground)
                 }
                 Spacer()
-                Link(destination: URL(string: "moneko://pockets")!) {
+                Link(destination: URL(string: "moneko://text")!) {
                     Image(systemName: "plus.circle.fill")
                         .font(.system(size: 32))
                         .foregroundColor(colorScheme == .dark ? Theme.darkPrimary : Theme.lightPrimary)

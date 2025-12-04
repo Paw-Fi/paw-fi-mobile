@@ -596,7 +596,7 @@
   "startLoggingExpenses": "Erfasse Ausgaben, um sie hier zu sehen",
   "tryAdjustingFilters": "Versuche, deine Filter anzupassen",
   "split": "Teilen",
-  "note": "Notiz",
+  "note": "Hinweis",
   "currencyCannotBeChangedWhenSharing": "Währung kann nicht geändert werden, wenn mit einem Haushalt geteilt wird",
   "createBudget": "Budget erstellen",
   "pleaseEnterABudgetName": "Bitte gib einen Budgetnamen ein",
@@ -1609,5 +1609,13 @@
   "settlingWith": "Abrechnen mit",
   "offsetByWhatTheyOweYou": "Ausgleichen mit dem, was sie dir schulden",
   "owesYou": "Schuldet dir",
-  "viewHistory": "Verlauf anzeigen"
+  "viewHistory": "Verlauf anzeigen",
+  "editWidgets": "Widgets bearbeiten",
+  "settlementsWillAppearHere": "Abrechnungen erscheinen hier, sobald Ausgaben beglichen sind",
+  "totalSettled": "Gesamt beglichen",
+  "settlements": "Abrechnungen",
+  "items": "Positionen",
+  "settledSuccessfully": "Erfolgreich beglichen",
+  "from": "Von",
+  "to": "An"
 }

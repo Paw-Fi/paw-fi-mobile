@@ -1609,5 +1609,13 @@
   "settlingWith": "精算相手：",
   "offsetByWhatTheyOweYou": "相手があなたに借りている分で相殺",
   "owesYou": "あなたに借りている",
-  "viewHistory": "履歴を表示"
+  "viewHistory": "履歴を表示",
+  "editWidgets": "ウィジェットを編集",
+  "settlementsWillAppearHere": "経費が決済されると、ここに決済内容が表示されます",
+  "totalSettled": "合計決済額",
+  "settlements": "決済",
+  "items": "項目",
+  "settledSuccessfully": "決済完了",
+  "from": "差出人",
+  "to": "宛先"
 }

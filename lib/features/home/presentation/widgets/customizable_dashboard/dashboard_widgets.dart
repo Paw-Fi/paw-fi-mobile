@@ -92,7 +92,7 @@ class EditDashboardButton extends ConsumerWidget {
                     ),
                     const SizedBox(width: 12),
                     Text(
-                      "Edit Widgets",
+                      context.l10n.editWidgets,
                       style: TextStyle(
                         fontSize: 13,
                         color: colorScheme.mutedForeground,

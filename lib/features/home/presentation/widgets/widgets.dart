@@ -5,7 +5,7 @@ export 'unified_transaction_sheet.dart';
 export 'spending_card.dart';
 export 'budget_card.dart';
 export 'net_cashflow_card.dart';
-export 'category_breakdown_card.dart';
+export 'recent_transactions_card.dart';
 export 'spending_breakdown_chart.dart';
 export 'text_input_drawer.dart';
 export 'date_range_filter_modal.dart';

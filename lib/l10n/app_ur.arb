@@ -1555,5 +1555,13 @@
   "settlingWith": "جس سے حساب کر رہے ہیں",
   "offsetByWhatTheyOweYou": "جو وہ آپ کے مقروض ہیں اس سے حساب پورا کریں",
   "owesYou": "مقروض ہے",
-  "viewHistory": "ہسٹری دیکھیں"
+  "viewHistory": "ہسٹری دیکھیں",
+  "editWidgets": "ویجٹس میں ترمیم کریں",
+  "settlementsWillAppearHere": "جب اخراجات کی ادائیگی ہو جائے گی تو یہاں تصفیتیں ظاہر ہوں گی",
+  "totalSettled": "کل ادائیگی شدہ",
+  "settlements": "تصفیتیں",
+  "items": "اشیاء",
+  "settledSuccessfully": "کامیابی سے ادائیگی ہو گئی",
+  "from": "سے",
+  "to": "کو"
 }
