@@ -1564,5 +1564,6 @@
   "items": "items",
   "settledSuccessfully": "Succesvol vereffend",
   "from": "Van",
-  "to": "Aan"
+  "to": "Aan",
+  "notYetSplitBanner": "Deze uitgave is nog niet gesplitst. Configureer hieronder hoe te splitsen."
 }

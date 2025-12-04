@@ -452,9 +452,20 @@ class _HomePageState extends ConsumerState<HomePage> {
     // Global currency remains shared; date ranges move to per-card filters
     final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
 
-    // Base personal transactions (non-household); cards will apply their own date windows
-    final personalExpensesAll =
-        analyticsData.allExpenses.where((e) => e.householdId == null).toList();
+    // Base personal transactions filtered by currency globally
+    // This ensures ALL widgets receive currency-filtered data
+    final personalExpensesAll = analyticsData.allExpenses.where((e) {
+      // Filter by personal (non-household) transactions
+      if (e.householdId != null) return false;
+      // Filter by selected currency (if set)
+      if (selectedCurrency != null && selectedCurrency.isNotEmpty) {
+        final expenseCurrency = (e.currency ?? '').toUpperCase();
+        if (expenseCurrency.isNotEmpty && expenseCurrency != selectedCurrency) {
+          return false;
+        }
+      }
+      return true;
+    }).toList();
 
     // Spending card: this month by default (per-card filter)
 
@@ -485,7 +496,6 @@ class _HomePageState extends ConsumerState<HomePage> {
     // All data is fetched once and filtered locally in the UI
     // This prevents race conditions and unnecessary network requests
 
-    // Listen for widget launch actions
     // Listen for widget launch actions
     ref.listen<WidgetLaunchEvent>(widgetLaunchProvider, (previous, next) {
       if (next.type == WidgetLaunchActionType.none) return;

@@ -1621,5 +1621,6 @@
   "items": "items",
   "settledSuccessfully": "Settled Successfully",
   "from": "From",
-  "to": "To"
+  "to": "To",
+  "notYetSplitBanner": "This expense is not yet split. Configure how to split it below."
 }

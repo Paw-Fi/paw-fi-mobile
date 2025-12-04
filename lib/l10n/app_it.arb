@@ -1564,5 +1564,6 @@
   "items": "elementi",
   "settledSuccessfully": "Saldato con successo",
   "from": "Da",
-  "to": "A"
+  "to": "A",
+  "notYetSplitBanner": "Questa spesa non è ancora divisa. Configura come dividerla qui sotto."
 }

@@ -395,7 +395,28 @@ class _UnifiedTransactionSheetState
                     textAlign: TextAlign.center,
                   ),
                 ),
-                const SizedBox(width: 40),
+                // Save button in header for quick access
+                IconButton(
+                  icon: _isSaving
+                      ? SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              colorScheme.foreground,
+                            ),
+                          ),
+                        )
+                      : Icon(
+                          Icons.check_rounded,
+                          color: colorScheme.foreground,
+                          size: 28,
+                        ),
+                  onPressed: _isSaving ? null : _handleSave,
+                  padding: const EdgeInsets.all(8),
+                  constraints: const BoxConstraints(),
+                ),
               ],
             ),
           ),
@@ -860,6 +881,11 @@ class _UnifiedTransactionSheetState
                     isNewExpense ? ref.read(pendingExpenseProvider) : null;
                 final currentAmount = pendingExpense?.amount ?? amount;
 
+                // Check if this is an existing expense with household but no split group
+                final isExistingWithoutSplit = isExistingExpense &&
+                    widget.existingExpense!.householdId != null &&
+                    widget.existingExpense!.splitGroupId == null;
+
                 // Ensure default payer selection
                 _selectedPayerUserId ??= ref.read(authProvider).uid;
 
@@ -874,6 +900,39 @@ class _UnifiedTransactionSheetState
                   ),
                   child: Column(
                     children: [
+                      // Show "not yet split" banner for existing expenses without split group
+                      if (isExistingWithoutSplit)
+                        Container(
+                          margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: colorScheme.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: colorScheme.primary.withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.info_outline,
+                                color: colorScheme.primary,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  context.l10n.notYetSplitBanner,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: colorScheme.primary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       // Who paid selector
                       Padding(
                         padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),

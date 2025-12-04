@@ -1616,5 +1616,6 @@
   "items": "mục",
   "settledSuccessfully": "Thanh toán thành công",
   "from": "Từ",
-  "to": "Đến"
+  "to": "Đến",
+  "notYetSplitBanner": "Chi phí này chưa được chia. Cấu hình cách chia bên dưới."
 }

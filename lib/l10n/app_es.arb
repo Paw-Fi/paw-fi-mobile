@@ -1619,5 +1619,6 @@
   "items": "artículos",
   "settledSuccessfully": "Liquidado con éxito",
   "from": "De",
-  "to": "A"
+  "to": "A",
+  "notYetSplitBanner": "Este gasto aún no está dividido. Configure cómo dividirlo a continuación."
 }

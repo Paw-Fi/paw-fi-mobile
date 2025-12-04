@@ -29,7 +29,7 @@ String formatLocalizedNumber(BuildContext context, num value) {
     country = 'TW';
   }
 
-  final localeName = country.isEmpty ? language : '${language}_${country}';
+  final localeName = country.isEmpty ? language : '${language}_$country';
 
   try {
     final formatter = NumberFormat.decimalPattern(localeName);

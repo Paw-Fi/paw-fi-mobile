@@ -186,21 +186,11 @@ class _PocketsMonthView extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final pocketsState = ref.watch(pocketsProvider(scopeParams));
     final pocketsNotifier = ref.read(pocketsProvider(scopeParams).notifier);
-    
-    // Trigger load when this view is first displayed
-    // At this point, analytics is guaranteed to be loaded with correct currency
-    // Use Future.microtask to defer the load until after the build phase completes
-    useEffect(() {
-      Future.microtask(() => pocketsNotifier.load());
-      return null;
-    }, [scopeParams]);
 
     Future<void> refresh() async {
-      // Invalidate and reload pockets data only - analytics is managed by app_initialization_provider
-      // Using invalidate triggers a fresh fetch without duplicate BE calls
+      // Invalidate and reload pockets data only - analytics is managed by app_initialization_provider.
+      // Invalidation recreates the notifier; we then explicitly call load() to force an immediate refresh.
       ref.invalidate(pocketsProvider(scopeParams));
-      // After invalidation, the provider is recreated but won't auto-load
-      // We need to explicitly trigger load on the new notifier
       await ref.read(pocketsProvider(scopeParams).notifier).load();
     }
 

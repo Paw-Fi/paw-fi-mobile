@@ -46,7 +46,7 @@ class AdaptiveColorPicker {
         context: context,
         builder: (BuildContext context) {
           return AlertDialog(
-            title: Text(label ?? '${context.l10n.selectColor}'),
+            title: Text(label ?? context.l10n.selectColor),
             content: SingleChildScrollView(
               child: ColorPicker(
                 pickerColor: startingColor,

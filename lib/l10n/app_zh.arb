@@ -1616,5 +1616,6 @@
   "items": "项目",
   "settledSuccessfully": "结算成功",
   "from": "从",
-  "to": "到"
+  "to": "到",
+  "notYetSplitBanner": "此费用尚未分摊。请在下方配置分摊方式。"
 }

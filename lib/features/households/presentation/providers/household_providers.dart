@@ -472,14 +472,14 @@ final householdExpensesProvider =
     final supabase = ref.watch(supabaseClientProvider);
     try {
       // Fetch expenses (RLS allows: own or any with same household membership)
-      // CRITICAL: Only fetch household expenses (split_group_id NOT NULL)
+      // Include ALL expenses with this household_id, regardless of split_group_id.
+      // Expenses logged via WhatsApp AI bot may not have a split group yet.
       // Exclude recurring items here; recurring are surfaced in the dedicated
       // recurring flow.
       var expensesQuery = supabase
           .from('expenses')
           .select('id, contact_id, user_id, household_id, date, amount_cents, currency, category, raw_text, receipt_image_url, created_at, updated_at, split_group_id, type, is_recurring')
           .eq('household_id', params.householdId)
-          .not('split_group_id', 'is', null) // Explicit filter for household expenses
           .or('is_recurring.eq.false,is_recurring.is.null');
       
       // Apply date filters if provided

@@ -1617,5 +1617,6 @@
   "items": "articles",
   "settledSuccessfully": "Réglé avec succès",
   "from": "De",
-  "to": "À"
+  "to": "À",
+  "notYetSplitBanner": "Cette dépense n'est pas encore partagée. Configurez le partage ci-dessous."
 }

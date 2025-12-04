@@ -1617,5 +1617,6 @@
   "items": "項目",
   "settledSuccessfully": "決済完了",
   "from": "差出人",
-  "to": "宛先"
+  "to": "宛先",
+  "notYetSplitBanner": "この経費はまだ分割されていません。以下で分割方法を設定してください。"
 }

@@ -1430,5 +1430,6 @@
   "items": "항목",
   "settledSuccessfully": "성공적으로 정산됨",
   "from": "보낸 사람",
-  "to": "받는 사람"
+  "to": "받는 사람",
+  "notYetSplitBanner": "이 비용은 아직 분할되지 않았습니다. 아래에서 분할 방법을 설정하세요."
 }

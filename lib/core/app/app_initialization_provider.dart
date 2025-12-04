@@ -35,10 +35,6 @@ class AppInitialization extends _$AppInitialization {
   Future<void> _initialize() async {
     try {
       debugPrint('🚀 Starting app initialization...');
-
-      // Wait a moment for auth to settle
-      await Future.delayed(const Duration(milliseconds: 100));
-
       // Check if user is authenticated
       final auth = ref.read(authProvider);
       debugPrint('🔐 Auth loaded: ${!auth.isEmpty}');
@@ -175,56 +171,20 @@ class AppInitialization extends _$AppInitialization {
     }
   }
 
-  /// Wait for a StateNotifierProvider containing AsyncValue to resolve.
-  /// Polls at regular intervals until data is available, error occurs, or timeout.
-  Future<T?> _waitForAsyncValue<T>(
-    AsyncValue<T> Function() readState, {
-    Duration timeout = const Duration(seconds: 15),
-    Duration pollInterval = const Duration(milliseconds: 150),
-  }) async {
-    final stopwatch = Stopwatch()..start();
-
-    while (stopwatch.elapsed < timeout) {
-      final state = readState();
-
-      // If we have data and not in a loading state, return it
-      if (state.hasValue && !state.isLoading) {
-        return state.value;
-      }
-
-      // If there's an error and not loading, return null (caller handles)
-      if (state.hasError && !state.isLoading) {
-        debugPrint('⚠️ AsyncValue resolved with error: ${state.error}');
-        return null;
-      }
-
-      // Still loading - wait and retry
-      await Future.delayed(pollInterval);
-    }
-
-    // Timeout reached - return whatever value we have (might be null)
-    final finalState = readState();
-    debugPrint(
-        '⚠️ Timeout (${timeout.inSeconds}s) waiting for AsyncValue, hasValue=${finalState.hasValue}, isLoading=${finalState.isLoading}');
-    return finalState.valueOrNull;
-  }
-
   /// Load household data (for "For Us" mode)
   Future<void> _loadHouseholdData(String userId) async {
     try {
       debugPrint('🏠 Loading household data...');
 
-      // Trigger the provider to start loading (creates it if not exists)
-      // The StateNotifier constructor calls load() automatically
-      ref.read(userHouseholdsProvider(userId));
+      // Ensure the user households provider has loaded at least once.
+      // This calls the repository and waits for completion without any
+      // arbitrary polling/timeouts; network timeouts are handled by Supabase.
+      await ref.read(userHouseholdsProvider(userId).notifier).load();
 
-      // Wait for the provider to finish loading with proper polling
-      final households = await _waitForAsyncValue<List<Household>>(
-        () => ref.read(userHouseholdsProvider(userId)),
-        timeout: const Duration(seconds: 15),
-      );
+      final householdsAsync = ref.read(userHouseholdsProvider(userId));
+      final households = householdsAsync.value ?? <Household>[];
 
-      if (households == null || households.isEmpty) {
+      if (households.isEmpty) {
         debugPrint('📭 No households found for user (or load failed)');
         return;
       }

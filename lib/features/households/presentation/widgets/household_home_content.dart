@@ -25,7 +25,6 @@ import 'package:moneko/features/households/presentation/widgets/settlement_sugge
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/households/presentation/widgets/financial_calendar_widget.dart';
-import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/widgets/where_the_money_went_widget.dart';
 import 'package:moneko/features/insights/presentation/widgets/category_guide_dialog.dart';
 
 /// Household home content that handles loading, empty, and data states
@@ -607,10 +606,14 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                           ));
 
                           final allExpenses = expensesAsync.value ?? [];
+                          // Filter by date AND currency
                           final filteredExpenses = allExpenses.where((e) {
                             final d =
                                 DateTime(e.date.year, e.date.month, e.date.day);
-                            return !d.isBefore(from) && !d.isAfter(to);
+                            final dateOk = !d.isBefore(from) && !d.isAfter(to);
+                            final code = (e.currency ?? '').trim().toUpperCase();
+                            final currencyOk = code.isEmpty || code == selectedCurrency;
+                            return dateOk && currencyOk;
                           }).toList();
 
                           return Padding(
@@ -654,10 +657,14 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                           ));
 
                           final allExpenses = expensesAsync.value ?? [];
+                          // Filter by date AND currency
                           final filteredExpenses = allExpenses.where((e) {
                             final d =
                                 DateTime(e.date.year, e.date.month, e.date.day);
-                            return !d.isBefore(from) && !d.isAfter(to);
+                            final dateOk = !d.isBefore(from) && !d.isAfter(to);
+                            final code = (e.currency ?? '').trim().toUpperCase();
+                            final currencyOk = code.isEmpty || code == selectedCurrency;
+                            return dateOk && currencyOk;
                           }).toList();
 
                           return Padding(
@@ -702,10 +709,14 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                           ));
 
                           final allExpenses = expensesAsync.value ?? [];
+                          // Filter by date AND currency
                           final filteredExpenses = allExpenses.where((e) {
                             final d =
                                 DateTime(e.date.year, e.date.month, e.date.day);
-                            return !d.isBefore(from) && !d.isAfter(to);
+                            final dateOk = !d.isBefore(from) && !d.isAfter(to);
+                            final code = (e.currency ?? '').trim().toUpperCase();
+                            final currencyOk = code.isEmpty || code == selectedCurrency;
+                            return dateOk && currencyOk;
                           }).toList();
 
                           return Padding(

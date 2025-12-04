@@ -1617,5 +1617,6 @@
   "items": "Positionen",
   "settledSuccessfully": "Erfolgreich beglichen",
   "from": "Von",
-  "to": "An"
+  "to": "An",
+  "notYetSplitBanner": "Diese Ausgabe ist noch nicht aufgeteilt. Konfigurieren Sie unten, wie sie aufgeteilt werden soll."
 }

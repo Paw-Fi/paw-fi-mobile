@@ -153,11 +153,14 @@ class UncategorizedCategory {
 }
 
 class PocketsNotifier extends StateNotifier<PocketsState> {
-  PocketsNotifier(this.ref, this.params) : super(PocketsState.initial());
-  
-  // NOTE: We intentionally do NOT auto-load in constructor.
-  // The UI should call load() explicitly when the pockets page is displayed.
-  // At that point, analytics data is guaranteed to be loaded with correct currency.
+  PocketsNotifier(this.ref, this.params) : super(PocketsState.initial()) {
+    // Auto-load once when the notifier is created.
+    // This ensures that:
+    // - The first time a pockets provider is watched, data starts loading immediately.
+    // - After ref.invalidate(pocketsProvider(...)) creates a new notifier,
+    //   pockets are reloaded without relying on widget lifecycle hooks.
+    Future.microtask(load);
+  }
 
   final Ref ref;
   final PocketsScopeParams params;
