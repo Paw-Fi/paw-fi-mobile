@@ -8,7 +8,6 @@ import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/households/presentation/pages/settlement_history_page.dart';
 import 'package:moneko/features/households/presentation/widgets/settle_up_sheet.dart';
 import 'package:moneko/shared/widgets/moneko-switch.dart';
-import 'package:moneko/shared/widgets/user_avatar.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../../core/l10n/l10n.dart';
@@ -193,16 +192,7 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
                           onChanged: _saveNettingPreference,
                         ),
                       ),
-                      const SizedBox(width: 12),
                     ],
-                    _HistoryButton(
-                      onTap: () {
-                        Navigator.of(context).push(MaterialPageRoute(
-                            builder: (_) => SettlementHistoryPage(
-                                householdId: widget.summary.householdId)));
-                      },
-                      colorScheme: colorScheme,
-                    ),
                   ],
                 ),
               ],
@@ -221,9 +211,6 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
                       label: context.l10n.youOwe,
                       amountCents: youOweTotal,
                       color: const Color(0xFFFF453A), // Apple Red
-                      backgroundColor:
-                          const Color(0xFFFF453A).withValues(alpha: 0.1),
-                      icon: Icons.arrow_outward_rounded,
                       onTap: youOweTotal > 0
                           ? () => _openSettleUpSheet(
                                 context,
@@ -243,9 +230,6 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
                       label: context.l10n.youAreOwed,
                       amountCents: owedToYouTotal,
                       color: const Color(0xFF30D158), // Apple Green
-                      backgroundColor:
-                          const Color(0xFF30D158).withValues(alpha: 0.1),
-                      icon: Icons.arrow_downward_rounded,
                       onTap: null,
                     ),
                   ),
@@ -256,16 +240,38 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
               const SizedBox(height: 20),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Text(
-                  _netTransfers
-                      ? context.l10n.suggestedNetTransfers
-                      : context.l10n.detailedPairwiseDues,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.mutedForeground,
-                    letterSpacing: 0.5,
-                  ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _netTransfers
+                            ? context.l10n.suggestedNetTransfers
+                            : context.l10n.detailedPairwiseDues,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.mutedForeground,
+                          letterSpacing: 0.5,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _HistoryButton(
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => SettlementHistoryPage(
+                              householdId: widget.summary.householdId,
+                            ),
+                          ),
+                        );
+                      },
+                      colorScheme: colorScheme,
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 8),
@@ -482,16 +488,12 @@ class _HistoryButton extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-          shape: BoxShape.circle,
-        ),
+      child: Padding(
+        padding: const EdgeInsets.all(4),
         child: Icon(
           Icons.history_rounded,
-          size: 20,
-          color: colorScheme.onSurfaceVariant,
+          size: 18,
+          color: colorScheme.mutedForeground,
         ),
       ),
     );
@@ -502,74 +504,46 @@ class _StatCard extends StatelessWidget {
   final String label;
   final int amountCents;
   final Color color;
-  final Color backgroundColor;
-  final IconData icon;
   final VoidCallback? onTap;
 
   const _StatCard({
     required this.label,
     required this.amountCents,
     required this.color,
-    required this.backgroundColor,
-    required this.icon,
     this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final isZero = amountCents == 0;
-    final content = Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isZero
-            ? Theme.of(context)
-                .colorScheme
-                .surfaceContainerHighest
-                .withValues(alpha: 0.3)
-            : backgroundColor,
-        borderRadius: BorderRadius.circular(20),
-      ),
+    final amountText = (amountCents / 100).toStringAsFixed(2);
+    final labelColor = isZero
+        ? Theme.of(context).colorScheme.mutedForeground
+        : color.withValues(alpha: 0.8);
+    final valueColor = isZero
+        ? Theme.of(context).colorScheme.mutedForeground
+        : color;
+
+    final content = Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Icon(
-                icon,
-                size: 20,
-                color: isZero
-                    ? Theme.of(context).colorScheme.mutedForeground
-                    : color,
-              ),
-              if (onTap != null && !isZero)
-                Icon(
-                  Icons.chevron_right_rounded,
-                  size: 20,
-                  color: color.withValues(alpha: 0.5),
-                ),
-            ],
-          ),
-          const SizedBox(height: 12),
           Text(
             label,
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: isZero
-                  ? Theme.of(context).colorScheme.mutedForeground
-                  : color.withValues(alpha: 0.8),
+              color: labelColor,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Text(
-            (amountCents / 100).toStringAsFixed(2),
+            amountText,
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w700,
-              color: isZero
-                  ? Theme.of(context).colorScheme.mutedForeground
-                  : color,
+              color: valueColor,
               letterSpacing: -1,
             ),
           ),
@@ -606,90 +580,44 @@ class _SuggestionRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final otherName = isPayer ? suggestion.toName : suggestion.fromName;
-    final otherUserId = isPayer ? suggestion.toUserId : suggestion.fromUserId;
-    final color = isPayer ? const Color(0xFFFF453A) : const Color(0xFF30D158);
     final amountText = (suggestion.amountCents / 100).toStringAsFixed(2);
+    final color = isPayer ? const Color(0xFFFF453A) : const Color(0xFF30D158);
+
+    // Left text: "Alice owes you" or "You owe Bob"
+    final label = isPayer
+        ? '${context.l10n.youOwe} $otherName'
+        : '$otherName ${context.l10n.owesYou}';
 
     return InkWell(
       onTap: () {
         HapticFeedback.lightImpact();
         onTap();
       },
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: scheme.surfaceContainerHighest.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(16),
-        ),
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
           children: [
-            UserAvatar(
-              name: otherName,
-              userId: otherUserId,
-              size: 40,
-            ),
-            const SizedBox(width: 12),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    otherName,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: scheme.foreground,
-                      letterSpacing: -0.3,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    isPayer ? context.l10n.youOwe : context.l10n.owesYou,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: scheme.mutedForeground,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: scheme.foreground,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  amountText,
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                    color: color,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-                if (isPayer)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        'Pay',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: color,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
+            const SizedBox(width: 8),
+            Text(
+              amountText,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: color,
+              ),
             ),
           ],
         ),

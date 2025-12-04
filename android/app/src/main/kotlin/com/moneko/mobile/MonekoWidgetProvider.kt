@@ -51,11 +51,12 @@ class MonekoWidgetProvider : HomeWidgetProvider() {
                         MainActivity::class.java,
                         Uri.parse("moneko://configure_widget?widgetId=$widgetId")
                     )
-                    // Make the whole setup view clickable to settings?
-                    // Or just tell them to long press (which is system behavior).
-                    // The prompt says "Long press to edit".
-                    // But we can also make it clickable if we want.
-                    // For now, just leave it as a prompt.
+                    // Allow users to tap the setup view to open the same
+                    // configuration flow used by the settings button once
+                    // the widget is configured. This mirrors the iOS flow,
+                    // where the initial widget placement immediately surfaces
+                    // configuration, instead of leaving the setup state inert.
+                    setOnClickPendingIntent(R.id.widget_setup, settingsIntent)
                     
                 } else {
                     setViewVisibility(R.id.widget_content, View.VISIBLE)

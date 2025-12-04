@@ -111,6 +111,14 @@
             </intent-filter>
         </activity>
 
+        <!-- Native configuration Activity for the Moneko home screen widget.
+             This is referenced from res/xml/widget_info.xml via android:configure
+             so that long-press "Edit" and initial placement open the same
+             configuration flow as the in-widget settings button. -->
+        <activity
+            android:name=".MonekoWidgetConfigureActivity"
+            android:exported="true" />
+
         <receiver android:name=".MonekoWidgetProvider" android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
