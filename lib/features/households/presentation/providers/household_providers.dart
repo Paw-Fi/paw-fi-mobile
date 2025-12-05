@@ -38,7 +38,8 @@ final householdRepositoryProvider = Provider<HouseholdRepository>((ref) {
 });
 
 /// Device registration service provider
-final deviceRegistrationServiceProvider = Provider<DeviceRegistrationService>((ref) {
+final deviceRegistrationServiceProvider =
+    Provider<DeviceRegistrationService>((ref) {
   final supabase = ref.watch(supabaseClientProvider);
   final messaging = FirebaseMessaging.instance;
   final localNotifications = FlutterLocalNotificationsPlugin();
@@ -50,7 +51,8 @@ final deviceRegistrationServiceProvider = Provider<DeviceRegistrationService>((r
 // ============================================================================
 
 /// User households state notifier
-class UserHouseholdsNotifier extends StateNotifier<AsyncValue<List<Household>>> {
+class UserHouseholdsNotifier
+    extends StateNotifier<AsyncValue<List<Household>>> {
   final HouseholdRepository _repository;
   final String _userId;
 
@@ -62,7 +64,8 @@ class UserHouseholdsNotifier extends StateNotifier<AsyncValue<List<Household>>> 
   Future<void> load() async {
     if (!mounted) return;
     state = const AsyncValue.loading();
-    final result = await AsyncValue.guard(() => _repository.getUserHouseholds(_userId));
+    final result =
+        await AsyncValue.guard(() => _repository.getUserHouseholds(_userId));
     if (!mounted) return;
     state = result;
   }
@@ -84,8 +87,8 @@ class UserHouseholdsNotifier extends StateNotifier<AsyncValue<List<Household>>> 
 }
 
 /// User households provider
-final userHouseholdsProvider =
-    StateNotifierProvider.family<UserHouseholdsNotifier, AsyncValue<List<Household>>, String>(
+final userHouseholdsProvider = StateNotifierProvider.family<
+    UserHouseholdsNotifier, AsyncValue<List<Household>>, String>(
   (ref, userId) {
     final repository = ref.watch(householdRepositoryProvider);
     return UserHouseholdsNotifier(repository, userId);
@@ -97,7 +100,8 @@ final userHouseholdsProvider =
 // ============================================================================
 
 /// Household members state notifier
-class HouseholdMembersNotifier extends StateNotifier<AsyncValue<List<HouseholdMember>>> {
+class HouseholdMembersNotifier
+    extends StateNotifier<AsyncValue<List<HouseholdMember>>> {
   final HouseholdRepository _repository;
   final String _householdId;
 
@@ -109,7 +113,8 @@ class HouseholdMembersNotifier extends StateNotifier<AsyncValue<List<HouseholdMe
   Future<void> load() async {
     if (!mounted) return;
     state = const AsyncValue.loading();
-    final result = await AsyncValue.guard(() => _repository.getHouseholdMembers(_householdId));
+    final result = await AsyncValue.guard(
+        () => _repository.getHouseholdMembers(_householdId));
     if (!mounted) return;
     state = result;
   }
@@ -129,9 +134,7 @@ class HouseholdMembersNotifier extends StateNotifier<AsyncValue<List<HouseholdMe
 
 /// Household members provider
 final householdMembersProvider = StateNotifierProvider.family<
-    HouseholdMembersNotifier,
-    AsyncValue<List<HouseholdMember>>,
-    String>(
+    HouseholdMembersNotifier, AsyncValue<List<HouseholdMember>>, String>(
   (ref, householdId) {
     final repository = ref.watch(householdRepositoryProvider);
     return HouseholdMembersNotifier(repository, householdId);
@@ -143,7 +146,8 @@ final householdMembersProvider = StateNotifierProvider.family<
 // ============================================================================
 
 /// Household budgets state notifier
-class HouseholdBudgetsNotifier extends StateNotifier<AsyncValue<List<SharedBudget>>> {
+class HouseholdBudgetsNotifier
+    extends StateNotifier<AsyncValue<List<SharedBudget>>> {
   final HouseholdRepository _repository;
   final String _householdId;
 
@@ -155,7 +159,8 @@ class HouseholdBudgetsNotifier extends StateNotifier<AsyncValue<List<SharedBudge
   Future<void> load() async {
     if (!mounted) return;
     state = const AsyncValue.loading();
-    final result = await AsyncValue.guard(() => _repository.getHouseholdBudgets(_householdId));
+    final result = await AsyncValue.guard(
+        () => _repository.getHouseholdBudgets(_householdId));
     if (!mounted) return;
     state = result;
   }
@@ -188,9 +193,7 @@ class HouseholdBudgetsNotifier extends StateNotifier<AsyncValue<List<SharedBudge
 
 /// Household budgets provider
 final householdBudgetsProvider = StateNotifierProvider.family<
-    HouseholdBudgetsNotifier,
-    AsyncValue<List<SharedBudget>>,
-    String>(
+    HouseholdBudgetsNotifier, AsyncValue<List<SharedBudget>>, String>(
   (ref, householdId) {
     final repository = ref.watch(householdRepositoryProvider);
     return HouseholdBudgetsNotifier(repository, householdId);
@@ -202,7 +205,8 @@ final householdBudgetsProvider = StateNotifierProvider.family<
 // ============================================================================
 
 /// Household invites state notifier
-class HouseholdInvitesNotifier extends StateNotifier<AsyncValue<List<HouseholdInvite>>> {
+class HouseholdInvitesNotifier
+    extends StateNotifier<AsyncValue<List<HouseholdInvite>>> {
   final HouseholdRepository _repository;
   final String _householdId;
 
@@ -214,7 +218,8 @@ class HouseholdInvitesNotifier extends StateNotifier<AsyncValue<List<HouseholdIn
   Future<void> load() async {
     if (!mounted) return;
     state = const AsyncValue.loading();
-    final result = await AsyncValue.guard(() => _repository.getHouseholdInvites(_householdId));
+    final result = await AsyncValue.guard(
+        () => _repository.getHouseholdInvites(_householdId));
     if (!mounted) return;
     state = result;
   }
@@ -244,9 +249,7 @@ class HouseholdInvitesNotifier extends StateNotifier<AsyncValue<List<HouseholdIn
 
 /// Household invites provider
 final householdInvitesProvider = StateNotifierProvider.family<
-    HouseholdInvitesNotifier,
-    AsyncValue<List<HouseholdInvite>>,
-    String>(
+    HouseholdInvitesNotifier, AsyncValue<List<HouseholdInvite>>, String>(
   (ref, householdId) {
     final repository = ref.watch(householdRepositoryProvider);
     return HouseholdInvitesNotifier(repository, householdId);
@@ -280,7 +283,8 @@ class SharingPrefsParams {
 }
 
 /// Sharing preferences state notifier
-class SharingPrefsNotifier extends StateNotifier<AsyncValue<SharingPreferences?>> {
+class SharingPrefsNotifier
+    extends StateNotifier<AsyncValue<SharingPreferences?>> {
   final HouseholdRepository _repository;
   final String _userId;
   final String _householdId;
@@ -293,10 +297,11 @@ class SharingPrefsNotifier extends StateNotifier<AsyncValue<SharingPreferences?>
   Future<void> load() async {
     if (!mounted) return;
     state = const AsyncValue.loading();
-    final result = await AsyncValue.guard(() => _repository.getSharingPreferences(
-          userId: _userId,
-          householdId: _householdId,
-        ));
+    final result =
+        await AsyncValue.guard(() => _repository.getSharingPreferences(
+              userId: _userId,
+              householdId: _householdId,
+            ));
     if (!mounted) return;
     state = result;
   }
@@ -325,10 +330,8 @@ class SharingPrefsNotifier extends StateNotifier<AsyncValue<SharingPreferences?>
 }
 
 /// Sharing preferences provider
-final sharingPrefsProvider = StateNotifierProvider.family<
-    SharingPrefsNotifier,
-    AsyncValue<SharingPreferences?>,
-    SharingPrefsParams>(
+final sharingPrefsProvider = StateNotifierProvider.family<SharingPrefsNotifier,
+    AsyncValue<SharingPreferences?>, SharingPrefsParams>(
   (ref, params) {
     final repository = ref.watch(householdRepositoryProvider);
     return SharingPrefsNotifier(repository, params.userId, params.householdId);
@@ -377,7 +380,7 @@ final householdSummaryProvider =
   (ref, params) async {
     final repository = ref.watch(householdRepositoryProvider);
 
-    const timeout = Duration(seconds: 8);
+    const timeout = Duration(seconds: 25);
     const maxAttempts = 2;
     Exception? lastError;
 
@@ -467,12 +470,12 @@ final householdSplitsProvider =
 class HouseholdExpensesParams {
   final String householdId;
   final int limit;
-  final DateTime? startDate;  // NEW: Date filter
-  final DateTime? endDate;    // NEW: Date filter
+  final DateTime? startDate; // NEW: Date filter
+  final DateTime? endDate; // NEW: Date filter
 
   const HouseholdExpensesParams({
     required this.householdId,
-    this.limit = 1000,  // Increased default from 500 to 1000 for better UX
+    this.limit = 1000, // Increased default from 500 to 1000 for better UX
     this.startDate,
     this.endDate,
   });
@@ -488,8 +491,11 @@ class HouseholdExpensesParams {
           endDate == other.endDate;
 
   @override
-  int get hashCode => householdId.hashCode ^ limit.hashCode ^ 
-                      (startDate?.hashCode ?? 0) ^ (endDate?.hashCode ?? 0);
+  int get hashCode =>
+      householdId.hashCode ^
+      limit.hashCode ^
+      (startDate?.hashCode ?? 0) ^
+      (endDate?.hashCode ?? 0);
 }
 
 /// Household expenses provider
@@ -510,18 +516,21 @@ final householdExpensesProvider =
       // recurring flow.
       var expensesQuery = supabase
           .from('expenses')
-          .select('id, contact_id, user_id, household_id, date, amount_cents, currency, category, raw_text, receipt_image_url, created_at, updated_at, split_group_id, type, is_recurring')
+          .select(
+              'id, contact_id, user_id, household_id, date, amount_cents, currency, category, raw_text, receipt_image_url, created_at, updated_at, split_group_id, type, is_recurring')
           .eq('household_id', params.householdId)
           .or('is_recurring.eq.false,is_recurring.is.null');
-      
+
       // Apply date filters if provided
       if (params.startDate != null) {
-        expensesQuery = expensesQuery.gte('date', params.startDate!.toIso8601String());
+        expensesQuery =
+            expensesQuery.gte('date', params.startDate!.toIso8601String());
       }
       if (params.endDate != null) {
-        expensesQuery = expensesQuery.lte('date', params.endDate!.toIso8601String());
+        expensesQuery =
+            expensesQuery.lte('date', params.endDate!.toIso8601String());
       }
-      
+
       final expenses = await expensesQuery
           .order('date', ascending: false)
           .limit(params.limit);
@@ -557,7 +566,8 @@ final householdExpensesProvider =
             usersMap[user['id'] as String] = user;
           }
         } catch (e) {
-          appLog('Error fetching users: $e', name: 'HouseholdProviders', error: e);
+          appLog('Error fetching users: $e',
+              name: 'HouseholdProviders', error: e);
         }
       }
 
@@ -584,7 +594,8 @@ final householdExpensesProvider =
 /// Provider for available household cover images
 /// Hardcoded list of all available cover images
 final coverImagesProvider = FutureProvider<List<String>>((ref) async {
-  const baseUrl = 'https://pbopcsmrcykdzbilpilf.supabase.co/storage/v1/object/public/group-cover-photos/';
+  const baseUrl =
+      'https://pbopcsmrcykdzbilpilf.supabase.co/storage/v1/object/public/group-cover-photos/';
 
   final images = [
     '${baseUrl}balloons.png',
@@ -603,7 +614,8 @@ final coverImagesProvider = FutureProvider<List<String>>((ref) async {
     '${baseUrl}shopping_bag.png',
   ];
 
-  appLog('Household cover images loaded: count=${images.length}', name: 'HouseholdProviders');
+  appLog('Household cover images loaded: count=${images.length}',
+      name: 'HouseholdProviders');
   appLog('First image URL: ${images.first}', name: 'HouseholdProviders');
   appLog('Last image URL: ${images.last}', name: 'HouseholdProviders');
 
@@ -724,7 +736,8 @@ class _AggregatedSettlement {
 
 /// Settlements timeline provider (newest first)
 final householdSettlementHistoryProvider = FutureProvider.autoDispose
-    .family<List<SettlementEvent>, SettlementHistoryParams>((ref, params) async {
+    .family<List<SettlementEvent>, SettlementHistoryParams>(
+        (ref, params) async {
   try {
     final supabase = ref.watch(supabaseClientProvider);
     final currentUserId = supabase.auth.currentUser?.id;
@@ -776,7 +789,8 @@ final householdSettlementHistoryProvider = FutureProvider.autoDispose
       print(
           '[settlement_history] sample settled_at=${sample['settled_at']} payer=${(sample['expense_split_groups'] as Map?)?['payer_user_id']} participant=${sample['user_id']} amount=${sample['amount_cents']} currency=${(sample['expense_split_groups'] as Map?)?['currency']}');
     } else {
-      print('[settlement_history] no rows returned for household=${params.householdId}');
+      print(
+          '[settlement_history] no rows returned for household=${params.householdId}');
     }
 
     // Aggregate by (unordered) participant/payer pair + currency + settled minute (+ actor) to collapse express netting
@@ -792,8 +806,8 @@ final householdSettlementHistoryProvider = FutureProvider.autoDispose
         skippedMissingDate++;
         continue;
       }
-      final minute =
-          DateTime(settledAt.year, settledAt.month, settledAt.day, settledAt.hour, settledAt.minute);
+      final minute = DateTime(settledAt.year, settledAt.month, settledAt.day,
+          settledAt.hour, settledAt.minute);
 
       final group = row['expense_split_groups'] as Map<String, dynamic>? ?? {};
       final payerId = group['payer_user_id'] as String? ?? '';
@@ -858,8 +872,7 @@ final householdSettlementHistoryProvider = FutureProvider.autoDispose
           ],
           payerToParticipantCents:
               payerId == idsSorted[0] ? amount : 0, // track per direction
-          participantToPayerCents:
-              payerId == idsSorted[0] ? 0 : amount,
+          participantToPayerCents: payerId == idsSorted[0] ? 0 : amount,
         );
       } else {
         final updatedLines = [
@@ -910,13 +923,13 @@ final householdSettlementHistoryProvider = FutureProvider.autoDispose
 
       final totalLines = data.lines.length;
       final netAmountCents = netCents.abs();
-      final isExpress = data.payerToParticipantCents > 0 &&
-          data.participantToPayerCents > 0;
+      final isExpress =
+          data.payerToParticipantCents > 0 && data.participantToPayerCents > 0;
 
       // Settlement-level note: use the first non-empty settlement note across lines
-      final settlementNote = data.lines
-          .map((l) => l.settlementNote)
-          .firstWhere((n) => n != null && n.trim().isNotEmpty, orElse: () => null);
+      final settlementNote = data.lines.map((l) => l.settlementNote).firstWhere(
+          (n) => n != null && n.trim().isNotEmpty,
+          orElse: () => null);
 
       return SettlementEvent(
         settledAt: data.settledAt,

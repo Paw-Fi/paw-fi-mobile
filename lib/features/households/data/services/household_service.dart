@@ -1,5 +1,6 @@
 import 'package:moneko/core/core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:async';
 
 /// Supabase service for household operations
 class HouseholdService {
@@ -328,7 +329,10 @@ class HouseholdService {
     // This ensures all splits for household expenses are available regardless of when
     // the split was created
 
-    final response = await query.order('created_at', ascending: false);
+    final response = await query
+        .order('created_at', ascending: false)
+        .limit(300)
+        .timeout(const Duration(seconds: 15));
 
     return (response as List).cast<Map<String, dynamic>>();
   }

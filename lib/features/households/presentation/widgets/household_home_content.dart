@@ -3,6 +3,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/household_providers.dart';
+import '../providers/cached_providers.dart';
 import '../providers/selected_household_provider.dart';
 import '../pages/household_onboarding_page.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
@@ -253,23 +254,32 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                           final to = range['to']!;
 
                           final expensesAsync =
-                              ref.watch(householdExpensesProvider(
+                              ref.watch(cachedHouseholdExpensesProvider(
                             HouseholdExpensesParams(
                               householdId: household.id,
                             ),
                           ));
-                          final splitsAsync = ref.watch(householdSplitsProvider(
+                          final splitsAsync =
+                              ref.watch(cachedHouseholdSplitsProvider(
                             HouseholdSplitsParams(householdId: household.id),
                           ));
 
-                          final transactions = expensesAsync.asData?.value;
-                          final splits = splitsAsync.asData?.value;
+                          final transactions = expensesAsync.valueOrNull;
+                          final splits = splitsAsync.valueOrNull;
 
-                          if (transactions == null || splits == null) {
+                          // Show loading only if we have no data and are loading
+                          if ((expensesAsync.isLoading ||
+                                  splitsAsync.isLoading) &&
+                              (transactions == null || splits == null)) {
                             return const Padding(
                               padding: EdgeInsets.all(16.0),
                               child: Center(child: CircularProgressIndicator()),
                             );
+                          }
+
+                          // If we have an error and no data, show nothing (or error widget)
+                          if (transactions == null || splits == null) {
+                            return const SizedBox.shrink();
                           }
 
                           // Logic copied from original _personalShareExpenses / inline logic
@@ -326,8 +336,8 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               int share = userLine.amountCents ?? 0;
                               if (share == 0) {
                                 final total = group.totalAmountCents;
-                                final lines =
-                                    group.splitLines ?? const <ExpenseSplitLine>[];
+                                final lines = group.splitLines ??
+                                    const <ExpenseSplitLine>[];
                                 if (total != 0 && lines.isNotEmpty) {
                                   switch (group.splitType) {
                                     case SplitType.equal:
@@ -403,7 +413,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                           // For now, let's pass the transactions for the selected range.
 
                           final expensesAsync =
-                              ref.watch(householdExpensesProvider(
+                              ref.watch(cachedHouseholdExpensesProvider(
                             HouseholdExpensesParams(
                               householdId: household.id,
                             ),
@@ -512,7 +522,8 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                             return const SizedBox.shrink();
                           }
 
-                          final transactions = expensesAsync.asData?.value ?? [];
+                          final transactions =
+                              expensesAsync.asData?.value ?? [];
 
                           return Padding(
                             padding:
@@ -532,10 +543,12 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                           (context, config) {
                         return Consumer(builder: (context, ref, _) {
                           // Non-editable: Get ALL household expenses (no date filtering)
-                          final expensesAsync = ref.watch(householdExpensesProvider(
+                          final expensesAsync =
+                              ref.watch(cachedHouseholdExpensesProvider(
                             HouseholdExpensesParams(householdId: household.id),
                           ));
-                          final splitsAsync = ref.watch(householdSplitsProvider(
+                          final splitsAsync =
+                              ref.watch(cachedHouseholdSplitsProvider(
                             HouseholdSplitsParams(householdId: household.id),
                           ));
                           final membersAsync =
@@ -561,16 +574,21 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                           ));
 
                           // Safely read summary and related AsyncValues to avoid crashes on errors/timeouts.
-                          final summary = summaryAsync.asData?.value;
+                          final summary = summaryAsync.valueOrNull;
 
                           if (summary == null) {
                             // If summary failed to load or is still loading, omit the settlement card.
                             return const SizedBox.shrink();
                           }
 
-                          final transactions = expensesAsync.asData?.value ?? [];
-                          final splits = splitsAsync.asData?.value;
-                          final members = membersAsync.asData?.value;
+                          // If splits failed to load, hide the card instead of showing "All settled up" falsely
+                          final splits = splitsAsync.valueOrNull;
+                          if (splits == null && splitsAsync.hasError) {
+                            return const SizedBox.shrink();
+                          }
+
+                          final transactions = expensesAsync.valueOrNull ?? [];
+                          final members = membersAsync.valueOrNull;
 
                           return Padding(
                             padding:
@@ -589,10 +607,12 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                           (context, config) {
                         return Consumer(builder: (context, ref, _) {
                           // Non-editable: Get ALL household expenses (no date filtering)
-                          final expensesAsync = ref.watch(householdExpensesProvider(
+                          final expensesAsync =
+                              ref.watch(cachedHouseholdExpensesProvider(
                             HouseholdExpensesParams(householdId: household.id),
                           ));
-                          final splitsAsync = ref.watch(householdSplitsProvider(
+                          final splitsAsync =
+                              ref.watch(cachedHouseholdSplitsProvider(
                             HouseholdSplitsParams(householdId: household.id),
                           ));
                           final membersAsync =
@@ -633,8 +653,8 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                                 summary,
                                 members: membersAsync.value,
                                 householdId: household.id,
-                                transactions: expensesAsync.value ?? [],
-                                splits: splitsAsync.value,
+                                transactions: expensesAsync.valueOrNull ?? [],
+                                splits: splitsAsync.valueOrNull,
                                 from: from,
                                 to: to,
                                 selectedCurrency: selectedCurrency,
@@ -655,13 +675,16 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                           (context, config) {
                         return Consumer(builder: (context, ref, _) {
                           // Non-editable: Get ALL household expenses (no date filtering)
-                          final expensesAsync = ref.watch(householdExpensesProvider(
+                          final expensesAsync =
+                              ref.watch(cachedHouseholdExpensesProvider(
                             HouseholdExpensesParams(householdId: household.id),
                           ));
 
                           final allExpenses = expensesAsync.value ?? [];
-                          final currencyFilteredExpenses = allExpenses.where((e) {
-                            final code = (e.currency ?? '').trim().toUpperCase();
+                          final currencyFilteredExpenses =
+                              allExpenses.where((e) {
+                            final code =
+                                (e.currency ?? '').trim().toUpperCase();
                             return code.isEmpty || code == selectedCurrency;
                           }).toList();
 
@@ -712,8 +735,10 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                             final d =
                                 DateTime(e.date.year, e.date.month, e.date.day);
                             final dateOk = !d.isBefore(from) && !d.isAfter(to);
-                            final code = (e.currency ?? '').trim().toUpperCase();
-                            final currencyOk = code.isEmpty || code == selectedCurrency;
+                            final code =
+                                (e.currency ?? '').trim().toUpperCase();
+                            final currencyOk =
+                                code.isEmpty || code == selectedCurrency;
                             return dateOk && currencyOk;
                           }).toList();
 
@@ -764,8 +789,10 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                             final d =
                                 DateTime(e.date.year, e.date.month, e.date.day);
                             final dateOk = !d.isBefore(from) && !d.isAfter(to);
-                            final code = (e.currency ?? '').trim().toUpperCase();
-                            final currencyOk = code.isEmpty || code == selectedCurrency;
+                            final code =
+                                (e.currency ?? '').trim().toUpperCase();
+                            final currencyOk =
+                                code.isEmpty || code == selectedCurrency;
                             return dateOk && currencyOk;
                           }).toList();
 

@@ -68,15 +68,9 @@ print_step "Step 6/6: Building iOS release for production..."
 flutter build ios --release --dart-define=ENV=prod
 print_success "iOS build completed successfully!"
 
-print_success "🎉 iOS deployment process completed!"
-print_warning "Note: The built iOS app is located in build/ios/archive/"
-print_warning "You can now upload the archive to App Store Connect using Xcode or xcrun altool"
+print_step "Step 7/6: Building Android App Bundle for production..."
+flutter build appbundle --release --dart-define=ENV=prod
+print_success "Android App Bundle build completed successfully!"
 
-echo ""
-echo "Next steps:"
-echo "1. Open Xcode: open ios/Runner.xcworkspace"
-echo "2. Go to Product -> Archive"
-echo "3. Upload to App Store Connect from the organizer window"
-echo ""
-echo "Or use command line:"
-echo "xcrun altool --upload-app --type ios --file build/ios/archive/Runner.xcarchive --api-key YOUR_API_KEY --api-issuer YOUR_ISSUER_ID"
+
+print_success "🎉 App build process completed!"
