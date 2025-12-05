@@ -7,7 +7,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
-import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
+import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/pages/pocket_details_page.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
@@ -44,7 +44,15 @@ class PocketsGridSection extends HookConsumerWidget {
     final state = ref.watch(pocketsProvider(scopeParams));
     final notifier = ref.read(pocketsProvider(scopeParams).notifier);
     final filter = ref.watch(homeFilterProvider);
-    final selectedCurrency = filter.selectedCurrency ?? 'USD';
+    final analytics = ref.watch(analyticsProvider);
+    final rawCurrency =
+        (filter.selectedCurrency?.trim().isNotEmpty == true
+                ? filter.selectedCurrency!.trim()
+                : (analytics.preferredCurrency?.trim().isNotEmpty == true
+                    ? analytics.preferredCurrency!.trim()
+                    : 'USD'))
+            .toUpperCase();
+    final selectedCurrency = rawCurrency;
 
     // Local state for Envelope Mode
     final envelopeMode = useState(true);

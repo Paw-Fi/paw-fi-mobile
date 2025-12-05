@@ -185,9 +185,16 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
 
           // Filters
           final filterState = ref.watch(homeFilterProvider);
-          final selectedCurrency =
-              (filterState.selectedCurrency ?? household.currency)
+          final analyticsState = ref.watch(analyticsProvider);
+          final rawCurrency =
+              (filterState.selectedCurrency?.trim().isNotEmpty == true
+                      ? filterState.selectedCurrency!.trim()
+                      : (analyticsState.preferredCurrency?.trim().isNotEmpty ==
+                              true
+                          ? analyticsState.preferredCurrency!.trim()
+                          : household.currency))
                   .toUpperCase();
+          final selectedCurrency = rawCurrency;
 
           // Data providers with date filtering
           // Note: Individual widgets inside DraggableDashboardList will fetch their own data

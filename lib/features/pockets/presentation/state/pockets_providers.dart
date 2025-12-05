@@ -239,19 +239,21 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         return;
       }
 
-      // Resolve currency for this scope/month.
+      // Resolve initial currency for this scope/month.
       // Must match main_menu_screen.dart / CurrencyDropdownButton behavior:
       // 1. Home filter's selectedCurrency (set by HomePage + currency selector)
       // 2. Analytics preferred currency
       // 3. Fallback to USD
       final analytics = ref.read(analyticsProvider);
-      final selectedCurrency =
+      final initialCurrency =
           (filter.selectedCurrency?.toUpperCase() ??
                   analytics.preferredCurrency?.toUpperCase() ??
                   'USD')
               .toUpperCase();
-      
-      debugPrint('[Pockets] Using currency: $selectedCurrency (filter: ${filter.selectedCurrency}, analytics: ${analytics.preferredCurrency}, hasLoaded: ${analytics.hasLoadedOnce})');
+      var selectedCurrency = initialCurrency;
+
+      debugPrint(
+          '[Pockets] Using currency: $selectedCurrency (filter: ${filter.selectedCurrency}, analytics: ${analytics.preferredCurrency}, hasLoaded: ${analytics.hasLoadedOnce})');
 
       // Fetch or create budget for the current month/scope
       final budgetQueryBase = supabase
@@ -300,11 +302,21 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           }
         }
 
-      if (budgetRow != null) {
-          final reusedCurrency = budgetRow['currency'];
-          debugPrint(
-              '[Pockets] Reused existing budget with currency $reusedCurrency for period $periodMonth');
-      }
+        if (budgetRow != null) {
+          final reusedCurrency =
+              (budgetRow['currency'] as String?)?.toUpperCase();
+          if (reusedCurrency != null &&
+              reusedCurrency.isNotEmpty &&
+              reusedCurrency != selectedCurrency) {
+            debugPrint(
+                '[Pockets] Reused existing budget with currency $reusedCurrency for period $periodMonth (was requesting $selectedCurrency)');
+            selectedCurrency = reusedCurrency;
+          } else if (reusedCurrency != null) {
+            // Keep selectedCurrency in sync with the budget row even if they match,
+            // to avoid any casing inconsistencies.
+            selectedCurrency = reusedCurrency;
+          }
+        }
       }
 
       double previousBudget = 0;
