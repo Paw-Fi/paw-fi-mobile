@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
@@ -10,13 +11,40 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
+import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/pockets/presentation/widgets/pockets_grid_section.dart';
-import 'package:moneko/features/utils/main_page_top_padding.dart';
 import 'package:moneko/shared/widgets/plain-adaptive-button.dart';
 import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+import 'package:moneko/core/theme/app_theme.dart';
+
+Household? _resolveHouseholdSelection(
+  SelectedHouseholdState selectedState,
+  List<Household> households,
+) {
+  if (households.isEmpty) return null;
+
+  final selected = selectedState.household;
+  if (selected != null &&
+      households.any((h) => h.id == selected.id)) {
+    return households.firstWhere(
+      (h) => h.id == selected.id,
+      orElse: () => households.first,
+    );
+  }
+
+  final selectedId = selectedState.householdId;
+  if (selectedId != null) {
+    return households.firstWhere(
+      (h) => h.id == selectedId,
+      orElse: () => households.first,
+    );
+  }
+
+  return households.first;
+}
 
 class PocketsPage extends HookConsumerWidget {
   const PocketsPage({super.key});
@@ -28,6 +56,11 @@ class PocketsPage extends HookConsumerWidget {
     final user = ref.watch(authProvider);
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
     final selectedHouseholdState = ref.watch(selectedHouseholdProvider);
+    final households = householdsAsync.valueOrNull ?? const <Household>[];
+    final resolvedHousehold = viewMode.mode == ViewMode.household
+        ? _resolveHouseholdSelection(selectedHouseholdState, households)
+        : null;
+    final resolvedHouseholdId = resolvedHousehold?.id;
     // Always start at the current month
     final now = DateTime.now();
     final initialMonth = DateTime(now.year, now.month, 1);
@@ -46,6 +79,149 @@ class PocketsPage extends HookConsumerWidget {
       return null;
     }, [initialMonth]);
 
+    // Keep selectedHouseholdProvider in sync when we fall back to a household
+    useEffect(() {
+      if (viewMode.mode != ViewMode.household) return null;
+      if (resolvedHouseholdId == null) return null;
+
+      final currentId = selectedHouseholdState.householdId;
+      final currentObjId = selectedHouseholdState.household?.id;
+      if (currentId == resolvedHouseholdId && currentObjId == resolvedHouseholdId) {
+        return null;
+      }
+
+      Future.microtask(() {
+        ref
+            .read(selectedHouseholdProvider.notifier)
+            .selectHousehold(resolvedHouseholdId, user.uid);
+      });
+
+      return null;
+    }, [
+      viewMode.mode,
+      resolvedHouseholdId,
+      selectedHouseholdState.householdId,
+      selectedHouseholdState.household?.id,
+      user.uid,
+    ]);
+
+    if (viewMode.mode == ViewMode.household) {
+      if (householdsAsync.isLoading) {
+        return AdaptiveScaffold(
+          body: Center(
+            child: CircularProgressIndicator(
+              strokeWidth: 3,
+              valueColor: AlwaysStoppedAnimation(colorScheme.primary),
+            ),
+          ),
+          floatingActionButton: shouldShowHomeFab(viewMode, householdsAsync)
+              ? Padding(
+                  padding: PlatformInfo.isIOS26OrHigher()
+                      ? const EdgeInsets.only(bottom: 80, right: 6)
+                      : const EdgeInsets.all(0),
+                  child: const HomeAiExpandableFab(),
+                )
+              : null,
+        );
+      }
+
+      if (householdsAsync.hasError) {
+        return AdaptiveScaffold(
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    context.l10n.errorLoadingHouseholds,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: colorScheme.destructive,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  PlainAdaptiveButton(
+                    onPressed: () => ref
+                        .read(userHouseholdsProvider(user.uid).notifier)
+                        .load(),
+                    child: Text(
+                      context.l10n.tryAgain,
+                      style: TextStyle(color: colorScheme.primary),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          floatingActionButton: shouldShowHomeFab(viewMode, householdsAsync)
+              ? Padding(
+                  padding: PlatformInfo.isIOS26OrHigher()
+                      ? const EdgeInsets.only(bottom: 80, right: 6)
+                      : const EdgeInsets.all(0),
+                  child: const HomeAiExpandableFab(),
+                )
+              : null,
+        );
+      }
+
+      if (households.isEmpty) {
+        return AdaptiveScaffold(
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                'Create or join a household to manage shared budgets.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: colorScheme.onSurfaceVariant,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+          floatingActionButton: shouldShowHomeFab(viewMode, householdsAsync)
+              ? Padding(
+                  padding: PlatformInfo.isIOS26OrHigher()
+                      ? const EdgeInsets.only(bottom: 80, right: 6)
+                      : const EdgeInsets.all(0),
+                  child: const HomeAiExpandableFab(),
+                )
+              : null,
+        );
+      }
+
+      if (resolvedHouseholdId == null) {
+        return AdaptiveScaffold(
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                'Select a household to manage shared budgets.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: colorScheme.onSurfaceVariant,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+          floatingActionButton: shouldShowHomeFab(viewMode, householdsAsync)
+              ? Padding(
+                  padding: PlatformInfo.isIOS26OrHigher()
+                      ? const EdgeInsets.only(bottom: 80, right: 6)
+                      : const EdgeInsets.all(0),
+                  child: const HomeAiExpandableFab(),
+                )
+              : null,
+        );
+      }
+    }
+
     // Determine parameters for the currently viewed month (for the bottom bar)
     final currentScopeParams = viewMode.mode == ViewMode.personal
         ? PocketsScopeParams(
@@ -54,7 +230,7 @@ class PocketsPage extends HookConsumerWidget {
           )
         : PocketsScopeParams(
             scope: PocketsScopeType.household,
-            householdId: selectedHouseholdState.householdId,
+            householdId: resolvedHouseholdId,
             periodMonth: currentMonthState.value,
           );
 
@@ -85,7 +261,7 @@ class PocketsPage extends HookConsumerWidget {
                       scope: PocketsScopeType.personal, periodMonth: month)
                   : PocketsScopeParams(
                       scope: PocketsScopeType.household,
-                      householdId: selectedHouseholdState.householdId,
+                      householdId: resolvedHouseholdId,
                       periodMonth: month,
                     );
 

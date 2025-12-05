@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/shared/widgets/adaptive_color_picker.dart';
 
 import 'package:moneko/core/resources/lib/supabase.dart';
@@ -16,6 +19,7 @@ import 'package:moneko/features/home/presentation/state/home_filter_provider.dar
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/pockets/presentation/constants/pocket_icon_constants.dart';
+import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/shared/widgets/plain-adaptive-button.dart';
 import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
@@ -40,6 +44,33 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
   final List<PocketEnvelope> allPockets;
   final VoidCallback? onDeleteCompleted;
 
+  static const int _pctPrecision = 4; // use finer precision to preserve large amounts
+
+  Future<bool?> _confirmDelete(BuildContext context, AppLocalizations l10n) {
+    return showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(l10n.pocketDeleteTitle),
+          content: Text(l10n.pocketDeleteMessage),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(l10n.cancel),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: TextButton.styleFrom(
+                foregroundColor: Theme.of(dialogContext).colorScheme.error,
+              ),
+              child: Text(l10n.delete),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -52,7 +83,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
     );
     final percentageController = useTextEditingController(
       text: existingEnvelope != null
-          ? existingEnvelope!.percentage.toStringAsFixed(1)
+          ? existingEnvelope!.percentage.toStringAsFixed(_pctPrecision)
           : '',
     );
 
@@ -92,7 +123,8 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
 
           // Update slider and percentage controller
           sliderValue.value = newPct.clamp(0.0, effectiveMax);
-          percentageController.text = sliderValue.value.toStringAsFixed(1);
+          percentageController.text =
+              sliderValue.value.toStringAsFixed(_pctPrecision);
 
           // Re-format the amount text
           amountController.text = formatAmount(clampedAmount);
@@ -115,6 +147,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
     final selectedColor = useState<String?>(existingEnvelope?.color);
     final selectedIcon = useState<String?>(existingEnvelope?.icon);
     final isLoading = useState<bool>(false);
+    final isMounted = useIsMounted();
     final currency = selectedCurrency;
 
     useEffect(() {
@@ -188,42 +221,45 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
         return;
       }
 
-      isLoading.value = true;
+      if (isMounted()) {
+        isLoading.value = true;
+      }
 
       try {
-        // Rebalance percentages so total always equals 100
+        // Rebalance percentages: preserve user allocations unless totals exceed 100.
         final others = allPockets
             .where((p) => isEditing ? p.id != existingEnvelope!.id : true)
             .toList();
         var desiredPct =
-            double.parse(percentage.clamp(0, 100).toStringAsFixed(2));
-        var targetOtherTotal = (100 - desiredPct).clamp(0, 100);
+            double.parse(percentage.clamp(0, 100).toStringAsFixed(_pctPrecision));
         final totalOther =
             others.fold<double>(0.0, (sum, p) => sum + p.percentage);
-
         final adjustedOthers = <String, double>{};
-        if (others.isEmpty) {
-          desiredPct = 100;
-          targetOtherTotal = 0;
-        } else if (totalOther <= 0) {
-          final even = targetOtherTotal / others.length;
-          var remaining = targetOtherTotal;
-          for (var i = 0; i < others.length; i++) {
-            final pct = i == others.length - 1 ? remaining : even;
-            remaining -= pct;
-            adjustedOthers[others[i].id] = double.parse(pct.toStringAsFixed(2));
+
+        final currentTotal = desiredPct + totalOther;
+        if (currentTotal > 100.0 + 0.0001) {
+          // Scale others down to fit within 100 (leave desiredPct as entered)
+          final available = (100.0 - desiredPct).clamp(0.0, 100.0);
+          if (totalOther <= 0 || available <= 0) {
+            desiredPct = 100.0;
+          } else {
+            final factor = available / totalOther;
+            var remaining = available;
+            for (var i = 0; i < others.length; i++) {
+              final raw = (others[i].percentage * factor).clamp(0, 100);
+              final pct = i == others.length - 1
+                  ? remaining
+                  : double.parse(raw.toStringAsFixed(_pctPrecision));
+              remaining -= pct;
+              adjustedOthers[others[i].id] =
+                  double.parse(pct.clamp(0, 100).toStringAsFixed(_pctPrecision));
+            }
           }
         } else {
-          final factor = targetOtherTotal / totalOther;
-          var remaining = targetOtherTotal;
-          for (var i = 0; i < others.length; i++) {
-            final raw = (others[i].percentage * factor).clamp(0, 100);
-            final pct = i == others.length - 1
-                ? remaining
-                : double.parse(raw.toStringAsFixed(2));
-            remaining -= pct;
-            adjustedOthers[others[i].id] =
-                double.parse(pct.clamp(0, 100).toStringAsFixed(2));
+          // Keep others as-is (clamped), allowing unallocated budget.
+          for (final p in others) {
+            adjustedOthers[p.id] =
+                double.parse(p.percentage.clamp(0, 100).toStringAsFixed(_pctPrecision));
           }
         }
 
@@ -292,7 +328,18 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           await supabase.from('envelope_category_links').insert(linksPayload);
         }
 
-        ref.invalidate(pocketsProvider(scopeParams));
+        // CRITICAL: Invalidate RequestDeduplicator cache for household data
+        if (isHousehold && householdId != null) {
+          debugPrint('🗑️ [POCKET SAVE] Invalidating household cache for: $householdId');
+          ref.read(cacheInvalidatorProvider).invalidateHouseholdData(householdId);
+        }
+
+        // CRITICAL: Invalidate ALL pocket providers (all scopes, all months)
+        // This ensures pockets page refreshes in all views, not just current month/scope
+        debugPrint('🗑️ [POCKET SAVE] Invalidating ALL pockets provider families...');
+        ref.invalidate(pocketsProvider);
+        
+        debugPrint('✅ [POCKET SAVE] Pocket saved and all providers invalidated');
 
         if (context.mounted) {
           Navigator.of(context).pop();
@@ -305,7 +352,9 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           AppToast.error(context, l10n.failedToSave(e.toString()));
         }
       } finally {
-        isLoading.value = false;
+        if (isMounted()) {
+          isLoading.value = false;
+        }
       }
     }
 
@@ -313,52 +362,44 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
       if (!isEditing) return;
 
       final l10n = context.l10n;
-      final navigator = Navigator.of(context);
+      final confirmed = await _confirmDelete(context, l10n);
+      if (confirmed != true) return;
 
-      AdaptiveAlertDialog.show(
-        context: context,
-        title: l10n.pocketDeleteTitle,
-        message: l10n.pocketDeleteMessage,
-        icon: 'trash.fill',
-        actions: [
-          AlertAction(
-            title: l10n.cancel,
-            onPressed: () {
-              navigator.pop(false);
-            },
-          ),
-          AlertAction(
-            title: l10n.delete,
-            style: AlertActionStyle.destructive,
-            onPressed: () async {
-              isLoading.value = true;
-              try {
-                await supabase
-                    .from('budget_envelopes')
-                    .delete()
-                    .eq('id', existingEnvelope!.id);
+      if (isMounted()) {
+        isLoading.value = true;
+      }
+      try {
+        await supabase.from('budget_envelopes').delete().eq('id', existingEnvelope!.id);
 
-                ref.invalidate(pocketsProvider(scopeParams));
+        // CRITICAL: Invalidate RequestDeduplicator cache for household data
+        final isHousehold = scopeParams.scope == PocketsScopeType.household;
+        final householdId = scopeParams.householdId;
+        if (isHousehold && householdId != null) {
+          debugPrint('🗑️ [POCKET DELETE] Invalidating household cache for: $householdId');
+          ref.read(cacheInvalidatorProvider).invalidateHouseholdData(householdId);
+        }
 
-                if (context.mounted) {
-                  // First close the confirmation dialog, then the bottom sheet.
-                  navigator.pop();
-                  navigator.pop();
+        // CRITICAL: Invalidate ALL pocket providers (all scopes, all months)
+        // This ensures pockets page refreshes in all views, not just current month/scope
+        debugPrint('🗑️ [POCKET DELETE] Invalidating ALL pockets provider families...');
+        ref.invalidate(pocketsProvider);
+        
+        debugPrint('✅ [POCKET DELETE] Pocket deleted and all providers invalidated');
 
-                  onDeleteCompleted?.call();
-                  AppToast.success(context, l10n.pocketDeleted);
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  AppToast.error(context, l10n.failedToDeletePocket);
-                }
-              } finally {
-                isLoading.value = false;
-              }
-            },
-          ),
-        ],
-      );
+        if (context.mounted) {
+          Navigator.of(context).pop(); // close sheet
+          onDeleteCompleted?.call();
+          AppToast.success(context, l10n.pocketDeleted);
+        }
+      } catch (e) {
+        if (context.mounted) {
+          AppToast.error(context, l10n.failedToDeletePocket);
+        }
+      } finally {
+        if (isMounted()) {
+          isLoading.value = false;
+        }
+      }
     }
 
     return Container(
@@ -871,7 +912,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      '${sliderValue.value.toStringAsFixed(1)}%',
+                                      '${sliderValue.value.toStringAsFixed(2)}%',
                                       style: TextStyle(
                                         fontSize: 13,
                                         color: colorScheme.mutedForeground,
@@ -909,11 +950,10 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                 value: sliderValue.value,
                                 min: 0,
                                 max: effectiveMax,
-                                divisions: 20,
                                 onChanged: (value) {
                                   sliderValue.value = value;
                                   percentageController.text =
-                                      value.toStringAsFixed(1);
+                                      value.toStringAsFixed(_pctPrecision);
                                 },
                               ),
                             ),

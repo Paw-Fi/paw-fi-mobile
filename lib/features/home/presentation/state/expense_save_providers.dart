@@ -113,15 +113,16 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
             return memberData;
           }).toList(),
         };
-        if (payerUserId != null && payerUserId.isNotEmpty) {
-          requestBody['payerUserId'] = payerUserId;
-        }
         
         debugPrint('📊 Custom splits payload: ${requestBody['customSplits']}');
       } else if (householdId != null) {
         debugPrint('⚠️ [SAVE EXPENSE] No custom splits - backend will default to equal split');
         debugPrint('  - customSplitType: $customSplitType');
         debugPrint('  - customSplits: ${customSplits?.length ?? 0} members');
+      }
+
+      if (householdId != null && payerUserId != null && payerUserId.isNotEmpty) {
+        requestBody['payerUserId'] = payerUserId;
       }
 
       // Call save-expense edge function

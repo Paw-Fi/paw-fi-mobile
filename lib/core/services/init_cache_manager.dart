@@ -15,7 +15,7 @@ class InitCacheManager {
   static const String _cacheKey = 'app_init_cache_v2';
   static const String _timestampKey = 'app_init_cache_timestamp_v2';
   static const String _versionKey = 'app_init_cache_version';
-  static const Duration _cacheValidity = Duration(hours = 24);
+  static const Duration _cacheValidity = Duration(hours: 24);
   
   final SharedPreferences _prefs;
   

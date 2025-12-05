@@ -57,6 +57,24 @@ class Subscription {
     );
   }
 
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'user_id': userId,
+      'stripe_subscription_id': stripeSubscriptionId,
+      'stripe_customer_id': stripeCustomerId,
+      'plan': plan,
+      'status': status,
+      'current_period_end': currentPeriodEnd?.toIso8601String(),
+      'next_payment_date': nextPaymentDate?.toIso8601String(),
+      'cancel_at_period_end': cancelAtPeriodEnd,
+      'bound_to_user_id': boundToUserId,
+      'bound_to_household_id': boundToHouseholdId,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
+    };
+  }
+
   /// Subscription logic (with household binding support):
   /// 1. No row in DB → Provider returns null → hasActiveSubscription = false (FREE)
   /// 2. Row exists + stripe_subscription_id is null + plan is NOT "lifetime" + status is NOT "trialing" + NOT bound to household → FREE

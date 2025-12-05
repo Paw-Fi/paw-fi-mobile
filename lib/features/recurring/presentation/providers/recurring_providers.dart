@@ -65,57 +65,74 @@ class RecurringTransactionsNotifier
     bool forceRefresh = false,
   }) async {
     if (!mounted) return;
+    
+    // Log current state
+    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    debugPrint('🔄 [RecurringTx] LOAD REQUESTED');
+    debugPrint('   Scope: ${householdId == null ? 'PERSONAL' : 'HOUSEHOLD($householdId)'}');
+    debugPrint('   UserId: $userId');
+    debugPrint('   ForceRefresh: $forceRefresh');
+    debugPrint('   HasLoadedOnce: ${state.hasLoadedOnce}');
+    debugPrint('   IsLoading: ${state.data.isLoading}');
+    
     // Skip loading if already loaded successfully (unless forced refresh)
     if (state.hasLoadedOnce && !forceRefresh) {
-      debugPrint('📦 RecurringTransactions($householdId): Already loaded, skipping');
+      debugPrint('   ⏭️  SKIPPING: Already loaded');
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       return;
     }
 
-    debugPrint(
-        '🔄 RecurringTransactions($householdId): Loading for userId=$userId');
+    debugPrint('   ✅ PROCEEDING with load');
     state = state.copyWith(data: const AsyncValue.loading());
 
     try {
-      debugPrint('🌐 Using NEW architecture: includeRecurring=true on backend');
+      debugPrint('🌐 [RecurringTx] Calling Edge Functions...');
 
       // Fetch recurring expenses and incomes in parallel
       // Backend filters at database level for maximum performance
+      final requestBody = {
+        'userId': userId,
+        'limit': limit,
+        'includeRecurring': true,
+        if (householdId != null) 'householdId': householdId,
+      };
+      
+      debugPrint('   📤 Request body: $requestBody');
+      
       final results = await Future.wait([
         supabase.functions.invoke(
           'list-expenses',
-          body: {
-            'userId': userId,
-            'limit': limit,
-            'includeRecurring': true,
-            if (householdId != null) 'householdId': householdId,
-          },
+          body: requestBody,
         ),
         supabase.functions.invoke(
           'list-income',
-          body: {
-            'userId': userId,
-            'limit': limit,
-            'includeRecurring': true,
-            if (householdId != null) 'householdId': householdId,
-          },
+          body: requestBody,
         ),
       ]);
 
       final expensesResponse = results[0];
       final incomesResponse = results[1];
+      
+      debugPrint('   📥 Expenses response success: ${expensesResponse.data['success']}');
+      debugPrint('   📥 Incomes response success: ${incomesResponse.data['success']}');
 
       final allTransactions = <RecurringTransaction>[];
 
       // Process expenses
       if (expensesResponse.data['success'] == true) {
         final expensesData = expensesResponse.data['data'] as List<dynamic>;
+        debugPrint('   📊 Raw expenses count: ${expensesData.length}');
+        debugPrint('   📊 Raw expenses data: ${expensesData.map((e) => {'id': e['id'], 'household_id': e['household_id'], 'is_recurring': e['is_recurring']}).toList()}');
+        
         for (final item in expensesData) {
           try {
             final transaction =
                 RecurringTransaction.fromJson(item as Map<String, dynamic>);
             allTransactions.add(transaction);
+            debugPrint('      ✅ Expense: ${transaction.id} | ${transaction.category} | ${transaction.amount} | household=${transaction.householdId}');
           } catch (parseError) {
-            debugPrint('❌ Error parsing expense: $parseError');
+            debugPrint('      ❌ Error parsing expense: $parseError');
+            debugPrint('      Raw data: $item');
           }
         }
       }
@@ -123,37 +140,62 @@ class RecurringTransactionsNotifier
       // Process incomes
       if (incomesResponse.data['success'] == true) {
         final incomesData = incomesResponse.data['data'] as List<dynamic>;
+        debugPrint('   📊 Raw incomes count: ${incomesData.length}');
+        debugPrint('   📊 Raw incomes data: ${incomesData.map((e) => {'id': e['id'], 'household_id': e['household_id'], 'is_recurring': e['is_recurring']}).toList()}');
+        
         for (final item in incomesData) {
           try {
             final transaction =
                 RecurringTransaction.fromJson(item as Map<String, dynamic>);
             allTransactions.add(transaction);
+            debugPrint('      ✅ Income: ${transaction.id} | ${transaction.category} | ${transaction.amount} | household=${transaction.householdId}');
           } catch (parseError) {
-            debugPrint('❌ Error parsing income: $parseError');
+            debugPrint('      ❌ Error parsing income: $parseError');
+            debugPrint('      Raw data: $item');
           }
         }
       }
 
+      debugPrint('   📦 Total transactions before scope filter: ${allTransactions.length}');
+
       // Enforce scope on the client to avoid leaking other contexts
       final scopedTransactions = allTransactions.where((t) {
-        if (householdId == null) {
-          // Personal scope: only personal items
-          return t.householdId == null;
+        final matches = householdId == null 
+            ? t.householdId == null 
+            : t.householdId == householdId;
+        
+        if (!matches) {
+          debugPrint('      🚫 FILTERED OUT: ${t.id} (household: ${t.householdId})');
         }
-        // Household scope: match the current household
-        return t.householdId == householdId;
+        
+        return matches;
       }).toList();
+      
+      debugPrint('   ✅ Transactions AFTER scope filter: ${scopedTransactions.length}');
 
       // Sort by date (newest first)
       scopedTransactions.sort((a, b) => b.date.compareTo(a.date));
 
-      if (!mounted) return;
+      if (!mounted) {
+        debugPrint('   ⚠️  Provider unmounted, aborting');
+        return;
+      }
+      
       state = state.copyWith(
         data: AsyncValue.data(scopedTransactions),
         hasLoadedOnce: true,
       );
+      
+      debugPrint('   ✅ State updated successfully');
+      debugPrint('   📊 Final transaction list:');
+      for (var t in scopedTransactions) {
+        debugPrint('      - ${t.type}: ${t.category} | ${t.amount} ${t.currency} | ${t.recurrenceRule?.frequency ?? "one-time"}');
+      }
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     } catch (e, st) {
-      debugPrint('❌ Exception: $e');
+      debugPrint('❌ [RecurringTx] Exception: $e');
+      debugPrint('   Stack trace: $st');
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       if (!mounted) return;
       state = state.copyWith(
         data: AsyncValue.error(e, st),
@@ -360,10 +402,10 @@ class RecurringTransactionSaveNotifier
               return memberData;
             }).toList(),
           };
+        }
 
-          if (payerUserId != null && payerUserId.isNotEmpty) {
-            requestBody['payerUserId'] = payerUserId;
-          }
+        if (payerUserId != null && payerUserId.isNotEmpty) {
+          requestBody['payerUserId'] = payerUserId;
         }
       }
 
@@ -376,8 +418,11 @@ class RecurringTransactionSaveNotifier
         final expense = RecurringTransaction.fromJson(
             response.data['data'] as Map<String, dynamic>);
         state = AsyncValue.data(expense);
-        // Update the relevant scope provider
-        ref.read(recurringTransactionsProvider(householdId).notifier).addRecurring(expense);
+        
+        // Force refresh the list provider to show the new transaction
+        // Don't use optimistic update as we'll invalidate in the sheet
+        debugPrint('🔄 [SaveRecurring] Saved successfully, transaction will be reloaded by invalidation');
+        
         return expense;
       } else {
         state = AsyncValue.error(
@@ -457,8 +502,11 @@ class RecurringTransactionSaveNotifier
         final income = RecurringTransaction.fromJson(
             response.data['data'] as Map<String, dynamic>);
         state = AsyncValue.data(income);
-        // Update the relevant scope provider
-        ref.read(recurringTransactionsProvider(householdId).notifier).addRecurring(income);
+        
+        // Force refresh the list provider to show the new transaction
+        // Don't use optimistic update as we'll invalidate in the sheet
+        debugPrint('🔄 [SaveRecurring] Saved successfully, transaction will be reloaded by invalidation');
+        
         return income;
       } else {
         state = AsyncValue.error(
@@ -491,6 +539,9 @@ class RecurringTransactionSaveNotifier
     String ownerType = 'me',
     String privacyScope = 'full',
     String? householdId,
+    SplitType? customSplitType,
+    List<MemberSplit>? customSplits,
+    String? payerUserId,
   }) async {
     state = const AsyncValue.loading();
 
@@ -522,9 +573,44 @@ class RecurringTransactionSaveNotifier
         'date': formattedAccountingDate,
         'is_recurring': true,
         'recurrence_rule': recurrenceRule,
+        'household_id': householdId,
       };
       if (description != null && description.trim().isNotEmpty) {
         updates['raw_text'] = description.trim();
+      }
+      // Attach payer and splits for household updates
+      if (householdId != null) {
+        if (customSplitType != null &&
+            customSplits != null &&
+            customSplits.isNotEmpty) {
+          final splitTypeStr = customSplitType.toString().split('.').last;
+          updates['custom_splits'] = {
+            'splitType': splitTypeStr,
+            'memberSplits': customSplits.map((split) {
+              final memberData = <String, dynamic>{
+                'userId': split.member.userId,
+              };
+              switch (customSplitType) {
+                case SplitType.amount:
+                  memberData['amount'] = split.amount;
+                  break;
+                case SplitType.percentage:
+                  memberData['percentage'] = split.percentage;
+                  break;
+                case SplitType.shares:
+                  memberData['shares'] = split.shares;
+                  break;
+                case SplitType.equal:
+                  break;
+              }
+              return memberData;
+            }).toList(),
+          };
+        }
+
+        if (payerUserId != null && payerUserId.isNotEmpty) {
+          updates['payer_user_id'] = payerUserId;
+        }
       }
 
       final response = await supabase.functions.invoke(
@@ -540,8 +626,11 @@ class RecurringTransactionSaveNotifier
         final updatedExpense = RecurringTransaction.fromJson(
             response.data['data'] as Map<String, dynamic>);
         state = AsyncValue.data(updatedExpense);
-        // Update the relevant scope provider
-        ref.read(recurringTransactionsProvider(householdId).notifier).updateRecurring(updatedExpense);
+        
+        // Force refresh the list provider to show the updated transaction
+        // Don't use optimistic update as we'll invalidate in the sheet
+        debugPrint('🔄 [UpdateRecurring] Updated successfully, transaction will be reloaded by invalidation');
+        
         return updatedExpense;
       } else {
         state = AsyncValue.error(
@@ -627,8 +716,11 @@ class RecurringTransactionSaveNotifier
         final updatedIncome = RecurringTransaction.fromJson(
             response.data['data'] as Map<String, dynamic>);
         state = AsyncValue.data(updatedIncome);
-        // Update the relevant scope provider
-        ref.read(recurringTransactionsProvider(householdId).notifier).updateRecurring(updatedIncome);
+        
+        // Force refresh the list provider to show the updated transaction
+        // Don't use optimistic update as we'll invalidate in the sheet
+        debugPrint('🔄 [UpdateRecurring] Updated successfully, transaction will be reloaded by invalidation');
+        
         return updatedIncome;
       } else {
         state = AsyncValue.error(

@@ -8,7 +8,6 @@ import 'package:moneko/features/avatar/presentation/pages/avatar_customizer_scre
 import 'package:moneko/features/subscription/presentation/pages/paywall_screen.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/core/navigation/main_shell.dart';
-import 'package:moneko/core/app/app_initialization_provider.dart';
 import 'package:moneko/core/app/app_initialization_provider_v2.dart';
 import 'package:moneko/core/ui/pages/splash_screen.dart';
 import 'package:moneko/features/households/presentation/pages/household_invites_page.dart';
@@ -305,20 +304,20 @@ class RouterNotifier extends ChangeNotifier {
           // If logging out (going from authenticated to not authenticated)
           if (previous != null && !previous.isEmpty && next.isEmpty) {
             if (kDebugMode) {
-              debugPrint('👋 User logged out, clearing cache');
+              debugPrint('👋 User logged out, clearing cache (V2)');
             }
-            _ref.read(appInitializationProvider.notifier).clearCache();
+            _ref.read(appInitializationV2Provider.notifier).onLogout();
+          } else {
+            // Reset initialization for login (not logout)
+            _ref.read(appInitializationV2Provider.notifier).reset();
           }
-
-          // Reset initialization for both login and logout
-          _ref.read(appInitializationProvider.notifier).reset();
         }
       },
     );
 
-    // Listen to app initialization state changes
-    _ref.listen<AppInitState>(
-      appInitializationProvider,
+    // Listen to app initialization state changes (V2)
+    _ref.listen<AppInitializationState>(
+      appInitializationV2Provider,
       (_, __) => notifyListeners(),
     );
   }

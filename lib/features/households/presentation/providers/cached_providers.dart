@@ -22,11 +22,15 @@ class RequestDeduplicator<T> {
     final cached = _cache[key];
     if (cached != null) {
       final (data, timestamp) = cached;
-      if (DateTime.now().difference(timestamp) < cacheDuration) {
-        debugPrint('✅ [CACHE HIT] Returning cached data for $key');
+      final age = DateTime.now().difference(timestamp);
+      if (age < cacheDuration) {
+        debugPrint('✅ [CACHE HIT] Returning cached data for $key (age: ${age.inSeconds}s)');
         return data;
       }
+      debugPrint('⏰ [CACHE EXPIRED] Cache expired for $key (age: ${age.inSeconds}s > ${cacheDuration.inSeconds}s)');
       _cache.remove(key);
+    } else {
+      debugPrint('❌ [CACHE MISS] No cache found for $key');
     }
     
     // Check if request is already pending
@@ -44,9 +48,11 @@ class RequestDeduplicator<T> {
     try {
       final result = await fetch();
       _cache[key] = (result, DateTime.now());
+      debugPrint('✅ [FETCH SUCCESS] Cached result for $key');
       completer.complete(result);
       return result;
     } catch (e) {
+      debugPrint('❌ [FETCH ERROR] Failed to fetch $key: $e');
       completer.completeError(e);
       rethrow;
     } finally {
@@ -55,11 +61,17 @@ class RequestDeduplicator<T> {
   }
   
   void invalidate(String key) {
+    final hadCache = _cache.containsKey(key);
     _cache.remove(key);
+    if (hadCache) {
+      debugPrint('🗑️ [INVALIDATE] Removed cache for: $key');
+    }
   }
   
   void invalidateAll() {
+    final count = _cache.length;
     _cache.clear();
+    debugPrint('🗑️ [INVALIDATE ALL] Cleared $count cache entries');
   }
 }
 
@@ -80,11 +92,19 @@ final cachedHouseholdExpensesProvider =
         '${params.startDate?.millisecondsSinceEpoch}_'
         '${params.endDate?.millisecondsSinceEpoch}';
     
-    return _expensesDeduplicator.deduplicate(
+    debugPrint('📊 [CACHED_EXPENSES] Provider called for key: $key');
+    
+    final result = await _expensesDeduplicator.deduplicate(
       key,
-      () => ref.read(householdExpensesProvider(params).future)
-          .trackPerformance('household_expenses', details: 'household=${params.householdId}'),
+      () {
+        debugPrint('🌐 [CACHED_EXPENSES] Fetching from base provider for: $key');
+        return ref.read(householdExpensesProvider(params).future)
+            .trackPerformance('household_expenses', details: 'household=${params.householdId}');
+      },
     );
+    
+    debugPrint('✅ [CACHED_EXPENSES] Returning ${result.length} expenses for key: $key');
+    return result;
   },
 );
 
@@ -94,11 +114,19 @@ final cachedHouseholdSplitsProvider =
   (ref, params) async {
     final key = 'splits_${params.householdId}_${params.dateRange}';
     
-    return _splitsDeduplicator.deduplicate(
+    debugPrint('📊 [CACHED_SPLITS] Provider called for key: $key');
+    
+    final result = await _splitsDeduplicator.deduplicate(
       key,
-      () => ref.read(householdSplitsProvider(params).future)
-          .trackPerformance('household_splits', details: 'household=${params.householdId}'),
+      () {
+        debugPrint('🌐 [CACHED_SPLITS] Fetching from base provider for: $key');
+        return ref.read(householdSplitsProvider(params).future)
+            .trackPerformance('household_splits', details: 'household=${params.householdId}');
+      },
     );
+    
+    debugPrint('✅ [CACHED_SPLITS] Returning ${result.length} splits for key: $key');
+    return result;
   },
 );
 
@@ -107,15 +135,17 @@ final cacheInvalidatorProvider = Provider((ref) => CacheInvalidator());
 
 class CacheInvalidator {
   void invalidateHouseholdData(String householdId) {
-    debugPrint('🗑️ Invalidating cache for household $householdId');
+    debugPrint('🗑️ [CACHE_INVALIDATOR] Invalidating cache for household $householdId');
     // Invalidate all cached keys for this household
     _expensesDeduplicator.invalidateAll();
     _splitsDeduplicator.invalidateAll();
+    debugPrint('✅ [CACHE_INVALIDATOR] Cache invalidated for household $householdId');
   }
   
   void invalidateAll() {
-    debugPrint('🗑️ Invalidating all caches');
+    debugPrint('🗑️ [CACHE_INVALIDATOR] Invalidating ALL caches');
     _expensesDeduplicator.invalidateAll();
     _splitsDeduplicator.invalidateAll();
+    debugPrint('✅ [CACHE_INVALIDATOR] All caches invalidated');
   }
 }

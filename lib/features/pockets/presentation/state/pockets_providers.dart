@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -253,21 +254,58 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       debugPrint('[Pockets] Using currency: $selectedCurrency (filter: ${filter.selectedCurrency}, analytics: ${analytics.preferredCurrency}, hasLoaded: ${analytics.hasLoadedOnce})');
 
       // Fetch or create budget for the current month/scope
-      var scopedBudgetQuery = supabase
+      final budgetQueryBase = supabase
           .from('budgets')
-          .select('id,total_budget_cents,household_id,user_id')
+          .select('id,total_budget_cents,household_id,user_id,currency')
           .eq('currency', selectedCurrency);
 
-      if (isHousehold) {
-        scopedBudgetQuery = scopedBudgetQuery.eq('household_id', householdId!);
-      } else {
-        scopedBudgetQuery = scopedBudgetQuery
-            .eq('user_id', authUser.uid)
-            .isFilter('household_id', null);
-      }
+      final scopedBudgetQuery = isHousehold
+          ? budgetQueryBase.eq('household_id', householdId!)
+          : budgetQueryBase
+              .eq('user_id', authUser.uid)
+              .isFilter('household_id', null);
 
-      Map<String, dynamic>? budgetRow =
-          await scopedBudgetQuery.eq('period_month', periodMonth).maybeSingle();
+      final budgetRowQuery = scopedBudgetQuery.eq('period_month', periodMonth);
+
+      Map<String, dynamic>? budgetRow = await budgetRowQuery.maybeSingle();
+
+      // If no budget was found with the selected currency, fall back to any
+      // budget for this scope/month (unique constraint is on scope+period).
+      if (budgetRow == null) {
+        var fallbackBudgetQuery = supabase
+            .from('budgets')
+            .select('id,total_budget_cents,household_id,user_id,currency')
+            .eq('period_month', periodMonth);
+
+        fallbackBudgetQuery = isHousehold
+            ? fallbackBudgetQuery.eq('household_id', householdId!)
+            : fallbackBudgetQuery
+                .eq('user_id', authUser.uid)
+                .isFilter('household_id', null);
+
+        budgetRow = await fallbackBudgetQuery.limit(1).maybeSingle();
+
+        // As a last resort (legacy rows missing user_id), try any personal row for the period.
+        if (budgetRow == null && !isHousehold) {
+          budgetRow = await _findBudgetRowForPeriod(
+            periodMonth: periodMonth,
+            isHousehold: false,
+            householdId: null,
+            userId: authUser.uid,
+            allowAnyUser: true,
+          );
+          if (budgetRow != null) {
+            debugPrint(
+                '[Pockets] Found legacy personal budget without user filter for period $periodMonth');
+          }
+        }
+
+      if (budgetRow != null) {
+          final reusedCurrency = budgetRow['currency'];
+          debugPrint(
+              '[Pockets] Reused existing budget with currency $reusedCurrency for period $periodMonth');
+      }
+      }
 
       double previousBudget = 0;
       if (budgetRow == null) {
@@ -440,7 +478,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         // Use toString() to preserve whatever value is present instead of
         // dropping non-string types to null via a failed cast.
         final dynamic rawIcon = row['icon'];
-        final String? icon = rawIcon != null ? rawIcon.toString() : null;
+        final String? icon = rawIcon?.toString();
 
         final color = row['color'] as String?;
         final bId = row['budget_id'] as String? ?? budgetId;
@@ -619,7 +657,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     var total = pockets.fold<double>(0, (sum, p) => sum + p.percentage);
     var error = 100.0 - total;
 
-    if (error.abs() < 0.01) return; // Close enough
+    if (error.abs() < _pctStep) return; // Close enough
 
     // Distribute error to pockets other than excludeIndex
     // Prioritize largest pockets to minimize relative impact
@@ -630,9 +668,9 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         .sort((a, b) => pockets[b].percentage.compareTo(pockets[a].percentage));
 
     for (final i in indices) {
-      if (error.abs() < 0.01) break;
+      if (error.abs() < _pctStep) break;
 
-      final adjustment = error > 0 ? 0.01 : -0.01;
+      final adjustment = error > 0 ? _pctStep : -_pctStep;
       final newPct = pockets[i].percentage + adjustment;
 
       if (newPct >= 0 && newPct <= 100) {
@@ -642,32 +680,67 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     }
   }
 
-  /// Returns a new list normalized so percentages sum to exactly 100.
+  static const int _pctPrecision = 4;
+  static const double _pctStep = 0.0001;
+  static const double _pctEpsilon = 0.000001;
+
+  /// Returns a new list normalized so percentages sum to at most 100.
+  /// We only scale down when totals exceed 100; otherwise we preserve
+  /// user-entered allocations (allowing unallocated budget).
   List<PocketEnvelope> _normalizeToHundred(List<PocketEnvelope> pockets) {
     if (pockets.isEmpty) return [];
 
-    final total = pockets.fold<double>(0, (sum, p) => sum + p.percentage);
+    // Clamp individual percentages to valid range
+    final clamped = pockets
+        .map((p) => p.copyWith(
+              percentage: p.percentage.clamp(0.0, 100.0),
+            ))
+        .toList();
+
+    final total = clamped.fold<double>(0, (sum, p) => sum + p.percentage);
     if (total <= 0) {
-      final even = 100.0 / pockets.length;
-      return pockets.asMap().entries.map((entry) {
+      // Keep behavior of distributing evenly when all zero to avoid a stuck UI,
+      // but maintain high precision for large budgets.
+      final even = 100.0 / clamped.length;
+      return clamped.asMap().entries.map((entry) {
         final isLast = entry.key == pockets.length - 1;
         final pct = isLast ? 100 - even * (pockets.length - 1) : even;
         return entry.value.copyWith(
-          percentage: double.parse(pct.toStringAsFixed(2)),
+          percentage: double.parse(pct.toStringAsFixed(_pctPrecision)),
         );
       }).toList();
+    }
+
+    // If total is already <= 100 (with tiny epsilon), preserve allocations
+    if (total <= 100.0 + _pctEpsilon) {
+      // If we're very close to 100, snap the last item to eliminate rounding noise
+      if ((100.0 - total).abs() <= _pctEpsilon && clamped.length > 1) {
+        var remaining = 100.0;
+        final snapped = <PocketEnvelope>[];
+        for (var i = 0; i < clamped.length; i++) {
+          final p = clamped[i];
+          final pct = i == clamped.length - 1
+              ? remaining
+              : double.parse(p.percentage.toStringAsFixed(_pctPrecision));
+          remaining =
+              double.parse((remaining - pct).toStringAsFixed(_pctPrecision));
+          snapped.add(p.copyWith(percentage: pct));
+        }
+        return snapped;
+      }
+      return clamped;
     }
 
     final factor = 100.0 / total;
     var remaining = 100.0;
     final normalized = <PocketEnvelope>[];
-    for (var i = 0; i < pockets.length; i++) {
-      final p = pockets[i];
+    for (var i = 0; i < clamped.length; i++) {
+      final p = clamped[i];
       final scaled = (p.percentage * factor).clamp(0.0, 100.0);
       final pct = i == pockets.length - 1
           ? remaining
-          : double.parse(scaled.toStringAsFixed(2));
-      remaining = double.parse((remaining - pct).toStringAsFixed(2));
+          : double.parse(scaled.toStringAsFixed(_pctPrecision));
+      remaining = double.parse((remaining - pct).toStringAsFixed(_pctPrecision));
       normalized.add(p.copyWith(percentage: pct));
     }
     return normalized;
@@ -683,6 +756,42 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       totalBudget: state.savedTotalBudget, // Restore original budget
       clearError: true,
     );
+  }
+
+  Future<Map<String, dynamic>?> _findBudgetRowForPeriod({
+    required String periodMonth,
+    required bool isHousehold,
+    required String? householdId,
+    required String userId,
+    String? currency,
+    bool allowAnyUser = false,
+  }) async {
+    var query = supabase
+        .from('budgets')
+        .select('id,total_budget_cents,household_id,user_id,currency')
+        .eq('period_month', periodMonth);
+
+    if (currency != null) {
+      query = query.eq('currency', currency);
+    }
+
+    if (isHousehold) {
+      query = query.eq('household_id', householdId!);
+    } else {
+      query = query.isFilter('household_id', null);
+      if (!allowAnyUser) {
+        query = query.eq('user_id', userId);
+      }
+    }
+
+    return query.limit(1).maybeSingle();
+  }
+
+  bool _isConflictError(Object error) {
+    if (error is PostgrestException) {
+      return error.code == '23505' || error.code == '409';
+    }
+    return false;
   }
 
   Future<void> saveChanges() async {
@@ -726,15 +835,85 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         budgetPayload['id'] = state.budgetId;
       }
 
-      final budgetRes = await supabase
-          .from('budgets')
-          .upsert(budgetPayload)
-          .select('id')
-          .maybeSingle();
+      String? budgetId = state.budgetId;
 
-      final budgetId =
-          (budgetRes != null ? budgetRes['id'] as String? : state.budgetId) ??
-              state.budgetId;
+      // Re-resolve budget id in case state was stale (e.g., mode switch)
+      if (budgetId == null) {
+        final existing = await _findBudgetRowForPeriod(
+          periodMonth: periodMonth,
+          isHousehold: isHousehold,
+          householdId: householdId,
+          userId: authUser.uid,
+          currency: null,
+        );
+        budgetId = existing?['id'] as String?;
+        debugPrint('[Pockets] saveChanges resolved existing budgetId: $budgetId');
+      }
+
+      // If still null, try legacy personal rows without user filter
+      if (budgetId == null && !isHousehold) {
+        final legacyRow = await _findBudgetRowForPeriod(
+          periodMonth: periodMonth,
+          isHousehold: false,
+          householdId: null,
+          userId: authUser.uid,
+          allowAnyUser: true,
+        );
+        budgetId = legacyRow?['id'] as String?;
+        if (budgetId != null) {
+          debugPrint(
+              '[Pockets] saveChanges found legacy personal budgetId: $budgetId');
+        }
+      }
+
+      Future<String?> upsertBudget(String? existingId) async {
+        try {
+          if (existingId != null) {
+            debugPrint(
+                '[Pockets] Updating budget $existingId (scope: ${params.scope}, hh: $householdId, month: $periodMonth)');
+            await supabase
+                .from('budgets')
+                .update(budgetPayload..['id'] = existingId)
+                .eq('id', existingId);
+            debugPrint('[Pockets] Persisted budgetId via update: $existingId');
+            return existingId;
+          }
+
+          debugPrint(
+              '[Pockets] Inserting budget (scope: ${params.scope}, hh: $householdId, month: $periodMonth)');
+          final insertRes = await supabase
+              .from('budgets')
+              .insert(budgetPayload)
+              .select('id')
+              .maybeSingle();
+          return insertRes?['id'] as String?;
+        } catch (e) {
+          if (_isConflictError(e)) {
+            debugPrint('[Pockets] budget upsert conflict, resolving existing row');
+            // On conflict, re-query without currency filter; for personal allow legacy rows
+            final fallbackRow = await _findBudgetRowForPeriod(
+              periodMonth: periodMonth,
+              isHousehold: isHousehold,
+              householdId: householdId,
+              userId: authUser.uid,
+              allowAnyUser: !isHousehold,
+            );
+            final fallbackId = fallbackRow?['id'] as String?;
+            if (fallbackId != null) {
+              debugPrint('[Pockets] Retrying update using budgetId: $fallbackId');
+              await supabase
+                  .from('budgets')
+                  .update(budgetPayload..['id'] = fallbackId)
+                  .eq('id', fallbackId);
+              return fallbackId;
+            }
+          }
+          rethrow;
+        }
+      }
+
+      budgetId = await upsertBudget(budgetId);
+      debugPrint('[Pockets] Persisted budgetId after saveChanges: $budgetId');
 
       if (budgetId == null) {
         throw Exception('Unable to persist budget for this period');

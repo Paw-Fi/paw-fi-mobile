@@ -23,10 +23,10 @@ import 'package:moneko/features/pockets/presentation/state/pockets_providers.dar
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/datetime.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/auth/auth.dart';
 
 import 'package:moneko/core/ui/notifications/app_toast.dart';
-import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
@@ -178,15 +178,25 @@ class _UnifiedTransactionSheetState
             '🏠 [HOUSEHOLD SHARE] Initializing household selection: ${widget.existingExpense!.householdId}');
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
+            debugPrint('🏠 [EDIT EXPENSE] postFrameCallback executing');
+            final householdId = widget.existingExpense!.householdId!;
+            debugPrint('🏠 [EDIT EXPENSE] Setting selectedHouseholdForSharingProvider to: $householdId');
             ref.read(selectedHouseholdForSharingProvider.notifier).state =
-                widget.existingExpense!.householdId;
-            _loadMembers(widget.existingExpense!.householdId!);
+                householdId;
+            debugPrint('🏠 [EDIT EXPENSE] Calling _loadMembers for household: $householdId');
+            _loadMembers(householdId);
 
             // Load existing split configuration if expense has a split group
             if (widget.existingExpense!.splitGroupId != null) {
+              debugPrint('🏠 [EDIT EXPENSE] Expense has split group: ${widget.existingExpense!.splitGroupId}');
+              debugPrint('🏠 [EDIT EXPENSE] Calling _loadExistingSplitConfiguration');
               _loadExistingSplitConfiguration(
                   widget.existingExpense!.splitGroupId!);
+            } else {
+              debugPrint('🏠 [EDIT EXPENSE] Expense has no split group');
             }
+          } else {
+            debugPrint('⚠️ [EDIT EXPENSE] Widget unmounted before postFrameCallback');
           }
         });
       }
@@ -195,15 +205,22 @@ class _UnifiedTransactionSheetState
       _selectedTime = TimeOfDay.now();
       // Auto-enable household sharing when in household view mode
       final vm = ref.read(viewModeProvider);
+      debugPrint('🆕 [ADD EXPENSE] View mode: ${vm.mode}');
       if (vm.mode == ViewMode.household) {
         _isSharedWithHousehold = true; // safe to set local field in initState
+        debugPrint('🆕 [ADD EXPENSE] Auto-enabling household sharing');
         // Defer provider writes until after first frame to avoid modifying providers during build
         WidgetsBinding.instance.addPostFrameCallback((_) {
           final selected = ref.read(selectedHouseholdProvider).householdId;
+          debugPrint('🆕 [ADD EXPENSE] Selected household from provider: $selected');
           if (selected != null) {
+            debugPrint('🆕 [ADD EXPENSE] Setting selectedHouseholdForSharingProvider to: $selected');
             ref.read(selectedHouseholdForSharingProvider.notifier).state =
                 selected;
+            debugPrint('🆕 [ADD EXPENSE] Calling _loadMembers for household: $selected');
             _loadMembers(selected);
+          } else {
+            debugPrint('⚠️ [ADD EXPENSE] No household selected in provider!');
           }
         });
       }
@@ -703,10 +720,12 @@ class _UnifiedTransactionSheetState
               MonekoSwitch(
                 value: _isSharedWithHousehold,
                 onChanged: (value) {
+                  debugPrint('🔀 [SHARE TOGGLE] User toggled sharing to: $value');
                   setState(() {
                     _isSharedWithHousehold = value;
                     if (!value) {
                       // Clear household selection and custom splits
+                      debugPrint('🔀 [SHARE TOGGLE] Clearing household data');
                       ref
                           .read(selectedHouseholdForSharingProvider.notifier)
                           .state = null;
@@ -717,10 +736,13 @@ class _UnifiedTransactionSheetState
                       _isLoadingMembers = false;
                     } else if (households.isNotEmpty) {
                       // Auto-select first household when toggling on
+                      final firstHouseholdId = households.first.id;
+                      debugPrint('🔀 [SHARE TOGGLE] Auto-selecting first household: $firstHouseholdId');
                       ref
                           .read(selectedHouseholdForSharingProvider.notifier)
-                          .state = households.first.id;
-                      _loadMembers(households.first.id);
+                          .state = firstHouseholdId;
+                      debugPrint('🔀 [SHARE TOGGLE] Calling _loadMembers');
+                      _loadMembers(firstHouseholdId);
                     }
                   });
                 },
@@ -802,11 +824,13 @@ class _UnifiedTransactionSheetState
                     );
                   }).toList(),
                   onChanged: (value) {
+                    debugPrint('🔄 [HOUSEHOLD DROPDOWN] User changed household to: $value');
                     if (value != null) {
                       ref
                           .read(selectedHouseholdForSharingProvider.notifier)
                           .state = value;
                       // Reset custom splits when changing household
+                      debugPrint('🔄 [HOUSEHOLD DROPDOWN] Resetting splits and members');
                       setState(() {
                         _customSplitType = null;
                         _customSplits = null;
@@ -814,6 +838,7 @@ class _UnifiedTransactionSheetState
                         _membersError = null;
                         _isLoadingMembers = false;
                       });
+                      debugPrint('🔄 [HOUSEHOLD DROPDOWN] Calling _loadMembers for: $value');
                       _loadMembers(value);
                     }
                   },
@@ -966,8 +991,11 @@ class _UnifiedTransactionSheetState
                                               overflow: TextOverflow.ellipsis),
                                         ))
                                     .toList(),
-                                onChanged: (v) =>
-                                    setState(() => _selectedPayerUserId = v),
+                                onChanged: (v) => setState(() {
+                                  _selectedPayerUserId = v;
+                                  debugPrint(
+                                      '👥 [UI] Who paid changed to: $_selectedPayerUserId');
+                                }),
                               ),
                             ),
                           ],
@@ -1715,30 +1743,73 @@ class _UnifiedTransactionSheetState
   }
 
   Future<void> _loadMembers(String householdId) async {
+    debugPrint('👥 [LOAD MEMBERS] Starting to load members for household: $householdId');
+    debugPrint('👥 [LOAD MEMBERS] Current _selectedPayerUserId: $_selectedPayerUserId');
+    
     setState(() {
       _isLoadingMembers = true;
       _membersError = null;
       _householdMembers = null;
     });
+    
+    debugPrint('👥 [LOAD MEMBERS] Set loading state, cleared members');
+    
     try {
       final repository = ref.read(householdRepositoryProvider);
+      debugPrint('👥 [LOAD MEMBERS] Fetching members from repository...');
       final members = await repository.getHouseholdMembers(householdId);
+      debugPrint('👥 [LOAD MEMBERS] Fetched ${members.length} members');
+      
       if (mounted) {
+        // Validate that _selectedPayerUserId exists in members
+        // This is critical for the "Who paid" dropdown to work correctly
+        final currentPayerId = _selectedPayerUserId;
+        final payerExists = members.any((m) => m.userId == currentPayerId);
+        
+        debugPrint('👥 [LOAD MEMBERS] Current payer ID: $currentPayerId');
+        debugPrint('👥 [LOAD MEMBERS] Payer exists in members: $payerExists');
+        
+        String? validPayerId = currentPayerId;
+        
+        if (!payerExists) {
+          // Current payer not in household members
+          // For ADD action: Default to first member
+          // For EDIT action: This shouldn't happen, but fallback to first member
+          if (members.isNotEmpty) {
+            validPayerId = members.first.userId;
+            debugPrint('⚠️ [LOAD MEMBERS] Payer not found in members! Defaulting to first member: ${members.first.userName ?? members.first.userEmail}');
+          } else {
+            validPayerId = null;
+            debugPrint('⚠️ [LOAD MEMBERS] No members found! Cannot set default payer.');
+          }
+        } else {
+          debugPrint('✅ [LOAD MEMBERS] Current payer is valid');
+        }
+        
         setState(() {
           _householdMembers = members;
+          _selectedPayerUserId = validPayerId;
         });
+        
+        debugPrint('✅ [LOAD MEMBERS] Successfully loaded and set ${members.length} members');
+        debugPrint('✅ [LOAD MEMBERS] Final _selectedPayerUserId: $_selectedPayerUserId');
+      } else {
+        debugPrint('⚠️ [LOAD MEMBERS] Widget unmounted, skipping state update');
       }
     } catch (error) {
+      debugPrint('❌ [LOAD MEMBERS] Error loading members: $error');
       if (mounted) {
         setState(() {
           _membersError = '${context.l10n.errorLoadingMembers}: $error';
         });
+        debugPrint('❌ [LOAD MEMBERS] Set error state: $_membersError');
       }
     } finally {
       if (mounted) {
         setState(() {
           _isLoadingMembers = false;
         });
+        debugPrint('👥 [LOAD MEMBERS] Finished loading (isLoadingMembers = false)');
       }
     }
   }
@@ -1854,41 +1925,40 @@ class _UnifiedTransactionSheetState
   }
 
   void _refreshHouseholdUiAfterExpenseChange(String householdId) {
-    final homeFilter = ref.read(homeFilterProvider);
-    final dateRange = getDateRangeFromFilter(
-      homeFilter.dateRangeFilter,
-      homeFilter.customStartDate,
-      homeFilter.customEndDate,
-    );
-
-    ref.invalidate(householdExpensesProvider(
-      HouseholdExpensesParams(householdId: householdId, limit: 500),
-    ));
-    ref.invalidate(householdSplitsProvider(
-      HouseholdSplitsParams(householdId: householdId),
-    ));
-    ref.invalidate(householdBudgetsProvider(householdId));
-    ref.invalidate(householdSummaryProvider(
-      HouseholdSummaryParams(
-        householdId: householdId,
-        currency: homeFilter.selectedCurrency ?? 'USD',
-        startDate: dateRange['from']!.toIso8601String(),
-        endDate: dateRange['to']!.toIso8601String(),
-      ),
-    ));
-    ref.invalidate(householdMembersProvider(householdId));
-
-    ref.invalidate(pocketsProvider(PocketsScopeParams(
-      scope: PocketsScopeType.household,
-      householdId: householdId,
-    )));
+    debugPrint('🔄 [REFRESH] Starting household UI refresh for household: $householdId');
+    
+    // CRITICAL: Invalidate RequestDeduplicator cache FIRST
+    // This ensures fresh data is fetched, not the 30-second cached data
+    debugPrint('🗑️ [REFRESH] Invalidating RequestDeduplicator cache...');
+    ref.read(cacheInvalidatorProvider).invalidateHouseholdData(householdId);
+    
+    debugPrint('🗑️ [REFRESH] Invalidating ALL provider families (this catches all parameter combinations)...');
+    // CRITICAL: Invalidate the ENTIRE provider families, not just specific params
+    // This ensures ALL widgets watching these providers refresh, regardless of their parameters
+    ref.invalidate(householdExpensesProvider);
+    ref.invalidate(cachedHouseholdExpensesProvider);
+    ref.invalidate(householdSplitsProvider);
+    ref.invalidate(cachedHouseholdSplitsProvider);
+    ref.invalidate(householdSummaryProvider);
+    ref.invalidate(householdBudgetsProvider);
+    ref.invalidate(householdMembersProvider);
+    
+    debugPrint('🗑️ [REFRESH] Invalidating pockets provider...');
+    ref.invalidate(pocketsProvider);
+    
+    debugPrint('✅ [REFRESH] Household UI refresh complete - all provider families invalidated');
   }
 
   void _refreshPersonalUiAfterExpenseChange(String userId) {
+    debugPrint('👤 [REFRESH] Refreshing personal UI after expense change');
     ref.read(analyticsProvider.notifier).refresh(userId);
-    ref.invalidate(pocketsProvider(const PocketsScopeParams(
-      scope: PocketsScopeType.personal,
-    )));
+    
+    // CRITICAL: Invalidate ALL pocket providers, not just personal scope
+    // This ensures all months and all scopes refresh with new data
+    debugPrint('🗑️ [REFRESH] Invalidating ALL pockets provider families...');
+    ref.invalidate(pocketsProvider);
+    
+    debugPrint('✅ [REFRESH] Personal UI refresh complete');
   }
 
   Future<void> _handleSave() async {
@@ -1977,11 +2047,29 @@ class _UnifiedTransactionSheetState
             debugPrint('📤 No local image path to upload');
           }
 
-          // Ensure UI updates immediately
-          if (viewMode.mode == ViewMode.household &&
-              selectedHousehold != null) {
+          // ═══════════════════════════════════════════════════════════════
+          // CRITICAL FIX: Comprehensive UI refresh for INCOME
+          // ═══════════════════════════════════════════════════════════════
+          debugPrint('🔄 [SAVE INCOME] Triggering comprehensive UI refresh...');
+          
+          // Refresh the household where income was saved (if shared)
+          if (selectedHousehold != null) {
+            debugPrint('🏠 [SAVE INCOME] Refreshing saved household UI: $selectedHousehold');
             _refreshHouseholdUiAfterExpenseChange(selectedHousehold);
+          }
+          
+          // ALSO refresh the current view
+          final currentViewMode = ref.read(viewModeProvider);
+          final currentHouseholdState = ref.read(selectedHouseholdProvider);
+          final currentHouseholdId = currentHouseholdState.householdId;
+          
+          if (currentViewMode.mode == ViewMode.household && currentHouseholdId != null) {
+            debugPrint('👁️ [SAVE INCOME] Also refreshing CURRENT household view: $currentHouseholdId');
+            if (currentHouseholdId != selectedHousehold) {
+              _refreshHouseholdUiAfterExpenseChange(currentHouseholdId);
+            }
           } else {
+            debugPrint('👁️ [SAVE INCOME] Also refreshing CURRENT personal view');
             _refreshPersonalUiAfterExpenseChange(user.uid);
           }
 
@@ -2025,6 +2113,7 @@ class _UnifiedTransactionSheetState
           // After fix: Only pass selectedHousehold when _isSharedWithHousehold is true
           // ═══════════════════════════════════════════════════════════
           // Save expense with time and custom splits (if configured)
+          debugPrint('💾 [SAVE] Saving expense - household: ${_isSharedWithHousehold ? selectedHousehold : "null"}, viewMode: ${viewMode.mode}');
           await ref.read(expenseSaveNotifierProvider.notifier).saveExpense(
                 expense: expenseWithTime,
                 householdId: _isSharedWithHousehold
@@ -2037,16 +2126,55 @@ class _UnifiedTransactionSheetState
                     _isSharedWithHousehold ? _selectedPayerUserId : null,
               );
 
+          debugPrint('✅ [SAVE] Expense saved successfully');
           AppToast.success(context, context.l10n.expenseSaved);
 
-          // Ensure UI updates immediately and close sheet
-          if (viewMode.mode == ViewMode.household &&
-              selectedHousehold != null) {
+          // ═══════════════════════════════════════════════════════════════
+          // CRITICAL FIX: Refresh BOTH the saved household (if shared) AND current view
+          // ═══════════════════════════════════════════════════════════════
+          // The user might be viewing household mode while adding a personal expense,
+          // or vice versa. We need to refresh:
+          // 1. The household where expense was saved (if shared)
+          // 2. The current view mode (personal or household)
+          // This ensures ALL affected UIs update correctly.
+          // ═══════════════════════════════════════════════════════════════
+          
+          debugPrint('🔄 [SAVE] Triggering comprehensive UI refresh...');
+          debugPrint('    Expense shared: $_isSharedWithHousehold');
+          debugPrint('    Household ID: $selectedHousehold');
+          debugPrint('    Current view mode: ${viewMode.mode}');
+          debugPrint('    Payer user id: $_selectedPayerUserId');
+          debugPrint('    Custom split type: $_customSplitType');
+          debugPrint(
+              '    Custom splits count: ${_customSplits?.length ?? 0} (null means default equal)');
+          
+          // Step 1: Refresh the household where expense was saved (if shared)
+          if (_isSharedWithHousehold && selectedHousehold != null) {
+            debugPrint('🏠 [SAVE] Refreshing saved household UI: $selectedHousehold');
             _refreshHouseholdUiAfterExpenseChange(selectedHousehold);
+          }
+          
+          // Step 2: ALSO refresh the current view (household or personal)
+          // This is critical because user might be viewing a different mode
+          final currentViewMode = ref.read(viewModeProvider);
+          final currentHouseholdState = ref.read(selectedHouseholdProvider);
+          final currentHouseholdId = currentHouseholdState.householdId;
+          
+          if (currentViewMode.mode == ViewMode.household && currentHouseholdId != null) {
+            // Currently viewing household mode - refresh it
+            debugPrint('👁️ [SAVE] Also refreshing CURRENT household view: $currentHouseholdId');
+            if (currentHouseholdId != selectedHousehold) {
+              // Different household than where we saved - need to refresh it too
+              _refreshHouseholdUiAfterExpenseChange(currentHouseholdId);
+            }
           } else {
+            // Currently viewing personal mode - refresh it
+            debugPrint('👁️ [SAVE] Also refreshing CURRENT personal view');
             _refreshPersonalUiAfterExpenseChange(user.uid);
           }
 
+          debugPrint('✅ [SAVE] All UI refresh triggers completed');
+          debugPrint('🚪 [SAVE] Closing transaction sheet');
           if (!mounted) return;
           Navigator.of(context).pop();
         }
@@ -2090,6 +2218,13 @@ class _UnifiedTransactionSheetState
         // create the first split group using the inline CustomSplitEditor
         final existingHouseholdId = widget.existingExpense!.householdId;
         final existingSplitGroupId = widget.existingExpense!.splitGroupId;
+        // Persist payer changes for shared expenses even without split edits
+        if (_isSharedWithHousehold && existingHouseholdId != null) {
+          final payer =
+              _selectedPayerUserId ?? ref.read(authProvider).uid;
+          updates['payer_user_id'] = payer;
+          updates['payerUserId'] = payer; // compatibility with edge fn
+        }
 
         final shouldCreateSplitGroupForExisting = _isSharedWithHousehold &&
             existingHouseholdId != null &&
@@ -2143,10 +2278,8 @@ class _UnifiedTransactionSheetState
                   })
                   .toList(),
             },
+            'payerUserId': _selectedPayerUserId ?? ref.read(authProvider).uid,
           };
-
-          final payerId = _selectedPayerUserId ?? ref.read(authProvider).uid;
-          extraBody['payerUserId'] = payerId;
         }
 
         // Only update if there are actual changes or we need to create a split
@@ -2170,14 +2303,32 @@ class _UnifiedTransactionSheetState
         if (!mounted) return;
 
         if (success) {
-          // Ensure UI refresh for current view mode
-          if (viewMode.mode == ViewMode.household) {
-            final currentHouseholdId =
-                ref.read(selectedHouseholdProvider).householdId;
-            if (currentHouseholdId != null) {
+          // ═══════════════════════════════════════════════════════════════
+          // CRITICAL FIX: Comprehensive UI refresh for EDIT
+          // ═══════════════════════════════════════════════════════════════
+          debugPrint('🔄 [EDIT] Triggering comprehensive UI refresh...');
+          
+          // Get the household from the edited expense
+          final editedHouseholdId = widget.existingExpense!.householdId;
+          
+          // Refresh the household where expense exists (if it's shared)
+          if (editedHouseholdId != null) {
+            debugPrint('🏠 [EDIT] Refreshing expense household UI: $editedHouseholdId');
+            _refreshHouseholdUiAfterExpenseChange(editedHouseholdId);
+          }
+          
+          // ALSO refresh the current view
+          final currentViewMode = ref.read(viewModeProvider);
+          final currentHouseholdState = ref.read(selectedHouseholdProvider);
+          final currentHouseholdId = currentHouseholdState.householdId;
+          
+          if (currentViewMode.mode == ViewMode.household && currentHouseholdId != null) {
+            debugPrint('👁️ [EDIT] Also refreshing CURRENT household view: $currentHouseholdId');
+            if (currentHouseholdId != editedHouseholdId) {
               _refreshHouseholdUiAfterExpenseChange(currentHouseholdId);
             }
           } else {
+            debugPrint('👁️ [EDIT] Also refreshing CURRENT personal view');
             _refreshPersonalUiAfterExpenseChange(user.uid);
           }
 
@@ -2297,9 +2448,11 @@ class _UnifiedTransactionSheetState
 
       // Refresh analytics data (personal expenses)
       await ref.read(analyticsProvider.notifier).loadData(user.uid);
-      ref.invalidate(pocketsProvider(const PocketsScopeParams(
-        scope: PocketsScopeType.personal,
-      )));
+      
+      // CRITICAL: Always invalidate ALL pocket providers (all scopes, all months)
+      // This ensures pockets page refreshes regardless of personal/household mode
+      debugPrint('🗑️ [DELETE] Invalidating ALL pockets provider families...');
+      ref.invalidate(pocketsProvider);
 
       // If this was a household expense, invalidate household providers
       final householdId = widget.existingExpense!.householdId;
@@ -2307,19 +2460,20 @@ class _UnifiedTransactionSheetState
         debugPrint(
             '🔄 Invalidating household providers for household: $householdId');
 
+        // Clear cached data first
+        ref.read(cacheInvalidatorProvider).invalidateHouseholdData(householdId);
+
         // Invalidate household list to update counts
         ref.invalidate(userHouseholdsProvider(user.uid));
 
-        // Invalidate family providers so all parameterized instances refresh
+        // Invalidate ALL provider families so all parameterized instances refresh
         ref.invalidate(householdSummaryProvider);
         ref.invalidate(householdExpensesProvider);
+        ref.invalidate(cachedHouseholdExpensesProvider);
         ref.invalidate(householdSplitsProvider);
+        ref.invalidate(cachedHouseholdSplitsProvider);
         ref.invalidate(householdBudgetsProvider);
-
-        ref.invalidate(pocketsProvider(PocketsScopeParams(
-          scope: PocketsScopeType.household,
-          householdId: householdId,
-        )));
+        ref.invalidate(householdMembersProvider);
 
         debugPrint('✅ Invalidated household providers');
       }

@@ -10,6 +10,7 @@ import 'package:moneko/features/subscription/data/models/subscription.dart';
 import 'package:moneko/features/profile/domain/entities/whatsapp_binding.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/home/presentation/models/user_contact.dart';
+import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 
 part 'app_initialization_provider_v2.g.dart';
 
@@ -288,6 +289,14 @@ class AppInitializationV2 extends _$AppInitializationV2 {
       
       // Record metrics
       _recordSuccessMetrics(stopwatch.elapsed, initData);
+      
+      // ✅ CRITICAL FIX: Load analytics data after initialization
+      // This ensures home page has data to display
+      debugPrint('📊 [InitV2] Loading analytics data...');
+      final analyticsStopwatch = Stopwatch()..start();
+      await ref.read(analyticsProvider.notifier).loadData(userId);
+      analyticsStopwatch.stop();
+      debugPrint('✅ [InitV2] Analytics loaded in ${analyticsStopwatch.elapsedMilliseconds}ms');
       
     } on TimeoutException {
       stopwatch.stop();

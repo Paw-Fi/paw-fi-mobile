@@ -45,7 +45,9 @@ class PocketEnvelope {
 
   /// Calculate the actual limit based on total budget
   double getLimit(double totalBudget) {
-    return (totalBudget * percentage / 100).roundToDouble();
+    // Preserve cent-level accuracy for large budgets by rounding to cents
+    final cents = (totalBudget * percentage / 100) * 100;
+    return (cents.roundToDouble() / 100);
   }
 
   double getProgress(double totalBudget) {

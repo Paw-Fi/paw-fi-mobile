@@ -15,6 +15,7 @@ class RecurringTransaction {
   final String ownerType; // 'me', 'partner', 'household'
   final String privacyScope; // 'private', 'balances_only', 'full'
   final String? householdId;
+  final String? payerUserId; // Who paid (household sharing)
   final RecurrenceRule? recurrenceRule; // Nullable - for parsing safety
   final String type; // 'income' or 'expense'
   final List<Attachment> attachments;
@@ -32,6 +33,7 @@ class RecurringTransaction {
     required this.ownerType,
     required this.privacyScope,
     this.householdId,
+    this.payerUserId,
     this.recurrenceRule, // Not required anymore
     required this.type,
     required this.attachments,
@@ -60,6 +62,31 @@ class RecurringTransaction {
     debugPrint('🔍 Attachments type: ${json['attachments'].runtimeType}');
     debugPrint('🔍 Attachments value: ${json['attachments']}');
     
+    // Parse recurrence_rule - handle both string and Map formats
+    dynamic recurrenceRuleData = json['recurrenceRule'] ?? json['recurrence_rule'];
+    debugPrint('🔍 recurrenceRuleData type: ${recurrenceRuleData.runtimeType}');
+    debugPrint('🔍 recurrenceRuleData value: $recurrenceRuleData');
+    
+    RecurrenceRule? parsedRecurrenceRule;
+    if (recurrenceRuleData != null) {
+      if (recurrenceRuleData is String) {
+        // Backend returned JSONB as string - parse it first
+        debugPrint('🔍 Parsing recurrence_rule from string');
+        try {
+          final parsed = jsonDecode(recurrenceRuleData);
+          if (parsed is Map<String, dynamic>) {
+            parsedRecurrenceRule = RecurrenceRule.fromJson(parsed);
+          }
+        } catch (e) {
+          debugPrint('❌ Failed to parse recurrence_rule string: $e');
+        }
+      } else if (recurrenceRuleData is Map<String, dynamic>) {
+        // Already a map, parse directly
+        debugPrint('🔍 Parsing recurrence_rule from Map');
+        parsedRecurrenceRule = RecurrenceRule.fromJson(recurrenceRuleData);
+      }
+    }
+    
     // Normalize amount from various possible fields
     final amountMajor = (json['amountMajor'] as num?)?.toDouble();
     final amountCentsNum = (json['amount_cents'] as num?);
@@ -82,12 +109,9 @@ class RecurringTransaction {
           'full',
       householdId:
           json['householdId'] as String? ?? json['household_id'] as String?,
-      recurrenceRule: (json['recurrenceRule'] != null || json['recurrence_rule'] != null)
-          ? RecurrenceRule.fromJson(
-              json['recurrenceRule'] as Map<String, dynamic>? ??
-                  json['recurrence_rule'] as Map<String, dynamic>,
-            )
-          : null,
+      payerUserId:
+          json['payerUserId'] as String? ?? json['payer_user_id'] as String?,
+      recurrenceRule: parsedRecurrenceRule,
       type: inferredType,
       attachments: _parseAttachments(json['attachments']),
       createdAt: DateTime.parse(
@@ -159,6 +183,7 @@ class RecurringTransaction {
       'ownerType': ownerType,
       'privacyScope': privacyScope,
       'householdId': householdId,
+      'payerUserId': payerUserId,
       if (recurrenceRule != null) 'recurrenceRule': recurrenceRule?.toJson(), // Safe null access
       'type': type,
       'attachments': attachments.map((e) => e.toJson()).toList(),
@@ -178,6 +203,7 @@ class RecurringTransaction {
     String? ownerType,
     String? privacyScope,
     String? householdId,
+    String? payerUserId,
     RecurrenceRule? recurrenceRule,
     String? type,
     List<Attachment>? attachments,
@@ -195,6 +221,7 @@ class RecurringTransaction {
       ownerType: ownerType ?? this.ownerType,
       privacyScope: privacyScope ?? this.privacyScope,
       householdId: householdId ?? this.householdId,
+      payerUserId: payerUserId ?? this.payerUserId,
       recurrenceRule: recurrenceRule ?? this.recurrenceRule,
       type: type ?? this.type,
       attachments: attachments ?? this.attachments,
