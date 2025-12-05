@@ -9,14 +9,13 @@ import 'package:moneko/shared/widgets/destructive-adaptive-button.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:app_settings/app_settings.dart';
+import 'package:moneko/core/app/app_initialization_provider.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
 import 'package:moneko/features/subscription/data/models/subscription_details.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
-import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
-import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -25,7 +24,6 @@ import 'package:moneko/features/profile/presentation/providers/user_profile_prov
 import 'package:moneko/features/profile/presentation/widgets/whatsapp_binding_card.dart';
 import 'package:moneko/features/income/presentation/providers/income_providers.dart';
 import 'package:moneko/features/goals/presentation/providers/goals_providers.dart';
-import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/shared/widgets/moneko_list_picker.dart';
 
@@ -574,21 +572,8 @@ class SettingsPage extends HookConsumerWidget {
                         '🧹 Clearing all user-specific Riverpod state before logout',
                       );
 
-                      // Analytics and expenses
-                      ref.invalidate(analyticsProvider);
-
-                      // Households
-                      ref.invalidate(userHouseholdsProvider);
-                      ref.invalidate(householdExpensesProvider);
-                      ref.invalidate(householdSplitsProvider);
-                      ref.invalidate(householdBudgetsProvider);
-                      ref.invalidate(householdSummaryProvider);
-                      ref.invalidate(householdMembersProvider);
-                      ref.invalidate(selectedHouseholdProvider);
-
-                      // View mode and filters
-                      ref.invalidate(viewModeProvider);
-                      ref.invalidate(homeFilterProvider);
+                      // Centralized clean-up for app initialization + primary pages
+                      ref.read(appInitializationProvider.notifier).clearCache();
 
                       // Income
                       ref.invalidate(incomeSummaryProvider);
@@ -603,14 +588,6 @@ class SettingsPage extends HookConsumerWidget {
 
                       // User profile
                       ref.invalidate(userProfileProvider);
-
-                      // Pockets (budget envelopes)
-                      ref.invalidate(pocketsProvider);
-
-                      // Recurring transactions
-                      ref.invalidate(recurringTransactionsProvider);
-                      ref.invalidate(recurringTransactionSaveProvider);
-                      ref.invalidate(selectedRecurringTabProvider);
 
                       debugPrint('✅ All user-specific state cleared');
 
@@ -812,6 +789,7 @@ Future<void> _showEditNameSheet({
   final colorScheme = Theme.of(context).colorScheme;
   final controller = TextEditingController(text: initialName);
   final authState = ref.read(authProvider);
+  var isSaving = false;
 
   await showModalBottomSheet(
     context: context,
@@ -856,14 +834,27 @@ Future<void> _showEditNameSheet({
                   controller: controller,
                   placeholder: AppLocalizations.of(ctx)!.fullName,
                   autofocus: true,
-                  onSubmitted: (_) async => await _saveName(
-                    ctx,
-                    ref,
-                    controller,
-                    authState.uid,
-                    setState,
-                    onUpdated,
-                  ),
+                  onSubmitted: (_) async {
+                    if (isSaving) return;
+                    setState(() {
+                      isSaving = true;
+                    });
+                    try {
+                      await _saveName(
+                        ctx,
+                        ref,
+                        controller,
+                        authState.uid,
+                        onUpdated,
+                      );
+                    } finally {
+                      if (ctx.mounted) {
+                        setState(() {
+                          isSaving = false;
+                        });
+                      }
+                    }
+                  },
                 ),
                 const SizedBox(height: 20),
 
@@ -881,14 +872,25 @@ Future<void> _showEditNameSheet({
                     Expanded(
                       child: AdaptiveButton(
                         onPressed: () async {
-                          await _saveName(
-                            ctx,
-                            ref,
-                            controller,
-                            authState.uid,
-                            setState,
-                            onUpdated,
-                          );
+                          if (isSaving) return;
+                          setState(() {
+                            isSaving = true;
+                          });
+                          try {
+                            await _saveName(
+                              ctx,
+                              ref,
+                              controller,
+                              authState.uid,
+                              onUpdated,
+                            );
+                          } finally {
+                            if (ctx.mounted) {
+                              setState(() {
+                                isSaving = false;
+                              });
+                            }
+                          }
                         },
                         label: AppLocalizations.of(ctx)!.save,
                       ),
@@ -909,18 +911,15 @@ Future<void> _saveName(
   WidgetRef ref,
   TextEditingController controller,
   String userId,
-  void Function(void Function()) setState,
   VoidCallback onUpdated,
 ) async {
   final newName = controller.text.trim();
   if (newName.isEmpty || newName.length < 2) {
-    setState(() {});
     AppToast.info(ctx, 'Please enter a valid name');
     return;
   }
 
   try {
-    setState(() {});
     await Supabase.instance.client.auth.updateUser(
       UserAttributes(data: {
         'full_name': newName,
@@ -936,7 +935,10 @@ Future<void> _saveName(
     onUpdated();
 
     if (!ctx.mounted) return;
-    Navigator.of(ctx).pop();
+    final navigator = Navigator.of(ctx);
+    if (navigator.canPop()) {
+      navigator.pop();
+    }
     AppToast.success(ctx, 'Profile updated');
   } catch (e) {
     if (ctx.mounted) {

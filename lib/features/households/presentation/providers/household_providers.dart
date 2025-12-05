@@ -4,6 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'dart:async';
 
 import '../../domain/entities/household.dart';
 import '../../domain/entities/household_summary.dart';
@@ -376,13 +377,44 @@ final householdSummaryProvider =
   (ref, params) async {
     final repository = ref.watch(householdRepositoryProvider);
 
-    final summary = await repository.getHouseholdSummary(
-      householdId: params.householdId,
-      currency: params.currency,
-      startDate: params.startDate,
-      endDate: params.endDate,
-    );
-    return summary;
+    const timeout = Duration(seconds: 8);
+    const maxAttempts = 2;
+    Exception? lastError;
+
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      if (attempt > 1) {
+        // Simple backoff between retries
+        await Future.delayed(Duration(milliseconds: 250 * attempt));
+      }
+
+      try {
+        final summary = await repository
+            .getHouseholdSummary(
+              householdId: params.householdId,
+              currency: params.currency,
+              startDate: params.startDate,
+              endDate: params.endDate,
+            )
+            .timeout(timeout);
+        return summary;
+      } on TimeoutException catch (e) {
+        lastError = e;
+        debugPrint(
+            '⚠️ householdSummaryProvider timeout (attempt $attempt/$maxAttempts) for ${params.householdId} ${params.currency}');
+      } on FunctionException catch (e) {
+        lastError = e;
+        debugPrint(
+            '⚠️ householdSummaryProvider function error ${e.status} (attempt $attempt/$maxAttempts) for ${params.householdId} ${params.currency}');
+        // For auth/permission issues, do not keep retrying
+        if (e.status == 401 || e.status == 403) break;
+      } catch (e) {
+        lastError = e is Exception ? e : Exception(e.toString());
+        debugPrint(
+            '⚠️ householdSummaryProvider error (attempt $attempt/$maxAttempts) for ${params.householdId} ${params.currency}: $e');
+      }
+    }
+
+    throw lastError ?? Exception('Unknown household summary error');
   },
 );
 
@@ -614,15 +646,27 @@ class SettlementLine {
   final String splitGroupId;
   final int amountCents;
   final DateTime settledAt;
-  final String? description;
   final String? expenseId;
+  final String? expenseDescription;
+  final String? expenseCategory;
+  final String? expenseRawText;
+  final String? settledByUserId;
+  final String? payerUserId;
+  final String? participantUserId;
+  final String? settlementNote;
 
   const SettlementLine({
     required this.splitGroupId,
     required this.amountCents,
     required this.settledAt,
-    this.description,
     this.expenseId,
+    this.expenseDescription,
+    this.expenseCategory,
+    this.expenseRawText,
+    this.settledByUserId,
+    this.payerUserId,
+    this.participantUserId,
+    this.settlementNote,
   });
 }
 
@@ -633,9 +677,13 @@ class SettlementEvent {
   final String currency;
   final int amountCents;
   final int lineCount;
-  final String? description;
   final String? splitGroupId;
   final List<SettlementLine> lines;
+  final String? settledByUserId;
+  final bool isExpressNetting;
+  final int payerToParticipantCents; // total participant owes payer
+  final int participantToPayerCents; // total payer owes participant
+  final String? settlementNote;
 
   const SettlementEvent({
     required this.settledAt,
@@ -644,9 +692,33 @@ class SettlementEvent {
     required this.currency,
     required this.amountCents,
     required this.lineCount,
-    this.description,
     this.splitGroupId,
     this.lines = const [],
+    this.settledByUserId,
+    this.isExpressNetting = false,
+    this.payerToParticipantCents = 0,
+    this.participantToPayerCents = 0,
+    this.settlementNote,
+  });
+}
+
+class _AggregatedSettlement {
+  final DateTime settledAt;
+  final String currency;
+  final String? actorId;
+  final List<String> sortedIds;
+  final List<SettlementLine> lines;
+  final int payerToParticipantCents;
+  final int participantToPayerCents;
+
+  const _AggregatedSettlement({
+    required this.settledAt,
+    required this.currency,
+    required this.sortedIds,
+    required this.lines,
+    required this.payerToParticipantCents,
+    required this.participantToPayerCents,
+    this.actorId,
   });
 }
 
@@ -668,7 +740,7 @@ final householdSettlementHistoryProvider = FutureProvider.autoDispose
     final responseParticipant = await supabase
         .from('expense_split_lines')
         .select(
-            'settled_at, amount_cents, user_id, split_group_id, expense_split_groups!inner(payer_user_id, currency, household_id, description, expense_id)')
+            'settled_at, amount_cents, user_id, split_group_id, settled_by_user_id, settlement_note, expense_split_groups!inner(payer_user_id, currency, household_id, expense_id, description)')
         .eq('is_settled', true)
         .not('settled_at', 'is', null)
         .eq('expense_split_groups.household_id', params.householdId)
@@ -681,7 +753,7 @@ final householdSettlementHistoryProvider = FutureProvider.autoDispose
     final responsePayer = await supabase
         .from('expense_split_lines')
         .select(
-            'settled_at, amount_cents, user_id, split_group_id, expense_split_groups!inner(payer_user_id, currency, household_id, description, expense_id)')
+            'settled_at, amount_cents, user_id, split_group_id, settled_by_user_id, settlement_note, expense_split_groups!inner(payer_user_id, currency, household_id, expense_id, description)')
         .eq('is_settled', true)
         .not('settled_at', 'is', null)
         .eq('expense_split_groups.household_id', params.householdId)
@@ -707,8 +779,8 @@ final householdSettlementHistoryProvider = FutureProvider.autoDispose
       print('[settlement_history] no rows returned for household=${params.householdId}');
     }
 
-    // Aggregate by payer + participant + currency + settled minute to reduce noise
-    final Map<String, SettlementEvent> grouped = {};
+    // Aggregate by (unordered) participant/payer pair + currency + settled minute (+ actor) to collapse express netting
+    final Map<String, _AggregatedSettlement> grouped = {};
     int skippedMissingDate = 0;
     int skippedMissingIds = 0;
     int skippedZeroAmount = 0;
@@ -726,6 +798,10 @@ final householdSettlementHistoryProvider = FutureProvider.autoDispose
       final group = row['expense_split_groups'] as Map<String, dynamic>? ?? {};
       final payerId = group['payer_user_id'] as String? ?? '';
       final participantId = row['user_id'] as String? ?? '';
+      final actorId = row['settled_by_user_id'] as String?;
+      final expenseDesc = group['description'] as String?;
+      final expenseCategory = null;
+      final expenseRaw = null;
       if (payerId.isEmpty || participantId.isEmpty) {
         skippedMissingIds++;
         continue;
@@ -738,48 +814,126 @@ final householdSettlementHistoryProvider = FutureProvider.autoDispose
         continue;
       }
       // Use epoch millis for the time bucket to avoid locale/colon issues in keys
+      // Key is unordered pair to merge both directions of the same express settlement
+      // Actor is NOT part of the key to tolerate missing settled_by_user_id on one side
+      final idsSorted = [payerId, participantId]..sort();
       final key =
-          '${payerId}_${participantId}_${currency}_${minute.millisecondsSinceEpoch}';
+          '${idsSorted[0]}_${idsSorted[1]}_${currency}_${minute.millisecondsSinceEpoch}';
 
       final line = SettlementLine(
         splitGroupId: (row['split_group_id'] as String?) ?? '',
         amountCents: amount,
         settledAt: settledAt,
-        description: group['description'] as String?,
+        payerUserId: payerId,
+        participantUserId: participantId,
         expenseId: group['expense_id'] as String?,
+        expenseDescription: expenseDesc,
+        expenseCategory: expenseCategory,
+        expenseRawText: expenseRaw,
+        settledByUserId: actorId,
+        settlementNote: row['settlement_note'] as String?,
       );
 
       final existing = grouped[key];
       if (existing == null) {
-        grouped[key] = SettlementEvent(
+        grouped[key] = _AggregatedSettlement(
           settledAt: minute,
-          payerUserId: payerId,
-          participantUserId: participantId,
           currency: currency,
-          amountCents: amount,
-          lineCount: 1,
-          description: group['description'] as String?,
-          splitGroupId: row['split_group_id'] as String?,
-          lines: [line],
+          actorId: actorId,
+          sortedIds: idsSorted,
+          lines: [
+            SettlementLine(
+              splitGroupId: line.splitGroupId,
+              amountCents: line.amountCents,
+              settledAt: line.settledAt,
+              payerUserId: line.payerUserId ?? payerId,
+              participantUserId: line.participantUserId ?? participantId,
+              expenseId: line.expenseId,
+              expenseDescription: line.expenseDescription,
+              expenseCategory: line.expenseCategory,
+              expenseRawText: line.expenseRawText,
+              settledByUserId: line.settledByUserId,
+              settlementNote: line.settlementNote,
+            )
+          ],
+          payerToParticipantCents:
+              payerId == idsSorted[0] ? amount : 0, // track per direction
+          participantToPayerCents:
+              payerId == idsSorted[0] ? 0 : amount,
         );
       } else {
-        final updatedLines = [...existing.lines, line];
-        grouped[key] = SettlementEvent(
+        final updatedLines = [
+          ...existing.lines,
+          SettlementLine(
+            splitGroupId: line.splitGroupId,
+            amountCents: line.amountCents,
+            settledAt: line.settledAt,
+            payerUserId: line.payerUserId ?? payerId,
+            participantUserId: line.participantUserId ?? participantId,
+            expenseId: line.expenseId,
+            expenseDescription: line.expenseDescription,
+            expenseCategory: line.expenseCategory,
+            expenseRawText: line.expenseRawText,
+            settledByUserId: line.settledByUserId,
+            settlementNote: line.settlementNote,
+          )
+        ];
+        grouped[key] = _AggregatedSettlement(
           settledAt: existing.settledAt,
-          payerUserId: existing.payerUserId,
-          participantUserId: existing.participantUserId,
           currency: existing.currency,
-          amountCents: existing.amountCents + amount,
-          lineCount: updatedLines.length,
-          description: existing.description ?? group['description'] as String?,
-          splitGroupId:
-              existing.splitGroupId ?? row['split_group_id'] as String?,
+          actorId: existing.actorId ?? actorId,
+          sortedIds: existing.sortedIds,
           lines: updatedLines,
+          payerToParticipantCents: existing.payerToParticipantCents +
+              (payerId == idsSorted[0] ? amount : 0),
+          participantToPayerCents: existing.participantToPayerCents +
+              (payerId == idsSorted[0] ? 0 : amount),
         );
       }
     }
 
-    final events = grouped.values.toList()
+    final events = grouped.entries.map((entry) {
+      final data = entry.value;
+      // Determine net direction: participant owes payer for positive net
+      final netCents =
+          (data.payerToParticipantCents - data.participantToPayerCents);
+      String payerUserId;
+      String participantUserId;
+      if (netCents >= 0) {
+        // sortedIds[0] is payer in this direction
+        payerUserId = data.sortedIds[0];
+        participantUserId = data.sortedIds[1];
+      } else {
+        payerUserId = data.sortedIds[1];
+        participantUserId = data.sortedIds[0];
+      }
+
+      final totalLines = data.lines.length;
+      final netAmountCents = netCents.abs();
+      final isExpress = data.payerToParticipantCents > 0 &&
+          data.participantToPayerCents > 0;
+
+      // Settlement-level note: use the first non-empty settlement note across lines
+      final settlementNote = data.lines
+          .map((l) => l.settlementNote)
+          .firstWhere((n) => n != null && n.trim().isNotEmpty, orElse: () => null);
+
+      return SettlementEvent(
+        settledAt: data.settledAt,
+        payerUserId: payerUserId,
+        participantUserId: participantUserId,
+        currency: data.currency,
+        amountCents: netAmountCents,
+        lineCount: totalLines,
+        splitGroupId: null,
+        lines: data.lines,
+        settledByUserId: data.actorId,
+        isExpressNetting: isExpress,
+        payerToParticipantCents: data.payerToParticipantCents,
+        participantToPayerCents: data.participantToPayerCents,
+        settlementNote: settlementNote,
+      );
+    }).toList()
       ..sort((a, b) => b.settledAt.compareTo(a.settledAt));
     print(
         '[settlement_history] aggregated events=${events.length} skippedMissingDate=$skippedMissingDate skippedMissingIds=$skippedMissingIds skippedZeroAmount=$skippedZeroAmount household=${params.householdId}');

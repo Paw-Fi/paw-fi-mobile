@@ -192,7 +192,22 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
                           onChanged: _saveNettingPreference,
                         ),
                       ),
+                      if(isAllSettled)
+                      const SizedBox(width: 12),
                     ],
+                    if(isAllSettled)
+                    _HistoryButton(
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => SettlementHistoryPage(
+                              householdId: widget.summary.householdId,
+                            ),
+                          ),
+                        );
+                      },
+                      colorScheme: colorScheme,
+                    ),
                   ],
                 ),
               ],

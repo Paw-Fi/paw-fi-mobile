@@ -99,7 +99,6 @@ final pocketDetailsProvider =
   var query = supabase
       .from('expenses')
       .select('*')
-      .eq('user_id', authUser.uid)
       .eq('currency', selectedCurrency)
       .gte('date', monthStart.toIso8601String())
       .lt('date', monthEnd.toIso8601String())
@@ -109,7 +108,7 @@ final pocketDetailsProvider =
       params.scopeParams.householdId != null) {
     query = query.eq('household_id', params.scopeParams.householdId!);
   } else {
-    query = query.isFilter('household_id', null);
+    query = query.eq('user_id', authUser.uid).isFilter('household_id', null);
   }
 
   final res = await query.order('date', ascending: false);
@@ -119,7 +118,6 @@ final pocketDetailsProvider =
   var prevQuery = supabase
       .from('expenses')
       .select('amount_cents')
-      .eq('user_id', authUser.uid)
       .eq('currency', selectedCurrency)
       .gte('date', prevMonthStart.toIso8601String())
       .lt('date', prevMonthEnd.toIso8601String())
@@ -129,7 +127,7 @@ final pocketDetailsProvider =
       params.scopeParams.householdId != null) {
     prevQuery = prevQuery.eq('household_id', params.scopeParams.householdId!);
   } else {
-    prevQuery = prevQuery.isFilter('household_id', null);
+    prevQuery = prevQuery.eq('user_id', authUser.uid).isFilter('household_id', null);
   }
 
   final prevRes = await prevQuery;

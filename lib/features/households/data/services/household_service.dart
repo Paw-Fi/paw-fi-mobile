@@ -348,9 +348,15 @@ class HouseholdService {
   }
 
   Future<void> settleSplit(String splitLineId) async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) {
+      throw Exception('User not authenticated');
+    }
+
     await _supabase.from('expense_split_lines').update({
       'is_settled': true,
       'settled_at': DateTime.now().toIso8601String(),
+      'settled_by_user_id': userId,
     }).eq('id', splitLineId);
   }
 
@@ -628,11 +634,12 @@ class HouseholdService {
     required String householdId,
     required String memberUserId,
     String? currency,
+    String? settlementNote,
   }) async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) throw Exception('User not authenticated');
 
-    final normalizedCurrency = currency?.toUpperCase();
+    final normalizedCurrency = currency?.trim().toUpperCase();
 
     var query = _supabase
         .from('expense_split_groups')
@@ -641,7 +648,8 @@ class HouseholdService {
         .eq('payer_user_id', memberUserId);
 
     if (normalizedCurrency != null) {
-      query = query.eq('currency', normalizedCurrency);
+      // Case-insensitive match to avoid missed settlements when stored currency casing differs
+      query = query.ilike('currency', normalizedCurrency);
     }
 
     final groups = await query;
@@ -657,6 +665,8 @@ class HouseholdService {
         .update({
           'is_settled': true,
           'settled_at': DateTime.now().toIso8601String(),
+          'settled_by_user_id': userId,
+          if (settlementNote != null) 'settlement_note': settlementNote,
         })
         .inFilter('split_group_id', groupIds)
         .eq('user_id', userId)
@@ -672,11 +682,12 @@ class HouseholdService {
     required String householdId,
     required String memberUserId,
     String? currency,
+    String? settlementNote,
   }) async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) throw Exception('User not authenticated');
 
-    final normalizedCurrency = currency?.toUpperCase();
+    final normalizedCurrency = currency?.trim().toUpperCase();
 
     // Fetch groups where current user is the payer.
     var query = _supabase
@@ -686,7 +697,8 @@ class HouseholdService {
         .eq('payer_user_id', userId);
 
     if (normalizedCurrency != null) {
-      query = query.eq('currency', normalizedCurrency);
+      // Case-insensitive match to avoid missed settlements when stored currency casing differs
+      query = query.ilike('currency', normalizedCurrency);
     }
 
     final groups = await query;
@@ -702,6 +714,8 @@ class HouseholdService {
         .update({
           'is_settled': true,
           'settled_at': DateTime.now().toIso8601String(),
+          'settled_by_user_id': userId,
+          if (settlementNote != null) 'settlement_note': settlementNote,
         })
         .inFilter('split_group_id', groupIds)
         .eq('user_id', memberUserId)
@@ -722,6 +736,7 @@ class HouseholdService {
     required String memberUserId,
     int? youOweCentsBefore,
     String? currency,
+    String? settlementNote,
   }) async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) throw Exception('User not authenticated');
@@ -735,6 +750,7 @@ class HouseholdService {
       householdId: householdId,
       memberUserId: memberUserId,
       currency: normalizedCurrency,
+      settlementNote: settlementNote,
     );
 
     if (count > 0) {
@@ -767,6 +783,7 @@ class HouseholdService {
     required String memberUserId,
     int? theyOweYouCentsBefore,
     String? currency,
+    String? settlementNote,
   }) async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) throw Exception('User not authenticated');
@@ -779,6 +796,7 @@ class HouseholdService {
       householdId: householdId,
       memberUserId: memberUserId,
       currency: normalizedCurrency,
+      settlementNote: settlementNote,
     );
 
     if (count > 0) {
@@ -820,54 +838,28 @@ class HouseholdService {
     int? youOweCentsBefore,
     int? youAreOwedCentsBefore,
     String? currency,
+    String? settlementNote,
   }) async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) throw Exception('User not authenticated');
 
-    final normalizedCurrency = currency?.toUpperCase();
+    final normalizedCurrency = currency?.trim().toUpperCase();
 
     // Direction 1: current user owes member
     final count1 = await settleAllDebtsToMember(
       householdId: householdId,
       memberUserId: memberUserId,
       currency: normalizedCurrency,
+      settlementNote: settlementNote,
     );
 
-    // Direction 2: member owes current user
-    // Fetch groups where current user is the payer
-    var query2 = _supabase
-        .from('expense_split_groups')
-        .select('id')
-        .eq('household_id', householdId)
-        .eq('payer_user_id', userId);
-
-    if (normalizedCurrency != null) {
-      query2 = query2.eq('currency', normalizedCurrency);
-    }
-
-    final groups2 = await query2;
-    final groupIds2 = (groups2 as List)
-        .map((e) => (e as Map<String, dynamic>)['id'] as String)
-        .toList();
-
-    int count2 = 0;
-    if (groupIds2.isNotEmpty) {
-      try {
-        final updated2 = await _supabase
-            .from('expense_split_lines')
-            .update({
-              'is_settled': true,
-              'settled_at': DateTime.now().toIso8601String(),
-            })
-            .inFilter('split_group_id', groupIds2)
-            .eq('user_id', memberUserId)
-            .eq('is_settled', false)
-            .select('id');
-        count2 = (updated2 as List).length;
-      } catch (_) {
-        // If RLS prevents updating other user's lines, ignore but continue.
-      }
-    }
+    // Direction 2: member owes current user (re-use shared helper for consistency)
+    final count2 = await settleAllDebtsFromMember(
+      householdId: householdId,
+      memberUserId: memberUserId,
+      currency: normalizedCurrency,
+      settlementNote: settlementNote,
+    );
 
     final total = count1 + count2;
 

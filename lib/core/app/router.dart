@@ -44,6 +44,22 @@ GoRouter router(RouterRef ref) {
         builder: (context, state) => const SplashScreen(),
       ),
 
+      // Fatal error page
+      GoRoute(
+        path: '/error',
+        builder: (context, state) {
+          final initNotifier = ref.read(appInitializationProvider.notifier);
+          final exception = state.extra is Exception
+              ? state.extra as Exception
+              : initNotifier.lastInitException;
+          return ErrorPage(
+            exception,
+            details: initNotifier.lastErrorMessage,
+            stackTrace: initNotifier.lastErrorStackTrace,
+          );
+        },
+      ),
+
       // Home/Dashboard Route
       GoRoute(
         path: '/',
@@ -169,10 +185,19 @@ GoRouter router(RouterRef ref) {
         final isOnboardingPage = state.matchedLocation == '/avatar' ||
             state.matchedLocation == '/onboarding';
         final isOnPaywallPage = state.matchedLocation == '/paywall';
+        final isOnErrorPage = state.matchedLocation == '/error';
 
         if (kDebugMode) {
           debugPrint(
               '🔐 Auth redirect: init=$appInitState, isAuth=$isAuthenticated, hasSub=$hasSubscription, loaded=$isSubscriptionLoaded, path=${state.matchedLocation}');
+        }
+
+        // Surface fatal initialization failures
+        if (appInitState == AppInitState.failed) {
+          if (!isOnErrorPage) {
+            return '/error';
+          }
+          return null;
         }
 
         // If app is still initializing, stay on splash screen

@@ -184,6 +184,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     final authUser = ref.read(authProvider);
     if (authUser.isEmpty) {
       debugPrint('[Pockets] No auth user, cannot load');
+      if (!mounted) return;
       state = state.copyWith(isLoading: false, error: 'Not authenticated');
       return;
     }
@@ -193,6 +194,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
 
   Future<void> _load() async {
     debugPrint('[Pockets] Starting _load for scope: ${params.scope}, month: ${params.periodMonth}');
+    if (!mounted) return;
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final authUser = ref.read(authProvider);
@@ -218,6 +220,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       final householdId = params.householdId;
 
       if (isHousehold && householdId == null) {
+        if (!mounted) return;
         state = PocketsState(
           isLoading: false,
           error: null,
@@ -250,15 +253,18 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       debugPrint('[Pockets] Using currency: $selectedCurrency (filter: ${filter.selectedCurrency}, analytics: ${analytics.preferredCurrency}, hasLoaded: ${analytics.hasLoadedOnce})');
 
       // Fetch or create budget for the current month/scope
-      final budgetQuery = supabase
+      var scopedBudgetQuery = supabase
           .from('budgets')
-          .select('id,total_budget_cents')
-          .eq('user_id', authUser.uid)
+          .select('id,total_budget_cents,household_id,user_id')
           .eq('currency', selectedCurrency);
 
-      final scopedBudgetQuery = isHousehold
-          ? budgetQuery.eq('household_id', householdId!)
-          : budgetQuery.isFilter('household_id', null);
+      if (isHousehold) {
+        scopedBudgetQuery = scopedBudgetQuery.eq('household_id', householdId!);
+      } else {
+        scopedBudgetQuery = scopedBudgetQuery
+            .eq('user_id', authUser.uid)
+            .isFilter('household_id', null);
+      }
 
       Map<String, dynamic>? budgetRow =
           await scopedBudgetQuery.eq('period_month', periodMonth).maybeSingle();
@@ -298,12 +304,17 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       final totalBudget =
           ((budgetRow?['total_budget_cents'] as num?)?.toDouble() ?? 0) / 100.0;
 
-      final baseQuery = supabase
+      var baseQuery = supabase
           .from('budget_envelopes')
           .select(
               'id,name,budget_percentage,household_id,currency,icon,color,budget_id')
-          .eq('user_id', authUser.uid)
           .eq('currency', selectedCurrency);
+
+      baseQuery = isHousehold
+          ? baseQuery.eq('household_id', householdId!)
+          : baseQuery
+              .eq('user_id', authUser.uid)
+              .isFilter('household_id', null);
 
       final envelopesRes = (budgetId != null
               ? baseQuery.eq('budget_id', budgetId)
@@ -335,6 +346,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         }
       }
       if (envRows.isEmpty) {
+        if (!mounted) return;
         state = PocketsState(
           isLoading: false,
           error: null,
@@ -501,6 +513,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       final unallocatedSpend =
           math.max(0.0, totalMonthlySpend - totalEnvelopeSpend);
 
+      if (!mounted) return;
       state = PocketsState(
         isLoading: false,
         error: null,
@@ -516,6 +529,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         uncategorizedExpenses: uncategorizedExpensesMap,
       );
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
@@ -660,6 +674,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
   }
 
   Future<void> revertChanges() async {
+    if (!mounted) return;
     final restored = state.saved.map((p) => p.copyWith()).toList();
     debugPrint(
         'revertChanges: restoring budget from ${state.totalBudget} to ${state.savedTotalBudget}');
@@ -671,20 +686,31 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
   }
 
   Future<void> saveChanges() async {
+    if (!mounted) return;
     if (!state.hasChanges) return;
     try {
       final normalizedEditing = _normalizeToHundred(state.editing);
+      if (!mounted) return;
       state = state.copyWith(editing: normalizedEditing);
 
       final authUser = ref.read(authProvider);
       final filter = ref.read(homeFilterProvider);
-      final selectedCurrency = filter.selectedCurrency ?? 'USD';
+      final analytics = ref.read(analyticsProvider);
+      final selectedCurrency =
+          (filter.selectedCurrency?.toUpperCase() ??
+                  analytics.preferredCurrency?.toUpperCase() ??
+                  'USD')
+              .toUpperCase();
       // Persist against the month being viewed, not the global filter window
       final viewedMonth = params.periodMonth ?? DateTime.now();
       final monthStart = DateTime(viewedMonth.year, viewedMonth.month, 1);
       final periodMonth = _formatDate(monthStart);
       final isHousehold = params.scope == PocketsScopeType.household;
       final householdId = params.householdId;
+
+      if (isHousehold && householdId == null) {
+        throw Exception('No household selected for shared budget save');
+      }
 
       // Persist/update the parent budget first
       final nowIso = DateTime.now().toIso8601String();
@@ -736,6 +762,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       // reflect the latest pocket configuration.
       ref.read(widgetSyncVersionProvider.notifier).state++;
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(error: e.toString());
     }
   }
@@ -749,12 +776,15 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       });
       await _load();
 
+      if (!mounted) return;
+
       // Re-sync widgets so envelope/category changes affect envelope
       // spending and top-spending breakdowns immediately.
       final authUser = ref.read(authProvider);
       ref.read(analyticsProvider.notifier).refresh(authUser.uid);
       ref.read(widgetSyncVersionProvider.notifier).state++;
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(error: e.toString());
     }
   }

@@ -66,6 +66,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
 
     final amountController = useTextEditingController();
     final amountFocusNode = useFocusNode();
+    useListenable(amountFocusNode);
 
     // Sync amount controller with slider value when slider changes (and not editing amount)
     useEffect(() {
@@ -369,615 +370,635 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      isEditing
-                          ? context.l10n.editPocket
-                          : context.l10n.addPocket,
-                      style: TextStyle(
-                        color: colorScheme.foreground,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: Icon(
-                      Icons.close,
-                      color: colorScheme.mutedForeground,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Flexible(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
                   children: [
-                    Text(
-                      context.l10n.pocketNameLabel,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: colorScheme.mutedForeground,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    CustomTextField(
-                      controller: nameController,
-                      placeholder: context.l10n.pocketNamePlaceholder,
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      context.l10n.pocketCategoriesLabel,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: colorScheme.mutedForeground,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    GestureDetector(
-                      onTap: () {
-                        showModalBottomSheet<void>(
-                          context: context,
-                          isScrollControlled: true,
-                          backgroundColor: Colors.transparent,
-                          builder: (sheetContext) {
-                            return CategoryPickerBottomSheet(
-                              title:context.l10n.selectCategoriesMultiple,
-                              allCategories: allCategories,
-                              selectedCategories: selectedCategories.value,
-                              onChanged: (value) {
-                                selectedCategories.value =
-                                    List<String>.from(value);
-                              },
-                            );
-                          },
-                        );
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: colorScheme.card,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: colorScheme.border),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        isEditing
+                            ? context.l10n.editPocket
+                            : context.l10n.addPocket,
+                        style: TextStyle(
+                          color: colorScheme.foreground,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.5,
                         ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: selectedCategories.value.isEmpty
-                                  ? Text(
-                                      context.l10n.tapToSelectCategories,
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: colorScheme.mutedForeground,
-                                      ),
-                                    )
-                                  : Wrap(
-                                      spacing: 6,
-                                      runSpacing: 6,
-                                      children: [
-                                        for (final cat
-                                            in selectedCategories.value)
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                              vertical: 4,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: colorScheme.primary
-                                                  .withOpacity(0.1),
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                            ),
-                                            child: Text(
-                                              getCategoryTranslation(
-                                                  context, cat),
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                color: colorScheme.primary,
-                                                fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: Icon(
+                        Icons.close,
+                        color: colorScheme.mutedForeground,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Flexible(
+                child: SingleChildScrollView(
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        context.l10n.pocketNameLabel,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: colorScheme.mutedForeground,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      CustomTextField(
+                        controller: nameController,
+                        placeholder: context.l10n.pocketNamePlaceholder,
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        context.l10n.pocketCategoriesLabel,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: colorScheme.mutedForeground,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      GestureDetector(
+                        onTap: () {
+                          showModalBottomSheet<void>(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (sheetContext) {
+                              return CategoryPickerBottomSheet(
+                                title:context.l10n.selectCategoriesMultiple,
+                                allCategories: allCategories,
+                                selectedCategories: selectedCategories.value,
+                                onChanged: (value) {
+                                  selectedCategories.value =
+                                      List<String>.from(value);
+                                },
+                              );
+                            },
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: colorScheme.card,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: colorScheme.border),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: selectedCategories.value.isEmpty
+                                    ? Text(
+                                        context.l10n.tapToSelectCategories,
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: colorScheme.mutedForeground,
+                                        ),
+                                      )
+                                    : Wrap(
+                                        spacing: 6,
+                                        runSpacing: 6,
+                                        children: [
+                                          for (final cat
+                                              in selectedCategories.value)
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 10,
+                                                vertical: 4,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: colorScheme.primary
+                                                    .withOpacity(0.1),
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                              ),
+                                              child: Text(
+                                                getCategoryTranslation(
+                                                    context, cat),
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: colorScheme.primary,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
                                               ),
                                             ),
-                                          ),
-                                      ],
-                                    ),
-                            ),
-                            Icon(
-                              Icons.chevron_right,
-                              color: colorScheme.mutedForeground,
-                              size: 20,
-                            ),
-                          ],
+                                        ],
+                                      ),
+                              ),
+                              Icon(
+                                Icons.chevron_right,
+                                color: colorScheme.mutedForeground,
+                                size: 20,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      context.l10n.pocketColorLabel,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: colorScheme.mutedForeground,
+                      const SizedBox(height: 20),
+                      Text(
+                        context.l10n.pocketColorLabel,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: colorScheme.mutedForeground,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    Builder(builder: (context) {
-                      final presetColors = [
-                        Colors.red,
-                        Colors.pink,
-                        Colors.purple,
-                        Colors.deepPurple,
-                        Colors.indigo,
-                        Colors.blue,
-                        Colors.lightBlue,
-                        Colors.cyan,
-                        Colors.teal,
-                        Colors.green,
-                        Colors.lightGreen,
-                        Colors.lime,
-                        Colors.yellow,
-                        Colors.amber,
-                        Colors.orange,
-                        Colors.deepOrange,
-                        Colors.brown,
-                        Colors.grey,
-                        Colors.blueGrey,
-                      ];
-                      return SizedBox(
-                        height: 44,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: presetColors.length + 1,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(width: 12),
-                          itemBuilder: (context, index) {
-                            if (index == 0) {
-                              // Check if current selected color is one of the presets
-                              bool isCustomColor = false;
-                              if (selectedColor.value != null) {
-                                isCustomColor = true;
-                                for (final preset in presetColors) {
-                                  String two(int n) =>
-                                      n.toRadixString(16).padLeft(2, '0');
-                                  int toByte(double x) =>
-                                      (x * 255.0).round() & 0xff;
-                                  final hex =
-                                      '#${two(toByte(preset.r))}${two(toByte(preset.g))}${two(toByte(preset.b))}';
-                                  if (selectedColor.value!.toLowerCase() ==
-                                      hex.toLowerCase()) {
-                                    isCustomColor = false;
-                                    break;
+                      const SizedBox(height: 12),
+                      Builder(builder: (context) {
+                        final presetColors = [
+                          Colors.red,
+                          Colors.pink,
+                          Colors.purple,
+                          Colors.deepPurple,
+                          Colors.indigo,
+                          Colors.blue,
+                          Colors.lightBlue,
+                          Colors.cyan,
+                          Colors.teal,
+                          Colors.green,
+                          Colors.lightGreen,
+                          Colors.lime,
+                          Colors.yellow,
+                          Colors.amber,
+                          Colors.orange,
+                          Colors.deepOrange,
+                          Colors.brown,
+                          Colors.grey,
+                          Colors.blueGrey,
+                        ];
+                        return SizedBox(
+                          height: 44,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: presetColors.length + 1,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(width: 12),
+                            itemBuilder: (context, index) {
+                              if (index == 0) {
+                                // Check if current selected color is one of the presets
+                                bool isCustomColor = false;
+                                if (selectedColor.value != null) {
+                                  isCustomColor = true;
+                                  for (final preset in presetColors) {
+                                    String two(int n) =>
+                                        n.toRadixString(16).padLeft(2, '0');
+                                    int toByte(double x) =>
+                                        (x * 255.0).round() & 0xff;
+                                    final hex =
+                                        '#${two(toByte(preset.r))}${two(toByte(preset.g))}${two(toByte(preset.b))}';
+                                    if (selectedColor.value!.toLowerCase() ==
+                                        hex.toLowerCase()) {
+                                      isCustomColor = false;
+                                      break;
+                                    }
                                   }
                                 }
-                              }
 
-                              return GestureDetector(
-                                onTap: () {
-                                  final currentColor = selectedColor.value !=
-                                          null
-                                      ? Color(int.parse(
-                                              selectedColor.value!
-                                                  .substring(1, 7),
-                                              radix: 16) +
-                                          0xFF000000)
-                                      : const Color(0xFF007AFF); // Default blue
-
-                                  AdaptiveColorPicker.show(
-                                    context: context,
-                                    startingColor: currentColor,
-                                    onColorChanged: (color) {
-                                      String two(int n) =>
-                                          n.toRadixString(16).padLeft(2, '0');
-                                      int toByte(double x) =>
-                                          (x * 255.0).round() & 0xff;
-                                      final hex =
-                                          '#${two(toByte(color.r))}${two(toByte(color.g))}${two(toByte(color.b))}';
-                                      selectedColor.value = hex;
-                                    },
-                                    label: context.l10n.selectColor,
-                                  );
-                                },
-                                child: Container(
-                                  width: 44,
-                                  height: 44,
-                                  decoration: BoxDecoration(
-                                    color: isCustomColor &&
-                                            selectedColor.value != null
+                                return GestureDetector(
+                                  onTap: () {
+                                    final currentColor = selectedColor.value !=
+                                            null
                                         ? Color(int.parse(
                                                 selectedColor.value!
                                                     .substring(1, 7),
                                                 radix: 16) +
                                             0xFF000000)
-                                        : null,
-                                    gradient: isCustomColor
-                                        ? null
-                                        : const SweepGradient(
-                                            colors: [
-                                              Colors.red,
-                                              Colors.yellow,
-                                              Colors.green,
-                                              Colors.cyan,
-                                              Colors.blue,
-                                              Colors.purpleAccent,
-                                              Colors.red
-                                            ],
-                                          ),
+                                        : const Color(0xFF007AFF); // Default blue
+
+                                    AdaptiveColorPicker.show(
+                                      context: context,
+                                      startingColor: currentColor,
+                                      onColorChanged: (color) {
+                                        String two(int n) =>
+                                            n.toRadixString(16).padLeft(2, '0');
+                                        int toByte(double x) =>
+                                            (x * 255.0).round() & 0xff;
+                                        final hex =
+                                            '#${two(toByte(color.r))}${two(toByte(color.g))}${two(toByte(color.b))}';
+                                        selectedColor.value = hex;
+                                      },
+                                      label: context.l10n.selectColor,
+                                    );
+                                  },
+                                  child: Container(
+                                    width: 44,
+                                    height: 44,
+                                    decoration: BoxDecoration(
+                                      color: isCustomColor &&
+                                              selectedColor.value != null
+                                          ? Color(int.parse(
+                                                  selectedColor.value!
+                                                      .substring(1, 7),
+                                                  radix: 16) +
+                                              0xFF000000)
+                                          : null,
+                                      gradient: isCustomColor
+                                          ? null
+                                          : const SweepGradient(
+                                              colors: [
+                                                Colors.red,
+                                                Colors.yellow,
+                                                Colors.green,
+                                                Colors.cyan,
+                                                Colors.blue,
+                                                Colors.purpleAccent,
+                                                Colors.red
+                                              ],
+                                            ),
+                                      shape: BoxShape.circle,
+                                      border: isCustomColor
+                                          ? Border.all(
+                                              color: colorScheme.foreground,
+                                              width: 2)
+                                          : Border.all(color: colorScheme.border),
+                                      boxShadow: [
+                                        // Shadow removed as requested
+                                      ],
+                                    ),
+                                    child: isCustomColor
+                                        ? const Icon(Icons.check,
+                                            color: Colors.white, size: 20)
+                                        : const Icon(Icons.colorize,
+                                            color: Colors.white, size: 20),
+                                  ),
+                                );
+                              }
+                              final color = presetColors[index - 1];
+                              String two(int n) =>
+                                  n.toRadixString(16).padLeft(2, '0');
+                              int toByte(double x) => (x * 255.0).round() & 0xff;
+                              final hex =
+                                  '#${two(toByte(color.r))}${two(toByte(color.g))}${two(toByte(color.b))}';
+                              final isSelected =
+                                  selectedColor.value?.toLowerCase() ==
+                                      hex.toLowerCase();
+
+                              return GestureDetector(
+                                onTap: () => selectedColor.value = hex,
+                                child: Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    color: color,
                                     shape: BoxShape.circle,
-                                    border: isCustomColor
+                                    border: isSelected
                                         ? Border.all(
                                             color: colorScheme.foreground,
                                             width: 2)
-                                        : Border.all(color: colorScheme.border),
+                                        : null,
                                     boxShadow: [
                                       // Shadow removed as requested
                                     ],
                                   ),
-                                  child: isCustomColor
+                                  child: isSelected
                                       ? const Icon(Icons.check,
                                           color: Colors.white, size: 20)
-                                      : const Icon(Icons.colorize,
-                                          color: Colors.white, size: 20),
+                                      : null,
                                 ),
                               );
+                            },
+                          ),
+                        );
+                      }),
+                      const SizedBox(height: 20),
+                      Text(
+                        context.l10n.pocketIconLabel,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: colorScheme.mutedForeground,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 44,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: pocketIconNames.length,
+                          separatorBuilder: (_, __) => const SizedBox(width: 12),
+                          itemBuilder: (context, index) {
+                            final iconName = pocketIconNames[index];
+                            final selectedHex = selectedColor.value;
+                            final selectedColorValue = selectedHex != null
+                                ? Color(int.parse(
+                                        selectedHex.replaceFirst('#', ''),
+                                        radix: 16) +
+                                    0xFF000000)
+                                : colorScheme.primary;
+
+                            IconData iconData;
+                            switch (iconName) {
+                              case 'shopping_bag':
+                                iconData = Icons.shopping_bag;
+                                break;
+                              case 'restaurant':
+                                iconData = Icons.restaurant;
+                                break;
+                              case 'directions_car':
+                                iconData = Icons.directions_car;
+                                break;
+                              case 'home':
+                                iconData = Icons.home;
+                                break;
+                              case 'flight':
+                                iconData = Icons.flight;
+                                break;
+                              case 'medical_services':
+                                iconData = Icons.medical_services;
+                                break;
+                              case 'school':
+                                iconData = Icons.school;
+                                break;
+                              case 'pets':
+                                iconData = Icons.pets;
+                                break;
+                              case 'sports_esports':
+                                iconData = Icons.sports_esports;
+                                break;
+                              case 'fitness_center':
+                                iconData = Icons.fitness_center;
+                                break;
+                              case 'local_cafe':
+                                iconData = Icons.local_cafe;
+                                break;
+                              case 'local_bar':
+                                iconData = Icons.local_bar;
+                                break;
+                              case 'movie':
+                                iconData = Icons.movie;
+                                break;
+                              case 'music_note':
+                                iconData = Icons.music_note;
+                                break;
+                              case 'savings':
+                                iconData = Icons.savings;
+                                break;
+                              case 'account_balance':
+                                iconData = Icons.account_balance;
+                                break;
+                              default:
+                                iconData = Icons.category;
                             }
-                            final color = presetColors[index - 1];
-                            String two(int n) =>
-                                n.toRadixString(16).padLeft(2, '0');
-                            int toByte(double x) => (x * 255.0).round() & 0xff;
-                            final hex =
-                                '#${two(toByte(color.r))}${two(toByte(color.g))}${two(toByte(color.b))}';
-                            final isSelected =
-                                selectedColor.value?.toLowerCase() ==
-                                    hex.toLowerCase();
+
+                            final isSelected = selectedIcon.value == iconName;
 
                             return GestureDetector(
-                              onTap: () => selectedColor.value = hex,
+                              onTap: () => selectedIcon.value = iconName,
                               child: Container(
                                 width: 44,
                                 height: 44,
                                 decoration: BoxDecoration(
-                                  color: color,
+                                  color: isSelected
+                                      ? selectedColorValue.withOpacity(0.1)
+                                      : colorScheme.card,
                                   shape: BoxShape.circle,
-                                  border: isSelected
-                                      ? Border.all(
-                                          color: colorScheme.foreground,
-                                          width: 2)
-                                      : null,
-                                  boxShadow: [
-                                    // Shadow removed as requested
-                                  ],
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? selectedColorValue
+                                        : colorScheme.border,
+                                  ),
                                 ),
-                                child: isSelected
-                                    ? const Icon(Icons.check,
-                                        color: Colors.white, size: 20)
-                                    : null,
+                                child: Icon(
+                                  iconData,
+                                  color: isSelected
+                                      ? selectedColorValue
+                                      : colorScheme.mutedForeground,
+                                  size: 20,
+                                ),
                               ),
                             );
                           },
                         ),
-                      );
-                    }),
-                    const SizedBox(height: 20),
-                    Text(
-                      context.l10n.pocketIconLabel,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: colorScheme.mutedForeground,
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      height: 44,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: pocketIconNames.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 12),
-                        itemBuilder: (context, index) {
-                          final iconName = pocketIconNames[index];
-                          final selectedHex = selectedColor.value;
-                          final selectedColorValue = selectedHex != null
-                              ? Color(int.parse(
-                                      selectedHex.replaceFirst('#', ''),
-                                      radix: 16) +
-                                  0xFF000000)
-                              : colorScheme.primary;
-
-                          IconData iconData;
-                          switch (iconName) {
-                            case 'shopping_bag':
-                              iconData = Icons.shopping_bag;
-                              break;
-                            case 'restaurant':
-                              iconData = Icons.restaurant;
-                              break;
-                            case 'directions_car':
-                              iconData = Icons.directions_car;
-                              break;
-                            case 'home':
-                              iconData = Icons.home;
-                              break;
-                            case 'flight':
-                              iconData = Icons.flight;
-                              break;
-                            case 'medical_services':
-                              iconData = Icons.medical_services;
-                              break;
-                            case 'school':
-                              iconData = Icons.school;
-                              break;
-                            case 'pets':
-                              iconData = Icons.pets;
-                              break;
-                            case 'sports_esports':
-                              iconData = Icons.sports_esports;
-                              break;
-                            case 'fitness_center':
-                              iconData = Icons.fitness_center;
-                              break;
-                            case 'local_cafe':
-                              iconData = Icons.local_cafe;
-                              break;
-                            case 'local_bar':
-                              iconData = Icons.local_bar;
-                              break;
-                            case 'movie':
-                              iconData = Icons.movie;
-                              break;
-                            case 'music_note':
-                              iconData = Icons.music_note;
-                              break;
-                            case 'savings':
-                              iconData = Icons.savings;
-                              break;
-                            case 'account_balance':
-                              iconData = Icons.account_balance;
-                              break;
-                            default:
-                              iconData = Icons.category;
-                          }
-
-                          final isSelected = selectedIcon.value == iconName;
-
-                          return GestureDetector(
-                            onTap: () => selectedIcon.value = iconName,
-                            child: Container(
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? selectedColorValue.withOpacity(0.1)
-                                    : colorScheme.card,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: isSelected
-                                      ? selectedColorValue
-                                      : colorScheme.border,
-                                ),
-                              ),
-                              child: Icon(
-                                iconData,
-                                color: isSelected
-                                    ? selectedColorValue
-                                    : colorScheme.mutedForeground,
-                                size: 20,
+                      const SizedBox(height: 20),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: colorScheme.card,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: colorScheme.border),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              context.l10n.budgetAmount,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: colorScheme.mutedForeground,
                               ),
                             ),
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: colorScheme.card,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: colorScheme.border),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            context.l10n.budgetAmount,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: colorScheme.mutedForeground,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  SizedBox(
-                                    width: 200,
-                                    child: TextField(
-                                      controller: amountController,
-                                      focusNode: amountFocusNode,
-                                      keyboardType:
-                                          const TextInputType.numberWithOptions(
-                                              decimal: true),
-                                      style: TextStyle(
-                                        fontSize: 28,
-                                        fontWeight: FontWeight.w700,
-                                        color: colorScheme.foreground,
-                                        letterSpacing: -0.5,
-                                      ),
-                                      decoration: InputDecoration(
-                                        prefixText:
-                                            resolveCurrencySymbol(currency),
-                                        prefixStyle: TextStyle(
+                            const SizedBox(height: 10),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    SizedBox(
+                                      width: 200,
+                                      child: TextField(
+                                        controller: amountController,
+                                        focusNode: amountFocusNode,
+                                        keyboardType:
+                                            const TextInputType.numberWithOptions(
+                                                decimal: true),
+                                        textInputAction: TextInputAction.done,
+                                        onEditingComplete: () =>
+                                            amountFocusNode.unfocus(),
+                                        style: TextStyle(
                                           fontSize: 28,
                                           fontWeight: FontWeight.w700,
                                           color: colorScheme.foreground,
                                           letterSpacing: -0.5,
                                         ),
-                                        isDense: true,
-                                        contentPadding:
-                                            const EdgeInsets.symmetric(
-                                                vertical: 4),
-                                        enabledBorder: UnderlineInputBorder(
-                                          borderSide: BorderSide(
-                                              color: colorScheme.foreground,
-                                              width: 1),
-                                        ),
-                                        focusedBorder: UnderlineInputBorder(
-                                          borderSide: BorderSide(
-                                              color: colorScheme.foreground,
-                                              width: 2),
+                                        decoration: InputDecoration(
+                                          prefixText:
+                                              resolveCurrencySymbol(currency),
+                                          prefixStyle: TextStyle(
+                                            fontSize: 28,
+                                            fontWeight: FontWeight.w700,
+                                            color: colorScheme.foreground,
+                                            letterSpacing: -0.5,
+                                          ),
+                                          isDense: true,
+                                          contentPadding:
+                                              const EdgeInsets.symmetric(
+                                                  vertical: 4),
+                                          enabledBorder: UnderlineInputBorder(
+                                            borderSide: BorderSide(
+                                                color: colorScheme.foreground,
+                                                width: 1),
+                                          ),
+                                          focusedBorder: UnderlineInputBorder(
+                                            borderSide: BorderSide(
+                                                color: colorScheme.foreground,
+                                                width: 2),
+                                          ),
+                                          suffixIcon: amountFocusNode.hasFocus
+                                              ? IconButton(
+                                                  icon: Icon(
+                                                    Icons.check_rounded,
+                                                    color: colorScheme.primary,
+                                                  ),
+                                                  splashRadius: 18,
+                                                  onPressed: () =>
+                                                      amountFocusNode.unfocus(),
+                                                )
+                                              : null,
                                         ),
                                       ),
                                     ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '${sliderValue.value.toStringAsFixed(1)}%',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: colorScheme.mutedForeground,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Text(
-                                formatCurrency(totalBudget, currency),
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: colorScheme.mutedForeground,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          SliderTheme(
-                            data: SliderThemeData(
-                              trackHeight: 6,
-                              activeTrackColor: colorScheme.primary,
-                              inactiveTrackColor:
-                                  colorScheme.primary.withOpacity(0.1),
-                              thumbColor: Colors.white,
-                              overlayColor:
-                                  colorScheme.primary.withOpacity(0.1),
-                              thumbShape: const RoundSliderThumbShape(
-                                  enabledThumbRadius: 12, elevation: 4),
-                              overlayShape: const RoundSliderOverlayShape(
-                                  overlayRadius: 24),
-                            ),
-                            child: Slider(
-                              value: sliderValue.value,
-                              min: 0,
-                              max: effectiveMax,
-                              divisions: 20,
-                              onChanged: (value) {
-                                sliderValue.value = value;
-                                percentageController.text =
-                                    value.toStringAsFixed(1);
-                              },
-                            ),
-                          ),
-                          if (unallocatedBudget < 0)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 12),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.warning_amber_rounded,
-                                      size: 16, color: colorScheme.error),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      '${context.l10n.budgetExceededByLabel} ${(unallocatedBudget.abs()).toStringAsFixed(0)}',
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '${sliderValue.value.toStringAsFixed(1)}%',
                                       style: TextStyle(
-                                        fontSize: 12,
-                                        color: colorScheme.error,
-                                        fontWeight: FontWeight.w500,
+                                        fontSize: 13,
+                                        color: colorScheme.mutedForeground,
+                                        fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    _BudgetDistributionPreview(
-                      totalBudget: totalBudget,
-                      allPockets: allPockets,
-                      currentPocketId: existingEnvelope?.id,
-                      currentAllocation: sliderValue.value,
-                      currentPocketColor: selectedColor.value,
-                      currentPocketName: nameController.text.trim().isEmpty
-                          ? context.l10n.thisPocketFallback
-                          : nameController.text.trim(),
-                      currency: currency,
-                      colorScheme: colorScheme,
-                    ),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      child: PrimaryAdaptiveButton(
-                        onPressed: isLoading.value ? null : handleSave,
-                        child: isLoading.value
-                            ? SizedBox(
-                                height: 18,
-                                width: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation(
-                                    colorScheme.primaryForeground,
+                                  ],
+                                ),
+                                Text(
+                                  formatCurrency(totalBudget, currency),
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: colorScheme.mutedForeground,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
-                              )
-                            : Text(
-                                isEditing
-                                    ? context.l10n.saveChanges
-                                    : context.l10n.save,
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            SliderTheme(
+                              data: SliderThemeData(
+                                trackHeight: 6,
+                                activeTrackColor: colorScheme.primary,
+                                inactiveTrackColor:
+                                    colorScheme.primary.withOpacity(0.1),
+                                thumbColor: Colors.white,
+                                overlayColor:
+                                    colorScheme.primary.withOpacity(0.1),
+                                thumbShape: const RoundSliderThumbShape(
+                                    enabledThumbRadius: 12, elevation: 4),
+                                overlayShape: const RoundSliderOverlayShape(
+                                    overlayRadius: 24),
                               ),
+                              child: Slider(
+                                value: sliderValue.value,
+                                min: 0,
+                                max: effectiveMax,
+                                divisions: 20,
+                                onChanged: (value) {
+                                  sliderValue.value = value;
+                                  percentageController.text =
+                                      value.toStringAsFixed(1);
+                                },
+                              ),
+                            ),
+                            if (unallocatedBudget < 0)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 12),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.warning_amber_rounded,
+                                        size: 16, color: colorScheme.error),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        '${context.l10n.budgetExceededByLabel} ${(unallocatedBudget.abs()).toStringAsFixed(0)}',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: colorScheme.error,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
-                    ),
-                    if (isEditing) ...[
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
+                      _BudgetDistributionPreview(
+                        totalBudget: totalBudget,
+                        allPockets: allPockets,
+                        currentPocketId: existingEnvelope?.id,
+                        currentAllocation: sliderValue.value,
+                        currentPocketColor: selectedColor.value,
+                        currentPocketName: nameController.text.trim().isEmpty
+                            ? context.l10n.thisPocketFallback
+                            : nameController.text.trim(),
+                        currency: currency,
+                        colorScheme: colorScheme,
+                      ),
+                      const SizedBox(height: 24),
                       SizedBox(
                         width: double.infinity,
-                        child: PlainAdaptiveButton(
-                          onPressed: isLoading.value ? null : handleDelete,
-                          child: Text(
-                            context.l10n.delete,
-                            style: TextStyle(
-                              color: colorScheme.destructive,
-                              fontWeight: FontWeight.w600,
+                        child: PrimaryAdaptiveButton(
+                          onPressed: isLoading.value ? null : handleSave,
+                          child: isLoading.value
+                              ? SizedBox(
+                                  height: 18,
+                                  width: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation(
+                                      colorScheme.primaryForeground,
+                                    ),
+                                  ),
+                                )
+                              : Text(
+                                  isEditing
+                                      ? context.l10n.saveChanges
+                                      : context.l10n.save,
+                                ),
+                        ),
+                      ),
+                      if (isEditing) ...[
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: PlainAdaptiveButton(
+                            onPressed: isLoading.value ? null : handleDelete,
+                            child: Text(
+                              context.l10n.delete,
+                              style: TextStyle(
+                                color: colorScheme.destructive,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ),
-                      ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

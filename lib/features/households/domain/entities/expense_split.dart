@@ -120,6 +120,7 @@ class ExpenseSplitLine {
   final DateTime updatedAt;
   final String? userEmail;
   final String? userName;
+  final String? settledByUserId;
 
   const ExpenseSplitLine({
     required this.id,
@@ -134,6 +135,7 @@ class ExpenseSplitLine {
     required this.updatedAt,
     this.userEmail,
     this.userName,
+    this.settledByUserId,
   });
 
   factory ExpenseSplitLine.fromJson(Map<String, dynamic> json) {
@@ -154,6 +156,7 @@ class ExpenseSplitLine {
       updatedAt: DateTime.parse(json['updated_at'] as String),
       userEmail: json['user_email'] as String?,
       userName: json['user_name'] as String?,
+      settledByUserId: json['settled_by_user_id'] as String?,
     );
   }
 
@@ -171,6 +174,7 @@ class ExpenseSplitLine {
       'updated_at': updatedAt.toIso8601String(),
       'user_email': userEmail,
       'user_name': userName,
+      'settled_by_user_id': settledByUserId,
     };
   }
 }

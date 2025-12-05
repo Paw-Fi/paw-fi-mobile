@@ -7,9 +7,11 @@ import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/features/profile/data/providers/whatsapp_binding_provider.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_state.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
+import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 
@@ -19,6 +21,7 @@ part 'app_initialization_provider.g.dart';
 enum AppInitState {
   uninitialized,
   initializing,
+  failed,
   initialized,
 }
 
@@ -26,6 +29,23 @@ enum AppInitState {
 /// Ensures auth, subscription, WhatsApp binding, and analytics are loaded before routing
 @Riverpod(keepAlive: true)
 class AppInitialization extends _$AppInitialization {
+  Object? _lastError;
+  StackTrace? _lastErrorStackTrace;
+  String? _lastErrorDescription;
+
+  /// Last fatal initialization exception that should be surfaced to the user.
+  Exception? get lastInitException {
+    final error = _lastError;
+    if (error == null) return null;
+    return error is Exception ? error : Exception(error.toString());
+  }
+
+  /// Human readable description of the last initialization error.
+  String? get lastErrorMessage => _lastErrorDescription;
+
+  /// Stack trace captured for the last initialization error.
+  StackTrace? get lastErrorStackTrace => _lastErrorStackTrace;
+
   @override
   AppInitState build() {
     _initialize();
@@ -33,6 +53,7 @@ class AppInitialization extends _$AppInitialization {
   }
 
   Future<void> _initialize() async {
+    _clearInitError();
     try {
       final initStopwatch = Stopwatch()..start();
       debugPrint('🚀 [INIT] Starting app initialization...');
@@ -42,34 +63,71 @@ class AppInitialization extends _$AppInitialization {
       await _performInitialization().timeout(
         const Duration(seconds: 10),
         onTimeout: () {
+          final timeout =
+              TimeoutException('App initialization timeout after 10s');
           debugPrint('❌ [INIT] CRITICAL: Initialization timed out after 10s!');
-          debugPrint('⚠️ [INIT] This indicates a serious issue - small dataset should load in <3s');
-          try {
-            FirebaseCrashlytics.instance.recordError(
-              TimeoutException('App initialization timeout after 10s'),
-              StackTrace.current,
-              fatal: false,
-              reason: 'app_initialization_timeout',
-            );
-          } catch (_) {}
+          debugPrint(
+              '⚠️ [INIT] This indicates a serious issue - small dataset should load in <3s');
+          _recordInitError(
+            timeout,
+            StackTrace.current,
+            description:
+                'Initialization exceeded 10s. We likely could not reach the backend in time.',
+            reason: 'app_initialization_timeout',
+          );
+          throw timeout;
         },
       );
       
       initStopwatch.stop();
       debugPrint('✅ [INIT] Total initialization time: ${initStopwatch.elapsedMilliseconds}ms');
-    } catch (e) {
+    } catch (e, s) {
       // Record non-fatal so we can analyze initialization failures in production
-      try {
-        FirebaseCrashlytics.instance.recordError(e, StackTrace.current,
-            fatal: false, reason: 'app_initialization_error');
-      } catch (_) {}
+      if (state != AppInitState.failed) {
+        _recordInitError(
+          e,
+          s,
+          description: 'App initialization failed unexpectedly: $e',
+        );
+      }
       debugPrint('❌ Error during app initialization: $e');
     } finally {
-      // CRITICAL: Always mark as initialized in finally block
-      // This guarantees we never hang on splash screen, regardless of what happens
-      state = AppInitState.initialized;
-      debugPrint('🎉 App initialization complete (state set to initialized)');
+      // CRITICAL: Mark as initialized in finally block when successful so we never
+      // hang on the splash screen. Fatal errors keep the state as failed so we
+      // can surface the error page instead of looping on splash.
+      if (state != AppInitState.failed) {
+        state = AppInitState.initialized;
+        debugPrint('🎉 App initialization complete (state set to initialized)');
+      } else {
+        debugPrint('🚫 App initialization failed (state set to failed)');
+      }
     }
+  }
+
+  void _clearInitError() {
+    _lastError = null;
+    _lastErrorStackTrace = null;
+    _lastErrorDescription = null;
+  }
+
+  void _recordInitError(
+    Object error,
+    StackTrace stackTrace, {
+    String? description,
+    String reason = 'app_initialization_error',
+  }) {
+    _lastError = error;
+    _lastErrorStackTrace = stackTrace;
+    _lastErrorDescription = description ?? error.toString();
+    state = AppInitState.failed;
+    try {
+      FirebaseCrashlytics.instance.recordError(
+        error,
+        stackTrace,
+        fatal: false,
+        reason: reason,
+      );
+    } catch (_) {}
   }
 
   /// Perform the actual initialization work
@@ -404,6 +462,7 @@ class AppInitialization extends _$AppInitialization {
   /// Force re-initialization (useful after login/logout)
   void reset() {
     debugPrint('🔄 Resetting app initialization...');
+    _clearInitError();
     state = AppInitState.initializing;
     _initialize();
   }
@@ -426,6 +485,31 @@ class AppInitialization extends _$AppInitialization {
 
     // Clear expense processing state
     ref.read(expenseProcessingProvider.notifier).clear();
+
+    // Home/dashboard filters and layouts
+    ref.invalidate(viewModeProvider);
+    ref.invalidate(homeFilterProvider);
+    ref.invalidate(cardDateFilterProvider);
+    ref.invalidate(dashboardRepositoryFutureProvider);
+    ref.invalidate(personalDashboardProvider);
+    ref.invalidate(householdDashboardProvider);
+
+    // Household scoped data
+    ref.invalidate(userHouseholdsProvider);
+    ref.invalidate(householdExpensesProvider);
+    ref.invalidate(householdSplitsProvider);
+    ref.invalidate(householdBudgetsProvider);
+    ref.invalidate(householdSummaryProvider);
+    ref.invalidate(householdMembersProvider);
+    ref.invalidate(selectedHouseholdProvider);
+
+    // Pockets/budgets
+    ref.invalidate(pocketsProvider);
+
+    // Recurring transactions
+    ref.invalidate(recurringTransactionsProvider);
+    ref.invalidate(recurringTransactionSaveProvider);
+    ref.invalidate(selectedRecurringTabProvider);
 
     // Subscription provider is auto-dispose and will be cleared automatically
     // Auth provider maintains only auth state, no user-specific data to clear

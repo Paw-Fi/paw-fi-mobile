@@ -432,14 +432,18 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               config.customStartDate, config.customEndDate);
                           final from = range['from']!;
                           final to = range['to']!;
+                          // Normalize to day boundaries so provider keys stay stable across rebuilds
+                          final fromDate =
+                              DateTime(from.year, from.month, from.day);
+                          final toDate = DateTime(to.year, to.month, to.day);
 
                           final summaryAsync =
                               ref.watch(householdSummaryProvider(
                             HouseholdSummaryParams(
                               householdId: household.id,
                               currency: selectedCurrency,
-                              startDate: from.toIso8601String(),
-                              endDate: to.toIso8601String(),
+                              startDate: fromDate.toIso8601String(),
+                              endDate: toDate.toIso8601String(),
                             ),
                           ));
 
@@ -480,14 +484,17 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               config.customStartDate, config.customEndDate);
                           final from = range['from']!;
                           final to = range['to']!;
+                          final fromDate =
+                              DateTime(from.year, from.month, from.day);
+                          final toDate = DateTime(to.year, to.month, to.day);
 
                           final summaryAsync =
                               ref.watch(householdSummaryProvider(
                             HouseholdSummaryParams(
                               householdId: household.id,
                               currency: selectedCurrency,
-                              startDate: from.toIso8601String(),
-                              endDate: to.toIso8601String(),
+                              startDate: fromDate.toIso8601String(),
+                              endDate: toDate.toIso8601String(),
                             ),
                           ));
                           final expensesAsync =
@@ -497,16 +504,22 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                             ),
                           ));
 
-                          if (summaryAsync.value == null) {
+                          // Safely derive data from AsyncValue without throwing on errors/timeouts.
+                          final summary = summaryAsync.asData?.value;
+
+                          if (summary == null) {
+                            // If summary failed to load or is still loading, omit the fairness card.
                             return const SizedBox.shrink();
                           }
+
+                          final transactions = expensesAsync.asData?.value ?? [];
 
                           return Padding(
                             padding:
                                 const EdgeInsets.symmetric(horizontal: 16.0),
                             child: GroupFairnessMeter(
-                              summary: summaryAsync.value!,
-                              transactions: expensesAsync.value,
+                              summary: summary,
+                              transactions: transactions,
                               from: from,
                               to: to,
                               currency: selectedCurrency,
@@ -533,30 +546,41 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               config.customStartDate, config.customEndDate);
                           final from = range['from']!;
                           final to = range['to']!;
+                          final fromDate =
+                              DateTime(from.year, from.month, from.day);
+                          final toDate = DateTime(to.year, to.month, to.day);
 
                           final summaryAsync =
                               ref.watch(householdSummaryProvider(
                             HouseholdSummaryParams(
                               householdId: household.id,
                               currency: selectedCurrency,
-                              startDate: from.toIso8601String(),
-                              endDate: to.toIso8601String(),
+                              startDate: fromDate.toIso8601String(),
+                              endDate: toDate.toIso8601String(),
                             ),
                           ));
 
-                          if (summaryAsync.value == null) {
+                          // Safely read summary and related AsyncValues to avoid crashes on errors/timeouts.
+                          final summary = summaryAsync.asData?.value;
+
+                          if (summary == null) {
+                            // If summary failed to load or is still loading, omit the settlement card.
                             return const SizedBox.shrink();
                           }
+
+                          final transactions = expensesAsync.asData?.value ?? [];
+                          final splits = splitsAsync.asData?.value;
+                          final members = membersAsync.asData?.value;
 
                           return Padding(
                             padding:
                                 const EdgeInsets.symmetric(horizontal: 16.0),
                             child: SettlementSuggestionsCard(
-                              summary: summaryAsync.value!,
-                              transactions: expensesAsync.value ?? [],
-                              splits: splitsAsync.value,
+                              summary: summary,
+                              transactions: transactions,
+                              splits: splits,
                               currency: selectedCurrency,
-                              members: membersAsync.value,
+                              members: members,
                             ),
                           );
                         });
@@ -579,14 +603,17 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               config.customStartDate, config.customEndDate);
                           final from = range['from']!;
                           final to = range['to']!;
+                          final fromDate =
+                              DateTime(from.year, from.month, from.day);
+                          final toDate = DateTime(to.year, to.month, to.day);
 
                           final summaryAsync =
                               ref.watch(householdSummaryProvider(
                             HouseholdSummaryParams(
                               householdId: household.id,
                               currency: selectedCurrency,
-                              startDate: from.toIso8601String(),
-                              endDate: to.toIso8601String(),
+                              startDate: fromDate.toIso8601String(),
+                              endDate: toDate.toIso8601String(),
                             ),
                           ));
 

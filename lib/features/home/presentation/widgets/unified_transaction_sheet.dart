@@ -135,6 +135,13 @@ class _UnifiedTransactionSheetState
   @override
   void initState() {
     super.initState();
+    // Default payer to the expense owner (fallback to current user) so we don't
+    // incorrectly show the viewer as the payer before loading split data.
+    final currentUserId = ref.read(authProvider).uid;
+    _selectedPayerUserId =
+        widget.existingExpense?.userId?.isNotEmpty == true
+            ? widget.existingExpense!.userId
+            : currentUserId;
 
     // DEBUG: Log expense ID for deep link testing
     if (widget.existingExpense != null) {
@@ -887,9 +894,6 @@ class _UnifiedTransactionSheetState
                 final isExistingWithoutSplit = isExistingExpense &&
                     widget.existingExpense!.householdId != null &&
                     widget.existingExpense!.splitGroupId == null;
-
-                // Ensure default payer selection
-                _selectedPayerUserId ??= ref.read(authProvider).uid;
 
                 // For income mode, we hide the custom split editor entirely
                 if (isIncomeMode) {
@@ -1777,6 +1781,12 @@ class _UnifiedTransactionSheetState
         (g) => g.id == splitGroupId,
         orElse: () => throw Exception('Split group not found'),
       );
+
+      if (mounted) {
+        setState(() {
+          _selectedPayerUserId = splitGroup.payerUserId;
+        });
+      }
 
       debugPrint('🔄 [LOAD SPLIT] Found split group: ${splitGroup.splitType}');
       debugPrint(

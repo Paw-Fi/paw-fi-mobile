@@ -11,6 +11,7 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 import 'package:moneko/shared/widgets/user_avatar.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 
 class SettlementHistoryPage extends ConsumerStatefulWidget {
   final String householdId;
@@ -57,6 +58,9 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
     final colorScheme = Theme.of(context).colorScheme;
     final historyAsync = ref.watch(householdSettlementHistoryProvider(
         SettlementHistoryParams(householdId: widget.householdId)));
+    final homeFilter = ref.watch(homeFilterProvider);
+    final selectedCurrency =
+        (homeFilter.selectedCurrency ?? 'USD').toUpperCase();
     final membersAsync =
         ref.watch(householdMembersProvider(widget.householdId));
 
@@ -136,6 +140,51 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
                 ),
               ),
               data: (events) {
+                final filtered = events
+                    .where((e) => e.currency.toUpperCase() == selectedCurrency)
+                    .toList();
+
+                if (filtered.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: colorScheme.surfaceContainerHighest
+                                .withOpacity(0.3),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.history,
+                            size: 48,
+                            color: colorScheme.mutedForeground,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        Text(
+                          context.l10n.nothingToSettle,
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.foreground,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${context.l10n.settlementsWillAppearHere} (${selectedCurrency})',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: colorScheme.mutedForeground,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
                 if (events.isEmpty) {
                   return Center(
                     child: Column(
@@ -177,8 +226,8 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
                   );
                 }
 
-                final groupedEvents = _groupEventsByDate(events);
-                final currencyTotals = _calculateCurrencyTotals(events);
+                final groupedEvents = _groupEventsByDate(filtered);
+                final currencyTotals = _calculateCurrencyTotals(filtered);
                 final sortedDates = groupedEvents.keys.toList()
                   ..sort((a, b) => DateFormat.yMd()
                       .parse(b)
@@ -190,7 +239,7 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
                         child: _buildSummarySection(
-                            context, events, currencyTotals),
+                            context, filtered, currencyTotals),
                       ),
                     ),
                     SliverPadding(
@@ -422,6 +471,32 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
     final time = DateFormat.jm().format(event.settledAt.toLocal());
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+    final actorId = event.settledByUserId;
+    String? actorLabel;
+    if (actorId != null) {
+      final isYou = currentUserId != null && actorId == currentUserId;
+      final actorName = isYou ? 'you' : nameFor(actorId);
+      actorLabel = 'Settled by $actorName';
+    }
+    final isExpress = event.isExpressNetting == true;
+
+    int _sumDirection(
+        List<SettlementLine> lines, String fromId, String toId) {
+      return lines
+          .where((l) =>
+              (l.payerUserId ?? fromId) == fromId &&
+              (l.participantUserId ?? toId) == toId)
+          .fold<int>(0, (s, l) => s + l.amountCents);
+    }
+
+    final totalPayerToParticipant = event.lines.isNotEmpty
+        ? _sumDirection(event.lines, event.payerUserId, event.participantUserId)
+        : event.payerToParticipantCents;
+    final totalParticipantToPayer = event.lines.isNotEmpty
+        ? _sumDirection(event.lines, event.participantUserId, event.payerUserId)
+        : event.participantToPayerCents;
+
     return Material(
       child: InkWell(
         onTap: () => _showSettlementDetails(context, event, nameFor),
@@ -436,6 +511,7 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
                     child: Row(
@@ -495,10 +571,11 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
                   ),
                 ],
               ),
-              if (event.description != null && event.description!.isNotEmpty) ...[
+              if (event.settlementNote != null &&
+                  event.settlementNote!.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Text(
-                  event.description!,
+                  event.settlementNote!,
                   style: TextStyle(
                     fontSize: 15,
                     color: colorScheme.foreground,
@@ -512,52 +589,122 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Row(
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        Icons.schedule_rounded,
-                        size: 14,
-                        color: colorScheme.mutedForeground,
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.schedule_rounded,
+                            size: 14,
+                            color: colorScheme.mutedForeground,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            time,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: colorScheme.mutedForeground,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Container(
+                            width: 4,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: colorScheme.mutedForeground.withOpacity(0.5),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            '${event.lines.isNotEmpty ? event.lines.length : event.lineCount} ${context.l10n.items}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: colorScheme.mutedForeground,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        time,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: colorScheme.mutedForeground,
+                      if (actorLabel != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          actorLabel,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: colorScheme.mutedForeground,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Container(
-                        width: 4,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: colorScheme.mutedForeground.withOpacity(0.5),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        '${event.lines.isNotEmpty ? event.lines.length : event.lineCount} ${context.l10n.items}',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: colorScheme.mutedForeground,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-                  Text(
-                    amount,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: colorScheme.primary,
-                      letterSpacing: -0.5,
+                      ],
+                      ],
                     ),
+                    const Spacer(),
+                    Text(
+                      amount,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.primary,
+                        letterSpacing: -0.5,
+                      ),
                   ),
                 ],
               ),
+              if (isExpress) ...[
+                const SizedBox(height: 8),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Offsets',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: colorScheme.mutedForeground,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${participantName} → ${payerName}: ${formatCurrency(totalParticipantToPayer / 100.0, event.currency.toUpperCase())}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: colorScheme.mutedForeground,
+                            ),
+                          ),
+                          Text(
+                            '${payerName} → ${participantName}: ${formatCurrency(totalPayerToParticipant / 100.0, event.currency.toUpperCase())}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: colorScheme.mutedForeground,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: colorScheme.primary.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        'Express netting',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
@@ -576,6 +723,7 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
         event: event,
         nameFor: nameFor,
         householdId: widget.householdId,
+        settlementNote: event.settlementNote,
       ),
     );
   }
@@ -585,12 +733,14 @@ class SettlementDetailsSheet extends StatefulWidget {
   final SettlementEvent event;
   final String Function(String) nameFor;
   final String householdId;
+  final String? settlementNote;
 
   const SettlementDetailsSheet({
     Key? key,
     required this.event,
     required this.nameFor,
     required this.householdId,
+    this.settlementNote,
   }) : super(key: key);
 
   @override
@@ -610,6 +760,10 @@ class _SettlementDetailsSheet extends SettlementDetailsSheet {
     amountCents: 0,
     lineCount: 0,
     lines: const [],
+    isExpressNetting: false,
+    payerToParticipantCents: 0,
+    participantToPayerCents: 0,
+    settlementNote: null,
   );
 
   _SettlementDetailsSheet({Key? key})
@@ -669,7 +823,7 @@ class _SettlementDetailsSheetState extends State<SettlementDetailsSheet> {
       final response = await supabase
           .from('expense_split_lines')
           .select(
-              'settled_at, amount_cents, split_group_id, expense_split_groups!inner(payer_user_id, currency, household_id, description, expense_id)')
+              'settled_at, amount_cents, split_group_id, user_id, settlement_note, expense_split_groups!inner(payer_user_id, currency, household_id, expense_id)')
           .eq('is_settled', true)
           .gte('settled_at', bucketStart.toIso8601String())
           .lt('settled_at', bucketEnd.toIso8601String())
@@ -680,19 +834,24 @@ class _SettlementDetailsSheetState extends State<SettlementDetailsSheet> {
           .order('settled_at', ascending: false);
 
       final rows = (response as List).cast<Map<String, dynamic>>();
-      final loaded = rows.map((row) {
+      final loaded = rows.map<SettlementLine>((row) {
         final settledAtStr = row['settled_at'] as String?;
         final settledAt = settledAtStr != null
             ? DateTime.parse(settledAtStr)
             : widget.event.settledAt;
         final amount = (row['amount_cents'] as int? ?? 0).abs();
         final group = row['expense_split_groups'] as Map<String, dynamic>? ?? {};
+        final payerId = group['payer_user_id'] as String? ?? '';
+        final participantId = row['user_id'] as String? ??
+            widget.event.participantUserId;
         return SettlementLine(
           splitGroupId: (row['split_group_id'] as String?) ?? '',
           amountCents: amount,
           settledAt: settledAt,
-          description: group['description'] as String?,
+          payerUserId: payerId,
+          participantUserId: participantId,
           expenseId: group['expense_id'] as String?,
+          settlementNote: row['settlement_note'] as String?,
         );
       }).toList()
         ..sort((a, b) => b.settledAt.compareTo(a.settledAt));
@@ -722,6 +881,38 @@ class _SettlementDetailsSheetState extends State<SettlementDetailsSheet> {
     final lineItems = (_lines.isNotEmpty ? _lines : widget.event.lines)
         .toList()
       ..sort((a, b) => b.settledAt.compareTo(a.settledAt));
+    final forwardTotal = lineItems.isNotEmpty
+        ? lineItems
+            .where((l) =>
+                (l.payerUserId ?? widget.event.payerUserId) ==
+                    widget.event.payerUserId &&
+                (l.participantUserId ?? widget.event.participantUserId) ==
+                    widget.event.participantUserId)
+            .fold<int>(0, (s, l) => s + l.amountCents)
+        : widget.event.payerToParticipantCents;
+    final reverseTotal = lineItems.isNotEmpty
+        ? lineItems
+            .where((l) =>
+                (l.payerUserId ?? widget.event.participantUserId) ==
+                    widget.event.participantUserId &&
+                (l.participantUserId ?? widget.event.payerUserId) ==
+                    widget.event.payerUserId)
+            .fold<int>(0, (s, l) => s + l.amountCents)
+        : widget.event.participantToPayerCents;
+    final isExpress = widget.event.isExpressNetting == true;
+
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+    final actorId = widget.event.settledByUserId;
+    String? actorDisplay;
+    if (actorId != null) {
+      if (currentUserId != null && actorId == currentUserId) {
+        actorDisplay = 'You';
+      } else {
+        actorDisplay = widget.nameFor(actorId);
+      }
+    }
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+
 
     return DraggableScrollableSheet(
       expand: false,
@@ -731,7 +922,7 @@ class _SettlementDetailsSheetState extends State<SettlementDetailsSheet> {
       builder: (context, scrollController) {
         return Container(
           decoration: BoxDecoration(
-            color: colorScheme.surface,
+            color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
             borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(28),
               topRight: Radius.circular(28),
@@ -766,6 +957,25 @@ class _SettlementDetailsSheetState extends State<SettlementDetailsSheet> {
                     ),
                   ),
                   const SizedBox(height: 16),
+                  if (isExpress) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: colorScheme.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        'Express netting',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   Text(
                     context.l10n.settledSuccessfully,
                     style: TextStyle(
@@ -798,7 +1008,7 @@ class _SettlementDetailsSheetState extends State<SettlementDetailsSheet> {
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerLow,
+                      color: colorScheme.card,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Column(
@@ -819,8 +1029,32 @@ class _SettlementDetailsSheetState extends State<SettlementDetailsSheet> {
                           widget.nameFor(widget.event.payerUserId),
                           icon: Icons.arrow_downward_rounded,
                         ),
-                        if (widget.event.description != null &&
-                            widget.event.description!.isNotEmpty) ...[
+                        if (isExpress) ...[
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            child: Divider(height: 1),
+                          ),
+                        _buildDetailRow(
+                          context,
+                          'Offset totals',
+                          '${widget.nameFor(widget.event.participantUserId)} → ${widget.nameFor(widget.event.payerUserId)} ${formatCurrency(reverseTotal / 100.0, widget.event.currency.toUpperCase())} • ${widget.nameFor(widget.event.payerUserId)} → ${widget.nameFor(widget.event.participantUserId)} ${formatCurrency(forwardTotal / 100.0, widget.event.currency.toUpperCase())}',
+                          icon: Icons.compare_arrows_rounded,
+                        ),
+                      ],
+                        if (actorDisplay != null) ...[
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            child: Divider(height: 1),
+                          ),
+                          _buildDetailRow(
+                            context,
+                            'Settled by',
+                            actorDisplay,
+                            icon: Icons.person_rounded,
+                          ),
+                        ],
+                        if (widget.settlementNote != null &&
+                            widget.settlementNote!.isNotEmpty) ...[
                           const Padding(
                             padding: EdgeInsets.symmetric(vertical: 12),
                             child: Divider(height: 1),
@@ -828,7 +1062,7 @@ class _SettlementDetailsSheetState extends State<SettlementDetailsSheet> {
                           _buildDetailRow(
                             context,
                             context.l10n.note,
-                            widget.event.description!,
+                            widget.settlementNote!,
                             icon: Icons.notes_rounded,
                           ),
                         ],
@@ -881,9 +1115,11 @@ class _SettlementDetailsSheetState extends State<SettlementDetailsSheet> {
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          line.description?.isNotEmpty == true
-                                              ? line.description!
-                                              : context.l10n.expense,
+                                          (line.expenseDescription ??
+                                                  line.expenseRawText ??
+                                                  line.expenseCategory ??
+                                                  context.l10n.expense)
+                                              .trim(),
                                           style: TextStyle(
                                             fontSize: 14,
                                             fontWeight: FontWeight.w600,

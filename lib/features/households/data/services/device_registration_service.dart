@@ -465,6 +465,10 @@ class DeviceRegistrationService {
   /// Unregister device (call on logout)
   Future<void> unregisterDevice() async {
     try {
+      // If there's no session, just clear local cache and exit silently
+      if (_supabase.auth.currentSession == null) {
+        debugPrint('⚠️ No active session during unregister; skipping backend call');
+      }
       // Get user ID before it's cleared by logout
       final userId = _supabase.auth.currentUser?.id;
       final prefs = await SharedPreferences.getInstance();
@@ -482,18 +486,22 @@ class DeviceRegistrationService {
         debugPrint('🗑️ Deleting device from backend...');
 
         // Call Edge Function to DELETE device row (not just mark inactive)
-        final response = await _supabase.functions.invoke(
-          'households-register-device',
-          body: {
-            'push_token': token,
-            'delete_device': true,
-          },
-        );
+        if (_supabase.auth.currentSession != null) {
+          final response = await _supabase.functions.invoke(
+            'households-register-device',
+            body: {
+              'push_token': token,
+              'delete_device': true,
+            },
+          );
 
-        if (response.status == 200) {
-          debugPrint('✅ Device deleted from backend successfully');
+          if (response.status == 200) {
+            debugPrint('✅ Device deleted from backend successfully');
+          } else {
+            debugPrint('⚠️ Device deletion failed: ${response.status}');
+          }
         } else {
-          debugPrint('⚠️ Device deletion failed: ${response.status}');
+          debugPrint('⚠️ Skipping backend delete - session missing');
         }
       } else {
         debugPrint('⚠️ No push token found to delete');
@@ -526,7 +534,11 @@ class DeviceRegistrationService {
       // Ensure service can re-initialize cleanly on next login
       _initialized = false;
     } catch (e) {
-      debugPrint('❌ Error unregistering device: $e');
+      if (e is FunctionException && e.status == 401) {
+        debugPrint('⚠️ Unregister skipped: session unauthorized (likely logged out)');
+      } else {
+        debugPrint('❌ Error unregistering device: $e');
+      }
 
       // Still try to clear cache even if deletion failed
       try {

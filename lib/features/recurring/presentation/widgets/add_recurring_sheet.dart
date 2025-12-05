@@ -53,9 +53,11 @@ class AddRecurringSheet extends HookConsumerWidget {
     final sourceController = useTextEditingController(
       text: existingTransaction?.source ?? '',
     );
+    final amountFocusNode = useFocusNode();
 
     // Rebuild when amount changes so splits can use the latest value
     useListenable(amountController);
+    useListenable(amountFocusNode);
     final currentAmountText = amountController.text;
 
     final selectedCategory = useState<String?>(existingTransaction?.category);
@@ -334,167 +336,185 @@ class AddRecurringSheet extends HookConsumerWidget {
         color: colorScheme.appBackground,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Header
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    isEditing
-                        ? (isExpense
-                            ? context.l10n.editRecurringExpense
-                            : context.l10n.editRecurringIncome)
-                        : (isExpense
-                            ? context.l10n.addRecurringExpense
-                            : context.l10n.addRecurringIncome),
-                    style: TextStyle(
-                      color: colorScheme.foreground,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: Icon(
-                    Icons.close,
-                    color: colorScheme.mutedForeground,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Scrollable content
-          Flexible(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Row(
                 children: [
-                  // Type toggle
-                  Container(
-                    decoration: BoxDecoration(
-                      color: colorScheme.muted.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(8),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      isEditing
+                          ? (isExpense
+                              ? context.l10n.editRecurringExpense
+                              : context.l10n.editRecurringIncome)
+                          : (isExpense
+                              ? context.l10n.addRecurringExpense
+                              : context.l10n.addRecurringIncome),
+                      style: TextStyle(
+                        color: colorScheme.foreground,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.5,
+                      ),
                     ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () {
-                              if (selectedType.value != 'expense') {
-                                selectedType.value = 'expense';
-                                selectedCategory.value = null;
-                              }
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              decoration: BoxDecoration(
-                                color: isExpense
-                                    ? colorScheme.primary
-                                    : Colors.transparent,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                context.l10n.expenses,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: Icon(
+                      Icons.close,
+                      color: colorScheme.mutedForeground,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Scrollable content
+            Flexible(
+              child: SingleChildScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Type toggle
+                    Container(
+                      decoration: BoxDecoration(
+                        color: colorScheme.muted.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                if (selectedType.value != 'expense') {
+                                  selectedType.value = 'expense';
+                                  selectedCategory.value = null;
+                                }
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                decoration: BoxDecoration(
                                   color: isExpense
-                                      ? Colors.white
-                                      : colorScheme.foreground,
+                                      ? colorScheme.primary
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  context.l10n.expenses,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: isExpense
+                                        ? Colors.white
+                                        : colorScheme.foreground,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () {
-                              if (selectedType.value != 'income') {
-                                selectedType.value = 'income';
-                                selectedCategory.value = null;
-                              }
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              decoration: BoxDecoration(
-                                color: !isExpense
-                                    ? colorScheme.primary
-                                    : Colors.transparent,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                context.l10n.income,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                if (selectedType.value != 'income') {
+                                  selectedType.value = 'income';
+                                  selectedCategory.value = null;
+                                }
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                decoration: BoxDecoration(
                                   color: !isExpense
-                                      ? Colors.white
-                                      : colorScheme.foreground,
+                                      ? colorScheme.primary
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  context.l10n.income,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: !isExpense
+                                        ? Colors.white
+                                        : colorScheme.foreground,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Amount input
-                  _buildLabel(context.l10n.amount, colorScheme),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: amountController,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    textAlign: TextAlign.end,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: colorScheme.foreground,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: '0.00',
-                      hintStyle: TextStyle(
-                        color: colorScheme.mutedForeground,
-                      ),
-                      filled: true,
-                      fillColor: colorScheme.muted.withValues(alpha: 0.08),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(
-                          color: colorScheme.border.withValues(alpha: 0.2),
-                        ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(
-                          color: colorScheme.border.withValues(alpha: 0.2),
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(
-                          color: colorScheme.primary,
-                        ),
+                        ],
                       ),
                     ),
-                  ),
 
-                  const SizedBox(height: 20),
+                    const SizedBox(height: 20),
+
+                    // Amount input
+                    _buildLabel(context.l10n.amount, colorScheme),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: amountController,
+                      focusNode: amountFocusNode,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      textAlign: TextAlign.end,
+                      textInputAction: TextInputAction.done,
+                      onEditingComplete: () => amountFocusNode.unfocus(),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.foreground,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: '0.00',
+                        hintStyle: TextStyle(
+                          color: colorScheme.mutedForeground,
+                        ),
+                        filled: true,
+                        fillColor: colorScheme.muted.withValues(alpha: 0.08),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: colorScheme.border.withValues(alpha: 0.2),
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: colorScheme.border.withValues(alpha: 0.2),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: colorScheme.primary,
+                          ),
+                        ),
+                        suffixIcon: amountFocusNode.hasFocus
+                            ? IconButton(
+                                icon: Icon(
+                                  Icons.check_rounded,
+                                  color: colorScheme.primary,
+                                ),
+                                splashRadius: 18,
+                                onPressed: () => amountFocusNode.unfocus(),
+                              )
+                            : null,
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
 
                   _buildDetailCard(
                     colorScheme: colorScheme,
@@ -1076,7 +1096,8 @@ class AddRecurringSheet extends HookConsumerWidget {
           ),
         ],
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildLabel(String text, ColorScheme colorScheme) {

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -14,6 +16,7 @@ import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 
 class SettleUpSheet extends ConsumerStatefulWidget {
   final String householdId;
@@ -23,6 +26,7 @@ class SettleUpSheet extends ConsumerStatefulWidget {
   final List<ExpenseSplitGroup>? splits;
   final String? currency;
   final bool settleTheyOweYou;
+  final String? settlementNote;
 
   const SettleUpSheet({
     super.key,
@@ -33,6 +37,7 @@ class SettleUpSheet extends ConsumerStatefulWidget {
     this.splits,
     this.currency,
     this.settleTheyOweYou = false,
+    this.settlementNote,
   });
 
   @override
@@ -46,6 +51,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
   int _youAreOwedCents = 0;
   List<_LineItem> _lineItems = const [];
   List<_LineItem> _theyOweItems = const [];
+  final TextEditingController _noteController = TextEditingController();
 
   @override
   void initState() {
@@ -115,6 +121,12 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
   }
 
   @override
+  void dispose() {
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -156,264 +168,292 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
     }
 
     final isNetPayer = _youOweCents >= _youAreOwedCents;
+    final mediaQuery = MediaQuery.of(context);
+    final maxSheetHeight = math.max(
+      0.0,
+      mediaQuery.size.height - mediaQuery.viewPadding.vertical,
+    );
 
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
-      child: SafeArea(
-        top: true,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Drag Handle
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: colorScheme.outline.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(2),
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxSheetHeight),
+      child: Container(
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
+        child: SafeArea(
+          top: true,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Drag Handle
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: colorScheme.outline.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 24),
+              const SizedBox(height: 24),
 
-            // Header
-            Text(
-              context.l10n.settleUp,
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
-                color: colorScheme.foreground,
-                letterSpacing: -0.5,
+              // Header
+              Text(
+                context.l10n.settleUp,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.foreground,
+                  letterSpacing: -0.5,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
+              const SizedBox(height: 24),
 
-            // Member Selection
-            if (widget.specificMemberId == null)
-              membersAsync.when(
-                data: (members) {
-                  final filtered =
-                      members.where((m) => m.userId != userId).toList();
+              // Member Selection
+              if (widget.specificMemberId == null)
+                membersAsync.when(
+                  data: (members) {
+                    final filtered =
+                        members.where((m) => m.userId != userId).toList();
 
-                  // Auto-select if there's only one other member
-                  if (filtered.length == 1 && _selectedMemberId == null) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) {
+                    // Auto-select if there's only one other member
+                    if (filtered.length == 1 && _selectedMemberId == null) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) {
+                          setState(() {
+                            _selectedMemberId = filtered.first.userId;
+                          });
+                          _recomputeFromSplits();
+                        }
+                      });
+                    }
+
+                    return _MemberSelector(
+                      members: filtered,
+                      selectedId: _selectedMemberId,
+                      onSelect: (id) {
                         setState(() {
-                          _selectedMemberId = filtered.first.userId;
+                          _selectedMemberId = id;
+                          _youOweCents = 0;
+                          _youAreOwedCents = 0;
+                          _lineItems = const [];
+                          _theyOweItems = const [];
                         });
                         _recomputeFromSplits();
-                      }
-                    });
-                  }
-
-                  return _MemberSelector(
-                    members: filtered,
-                    selectedId: _selectedMemberId,
-                    onSelect: (id) {
-                      setState(() {
-                        _selectedMemberId = id;
-                        _youOweCents = 0;
-                        _youAreOwedCents = 0;
-                        _lineItems = const [];
-                        _theyOweItems = const [];
-                      });
-                      _recomputeFromSplits();
-                    },
-                    scheme: colorScheme,
-                  );
-                },
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (_, __) => const SizedBox.shrink(),
-              )
-            else
-              membersAsync.when(
-                data: (members) {
-                  final m = members.firstWhere(
-                      (m) => m.userId == widget.specificMemberId,
-                      orElse: () => HouseholdMember(
-                          id: '',
-                          householdId: '',
-                          userId: '',
-                          role: HouseholdRole.member,
-                          joinedAt: DateTime.now(),
-                          createdAt: DateTime.now(),
-                          updatedAt: DateTime.now()));
-                  final name = m.userName ?? m.userEmail ?? 'Member';
-                  return Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerHighest
-                            .withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text("${context.l10n.settlingWith} ",
-                              style: TextStyle(
-                                  color: colorScheme.mutedForeground)),
-                          Text(name,
-                              style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  color: colorScheme.foreground)),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-                loading: () => const SizedBox.shrink(),
-                error: (_, __) => const SizedBox.shrink(),
-              ),
-
-            const SizedBox(height: 32),
-
-            // Amount Display
-            Column(
-              children: [
-                Text(
-                  context.l10n.amountToSettle,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: colorScheme.mutedForeground,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  !hasSelectedMember
-                      ? context.l10n.pleaseSelectMember
-                      : nothingToSettle
-                          ? context.l10n.nothingToSettle
-                          : formatCurrency(amountToShow ?? 0, currency),
-                  style: TextStyle(
-                    fontSize: !hasSelectedMember || !hasOutstanding ? 24 : 48,
-                    fontWeight: FontWeight.w700,
-                    color: colorScheme.foreground,
-                    letterSpacing: -1,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                if (hasSelectedMember && !nothingToSettle)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      widget.isExpressNetting
-                          ? (isNetPayer
-                              ? context.l10n.youOwe
-                              : context.l10n.theyOweYou)
-                          : (widget.settleTheyOweYou
-                              ? context.l10n.theyOweYou
-                              : context.l10n.youOwe),
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: colorScheme.mutedForeground,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                if (widget.isExpressNetting &&
-                    hasSelectedMember &&
-                    !nothingToSettle)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Column(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: colorScheme.primary.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            context.l10n.expressNetting,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: colorScheme.primary,
-                            ),
-                          ),
+                      },
+                      scheme: colorScheme,
+                    );
+                  },
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (_, __) => const SizedBox.shrink(),
+                )
+              else
+                membersAsync.when(
+                  data: (members) {
+                    final m = members.firstWhere(
+                        (m) => m.userId == widget.specificMemberId,
+                        orElse: () => HouseholdMember(
+                            id: '',
+                            householdId: '',
+                            userId: '',
+                            role: HouseholdRole.member,
+                            joinedAt: DateTime.now(),
+                            createdAt: DateTime.now(),
+                            updatedAt: DateTime.now()));
+                    final name = m.userName ?? m.userEmail ?? 'Member';
+                    return Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: colorScheme.surfaceContainerHighest
+                              .withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(20),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          context.l10n.expressNettingHint,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: colorScheme.mutedForeground,
-                          ),
-                          textAlign: TextAlign.center,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text("${context.l10n.settlingWith} ",
+                                style: TextStyle(
+                                    color: colorScheme.mutedForeground)),
+                            Text(name,
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: colorScheme.foreground)),
+                          ],
                         ),
-                      ],
+                      ),
+                    );
+                  },
+                  loading: () => const SizedBox.shrink(),
+                  error: (_, __) => const SizedBox.shrink(),
+                ),
+
+              const SizedBox(height: 32),
+
+              // Amount Display
+              Column(
+                children: [
+                  Text(
+                    context.l10n.amountToSettle,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: colorScheme.mutedForeground,
+                      letterSpacing: 0.5,
                     ),
                   ),
-              ],
-            ),
-
-            const SizedBox(height: 32),
-
-            // Breakdown (Simplified)
-            if (_lineItems.isNotEmpty || _theyOweItems.isNotEmpty)
-              Flexible(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        context.l10n.breakdown,
+                  const SizedBox(height: 8),
+                  Text(
+                    !hasSelectedMember
+                        ? context.l10n.pleaseSelectMember
+                        : nothingToSettle
+                            ? context.l10n.nothingToSettle
+                            : formatCurrency(amountToShow ?? 0, currency),
+                    style: TextStyle(
+                      fontSize: !hasSelectedMember || !hasOutstanding ? 24 : 48,
+                      fontWeight: FontWeight.w700,
+                      color: colorScheme.foreground,
+                      letterSpacing: -1,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  if (hasSelectedMember && !nothingToSettle)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        widget.isExpressNetting
+                            ? (isNetPayer
+                                ? context.l10n.youOwe
+                                : context.l10n.theyOweYou)
+                            : (widget.settleTheyOweYou
+                                ? context.l10n.theyOweYou
+                                : context.l10n.youOwe),
                         style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.foreground,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: colorScheme.mutedForeground,
                         ),
+                        textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 12),
-                      // In express netting mode we show both sides:
-                      // - items you owe them
-                      // - items they owe you (with an offset label).
-                      // In detailed mode, we only show the direction being settled.
-                      if (widget.isExpressNetting || !widget.settleTheyOweYou)
-                        ..._lineItems.map(
-                          (item) => TransactionListTile(
-                            category: 'other',
-                            title: item.description ?? 'Expense',
-                            description: item.description,
-                            date: item.createdAt,
-                            amount: item.amountCents / 100.0,
-                            currency: currency,
-                            isIncome: false,
-                            trailingWidget: Text(
-                              context.l10n.youOwe,
+                    ),
+                  if (widget.isExpressNetting &&
+                      hasSelectedMember &&
+                      !nothingToSettle)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Column(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: colorScheme.primary.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              context.l10n.expressNetting,
                               style: TextStyle(
-                                fontSize: 11,
+                                fontSize: 12,
                                 fontWeight: FontWeight.w600,
-                                color: const Color(0xFFFF453A),
+                                color: colorScheme.primary,
                               ),
                             ),
                           ),
-                        ),
-                      if (widget.isExpressNetting && _theyOweItems.isNotEmpty)
-                        ...[
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 4),
                           Text(
-                            context.l10n.offsetByWhatTheyOweYou,
+                            context.l10n.expressNettingHint,
                             style: TextStyle(
-                              fontSize: 13,
+                              fontSize: 12,
                               color: colorScheme.mutedForeground,
                             ),
+                            textAlign: TextAlign.center,
                           ),
-                          const SizedBox(height: 8),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+
+              const SizedBox(height: 32),
+
+              // Breakdown (Simplified)
+              if (_lineItems.isNotEmpty || _theyOweItems.isNotEmpty)
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          context.l10n.breakdown,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.foreground,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        // In express netting mode we show both sides:
+                        // - items you owe them
+                        // - items they owe you (with an offset label).
+                        // In detailed mode, we only show the direction being settled.
+                        if (widget.isExpressNetting || !widget.settleTheyOweYou)
+                          ..._lineItems.map(
+                            (item) => TransactionListTile(
+                              category: 'other',
+                              title: item.description ?? 'Expense',
+                              description: item.description,
+                              date: item.createdAt,
+                              amount: item.amountCents / 100.0,
+                              currency: currency,
+                              isIncome: false,
+                              trailingWidget: Text(
+                                context.l10n.youOwe,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFFFF453A),
+                                ),
+                              ),
+                            ),
+                          ),
+                        if (widget.isExpressNetting && _theyOweItems.isNotEmpty)
+                          ...[
+                            const SizedBox(height: 12),
+                            Text(
+                              context.l10n.offsetByWhatTheyOweYou,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: colorScheme.mutedForeground,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            ..._theyOweItems.map(
+                              (item) => TransactionListTile(
+                                category: 'other',
+                                title: item.description ?? 'Expense',
+                                description: item.description,
+                                date: item.createdAt,
+                                amount: item.amountCents / 100.0,
+                                currency: currency,
+                                isIncome: true,
+                                trailingWidget: Text(
+                                  context.l10n.owesYou,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF30D158),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        if (!widget.isExpressNetting && widget.settleTheyOweYou)
                           ..._theyOweItems.map(
                             (item) => TransactionListTile(
                               category: 'other',
@@ -433,61 +473,41 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                               ),
                             ),
                           ),
-                        ],
-                      if (!widget.isExpressNetting && widget.settleTheyOweYou)
-                        ..._theyOweItems.map(
-                          (item) => TransactionListTile(
-                            category: 'other',
-                            title: item.description ?? 'Expense',
-                            description: item.description,
-                            date: item.createdAt,
-                            amount: item.amountCents / 100.0,
-                            currency: currency,
-                            isIncome: true,
-                            trailingWidget: Text(
-                              context.l10n.owesYou,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF30D158),
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              )
-            else
+                )
+              else
+                const SizedBox(height: 24),
+
               const SizedBox(height: 24),
 
-            const SizedBox(height: 24),
-
-            // Actions
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedAdaptiveButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: Text(context.l10n.cancel),
+              // Actions
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedAdaptiveButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: Text(context.l10n.cancel),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: PrimaryAdaptiveButton(
-                    onPressed: _isProcessing ? null : _confirmAndSettle,
-                    child: _isProcessing
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white))
-                        : Text(context.l10n.settle),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: PrimaryAdaptiveButton(
+                      onPressed: _isProcessing ? null : _confirmAndSettle,
+                      child: _isProcessing
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white))
+                          : Text(context.l10n.settle),
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -496,47 +516,35 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
   Future<bool> _showConfirm() async {
     final title = context.l10n.confirmSettlement;
     final msg = context.l10n.confirmSettlementMessage;
-    final isCupertino = Theme.of(context).platform == TargetPlatform.iOS;
-    if (isCupertino) {
-      final res = await showCupertinoDialog<bool>(
-        context: context,
-        builder: (c) => CupertinoAlertDialog(
-          title: Text(title),
-          content: Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(msg),
-          ),
-          actions: [
-            CupertinoDialogAction(
-                onPressed: () => Navigator.pop(c, false),
-                child: Text(context.l10n.cancel)),
-            PrimaryAdaptiveButton(
-              onPressed: () => Navigator.pop(c, true),
-              child: Text(context.l10n.settle),
-            ),
-          ],
+    final noteLabel = 'Note (optional)';
+
+    final result = await AdaptiveAlertDialog.inputShow(
+      context: context,
+      title: title,
+      message: msg,
+      input: AdaptiveAlertDialogInput(
+        placeholder: noteLabel,
+        initialValue: _noteController.text,
+      ),
+      actions: [
+        AlertAction(
+          title: context.l10n.cancel,
+          style: AlertActionStyle.cancel,
+          onPressed: () {},
         ),
-      );
-      return res ?? false;
-    } else {
-      final res = await showDialog<bool>(
-        context: context,
-        builder: (c) => AlertDialog(
-          title: Text(context.l10n.confirmSettlement),
-          content: Text(msg),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(c, false),
-                child: Text(context.l10n.cancel)),
-            PrimaryAdaptiveButton(
-              onPressed: () => Navigator.pop(c, true),
-              child: Text(context.l10n.settle),
-            ),
-          ],
+        AlertAction(
+          title: context.l10n.settle,
+          style: AlertActionStyle.primary,
+          onPressed: () {},
         ),
-      );
-      return res ?? false;
+      ],
+    );
+
+    if (result != null) {
+      _noteController.text = result.trim();
+      return true;
     }
+    return false;
   }
 
   Future<void> _confirmAndSettle() async {
@@ -555,6 +563,9 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
     try {
       final memberId = _selectedMemberId ?? widget.specificMemberId!;
       final service = ref.read(householdServiceProvider);
+      final note = _noteController.text.trim().isEmpty
+          ? null
+          : _noteController.text.trim();
       final count = widget.isExpressNetting
           ? await service.settleAllDebtsBetweenUsersAndNotify(
               householdId: widget.householdId,
@@ -562,6 +573,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
               youOweCentsBefore: _youOweCents,
               youAreOwedCentsBefore: _youAreOwedCents,
               currency: widget.currency,
+              settlementNote: note,
             )
           : widget.settleTheyOweYou
               ? await service.settleAllDebtsFromMemberAndNotify(
@@ -569,12 +581,14 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                   memberUserId: memberId,
                   theyOweYouCentsBefore: _youAreOwedCents,
                   currency: widget.currency,
+                  settlementNote: note,
                 )
               : await service.settleAllDebtsToMemberAndNotify(
                   householdId: widget.householdId,
                   memberUserId: memberId,
                   youOweCentsBefore: _youOweCents,
                   currency: widget.currency,
+                  settlementNote: note,
                 );
       try {
         final homeFilter = ref.read(homeFilterProvider);

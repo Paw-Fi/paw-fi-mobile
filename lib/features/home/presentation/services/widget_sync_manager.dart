@@ -73,6 +73,10 @@ class WidgetSyncManager extends HookConsumerWidget {
       ];
 
       Future<void> syncAllScopes() async {
+        // Abort immediately if user signed out or session is gone
+        final session = Supabase.instance.client.auth.currentSession;
+        if (session == null || user.uid.isEmpty) return;
+
         final now = DateTime.now();
         final currentMonth = DateTime(now.year, now.month, 1);
 
@@ -237,10 +241,14 @@ class WidgetSyncManager extends HookConsumerWidget {
         // Let's sync ALL supported currencies for now to fully satisfy the requirement "configurable... which currency".
         // If performance is bad, we can optimize.
 
+        if (Supabase.instance.client.auth.currentSession == null) return;
+
         for (final scope in allScopes) {
+          if (Supabase.instance.client.auth.currentSession == null) return;
           final scopeId = scope['id']!;
 
           for (final currency in allSupportedCurrencies) {
+            if (Supabase.instance.client.auth.currentSession == null) return;
             double totalSpent = 0.0;
             double totalBudget = 0.0;
             List<WidgetPocketData> topCategories = [];
@@ -439,6 +447,9 @@ class WidgetSyncManager extends HookConsumerWidget {
 
               // Use HouseholdService to fetch summary via Edge Function
               try {
+                if (Supabase.instance.client.auth.currentSession == null) {
+                  return;
+                }
                 final summaryMap = await householdService.getHouseholdSummary(
                   householdId: scopeId,
                   currency: currency,
@@ -485,6 +496,12 @@ class WidgetSyncManager extends HookConsumerWidget {
                         })
                     .toList();
               } catch (e) {
+                // Ignore unauthorized errors (logout/expired session) to avoid noisy logs
+                if (e is FunctionException && e.status == 401) {
+                  debugPrint(
+                      'Widget sync skipped (unauthorized) for scope $scopeId, currency $currency');
+                  return;
+                }
                 debugPrint(
                     'Error fetching household summary for widget ($scopeId, $currency): $e');
                 // Continue to next currency/scope, don't crash

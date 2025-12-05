@@ -55,6 +55,7 @@ class PersonalDashboardController
   Future<void> _load() async {
     try {
       final configs = await _repository.loadPersonalLayout(_userId);
+      if (!mounted) return;
       if (configs != null && configs.isNotEmpty) {
         // Migration: Ensure all default widgets are present
         final currentTypes = configs.map((c) => c.type).toSet();
@@ -92,6 +93,7 @@ class PersonalDashboardController
         }
       } else {
         // Default Layout
+        if (!mounted) return;
         state = const AsyncValue.data([
           DashboardWidgetConfig(
               id: 'spending',
@@ -120,11 +122,13 @@ class PersonalDashboardController
         ]);
       }
     } catch (e, st) {
+      if (!mounted) return;
       state = AsyncValue.error(e, st);
     }
   }
 
   Future<void> save(List<DashboardWidgetConfig> configs) async {
+    if (!mounted) return;
     state = AsyncValue.data(configs);
     await _repository.savePersonalLayout(_userId, configs);
   }
@@ -204,6 +208,7 @@ class HouseholdDashboardController
   Future<void> _load() async {
     try {
       final configs = await _repository.loadHouseholdLayout(_householdId);
+      if (!mounted) return;
       if (configs != null && configs.isNotEmpty) {
         // Migration: Ensure all default widgets are present
         final currentTypes = configs.map((c) => c.type).toSet();
@@ -243,6 +248,7 @@ class HouseholdDashboardController
         }
       } else {
         // Default Layout
+        if (!mounted) return;
         state = const AsyncValue.data([
           DashboardWidgetConfig(
               id: 'spent_by_you',
@@ -283,11 +289,13 @@ class HouseholdDashboardController
         ]);
       }
     } catch (e, st) {
+      if (!mounted) return;
       state = AsyncValue.error(e, st);
     }
   }
 
   Future<void> save(List<DashboardWidgetConfig> configs) async {
+    if (!mounted) return;
     state = AsyncValue.data(configs);
     await _repository.saveHouseholdLayout(_householdId, configs);
   }

@@ -64,6 +64,7 @@ class RecurringTransactionsNotifier
     int limit = 100,
     bool forceRefresh = false,
   }) async {
+    if (!mounted) return;
     // Skip loading if already loaded successfully (unless forced refresh)
     if (state.hasLoadedOnce && !forceRefresh) {
       debugPrint('📦 RecurringTransactions($householdId): Already loaded, skipping');
@@ -146,12 +147,14 @@ class RecurringTransactionsNotifier
       // Sort by date (newest first)
       scopedTransactions.sort((a, b) => b.date.compareTo(a.date));
 
+      if (!mounted) return;
       state = state.copyWith(
         data: AsyncValue.data(scopedTransactions),
         hasLoadedOnce: true,
       );
     } catch (e, st) {
       debugPrint('❌ Exception: $e');
+      if (!mounted) return;
       state = state.copyWith(
         data: AsyncValue.error(e, st),
       );
@@ -160,6 +163,7 @@ class RecurringTransactionsNotifier
 
   /// Refresh recurring transactions list
   Future<void> refresh(String userId) async {
+    if (!mounted) return;
     debugPrint('🔄 Refresh requested for $householdId');
     await loadRecurringTransactions(
       userId,
@@ -169,6 +173,7 @@ class RecurringTransactionsNotifier
 
   /// Add transaction (optimistic update)
   void addRecurring(RecurringTransaction transaction) {
+    if (!mounted) return;
     state.data.whenData((transactions) {
       final updated = [transaction, ...transactions];
       state = state.copyWith(data: AsyncValue.data(updated));
@@ -177,6 +182,7 @@ class RecurringTransactionsNotifier
 
   /// Update transaction
   void updateRecurring(RecurringTransaction transaction) {
+    if (!mounted) return;
     state.data.whenData((transactions) {
       final updated = transactions.map((t) {
         return t.id == transaction.id ? transaction : t;
@@ -189,6 +195,7 @@ class RecurringTransactionsNotifier
   Future<bool> deleteRecurring(String userId, String transactionId) async {
     try {
       // Optimistic update
+      if (!mounted) return false;
       state.data.whenData((transactions) {
         state = state.copyWith(
           data: AsyncValue.data(
