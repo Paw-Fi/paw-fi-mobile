@@ -9,6 +9,7 @@ import 'package:moneko/features/subscription/presentation/pages/paywall_screen.d
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/core/navigation/main_shell.dart';
 import 'package:moneko/core/app/app_initialization_provider.dart';
+import 'package:moneko/core/app/app_initialization_provider_v2.dart';
 import 'package:moneko/core/ui/pages/splash_screen.dart';
 import 'package:moneko/features/households/presentation/pages/household_invites_page.dart';
 import 'package:moneko/features/households/presentation/pages/household_join_page.dart';
@@ -28,8 +29,10 @@ GoRouter router(RouterRef ref) {
   final auth = ref.watch(authProvider);
   final hasSubscription = ref.watch(hasActiveSubscriptionProvider);
   final isSubscriptionLoaded = ref.watch(isSubscriptionLoadedProvider);
-  final appInitState = ref.watch(appInitializationProvider);
-
+  
+  // Use V2 initialization provider (cache-first, faster)
+  final appInitStateV2 = ref.watch(appInitializationV2Provider);
+  
   // Keep subscription provider alive
   ref.watch(subscriptionNotifierProvider);
 
@@ -48,14 +51,14 @@ GoRouter router(RouterRef ref) {
       GoRoute(
         path: '/error',
         builder: (context, state) {
-          final initNotifier = ref.read(appInitializationProvider.notifier);
+          final initStateV2 = ref.read(appInitializationV2Provider);
           final exception = state.extra is Exception
               ? state.extra as Exception
-              : initNotifier.lastInitException;
+              : initStateV2.error;
           return ErrorPage(
             exception,
-            details: initNotifier.lastErrorMessage,
-            stackTrace: initNotifier.lastErrorStackTrace,
+            details: initStateV2.errorMessage,
+            stackTrace: initStateV2.errorStackTrace,
           );
         },
       ),
@@ -189,43 +192,35 @@ GoRouter router(RouterRef ref) {
 
         if (kDebugMode) {
           debugPrint(
-              '🔐 Auth redirect: init=$appInitState, isAuth=$isAuthenticated, hasSub=$hasSubscription, loaded=$isSubscriptionLoaded, path=${state.matchedLocation}');
+              '🔐 Auth redirect [V2]: state=${appInitStateV2.state}, isAuth=$isAuthenticated, hasSub=$hasSubscription, loaded=$isSubscriptionLoaded, path=${state.matchedLocation}');
         }
 
-        // Surface fatal initialization failures
-        if (appInitState == AppInitState.failed) {
+        // V2: Surface fatal initialization failures ONLY if no cached data available
+        if (appInitStateV2.state == AppInitState.failed && appInitStateV2.data == null) {
           if (!isOnErrorPage) {
+            debugPrint('❌ [RouterV2] Init failed with no cache, showing error page');
             return '/error';
           }
           return null;
         }
 
-        // If app is still initializing, stay on splash screen
-        if (appInitState != AppInitState.initialized) {
-          if (!isOnSplashPage) {
-            return '/splash';
-          }
-          return null;
-        }
-
-        // App is initialized, proceed with normal routing
-
-        // Don't redirect if already leaving splash
+        // V2: Don't block on splash - navigate immediately after auth check
+        // Splash screen only shown briefly during initial app load
         if (isOnSplashPage) {
+          debugPrint('🚀 [RouterV2] On splash, redirecting immediately based on auth');
           // Redirect from splash to appropriate page
           if (isAuthenticated) {
             // On web: skip paywall and go straight to dashboard
             if (kIsWeb) {
               return '/dashboard';
             }
-            if (!isSubscriptionLoaded) {
-              // Wait for subscription to load
-              return null;
+            // Check subscription if loaded, otherwise navigate and check later
+            if (isSubscriptionLoaded) {
+              if (!hasSubscription) {
+                return '/paywall';
+              }
             }
-            if (!hasSubscription) {
-              return '/paywall';
-            }
-            return '/dashboard';
+            return '/dashboard';  // Navigate immediately, UI will show skeletons
           } else {
             return '/login';
           }

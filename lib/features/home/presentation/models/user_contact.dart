@@ -27,6 +27,17 @@ class UserContact {
     );
   }
 
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'user_id': userId,
+      'phone_e164': phoneE164,
+      'verified': verified,
+      'preferred_currency': preferredCurrency,
+      'preferred_timezone': preferredTimezone,
+    };
+  }
+
   UserContact copyWith({
     String? preferredCurrency,
     String? preferredTimezone,
