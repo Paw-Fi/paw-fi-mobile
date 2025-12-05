@@ -16,6 +16,7 @@ import 'package:moneko/features/recurring/presentation/providers/recurring_provi
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
+import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 
 part 'app_initialization_provider.g.dart';
 
@@ -34,6 +35,59 @@ class AppInitialization extends _$AppInitialization {
   Object? _lastError;
   StackTrace? _lastErrorStackTrace;
   String? _lastErrorDescription;
+  int _runId = 0;
+  String? _initUserId;
+
+  bool _isRunActive(int runId, String? expectedUserId) {
+    if (runId != _runId) return false;
+    if (expectedUserId == null) return true;
+    final currentUserId = ref.read(authProvider).uid;
+    return currentUserId == expectedUserId;
+  }
+
+  Future<T?> _runStep<T>({
+    required int runId,
+    required String label,
+    required Future<T> Function() action,
+    Duration? timeout,
+    int retries = 0,
+    String? userIdGuard,
+  }) async {
+    int attempt = 0;
+    while (true) {
+      attempt++;
+      final stopwatch = Stopwatch()..start();
+      try {
+        if (!_isRunActive(runId, userIdGuard)) {
+          debugPrint('⚠️ [$label] Skipped (run inactive or user changed)');
+          return null;
+        }
+        final future = action();
+        final result = timeout == null
+            ? await future
+            : await future
+                .timeout(timeout, onTimeout: () => throw TimeoutException(label));
+        stopwatch.stop();
+        debugPrint('✅ [$label] completed in ${stopwatch.elapsedMilliseconds}ms');
+        return result;
+      } catch (e, s) {
+        stopwatch.stop();
+        debugPrint('❌ [$label] attempt $attempt failed: $e');
+        try {
+          FirebaseCrashlytics.instance.recordError(
+            e,
+            s,
+            fatal: false,
+            reason: 'init_step_$label',
+          );
+        } catch (_) {}
+        if (attempt > retries) {
+          return null;
+        }
+        await Future.delayed(const Duration(milliseconds: 300));
+      }
+    }
+  }
 
   /// Last fatal initialization exception that should be surfaced to the user.
   Exception? get lastInitException {
@@ -55,14 +109,24 @@ class AppInitialization extends _$AppInitialization {
   }
 
   Future<void> _initialize() async {
+    final runId = ++_runId;
     _clearInitError();
     try {
       final initStopwatch = Stopwatch()..start();
       debugPrint('🚀 [INIT] Starting app initialization...');
 
+      // Clear any cached data from previous sessions to avoid stale payloads
+      // when switching accounts or re-running init.
+      try {
+        ref.read(cacheInvalidatorProvider).invalidateAll();
+      } catch (_) {}
+
+      final auth = ref.read(authProvider);
+      _initUserId = auth.isEmpty ? null : auth.uid;
+
       // CRITICAL: Wrap entire initialization in timeout to prevent hanging
       // With small dataset, init should complete in <3s, 10s is generous safety margin
-      await _performInitialization().timeout(
+      await _performInitialization(runId, _initUserId).timeout(
         const Duration(seconds: 10),
         onTimeout: () {
           final timeout =
@@ -98,7 +162,7 @@ class AppInitialization extends _$AppInitialization {
       // CRITICAL: Mark as initialized in finally block when successful so we never
       // hang on the splash screen. Fatal errors keep the state as failed so we
       // can surface the error page instead of looping on splash.
-      if (state != AppInitState.failed) {
+      if (state != AppInitState.failed && _isRunActive(runId, _initUserId)) {
         state = AppInitState.initialized;
         debugPrint('🎉 App initialization complete (state set to initialized)');
       } else {
@@ -135,79 +199,84 @@ class AppInitialization extends _$AppInitialization {
 
   /// Perform the actual initialization work
   /// Separated so we can wrap it in timeout and finally block
-  Future<void> _performInitialization() async {
+  Future<void> _performInitialization(int runId, String? expectedUserId) async {
     // Check if user is authenticated
     final auth = ref.read(authProvider);
     debugPrint('🔐 Auth loaded: ${!auth.isEmpty}');
 
-    if (!auth.isEmpty) {
-      // User is authenticated - load all user-specific data
-      debugPrint('👤 Loading user data...');
+    if (auth.isEmpty) {
+      debugPrint('👋 User not authenticated, skipping data load');
+      _checkAppVersion();
+      return;
+    }
 
-      // Initialize device registration (push notifications)
-      try {
-        debugPrint('🔔 Initializing device registration...');
-        await ref.read(deviceRegistrationServiceProvider).initialize().timeout(
-          const Duration(seconds: 10),
-          onTimeout: () {
-            debugPrint(
-                '⚠️ Device registration timed out after 10s (non-critical)');
-          },
-        );
-        debugPrint('✅ Device registration initialized');
+    if (!_isRunActive(runId, expectedUserId)) return;
+
+    // User is authenticated - load all user-specific data
+    debugPrint('👤 Loading user data...');
+
+    // Initialize device registration (push notifications) with timeout + retry
+    await _runStep(
+      runId: runId,
+      userIdGuard: expectedUserId,
+      label: 'device_registration',
+      timeout: const Duration(seconds: 8),
+      retries: 1,
+      action: () async {
+        await ref.read(deviceRegistrationServiceProvider).initialize();
         unawaited(ref
             .read(deviceRegistrationServiceProvider)
             .clearAllNotifications());
-      } catch (e) {
-        debugPrint('⚠️ Device registration init failed (non-critical): $e');
-      }
+      },
+    );
 
-      // Start recurring transactions load in background
-      final recurringNotifier =
-          ref.read(recurringTransactionsProvider(null).notifier);
-      unawaited(recurringNotifier.loadRecurringTransactions(auth.uid));
+    // Start recurring transactions load in background
+    final recurringNotifier =
+        ref.read(recurringTransactionsProvider(null).notifier);
+    unawaited(recurringNotifier.loadRecurringTransactions(auth.uid));
 
-      // Warm up Supabase connection before making RPC calls
-      // This prevents cold-start issues on fresh installs
-      await _warmupSupabaseConnection(auth.uid);
+    // Warm up Supabase connection before making RPC calls (bounded)
+    await _runStep(
+      runId: runId,
+      userIdGuard: expectedUserId,
+      label: 'supabase_warmup',
+      timeout: const Duration(seconds: 5),
+      retries: 1,
+      action: () => _warmupSupabaseConnection(auth.uid),
+    );
 
-      // Load critical data with aggressive timeout (should be <1s)
-      debugPrint(
-          '⏱️ [INIT] Loading critical data (subscription + WhatsApp)...');
-      final criticalStopwatch = Stopwatch()..start();
+    // Load critical data with aggressive timeout
+    debugPrint('⏱️ [INIT] Loading critical data (subscription + WhatsApp)...');
+    await Future.wait([
+      _runStep(
+        runId: runId,
+        userIdGuard: expectedUserId,
+        label: 'subscription_load',
+        timeout: const Duration(seconds: 5),
+        retries: 1,
+        action: _loadSubscription,
+      ),
+      _runStep(
+        runId: runId,
+        userIdGuard: expectedUserId,
+        label: 'whatsapp_binding_load',
+        timeout: const Duration(seconds: 5),
+        retries: 1,
+        action: _loadWhatsAppBinding,
+      ),
+    ]);
 
-      try {
-        await Future.wait([
-          // Load subscription (critical for feature gating)
-          _loadSubscription(),
-          // Load WhatsApp binding status (critical for UI)
-          _loadWhatsAppBinding(),
-        ]).timeout(const Duration(seconds: 5));
+    // Load analytics with a reasonable timeout and guard
+    debugPrint('📊 Starting analytics load with timeout...');
+    unawaited(_loadAnalyticsWithTimeout(auth.uid, runId));
 
-        criticalStopwatch.stop();
-        debugPrint(
-            '✅ [INIT] Critical data loaded in ${criticalStopwatch.elapsedMilliseconds}ms');
-      } on TimeoutException {
-        criticalStopwatch.stop();
-        debugPrint(
-            '❌ [INIT] CRITICAL: Data load timed out after 5s - this should never happen with small dataset!');
-      }
+    // Save timezone if needed (fire-and-forget)
+    _saveTimezoneIfMissing(auth.uid, runId);
 
-      // Load analytics with a reasonable timeout
-      // We need to prevent analytics from blocking the UI indefinitely
-      debugPrint('📊 Starting analytics load with timeout...');
-      unawaited(_loadAnalyticsWithTimeout(auth.uid));
+    // Start household data load in background (non-blocking)
+    unawaited(_loadHouseholdData(auth.uid, runId));
 
-      // Save timezone if needed (fire-and-forget)
-      _saveTimezoneIfMissing(auth.uid);
-
-      // Start household data load in background (non-blocking)
-      unawaited(_loadHouseholdData(auth.uid));
-
-      debugPrint('✅ All user data loaded');
-    } else {
-      debugPrint('👋 User not authenticated, skipping data load');
-    }
+    debugPrint('✅ All user data loaded');
 
     // IMPORTANT: Version check happens AFTER initialization
     _checkAppVersion();
@@ -297,7 +366,7 @@ class AppInitialization extends _$AppInitialization {
 
   /// Load analytics/dashboard data with timeout protection
   /// This prevents the 45s RPC timeout from hanging the app
-  Future<void> _loadAnalyticsWithTimeout(String userId) async {
+  Future<void> _loadAnalyticsWithTimeout(String userId, int runId) async {
     try {
       debugPrint('📊 [BACKGROUND] Loading analytics with 8s timeout...');
       final stopwatch = Stopwatch()..start();
@@ -306,7 +375,7 @@ class AppInitialization extends _$AppInitialization {
       // If it takes longer than 8s, let it continue in background
       // but don't wait for it
       await Future.any([
-        _doLoadAnalytics(userId),
+        _doLoadAnalytics(userId, runId),
         Future.delayed(const Duration(seconds: 8), () {
           debugPrint(
               '⚠️ [BACKGROUND] Analytics load exceeded 8s, continuing in background...');
@@ -326,8 +395,9 @@ class AppInitialization extends _$AppInitialization {
   }
 
   /// Actual analytics load logic
-  Future<void> _doLoadAnalytics(String userId) async {
+  Future<void> _doLoadAnalytics(String userId, int runId) async {
     try {
+      if (!_isRunActive(runId, userId)) return;
       // Load analytics data which includes user contact and expenses
       await ref.read(analyticsProvider.notifier).loadData(userId);
       debugPrint('✅ [BACKGROUND] Analytics data fully loaded');
@@ -338,14 +408,18 @@ class AppInitialization extends _$AppInitialization {
   }
 
   /// Load household data (for "For Us" mode)
-  Future<void> _loadHouseholdData(String userId) async {
+  Future<void> _loadHouseholdData(String userId, int runId) async {
     try {
+      if (!_isRunActive(runId, userId)) return;
       debugPrint('🏠 Loading household data...');
 
       // Ensure the user households provider has loaded at least once.
       // This calls the repository and waits for completion without any
       // arbitrary polling/timeouts; network timeouts are handled by Supabase.
-      await ref.read(userHouseholdsProvider(userId).notifier).load();
+      await ref
+          .read(userHouseholdsProvider(userId).notifier)
+          .load()
+          .timeout(const Duration(seconds: 6));
 
       final householdsAsync = ref.read(userHouseholdsProvider(userId));
       final households = householdsAsync.value ?? <Household>[];
@@ -355,8 +429,15 @@ class AppInitialization extends _$AppInitialization {
         return;
       }
 
+      if (!_isRunActive(runId, userId)) return;
+
       // Initialize selected household
-      await ref.read(selectedHouseholdProvider.notifier).initialize(userId);
+      await ref
+          .read(selectedHouseholdProvider.notifier)
+          .initialize(userId)
+          .timeout(const Duration(seconds: 4));
+
+      if (!_isRunActive(runId, userId)) return;
 
       // Get the selected household
       final selectedState = ref.read(selectedHouseholdProvider);
@@ -390,6 +471,7 @@ class AppInitialization extends _$AppInitialization {
               .read(householdExpensesProvider(
             HouseholdExpensesParams(householdId: household.id, limit: 500),
           ).future)
+              .timeout(const Duration(seconds: 6))
               .catchError((e) {
             debugPrint('⚠️ Preload expenses failed (non-critical): $e');
             return <ExpenseEntry>[]; // Return empty list to satisfy Future<List>
@@ -400,6 +482,7 @@ class AppInitialization extends _$AppInitialization {
               .read(householdSplitsProvider(
             HouseholdSplitsParams(householdId: household.id),
           ).future)
+              .timeout(const Duration(seconds: 6))
               .catchError((e) {
             debugPrint('⚠️ Preload splits failed (non-critical): $e');
             return <ExpenseSplitGroup>[]; // Return empty list
@@ -408,13 +491,14 @@ class AppInitialization extends _$AppInitialization {
           // Load summary
           ref
               .read(householdSummaryProvider(
-            HouseholdSummaryParams(
-              householdId: household.id,
-              currency: selectedCurrency,
-              startDate: from.toIso8601String(),
-              endDate: to.toIso8601String(),
-            ),
-          ).future)
+              HouseholdSummaryParams(
+                householdId: household.id,
+                currency: selectedCurrency,
+                startDate: from.toIso8601String(),
+                endDate: to.toIso8601String(),
+              ),
+            ).future)
+              .timeout(const Duration(seconds: 6))
               .catchError((e) {
             debugPrint('⚠️ Preload summary failed (non-critical): $e');
             return null; // Return null
@@ -424,6 +508,8 @@ class AppInitialization extends _$AppInitialization {
         // Fallback for any other error during the wait structure itself
         debugPrint('⚠️ Household data preload hit unexpected error: $e');
       }
+
+      if (!_isRunActive(runId, userId)) return;
 
       // Trigger budgets and members load (StateNotifierProviders)
       ref.read(householdBudgetsProvider(household.id));
@@ -442,13 +528,14 @@ class AppInitialization extends _$AppInitialization {
 
   /// Save device timezone to user profile if not already set.
   /// This is fire-and-forget - we don't block on it.
-  void _saveTimezoneIfMissing(String userId) {
+  void _saveTimezoneIfMissing(String userId, int runId) {
     // Run in background - don't await, don't block
-    unawaited(_doSaveTimezone(userId));
+    unawaited(_doSaveTimezone(userId, runId));
   }
 
-  Future<void> _doSaveTimezone(String userId) async {
+  Future<void> _doSaveTimezone(String userId, int runId) async {
     try {
+      if (!_isRunActive(runId, userId)) return;
       // Check current analytics state - no polling, just read current value
       final analyticsState = ref.read(analyticsProvider);
 
@@ -509,6 +596,8 @@ class AppInitialization extends _$AppInitialization {
   void reset() {
     debugPrint('🔄 Resetting app initialization...');
     _clearInitError();
+    _runId++;
+    _initUserId = null;
     state = AppInitState.initializing;
     _initialize();
   }
@@ -516,6 +605,8 @@ class AppInitialization extends _$AppInitialization {
   /// Clear all cached data (on logout)
   void clearCache() {
     debugPrint('🗑️ Clearing all cached user data...');
+    _runId++;
+    _initUserId = null;
     // Unregister device on logout
     try {
       ref.read(deviceRegistrationServiceProvider).unregisterDevice();
@@ -548,6 +639,9 @@ class AppInitialization extends _$AppInitialization {
     ref.invalidate(householdSummaryProvider);
     ref.invalidate(householdMembersProvider);
     ref.invalidate(selectedHouseholdProvider);
+    try {
+      ref.read(cacheInvalidatorProvider).invalidateAll();
+    } catch (_) {}
 
     // Pockets/budgets
     ref.invalidate(pocketsProvider);

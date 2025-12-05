@@ -10,6 +10,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../../core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import '../providers/household_providers.dart';
+import '../providers/cached_providers.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
@@ -590,6 +591,15 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                   currency: widget.currency,
                   settlementNote: note,
                 );
+
+      // Force-refresh cached data so settlement changes show immediately
+      ref.read(cacheInvalidatorProvider).invalidateHouseholdData(widget.householdId);
+      ref.invalidate(cachedHouseholdExpensesProvider(
+        HouseholdExpensesParams(householdId: widget.householdId),
+      ));
+      ref.invalidate(cachedHouseholdSplitsProvider(
+        HouseholdSplitsParams(householdId: widget.householdId),
+      ));
       try {
         final homeFilter = ref.read(homeFilterProvider);
         final range = getDateRangeFromFilter(

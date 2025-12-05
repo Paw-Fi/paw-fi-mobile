@@ -15,6 +15,7 @@ import 'package:image_picker/image_picker.dart';
 
 import 'package:moneko/features/households/presentation/widgets/household_home_content.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
@@ -569,15 +570,31 @@ class _HomePageState extends ConsumerState<HomePage> {
                 if (viewMode.mode == ViewMode.household) {
                   // In household mode: invalidate ALL household-related providers
                   debugPrint('🔄 Pull-to-refresh: Refreshing household data');
+                  ref.read(cacheInvalidatorProvider).invalidateAll();
                   ref.invalidate(userHouseholdsProvider(user.uid));
                   ref.invalidate(householdExpensesProvider);
                   ref.invalidate(householdSplitsProvider);
+                  final householdIds = ref
+                      .read(userHouseholdsProvider(user.uid))
+                      .valueOrNull
+                      ?.map((h) => h.id)
+                      .toList();
+                  if (householdIds != null) {
+                    for (final hid in householdIds) {
+                      ref.invalidate(cachedHouseholdExpensesProvider(
+                        HouseholdExpensesParams(householdId: hid),
+                      ));
+                      ref.invalidate(cachedHouseholdSplitsProvider(
+                        HouseholdSplitsParams(householdId: hid),
+                      ));
+                    }
+                  }
                   ref.invalidate(householdBudgetsProvider);
                   ref.invalidate(householdSummaryProvider);
                   ref.invalidate(
                       householdMembersProvider); // FIXED: Added member info refresh
                   debugPrint(
-                      '✅ Invalidated: households, expenses, splits, budgets, summary, members');
+                      '✅ Invalidated: households, expenses, splits, cached splits/expenses, budgets, summary, members');
                 } else {
                   // In personal mode: refresh analytics with current date filters
                   // TODO: Once global date filter is fully removed, refresh should
