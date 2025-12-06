@@ -312,6 +312,27 @@ class DeviceRegistrationService {
         debugPrint('❌ Device registration failed: ${response.status}');
       }
     } catch (e) {
+      // Treat 409 "Device already registered" as a non-fatal, idempotent success
+      if (e is FunctionException && e.status == 409) {
+        debugPrint(
+            'ℹ️ Device already registered on backend (409), treating as success');
+
+        try {
+          final userId = _supabase.auth.currentUser?.id;
+          final prefs = await SharedPreferences.getInstance();
+          final cachePrefix = 'device_reg:${userId ?? "anon"}:';
+          final now = DateTime.now();
+
+          await prefs.setString('${cachePrefix}token', pushToken);
+          await prefs.setString(
+              '${cachePrefix}registered_at', now.toIso8601String());
+        } catch (_) {
+          // Ignore cache errors here; registration is already valid on backend
+        }
+
+        return;
+      }
+
       debugPrint('❌ Error registering device: $e');
     }
   }
@@ -490,6 +511,7 @@ class DeviceRegistrationService {
           final response = await _supabase.functions.invoke(
             'households-register-device',
             body: {
+              'platform': Platform.isIOS ? 'ios' : 'android',
               'push_token': token,
               'delete_device': true,
             },

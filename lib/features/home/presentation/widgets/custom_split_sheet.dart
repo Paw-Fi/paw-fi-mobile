@@ -875,17 +875,18 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
     if (index < 0 || index >= _controllers.length) {
       return const SizedBox.shrink();
     }
+    String prefix = '';
     String suffix = '';
 
     switch (_selectedType) {
       case SplitType.amount:
-        suffix = ' ${widget.currencySymbol}';
+        // Currency symbol before the amount, e.g. "$ 61.50"
+        prefix = '${widget.currencySymbol} ';
         break;
       case SplitType.percentage:
         suffix = '%';
         break;
       case SplitType.shares:
-        suffix = '';
         break;
       case SplitType.equal:
         break;
@@ -902,18 +903,57 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
       style: TextStyle(
         fontSize: 15,
         fontWeight: FontWeight.w600,
-        color: enabled ? colorScheme.foreground : colorScheme.mutedForeground.withValues(alpha: 0.4),
+        color: enabled
+            ? colorScheme.foreground
+            : colorScheme.mutedForeground.withValues(alpha: 0.4),
       ),
       decoration: InputDecoration(
         isDense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         filled: false,
-        border: InputBorder.none,
+        border: UnderlineInputBorder(
+          borderSide: BorderSide(
+            color:
+                enabled
+                    ? colorScheme.mutedForeground.withValues(alpha: 0.4)
+                    : colorScheme.mutedForeground.withValues(alpha: 0.2),
+            width: 1,
+          ),
+        ),
+        enabledBorder: UnderlineInputBorder(
+          borderSide: BorderSide(
+            color: colorScheme.mutedForeground.withValues(alpha: 0.4),
+            width: 1,
+          ),
+        ),
+        focusedBorder: UnderlineInputBorder(
+          borderSide: BorderSide(
+            color: colorScheme.primary,
+            width: 1.5,
+          ),
+        ),
+        disabledBorder: UnderlineInputBorder(
+          borderSide: BorderSide(
+            color: colorScheme.mutedForeground.withValues(alpha: 0.2),
+            width: 1,
+          ),
+        ),
+        prefixText: prefix.isNotEmpty ? prefix : null,
+        prefixStyle: TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          color: enabled
+              ? colorScheme.foreground
+              : colorScheme.mutedForeground.withValues(alpha: 0.4),
+        ),
         suffixText: suffix,
         suffixStyle: TextStyle(
           fontSize: 15,
           fontWeight: FontWeight.w600,
-          color: enabled ? colorScheme.foreground : colorScheme.mutedForeground.withValues(alpha: 0.4),
+          color: enabled
+              ? colorScheme.foreground
+              : colorScheme.mutedForeground.withValues(alpha: 0.4),
         ),
       ),
       onSubmitted: (_) => FocusScope.of(context).unfocus(),

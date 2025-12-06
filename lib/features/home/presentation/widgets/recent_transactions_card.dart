@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import 'package:moneko/features/home/presentation/models/models.dart';
-import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
@@ -148,16 +147,19 @@ Widget buildRecentTransactionsCard(
                       ),
                     ],
                   ),
-                  child: TransactionListTile(
-                    onTap: () => showUnifiedTransactionSheet(context,
-                        existingExpense: e, contact: contact),
-                    category: e.category ?? 'other',
-                    title: getCategoryTranslation(context, e.category ?? 'other'),
-                    description: e.rawText,
+                  child: buildExpenseTransactionTile(
+                    context: context,
+                    category: e.category,
+                    rawText: e.rawText,
                     date: displayDateTime,
                     amount: e.amount,
                     currency: selectedCurrency ?? 'USD',
                     isIncome: isIncome,
+                    onTap: () => showUnifiedTransactionSheet(
+                      context,
+                      existingExpense: e,
+                      contact: contact,
+                    ),
                   ),
                 );
               }),

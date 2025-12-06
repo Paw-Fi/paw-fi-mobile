@@ -793,6 +793,36 @@ final householdSettlementHistoryProvider = FutureProvider.autoDispose
           '[settlement_history] no rows returned for household=${params.householdId}');
     }
 
+    // Preload expense metadata (category, raw_text) for all referenced expense_ids
+    final expenseIds = <String>{};
+    for (final row in rows) {
+      final group = row['expense_split_groups'] as Map<String, dynamic>? ?? {};
+      final expenseId = group['expense_id'] as String?;
+      if (expenseId != null && expenseId.isNotEmpty) {
+        expenseIds.add(expenseId);
+      }
+    }
+
+    final Map<String, Map<String, dynamic>> expensesMap = {};
+    if (expenseIds.isNotEmpty) {
+      try {
+        final expensesData = await supabase
+            .from('expenses')
+            .select('id, category, raw_text')
+            .inFilter('id', expenseIds.toList());
+        for (final row
+            in (expensesData as List).cast<Map<String, dynamic>>()) {
+          final id = row['id'] as String?;
+          if (id != null && id.isNotEmpty) {
+            expensesMap[id] = row;
+          }
+        }
+      } catch (e, st) {
+        print(
+            '[settlement_history] error loading expense metadata household=${params.householdId}: $e\n$st');
+      }
+    }
+
     // Aggregate by (unordered) participant/payer pair + currency + settled minute (+ actor) to collapse express netting
     final Map<String, _AggregatedSettlement> grouped = {};
     int skippedMissingDate = 0;
@@ -813,9 +843,12 @@ final householdSettlementHistoryProvider = FutureProvider.autoDispose
       final payerId = group['payer_user_id'] as String? ?? '';
       final participantId = row['user_id'] as String? ?? '';
       final actorId = row['settled_by_user_id'] as String?;
-      final expenseDesc = group['description'] as String?;
-      final expenseCategory = null;
-      final expenseRaw = null;
+      final expenseId = group['expense_id'] as String?;
+      final expenseMeta =
+          expenseId != null ? expensesMap[expenseId] : null;
+      final expenseCategory = expenseMeta?['category'] as String?;
+      final expenseRaw = expenseMeta?['raw_text'] as String?;
+      final expenseDesc = (group['description'] as String?) ?? expenseRaw;
       if (payerId.isEmpty || participantId.isEmpty) {
         skippedMissingIds++;
         continue;
@@ -840,7 +873,7 @@ final householdSettlementHistoryProvider = FutureProvider.autoDispose
         settledAt: settledAt,
         payerUserId: payerId,
         participantUserId: participantId,
-        expenseId: group['expense_id'] as String?,
+        expenseId: expenseId,
         expenseDescription: expenseDesc,
         expenseCategory: expenseCategory,
         expenseRawText: expenseRaw,

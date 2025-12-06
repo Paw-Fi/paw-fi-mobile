@@ -181,3 +181,34 @@ class TransactionListTile extends StatelessWidget {
     );
   }
 }
+
+Widget buildExpenseTransactionTile({
+  required BuildContext context,
+  String? category,
+  String? rawText,
+  required DateTime date,
+  required double amount,
+  required String currency,
+  required bool isIncome,
+  VoidCallback? onTap,
+  Widget? trailingWidget,
+  bool dense = true,
+  bool showYouLabel = false,
+}) {
+  final effectiveCategory = category ?? 'other';
+  final title = getCategoryTranslation(context, effectiveCategory);
+
+  return TransactionListTile(
+    onTap: onTap,
+    category: effectiveCategory,
+    title: title,
+    description: rawText,
+    date: date,
+    amount: amount,
+    currency: currency,
+    isIncome: isIncome,
+    trailingWidget: trailingWidget,
+    dense: dense,
+    showYouLabel: showYouLabel,
+  );
+}

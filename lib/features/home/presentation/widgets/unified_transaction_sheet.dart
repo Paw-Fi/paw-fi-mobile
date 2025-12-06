@@ -249,9 +249,11 @@ class _UnifiedTransactionSheetState
 
   String get currencySymbol {
     if (isNewExpense) {
-      // For new expenses, read from pendingExpenseProvider (which gets updated on edit)
+      // For new expenses, resolve the symbol from the canonical currency code
+      // rather than trusting the raw currencySymbol from the parser.
       final pending = ref.read(pendingExpenseProvider);
-      return pending?.currencySymbol ?? widget.newExpense!.currencySymbol;
+      final code = pending?.currency ?? widget.newExpense!.currency;
+      return resolveCurrencySymbol(code);
     }
     return resolveCurrencySymbol(currency);
   }
@@ -1968,33 +1970,6 @@ class _UnifiedTransactionSheetState
       final user = ref.read(authProvider);
       final viewMode = ref.read(viewModeProvider);
 
-      // ═══════════════════════════════════════════════════════════════
-      // PERMISSION CHECK: User can only edit their own expenses
-      // ═══════════════════════════════════════════════════════════════
-      // When editing existing expenses, verify that the logged-in user
-      // is the one who created the expense. This prevents users from
-      // editing expenses logged by other household members.
-      //
-      // Security: Each expense has a userId field that identifies the creator.
-      // We compare this with the current logged-in user's ID.
-      //
-      // Example scenario:
-      //   - User A logs an expense in household
-      //   - User B (another household member) views the expense list
-      //   - User B tries to edit User A's expense
-      //   - Result: Blocked with error message "You can only edit your own expenses"
-      // ═══════════════════════════════════════════════════════════════
-      if (isExistingExpense) {
-        final ownerId = widget.existingExpense!.userId;
-        if (ownerId != null && ownerId.isNotEmpty && ownerId != user.uid) {
-          setState(() => _isSaving = false);
-          if (!mounted) return;
-
-          AppToast.error(context, context.l10n.cannotEditOthersExpenses);
-          return;
-        }
-      }
-
       if (isNewExpense) {
         // NEW TRANSACTION (expense or income)
         final expense = ref.read(pendingExpenseProvider);
@@ -2215,7 +2190,9 @@ class _UnifiedTransactionSheetState
         updates['created_at'] = expenseDateTime.toUtc().toIso8601String();
 
         // For existing household expenses without a split group, we may need to
-        // create the first split group using the inline CustomSplitEditor
+        // create the first split group using the inline CustomSplitEditor.
+        // For expenses that already have a split group, we may instead send an
+        // update payload to adjust the existing split configuration.
         final existingHouseholdId = widget.existingExpense!.householdId;
         final existingSplitGroupId = widget.existingExpense!.splitGroupId;
         // Persist payer changes for shared expenses even without split edits
@@ -2229,6 +2206,17 @@ class _UnifiedTransactionSheetState
         final shouldCreateSplitGroupForExisting = _isSharedWithHousehold &&
             existingHouseholdId != null &&
             existingSplitGroupId == null &&
+            _customSplitType != null &&
+            _customSplits != null &&
+            _customSplits!.isNotEmpty;
+
+        // When editing an already-shared expense that has an existing split
+        // group, treat changes from the inline CustomSplitEditor as a split
+        // update. The backend will validate and rewrite the split lines as
+        // long as none of them have been settled yet.
+        final hasExistingSplitGroupForUpdate = _isSharedWithHousehold &&
+            existingHouseholdId != null &&
+            existingSplitGroupId != null &&
             _customSplitType != null &&
             _customSplits != null &&
             _customSplits!.isNotEmpty;
@@ -2247,7 +2235,7 @@ class _UnifiedTransactionSheetState
           }
         }
 
-        // Build optional extra body for split creation
+        // Build optional extra body for split creation or update
         Map<String, dynamic>? extraBody;
         if (shouldCreateSplitGroupForExisting) {
           final splitTypeStr = _customSplitType!.toString().split('.').last;
@@ -2279,6 +2267,35 @@ class _UnifiedTransactionSheetState
                   .toList(),
             },
             'payerUserId': _selectedPayerUserId ?? ref.read(authProvider).uid,
+          };
+        } else if (hasExistingSplitGroupForUpdate) {
+          final splitTypeStr = _customSplitType!.toString().split('.').last;
+          extraBody = {
+            'splitUpdate': {
+              'splitType': splitTypeStr,
+              'memberSplits': _customSplits!
+                  .map((split) {
+                    final memberUserId = split.member.userId;
+                    final member = <String, dynamic>{
+                      'userId': memberUserId,
+                    };
+                    switch (_customSplitType!) {
+                      case SplitType.amount:
+                        member['amount'] = split.amount;
+                        break;
+                      case SplitType.percentage:
+                        member['percentage'] = split.percentage;
+                        break;
+                      case SplitType.shares:
+                        member['shares'] = split.shares;
+                        break;
+                      case SplitType.equal:
+                        break;
+                    }
+                    return member;
+                  })
+                  .toList(),
+            },
           };
         }
 

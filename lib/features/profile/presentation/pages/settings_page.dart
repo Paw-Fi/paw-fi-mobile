@@ -87,6 +87,33 @@ class SettingsPage extends HookConsumerWidget {
       }
     }
 
+    Future<void> handleManualNotificationFix() async {
+      try {
+        try {
+          await ref
+              .read(deviceRegistrationServiceProvider)
+              .unregisterDevice();
+        } catch (e) {
+          debugPrint('Error during manual notification unregister: $e');
+        }
+
+        try {
+          await ref.read(deviceRegistrationServiceProvider).initialize();
+        } catch (e) {
+          debugPrint('Error re-initializing notifications manually: $e');
+        }
+
+        if (context.mounted) {
+          AppToast.success(
+            context,
+            'Notifications refreshed successfully',
+          );
+        }
+      } catch (e) {
+        debugPrint('Error handling manual notification fix: $e');
+      }
+    }
+
     final selectedLocale = ref.watch(localeProvider);
     const supportedLocales = AppLocalizations.supportedLocales;
     final dropdownValue = _coerceToSupported(selectedLocale, supportedLocales);
@@ -541,6 +568,35 @@ class SettingsPage extends HookConsumerWidget {
                     color: colorScheme.mutedForeground,
                   ),
                   onTap: () => handleNotificationToggle(),
+                ),
+                const SizedBox(height: 12),
+                AdaptiveListTile(
+                  leading: Icon(
+                    Icons.refresh_outlined,
+                    size: 20,
+                    color: colorScheme.mutedForeground,
+                  ),
+                  title: Text(
+                    'Fix notification issues',
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: colorScheme.foreground,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  subtitle: Text(
+                    'Re-register this device if notifications are not working.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: colorScheme.mutedForeground,
+                    ),
+                  ),
+                  trailing: Icon(
+                    Icons.refresh,
+                    size: 16,
+                    color: colorScheme.mutedForeground,
+                  ),
+                  onTap: () => handleManualNotificationFix(),
                 ),
                 const SizedBox(height: 24),
 

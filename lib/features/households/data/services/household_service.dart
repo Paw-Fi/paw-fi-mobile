@@ -13,23 +13,6 @@ class HouseholdService {
         name: 'HouseholdService', error: error, stackTrace: stackTrace);
   }
 
-  String _currentUserDisplayName() {
-    final user = _supabase.auth.currentUser;
-    if (user == null) return 'Someone';
-    final meta = user.userMetadata ?? const <String, dynamic>{};
-    final candidates = [
-      meta['full_name'],
-      meta['name'],
-      meta['user_name'],
-      meta['username'],
-      user.email,
-    ];
-    for (final v in candidates) {
-      if (v is String && v.trim().isNotEmpty) return v.trim();
-    }
-    return 'Someone';
-  }
-
   // ============================================================================
   // HOUSEHOLDS
   // ============================================================================
@@ -632,105 +615,8 @@ class HouseholdService {
     return cents;
   }
 
-  /// Mark all unsettled lines (current user's) owed to the given member as settled.
-  /// Returns number of lines updated.
-  Future<int> settleAllDebtsToMember({
-    required String householdId,
-    required String memberUserId,
-    String? currency,
-    String? settlementNote,
-  }) async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) throw Exception('User not authenticated');
-
-    final normalizedCurrency = currency?.trim().toUpperCase();
-
-    var query = _supabase
-        .from('expense_split_groups')
-        .select('id')
-        .eq('household_id', householdId)
-        .eq('payer_user_id', memberUserId);
-
-    if (normalizedCurrency != null) {
-      // Case-insensitive match to avoid missed settlements when stored currency casing differs
-      query = query.ilike('currency', normalizedCurrency);
-    }
-
-    final groups = await query;
-
-    final groupIds = (groups as List)
-        .map((e) => (e as Map<String, dynamic>)['id'] as String)
-        .toList();
-
-    if (groupIds.isEmpty) return 0;
-
-    final updated = await _supabase
-        .from('expense_split_lines')
-        .update({
-          'is_settled': true,
-          'settled_at': DateTime.now().toIso8601String(),
-          'settled_by_user_id': userId,
-          if (settlementNote != null) 'settlement_note': settlementNote,
-        })
-        .inFilter('split_group_id', groupIds)
-        .eq('user_id', userId)
-        .eq('is_settled', false)
-        .select('id');
-
-    return (updated as List).length;
-  }
-
-  /// Mark all unsettled lines where the given member owes the current user as settled.
-  /// Returns number of lines updated.
-  Future<int> settleAllDebtsFromMember({
-    required String householdId,
-    required String memberUserId,
-    String? currency,
-    String? settlementNote,
-  }) async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) throw Exception('User not authenticated');
-
-    final normalizedCurrency = currency?.trim().toUpperCase();
-
-    // Fetch groups where current user is the payer.
-    var query = _supabase
-        .from('expense_split_groups')
-        .select('id')
-        .eq('household_id', householdId)
-        .eq('payer_user_id', userId);
-
-    if (normalizedCurrency != null) {
-      // Case-insensitive match to avoid missed settlements when stored currency casing differs
-      query = query.ilike('currency', normalizedCurrency);
-    }
-
-    final groups = await query;
-
-    final groupIds = (groups as List)
-        .map((e) => (e as Map<String, dynamic>)['id'] as String)
-        .toList();
-
-    if (groupIds.isEmpty) return 0;
-
-    final updated = await _supabase
-        .from('expense_split_lines')
-        .update({
-          'is_settled': true,
-          'settled_at': DateTime.now().toIso8601String(),
-          'settled_by_user_id': userId,
-          if (settlementNote != null) 'settlement_note': settlementNote,
-        })
-        .inFilter('split_group_id', groupIds)
-        .eq('user_id', memberUserId)
-        .eq('is_settled', false)
-        .select('id');
-
-    return (updated as List).length;
-  }
-
   // ============================================================================
-  // SETTLEMENT RECORDING (optional metadata logging)
+  // SETTLEMENT RECORDING (server-side RPC + notification enqueuing)
   // ============================================================================
 
   /// Settle all current user's dues to [memberUserId] and notify involved members (excluding self).
@@ -747,37 +633,24 @@ class HouseholdService {
 
     // Use supplied precomputed value if provided (avoid extra reads)
     final amountCents = youOweCentsBefore ?? 0;
-
     final normalizedCurrency = currency?.toUpperCase();
 
-    final count = await settleAllDebtsToMember(
-      householdId: householdId,
-      memberUserId: memberUserId,
-      currency: normalizedCurrency,
-      settlementNote: settlementNote,
+    final result = await _supabase.rpc(
+      'households_settle_all_debts_and_notify',
+      params: {
+        'p_household_id': householdId,
+        'p_member_user_id': memberUserId,
+        'p_mode': 'to_member',
+        'p_you_owe_cents_before': amountCents,
+        'p_you_are_owed_cents_before': 0,
+        if (normalizedCurrency != null) 'p_currency': normalizedCurrency,
+        if (settlementNote != null && settlementNote.isNotEmpty)
+          'p_settlement_note': settlementNote,
+      },
     );
 
-    if (count > 0) {
-      final payload = {
-        'from_user_id': userId,
-        'to_user_id': memberUserId,
-        'amount_cents': amountCents,
-        'line_count': count,
-        'actor_name': _currentUserDisplayName(),
-        if (normalizedCurrency != null) 'currency': normalizedCurrency,
-      };
-      // Notify the counterparty only (exclude current user)
-      try {
-        await _supabase.from('notification_events').insert({
-          'household_id': householdId,
-          'user_id': memberUserId,
-          'event_type': 'split_settled',
-          'payload': payload,
-        });
-      } catch (_) {}
-    }
-
-    return count;
+    // RPC returns the number of lines updated
+    return (result as int?) ?? 0;
   }
 
   /// Settle all dues where [memberUserId] owes the current user and notify the member.
@@ -793,36 +666,23 @@ class HouseholdService {
     if (userId == null) throw Exception('User not authenticated');
 
     final amountCents = theyOweYouCentsBefore ?? 0;
-
     final normalizedCurrency = currency?.toUpperCase();
 
-    final count = await settleAllDebtsFromMember(
-      householdId: householdId,
-      memberUserId: memberUserId,
-      currency: normalizedCurrency,
-      settlementNote: settlementNote,
+    final result = await _supabase.rpc(
+      'households_settle_all_debts_and_notify',
+      params: {
+        'p_household_id': householdId,
+        'p_member_user_id': memberUserId,
+        'p_mode': 'from_member',
+        'p_you_owe_cents_before': 0,
+        'p_you_are_owed_cents_before': amountCents,
+        if (normalizedCurrency != null) 'p_currency': normalizedCurrency,
+        if (settlementNote != null && settlementNote.isNotEmpty)
+          'p_settlement_note': settlementNote,
+      },
     );
 
-    if (count > 0) {
-      final payload = {
-        'from_user_id': userId,
-        'to_user_id': memberUserId,
-        'amount_cents': amountCents,
-        'line_count': count,
-        'actor_name': _currentUserDisplayName(),
-        if (normalizedCurrency != null) 'currency': normalizedCurrency,
-      };
-      try {
-        await _supabase.from('notification_events').insert({
-          'household_id': householdId,
-          'user_id': memberUserId,
-          'event_type': 'split_settled',
-          'payload': payload,
-        });
-      } catch (_) {}
-    }
-
-    return count;
+    return (result as int?) ?? 0;
   }
 
   // ============================================================================
@@ -848,52 +708,23 @@ class HouseholdService {
     if (userId == null) throw Exception('User not authenticated');
 
     final normalizedCurrency = currency?.trim().toUpperCase();
+    final oweCents = youOweCentsBefore ?? 0;
+    final recvCents = youAreOwedCentsBefore ?? 0;
 
-    // Direction 1: current user owes member
-    final count1 = await settleAllDebtsToMember(
-      householdId: householdId,
-      memberUserId: memberUserId,
-      currency: normalizedCurrency,
-      settlementNote: settlementNote,
+    final result = await _supabase.rpc(
+      'households_settle_all_debts_and_notify',
+      params: {
+        'p_household_id': householdId,
+        'p_member_user_id': memberUserId,
+        'p_mode': 'both',
+        'p_you_owe_cents_before': oweCents,
+        'p_you_are_owed_cents_before': recvCents,
+        if (normalizedCurrency != null) 'p_currency': normalizedCurrency,
+        if (settlementNote != null && settlementNote.isNotEmpty)
+          'p_settlement_note': settlementNote,
+      },
     );
 
-    // Direction 2: member owes current user (re-use shared helper for consistency)
-    final count2 = await settleAllDebtsFromMember(
-      householdId: householdId,
-      memberUserId: memberUserId,
-      currency: normalizedCurrency,
-      settlementNote: settlementNote,
-    );
-
-    final total = count1 + count2;
-
-    // Best-effort notifications (counterparty only)
-    if (total > 0) {
-      final oweCents = youOweCentsBefore ?? 0;
-      final recvCents = youAreOwedCentsBefore ?? 0;
-      final payload = {
-        'from_user_id': userId,
-        'to_user_id': memberUserId,
-        'lines_settled_current_user_owes': count1,
-        'lines_settled_member_owes': count2,
-        'amounts_before': {
-          'you_owe_cents': oweCents,
-          'you_are_owed_cents': recvCents,
-          'net_pay_cents': (oweCents - recvCents).clamp(0, 1 << 31),
-        },
-        'actor_name': _currentUserDisplayName(),
-        if (normalizedCurrency != null) 'currency': normalizedCurrency,
-      };
-      try {
-        await _supabase.from('notification_events').insert({
-          'household_id': householdId,
-          'user_id': memberUserId,
-          'event_type': 'split_settled',
-          'payload': payload,
-        });
-      } catch (_) {}
-    }
-
-    return total;
+    return (result as int?) ?? 0;
   }
 }

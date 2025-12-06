@@ -49,7 +49,6 @@ class EditDashboardButton extends ConsumerWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                         
                             Text(
                               context.l10n.done,
                               style: TextStyle(
@@ -59,7 +58,7 @@ class EditDashboardButton extends ConsumerWidget {
                               ),
                             ),
                             const SizedBox(width: 8),
-                               Icon(Icons.check_rounded,
+                            Icon(Icons.check_rounded,
                                 size: 16, color: colorScheme.onPrimary),
                           ],
                         ),
@@ -71,8 +70,7 @@ class EditDashboardButton extends ConsumerWidget {
                     "Hold and drag to reorder widgets",
                     style: TextStyle(
                       fontSize: 12,
-                      color: colorScheme.mutedForeground
-                          .withValues(alpha: 0.9),
+                      color: colorScheme.mutedForeground.withValues(alpha: 0.9),
                       fontWeight: FontWeight.w500,
                       letterSpacing: 0.1,
                     ),
@@ -81,32 +79,38 @@ class EditDashboardButton extends ConsumerWidget {
               )
             : GestureDetector(
                 onTap: toggleEditMode,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 32,
-                      height: 1,
-                      color: colorScheme.mutedForeground
-                          .withValues(alpha: 0.3),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest
+                        .withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: colorScheme.outline.withValues(alpha: 0.1),
                     ),
-                    const SizedBox(width: 12),
-                    Text(
-                      context.l10n.editWidgets,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: colorScheme.mutedForeground,
-                        fontWeight: FontWeight.w500,
-                      ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 10),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.edit_rounded,
+                          size: 14,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          context.l10n.editWidgets,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 12),
-                    Container(
-                      width: 32,
-                      height: 1,
-                      color: colorScheme.mutedForeground
-                          .withValues(alpha: 0.3),
-                    ),
-                  ],
+                  ),
                 ),
               ),
       ),
@@ -201,8 +205,7 @@ class _DashboardWidgetWrapperState extends ConsumerState<DashboardWidgetWrapper>
               top: 8,
               right: 30,
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 decoration: BoxDecoration(
                   color: colorScheme.surface.withValues(alpha: 0.85),
                   borderRadius: BorderRadius.circular(32),
@@ -413,11 +416,10 @@ class WidgetConfigurationSheet extends StatelessWidget {
                 ),
               ),
               Divider(height: 1, color: colorScheme.outlineVariant),
-
               if (supportsViewMode) ...[
                 Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   child: Text(
                     context.l10n.viewMode,
                     style: TextStyle(
@@ -476,14 +478,12 @@ class WidgetConfigurationSheet extends StatelessWidget {
                   Divider(height: 1, color: colorScheme.outlineVariant),
                 ],
               ],
-
               if (!supportsViewMode && supportsDateRange)
                 const SizedBox(height: 8),
-
               if (supportsDateRange) ...[
                 Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   child: Text(
                     context.l10n.dateRange,
                     style: TextStyle(

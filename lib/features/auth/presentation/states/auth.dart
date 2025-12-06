@@ -39,6 +39,9 @@ class Auth extends _$Auth {
     _authStateSubscription = supabase.auth.onAuthStateChange.listen((data) async {
       state = AppUser.fromSession(data.session);
 
+      final event = data.event;
+      final session = data.session;
+
       // Set Crashlytics user identifier for better correlation
       try {
         final uid = state.uid;
@@ -49,10 +52,23 @@ class Auth extends _$Auth {
         }
       } catch (_) {}
 
-      // On sign in, migrate guest data and sync Web3 profile (wallet address/name)
-      if (data.event == AuthChangeEvent.signedIn && data.session != null) {
+      // Ensure device is registered for push notifications whenever we have
+      // an authenticated session (initial load or explicit sign-in).
+      if (session != null &&
+          (event == AuthChangeEvent.signedIn ||
+              event == AuthChangeEvent.initialSession)) {
         try {
-          await _syncWeb3Profile(data.session!);
+          await ref.read(deviceRegistrationServiceProvider).initialize();
+        } catch (e, st) {
+          appLog('Device registration init failed: $e',
+              name: 'Auth', error: e, stackTrace: st);
+        }
+      }
+
+      // On sign in, migrate guest data and sync Web3 profile (wallet address/name)
+      if (event == AuthChangeEvent.signedIn && session != null) {
+        try {
+          await _syncWeb3Profile(session);
         } catch (e, st) {
           appLog('Web3 profile sync failed: $e', name: 'Auth', error: e, stackTrace: st);
         }

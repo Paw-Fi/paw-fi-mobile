@@ -64,7 +64,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
     }
   }
 
-  void _recomputeFromSplits() {
+  Future<void> _recomputeFromSplits() async {
     final memberId = _selectedMemberId;
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
     if (memberId == null || currentUserId == null) return;
@@ -111,13 +111,53 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
       }
     }
 
-    items.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    theyOwe.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    // Enrich line items with expense categories so icons/colors match the
+    // main transaction list. We only fetch metadata for the small set of
+    // expense IDs involved in this sheet.
+    final expenseIds = <String>{
+      ...items.map((i) => i.expenseId),
+      ...theyOwe.map((i) => i.expenseId),
+    }..removeWhere((id) => id.isEmpty);
+
+    final Map<String, String?> expenseCategories = {};
+    if (expenseIds.isNotEmpty) {
+      try {
+        final supabase = Supabase.instance.client;
+        final expensesData = await supabase
+            .from('expenses')
+            .select('id, category')
+            .inFilter('id', expenseIds.toList());
+        for (final row
+            in (expensesData as List).cast<Map<String, dynamic>>()) {
+          final id = row['id'] as String?;
+          if (id != null && id.isNotEmpty) {
+            expenseCategories[id] = row['category'] as String?;
+          }
+        }
+      } catch (e) {
+        debugPrint('Error loading expense categories for SettleUpSheet: $e');
+      }
+    }
+
+    final enrichedItems = items
+        .map((item) => item.copyWith(
+              category: expenseCategories[item.expenseId],
+            ))
+        .toList();
+    final enrichedTheyOwe = theyOwe
+        .map((item) => item.copyWith(
+              category: expenseCategories[item.expenseId],
+            ))
+        .toList();
+
+    enrichedItems.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    enrichedTheyOwe.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
     setState(() {
       _youOweCents = youOwe;
       _youAreOwedCents = youAreOwed;
-      _lineItems = items;
-      _theyOweItems = theyOwe;
+      _lineItems = enrichedItems;
+      _theyOweItems = enrichedTheyOwe;
     });
   }
 
@@ -405,10 +445,10 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                         // In detailed mode, we only show the direction being settled.
                         if (widget.isExpressNetting || !widget.settleTheyOweYou)
                           ..._lineItems.map(
-                            (item) => TransactionListTile(
-                              category: 'other',
-                              title: item.description ?? 'Expense',
-                              description: item.description,
+                            (item) => buildExpenseTransactionTile(
+                              context: context,
+                              category: item.category,
+                              rawText: item.description,
                               date: item.createdAt,
                               amount: item.amountCents / 100.0,
                               currency: currency,
@@ -435,10 +475,10 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                             ),
                             const SizedBox(height: 8),
                             ..._theyOweItems.map(
-                              (item) => TransactionListTile(
-                                category: 'other',
-                                title: item.description ?? 'Expense',
-                                description: item.description,
+                              (item) => buildExpenseTransactionTile(
+                                context: context,
+                                category: item.category,
+                                rawText: item.description,
                                 date: item.createdAt,
                                 amount: item.amountCents / 100.0,
                                 currency: currency,
@@ -456,10 +496,10 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                           ],
                         if (!widget.isExpressNetting && widget.settleTheyOweYou)
                           ..._theyOweItems.map(
-                            (item) => TransactionListTile(
-                              category: 'other',
-                              title: item.description ?? 'Expense',
-                              description: item.description,
+                            (item) => buildExpenseTransactionTile(
+                              context: context,
+                              category: item.category,
+                              rawText: item.description,
                               date: item.createdAt,
                               amount: item.amountCents / 100.0,
                               currency: currency,
@@ -735,14 +775,29 @@ class _LineItem {
   final String groupId;
   final String expenseId;
   final String? description;
+  final String? category;
   final DateTime createdAt;
   final int amountCents;
-  const _LineItem(
-      {required this.groupId,
-      required this.expenseId,
-      required this.description,
-      required this.createdAt,
-      required this.amountCents});
+
+  const _LineItem({
+    required this.groupId,
+    required this.expenseId,
+    required this.description,
+    required this.createdAt,
+    required this.amountCents,
+    this.category,
+  });
+
+  _LineItem copyWith({String? category}) {
+    return _LineItem(
+      groupId: groupId,
+      expenseId: expenseId,
+      description: description,
+      createdAt: createdAt,
+      amountCents: amountCents,
+      category: category ?? this.category,
+    );
+  }
 }
 
 /// Fetch user avatar URL from Supabase users table.

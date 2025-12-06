@@ -8,8 +8,8 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
-import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
 import 'package:moneko/shared/widgets/user_avatar.dart';
+import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 
@@ -1072,7 +1072,8 @@ class _SettlementDetailsSheetState extends State<SettlementDetailsSheet> {
                   if (_loadingLines && lineItems.isEmpty) ...[
                     const SizedBox(height: 20),
                     const Center(
-                        child: CircularProgressIndicator(strokeWidth: 2)),
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
                   ] else if (lineItems.isNotEmpty) ...[
                     const SizedBox(height: 24),
                     Align(
@@ -1100,59 +1101,19 @@ class _SettlementDetailsSheetState extends State<SettlementDetailsSheet> {
                           ...lineItems.map(
                             (line) => Padding(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 10),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.receipt_long_rounded,
-                                    size: 18,
-                                    color: colorScheme.mutedForeground,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          (line.expenseDescription ??
-                                                  line.expenseRawText ??
-                                                  line.expenseCategory ??
-                                                  context.l10n.expense)
-                                              .trim(),
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w600,
-                                            color: colorScheme.foreground,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          DateFormat.yMMMd()
-                                              .add_jm()
-                                              .format(line.settledAt.toLocal()),
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: colorScheme.mutedForeground,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Text(
-                                    formatCurrency(
-                                        line.amountCents / 100.0,
-                                        widget.event.currency.toUpperCase()),
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
-                                      color: colorScheme.foreground,
-                                      letterSpacing: -0.3,
-                                    ),
-                                  ),
-                                ],
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              child: buildExpenseTransactionTile(
+                                context: context,
+                                category: line.expenseCategory,
+                                rawText:
+                                    line.expenseDescription ?? line.expenseRawText,
+                                date: line.settledAt.toLocal(),
+                                amount: line.amountCents / 100.0,
+                                currency:
+                                    widget.event.currency.toUpperCase(),
+                                isIncome: false,
                               ),
                             ),
                           ),
@@ -1160,14 +1121,6 @@ class _SettlementDetailsSheetState extends State<SettlementDetailsSheet> {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 32),
-                  SizedBox(
-                    width: double.infinity,
-                    child: PrimaryAdaptiveButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: Text(context.l10n.done),
-                    ),
-                  ),
                 ],
               ),
             ),

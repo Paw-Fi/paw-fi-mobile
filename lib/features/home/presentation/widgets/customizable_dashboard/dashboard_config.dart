@@ -25,7 +25,7 @@ enum DashboardWidgetType {
       case DashboardWidgetType.financialCalendar:
         return [DashboardWidgetViewMode.wide, DashboardWidgetViewMode.full];
       case DashboardWidgetType.householdFinancialCalendar:
-        return [DashboardWidgetViewMode.wide];
+        return [DashboardWidgetViewMode.wide, DashboardWidgetViewMode.full];
       default:
         return [DashboardWidgetViewMode.wide];
     }
