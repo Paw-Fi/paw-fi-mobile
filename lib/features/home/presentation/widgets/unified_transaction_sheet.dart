@@ -36,6 +36,7 @@ import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/shared/widgets/destructive-adaptive-button.dart';
 import 'package:moneko/shared/widgets/moneko-switch.dart';
 import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 
 /// Format date with relative terms
 String _formatRelativeDate(DateTime date, BuildContext context) {
@@ -1302,48 +1303,35 @@ class _UnifiedTransactionSheetState
 
   // Edit handlers - update local state for both new and existing
   void _handleEditAmount(double currentAmount) async {
-    final controller =
-        TextEditingController(text: currentAmount.toStringAsFixed(2));
-    final result = await showDialog<double>(
+    final result = await MonekoAlertDialog.show(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(context.l10n.editAmount),
-        content: TextField(
-          controller: controller,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          textInputAction: TextInputAction.done,
-          decoration: InputDecoration(labelText: context.l10n.amount),
-          autofocus: true,
-          onSubmitted: (_) => FocusScope.of(context).unfocus(),
-          onTapOutside: (_) => FocusScope.of(context).unfocus(),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(context.l10n.cancel),
-          ),
-          TextButton(
-            onPressed: () {
-              final value = double.tryParse(controller.text);
-              if (value != null && value > 0) {
-                Navigator.pop(context, value);
-              }
-            },
-            child: Text(context.l10n.save),
-          ),
-        ],
+      title: context.l10n.editAmount,
+      description: null,
+      confirmLabel: context.l10n.save,
+      cancelLabel: context.l10n.cancel,
+      inputConfig: MonekoAlertDialogInputConfig(
+        initialValue: currentAmount.toStringAsFixed(2),
+        placeholder: context.l10n.amount,
+        isRequired: true,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        validationPattern: RegExp(r'^[0-9]+(\.[0-9]{0,2})?$'),
+        validationMessage: 'Please enter a valid amount.',
       ),
     );
-    if (result != null) {
+
+    if (result != null && result.confirmed && result.text != null) {
+      final parsed = double.tryParse(result.text!.replaceAll(',', ''));
+      if (parsed == null || parsed <= 0) return;
+
       if (isNewExpense) {
         final current = ref.read(pendingExpenseProvider);
         if (current != null) {
           ref.read(pendingExpenseProvider.notifier).state =
-              current.copyWith(amount: result);
+              current.copyWith(amount: parsed);
         }
       } else {
         setState(() {
-          _editedAmount = result;
+          _editedAmount = parsed;
         });
       }
     }
@@ -2370,76 +2358,16 @@ class _UnifiedTransactionSheetState
   }
 
   Future<void> _handleDelete() async {
-    final colorScheme = Theme.of(context).colorScheme;
+    final confirmedResult = await MonekoAlertDialog.show(
+      context: context,
+      title: context.l10n.deleteExpense,
+      description: context.l10n.confirmDeleteExpense,
+      confirmLabel: context.l10n.delete,
+      cancelLabel: context.l10n.cancel,
+      barrierDismissible: true,
+    );
 
-    // Show platform-specific confirmation dialog
-    bool? confirmed;
-
-    if (Platform.isIOS) {
-      // iOS-style dialog
-      confirmed = await showCupertinoDialog<bool>(
-        context: context,
-        builder: (context) => CupertinoAlertDialog(
-          title: Text(context.l10n.deleteExpense),
-          content: Text(
-            context.l10n.confirmDeleteExpense,
-          ),
-          actions: [
-            CupertinoDialogAction(
-              onPressed: () => Navigator.pop(context, false),
-              child: Text(context.l10n.cancel),
-            ),
-            CupertinoDialogAction(
-              onPressed: () => Navigator.pop(context, true),
-              isDestructiveAction: true,
-              child: Text(context.l10n.delete),
-            ),
-          ],
-        ),
-      );
-    } else {
-      // Android-style dialog
-      confirmed = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Row(
-            children: [
-              Icon(Icons.warning_rounded,
-                  color: colorScheme.destructive, size: 24),
-              const SizedBox(width: 12),
-              Text(context.l10n.deleteExpense),
-            ],
-          ),
-          content: Text(
-            context.l10n.confirmDeleteExpense,
-            style: const TextStyle(fontSize: 15),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              style: TextButton.styleFrom(
-                foregroundColor: colorScheme.mutedForeground,
-              ),
-              child: Text(context.l10n.cancel),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              style: TextButton.styleFrom(
-                foregroundColor: colorScheme.destructive,
-                backgroundColor: colorScheme.destructive.withValues(alpha: 0.1),
-              ),
-              child: Text(context.l10n.delete,
-                  style: const TextStyle(fontWeight: FontWeight.w600)),
-            ),
-          ],
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-        ),
-      );
-    }
-
-    if (confirmed != true || !mounted) return;
+    if (confirmedResult?.confirmed != true || !mounted) return;
 
     setState(() => _isDeleting = true);
 

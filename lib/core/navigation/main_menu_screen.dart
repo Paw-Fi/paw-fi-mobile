@@ -408,6 +408,14 @@ class _HouseholdSection extends ConsumerWidget {
       data: (households) {
         if (households.isEmpty) return const SizedBox.shrink();
 
+        if (!selectedState.isLoading && selectedState.householdId == null) {
+          if (user.uid.isNotEmpty) {
+            ref
+                .read(selectedHouseholdProvider.notifier)
+                .initialize(user.uid);
+          }
+        }
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

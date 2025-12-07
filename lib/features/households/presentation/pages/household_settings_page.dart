@@ -21,6 +21,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/app/router.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 
 /// Household Settings Page
 /// Manage budgets, privacy preferences, and household settings
@@ -432,28 +433,18 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
     final pageContext = context;
     final l10n = pageContext.l10n;
 
-    AdaptiveAlertDialog.show(
+    final result = await MonekoAlertDialog.show(
       context: pageContext,
       title: l10n.delete,
-      message: l10n.confirmDeleteBudget,
-      icon: 'trash.fill',
-      actions: [
-        AlertAction(
-          title: l10n.cancel,
-          onPressed: () {
-            Navigator.of(pageContext).pop(false);
-          },
-        ),
-        AlertAction(
-          title: l10n.delete,
-          style: AlertActionStyle.destructive,
-          onPressed: () async {
-            Navigator.of(pageContext).pop(true);
-            await _deleteHousehold(pageContext);
-          },
-        ),
-      ],
+      description: l10n.confirmDeleteBudget,
+      confirmLabel: l10n.delete,
+      cancelLabel: l10n.cancel,
+      barrierDismissible: false,
     );
+
+    if (result?.confirmed == true) {
+      await _deleteHousehold(pageContext);
+    }
   }
 
   Future<void> _deleteHousehold(BuildContext pageContext) async {
@@ -654,58 +645,22 @@ class _MembersTab extends ConsumerWidget {
     );
   }
 
-  void _confirmRemoveMember(
-      BuildContext context, WidgetRef ref, HouseholdMember member) {
-    if (Platform.isIOS) {
-      showCupertinoDialog(
-        context: context,
-        builder: (context) => CupertinoAlertDialog(
-          title: Text(context.l10n.removeMember),
-          content: Text(
-              '${context.l10n.confirmRemoveMember} ${member.userName ?? member.userEmail}?'),
-          actions: [
-            CupertinoDialogAction(
-              onPressed: () => Navigator.pop(context),
-              child: Text(context.l10n.cancel),
-            ),
-            CupertinoDialogAction(
-              isDestructiveAction: true,
-              onPressed: () async {
-                await ref
-                    .read(householdMembersProvider(householdId).notifier)
-                    .removeMember(member.id);
-                if (context.mounted) Navigator.pop(context);
-              },
-              child: Text(context.l10n.remove),
-            ),
-          ],
-        ),
-      );
-    } else {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text(context.l10n.removeMember),
-          content: Text(
-              '${context.l10n.confirmRemoveMember} ${member.userName ?? member.userEmail}?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(context.l10n.cancel),
-            ),
-            TextButton(
-              onPressed: () async {
-                await ref
-                    .read(householdMembersProvider(householdId).notifier)
-                    .removeMember(member.id);
-                if (context.mounted) Navigator.pop(context);
-              },
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: Text(context.l10n.remove),
-            ),
-          ],
-        ),
-      );
+  Future<void> _confirmRemoveMember(
+      BuildContext context, WidgetRef ref, HouseholdMember member) async {
+    final result = await MonekoAlertDialog.show(
+      context: context,
+      title: context.l10n.removeMember,
+      description:
+          '${context.l10n.confirmRemoveMember} ${member.userName ?? member.userEmail}?',
+      confirmLabel: context.l10n.remove,
+      cancelLabel: context.l10n.cancel,
+      barrierDismissible: true,
+    );
+
+    if (result?.confirmed == true) {
+      await ref
+          .read(householdMembersProvider(householdId).notifier)
+          .removeMember(member.id);
     }
   }
 

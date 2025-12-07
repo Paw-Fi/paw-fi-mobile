@@ -2,13 +2,11 @@ import 'dart:math' as math;
 
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
-import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/l10n/l10n.dart';
-import 'package:moneko/core/ui/widgets/custom_text_field.dart';
 import 'package:moneko/core/utils/date_formatter.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 
 const Map<String, double> _currencyBaselines = {
   'USD': 10000,
@@ -247,80 +245,35 @@ class PocketsHeaderCard extends StatelessWidget {
     );
   }
 
-  void _showBudgetInputSheet(BuildContext context, double currentAmount) {
-    final controller =
-        TextEditingController(text: currentAmount.toStringAsFixed(0));
-    // Highlight entire value by default for quick replacement
-    controller.selection = TextSelection(baseOffset: 0, extentOffset: controller.text.length);
-
-    showModalBottomSheet(
+  Future<void> _showBudgetInputSheet(
+      BuildContext context, double currentAmount) async {
+    final result = await MonekoAlertDialog.show(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: Container(
-          decoration: BoxDecoration(
-            color: colorScheme.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          padding: const EdgeInsets.all(24),
-          child: SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      context.l10n.setMonthlyBudgetTitle,
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: colorScheme.foreground,
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon:
-                          Icon(Icons.close, color: colorScheme.mutedForeground),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                CustomTextField(
-                  controller: controller,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: false),
-                  autofocus: true,
-                  placeholder: '0',
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: PrimaryAdaptiveButton(
-                    onPressed: () {
-                      final rawText = controller.text.trim();
-                      final normalized = rawText.replaceAll(',', '');
-                      final val = double.tryParse(normalized);
-                      if (val != null && val >= 0) {
-                        onTotalChanged(val.roundToDouble());
-                        onSave?.call();
-                        Navigator.pop(context);
-                      }
-                    },
-                    child: Text(context.l10n.save),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+      title: context.l10n.setMonthlyBudgetTitle,
+      description: context.l10n.monthlyBudget,
+      confirmLabel: context.l10n.save,
+      cancelLabel: context.l10n.cancel,
+      inputConfig: MonekoAlertDialogInputConfig(
+        initialValue: currentAmount.toStringAsFixed(0),
+        placeholder: '0',
+        isRequired: true,
+        keyboardType: const TextInputType.numberWithOptions(decimal: false),
+        validationPattern: RegExp(r'^[0-9,]+$'),
+        validationMessage: 'Please enter a valid amount.',
       ),
     );
+
+    if (result == null || !result.confirmed || result.text == null) {
+      return;
+    }
+
+    final rawText = result.text!.trim();
+    final normalized = rawText.replaceAll(',', '');
+    final val = double.tryParse(normalized);
+    if (val != null && val >= 0) {
+      onTotalChanged(val.roundToDouble());
+      onSave?.call();
+    }
   }
 
   void _pickMonth(BuildContext context) {

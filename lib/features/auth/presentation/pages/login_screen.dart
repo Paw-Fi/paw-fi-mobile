@@ -258,6 +258,9 @@ class LoginScreen extends HookConsumerWidget {
                               controller: emailController,
                               focusNode: emailFocusNode,
                               keyboardType: TextInputType.emailAddress,
+                              textCapitalization: TextCapitalization.none,
+                              autocorrect: false,
+                              enableSuggestions: false,
                               textInputAction: TextInputAction.next,
                               enabled: !isLoading.value,
                               style: TextStyle(
@@ -511,6 +514,9 @@ class _ResetPasswordDialog extends HookWidget {
           TextField(
             controller: emailController,
             keyboardType: TextInputType.emailAddress,
+            textCapitalization: TextCapitalization.none,
+            autocorrect: false,
+            enableSuggestions: false,
             decoration: InputDecoration(
               labelText: context.l10n.email,
               hintText: context.l10n.exampleEmail,

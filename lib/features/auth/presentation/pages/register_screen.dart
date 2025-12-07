@@ -340,6 +340,9 @@ class _RegistrationFormView extends HookConsumerWidget {
                               controller: emailController,
                               focusNode: emailFocusNode,
                               keyboardType: TextInputType.emailAddress,
+                              textCapitalization: TextCapitalization.none,
+                              autocorrect: false,
+                              enableSuggestions: false,
                               textInputAction: TextInputAction.next,
                               enabled: !isLoading.value,
                               style: TextStyle(

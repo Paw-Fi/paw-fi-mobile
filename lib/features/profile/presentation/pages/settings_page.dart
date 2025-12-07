@@ -26,6 +26,7 @@ import 'package:moneko/features/income/presentation/providers/income_providers.d
 import 'package:moneko/features/goals/presentation/providers/goals_providers.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/shared/widgets/moneko_list_picker.dart';
+import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 
 class SettingsPage extends HookConsumerWidget {
   const SettingsPage({super.key});
@@ -842,123 +843,37 @@ Future<void> _showEditNameSheet({
   required String initialName,
   required VoidCallback onUpdated,
 }) async {
-  final colorScheme = Theme.of(context).colorScheme;
-  final controller = TextEditingController(text: initialName);
   final authState = ref.read(authProvider);
-  var isSaving = false;
+  final l10n = AppLocalizations.of(context)!;
 
-  await showModalBottomSheet(
+  final result = await MonekoAlertDialog.show(
     context: context,
-    isScrollControlled: true,
-    backgroundColor: colorScheme.card,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    title: l10n.fullName,
+    description: null,
+    confirmLabel: l10n.save,
+    cancelLabel: l10n.cancel,
+    inputConfig: MonekoAlertDialogInputConfig(
+      initialValue: initialName,
+      placeholder: l10n.fullName,
+      isRequired: true,
+      keyboardType: TextInputType.text,
+      // Basic validation, more detailed checks remain in _saveName
+      validationPattern: RegExp(r'^.{2,}$'),
+      validationMessage: 'Please enter a valid name',
     ),
-    builder: (ctx) {
-      return StatefulBuilder(
-        builder: (ctx, setState) {
-          return Padding(
-            padding: EdgeInsets.only(
-              left: 20,
-              right: 20,
-              top: 20,
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header
-                Row(
-                  children: [
-                    const Spacer(),
-                    Text(
-                      AppLocalizations.of(ctx)!.fullName,
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.foreground,
-                      ),
-                    ),
-                    const Spacer(),
-                  ],
-                ),
-                const SizedBox(height: 20),
+  );
 
-                // Text Field
-                AdaptiveTextField(
-                  controller: controller,
-                  placeholder: AppLocalizations.of(ctx)!.fullName,
-                  autofocus: true,
-                  onSubmitted: (_) async {
-                    if (isSaving) return;
-                    setState(() {
-                      isSaving = true;
-                    });
-                    try {
-                      await _saveName(
-                        ctx,
-                        ref,
-                        controller,
-                        authState.uid,
-                        onUpdated,
-                      );
-                    } finally {
-                      if (ctx.mounted) {
-                        setState(() {
-                          isSaving = false;
-                        });
-                      }
-                    }
-                  },
-                ),
-                const SizedBox(height: 20),
+  if (result == null || !result.confirmed || result.text == null) {
+    return;
+  }
 
-                // Action Buttons
-                Row(
-                  children: [
-                    Expanded(
-                      child: AdaptiveButton(
-                        style: AdaptiveButtonStyle.plain,
-                        onPressed: () => Navigator.of(ctx).pop(),
-                        label: AppLocalizations.of(ctx)!.cancel,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: AdaptiveButton(
-                        onPressed: () async {
-                          if (isSaving) return;
-                          setState(() {
-                            isSaving = true;
-                          });
-                          try {
-                            await _saveName(
-                              ctx,
-                              ref,
-                              controller,
-                              authState.uid,
-                              onUpdated,
-                            );
-                          } finally {
-                            if (ctx.mounted) {
-                              setState(() {
-                                isSaving = false;
-                              });
-                            }
-                          }
-                        },
-                        label: AppLocalizations.of(ctx)!.save,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          );
-        },
-      );
-    },
+  final controller = TextEditingController(text: result.text!);
+  await _saveName(
+    context,
+    ref,
+    controller,
+    authState.uid,
+    onUpdated,
   );
 }
 

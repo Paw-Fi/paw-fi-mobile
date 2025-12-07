@@ -17,7 +17,7 @@ import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
-import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 
 class SettleUpSheet extends ConsumerStatefulWidget {
   final String householdId;
@@ -559,30 +559,23 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
     final msg = context.l10n.confirmSettlementMessage;
     final noteLabel = 'Note (optional)';
 
-    final result = await AdaptiveAlertDialog.inputShow(
+    final result = await MonekoAlertDialog.show(
       context: context,
       title: title,
-      message: msg,
-      input: AdaptiveAlertDialogInput(
-        placeholder: noteLabel,
+      description: msg,
+      confirmLabel: context.l10n.settle,
+      cancelLabel: context.l10n.cancel,
+      inputConfig: MonekoAlertDialogInputConfig(
         initialValue: _noteController.text,
+        placeholder: noteLabel,
+        isRequired: false,
+        keyboardType: TextInputType.text,
       ),
-      actions: [
-        AlertAction(
-          title: context.l10n.cancel,
-          style: AlertActionStyle.cancel,
-          onPressed: () {},
-        ),
-        AlertAction(
-          title: context.l10n.settle,
-          style: AlertActionStyle.primary,
-          onPressed: () {},
-        ),
-      ],
     );
 
-    if (result != null) {
-      _noteController.text = result.trim();
+    if (result != null && result.confirmed) {
+      final text = result.text?.trim() ?? '';
+      _noteController.text = text;
       return true;
     }
     return false;
