@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/auth/presentation/widgets/wallet_login_button.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
@@ -9,6 +11,7 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/constants/links.dart';
 class LoginScreen extends HookConsumerWidget {
   const LoginScreen({super.key});
 
@@ -94,6 +97,39 @@ class LoginScreen extends HookConsumerWidget {
     }
 
     Future<void> handleResetPassword() async {
+      await AdaptiveAlertDialog.show(
+        context: context,
+        title: context.l10n.resetYourPassword,
+        message:
+            'If you need to change your password, please contact our support team in the Discord channel.',
+        icon: 'lock.fill',
+        actions: [
+          AlertAction(
+            title: context.l10n.cancel,
+            style: AlertActionStyle.cancel,
+            onPressed: () {},
+          ),
+          AlertAction(
+            title: 'Open Discord',
+            style: AlertActionStyle.primary,
+            onPressed: () async {
+              try {
+                await launchUrl(
+                  Uri.parse(Links.discordSupport),
+                  mode: LaunchMode.externalApplication,
+                );
+              } catch (_) {}
+            },
+          ),
+        ],
+      );
+
+      // Early return for now so we keep the legacy reset flow below
+      // without executing it. This allows us to re-enable email-based
+      // password reset in the future without losing the implementation.
+      return;
+
+      // Legacy reset password flow (kept for future use)
       final email = await showDialog<String>(
         context: context,
         builder: (context) => _ResetPasswordDialog(),
@@ -102,7 +138,10 @@ class LoginScreen extends HookConsumerWidget {
       if (email == null || email.isEmpty) return;
 
       try {
-        await ref.read(authProvider.notifier).resetPassword(email);
+        await ref.read(authProvider.notifier).resetPassword(
+              email,
+              redirectUrl: 'https://moneko.io/reset-password',
+            );
         AppToast.success(context, context.l10n.passwordResetEmailSent);
       } catch (e) {
         AppToast.error(
@@ -530,7 +569,8 @@ class _ResetPasswordDialog extends HookWidget {
           child: Text(context.l10n.cancel),
         ),
         TextButton(
-          onPressed: () => Navigator.of(context).pop(emailController.text.trim()),
+          onPressed: () =>
+              Navigator.of(context).pop(emailController.text.trim()),
           child: Text(context.l10n.sendResetLink),
         ),
       ],

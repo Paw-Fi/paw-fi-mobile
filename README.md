@@ -11,6 +11,10 @@ A flutter supabase auth starter build with riverpod
 - cp .env.example .env
 - update url and anon keys
 
+## Run
+### Android
+- flutter run -d emulator-5554 --dart-define=ENV=production
+
 ## Release to Production
 ### iOS
 `

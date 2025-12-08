@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/constants/links.dart';
 import '../providers/subscription_provider.dart';
 import '../providers/referral_code_provider.dart';
 
@@ -90,10 +91,11 @@ class _PaywallContentState extends ConsumerState<_PaywallContent> {
   }
 
   Future<void> _launchDiscord() async {
-    const discordUrl = 'https://discord.gg/M2Dgujvtze';
     try {
-      await launchUrl(Uri.parse(discordUrl),
-          mode: LaunchMode.externalApplication);
+      await launchUrl(
+        Uri.parse(Links.discordSupport),
+        mode: LaunchMode.externalApplication,
+      );
     } catch (_) {}
   }
 
