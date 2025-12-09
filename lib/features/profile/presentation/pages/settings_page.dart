@@ -3,19 +3,20 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:moneko/core/app/app_initialization_provider_v2.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/shared/widgets/destructive-adaptive-button.dart';
 
 import 'package:url_launcher/url_launcher.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:app_settings/app_settings.dart';
-import 'package:moneko/core/app/app_initialization_provider.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
 import 'package:moneko/features/subscription/data/models/subscription_details.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -27,6 +28,7 @@ import 'package:moneko/features/goals/presentation/providers/goals_providers.dar
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/shared/widgets/moneko_list_picker.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
+import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 
 class SettingsPage extends HookConsumerWidget {
   const SettingsPage({super.key});
@@ -619,37 +621,58 @@ class SettingsPage extends HookConsumerWidget {
                   width: double.infinity,
                   child: DestructiveAdaptiveButton(
                     onPressed: () async {
-                      try {
-                        await ref
-                            .read(deviceRegistrationServiceProvider)
-                            .unregisterDevice();
-                      } catch (_) {}
-
-                      debugPrint(
-                        '🧹 Clearing all user-specific Riverpod state before logout',
+                      showBlockingProcessingDialog(
+                        context: context,
+                        message: 'Signing out...',
                       );
 
-                      // Centralized clean-up for app initialization + primary pages
-                      ref.read(appInitializationProvider.notifier).clearCache();
+                      try {
+                        try {
+                          await ref
+                              .read(deviceRegistrationServiceProvider)
+                              .unregisterDevice();
+                        } catch (_) {}
 
-                      // Income
-                      ref.invalidate(incomeSummaryProvider);
-                      ref.invalidate(incomeListProvider);
+                        debugPrint(
+                          '🧹 Clearing all user-specific Riverpod state before logout',
+                        );
 
-                      // Goals
-                      ref.invalidate(goalsListProvider);
-                      ref.invalidate(goalSummaryProvider);
+                        await ref
+                            .read(selectedHouseholdProvider.notifier)
+                            .clearSelection();
 
-                      // Subscription
-                      ref.invalidate(subscriptionManagementProvider);
+                        if (authState.uid.isNotEmpty) {
+                          ref.invalidate(userHouseholdsProvider(authState.uid));
+                        }
 
-                      // User profile
-                      ref.invalidate(userProfileProvider);
+                        // Centralized clean-up for app initialization + primary pages
+                        ref
+                            .read(appInitializationV2Provider.notifier)
+                            .clearCacheAndReset();
 
-                      debugPrint('✅ All user-specific state cleared');
+                        // Income
+                        ref.invalidate(incomeSummaryProvider);
+                        ref.invalidate(incomeListProvider);
 
-                      // Sign out from auth last (this will trigger navigation to login)
-                      await ref.read(authProvider.notifier).signOut();
+                        // Goals
+                        ref.invalidate(goalsListProvider);
+                        ref.invalidate(goalSummaryProvider);
+
+                        // Subscription
+                        ref.invalidate(subscriptionManagementProvider);
+
+                        // User profile
+                        ref.invalidate(userProfileProvider);
+
+                        debugPrint('✅ All user-specific state cleared');
+
+                        // Sign out from auth last (this will trigger navigation to login)
+                        await ref.read(authProvider.notifier).signOut();
+                      } finally {
+                        if (context.mounted) {
+                          Navigator.of(context, rootNavigator: true).pop();
+                        }
+                      }
                     },
                     child: Text(context.l10n.signOut),
                   ),

@@ -410,9 +410,11 @@ class _HouseholdSection extends ConsumerWidget {
 
         if (!selectedState.isLoading && selectedState.householdId == null) {
           if (user.uid.isNotEmpty) {
-            ref
-                .read(selectedHouseholdProvider.notifier)
-                .initialize(user.uid);
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              ref
+                  .read(selectedHouseholdProvider.notifier)
+                  .initialize(user.uid, preloadedHouseholds: households);
+            });
           }
         }
 

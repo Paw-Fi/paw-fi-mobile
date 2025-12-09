@@ -9,6 +9,8 @@ import 'package:moneko/core/services/init_cache_manager.dart';
 import 'package:moneko/features/subscription/data/models/subscription.dart';
 import 'package:moneko/features/profile/domain/entities/whatsapp_binding.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
+import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/home/presentation/models/user_contact.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 
@@ -290,13 +292,25 @@ class AppInitializationV2 extends _$AppInitializationV2 {
       // Record metrics
       _recordSuccessMetrics(stopwatch.elapsed, initData);
       
-      // ✅ CRITICAL FIX: Load analytics data after initialization
-      // This ensures home page has data to display
       debugPrint('📊 [InitV2] Loading analytics data...');
       final analyticsStopwatch = Stopwatch()..start();
       await ref.read(analyticsProvider.notifier).loadData(userId);
       analyticsStopwatch.stop();
       debugPrint('✅ [InitV2] Analytics loaded in ${analyticsStopwatch.elapsedMilliseconds}ms');
+      
+      debugPrint('🏠 [InitV2] Loading households and initializing selected household...');
+      await ref.read(userHouseholdsProvider(userId).notifier).load();
+      final householdsState = ref.read(userHouseholdsProvider(userId));
+      final households = householdsState.value ?? const <Household>[];
+      if (households.isEmpty) {
+        debugPrint('📭 [InitV2] No households found for user after init');
+        return;
+      }
+
+      await ref
+          .read(selectedHouseholdProvider.notifier)
+          .initialize(userId, preloadedHouseholds: households);
+      debugPrint('✅ [InitV2] Selected household initialized during app init');
       
     } on TimeoutException {
       stopwatch.stop();
@@ -440,4 +454,13 @@ class AppInitializationV2 extends _$AppInitializationV2 {
       'error': 'Cache manager not initialized',
     };
   }
+  
+  /// Get the last initialization exception (for ErrorPage)
+  Exception? get lastInitException => state.error;
+  
+  /// Get the last initialization error message (for ErrorPage)
+  String? get lastErrorMessage => state.errorMessage;
+  
+  /// Get the last initialization error stack trace (for ErrorPage)
+  StackTrace? get lastErrorStackTrace => state.errorStackTrace;
 }

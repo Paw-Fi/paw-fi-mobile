@@ -51,14 +51,13 @@ class SelectedHouseholdNotifier extends StateNotifier<SelectedHouseholdState> {
       : super(const SelectedHouseholdState());
 
   /// Initialize - loads selected household from storage
-  Future<void> initialize(String userId) async {
+  Future<void> initialize(String userId, {List<Household>? preloadedHouseholds}) async {
     state = state.copyWith(isLoading: true, error: null);
 
     try {
       debugPrint('🔍 Initializing selected household for user: $userId');
 
-      // Wait for households to be loaded with proper polling
-      final households = await _waitForHouseholds(userId);
+      final households = preloadedHouseholds ?? await _waitForHouseholds(userId);
       
       if (households == null || households.isEmpty) {
         debugPrint('📭 No households found for user (or load failed)');

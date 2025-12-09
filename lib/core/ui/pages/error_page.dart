@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:moneko/core/app/app_initialization_provider.dart';
+import 'package:moneko/core/app/app_initialization_provider_v2.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 
 /// A generic error page that displays error information and provides
@@ -26,7 +26,7 @@ class ErrorPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final initNotifier = ref.read(appInitializationProvider.notifier);
+    final initNotifier = ref.read(appInitializationV2Provider.notifier);
     final fallbackError = initNotifier.lastInitException;
     final displayError = error ?? fallbackError;
     final stack = stackTrace ?? initNotifier.lastErrorStackTrace;
