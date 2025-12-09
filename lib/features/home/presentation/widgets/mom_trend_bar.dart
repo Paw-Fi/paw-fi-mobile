@@ -1,4 +1,5 @@
 import 'package:fl_chart/fl_chart.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/state/derived_selectors.dart';
@@ -46,6 +47,15 @@ class MoMTrendBar extends ConsumerWidget {
               touchTooltipData: BarTouchTooltipData(
                 getTooltipColor: (group) => colorScheme.card,
                 tooltipBorder: BorderSide(color: colorScheme.border, width: 1),
+                getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                  return BarTooltipItem(
+                    rod.toY.toStringAsFixed(2),
+                    TextStyle(
+                      color: colorScheme.primary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  );
+                },
               ),
             ),
             barGroups: [
@@ -101,7 +111,7 @@ class MoMTrendBar extends ConsumerWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        color: colorScheme.chartBackground,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
           color: colorScheme.outline.withValues(alpha: 0.05),

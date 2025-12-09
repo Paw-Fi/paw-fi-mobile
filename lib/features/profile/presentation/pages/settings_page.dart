@@ -670,7 +670,7 @@ class SettingsPage extends HookConsumerWidget {
                         await ref.read(authProvider.notifier).signOut();
                       } finally {
                         if (context.mounted) {
-                          Navigator.of(context, rootNavigator: true).pop();
+                      
                         }
                       }
                     },

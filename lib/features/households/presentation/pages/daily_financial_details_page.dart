@@ -6,6 +6,7 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/sub_page_top_padding.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
@@ -81,7 +82,7 @@ class DailyFinancialDetailsPage extends StatelessWidget {
           color: colorScheme.appBackground,
           child: SafeArea(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.only(top: getSubPageTopPadding(context),left: 16,right: 16,bottom: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

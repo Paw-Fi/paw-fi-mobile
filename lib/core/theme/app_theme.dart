@@ -111,6 +111,11 @@ extension AppColorScheme on ColorScheme {
   /// Surface color for cards (matching Apple-style cards)
   Color get cardSurface =>
       brightness == Brightness.dark ? const Color(0xFF1C1C1E) : Colors.white;
+
+  /// Background color for charts
+  Color get chartBackground => brightness == Brightness.dark
+      ? AppTheme.darkChartBackground
+      : AppTheme.lightChartBackground;
 }
 
 /// Moneko app theme configuration matching web's Tailwind design system
@@ -159,6 +164,9 @@ class AppTheme {
   static const Color darkDanger = Color(0xFFD93C3C); // deeper red
 
   static const Color darkInfo = Color(0xFF7A72FF); // slightly brighter version
+
+  static const Color lightChartBackground = Color(0xFFFFFFFF);
+  static const Color darkChartBackground = Color(0xFF1C1C1E);
 
   /// Light theme matching web design, expressed as Material [ThemeData]
   static ThemeData lightTheme() {

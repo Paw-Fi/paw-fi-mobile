@@ -36,7 +36,7 @@ class WhereTheMoneyWentWidget extends StatelessWidget {
     return Material(
       child: Container(
         decoration: BoxDecoration(
-          color: colorScheme.cardSurface,
+          color: colorScheme.chartBackground,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
             color: colorScheme.outline.withValues(alpha: 0.05),
@@ -74,7 +74,8 @@ class WhereTheMoneyWentWidget extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       dateRange.getLabel(context),
-                      style: WidgetTextStyles.dateLabel(colorScheme.mutedForeground),
+                      style: WidgetTextStyles.dateLabel(
+                          colorScheme.mutedForeground),
                     ),
                   ],
                 ),
@@ -90,7 +91,7 @@ class WhereTheMoneyWentWidget extends StatelessWidget {
                     onPressed: onHelpTap,
                   ),
               ],
-            ),        
+            ),
             buildCategoryBarChart(context, colorScheme, filteredExpenses),
           ],
         ),
