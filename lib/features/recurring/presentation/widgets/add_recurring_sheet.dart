@@ -20,6 +20,8 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
+import 'package:moneko/features/households/domain/entities/expense_split.dart'
+    hide SplitType;
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/shared/widgets/moneko-switch.dart';
@@ -140,6 +142,155 @@ class AddRecurringSheet extends HookConsumerWidget {
             ? ref.watch(householdMembersProvider(selectedHouseholdId.value!))
             : const AsyncValue<List<HouseholdMember>>.data([]);
 
+    // When editing a shared recurring EXPENSE, load existing split configuration
+    // from the household split groups so the inline split editor reflects the
+    // latest backend state.
+    useEffect(() {
+      if (!isEditing || !isExpense) {
+        return null;
+      }
+      if (existingTransaction?.householdId == null) {
+        debugPrint(
+            '🏠 [RECURRING LOAD SPLIT] Skipping - existing transaction is personal');
+        return null;
+      }
+      if (!isSharedWithHousehold.value) {
+        debugPrint(
+            '🏠 [RECURRING LOAD SPLIT] Skipping - isSharedWithHousehold is FALSE');
+        return null;
+      }
+
+      if (!membersAsync.hasValue) {
+        debugPrint(
+            '👥 [RECURRING LOAD SPLIT] Members not loaded yet, waiting for next rebuild');
+        return null;
+      }
+
+      final members = membersAsync.value;
+      if (members == null || members.isEmpty) {
+        debugPrint(
+            '👥 [RECURRING LOAD SPLIT] No household members available, aborting split load');
+        return null;
+      }
+
+      Future.microtask(() async {
+        final householdId = existingTransaction!.householdId!;
+        final expenseId = existingTransaction!.id;
+        debugPrint(
+            '🔄 [RECURRING LOAD SPLIT] Loading split configuration for recurring expense: $expenseId (household=$householdId)');
+
+        try {
+          // IMPORTANT: For the recurring edit sheet we always want
+          // the freshest split data from the backend, not a
+          // potentially stale cached snapshot. Use the base
+          // householdSplitsProvider here (no RequestDeduplicator),
+          // which is exactly what happens after a full app restart
+          // when you see the correct 500/900 amounts.
+          final effectiveSplits = await ref.read(
+            householdSplitsProvider(
+              HouseholdSplitsParams(householdId: householdId),
+            ).future,
+          );
+
+          debugPrint(
+              '🔄 [RECURRING LOAD SPLIT] Retrieved ${effectiveSplits.length} split groups for household=$householdId');
+
+          final matchingGroups = effectiveSplits
+              .where((g) => g.expenseId == expenseId)
+              .toList();
+
+          if (matchingGroups.isEmpty) {
+            debugPrint(
+                '⚠️ [RECURRING LOAD SPLIT] No split group found for expenseId=$expenseId');
+            return;
+          }
+
+          // If there are multiple groups (should be rare), prefer the newest
+          matchingGroups.sort(
+            (a, b) => b.createdAt.compareTo(a.createdAt),
+          );
+          final splitGroup = matchingGroups.first;
+
+          debugPrint(
+              '✅ [RECURRING LOAD SPLIT] Using split group ${splitGroup.id} type=${splitGroup.splitType} lines=${splitGroup.splitLines?.length ?? 0}');
+
+          final lines = splitGroup.splitLines;
+          if (lines == null || lines.isEmpty) {
+            debugPrint(
+                '⚠️ [RECURRING LOAD SPLIT] Split group has no lines, aborting');
+            return;
+          }
+
+          final memberSplits = <MemberSplit>[];
+          for (final member in members) {
+            ExpenseSplitLine? matchingLine;
+            for (final line in lines) {
+              if (line.userId == member.userId) {
+                matchingLine = line;
+                break;
+              }
+            }
+
+            if (matchingLine == null) {
+              debugPrint(
+                  '⚠️ [RECURRING LOAD SPLIT] No split line found for member ${member.userId}');
+              continue;
+            }
+
+            memberSplits.add(
+              MemberSplit(
+                member: member,
+                amount: matchingLine.amountCents != null
+                    ? matchingLine.amountCents! / 100.0
+                    : null,
+                percentage: matchingLine.percentage,
+                shares: matchingLine.shares,
+                includedInAmount: true,
+                includedInPercentage: true,
+              ),
+            );
+
+            debugPrint(
+              '   [RECURRING LOAD SPLIT] Member ${member.userName ?? member.userEmail}: amountCents=${matchingLine.amountCents}',
+            );
+          }
+
+          if (memberSplits.isEmpty) {
+            debugPrint(
+                '⚠️ [RECURRING LOAD SPLIT] No usable member splits after mapping');
+            return;
+          }
+
+          final uiSplitType =
+              _mapDbSplitTypeToUiSplitType(splitGroup.splitType);
+
+          customSplitType.value = uiSplitType;
+          customSplits.value = memberSplits;
+
+          if (selectedPayerUserId.value == null &&
+              splitGroup.payerUserId.isNotEmpty) {
+            selectedPayerUserId.value = splitGroup.payerUserId;
+          }
+
+          debugPrint(
+              '✅ [RECURRING LOAD SPLIT] Initialized split editor for recurring expense $expenseId with type=$uiSplitType, members=${memberSplits.length}, payer=${selectedPayerUserId.value}');
+        } catch (error, stackTrace) {
+          debugPrint(
+              '❌ [RECURRING LOAD SPLIT] Error loading split configuration: $error');
+          debugPrint('   Stack: $stackTrace');
+        }
+      });
+
+      return null;
+    }, [
+      isEditing,
+      isExpense,
+      existingTransaction?.id,
+      existingTransaction?.householdId,
+      isSharedWithHousehold.value,
+      membersAsync,
+    ]);
+
     // Parsed amount used for split editor defaults
     final parsedAmount = double.tryParse(amountController.text.trim());
     final hasAmountForSplit = parsedAmount != null && parsedAmount > 0;
@@ -158,15 +309,19 @@ class AddRecurringSheet extends HookConsumerWidget {
       debugPrint('   isSharedWithHousehold: ${isSharedWithHousehold.value}');
       debugPrint('   selectedHouseholdId: ${selectedHouseholdId.value}');
       
-      // Ensure payer is set for edit mode when shared
+      // For EDIT mode, we must NOT blindly override the payer with the
+      // current user. The authoritative source for payer on shared
+      // recurring expenses is the split group, which is loaded
+      // asynchronously in the RECURRENT LOAD SPLIT effect above.
+      // Only seed from existingTransaction.payerUserId when it is
+      // actually present.
       if (isEditing &&
           isSharedWithHousehold.value &&
           selectedHouseholdId.value != null &&
           selectedPayerUserId.value == null &&
-          user != null) {
-        debugPrint('   Setting payer from existing/user fallback: ${existingTransaction?.payerUserId ?? user.id}');
-        selectedPayerUserId.value =
-            existingTransaction?.payerUserId ?? user.id;
+          existingTransaction?.payerUserId != null) {
+        debugPrint('   Setting payer from existing transaction: ${existingTransaction!.payerUserId}');
+        selectedPayerUserId.value = existingTransaction!.payerUserId;
       }
 
       // Only for ADD mode in household mode
@@ -239,11 +394,16 @@ class AddRecurringSheet extends HookConsumerWidget {
       return null;
     }, [hasAmountForSplit, viewMode.mode, selectedHouseholdState.householdId, householdsAsync.value]);
 
-    // Whenever the amount changes, clear any previously configured custom splits
-    // so the split editor can re-initialize based on the new total.
+    // Whenever the amount changes for NEW recurring expenses, clear any
+    // previously configured custom splits so the split editor can
+    // re-initialize based on the new total. For EDIT mode, we must
+    // preserve the current split configuration so user edits are
+    // actually sent to the backend.
     useEffect(() {
-      customSplitType.value = null;
-      customSplits.value = null;
+      if (!isEditing) {
+        customSplitType.value = null;
+        customSplits.value = null;
+      }
       return null;
     }, [currentAmountText]);
 
@@ -285,6 +445,9 @@ class AddRecurringSheet extends HookConsumerWidget {
         final activeHouseholdId =
             shareWithHousehold ? selectedHouseholdId.value : null;
         debugPrint('💾 [RECURRING SAVE] share=$shareWithHousehold hh=$activeHouseholdId payer=${selectedPayerUserId.value}');
+        debugPrint('   Custom split type: ${customSplitType.value}');
+        debugPrint(
+            '   Custom splits count: ${customSplits.value?.length ?? 0}');
 
         if (isExpense) {
           if (isEditing) {
@@ -308,6 +471,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                   reminderValue: hasReminder.value ? reminderValue.value : null,
                   reminderUnit: hasReminder.value ? reminderUnit.value : null,
                   householdId: activeHouseholdId,
+                  previousHouseholdId: existingTransaction?.householdId,
                   customSplitType:
                       shareWithHousehold ? customSplitType.value : null,
                   customSplits: shareWithHousehold ? customSplits.value : null,
@@ -424,6 +588,12 @@ class AddRecurringSheet extends HookConsumerWidget {
             
             // Invalidate RequestDeduplicator cache for household data
             ref.read(cacheInvalidatorProvider).invalidateHouseholdData(currentHouseholdId);
+            // Mirror unified_transaction_sheet: invalidate the full
+            // household split provider families so ALL consumers
+            // (recurring sheet, dashboard, etc.) are forced to
+            // reload from the backend.
+            ref.invalidate(householdSplitsProvider);
+            ref.invalidate(cachedHouseholdSplitsProvider);
             
             // Force refresh (not invalidate) to reload data while keeping state
             debugPrint('   🔄 Forcing refresh of recurringTransactionsProvider($currentHouseholdId)');
@@ -454,6 +624,10 @@ class AddRecurringSheet extends HookConsumerWidget {
           if (activeHouseholdId != null && activeHouseholdId != currentHouseholdId) {
             debugPrint('🔄 [REFRESH] Also refreshing transaction storage scope: $activeHouseholdId');
             ref.read(cacheInvalidatorProvider).invalidateHouseholdData(activeHouseholdId);
+            // Ensure all household split consumers for this scope
+            // also reload, not just the cached provider.
+            ref.invalidate(householdSplitsProvider);
+            ref.invalidate(cachedHouseholdSplitsProvider);
             
             debugPrint('   🔄 Forcing refresh of recurringTransactionsProvider($activeHouseholdId)');
             await ref.read(recurringTransactionsProvider(activeHouseholdId).notifier)
@@ -493,9 +667,50 @@ class AddRecurringSheet extends HookConsumerWidget {
             AppToast.success(context, successMsg);
           }
         } else {
-          final errMsg = isExpense
-              ? l10n.failedToUpdateRecurringExpense
-              : l10n.failedToUpdateRecurringIncome;
+          // Try to surface a more helpful error message from the save provider
+          String? detailedError;
+          final saveState = ref.read(recurringTransactionSaveProvider);
+
+          saveState.when(
+            data: (_) {},
+            loading: () {},
+            error: (err, _) {
+              detailedError = err.toString();
+            },
+          );
+
+          String errMsg;
+          if (detailedError != null && detailedError!.trim().isNotEmpty) {
+            // Map common backend validation errors to clearer, user-friendly messages.
+            final lower = detailedError!.toLowerCase();
+            if (lower.contains('custom splits must include all household members')) {
+              // This backend string is already user-friendly; surface it directly.
+              errMsg = detailedError!;
+            } else if (lower.contains('amount splits') &&
+                lower.contains('must equal total expense amount')) {
+              // Reuse existing localized helper used by the split editor
+              final symbol = resolveCurrencySymbol(selectedCurrency.value);
+              errMsg = context.l10n.splitAmountsMustEqual(
+                symbol,
+                amount.toStringAsFixed(2),
+                symbol,
+              );
+            } else if (lower.contains('percentage splits') &&
+                lower.contains('must equal 100%')) {
+              errMsg = context.l10n.percentagesMustTotal100;
+            } else if (lower.contains('at least one member must have a share greater than 0')) {
+              errMsg = context.l10n.eachPersonMustHaveAtLeast1Share;
+            } else {
+              // Fallback to the raw backend message if we don't recognize it
+              errMsg = detailedError!;
+            }
+          } else {
+            // Ultimate fallback: generic message
+            errMsg = isExpense
+                ? l10n.failedToUpdateRecurringExpense
+                : l10n.failedToUpdateRecurringIncome;
+          }
+
           if (context.mounted) {
             AppToast.error(context, errMsg);
           }
@@ -1279,8 +1494,8 @@ class AddRecurringSheet extends HookConsumerWidget {
           ),
         ],
       ),
-    ),
-  );
+      ),
+    );
   }
 
   Widget _buildLabel(String text, ColorScheme colorScheme) {
@@ -1515,15 +1730,23 @@ class AddRecurringSheet extends HookConsumerWidget {
 
               final totalAmount =
                   double.tryParse(amountController.text.trim()) ?? 0.0;
-              // Initialize payer if not set
+              // Initialize payer if not set.
               if (selectedPayerUserId.value == null && members.isNotEmpty) {
-                // For ADD mode: prefer current user if they're a member
-                // For EDIT mode: use first member as fallback
-                final isCurrentUserMember = currentUserId != null && 
-                    members.any((m) => m.userId == currentUserId);
-                selectedPayerUserId.value = (isCurrentUserMember && !isEditing)
-                    ? currentUserId
-                    : members.first.userId;
+                if (!isEditing) {
+                  // For ADD mode: prefer current user if they're a member.
+                  final isCurrentUserMember = currentUserId != null &&
+                      members.any((m) => m.userId == currentUserId);
+                  selectedPayerUserId.value = isCurrentUserMember
+                      ? currentUserId
+                      : members.first.userId;
+                }
+                // For EDIT mode we intentionally do NOT override here.
+                // The authoritative value should come from:
+                // - existingTransaction.payerUserId (seeded in the
+                //   initialization effect above), or
+                // - the split group loader which reads payerUserId from
+                //   the backend. This avoids clobbering the real payer with
+                //   an arbitrary default like the first member.
               }
 
               return Container(
@@ -1593,5 +1816,22 @@ class AddRecurringSheet extends HookConsumerWidget {
           ),
       ],
     );
+  }
+
+  /// Map database SplitType (from expense_split.dart) to UI SplitType
+  SplitType _mapDbSplitTypeToUiSplitType(dynamic dbSplitType) {
+    final typeString = dbSplitType.toString().split('.').last;
+    switch (typeString) {
+      case 'equal':
+        return SplitType.equal;
+      case 'amount':
+        return SplitType.amount;
+      case 'percentage':
+        return SplitType.percentage;
+      case 'shares':
+        return SplitType.shares;
+      default:
+        return SplitType.amount;
+    }
   }
 }

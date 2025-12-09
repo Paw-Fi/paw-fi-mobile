@@ -380,8 +380,10 @@ final householdSummaryProvider =
   (ref, params) async {
     final repository = ref.watch(householdRepositoryProvider);
 
-    const timeout = Duration(seconds: 25);
-    const maxAttempts = 2;
+    // Use a tighter timeout so dashboard widgets fail fast instead of
+    // appearing to load forever when the backend is slow/unresponsive.
+    const timeout = Duration(seconds: 10);
+    const maxAttempts = 1;
     Exception? lastError;
 
     for (var attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -508,6 +510,9 @@ final householdExpensesProvider =
     FutureProvider.family<List<ExpenseEntry>, HouseholdExpensesParams>(
   (ref, params) async {
     final supabase = ref.watch(supabaseClientProvider);
+    // Reduce timeout so the UI can surface an error state quickly rather than
+    // waiting ~25s before giving up on a stuck query.
+    const timeout = Duration(seconds: 10);
     try {
       // Fetch expenses (RLS allows: own or any with same household membership)
       // Include ALL expenses with this household_id, regardless of split_group_id.
@@ -533,7 +538,8 @@ final householdExpensesProvider =
 
       final expenses = await expensesQuery
           .order('date', ascending: false)
-          .limit(params.limit);
+          .limit(params.limit)
+          .timeout(timeout);
 
       final expensesList = (expenses as List).cast<Map<String, dynamic>>();
       if (expensesList.isEmpty) return [];
@@ -579,6 +585,14 @@ final householdExpensesProvider =
       }
 
       return expensesList.map(ExpenseEntry.fromJson).toList();
+    } on TimeoutException catch (e, st) {
+      debugPrint(
+        '⚠️ householdExpensesProvider timeout for ' 
+        '${params.householdId} (limit=${params.limit}): $e',
+      );
+      debugPrint('❌ Error loading household expenses (timeout): $e\n$st');
+      // Bubble up to UI to show consistent error state
+      rethrow;
     } catch (e, st) {
       debugPrint('❌ Error loading household expenses: $e\n$st');
       // Bubble up to UI to show consistent error state

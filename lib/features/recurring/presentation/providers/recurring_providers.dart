@@ -86,110 +86,74 @@ class RecurringTransactionsNotifier
     state = state.copyWith(data: const AsyncValue.loading());
 
     try {
-      debugPrint('🌐 [RecurringTx] Calling Edge Functions...');
+      debugPrint('🌐 [RecurringTx] Loading recurring transactions from expenses table...');
 
-      // Fetch recurring expenses and incomes in parallel
-      // Backend filters at database level for maximum performance
-      final requestBody = {
-        'userId': userId,
-        'limit': limit,
-        'includeRecurring': true,
-        if (householdId != null) 'householdId': householdId,
-      };
-      
-      debugPrint('   📤 Request body: $requestBody');
-      
-      final results = await Future.wait([
-        supabase.functions.invoke(
-          'list-expenses',
-          body: requestBody,
-        ),
-        supabase.functions.invoke(
-          'list-income',
-          body: requestBody,
-        ),
-      ]);
+      // For recurring transactions we only need rows from the `expenses`
+      // table where is_recurring=true. This avoids the heavier
+      // list-expenses/list-income Edge Functions and keeps the data
+      // flow simple and predictable.
+      const timeout = Duration(seconds: 10);
 
-      final expensesResponse = results[0];
-      final incomesResponse = results[1];
-      
-      debugPrint('   📥 Expenses response success: ${expensesResponse.data['success']}');
-      debugPrint('   📥 Incomes response success: ${incomesResponse.data['success']}');
+      // Build base query for recurring rows only.
+      final baseQuery = supabase
+          .from('expenses')
+          .select(
+            'id, date, category, raw_text, source, amount_cents, currency, '
+            'owner_type, privacy_scope, household_id, '
+            'is_recurring, recurrence_rule, type, attachments, '
+            'created_at, updated_at',
+          )
+          .eq('is_recurring', true);
+
+      // Scope by household when in household mode; otherwise restrict to
+      // the current user's personal recurring items. The non-null assertion
+      // is safe because we only enter the first branch when householdId != null.
+      final scopedQuery = householdId != null
+          ? baseQuery.eq('household_id', householdId!)
+          : baseQuery
+              .eq('user_id', userId)
+              .isFilter('household_id', null);
+
+      final rows = await scopedQuery
+          .order('date', ascending: false)
+          .limit(limit)
+          .timeout(timeout);
 
       final allTransactions = <RecurringTransaction>[];
+      final typedRows = (rows as List).cast<Map<String, dynamic>>();
 
-      // Process expenses
-      if (expensesResponse.data['success'] == true) {
-        final expensesData = expensesResponse.data['data'] as List<dynamic>;
-        debugPrint('   📊 Raw expenses count: ${expensesData.length}');
-        debugPrint('   📊 Raw expenses data: ${expensesData.map((e) => {'id': e['id'], 'household_id': e['household_id'], 'is_recurring': e['is_recurring']}).toList()}');
-        
-        for (final item in expensesData) {
-          try {
-            final transaction =
-                RecurringTransaction.fromJson(item as Map<String, dynamic>);
-            allTransactions.add(transaction);
-            debugPrint('      ✅ Expense: ${transaction.id} | ${transaction.category} | ${transaction.amount} | household=${transaction.householdId}');
-          } catch (parseError) {
-            debugPrint('      ❌ Error parsing expense: $parseError');
-            debugPrint('      Raw data: $item');
-          }
+      debugPrint('   📊 Raw recurring rows count: ${typedRows.length}');
+
+      for (final item in typedRows) {
+        try {
+          final transaction = RecurringTransaction.fromJson(item);
+          allTransactions.add(transaction);
+          debugPrint(
+              '      ✅ Tx: ${transaction.id} | ${transaction.type} | ${transaction.category} | ${transaction.amount} | household=${transaction.householdId}');
+        } catch (parseError) {
+          debugPrint('      ❌ Error parsing recurring row: $parseError');
+          debugPrint('      Raw data: $item');
         }
       }
 
-      // Process incomes
-      if (incomesResponse.data['success'] == true) {
-        final incomesData = incomesResponse.data['data'] as List<dynamic>;
-        debugPrint('   📊 Raw incomes count: ${incomesData.length}');
-        debugPrint('   📊 Raw incomes data: ${incomesData.map((e) => {'id': e['id'], 'household_id': e['household_id'], 'is_recurring': e['is_recurring']}).toList()}');
-        
-        for (final item in incomesData) {
-          try {
-            final transaction =
-                RecurringTransaction.fromJson(item as Map<String, dynamic>);
-            allTransactions.add(transaction);
-            debugPrint('      ✅ Income: ${transaction.id} | ${transaction.category} | ${transaction.amount} | household=${transaction.householdId}');
-          } catch (parseError) {
-            debugPrint('      ❌ Error parsing income: $parseError');
-            debugPrint('      Raw data: $item');
-          }
-        }
-      }
-
-      debugPrint('   📦 Total transactions before scope filter: ${allTransactions.length}');
-
-      // Enforce scope on the client to avoid leaking other contexts
-      final scopedTransactions = allTransactions.where((t) {
-        final matches = householdId == null 
-            ? t.householdId == null 
-            : t.householdId == householdId;
-        
-        if (!matches) {
-          debugPrint('      🚫 FILTERED OUT: ${t.id} (household: ${t.householdId})');
-        }
-        
-        return matches;
-      }).toList();
-      
-      debugPrint('   ✅ Transactions AFTER scope filter: ${scopedTransactions.length}');
-
-      // Sort by date (newest first)
-      scopedTransactions.sort((a, b) => b.date.compareTo(a.date));
+      debugPrint(
+          '   📦 Total recurring transactions after scoping: ${allTransactions.length}');
 
       if (!mounted) {
         debugPrint('   ⚠️  Provider unmounted, aborting');
         return;
       }
-      
+
       state = state.copyWith(
-        data: AsyncValue.data(scopedTransactions),
+        data: AsyncValue.data(allTransactions),
         hasLoadedOnce: true,
       );
-      
+
       debugPrint('   ✅ State updated successfully');
       debugPrint('   📊 Final transaction list:');
-      for (var t in scopedTransactions) {
-        debugPrint('      - ${t.type}: ${t.category} | ${t.amount} ${t.currency} | ${t.recurrenceRule?.frequency ?? "one-time"}');
+      for (var t in allTransactions) {
+        debugPrint(
+            '      - ${t.type}: ${t.category} | ${t.amount} ${t.currency} | ${t.recurrenceRule?.frequency ?? "one-time"}');
       }
       debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     } catch (e, st) {
@@ -197,8 +161,12 @@ class RecurringTransactionsNotifier
       debugPrint('   Stack trace: $st');
       debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       if (!mounted) return;
+      // Mark hasLoadedOnce=true even on error so the RecurringPage does
+      // not keep auto-retrying in a loop. The error state will be
+      // rendered and the user can manually pull-to-refresh.
       state = state.copyWith(
         data: AsyncValue.error(e, st),
+        hasLoadedOnce: true,
       );
     }
   }
@@ -539,6 +507,7 @@ class RecurringTransactionSaveNotifier
     String ownerType = 'me',
     String privacyScope = 'full',
     String? householdId,
+    String? previousHouseholdId,
     SplitType? customSplitType,
     List<MemberSplit>? customSplits,
     String? payerUserId,
@@ -577,14 +546,29 @@ class RecurringTransactionSaveNotifier
       };
       if (description != null && description.trim().isNotEmpty) {
         updates['raw_text'] = description.trim();
-      }
-      // Attach payer and splits for household updates
+      };
+
+      debugPrint('📝 [UpdateRecurring] Building update-expense request body');
+      debugPrint('   userId: $userId');
+      debugPrint('   expenseId: $expenseId');
+      debugPrint('   updates: $updates');
+
+      // Build base request body
+      final requestBody = <String, dynamic>{
+        'userId': userId,
+        'expenseId': expenseId,
+        'updates': updates,
+      };
+
+      // Attach household sharing + splits only for group expenses
       if (householdId != null) {
+        requestBody['householdId'] = householdId;
+
         if (customSplitType != null &&
             customSplits != null &&
             customSplits.isNotEmpty) {
           final splitTypeStr = customSplitType.toString().split('.').last;
-          updates['custom_splits'] = {
+          final splitsPayload = {
             'splitType': splitTypeStr,
             'memberSplits': customSplits.map((split) {
               final memberData = <String, dynamic>{
@@ -606,26 +590,73 @@ class RecurringTransactionSaveNotifier
               return memberData;
             }).toList(),
           };
+
+          // If the previous recurring expense was personal (no household),
+          // we are converting personal -> group: mirror unified_transaction_sheet
+          // by creating the initial split group via customSplits.
+          if (previousHouseholdId == null) {
+            requestBody['customSplits'] = splitsPayload;
+          } else {
+            // Existing group recurring expense: mirror unified_transaction_sheet
+            // by sending splitUpdate to recompute the split lines.
+            requestBody['splitUpdate'] = splitsPayload;
+          }
         }
 
+        // Always propagate payer updates for group expenses when provided
         if (payerUserId != null && payerUserId.isNotEmpty) {
+          requestBody['payerUserId'] = payerUserId;
           updates['payer_user_id'] = payerUserId;
         }
       }
 
+      // DEBUG: log outgoing update payload for recurring expense, including
+      // splitUpdate/customSplits and payerUserId so we can confirm that
+      // split edits are actually being sent to the backend.
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      debugPrint('💾 [UpdateRecurring] Sending update-expense for recurring expense');
+      debugPrint('   expenseId: $expenseId');
+      debugPrint('   userId: $userId');
+      debugPrint('   householdId (target): $householdId');
+      debugPrint('   previousHouseholdId: $previousHouseholdId');
+      debugPrint('   payerUserId: $payerUserId');
+      debugPrint('   updates: $updates');
+      if (requestBody.containsKey('customSplits')) {
+        debugPrint('   customSplits payload: ${requestBody['customSplits']}');
+      }
+      if (requestBody.containsKey('splitUpdate')) {
+        debugPrint('   splitUpdate payload: ${requestBody['splitUpdate']}');
+      }
+      debugPrint('   Full request body keys: ${requestBody.keys.toList()}');
+
       final response = await supabase.functions.invoke(
         'update-expense',
-        body: {
-          'userId': userId,
-          'expenseId': expenseId,
-          'updates': updates,
-        },
+        body: requestBody,
       );
 
       if (response.data['success'] == true) {
         final updatedExpense = RecurringTransaction.fromJson(
             response.data['data'] as Map<String, dynamic>);
         state = AsyncValue.data(updatedExpense);
+        debugPrint('✅ [UpdateRecurring] update-expense succeeded for $expenseId');
+        debugPrint('   Updated expense householdId: ${updatedExpense.householdId}');
+        debugPrint('   Updated amount: ${updatedExpense.amount} ${updatedExpense.currency}');
+        debugPrint('   Updated category: ${updatedExpense.category}');
+        
+        // Optimistically update the unified recurring transactions list so
+        // the Recurring page reflects the edited values immediately without
+        // requiring a full app restart. The sheet will still trigger a
+        // formal refresh after save to keep all scopes consistent.
+        try {
+          final scopeKey = updatedExpense.householdId;
+          ref
+              .read(recurringTransactionsProvider(scopeKey).notifier)
+              .updateRecurring(updatedExpense);
+        } catch (e, st) {
+          debugPrint(
+              '⚠️ [UpdateRecurring] Failed to optimistically update list: $e');
+          debugPrint('   Stack: $st');
+        }
         
         // Force refresh the list provider to show the updated transaction
         // Don't use optimistic update as we'll invalidate in the sheet

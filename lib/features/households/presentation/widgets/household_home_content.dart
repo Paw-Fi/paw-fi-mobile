@@ -687,7 +687,18 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                             HouseholdExpensesParams(householdId: household.id),
                           ));
 
-                          final allExpenses = expensesAsync.value ?? [];
+                          // Handle loading/error safely so timeouts don't crash the UI
+                          if (expensesAsync.isLoading &&
+                              !expensesAsync.hasValue) {
+                            return const Padding(
+                              padding: EdgeInsets.all(16.0),
+                              child:
+                                  Center(child: CircularProgressIndicator()),
+                            );
+                          }
+
+                          final allExpenses =
+                              expensesAsync.valueOrNull ?? const <ExpenseEntry>[];
                           final currencyFilteredExpenses =
                               allExpenses.where((e) {
                             final code =
@@ -736,7 +747,19 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                             ),
                           ));
 
-                          final allExpenses = expensesAsync.value ?? [];
+                          // Gracefully handle loading/errors from the provider
+                          if (expensesAsync.isLoading &&
+                              !expensesAsync.hasValue) {
+                            return const Padding(
+                              padding: EdgeInsets.all(16.0),
+                              child:
+                                  Center(child: CircularProgressIndicator()),
+                            );
+                          }
+
+                          // If there was an error and no cached data, hide the chart
+                          final allExpenses =
+                              expensesAsync.valueOrNull ?? const <ExpenseEntry>[];
                           // Filter by date AND currency
                           final filteredExpenses = allExpenses.where((e) {
                             final d =
@@ -790,7 +813,17 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                             ),
                           ));
 
-                          final allExpenses = expensesAsync.value ?? [];
+                          // Gracefully handle loading/errors from the provider so
+                          // timeouts don't crash the UI.
+                          if (expensesAsync.isLoading && !expensesAsync.hasValue) {
+                            return const Padding(
+                              padding: EdgeInsets.all(16.0),
+                              child: Center(child: CircularProgressIndicator()),
+                            );
+                          }
+
+                          final allExpenses =
+                              expensesAsync.valueOrNull ?? const <ExpenseEntry>[];
                           // Filter by date AND currency
                           final filteredExpenses = allExpenses.where((e) {
                             final d =

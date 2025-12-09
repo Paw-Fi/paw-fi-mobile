@@ -146,6 +146,27 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
     final splitTypeChanged = widget.initialSplitType != null &&
         widget.initialSplitType != _selectedType &&
         widget.initialSplitType != oldWidget.initialSplitType;
+    // When initialSplits become available AFTER the widget was first
+    // built (e.g. loaded asynchronously from the backend for recurring
+    // expenses), we must re-initialize from those splits instead of
+    // keeping the default equal splits.
+    final initialSplitsBecameAvailable =
+        (oldWidget.initialSplits == null ||
+                oldWidget.initialSplits!.isEmpty) &&
+            (widget.initialSplits != null &&
+                widget.initialSplits!.isNotEmpty);
+
+    if (initialSplitsBecameAvailable) {
+      for (final controller in _controllers) {
+        controller.dispose();
+      }
+      _initializeSplitsFromInitial();
+      _initializeControllers();
+      _validationError = null;
+      _validate();
+      _queueNotify();
+      return;
+    }
 
     if (membersChanged || totalChanged || splitTypeChanged) {
       _reconcileSplits(splitTypeChanged: splitTypeChanged);
