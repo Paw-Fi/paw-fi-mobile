@@ -147,18 +147,44 @@ class ExpandableFabState extends State<ExpandableFab>
   List<Widget> _buildExpandingActionButtons() {
     final children = <Widget>[];
     final count = widget.children.length;
-    final step = 90.0 / (count - 1);
-    for (var i = 0, angleInDegrees = 0.0;
-        i < count;
-        i++, angleInDegrees += step) {
-      children.add(
-        _ExpandingActionButton(
-          directionInDegrees: angleInDegrees,
-          maxDistance: widget.distance,
-          progress: _expandAnimation,
-          child: widget.children[i],
-        ),
-      );
+    if (count == 0) return children;
+
+    if (count == 3) {
+      // Exact layout rotated 90° anticlockwise from the previous setup.
+      // Previous: [0°, -45°, -90°] -> Now: [90°, 45°, 0°]
+      // Only move the middle button slightly closer to the center.
+      const angles = <double>[90.0, 45.0, 0.0];
+      for (var i = 0; i < 3; i++) {
+        final distanceForIndex = i == 1
+            ? widget.distance * 0.7 // middle button closer
+            : widget.distance; // first & last unchanged
+
+        children.add(
+          _ExpandingActionButton(
+            directionInDegrees: angles[i],
+            maxDistance: distanceForIndex,
+            progress: _expandAnimation,
+            child: widget.children[i],
+          ),
+        );
+      }
+    } else {
+      // Fallback: simple upward fan for other counts
+      const sweep = 60.0;
+      const startAngle = 120.0; // centered around up-left
+      final step = count == 1 ? 0.0 : sweep / (count - 1);
+
+      for (var i = 0; i < count; i++) {
+        final angleInDegrees = startAngle + (step * i);
+        children.add(
+          _ExpandingActionButton(
+            directionInDegrees: angleInDegrees,
+            maxDistance: widget.distance,
+            progress: _expandAnimation,
+            child: widget.children[i],
+          ),
+        );
+      }
     }
     return children;
   }
