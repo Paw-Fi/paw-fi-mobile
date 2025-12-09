@@ -251,28 +251,28 @@ class HouseholdDashboardController
         if (!mounted) return;
         state = const AsyncValue.data([
           DashboardWidgetConfig(
-              id: 'spent_by_you',
-              type: DashboardWidgetType.householdSpentByYou,
-              order: 0),
-          DashboardWidgetConfig(
-              id: 'calendar',
-              type: DashboardWidgetType.householdFinancialCalendar,
-              order: 1),
-          DashboardWidgetConfig(
-              id: 'budget_overview',
-              type: DashboardWidgetType.householdBudgetOverview,
-              order: 2),
-          DashboardWidgetConfig(
-              id: 'fairness',
-              type: DashboardWidgetType.householdFairness,
-              order: 3),
-          DashboardWidgetConfig(
               id: 'settlement',
               type: DashboardWidgetType.householdSettlement,
-              order: 4),
+              order: 0),
           DashboardWidgetConfig(
               id: 'member_spending',
               type: DashboardWidgetType.householdMemberSpending,
+              order: 1),
+          DashboardWidgetConfig(
+              id: 'spent_by_you',
+              type: DashboardWidgetType.householdSpentByYou,
+              order: 2),
+          DashboardWidgetConfig(
+              id: 'calendar',
+              type: DashboardWidgetType.householdFinancialCalendar,
+              order: 3),
+          DashboardWidgetConfig(
+              id: 'budget_overview',
+              type: DashboardWidgetType.householdBudgetOverview,
+              order: 4),
+          DashboardWidgetConfig(
+              id: 'fairness',
+              type: DashboardWidgetType.householdFairness,
               order: 5),
           DashboardWidgetConfig(
               id: 'categories',

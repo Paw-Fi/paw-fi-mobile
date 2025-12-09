@@ -59,7 +59,7 @@ class HomeHeaderLeading extends ConsumerWidget {
           const SizedBox(width: 12),
           Flexible(
             child: Text(
-              name+"ajknhsdjk aslkjd asjks dkjl;ajks jlk",
+              name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               softWrap: false,

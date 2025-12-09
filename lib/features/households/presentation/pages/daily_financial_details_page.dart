@@ -5,6 +5,8 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
+import 'package:moneko/features/recurring/presentation/widgets/recurring_transaction_card.dart';
+import 'package:moneko/core/utils/date_formatter.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/sub_page_top_padding.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
@@ -82,7 +84,11 @@ class DailyFinancialDetailsPage extends StatelessWidget {
           color: colorScheme.appBackground,
           child: SafeArea(
             child: SingleChildScrollView(
-            padding: EdgeInsets.only(top: getSubPageTopPadding(context),left: 16,right: 16,bottom: 16),
+              padding: EdgeInsets.only(
+                  top: getSubPageTopPadding(context),
+                  left: 16,
+                  right: 16,
+                  bottom: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -94,7 +100,7 @@ class DailyFinancialDetailsPage extends StatelessWidget {
                     currency: currency,
                   ),
                   const SizedBox(height: 24),
-          
+
                   // Spending Breakdown Chart
                   if (dailyTransactions.any((t) =>
                       (t.type ?? 'expense').toLowerCase() != 'income')) ...[
@@ -104,7 +110,7 @@ class DailyFinancialDetailsPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 24),
                   ],
-          
+
                   // Actual Transactions Section
                   if (dailyTransactions.isNotEmpty) ...[
                     Text(
@@ -133,7 +139,7 @@ class DailyFinancialDetailsPage extends StatelessWidget {
                         )),
                     const SizedBox(height: 24),
                   ],
-          
+
                   // Recurring Transactions Section
                   if (dailyRecurring.isNotEmpty) ...[
                     Text(
@@ -153,7 +159,7 @@ class DailyFinancialDetailsPage extends StatelessWidget {
                           ),
                         )),
                   ],
-          
+
                   if (dailyTransactions.isEmpty && dailyRecurring.isEmpty)
                     Center(
                       child: Padding(
@@ -319,63 +325,83 @@ class _RecurringTransactionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isIncome = transaction.type.toLowerCase() == 'income';
+    final isIncome = transaction.type == 'income';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: colorScheme.cardSurface,
-        borderRadius: BorderRadius.circular(16),
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(
           color: colorScheme.outline.withValues(alpha: 0.05),
+          width: 1,
         ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: colorScheme.primary.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.repeat,
-              color: colorScheme.primary,
-              size: 20,
-            ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
+            blurRadius: 32,
+            offset: const Offset(0, 8),
+            spreadRadius: -4,
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
+          child: TransactionListTile(
+            category: transaction.category,
+            title: transaction.description ??
+                getCategoryTranslation(context, transaction.category),
+            description: transaction.description,
+            date: transaction.date,
+            amount: transaction.amount,
+            currency: transaction.currency,
+            isIncome: isIncome,
+            subtitleWidget: Row(
               children: [
-                Text(
-                  transaction.description ?? transaction.category,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.foreground,
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest
+                        .withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    getLocalizedFrequencyText(context, transaction),
+                    style: TextStyle(
+                      color: colorScheme.onSurfaceVariant,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
-                Text(
-                  'Recurring',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: colorScheme.mutedForeground,
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.calendar_today_rounded,
+                  size: 12,
+                  color: colorScheme.mutedForeground,
+                ),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    formatLocalizedDate(
+                        context, transaction.getNextOccurrence()),
+                    style: TextStyle(
+                      color: colorScheme.mutedForeground,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
             ),
           ),
-          Text(
-            formatCurrency(transaction.amount, currency),
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: isIncome ? AppTheme.success : AppTheme.danger,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

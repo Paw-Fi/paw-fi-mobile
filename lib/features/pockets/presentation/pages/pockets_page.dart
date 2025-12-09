@@ -116,7 +116,7 @@ class PocketsPage extends HookConsumerWidget {
           ),
           floatingActionButton: shouldShowHomeFab(viewMode, householdsAsync)
               ? Padding(
-                  padding: PlatformInfo.isIOS26OrHigher()
+                  padding: false
                       ? const EdgeInsets.only(bottom: 80, right: 6)
                       : const EdgeInsets.all(0),
                   child: const HomeAiExpandableFab(),
@@ -158,7 +158,7 @@ class PocketsPage extends HookConsumerWidget {
           ),
           floatingActionButton: shouldShowHomeFab(viewMode, householdsAsync)
               ? Padding(
-                  padding: PlatformInfo.isIOS26OrHigher()
+                  padding: false
                       ? const EdgeInsets.only(bottom: 80, right: 6)
                       : const EdgeInsets.all(0),
                   child: const HomeAiExpandableFab(),
@@ -185,7 +185,7 @@ class PocketsPage extends HookConsumerWidget {
           ),
           floatingActionButton: shouldShowHomeFab(viewMode, householdsAsync)
               ? Padding(
-                  padding: PlatformInfo.isIOS26OrHigher()
+                  padding: false
                       ? const EdgeInsets.only(bottom: 80, right: 6)
                       : const EdgeInsets.all(0),
                   child: const HomeAiExpandableFab(),
@@ -212,7 +212,7 @@ class PocketsPage extends HookConsumerWidget {
           ),
           floatingActionButton: shouldShowHomeFab(viewMode, householdsAsync)
               ? Padding(
-                  padding: PlatformInfo.isIOS26OrHigher()
+                  padding: false
                       ? const EdgeInsets.only(bottom: 80, right: 6)
                       : const EdgeInsets.all(0),
                   child: const HomeAiExpandableFab(),
@@ -348,7 +348,7 @@ class PocketsPage extends HookConsumerWidget {
       ),
       floatingActionButton: shouldShowHomeFab(viewMode, householdsAsync)
           ? Padding(
-              padding: PlatformInfo.isIOS26OrHigher()
+              padding: false
                   ? const EdgeInsets.only(bottom: 80, right: 6)
                   : const EdgeInsets.all(0),
               child: const HomeAiExpandableFab(),

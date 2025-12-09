@@ -52,7 +52,7 @@ class ViewModeState {
 class ViewModeNotifier extends StateNotifier<ViewModeState> {
   static const _storageKey = 'moneko_view_mode';
 
-  ViewModeNotifier() : super(const ViewModeState(mode: ViewMode.personal)) {
+  ViewModeNotifier() : super(const ViewModeState(mode: ViewMode.household)) {
     _loadPersistedMode();
   }
 
@@ -67,7 +67,7 @@ class ViewModeNotifier extends StateNotifier<ViewModeState> {
         state = state.copyWith(mode: ViewMode.personal);
       }
     } catch (_) {
-      // Non-fatal: default remains personal
+      // Non-fatal: default remains household
     }
   }
 

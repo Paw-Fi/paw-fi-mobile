@@ -112,36 +112,28 @@ class MainShell extends HookConsumerWidget {
           ),
         ),
         bottomNavigationBar: AdaptiveBottomNavigationBar(
-          useNativeBottomBar: true,
+          useNativeBottomBar: false,
           items: [
             AdaptiveNavigationDestination(
-              icon: PlatformInfo.isIOS26OrHigher()
-                  ? 'square.grid.2x2.fill'
-                  : PlatformInfo.isIOS
+              icon:  PlatformInfo.isIOS
                       ? CupertinoIcons.square_grid_2x2_fill
                       : Icons.dashboard,
               label: context.l10n.overview,
             ),
             AdaptiveNavigationDestination(
-              icon: PlatformInfo.isIOS26OrHigher()
-                  ? 'repeat'
-                  : PlatformInfo.isIOS
+              icon:  PlatformInfo.isIOS
                       ? CupertinoIcons.repeat
                       : Icons.repeat,
               label: context.l10n.recurring,
             ),
             AdaptiveNavigationDestination(
-              icon: PlatformInfo.isIOS26OrHigher()
-                  ? 'wallet.pass'
-                  : PlatformInfo.isIOS
+              icon: PlatformInfo.isIOS
                       ? CupertinoIcons.creditcard
                       : Icons.account_balance_wallet_outlined,
               label: context.l10n.pockets,
             ),
             AdaptiveNavigationDestination(
-              icon: PlatformInfo.isIOS26OrHigher()
-                  ? 'chart.bar.fill'
-                  : PlatformInfo.isIOS
+              icon: PlatformInfo.isIOS
                       ? CupertinoIcons.chart_bar_alt_fill
                       : Icons.bar_chart,
               label: context.l10n.insights,

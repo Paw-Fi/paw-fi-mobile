@@ -138,7 +138,7 @@ class _RecurringTransactionsPageState
 
       // Floating action button
       floatingActionButton: Padding(
-        padding: PlatformInfo.isIOS26OrHigher()
+        padding: false
             ? const EdgeInsets.only(bottom: 80, right: 6)
             : const EdgeInsets.all(0),
         child: _buildFAB(colorScheme),
