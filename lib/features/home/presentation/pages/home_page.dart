@@ -7,6 +7,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
+import 'package:moneko/features/home/presentation/widgets/home_ai_fab.dart';
 
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
@@ -880,23 +881,31 @@ class _HomePageState extends ConsumerState<HomePage> {
   Widget _buildExpandableFAB(ColorScheme colorScheme) {
     return ExpandableFab(
       key: _fabKey,
-      distance: 90,
+      distance: 120,
       children: [
         ActionButton(
-          onPressed: () {
+          onPressed: () async {
             _fabKey.currentState?.close();
-            _showTextInputDrawer();
+            await handleAiFreeFormText(context, ref);
           },
           icon: const Icon(Icons.text_fields),
           label: context.l10n.freeFormText,
         ),
         ActionButton(
-          onPressed: () {
+          onPressed: () async {
             _fabKey.currentState?.close();
-            _handleCameraCapture();
+            await handleAiCameraCapture(context, ref);
           },
           icon: const Icon(Icons.camera_alt),
           label: context.l10n.takePhoto,
+        ),
+        ActionButton(
+          onPressed: () async {
+            _fabKey.currentState?.close();
+            await handleAiFileOrGallery(context, ref);
+          },
+          icon: const Icon(Icons.attach_file),
+          label: 'Files',
         ),
       ],
     );

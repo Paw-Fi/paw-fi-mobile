@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -56,11 +58,118 @@ Future<void> handleAiFreeFormText(BuildContext context, WidgetRef ref) async {
   );
 }
 
+Future<void> handleAiFileUpload(
+  BuildContext context,
+  WidgetRef ref,
+) async {
+  try {
+    final result = await FilePicker.platform.pickFiles(
+      allowMultiple: false,
+      type: FileType.custom,
+      allowedExtensions: ['csv', 'pdf', 'xlsx', 'xls'],
+    );
+
+    if (result == null || result.files.isEmpty) {
+      return;
+    }
+
+    final file = result.files.single;
+    final path = file.path;
+
+    if (path == null) {
+      AppToast.error(context, context.l10n.failedToAnalyze);
+      return;
+    }
+
+    final bytes = await File(path).readAsBytes();
+    final base64Data = base64Encode(bytes);
+
+    final extension = path.split('.').last.toLowerCase();
+    String contentType = 'application/octet-stream';
+    if (extension == 'csv') {
+      contentType = 'text/csv';
+    } else if (extension == 'pdf') {
+      contentType = 'application/pdf';
+    } else if (extension == 'xlsx') {
+      contentType =
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    } else if (extension == 'xls') {
+      contentType = 'application/vnd.ms-excel';
+    }
+
+    final attachments = <Map<String, dynamic>>[
+      {
+        'filename': file.name,
+        'contentType': contentType,
+        'data': base64Data,
+      },
+    ];
+
+    await _processExpense(
+      context,
+      ref,
+      attachments: attachments,
+    );
+  } catch (e) {
+    AppToast.error(
+      context,
+      '${context.l10n.failedToAnalyze}: ${e.toString()}',
+    );
+  }
+}
+
+Future<void> handleAiFileOrGallery(
+  BuildContext context,
+  WidgetRef ref,
+) async {
+  await AdaptiveAlertDialog.show(
+    context: context,
+    title: context.l10n.appTitle,
+    message: 'Choose source for analysis',
+    actions: [
+      AlertAction(
+        title: 'Files',
+        style: AlertActionStyle.primary,
+        onPressed: () async {
+          await handleAiFileUpload(context, ref);
+        },
+      ),
+      AlertAction(
+        title: 'Gallery',
+        style: AlertActionStyle.primary,
+        onPressed: () async {
+          try {
+            final XFile? image = await _imagePicker.pickImage(
+              source: ImageSource.gallery,
+              imageQuality: 85,
+            );
+
+            if (image != null) {
+              await _processExpense(context, ref, imagePath: image.path);
+            }
+          } catch (e) {
+            AppToast.error(
+              context,
+              '${context.l10n.failedToCapturePhoto}: ${e.toString()}',
+            );
+          }
+        },
+      ),
+      AlertAction(
+        title: context.l10n.cancel,
+        style: AlertActionStyle.cancel,
+        onPressed: () {},
+      ),
+    ],
+  );
+}
+
 Future<void> _processExpense(
   BuildContext context,
   WidgetRef ref, {
   String? text,
   String? imagePath,
+  List<Map<String, dynamic>>? attachments,
 }) async {
   final user = ref.read(authProvider);
   final contact = ref.read(analyticsProvider).contact;
@@ -80,7 +189,7 @@ Future<void> _processExpense(
             ? '${locale.languageCode}-${locale.countryCode!.toUpperCase()}'
             : locale.languageCode;
 
-    Map<String, dynamic> body = {
+    final Map<String, dynamic> body = {
       'userId': user.uid,
       'date': DateTime.now().toIso8601String().split('T')[0],
       'language': languageTag,
@@ -97,7 +206,7 @@ Future<void> _processExpense(
       body['currency'] = contact!.preferredCurrency!.toUpperCase();
     }
 
-    // Add either text or image to the request
+    // Add either text, image, or file attachments to the request
     if (text != null) {
       body['text'] = text;
     } else if (imagePath != null) {
@@ -121,6 +230,10 @@ Future<void> _processExpense(
         'data': base64Image,
         'contentType': contentType,
       };
+    }
+
+    if (attachments != null && attachments.isNotEmpty) {
+      body['attachments'] = attachments;
     }
 
     // Call analyze-expense endpoint (NEW: doesn't save yet). Backend now classifies income vs expense.
@@ -364,7 +477,7 @@ class HomeAiExpandableFab extends ConsumerWidget {
 
     return ExpandableFab(
       key: fabKey,
-      distance: 90,
+      distance: 120,
       children: [
         ActionButton(
           onPressed: () async {
@@ -381,6 +494,14 @@ class HomeAiExpandableFab extends ConsumerWidget {
           },
           icon: const Icon(Icons.camera_alt),
           label: context.l10n.takePhoto,
+        ),
+        ActionButton(
+          onPressed: () async {
+            fabKey.currentState?.close();
+            await handleAiFileOrGallery(context, ref);
+          },
+          icon: const Icon(Icons.attach_file),
+          label: 'Files',
         ),
       ],
     );
