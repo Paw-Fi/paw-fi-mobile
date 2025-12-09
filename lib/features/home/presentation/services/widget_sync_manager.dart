@@ -228,6 +228,140 @@ class WidgetSyncManager extends HookConsumerWidget {
           }
         }
 
+        Future<List<WidgetPocketData>> loadHouseholdBudgetPockets({
+          required String householdId,
+          required String currency,
+          required DateTime monthStart,
+        }) async {
+          try {
+            final client = Supabase.instance.client;
+
+            final periodMonth =
+                monthStart.toIso8601String().substring(0, 10); // YYYY-MM-DD
+
+            final budgetRow = await client
+                .from('budgets')
+                .select('id,total_budget_cents')
+                .eq('household_id', householdId)
+                .eq('currency', currency)
+                .eq('period_month', periodMonth)
+                .maybeSingle();
+
+            if (budgetRow == null) {
+              return [];
+            }
+
+            final budgetId = budgetRow['id'] as String?;
+            final totalBudget =
+                ((budgetRow['total_budget_cents'] as num?)?.toDouble() ?? 0.0) /
+                    100.0;
+
+            if (budgetId == null || totalBudget <= 0) {
+              return [];
+            }
+
+            final envelopesRes = await client
+                .from('budget_envelopes')
+                .select('id,name,budget_percentage,color,icon')
+                .eq('household_id', householdId)
+                .eq('currency', currency)
+                .eq('budget_id', budgetId)
+                .order('name');
+
+            final envRows =
+                (envelopesRes as List?)?.cast<Map<String, dynamic>>() ?? [];
+            if (envRows.isEmpty) {
+              return [];
+            }
+
+            final envIds = envRows.map((e) => e['id'] as String).toList();
+
+            final categoryLinksRes = await client
+                .from('envelope_category_links')
+                .select('envelope_id,category')
+                .inFilter('envelope_id', envIds);
+
+            final categoryLinksRows =
+                (categoryLinksRes as List?)?.cast<Map<String, dynamic>>() ?? [];
+
+            final categoriesByEnvelopeId = <String, List<String>>{};
+            for (final row in categoryLinksRows) {
+              final envId = row['envelope_id'] as String;
+              final category =
+                  (row['category'] as String? ?? '').toLowerCase().trim();
+              if (category.isEmpty) continue;
+              categoriesByEnvelopeId
+                  .putIfAbsent(envId, () => <String>[])
+                  .add(category);
+            }
+
+            final monthEnd = DateTime(monthStart.year, monthStart.month + 1, 1);
+
+            final expensesRes = await client
+                .from('expenses')
+                .select(
+                    'amount_cents,category,type,household_id,currency,date')
+                .eq('household_id', householdId)
+                .eq('currency', currency)
+                .gte('date', monthStart.toIso8601String())
+                .lt('date', monthEnd.toIso8601String());
+
+            final expensesRows =
+                (expensesRes as List?)?.cast<Map<String, dynamic>>() ?? [];
+
+            final spentById = <String, double>{};
+            for (final envId in envIds) {
+              final categories = categoriesByEnvelopeId[envId] ?? const [];
+              if (categories.isEmpty) {
+                spentById[envId] = 0.0;
+                continue;
+              }
+
+              double spent = 0.0;
+              for (final row in expensesRows) {
+                final type = (row['type'] as String?)?.toLowerCase();
+                if (type == 'income') continue;
+                final cat =
+                    (row['category'] as String? ?? '').toLowerCase().trim();
+                if (categories.contains(cat)) {
+                  final cents = (row['amount_cents'] as num?)?.toDouble() ?? 0.0;
+                  spent += cents / 100.0;
+                }
+              }
+              spentById[envId] = spent;
+            }
+
+            final pockets = <WidgetPocketData>[];
+            for (final row in envRows) {
+              final id = row['id'] as String;
+              final name = row['name'] as String? ?? '';
+              final pct =
+                  (row['budget_percentage'] as num?)?.toDouble() ?? 0.0;
+              final envelopeBudget = totalBudget * (pct / 100.0);
+              final spent = spentById[id] ?? 0.0;
+              final color = row['color'] as String? ?? '#7458FF';
+              final dynamic rawIcon = row['icon'];
+              final String? icon = rawIcon != null ? rawIcon.toString() : null;
+
+              pockets.add(
+                WidgetPocketData(
+                  name: name,
+                  spent: spent,
+                  budget: envelopeBudget,
+                  color: color,
+                  currency: currency,
+                  icon: icon,
+                ),
+              );
+            }
+
+            return pockets;
+          } catch (e) {
+            debugPrint('Error loading household budget pockets for widget: $e');
+            return [];
+          }
+        }
+
         // Iterate and Sync
         // We sync data for currencies that are either available (have data) OR are major currencies.
         // Syncing ALL 40+ currencies for EVERY household might be too heavy (40 * N writes).
@@ -460,24 +594,16 @@ class WidgetSyncManager extends HookConsumerWidget {
 
                 totalSpent = summary.totals.totalExpensesCents / 100.0;
 
-                // Sum budgets and build per-budget pockets
-                for (final b in summary.budgets) {
-                  final budgetAmount = b.amountCents / 100.0;
-                  final spentAmount = b.spentCents / 100.0;
-                  totalBudget += budgetAmount;
-                  final color = getCategoryColor(b.name);
-                  final hex = _colorToHex(color);
-                  budgetPockets.add(
-                    WidgetPocketData(
-                      name: b.name,
-                      spent: spentAmount,
-                      budget: budgetAmount,
-                      color: hex,
-                      currency: currency,
-                      icon: b.name,
-                    ),
-                  );
-                }
+                totalBudget = summary.budgets.fold<double>(
+                  0.0,
+                  (sum, b) => sum + b.amountCents / 100.0,
+                );
+
+                budgetPockets = await loadHouseholdBudgetPockets(
+                  householdId: scopeId,
+                  currency: currency,
+                  monthStart: currentMonth,
+                );
 
                 // Top Categories
                 topCategories = summary.categoryBreakdown
@@ -515,6 +641,9 @@ class WidgetSyncManager extends HookConsumerWidget {
               progress = (totalSpent / totalBudget).clamp(0.0, 1.0);
             }
 
+            // Use budget-based pockets when available; otherwise fall back to
+            // topCategories so the widget still shows a breakdown instead of
+            // an empty state.
             final pocketsForWidget =
                 budgetPockets.isNotEmpty ? budgetPockets : topCategories;
 

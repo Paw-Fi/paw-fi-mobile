@@ -585,65 +585,121 @@ struct TopCategoriesLargeWidgetView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             // Header
-            HStack {
-                VStack(alignment: .leading) {
-                    Text("Spent")
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Top Spending")
                         .font(.caption)
+                        .fontWeight(.semibold)
                         .foregroundColor(colorScheme == .dark ? Theme.darkMuted : Theme.lightMuted)
                         .textCase(.uppercase)
-                    Text(entry.totalSpent)
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(colorScheme == .dark ? Theme.darkForeground : Theme.lightForeground)
+                    
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Text(entry.totalSpent)
+                            .font(.system(size: 26, weight: .bold))
+                            .foregroundColor(colorScheme == .dark ? Theme.darkForeground : Theme.lightForeground)
+                        
+                        if let totalBudget = getTotalBudget(from: entry.pockets), totalBudget > 0 {
+                            Text("/ \(formatCurrency(totalBudget, currencyCode: entry.configuration?.currency?.id))")
+                                .font(.caption)
+                                .foregroundColor(colorScheme == .dark ? Theme.darkMuted : Theme.lightMuted)
+                        }
+                    }
                 }
                 Spacer()
                 Link(destination: URL(string: "moneko://text")!) {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 32))
-                        .foregroundColor(colorScheme == .dark ? Theme.darkPrimary : Theme.lightPrimary)
+                    Image(systemName: "plus")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(10)
+                        .background(Circle().fill(colorScheme == .dark ? Theme.darkPrimary : Theme.lightPrimary))
                 }
             }
 
-            ProgressBar(value: entry.progress, color: colorScheme == .dark ? Theme.darkPrimary : Theme.lightPrimary)
-                .frame(height: 8)
-
-            Divider()
-                .overlay(colorScheme == .dark ? Theme.darkMuted.opacity(0.5) : Theme.lightMuted.opacity(0.2))
-
-            // Pockets List (top categories)
-            VStack(spacing: 12) {
-                ForEach(entry.pockets.prefix(4)) { pocket in
-                    HStack {
-                        IconCircleView(
-                            iconName: pocket.icon,
-                            fallbackColorHex: pocket.color,
-                            size: 16
-                        )
-
-                        Text(pocket.name)
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                            .lineLimit(1)
-                            .foregroundColor(colorScheme == .dark ? Theme.darkForeground : Theme.lightForeground)
-
-                        Spacer()
-
-                        Text(formatCurrency(pocket.spent, currencyCode: pocket.currency))
-                            .font(.caption)
-                            .foregroundColor(colorScheme == .dark ? Theme.darkMuted : Theme.lightMuted)
-                    }
-                }
-                if entry.pockets.isEmpty {
-                    Text("No expenses yet this month")
-                        .font(.caption)
+            // Chart
+            if !entry.pockets.isEmpty {
+                 VerticalBarChart(pockets: Array(entry.pockets.prefix(5)), colorScheme: colorScheme)
+                    .frame(maxHeight: .infinity)
+            } else {
+                VStack {
+                    Spacer()
+                    Text("No expenses yet")
+                        .font(.subheadline)
                         .foregroundColor(colorScheme == .dark ? Theme.darkMuted : Theme.lightMuted)
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+        .padding(20)
+        .widgetBackground(colorScheme)
+    }
+    
+    func getTotalBudget(from pockets: [PocketData]) -> Double? {
+        // This is a rough estimate if we don't have total budget explicitly for the "Top Categories" intent.
+        // But usually, we only care about spent vs specific budgets.
+        // Let's just return nil to hide it or calculate if appropriate.
+        // In the entry, we have 'remainingBudget' which implies a total.
+        return nil
+    }
+}
+
+struct VerticalBarChart: View {
+    let pockets: [PocketData]
+    let colorScheme: ColorScheme
+    
+    var maxSpent: Double {
+        pockets.map(\.spent).max() ?? 1.0
+    }
+    
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 12) {
+            ForEach(pockets) { pocket in
+                VStack(spacing: 8) {
+                    // Amount (Hidden if too small space, but good for large)
+                    Text(shortAmount(pocket.spent))
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(colorScheme == .dark ? Theme.darkMuted : Theme.lightMuted)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                    
+                    // Bar
+                    GeometryReader { geo in
+                        VStack {
+                            Spacer()
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(Color(hex: pocket.color))
+                                .frame(height: max(10, CGFloat(pocket.spent / maxSpent) * geo.size.height))
+                                .overlay(
+                                    LinearGradient(
+                                        gradient: Gradient(colors: [
+                                            Color.white.opacity(0.1),
+                                            Color.clear
+                                        ]),
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    )
+                                    .cornerRadius(6)
+                                )
+                        }
+                    }
+                    
+                    // Name
+                    Text(pocket.name)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(colorScheme == .dark ? Theme.darkForeground : Theme.lightForeground)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .frame(height: 16)
                 }
             }
-
-            Spacer()
         }
-        .padding()
-        .widgetBackground(colorScheme)
+    }
+    
+    func shortAmount(_ amount: Double) -> String {
+        if amount >= 1000 {
+            return String(format: "%.1fk", amount / 1000)
+        }
+        return String(format: "%.0f", amount)
     }
 }
 
