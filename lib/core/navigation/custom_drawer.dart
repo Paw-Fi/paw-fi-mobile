@@ -94,24 +94,25 @@ class _CustomDrawerState extends State<CustomDrawer>
 
   void _onDragUpdate(DragUpdateDetails details) {
     final delta = details.primaryDelta! / widget.slideWidth;
-    _animationController.value += delta;
+    _animationController.value =
+        (_animationController.value + delta).clamp(0.0, 1.0);
   }
 
   void _onDragEnd(DragEndDetails details) {
     // High velocity swipes
-    if (details.primaryVelocity! > 1000) {
+    if (details.primaryVelocity! > 1400) {
       open();
       return;
     }
-    if (details.primaryVelocity! < -600) {
+    if (details.primaryVelocity! < -400) {
       close();
       return;
     }
 
     // Drag position threshold
-    // > 0.6 means you have to drag 60% of the way to open it (harder)
-    // < 0.6 means you only have to drag 40% of the way back to close it (easier)
-    if (_animationController.value > 0.6) {
+    // > 0.65 means you have to drag 65% of the way to open it (more deliberate)
+    // < 0.65 means you only have to drag 35% of the way back to close it (easier)
+    if (_animationController.value > 0.65) {
       open();
     } else {
       close();
@@ -214,7 +215,7 @@ class _CustomDrawerState extends State<CustomDrawer>
             left: 0,
             top: 0,
             bottom: 0,
-            width: 20,
+            width: 12,
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
               onHorizontalDragUpdate: _onDragUpdate,

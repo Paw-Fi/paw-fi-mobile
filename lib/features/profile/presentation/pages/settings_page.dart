@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -29,6 +31,10 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/shared/widgets/moneko_list_picker.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
+import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:image_cropper/image_cropper.dart';
+import 'package:moneko/core/config/storage_config.dart';
 
 class SettingsPage extends HookConsumerWidget {
   const SettingsPage({super.key});
@@ -276,7 +282,18 @@ class SettingsPage extends HookConsumerWidget {
                         clipBehavior: Clip.none,
                         children: [
                           GestureDetector(
-                            onTap: () => context.push('/avatar'),
+                            onTap: () => _showAvatarSourceSheet(
+                              context,
+                              ref,
+                              () {
+                                nameReloadKey.value++;
+                                if (authState.uid.isNotEmpty) {
+                                  ref.invalidate(
+                                    userProfileProvider(authState.uid),
+                                  );
+                                }
+                              },
+                            ),
                             child: Container(
                               width: 104,
                               height: 104,
@@ -321,7 +338,18 @@ class SettingsPage extends HookConsumerWidget {
                               color: colorScheme.primary,
                               shape: const CircleBorder(),
                               child: InkWell(
-                                onTap: () => context.push('/avatar'),
+                                onTap: () =>  _showAvatarSourceSheet(
+                              context,
+                              ref,
+                              () {
+                                nameReloadKey.value++;
+                                if (authState.uid.isNotEmpty) {
+                                  ref.invalidate(
+                                    userProfileProvider(authState.uid),
+                                  );
+                                }
+                              },
+                            ),
                                 customBorder: const CircleBorder(),
                                 child: Container(
                                   width: 36,
@@ -683,6 +711,195 @@ class SettingsPage extends HookConsumerWidget {
         ),
       ),
     );
+  }
+}
+
+Future<void> _showAvatarSourceSheet(
+  BuildContext context,
+  WidgetRef ref,
+  VoidCallback onUpdated,
+) async {
+  final result = await MonekoActionSheet.show<String>(
+    context: context,
+    title: 'Change avatar',
+    actions: [
+      MonekoActionSheetAction<String>(
+        label: context.l10n.takePhoto,
+        value: 'camera',
+      ),
+      MonekoActionSheetAction<String>(
+        label: context.l10n.chooseFromGallery,
+        value: 'gallery',
+      ),
+    ],
+    cancelAction: MonekoActionSheetAction<String>(
+      label: context.l10n.cancel,
+      value: 'cancel',
+    ),
+  );
+
+  ImageSource? source;
+  if (result == 'camera') {
+    source = ImageSource.camera;
+  } else if (result == 'gallery') {
+    source = ImageSource.gallery;
+  }
+
+  if (source == null) {
+    return;
+  }
+
+  final file = await _pickAndCropAvatarImage(context, source);
+  if (file == null) {
+    return;
+  }
+
+  await _uploadAndSaveAvatar(context, ref, file, onUpdated);
+}
+
+Future<File?> _pickAndCropAvatarImage(
+  BuildContext context,
+  ImageSource source,
+) async {
+  try {
+    final picker = ImagePicker();
+    final XFile? image = await picker.pickImage(
+      source: source,
+      imageQuality: 100,
+    );
+
+    if (image == null) return null;
+
+    final file = File(image.path);
+    final fileSize = await file.length();
+
+    if (!StorageConfig.isValidFileSize(fileSize)) {
+      if (context.mounted) {
+        AppToast.error(
+          context,
+          '${context.l10n.imageTooLarge} (${StorageConfig.getFileSizeString(fileSize)}). '
+          '${context.l10n.maxIs} ${StorageConfig.getFileSizeString(StorageConfig.maxFileSizeBytes)}.',
+        );
+      }
+      return null;
+    }
+
+    if (!StorageConfig.isAllowedFormat(image.path)) {
+      if (context.mounted) {
+        AppToast.error(
+          context,
+          context.l10n.unsupportedFileFormat,
+        );
+      }
+      return null;
+    }
+
+    if (!context.mounted) return null;
+
+    final croppedFile = await ImageCropper().cropImage(
+      sourcePath: image.path,
+      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+      compressQuality: 90,
+      maxWidth: 800,
+      maxHeight: 800,
+      compressFormat: ImageCompressFormat.png,
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: context.l10n.cropCoverImage,
+          toolbarColor: Colors.black,
+          toolbarWidgetColor: Colors.white,
+          initAspectRatio: CropAspectRatioPreset.square,
+          lockAspectRatio: true,
+        ),
+        IOSUiSettings(
+          title: context.l10n.cropCoverImage,
+          aspectRatioLockEnabled: true,
+          resetAspectRatioEnabled: false,
+        ),
+      ],
+    );
+
+    if (croppedFile == null) {
+      return null;
+    }
+
+    return File(croppedFile.path);
+  } catch (e) {
+    if (context.mounted) {
+      AppToast.error(context, 'Failed to process image: $e');
+    }
+    return null;
+  }
+}
+
+Future<void> _uploadAndSaveAvatar(
+  BuildContext context,
+  WidgetRef ref,
+  File imageFile,
+  VoidCallback onUpdated,
+) async {
+  final client = Supabase.instance.client;
+  final user = client.auth.currentUser;
+  if (user == null) return;
+
+  showBlockingProcessingDialog(
+    context: context,
+    message: 'Updating avatar...',
+  );
+
+  try {
+    final bytes = await imageFile.readAsBytes();
+
+    if (!StorageConfig.isValidFileSize(bytes.length)) {
+      if (context.mounted) {
+        AppToast.error(
+          context,
+          '${context.l10n.imageTooLarge} (${StorageConfig.getFileSizeString(bytes.length)}). '
+          '${context.l10n.maxIs} ${StorageConfig.getFileSizeString(StorageConfig.maxFileSizeBytes)}.',
+        );
+      }
+      return;
+    }
+
+    final path = '${user.id}/avatar.png';
+
+    await client.storage.from('avatars').uploadBinary(
+          path,
+          bytes,
+          fileOptions: const FileOptions(
+            upsert: true,
+            contentType: 'image/png',
+            cacheControl: '3600',
+          ),
+        );
+
+    final publicUrl = client.storage.from('avatars').getPublicUrl(path);
+    final cacheBustedUrl =
+        '$publicUrl?t=${DateTime.now().millisecondsSinceEpoch}';
+
+    await client.from('users').update({
+      'avatar_url': cacheBustedUrl,
+      'updated_at': DateTime.now().toIso8601String(),
+    }).eq('id', user.id);
+
+    onUpdated();
+
+    ref.invalidate(userProfileProvider(user.id));
+
+    if (context.mounted) {
+      AppToast.success(context, 'Avatar updated');
+    }
+  } catch (e) {
+    if (context.mounted) {
+      AppToast.error(
+        context,
+        '${context.l10n.failedToSaveAvatar}: $e',
+      );
+    }
+  } finally {
+    if (context.mounted) {
+      Navigator.of(context, rootNavigator: true).pop();
+    }
   }
 }
 

@@ -142,22 +142,35 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
     final isAllSettled =
         mySuggestions.isEmpty && youOweTotal == 0 && owedToYouTotal == 0;
 
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 12),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => SettlementHistoryPage(
+                householdId: widget.summary.householdId,
+              ),
+            ),
+          );
+        },
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
+                blurRadius: 20,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
           // Header
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
@@ -320,9 +333,11 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
             ] else
               const SizedBox(height: 20),
           ],
-        ],
+          ],
+        ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildAllSettledState(BuildContext context, ColorScheme colorScheme) {
@@ -635,6 +650,12 @@ class _SuggestionRow extends StatelessWidget {
                 fontWeight: FontWeight.w700,
                 color: color,
               ),
+            ),
+            const SizedBox(width: 4),
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 18,
+              color: scheme.mutedForeground,
             ),
           ],
         ),

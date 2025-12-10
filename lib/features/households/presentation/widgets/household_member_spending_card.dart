@@ -320,7 +320,7 @@ Widget _buildMemberRow(
                         color: colorScheme.muted.withValues(alpha: 0.5),
                         border: Border.all(
                           color: colorScheme.border.withValues(alpha: 0.15),
-                          width: 2,
+                          width: 1,
                         ),
                         boxShadow: [
                           BoxShadow(
@@ -330,24 +330,25 @@ Widget _buildMemberRow(
                           ),
                         ],
                       ),
-                      clipBehavior: Clip.antiAlias,
-                      child: avatarUrl != null
-                          ? Image.network(
-                              avatarUrl,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stack) => Icon(
+                      child: ClipOval(
+                        child: avatarUrl != null
+                            ? Image.network(
+                                avatarUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stack) => Icon(
+                                  Icons.person_rounded,
+                                  size: 22,
+                                  color: colorScheme.mutedForeground
+                                      .withValues(alpha: 0.6),
+                                ),
+                              )
+                            : Icon(
                                 Icons.person_rounded,
                                 size: 22,
                                 color: colorScheme.mutedForeground
                                     .withValues(alpha: 0.6),
                               ),
-                            )
-                          : Icon(
-                              Icons.person_rounded,
-                              size: 22,
-                              color: colorScheme.mutedForeground
-                                  .withValues(alpha: 0.6),
-                            ),
+                      ),
                     );
                   },
                 ),
@@ -413,11 +414,15 @@ Widget _buildMemberRow(
                                   colorScheme.primary.withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(7),
                             ),
-                            child: Icon(
-                              Icons.notifications_none_rounded,
-                              size: 14,
+                            child:  Text(
+                            'Nudge',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
                               color: colorScheme.primary,
+                              letterSpacing: 0.2,
                             ),
+                          ),
                           ),
                         ),
                       ],
