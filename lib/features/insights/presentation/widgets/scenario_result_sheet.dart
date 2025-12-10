@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:markdown_widget/markdown_widget.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 /// Helper to safely convert dynamic value to double
 double _asDouble(dynamic v) {
   if (v is num) return v.toDouble();
@@ -17,6 +20,13 @@ void showScenarioResultSheet(
   String advice,
   Map<String, dynamic> meta, {
   String? selectedCurrency,
+  String? question,
+  String? userId,
+  String? mode,
+  String? householdId,
+  String? scenarioId,
+  VoidCallback? onSaved,
+  VoidCallback? onDeleted,
 }) {
   final colorScheme = Theme.of(context).colorScheme;
   
@@ -35,22 +45,37 @@ void showScenarioResultSheet(
   final proj = _asDouble(stats?['projectedNoScenarioByTarget']);
   final avg = _asDouble(stats?['avgNetPerDay']);
 
+  final String effectiveMode = mode ?? (meta['mode'] as String?) ?? 'personal';
+  final String? effectiveHouseholdId =
+      householdId ?? (meta['householdId'] as String?);
+  final String? targetDateStr = meta['targetDate'] as String?;
+  String? scenarioHistoryId = scenarioId ?? (meta['id'] as String?);
+
   showModalBottomSheet(
     context: context,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
     builder: (context) {
-      return Container(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.85,
-        ),
-        decoration: BoxDecoration(
-          color: colorScheme.appBackground,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+      // Consider anything opened from history (no meta.stats but with question)
+      // as already saved so the icon appears filled. Fresh analyses (with
+      // stats present) should start as unsaved even though they have a
+      // non-null question.
+      final bool openedFromHistory = meta['stats'] == null && question != null;
+      bool isSaved = openedFromHistory;
+      return StatefulBuilder(
+        builder: (context, setState) {
+          return Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.85,
+            ),
+            decoration: BoxDecoration(
+              color: colorScheme.appBackground,
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
             // Drag Handle
             Container(
               margin: const EdgeInsets.symmetric(vertical: 12),
@@ -79,8 +104,118 @@ void showScenarioResultSheet(
                     ),
                   ),
                   IconButton(
-                    icon: Icon(Icons.close, color: colorScheme.foreground),
-                    onPressed: () => Navigator.pop(context),
+                    icon: Icon(
+                      isSaved
+                          ? Icons.bookmark
+                          : Icons.bookmark_outline,
+                      color:
+                          isSaved ? colorScheme.primary : colorScheme.foreground,
+                    ),
+                    tooltip: context.l10n.save,
+                    onPressed: (question == null || userId == null)
+                        ? null
+                        : () async {
+                            // Toggle behavior: save when not yet saved, otherwise
+                            // ask for confirmation and delete.
+                            if (!isSaved) {
+                              debugPrint('Saving scenario...');
+                              try {
+                                final inserted = await Supabase.instance.client
+                                    .from('ai_scenario_history')
+                                    .insert({
+                                  'user_id': userId,
+                                  'household_id': effectiveHouseholdId,
+                                  'question': question,
+                                  'answer': advice,
+                                  'target_date': targetDateStr,
+                                  'currency': selectedCurrency,
+                                  'mode': effectiveMode,
+                                })
+                                    .select()
+                                    .single();
+
+                                scenarioHistoryId =
+                                    inserted['id'] as String? ?? scenarioHistoryId;
+
+                                setState(() {
+                                  isSaved = true;
+                                });
+
+                                if (onSaved != null) {
+                                  onSaved();
+                                }
+
+                                if (!context.mounted) return;
+                                AppToast.success(context, 'Scenario saved');
+                              } catch (e) {
+                                if (!context.mounted) return;
+                                AppToast.error(
+                                  context,
+                                  context.l10n.analysisFailed(e.toString()),
+                                );
+                              }
+                            } else {
+                              // Confirm deletion before removing a saved scenario.
+                              await AdaptiveAlertDialog.show(
+                                context: context,
+                                title: context.l10n.delete,
+                                message:
+                                    'Are you sure you want to delete this saved scenario? This will permanently remove it and can’t be undone.',
+                                actions: [
+                                  AlertAction(
+                                    title: context.l10n.cancel,
+                                    style: AlertActionStyle.cancel,
+                                    onPressed: () {},
+                                  ),
+                                  AlertAction(
+                                    title: context.l10n.delete,
+                                    style: AlertActionStyle.destructive,
+                                    onPressed: () async {
+                                      try {
+                                        if (scenarioHistoryId == null) {
+                                          if (context.mounted) {
+                                            AppToast.error(
+                                              context,
+                                              'Unable to delete this scenario',
+                                            );
+                                          }
+                                          return;
+                                        }
+
+                                        await Supabase.instance.client
+                                            .from('ai_scenario_history')
+                                            .delete()
+                                            .eq('id', scenarioHistoryId!);
+
+                                        setState(() {
+                                          isSaved = false;
+                                        });
+
+                                        if (onDeleted != null) {
+                                          onDeleted();
+                                        }
+
+                                        if (!context.mounted) return;
+                                        AppToast.success(
+                                            context, 'Scenario deleted');
+
+                                        // Close the result sheet after
+                                        // successful deletion.
+                                        Navigator.of(context).pop();
+                                      } catch (e) {
+                                        if (!context.mounted) return;
+                                        AppToast.error(
+                                          context,
+                                          context.l10n
+                                              .analysisFailed(e.toString()),
+                                        );
+                                      }
+                                    },
+                                  ),
+                                ],
+                              );
+                            }
+                          },
                   ),
                 ],
               ),
@@ -184,6 +319,8 @@ void showScenarioResultSheet(
             ),
           ],
         ),
+          );
+        },
       );
     },
   );

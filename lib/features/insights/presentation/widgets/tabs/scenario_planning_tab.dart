@@ -5,6 +5,7 @@ import 'package:moneko/core/core.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 
 import 'package:moneko/features/insights/presentation/widgets/scenario_result_sheet.dart';
 import 'package:moneko/features/insights/presentation/widgets/insights_ui.dart';
@@ -301,6 +302,11 @@ class _ScenarioPlanningTabContentState
         widget.colorScheme.appBackground == AppTheme.darkBackground;
     final user = ref.watch(authProvider);
     final colorScheme = Theme.of(context).colorScheme;
+    final viewMode = ref.watch(viewModeProvider);
+    final selectedHousehold = ref.watch(selectedHouseholdProvider);
+    final bool isHousehold = viewMode.mode == ViewMode.household;
+    final String? householdId =
+        isHousehold ? selectedHousehold.householdId : null;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -487,22 +493,33 @@ class _ScenarioPlanningTabContentState
                                     );
 
                                     try {
+                                      final payload = <String, dynamic>{
+                                        'question': context.l10n
+                                            .scenarioQuestionTemplate(
+                                          q,
+                                          d,
+                                        ),
+                                        'targetDate': d,
+                                        'userId': user
+                                            .uid, // Not trusted by BE, just for logs
+                                        'language':
+                                            Localizations.localeOf(context)
+                                                .languageCode,
+                                        'currency':
+                                            widget.selectedCurrency ?? 'USD',
+                                        'mode': isHousehold
+                                            ? 'household'
+                                            : 'personal',
+                                      };
+
+                                      if (householdId != null) {
+                                        payload['householdId'] = householdId;
+                                      }
+
                                       final response =
                                           await supabase.functions.invoke(
                                         'ai-scenario-planner',
-                                        body: {
-                                          'question': context.l10n
-                                              .scenarioQuestionTemplate(
-                                            q,
-                                            d,
-                                          ),
-                                          'targetDate': d,
-                                          'userId': user
-                                              .uid, // Not trusted by BE, just for logs
-                                          'language':
-                                              Localizations.localeOf(context)
-                                                  .languageCode,
-                                        },
+                                        body: payload,
                                       );
 
                                       if (!context.mounted) return;
@@ -523,11 +540,32 @@ class _ScenarioPlanningTabContentState
                                           _scenarioLoading = false;
                                         });
 
-                                        // Auto-show the result sheet
+                                        // Auto-show the result sheet and pass
+                                        // required fields so the Save button
+                                        // is enabled.
                                         showScenarioResultSheet(
-                                            context, advice, meta,
-                                            selectedCurrency:
-                                                widget.selectedCurrency);
+                                          context,
+                                          advice,
+                                          meta,
+                                          selectedCurrency:
+                                              widget.selectedCurrency,
+                                          question: context.l10n
+                                              .scenarioQuestionTemplate(
+                                            q,
+                                            d,
+                                          ),
+                                          userId: user.uid,
+                                          mode: isHousehold
+                                              ? 'household'
+                                              : 'personal',
+                                          householdId: householdId,
+                                          onSaved: () {
+                                            setState(() {});
+                                          },
+                                          onDeleted: () {
+                                            setState(() {});
+                                          },
+                                        );
                                       } else {
                                         final error = response.data?['error'] ??
                                             'Failed to analyze scenario';
@@ -622,8 +660,172 @@ class _ScenarioPlanningTabContentState
               ],
             ),
           ),
+          const SizedBox(height: 16),
+          InsightsSectionCard(
+            colorScheme: widget.colorScheme,
+            child: FutureBuilder<List<Map<String, dynamic>>>(
+              future: _loadScenarioHistory(
+                user.uid,
+                isHousehold ? householdId : null,
+              ),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+
+                final items = snapshot.data ?? const [];
+                if (items.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Text(
+                      'No saved scenarios yet',
+                      style: TextStyle(
+                        color: widget.colorScheme.mutedForeground,
+                        fontSize: 13,
+                      ),
+                    ),
+                  );
+                }
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.history,
+                      size: 18,
+                    ),
+                    const SizedBox(height: 12),
+                    ...items.map((row) {
+                      final id = row['id'] as String?;
+                      final q = row['question'] as String? ?? '';
+                      final a = row['answer'] as String? ?? '';
+                      final createdAtRaw = row['created_at'] as String?;
+
+                      String? createdAtLabel;
+                      if (createdAtRaw != null) {
+                        try {
+                          final parsed = DateTime.parse(createdAtRaw);
+                          createdAtLabel = _formatLocalizedDate(parsed);
+                        } catch (_) {
+                          createdAtLabel = createdAtRaw;
+                        }
+                      }
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16.0),
+                        child: InkWell(
+                          onTap: () {
+                            showScenarioResultSheet(
+                              context,
+                              a,
+                              const {},
+                              selectedCurrency: widget.selectedCurrency,
+                              question: q,
+                              userId: user.uid,
+                              mode: isHousehold ? 'household' : 'personal',
+                              householdId: householdId,
+                              scenarioId: id,
+                              onSaved: () {
+                                setState(() {});
+                              },
+                              onDeleted: () {
+                                setState(() {});
+                              },
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(24),
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 2, horizontal: 0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    if (createdAtLabel != null)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 10, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          color: widget.colorScheme.primary
+                                              .withOpacity(0.06),
+                                          borderRadius:
+                                              BorderRadius.circular(100),
+                                        ),
+                                        child: Text(
+                                          createdAtLabel,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: widget.colorScheme.primary,
+                                            letterSpacing: -0.3,
+                                          ),
+                                        ),
+                                      ),
+                                    Icon(
+                                      CupertinoIcons.arrow_up_right,
+                                      size: 16,
+                                      color: widget.colorScheme.mutedForeground,
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  q,
+                                  maxLines: 3,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: -0.6,
+                                    height: 1.3,
+                                    color: widget.colorScheme.foreground,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ],
+                );
+              },
+            ),
+          ),
         ],
       ),
     );
   }
+}
+
+Future<List<Map<String, dynamic>>> _loadScenarioHistory(
+  String userId,
+  String? householdId,
+) async {
+  List<dynamic> response;
+
+  if (householdId != null) {
+    response = await supabase
+        .from('ai_scenario_history')
+        .select('id,question,answer,created_at,household_id,mode,currency')
+        .eq('user_id', userId)
+        .eq('household_id', householdId)
+        .order('created_at', ascending: false)
+        .limit(10);
+  } else {
+    response = await supabase
+        .from('ai_scenario_history')
+        .select('id,question,answer,created_at,household_id,mode,currency')
+        .eq('user_id', userId)
+        .order('created_at', ascending: false)
+        .limit(10);
+  }
+
+  return response.cast<Map<String, dynamic>>();
 }
