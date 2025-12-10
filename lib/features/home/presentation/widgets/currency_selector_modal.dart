@@ -82,7 +82,7 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
           .select('currency')
           .eq('user_id', userId)
           .not('currency', 'is', null)
-          .limit(10000);
+          .limit(5000);
 
       final rows = response as List<dynamic>;
       final counts = <String, int>{};

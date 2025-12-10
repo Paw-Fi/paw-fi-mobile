@@ -101,7 +101,7 @@ class MainShell extends HookConsumerWidget {
           child: Stack(
             children: [
               Padding(
-                padding: const EdgeInsets.only(top: 10.0),
+                padding: const EdgeInsets.only(top: 0.0),
                 child: IndexedStack(
                   index: currentIndex.value,
                   children: pages,

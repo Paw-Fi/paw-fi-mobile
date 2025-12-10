@@ -562,294 +562,292 @@ class _HomePageState extends ConsumerState<HomePage> {
     }
 
     return AdaptiveScaffold(
-      body: SafeArea(
-        child: Stack(
-          children: [
-            RefreshIndicator(
-              onRefresh: () async {
-                // Refresh based on current view mode
-                if (viewMode.mode == ViewMode.household) {
-                  // In household mode: invalidate ALL household-related providers
-                  debugPrint('🔄 Pull-to-refresh: Refreshing household data');
-                  ref.read(cacheInvalidatorProvider).invalidateAll();
-                  ref.invalidate(userHouseholdsProvider(user.uid));
-                  ref.invalidate(householdExpensesProvider);
-                  ref.invalidate(householdSplitsProvider);
-                  final householdIds = ref
-                      .read(userHouseholdsProvider(user.uid))
-                      .valueOrNull
-                      ?.map((h) => h.id)
-                      .toList();
-                  if (householdIds != null) {
-                    for (final hid in householdIds) {
-                      ref.invalidate(cachedHouseholdExpensesProvider(
-                        HouseholdExpensesParams(householdId: hid),
-                      ));
-                      ref.invalidate(cachedHouseholdSplitsProvider(
-                        HouseholdSplitsParams(householdId: hid),
-                      ));
-                    }
+      body: Stack(
+        children: [
+          RefreshIndicator(
+            onRefresh: () async {
+              // Refresh based on current view mode
+              if (viewMode.mode == ViewMode.household) {
+                // In household mode: invalidate ALL household-related providers
+                debugPrint('🔄 Pull-to-refresh: Refreshing household data');
+                ref.read(cacheInvalidatorProvider).invalidateAll();
+                ref.invalidate(userHouseholdsProvider(user.uid));
+                ref.invalidate(householdExpensesProvider);
+                ref.invalidate(householdSplitsProvider);
+                final householdIds = ref
+                    .read(userHouseholdsProvider(user.uid))
+                    .valueOrNull
+                    ?.map((h) => h.id)
+                    .toList();
+                if (householdIds != null) {
+                  for (final hid in householdIds) {
+                    ref.invalidate(cachedHouseholdExpensesProvider(
+                      HouseholdExpensesParams(householdId: hid),
+                    ));
+                    ref.invalidate(cachedHouseholdSplitsProvider(
+                      HouseholdSplitsParams(householdId: hid),
+                    ));
                   }
-                  ref.invalidate(householdBudgetsProvider);
-                  ref.invalidate(householdSummaryProvider);
-                  ref.invalidate(
-                      householdMembersProvider); // FIXED: Added member info refresh
-                  debugPrint(
-                      '✅ Invalidated: households, expenses, splits, cached splits/expenses, budgets, summary, members');
-                } else {
-                  // In personal mode: refresh analytics with current date filters
-                  // TODO: Once global date filter is fully removed, refresh should
-                  // simply reload all-time analytics without a date window.
-                  ref.read(analyticsProvider.notifier).refresh(user.uid);
                 }
-                await Future.delayed(const Duration(milliseconds: 500));
-              },
-              child: CustomScrollView(
-                slivers: [
-                  // Content only: header is provided globally in MainShell
-                  if (viewMode.mode == ViewMode.household) ...[
-                    const HouseholdHomeContent(),
-                    const SliverToBoxAdapter(child: EditDashboardButton()),
-                    const SliverToBoxAdapter(child: SizedBox(height: 24)),
-                  ]
-                  else ...[
-                    // Personal mode - show customizable dashboard
-                    Consumer(
-                      builder: (context, ref, _) {
-                        final repoAsync =
-                            ref.watch(dashboardRepositoryFutureProvider);
-
-                        return repoAsync.when(
-                          loading: () => const SliverToBoxAdapter(
-                            child: SizedBox(
-                              height: 200,
-                              child: Center(child: CircularProgressIndicator()),
-                            ),
+                ref.invalidate(householdBudgetsProvider);
+                ref.invalidate(householdSummaryProvider);
+                ref.invalidate(
+                    householdMembersProvider); // FIXED: Added member info refresh
+                debugPrint(
+                    '✅ Invalidated: households, expenses, splits, cached splits/expenses, budgets, summary, members');
+              } else {
+                // In personal mode: refresh analytics with current date filters
+                // TODO: Once global date filter is fully removed, refresh should
+                // simply reload all-time analytics without a date window.
+                ref.read(analyticsProvider.notifier).refresh(user.uid);
+              }
+              await Future.delayed(const Duration(milliseconds: 500));
+            },
+            child: CustomScrollView(
+              slivers: [
+                // Content only: header is provided globally in MainShell
+                if (viewMode.mode == ViewMode.household) ...[
+                  const HouseholdHomeContent(),
+                  const SliverToBoxAdapter(child: EditDashboardButton()),
+                  const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                ]
+                else ...[
+                  // Personal mode - show customizable dashboard
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final repoAsync =
+                          ref.watch(dashboardRepositoryFutureProvider);
+      
+                      return repoAsync.when(
+                        loading: () => const SliverToBoxAdapter(
+                          child: SizedBox(
+                            height: 200,
+                            child: Center(child: CircularProgressIndicator()),
                           ),
-                          error: (e, st) => SliverToBoxAdapter(
-                            child: Text('Error initializing repository: $e'),
-                          ),
-                          data: (_) {
-                            final dashboardAsync =
-                                ref.watch(personalDashboardProvider(user.uid));
-
-                            return dashboardAsync.when(
-                              loading: () => const SliverToBoxAdapter(
-                                  child: SizedBox(
-                                      height: 200,
-                                      child: Center(
-                                          child: CircularProgressIndicator()))),
-                              error: (e, st) => SliverToBoxAdapter(
-                                  child: Text('Error loading dashboard: $e')),
-                              data: (configs) {
-                                return DraggableDashboardList(
-                                  configs: configs,
-                                  onReorder: (oldIndex, newIndex) {
-                                    ref
-                                        .read(
-                                            personalDashboardProvider(user.uid)
-                                                .notifier)
-                                        .reorder(oldIndex, newIndex);
-                                  },
-                                  onToggleVisibility: (id) {
-                                    ref
-                                        .read(
-                                            personalDashboardProvider(user.uid)
-                                                .notifier)
-                                        .toggleVisibility(id);
-                                  },
-                                  onUpdateConfig: (id,
-                                      {dateRange, viewMode, start, end}) {
-                                    ref
-                                        .read(
-                                            personalDashboardProvider(user.uid)
-                                                .notifier)
-                                        .updateConfig(id,
-                                            dateRange: dateRange,
-                                            viewMode: viewMode,
-                                            start: start,
-                                            end: end);
-                                  },
-                                  widgetBuilders: {
-                                    DashboardWidgetType.spendingSummary:
-                                        (context, config) => Padding(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 16.0),
-                                              child: buildSpendingCard(
-                                                context,
-                                                colorScheme,
-                                                personalExpensesAll,
-                                                analyticsData.contact,
-                                                config.dateRange,
-                                                selectedCurrency:
-                                                    filterState.selectedCurrency,
-                                                customStartDate:
-                                                    config.customStartDate,
-                                                customEndDate:
-                                                    config.customEndDate,
-                                              ),
+                        ),
+                        error: (e, st) => SliverToBoxAdapter(
+                          child: Text('Error initializing repository: $e'),
+                        ),
+                        data: (_) {
+                          final dashboardAsync =
+                              ref.watch(personalDashboardProvider(user.uid));
+      
+                          return dashboardAsync.when(
+                            loading: () => const SliverToBoxAdapter(
+                                child: SizedBox(
+                                    height: 200,
+                                    child: Center(
+                                        child: CircularProgressIndicator()))),
+                            error: (e, st) => SliverToBoxAdapter(
+                                child: Text('Error loading dashboard: $e')),
+                            data: (configs) {
+                              return DraggableDashboardList(
+                                configs: configs,
+                                onReorder: (oldIndex, newIndex) {
+                                  ref
+                                      .read(
+                                          personalDashboardProvider(user.uid)
+                                              .notifier)
+                                      .reorder(oldIndex, newIndex);
+                                },
+                                onToggleVisibility: (id) {
+                                  ref
+                                      .read(
+                                          personalDashboardProvider(user.uid)
+                                              .notifier)
+                                      .toggleVisibility(id);
+                                },
+                                onUpdateConfig: (id,
+                                    {dateRange, viewMode, start, end}) {
+                                  ref
+                                      .read(
+                                          personalDashboardProvider(user.uid)
+                                              .notifier)
+                                      .updateConfig(id,
+                                          dateRange: dateRange,
+                                          viewMode: viewMode,
+                                          start: start,
+                                          end: end);
+                                },
+                                widgetBuilders: {
+                                  DashboardWidgetType.spendingSummary:
+                                      (context, config) => Padding(
+                                            padding:
+                                                const EdgeInsets.symmetric(
+                                                    horizontal: 16.0),
+                                            child: buildSpendingCard(
+                                              context,
+                                              colorScheme,
+                                              personalExpensesAll,
+                                              analyticsData.contact,
+                                              config.dateRange,
+                                              selectedCurrency:
+                                                  filterState.selectedCurrency,
+                                              customStartDate:
+                                                  config.customStartDate,
+                                              customEndDate:
+                                                  config.customEndDate,
                                             ),
-                                    DashboardWidgetType.netCashflow:
-                                        (context, config) => Padding(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 16.0),
-                                              child: SizedBox(
-                                                height: 180,
-                                                child: Row(
-                                                  children: [
-                                                    const Expanded(
-                                                        child: MoMTrendBar()),
-                                                    const SizedBox(width: 12),
-                                                    Expanded(
-                                                      child:
-                                                          buildNetCashflowCard(
-                                                        context,
-                                                        colorScheme,
-                                                        netBudgets,
-                                                        analyticsData
-                                                            .allExpenses,
-                                                        analyticsData.contact,
-                                                        config.dateRange,
-                                                        selectedCurrency:
-                                                            filterState
-                                                                .selectedCurrency,
-                                                      ),
+                                          ),
+                                  DashboardWidgetType.netCashflow:
+                                      (context, config) => Padding(
+                                            padding:
+                                                const EdgeInsets.symmetric(
+                                                    horizontal: 16.0),
+                                            child: SizedBox(
+                                              height: 180,
+                                              child: Row(
+                                                children: [
+                                                  const Expanded(
+                                                      child: MoMTrendBar()),
+                                                  const SizedBox(width: 12),
+                                                  Expanded(
+                                                    child:
+                                                        buildNetCashflowCard(
+                                                      context,
+                                                      colorScheme,
+                                                      netBudgets,
+                                                      analyticsData
+                                                          .allExpenses,
+                                                      analyticsData.contact,
+                                                      config.dateRange,
+                                                      selectedCurrency:
+                                                          filterState
+                                                              .selectedCurrency,
                                                     ),
-                                                  ],
-                                                ),
+                                                  ),
+                                                ],
                                               ),
                                             ),
-                                    DashboardWidgetType.financialCalendar:
-                                        (context, config) => Padding(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 16.0),
-                                              child: Consumer(
-                                                builder: (context, ref, _) {
-                                                  // NOTE: Recurring transactions are loaded by app_initialization_provider
-                                                  // Just watch the data here - no need to trigger load
-                                                  final recurringAsync = ref.watch(
-                                                      recurringTransactionsProvider(
-                                                          null));
-                                                  return FinancialCalendarWidget(
-                                                    transactions:
-                                                        personalExpensesAll,
-                                                    recurringTransactions:
-                                                        recurringAsync
-                                                                .data
-                                                                .valueOrNull ??
-                                                            [],
-                                                    currency: selectedCurrency ??
-                                                        analyticsData
-                                                                .contact
-                                                                ?.preferredCurrency ??
-                                                        'USD',
-                                                    isExpanded: config
-                                                            .viewMode ==
-                                                        DashboardWidgetViewMode
-                                                            .full,
-                                                  );
-                                                },
-                                              ),
+                                          ),
+                                  DashboardWidgetType.financialCalendar:
+                                      (context, config) => Padding(
+                                            padding:
+                                                const EdgeInsets.symmetric(
+                                                    horizontal: 16.0),
+                                            child: Consumer(
+                                              builder: (context, ref, _) {
+                                                // NOTE: Recurring transactions are loaded by app_initialization_provider
+                                                // Just watch the data here - no need to trigger load
+                                                final recurringAsync = ref.watch(
+                                                    recurringTransactionsProvider(
+                                                        null));
+                                                return FinancialCalendarWidget(
+                                                  transactions:
+                                                      personalExpensesAll,
+                                                  recurringTransactions:
+                                                      recurringAsync
+                                                              .data
+                                                              .valueOrNull ??
+                                                          [],
+                                                  currency: selectedCurrency ??
+                                                      analyticsData
+                                                              .contact
+                                                              ?.preferredCurrency ??
+                                                      'USD',
+                                                  isExpanded: config
+                                                          .viewMode ==
+                                                      DashboardWidgetViewMode
+                                                          .full,
+                                                );
+                                              },
                                             ),
-                                    DashboardWidgetType.recentTransactions:
-                                        (context, config) => Padding(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 16.0),
-                                              child:
-                                                  buildRecentTransactionsCard(
-                                                context,
-                                                colorScheme,
-                                                personalExpensesAll,
-                                                analyticsData.contact,
-                                                selectedCurrency:
-                                                    filterState.selectedCurrency,
-                                                onViewAll: () {
-                                                  Navigator.of(context).push(
-                                                    MaterialPageRoute(
-                                                      builder: (_) =>
-                                                          const TransactionsPage(),
-                                                    ),
-                                                  );
-                                                },
-                                              ),
+                                          ),
+                                  DashboardWidgetType.recentTransactions:
+                                      (context, config) => Padding(
+                                            padding:
+                                                const EdgeInsets.symmetric(
+                                                    horizontal: 16.0),
+                                            child:
+                                                buildRecentTransactionsCard(
+                                              context,
+                                              colorScheme,
+                                              personalExpensesAll,
+                                              analyticsData.contact,
+                                              selectedCurrency:
+                                                  filterState.selectedCurrency,
+                                              onViewAll: () {
+                                                Navigator.of(context).push(
+                                                  MaterialPageRoute(
+                                                    builder: (_) =>
+                                                        const TransactionsPage(),
+                                                  ),
+                                                );
+                                              },
                                             ),
-                                    DashboardWidgetType.spendingBreakdownChart:
-                                        (context, config) => Padding(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 16.0),
-                                              child:
-                                                  buildSpendingBreakdownChart(
-                                                context,
-                                                colorScheme,
-                                                personalExpensesAll,
-                                                analyticsData.allBudgets,
-                                                analyticsData.contact,
-                                                config.dateRange,
-                                                selectedCurrency:
-                                                    filterState.selectedCurrency,
-                                                customStartDate:
-                                                    config.customStartDate,
-                                                customEndDate:
-                                                    config.customEndDate,
-                                              ),
+                                          ),
+                                  DashboardWidgetType.spendingBreakdownChart:
+                                      (context, config) => Padding(
+                                            padding:
+                                                const EdgeInsets.symmetric(
+                                                    horizontal: 16.0),
+                                            child:
+                                                buildSpendingBreakdownChart(
+                                              context,
+                                              colorScheme,
+                                              personalExpensesAll,
+                                              analyticsData.allBudgets,
+                                              analyticsData.contact,
+                                              config.dateRange,
+                                              selectedCurrency:
+                                                  filterState.selectedCurrency,
+                                              customStartDate:
+                                                  config.customStartDate,
+                                              customEndDate:
+                                                  config.customEndDate,
                                             ),
-                                    DashboardWidgetType.whereTheMoneyWent:
-                                        (context, config) {
-                                      final range = getDateRangeFromFilter(
-                                        config.dateRange,
-                                        config.customStartDate,
-                                        config.customEndDate,
-                                      );
-                                      final from = range['from']!;
-                                      final to = range['to']!;
-
-                                      final dateFilteredExpenses =
-                                          personalExpensesAll.where((e) {
-                                        final d = DateTime(
-                                            e.date.year,
-                                            e.date.month,
-                                            e.date.day);
-                                        return !d.isBefore(from) &&
-                                            !d.isAfter(to);
-                                      }).toList();
-
-                                      return Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 16.0),
-                                        child: WhereTheMoneyWentWidget(
-                                          expenses: dateFilteredExpenses,
-                                          currency:
-                                              filterState.selectedCurrency,
-                                          onHelpTap: () => showCategoryGuide(
-                                              context, colorScheme),
-                                          dateRange: config.dateRange,
-                                        ),
-                                      );
-                                    },
+                                          ),
+                                  DashboardWidgetType.whereTheMoneyWent:
+                                      (context, config) {
+                                    final range = getDateRangeFromFilter(
+                                      config.dateRange,
+                                      config.customStartDate,
+                                      config.customEndDate,
+                                    );
+                                    final from = range['from']!;
+                                    final to = range['to']!;
+      
+                                    final dateFilteredExpenses =
+                                        personalExpensesAll.where((e) {
+                                      final d = DateTime(
+                                          e.date.year,
+                                          e.date.month,
+                                          e.date.day);
+                                      return !d.isBefore(from) &&
+                                          !d.isAfter(to);
+                                    }).toList();
+      
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 16.0),
+                                      child: WhereTheMoneyWentWidget(
+                                        expenses: dateFilteredExpenses,
+                                        currency:
+                                            filterState.selectedCurrency,
+                                        onHelpTap: () => showCategoryGuide(
+                                            context, colorScheme),
+                                        dateRange: config.dateRange,
+                                      ),
+                                    );
                                   },
-                                );
-                              },
-                            );
-                          },
-                        );
-                      },
-                    ),
-
-                    // Edit Button
-                    const SliverToBoxAdapter(child: EditDashboardButton()),
-
-                    const SliverToBoxAdapter(child: SizedBox(height: 24)),
-                  ], // end of else block for Personal mode
-                ],
-              ),
+                                },
+                              );
+                            },
+                          );
+                        },
+                      );
+                    },
+                  ),
+      
+                  // Edit Button
+                  const SliverToBoxAdapter(child: EditDashboardButton()),
+      
+                  const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                ], // end of else block for Personal mode
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
       floatingActionButton: _shouldShowFAB(viewMode, householdsAsync)
           ? Padding(

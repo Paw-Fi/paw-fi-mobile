@@ -14,6 +14,7 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 
 /// Modern recurring transactions page with Apple-inspired design
 /// Features tabbed interface for expenses and income
@@ -102,38 +103,36 @@ class _RecurringTransactionsPageState
         ref.watch(homeFilterProvider).selectedCurrency?.toUpperCase();
         
     return AdaptiveScaffold(
-      body: SafeArea(
-        child: AdaptiveTabBarView(
-          tabs: [
-            context.l10n.expenses,
-            context.l10n.income,
-          ],
-          children: [
-            _buildRecurringTabView(
+      body: AdaptiveTabBarView(
+        tabs: [
+          context.l10n.expenses,
+          context.l10n.income,
+        ],
+        children: [
+          _buildRecurringTabView(
+            colorScheme,
+            _buildExpensesSliver(
+              recurringExpenses,
               colorScheme,
-              _buildExpensesSliver(
-                recurringExpenses,
-                colorScheme,
-                selectedCurrency,
-                householdId,
-              ),
+              selectedCurrency,
               householdId,
             ),
-            _buildRecurringTabView(
+            householdId,
+          ),
+          _buildRecurringTabView(
+            colorScheme,
+            _buildIncomesSliver(
+              recurringIncomes,
               colorScheme,
-              _buildIncomesSliver(
-                recurringIncomes,
-                colorScheme,
-                selectedCurrency,
-                householdId,
-              ),
+              selectedCurrency,
               householdId,
             ),
-          ],
-          onTabChanged: (index) {
-            ref.read(selectedRecurringTabProvider.notifier).state = index;
-          },
-        ),
+            householdId,
+          ),
+        ],
+        onTabChanged: (index) {
+          ref.read(selectedRecurringTabProvider.notifier).state = index;
+        },
       ),
 
       // Floating action button
@@ -384,43 +383,36 @@ class _RecurringTransactionsPageState
     );
   }
 
-  Future<void> _deleteTransaction(RecurringTransaction transaction, String? householdId) async {
-    final confirmed = await showDialog<bool>(
+  Future<void> _deleteTransaction(
+      RecurringTransaction transaction, String? householdId) async {
+    final result = await MonekoAlertDialog.show(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(context.l10n.deleteRecurringTransaction),
-        content: Text(
-            context.l10n.areYouSureYouWantToDeleteThisRecurringTransaction),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(context.l10n.cancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(context.l10n.delete,
-                style: const TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
+      title: context.l10n.deleteRecurringTransaction,
+      description:
+          context.l10n.areYouSureYouWantToDeleteThisRecurringTransaction,
+      confirmLabel: context.l10n.delete,
+      cancelLabel: context.l10n.cancel,
+      barrierDismissible: true,
     );
 
-    if (confirmed == true) {
-      final user = supabase.auth.currentUser;
-      if (user == null) return;
+    if (result == null || !result.confirmed) {
+      return;
+    }
 
-      final success = await ref
-          .read(recurringTransactionsProvider(householdId).notifier)
-          .deleteRecurring(user.id, transaction.id);
+    final user = supabase.auth.currentUser;
+    if (user == null) return;
 
-      if (mounted) {
-        if (success) {
-          AppToast.success(context, context.l10n.recurringTransactionDeleted);
-        } else {
-          AppToast.error(
-              context, context.l10n.failedToDeleteRecurringTransaction);
-        }
-      }
+    final success = await ref
+        .read(recurringTransactionsProvider(householdId).notifier)
+        .deleteRecurring(user.id, transaction.id);
+
+    if (!mounted) return;
+
+    if (success) {
+      AppToast.success(context, context.l10n.recurringTransactionDeleted);
+    } else {
+      AppToast.error(
+          context, context.l10n.failedToDeleteRecurringTransaction);
     }
   }
 }

@@ -155,22 +155,6 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
         }
       }
 
-      // Handle no contact case
-      if (fetchedContact == null) {
-        state = state.copyWith(
-          contact: null,
-          expenses: [],
-          allExpenses: [],
-          budgets: [],
-          allBudgets: [],
-          preferredCurrency: null,
-          isLoading: false,
-          hasLoadedOnce: true,
-        );
-        debugPrint('[Analytics] No contact found, setting empty state with hasLoadedOnce=true');
-        return;
-      }
-
       // Check if this operation is still current
       if (_loadOperationId != currentOperationId) {
         debugPrint('[Analytics] Operation $currentOperationId superseded before state update');
@@ -185,7 +169,8 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
         allExpenses: allExpenses,
         budgets: allBudgets,
         allBudgets: allBudgets,
-        preferredCurrency: fetchedContact.preferredCurrency?.toUpperCase(),
+        preferredCurrency:
+            fetchedContact?.preferredCurrency?.toUpperCase(),
         isLoading: false,
         hasLoadedOnce: true,
       );
@@ -252,18 +237,19 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
     final contactResponse =
         contactsList.isNotEmpty ? contactsList.first : null;
 
-    if (contactResponse == null) {
-      return _BatchedQueryResult(contact: null, expenses: [], budgets: []);
-    }
-
-    final fetchedContact = UserContact.fromJson(contactResponse);
+    // If there is no user_contacts row yet (typical for app-only users
+    // who never used WhatsApp), we still want to proceed and load
+    // expenses via user_id only. In that case, contact stays null but
+    // expenses/budgets can still be populated.
+    final fetchedContact =
+        contactResponse != null ? UserContact.fromJson(contactResponse) : null;
 
     // Warm up connection if needed
     if (!_connectionWarmedUp) {
       await _warmupConnection(userId);
     }
 
-    // Build contact IDs list
+    // Build contact IDs list (may be empty when user has no contact row)
     final contactIds = contactsList
         .map((c) => c['id'] as String?)
         .where((id) => id != null && id.isNotEmpty)
@@ -312,28 +298,36 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
     final budgetStopwatch = Stopwatch()..start();
     List<DailyBudgetEntry> allBudgets = [];
     try {
-      dynamic budgetsResponse;
-      if (contactIds.length <= 1) {
-        final contactId = contactIds.isNotEmpty ? contactIds.first : fetchedContact.id;
-        budgetsResponse = await supabase
-            .from('daily_budgets')
-            .select('id,contact_id,date,amount_cents,currency')
-            .eq('contact_id', contactId)
-            .limit(10000)
-            .order('date', ascending: true)
-            .timeout(const Duration(seconds: 5));
+      // If we have no contact IDs and no fetchedContact, we cannot
+      // associate budgets with this user yet, so skip the query and
+      // leave budgets empty.
+      if (contactIds.isEmpty && fetchedContact == null) {
+        allBudgets = [];
       } else {
-        budgetsResponse = await supabase
-            .from('daily_budgets')
-            .select('id,contact_id,date,amount_cents,currency')
-            .inFilter('contact_id', contactIds)
-            .limit(10000)
-            .order('date', ascending: true)
-            .timeout(const Duration(seconds: 5));
+        dynamic budgetsResponse;
+        if (contactIds.length <= 1) {
+          final contactId =
+              contactIds.isNotEmpty ? contactIds.first : fetchedContact!.id;
+          budgetsResponse = await supabase
+              .from('daily_budgets')
+              .select('id,contact_id,date,amount_cents,currency')
+              .eq('contact_id', contactId)
+              .limit(5000)
+              .order('date', ascending: true)
+              .timeout(const Duration(seconds: 5));
+        } else {
+          budgetsResponse = await supabase
+              .from('daily_budgets')
+              .select('id,contact_id,date,amount_cents,currency')
+              .inFilter('contact_id', contactIds)
+              .limit(5000)
+              .order('date', ascending: true)
+              .timeout(const Duration(seconds: 5));
+        }
+        allBudgets = (budgetsResponse as List)
+            .map((b) => DailyBudgetEntry.fromJson(b as Map<String, dynamic>))
+            .toList();
       }
-      allBudgets = (budgetsResponse as List)
-          .map((b) => DailyBudgetEntry.fromJson(b as Map<String, dynamic>))
-          .toList();
       
       budgetStopwatch.stop();
       debugPrint('[Analytics] [FALLBACK] Budgets fetched in ${budgetStopwatch.elapsedMilliseconds}ms');

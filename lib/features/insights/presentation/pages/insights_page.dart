@@ -32,30 +32,28 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
           // Analytics data refresh will be handled by analyticsProvider
           await Future.delayed(const Duration(milliseconds: 500));
         },
-        child: SafeArea(
-          child: SizedBox(
-            width: double.infinity,
-            child: AdaptiveTabBarView(
-              tabs: [
-                // Scenario first, then Running
-                context.l10n.scenarioTab,
-                context.l10n.runningTab,
-              ],
-              children: [
-                _buildScenarioPlanningTabWithProvider(
-                  colorScheme,
-                  analyticsData,
-                  filterState.selectedCurrency,
-                ),
-                buildRunningBalanceTab(
-                  context,
-                  colorScheme,
-                  analyticsData,
-                  selectedCurrency: filterState.selectedCurrency,
-                ),
-              ],
-              onTabChanged: (_) {},
-            ),
+        child: SizedBox(
+          width: double.infinity,
+          child: AdaptiveTabBarView(
+            tabs: [
+              // Scenario first, then Running
+              context.l10n.scenarioTab,
+              context.l10n.runningTab,
+            ],
+            children: [
+              _buildScenarioPlanningTabWithProvider(
+                colorScheme,
+                analyticsData,
+                filterState.selectedCurrency,
+              ),
+              buildRunningBalanceTab(
+                context,
+                colorScheme,
+                analyticsData,
+                selectedCurrency: filterState.selectedCurrency,
+              ),
+            ],
+            onTabChanged: (_) {},
           ),
         ),
       ),
