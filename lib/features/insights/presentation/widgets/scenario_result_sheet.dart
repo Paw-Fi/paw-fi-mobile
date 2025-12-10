@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
@@ -19,6 +20,8 @@ void showScenarioResultSheet(
   BuildContext context,
   String advice,
   Map<String, dynamic> meta, {
+  ValueNotifier<String>? liveAdvice,
+  ValueNotifier<bool>? isCompleteNotifier,
   String? selectedCurrency,
   String? question,
   String? userId,
@@ -51,6 +54,14 @@ void showScenarioResultSheet(
   final String? targetDateStr = meta['targetDate'] as String?;
   String? scenarioHistoryId = scenarioId ?? (meta['id'] as String?);
 
+  // Typewriter animation state: progressively reveal the advice text.
+  String visibleAdvice = '';
+  bool typewriterStarted = false;
+
+  String getFullAdvice() => (liveAdvice?.value.isNotEmpty == true)
+      ? liveAdvice!.value
+      : advice;
+
   showModalBottomSheet(
     context: context,
     backgroundColor: Colors.transparent,
@@ -64,6 +75,40 @@ void showScenarioResultSheet(
       bool isSaved = openedFromHistory;
       return StatefulBuilder(
         builder: (context, setState) {
+          // Lazily start the typewriter effect on first build.
+          if (!typewriterStarted) {
+            typewriterStarted = true;
+            const step = 4; // characters per tick
+            const delay = Duration(milliseconds: 16); // ~60fps
+            int index = 0;
+
+            Timer.periodic(delay, (timer) {
+              if (!context.mounted) {
+                timer.cancel();
+                return;
+              }
+
+              final full = getFullAdvice();
+              if (full.isEmpty) {
+                return;
+              }
+
+              // For non-streaming use (no liveAdvice), we can stop once we
+              // have revealed the entire static advice. For streaming, we
+              // keep the timer running so newly arrived chunks can continue
+              // the animation.
+              if (liveAdvice == null && index >= full.length) {
+                timer.cancel();
+                return;
+              }
+
+              index = (index + step).clamp(0, full.length);
+              setState(() {
+                visibleAdvice = full.substring(0, index);
+              });
+            });
+          }
+
           return Container(
             constraints: BoxConstraints(
               maxHeight: MediaQuery.of(context).size.height * 0.85,
@@ -103,18 +148,20 @@ void showScenarioResultSheet(
                       ),
                     ),
                   ),
-                  IconButton(
-                    icon: Icon(
-                      isSaved
-                          ? Icons.bookmark
-                          : Icons.bookmark_outline,
-                      color:
-                          isSaved ? colorScheme.primary : colorScheme.foreground,
-                    ),
-                    tooltip: context.l10n.save,
-                    onPressed: (question == null || userId == null)
-                        ? null
-                        : () async {
+                  if (isCompleteNotifier == null)
+                    IconButton(
+                      icon: Icon(
+                        isSaved
+                            ? Icons.bookmark
+                            : Icons.bookmark_outline,
+                        color: isSaved
+                            ? colorScheme.primary
+                            : colorScheme.foreground,
+                      ),
+                      tooltip: context.l10n.save,
+                      onPressed: (question == null || userId == null)
+                          ? null
+                          : () async {
                             // Toggle behavior: save when not yet saved, otherwise
                             // ask for confirmation and delete.
                             if (!isSaved) {
@@ -126,7 +173,7 @@ void showScenarioResultSheet(
                                   'user_id': userId,
                                   'household_id': effectiveHouseholdId,
                                   'question': question,
-                                  'answer': advice,
+                                  'answer': getFullAdvice(),
                                   'target_date': targetDateStr,
                                   'currency': selectedCurrency,
                                   'mode': effectiveMode,
@@ -160,7 +207,7 @@ void showScenarioResultSheet(
                                 context: context,
                                 title: context.l10n.delete,
                                 message:
-                                    'Are you sure you want to delete this saved scenario? This will permanently remove it and can’t be undone.',
+                                    'Are you sure you want to delete this scenario? This will permanently remove it and can’t be undone.',
                                 actions: [
                                   AlertAction(
                                     title: context.l10n.cancel,
@@ -216,7 +263,136 @@ void showScenarioResultSheet(
                               );
                             }
                           },
-                  ),
+                    )
+                  else
+                    ValueListenableBuilder<bool>(
+                      valueListenable: isCompleteNotifier!,
+                      builder: (context, isComplete, _) {
+                        if (!isComplete) {
+                          // Reserve icon space but hide the actual button
+                          return const SizedBox(width: 48);
+                        }
+                        return IconButton(
+                          icon: Icon(
+                            isSaved
+                                ? Icons.bookmark
+                                : Icons.bookmark_outline,
+                            color: isSaved
+                                ? colorScheme.primary
+                                : colorScheme.foreground,
+                          ),
+                          tooltip: context.l10n.save,
+                          onPressed: (question == null || userId == null)
+                              ? null
+                              : () async {
+                                  if (!isSaved) {
+                                    debugPrint('Saving scenario...');
+                                    try {
+                                      final inserted =
+                                          await Supabase.instance.client
+                                              .from('ai_scenario_history')
+                                              .insert({
+                                            'user_id': userId,
+                                            'household_id':
+                                                effectiveHouseholdId,
+                                            'question': question,
+                                            'answer': getFullAdvice(),
+                                            'target_date': targetDateStr,
+                                            'currency': selectedCurrency,
+                                            'mode': effectiveMode,
+                                          })
+                                              .select()
+                                              .single();
+
+                                      scenarioHistoryId = inserted['id']
+                                              as String? ??
+                                          scenarioHistoryId;
+
+                                      setState(() {
+                                        isSaved = true;
+                                      });
+
+                                      if (onSaved != null) {
+                                        onSaved();
+                                      }
+
+                                      if (!context.mounted) return;
+                                      AppToast.success(
+                                          context, 'Scenario saved');
+                                    } catch (e) {
+                                      if (!context.mounted) return;
+                                      AppToast.error(
+                                        context,
+                                        context.l10n
+                                            .analysisFailed(e.toString()),
+                                      );
+                                    }
+                                  } else {
+                                    // Confirm deletion before removing a saved scenario.
+                                    await AdaptiveAlertDialog.show(
+                                      context: context,
+                                      title: context.l10n.delete,
+                                      message:
+                                          'Are you sure you want to delete this scenario? This will permanently remove it and can’t be undone.',
+                                      actions: [
+                                        AlertAction(
+                                          title: context.l10n.cancel,
+                                          style: AlertActionStyle.cancel,
+                                          onPressed: () {},
+                                        ),
+                                        AlertAction(
+                                          title: context.l10n.delete,
+                                          style: AlertActionStyle.destructive,
+                                          onPressed: () async {
+                                            try {
+                                              if (scenarioHistoryId == null) {
+                                                if (context.mounted) {
+                                                  AppToast.error(
+                                                    context,
+                                                    'Unable to delete this scenario',
+                                                  );
+                                                }
+                                                return;
+                                              }
+
+                                              await Supabase.instance.client
+                                                  .from('ai_scenario_history')
+                                                  .delete()
+                                                  .eq('id',
+                                                      scenarioHistoryId!);
+
+                                              setState(() {
+                                                isSaved = false;
+                                              });
+
+                                              if (onDeleted != null) {
+                                                onDeleted();
+                                              }
+
+                                              if (!context.mounted) return;
+                                              AppToast.success(context,
+                                                  'Scenario deleted');
+
+                                              // Close the result sheet after
+                                              // successful deletion.
+                                              Navigator.of(context).pop();
+                                            } catch (e) {
+                                              if (!context.mounted) return;
+                                              AppToast.error(
+                                                context,
+                                                context.l10n.analysisFailed(
+                                                    e.toString()),
+                                              );
+                                            }
+                                          },
+                                        ),
+                                      ],
+                                    );
+                                  }
+                                },
+                        );
+                      },
+                    ),
                 ],
               ),
             ),
@@ -251,8 +427,10 @@ void showScenarioResultSheet(
                     const SizedBox(height: 16),
 
                     // AI Advice (parsed from markdown)
+                    // Use the progressively revealed text if available,
+                    // otherwise fall back to the full advice string.
                     MarkdownBlock(
-                      data: advice,
+                      data: visibleAdvice.isEmpty ? advice : visibleAdvice,
                       config: MarkdownConfig(
                         configs: [
                           PConfig(
@@ -322,9 +500,8 @@ void showScenarioResultSheet(
           );
         },
       );
-    },
-  );
-}
+    });
+  }
 
 Widget _buildStatRow(BuildContext context, ColorScheme colorScheme, String label, String value) {
   return Padding(

@@ -1,18 +1,21 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:ui' as ui;
+
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
-
-import 'package:moneko/features/insights/presentation/widgets/scenario_result_sheet.dart';
 import 'package:moneko/features/insights/presentation/widgets/insights_ui.dart';
-import 'package:intl/intl.dart';
-import 'dart:ui' as ui;
-import 'package:flutter/cupertino.dart';
-import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/features/insights/presentation/widgets/scenario_result_sheet.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/subtle_adaptive_button.dart';
 
@@ -492,6 +495,8 @@ class _ScenarioPlanningTabContentState
                                       ),
                                     );
 
+                                    bool sheetOpened = false;
+
                                     try {
                                       final payload = <String, dynamic>{
                                         'question': context.l10n
@@ -516,25 +521,146 @@ class _ScenarioPlanningTabContentState
                                         payload['householdId'] = householdId;
                                       }
 
-                                      final response =
-                                          await supabase.functions.invoke(
-                                        'ai-scenario-planner',
-                                        body: payload,
+                                      // Stream the AI scenario planner response (NDJSON)
+                                      final client = supabase; // SupabaseClient from core/resources/lib/supabase.dart
+                                      final uri = Uri.parse(
+                                        '${Constants.supabaseUrl}/functions/v1/ai-scenario-planner',
                                       );
 
-                                      if (!context.mounted) return;
+                                      final accessToken =
+                                          client.auth.currentSession?.accessToken;
+                                      if (accessToken == null ||
+                                          accessToken.isEmpty) {
+                                        throw Exception(
+                                            'Missing access token for scenario planner');
+                                      }
 
-                                      // Close loading modal
-                                      Navigator.of(context, rootNavigator: true)
-                                          .pop();
+                                      final headers = <String, String>{
+                                        'Content-Type': 'application/json',
+                                        'Accept':
+                                            'application/x-ndjson, application/json',
+                                        'Authorization': 'Bearer $accessToken',
+                                        // Use the public anon key so Supabase can authorize the function call
+                                        'apikey': Constants.supabaseAnon,
+                                      };
 
-                                      if (response.data != null &&
-                                          response.data['success'] == true) {
+                                      final request = http.Request('POST', uri)
+                                        ..headers.addAll(headers)
+                                        ..body = jsonEncode(payload);
+
+                                      final streamedResponse =
+                                          await http.Client().send(request);
+
+                                      if (streamedResponse.statusCode != 200) {
+                                        final bodyText = await streamedResponse
+                                            .stream
+                                            .bytesToString();
+                                        throw Exception(
+                                          'Failed to analyze scenario (HTTP ${streamedResponse.statusCode}): $bodyText',
+                                        );
+                                      }
+
+                                      final lineStream = streamedResponse.stream
+                                          .transform(utf8.decoder)
+                                          .transform(const LineSplitter());
+
+                                      final adviceNotifier =
+                                          ValueNotifier<String>('');
+                                      final isCompleteNotifier =
+                                          ValueNotifier<bool>(false);
+                                      Map<String, dynamic> meta = {};
+                                      bool done = false;
+                                      bool gotMeta = false;
+
+                                      await for (final line in lineStream) {
+                                        if (line.trim().isEmpty) continue;
+                                        final obj = jsonDecode(line)
+                                            as Map<String, dynamic>;
+                                        final type = obj['type'] as String?;
+                                        switch (type) {
+                                          case 'meta':
+                                            final rawMeta = obj['meta'];
+                                            if (rawMeta is Map) {
+                                              meta = rawMeta
+                                                  .cast<String, dynamic>();
+                                            }
+                                            gotMeta = true;
+                                            break;
+                                          case 'chunk':
+                                            final chunkText =
+                                                obj['text'] as String? ?? '';
+                                            adviceNotifier.value =
+                                                '${adviceNotifier.value}$chunkText';
+
+                                            if (gotMeta &&
+                                                !sheetOpened &&
+                                                context.mounted) {
+                                              // Close loading modal and show
+                                              // the result sheet that listens
+                                              // to live updates.
+                                              Navigator.of(context,
+                                                      rootNavigator: true)
+                                                  .pop();
+
+                                              setState(() {
+                                                _scenarioLoading = false;
+                                              });
+
+                                              showScenarioResultSheet(
+                                                context,
+                                                adviceNotifier.value,
+                                                meta,
+                                                isCompleteNotifier:
+                                                    isCompleteNotifier,
+                                                liveAdvice: adviceNotifier,
+                                                selectedCurrency:
+                                                    widget.selectedCurrency,
+                                                question: context.l10n
+                                                    .scenarioQuestionTemplate(
+                                                  q,
+                                                  d,
+                                                ),
+                                                userId: user.uid,
+                                                mode: isHousehold
+                                                    ? 'household'
+                                                    : 'personal',
+                                                householdId: householdId,
+                                                onSaved: () {
+                                                  setState(() {});
+                                                },
+                                                onDeleted: () {
+                                                  setState(() {});
+                                                },
+                                              );
+                                              sheetOpened = true;
+                                            }
+                                            break;
+                                          case 'error':
+                                            final msg = obj['error'] ??
+                                                'Unknown error';
+                                            throw Exception('$msg');
+                                          case 'done':
+                                            isCompleteNotifier.value = true;
+                                            done = true;
+                                            break;
+                                          default:
+                                            break;
+                                        }
+                                        if (done) break;
+                                      }
+
+                                      if (!sheetOpened) {
                                         final advice =
-                                            response.data['advice'] ??
-                                                'No analysis available';
-                                        final meta =
-                                            response.data['meta'] ?? {};
+                                            adviceNotifier.value.isEmpty
+                                                ? 'No analysis available'
+                                                : adviceNotifier.value;
+
+                                        if (!context.mounted) return;
+
+                                        // Close loading modal
+                                        Navigator.of(context,
+                                                rootNavigator: true)
+                                            .pop();
 
                                         setState(() {
                                           _scenarioLoading = false;
@@ -543,10 +669,14 @@ class _ScenarioPlanningTabContentState
                                         // Auto-show the result sheet and pass
                                         // required fields so the Save button
                                         // is enabled.
+                                        isCompleteNotifier.value = true;
+
                                         showScenarioResultSheet(
                                           context,
                                           advice,
                                           meta,
+                                          isCompleteNotifier:
+                                              isCompleteNotifier,
                                           selectedCurrency:
                                               widget.selectedCurrency,
                                           question: context.l10n
@@ -566,21 +696,21 @@ class _ScenarioPlanningTabContentState
                                             setState(() {});
                                           },
                                         );
-                                      } else {
-                                        final error = response.data?['error'] ??
-                                            'Failed to analyze scenario';
-                                        throw Exception(error);
                                       }
                                     } catch (e) {
                                       if (!context.mounted) return;
 
-                                      // Close loading modal
-                                      Navigator.of(context, rootNavigator: true)
-                                          .pop();
+                                      if (!sheetOpened) {
+                                        // Close loading modal only if it is
+                                        // still showing.
+                                        Navigator.of(context,
+                                                rootNavigator: true)
+                                            .pop();
 
-                                      setState(() {
-                                        _scenarioLoading = false;
-                                      });
+                                        setState(() {
+                                          _scenarioLoading = false;
+                                        });
+                                      }
                                       AppToast.info(
                                           context,
                                           context.l10n
