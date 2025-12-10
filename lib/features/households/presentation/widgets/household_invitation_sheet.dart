@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/household_providers.dart';

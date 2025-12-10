@@ -3,9 +3,8 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
-import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
 void showTextInputDrawer(
   BuildContext parentContext,

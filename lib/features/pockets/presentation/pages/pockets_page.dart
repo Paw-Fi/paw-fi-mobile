@@ -17,8 +17,8 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/pockets/presentation/widgets/pockets_grid_section.dart';
-import 'package:moneko/shared/widgets/plain-adaptive-button.dart';
-import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
+import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
 Household? _resolveHouseholdSelection(
@@ -116,11 +116,9 @@ class PocketsPage extends HookConsumerWidget {
             ),
           ),
           floatingActionButton: shouldShowHomeFab(viewMode, householdsAsync)
-              ? Padding(
-                  padding: false
-                      ? const EdgeInsets.only(bottom: 80, right: 6)
-                      : const EdgeInsets.all(0),
-                  child: const HomeAiExpandableFab(),
+              ? const Padding(
+                  padding: EdgeInsets.all(0),
+                  child: HomeAiExpandableFab(),
                 )
               : null,
         );
@@ -158,11 +156,9 @@ class PocketsPage extends HookConsumerWidget {
             ),
           ),
           floatingActionButton: shouldShowHomeFab(viewMode, householdsAsync)
-              ? Padding(
-                  padding: false
-                      ? const EdgeInsets.only(bottom: 80, right: 6)
-                      : const EdgeInsets.all(0),
-                  child: const HomeAiExpandableFab(),
+              ? const Padding(
+                  padding: EdgeInsets.all(0),
+                  child: HomeAiExpandableFab(),
                 )
               : null,
         );
@@ -172,11 +168,9 @@ class PocketsPage extends HookConsumerWidget {
         return AdaptiveScaffold(
           body: const HouseholdOnboardingPage(),
           floatingActionButton: shouldShowHomeFab(viewMode, householdsAsync)
-              ? Padding(
-                  padding: false
-                      ? const EdgeInsets.only(bottom: 80, right: 6)
-                      : const EdgeInsets.all(0),
-                  child: const HomeAiExpandableFab(),
+              ? const Padding(
+                  padding: EdgeInsets.all(0),
+                  child: HomeAiExpandableFab(),
                 )
               : null,
         );
@@ -199,11 +193,9 @@ class PocketsPage extends HookConsumerWidget {
             ),
           ),
           floatingActionButton: shouldShowHomeFab(viewMode, householdsAsync)
-              ? Padding(
-                  padding: false
-                      ? const EdgeInsets.only(bottom: 80, right: 6)
-                      : const EdgeInsets.all(0),
-                  child: const HomeAiExpandableFab(),
+              ? const Padding(
+                  padding: EdgeInsets.all(0),
+                  child: HomeAiExpandableFab(),
                 )
               : null,
         );
@@ -292,15 +284,16 @@ class PocketsPage extends HookConsumerWidget {
                       padding: const EdgeInsets.only(
                           top: 8, left: 16, right: 16, bottom: 8),
                       decoration: BoxDecoration(
-                        color: colorScheme.surface.withOpacity(0.9),
+                        color: colorScheme.surface.withValues(alpha: 0.9),
                         borderRadius: BorderRadius.circular(32),
                         border: Border.all(
-                          color: colorScheme.outlineVariant.withOpacity(0.5),
+                          color:
+                              colorScheme.outlineVariant.withValues(alpha: 0.5),
                           width: 1,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: colorScheme.shadow.withOpacity(0.15),
+                            color: colorScheme.shadow.withValues(alpha: 0.15),
                             blurRadius: 24,
                             offset: const Offset(0, 8),
                           ),
@@ -335,11 +328,9 @@ class PocketsPage extends HookConsumerWidget {
         ],
       ),
       floatingActionButton: shouldShowHomeFab(viewMode, householdsAsync)
-          ? Padding(
-              padding: false
-                  ? const EdgeInsets.only(bottom: 80, right: 6)
-                  : const EdgeInsets.all(0),
-              child: const HomeAiExpandableFab(),
+          ? const Padding(
+              padding: EdgeInsets.all(0),
+              child: HomeAiExpandableFab(),
             )
           : null,
     );
@@ -428,10 +419,10 @@ class _CopyBudgetBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: colorScheme.primaryContainer.withOpacity(0.5),
+        color: colorScheme.primaryContainer.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: colorScheme.primary.withOpacity(0.2),
+          color: colorScheme.primary.withValues(alpha: 0.2),
         ),
       ),
       child: Column(

@@ -9,7 +9,7 @@ import 'package:moneko/features/income/presentation/constants/income_categories.
 import 'package:moneko/features/income/presentation/widgets/income_entry_sheet.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
 
 import 'package:moneko/core/ui/notifications/app_toast.dart';

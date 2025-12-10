@@ -546,7 +546,7 @@ class RecurringTransactionSaveNotifier
       };
       if (description != null && description.trim().isNotEmpty) {
         updates['raw_text'] = description.trim();
-      };
+      }
 
       debugPrint('📝 [UpdateRecurring] Building update-expense request body');
       debugPrint('   userId: $userId');

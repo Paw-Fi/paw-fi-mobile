@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
-import 'package:moneko/shared/widgets/plain-adaptive-button.dart';
+import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
+import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/core/core.dart';

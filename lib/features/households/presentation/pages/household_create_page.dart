@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/utils/sub_page_top_padding.dart';
-import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
@@ -189,44 +189,7 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
 
   // Currency selector removed intentionally — currency is resolved from providers
 
-  Widget _buildHeader(ColorScheme colorScheme) {
-    return Semantics(
-      label: context.l10n.createHouseholdPage,
-      header: true,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Row(
-          children: [
-            Semantics(
-              label: HouseholdConstants.backButtonLabel,
-              button: true,
-              child: IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-                color: colorScheme.foreground,
-                onPressed: () => Navigator.pop(context),
-                style: IconButton.styleFrom(
-                  minimumSize: const Size(44, 44),
-                ),
-              ),
-            ),
-            Expanded(
-              child: Text(
-                context.l10n.createHousehold,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.foreground,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-            const SizedBox(width: 44),
-          ],
-        ),
-      ),
-    );
-  }
-
+  
   Widget _buildCoverImageSection(ColorScheme colorScheme, bool isLoading) {
     return Semantics(
       label: HouseholdConstants.coverImageSemanticLabel,

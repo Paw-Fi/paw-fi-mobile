@@ -107,13 +107,14 @@ class _OtpInputState extends State<OtpInput> {
                   border: Border.all(
                     color: isActive && _focusNode.hasFocus
                         ? colorScheme.primary
-                        : colorScheme.outlineVariant.withOpacity(0.5),
+                        : colorScheme.outlineVariant.withValues(alpha: 0.5),
                     width: isActive && _focusNode.hasFocus ? 2 : 1,
                   ),
                   boxShadow: [
                     if (isActive && _focusNode.hasFocus)
                       BoxShadow(
-                        color: colorScheme.primary.withOpacity(0.1),
+                        color:
+                            colorScheme.primary.withValues(alpha: 0.1),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),

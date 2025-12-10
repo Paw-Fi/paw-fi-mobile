@@ -1,4 +1,5 @@
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 enum DashboardWidgetType {
   // Personal Home Widgets
@@ -127,14 +128,14 @@ class DashboardWidgetConfig {
     final String? typeName = json['type'] as String?;
     String migratedTypeName = typeName ?? 'spendingSummary';
     
-    print('🔍 DashboardConfig.fromJson: original type=$typeName');
+    FirebaseCrashlytics.instance.log('🔍 DashboardConfig.fromJson: original type=$typeName');
     
     if (migratedTypeName == 'categoryBreakdown') {
       migratedTypeName = 'recentTransactions';
-      print('🔄 Migrated categoryBreakdown -> recentTransactions');
+      FirebaseCrashlytics.instance.log('🔄 Migrated categoryBreakdown -> recentTransactions');
     } else if (migratedTypeName == 'householdCategoryBreakdown') {
       migratedTypeName = 'householdRecentTransactions';
-      print('🔄 Migrated householdCategoryBreakdown -> householdRecentTransactions');
+      FirebaseCrashlytics.instance.log('🔄 Migrated householdCategoryBreakdown -> householdRecentTransactions');
     }
     
     return DashboardWidgetConfig(

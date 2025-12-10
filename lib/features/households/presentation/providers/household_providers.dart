@@ -1,9 +1,9 @@
-import 'package:flutter/foundation.dart';
 import 'package:moneko/core/core.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'dart:async';
 
 import '../../domain/entities/household.dart';
@@ -404,17 +404,17 @@ final householdSummaryProvider =
         return summary;
       } on TimeoutException catch (e) {
         lastError = e;
-        debugPrint(
+        FirebaseCrashlytics.instance.log(
             '⚠️ householdSummaryProvider timeout (attempt $attempt/$maxAttempts) for ${params.householdId} ${params.currency}');
       } on FunctionException catch (e) {
         lastError = e;
-        debugPrint(
+        FirebaseCrashlytics.instance.log(
             '⚠️ householdSummaryProvider function error ${e.status} (attempt $attempt/$maxAttempts) for ${params.householdId} ${params.currency}');
         // For auth/permission issues, do not keep retrying
         if (e.status == 401 || e.status == 403) break;
       } catch (e) {
         lastError = e is Exception ? e : Exception(e.toString());
-        debugPrint(
+        FirebaseCrashlytics.instance.log(
             '⚠️ householdSummaryProvider error (attempt $attempt/$maxAttempts) for ${params.householdId} ${params.currency}: $e');
       }
     }
@@ -551,7 +551,7 @@ final householdExpensesProvider =
           .cast<String>()
           .toSet()
           .toList();
-      debugPrint('🔍 Found ${userIds.length} unique user IDs: $userIds');
+      FirebaseCrashlytics.instance.log('🔍 Found ${userIds.length} unique user IDs: $userIds');
 
       Map<String, Map<String, dynamic>> usersMap = {};
       if (userIds.isNotEmpty) {
@@ -586,15 +586,15 @@ final householdExpensesProvider =
 
       return expensesList.map(ExpenseEntry.fromJson).toList();
     } on TimeoutException catch (e, st) {
-      debugPrint(
+      FirebaseCrashlytics.instance.log(
         '⚠️ householdExpensesProvider timeout for ' 
         '${params.householdId} (limit=${params.limit}): $e',
       );
-      debugPrint('❌ Error loading household expenses (timeout): $e\n$st');
+      FirebaseCrashlytics.instance.log('❌ Error loading household expenses (timeout): $e\n$st');
       // Bubble up to UI to show consistent error state
       rethrow;
     } catch (e, st) {
-      debugPrint('❌ Error loading household expenses: $e\n$st');
+      FirebaseCrashlytics.instance.log('❌ Error loading household expenses: $e\n$st');
       // Bubble up to UI to show consistent error state
       rethrow;
     }
@@ -756,11 +756,11 @@ final householdSettlementHistoryProvider = FutureProvider.autoDispose
     final supabase = ref.watch(supabaseClientProvider);
     final currentUserId = supabase.auth.currentUser?.id;
     if (currentUserId == null) {
-      print(
+      FirebaseCrashlytics.instance.log(
           '[settlement_history] no current user; skip load household=${params.householdId}');
       return const <SettlementEvent>[];
     }
-    print(
+    FirebaseCrashlytics.instance.log(
         '[settlement_history] start household=${params.householdId} limit=${params.limit} user=$currentUserId');
 
     // Query 1: lines where current user is participant
@@ -789,21 +789,21 @@ final householdSettlementHistoryProvider = FutureProvider.autoDispose
         .limit(params.limit)
         .timeout(const Duration(seconds: 10));
 
-    print(
+    FirebaseCrashlytics.instance.log(
         '[settlement_history] raw response types: participant=${responseParticipant.runtimeType} payer=${responsePayer.runtimeType} household=${params.householdId}');
 
     final rows = <Map<String, dynamic>>[
       ...(responseParticipant as List).cast<Map<String, dynamic>>(),
       ...(responsePayer as List).cast<Map<String, dynamic>>(),
     ];
-    print(
+    FirebaseCrashlytics.instance.log(
         '[settlement_history] fetched rows=${rows.length} household=${params.householdId}');
     if (rows.isNotEmpty) {
       final sample = rows.first;
-      print(
+      FirebaseCrashlytics.instance.log(
           '[settlement_history] sample settled_at=${sample['settled_at']} payer=${(sample['expense_split_groups'] as Map?)?['payer_user_id']} participant=${sample['user_id']} amount=${sample['amount_cents']} currency=${(sample['expense_split_groups'] as Map?)?['currency']}');
     } else {
-      print(
+      FirebaseCrashlytics.instance.log(
           '[settlement_history] no rows returned for household=${params.householdId}');
     }
 
@@ -832,7 +832,7 @@ final householdSettlementHistoryProvider = FutureProvider.autoDispose
           }
         }
       } catch (e, st) {
-        print(
+        FirebaseCrashlytics.instance.log(
             '[settlement_history] error loading expense metadata household=${params.householdId}: $e\n$st');
       }
     }
@@ -995,11 +995,11 @@ final householdSettlementHistoryProvider = FutureProvider.autoDispose
       );
     }).toList()
       ..sort((a, b) => b.settledAt.compareTo(a.settledAt));
-    print(
+    FirebaseCrashlytics.instance.log(
         '[settlement_history] aggregated events=${events.length} skippedMissingDate=$skippedMissingDate skippedMissingIds=$skippedMissingIds skippedZeroAmount=$skippedZeroAmount household=${params.householdId}');
     return events;
   } catch (e, st) {
-    print(
+    FirebaseCrashlytics.instance.log(
         '[settlement_history] error household=${params.householdId}: $e\n$st');
     return const <SettlementEvent>[];
   }

@@ -207,7 +207,7 @@ class WidgetSyncManager extends HookConsumerWidget {
               // Icon can be stored as a string name or another type (e.g. int codepoint).
               // Preserve whatever identifier exists by converting to string.
               final dynamic rawIcon = row['icon'];
-              final String? icon = rawIcon != null ? rawIcon.toString() : null;
+              final String? icon = rawIcon?.toString();
 
               pockets.add(
                 WidgetPocketData(
@@ -341,7 +341,7 @@ class WidgetSyncManager extends HookConsumerWidget {
               final spent = spentById[id] ?? 0.0;
               final color = row['color'] as String? ?? '#7458FF';
               final dynamic rawIcon = row['icon'];
-              final String? icon = rawIcon != null ? rawIcon.toString() : null;
+              final String? icon = rawIcon?.toString();
 
               pockets.add(
                 WidgetPocketData(

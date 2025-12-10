@@ -102,8 +102,9 @@ Widget buildCategoryBarChart(BuildContext context, ColorScheme colorScheme,
               sideTitles: SideTitles(
                 showTitles: true,
                 getTitlesWidget: (value, meta) {
-                  if (value.toInt() >= categories.length)
+                  if (value.toInt() >= categories.length) {
                     return const SizedBox();
+                  }
                   return Text(
                     getCategoryTranslation(context, categories[value.toInt()]),
                     style: TextStyle(

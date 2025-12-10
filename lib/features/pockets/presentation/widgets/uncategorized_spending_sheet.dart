@@ -37,18 +37,19 @@ void showUncategorizedSheet(
                   maxHeight: MediaQuery.of(sheetContext).size.height * 0.85,
                 ),
                 decoration: BoxDecoration(
-                  color: colorScheme.surface.withOpacity(0.9),
+                  color: colorScheme.surface.withValues(alpha: 0.9),
                   borderRadius:
                       const BorderRadius.vertical(top: Radius.circular(32)),
                   border: Border(
                     top: BorderSide(
-                      color: colorScheme.outlineVariant.withOpacity(0.3),
+                      color:
+                          colorScheme.outlineVariant.withValues(alpha: 0.3),
                       width: 1,
                     ),
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
+                      color: Colors.black.withValues(alpha: 0.1),
                       blurRadius: 40,
                       offset: const Offset(0, -10),
                     ),
@@ -72,8 +73,8 @@ void showUncategorizedSheet(
                           width: 40,
                           height: 4,
                           decoration: BoxDecoration(
-                            color:
-                                colorScheme.onSurfaceVariant.withOpacity(0.3),
+                            color: colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.3),
                             borderRadius: BorderRadius.circular(2),
                           ),
                         ),
@@ -207,13 +208,13 @@ class _UncategorizedCategoryTileState extends State<_UncategorizedCategoryTile>
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: _isExpanded
-              ? colorScheme.primary.withOpacity(0.2)
-              : colorScheme.outlineVariant.withOpacity(0.4),
+              ? colorScheme.primary.withValues(alpha: 0.2)
+              : colorScheme.outlineVariant.withValues(alpha: 0.4),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: colorScheme.shadow.withOpacity(0.05),
+            color: colorScheme.shadow.withValues(alpha: 0.05),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -310,7 +311,8 @@ class _UncategorizedCategoryTileState extends State<_UncategorizedCategoryTile>
                     children: [
                       Container(
                         height: 1,
-                        color: colorScheme.outlineVariant.withOpacity(0.3),
+                        color:
+                            colorScheme.outlineVariant.withValues(alpha: 0.3),
                       ),
                       if (widget.expenses.isEmpty)
                         Padding(
@@ -334,7 +336,8 @@ class _UncategorizedCategoryTileState extends State<_UncategorizedCategoryTile>
                             height: 1,
                             indent: 56,
                             endIndent: 16,
-                            color: colorScheme.outlineVariant.withOpacity(0.2),
+                            color: colorScheme.outlineVariant
+                                .withValues(alpha: 0.2),
                           ),
                           itemBuilder: (context, index) {
                             final exp = widget.expenses[index];
@@ -455,7 +458,7 @@ void _showPocketSelectionModal(
             maxHeight: MediaQuery.of(context).size.height * 0.75,
           ),
           decoration: BoxDecoration(
-            color: colorScheme.surface.withOpacity(0.95),
+            color: colorScheme.surface.withValues(alpha: 0.95),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
           ),
           padding: EdgeInsets.only(
@@ -483,7 +486,7 @@ void _showPocketSelectionModal(
                       onPressed: () => Navigator.of(context).pop(),
                       style: IconButton.styleFrom(
                         backgroundColor: colorScheme.surfaceContainerHighest
-                            .withOpacity(0.5),
+                            .withValues(alpha: 0.5),
                       ),
                       icon: Icon(Icons.close,
                           size: 20, color: colorScheme.onSurface),
@@ -500,7 +503,8 @@ void _showPocketSelectionModal(
                       Icon(
                         Icons.money_off_rounded,
                         size: 48,
-                        color: colorScheme.mutedForeground.withOpacity(0.5),
+                        color: colorScheme.mutedForeground
+                            .withValues(alpha: 0.5),
                       ),
                       const SizedBox(height: 16),
                       Text(
@@ -538,8 +542,8 @@ void _showPocketSelectionModal(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               border: Border.all(
-                                color:
-                                    colorScheme.outlineVariant.withOpacity(0.3),
+                                color: colorScheme.outlineVariant
+                                    .withValues(alpha: 0.3),
                               ),
                               borderRadius: BorderRadius.circular(16),
                             ),
@@ -548,7 +552,7 @@ void _showPocketSelectionModal(
                                 Container(
                                   padding: const EdgeInsets.all(10),
                                   decoration: BoxDecoration(
-                                    color: pocketColor.withOpacity(0.15),
+                                    color: pocketColor.withValues(alpha: 0.15),
                                     shape: BoxShape.circle,
                                   ),
                                   child: Icon(
@@ -577,7 +581,7 @@ void _showPocketSelectionModal(
                                 Icon(
                                   Icons.chevron_right_rounded,
                                   color: colorScheme.mutedForeground
-                                      .withOpacity(0.5),
+                                      .withValues(alpha: 0.5),
                                 ),
                               ],
                             ),

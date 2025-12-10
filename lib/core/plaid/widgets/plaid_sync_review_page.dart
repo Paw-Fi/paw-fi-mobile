@@ -70,8 +70,13 @@ class PlaidSyncReviewPage extends StatelessWidget {
 
     final isEmpty = transactions.isEmpty;
 
-    return WillPopScope(
-      onWillPop: () => _promptRestart(context),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) {
+          _promptRestart(context);
+        }
+      },
       child: Scaffold(
         appBar: AppBar(
           leading: IconButton(

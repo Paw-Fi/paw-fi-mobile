@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/utils/error_handler.dart';

@@ -8,7 +8,6 @@ import '../providers/selected_household_provider.dart';
 import '../pages/household_onboarding_page.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
 
-import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_config.dart';

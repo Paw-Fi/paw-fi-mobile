@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
 import '../widgets/onboarding_card.dart';
 import 'household_create_page.dart';

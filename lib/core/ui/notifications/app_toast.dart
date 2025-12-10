@@ -178,7 +178,7 @@ class AppToast {
   static BuildContext? _findUsableContext(BuildContext context) {
     if (context.mounted) return context;
 
-    final rootContext = WidgetsBinding.instance.renderViewElement;
+    final rootContext = WidgetsBinding.instance.rootElement;
     if (rootContext != null && rootContext.mounted) return rootContext;
 
     return null;
@@ -218,10 +218,10 @@ class AppToast {
           message,
           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
         ),
-        actions: [
+        actions: const [
           TextButton(
             onPressed: _dismissCurrentToast,
-            child: const Text('Dismiss', style: TextStyle(color: Colors.white)),
+            child: Text('Dismiss', style: TextStyle(color: Colors.white)),
           ),
         ],
         forceActionsBelow: false,
@@ -325,7 +325,7 @@ class _ToastWidgetState extends State<_ToastWidget>
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
+                          color: Colors.black.withValues(alpha: 0.2),
                           blurRadius: 8,
                           offset: const Offset(0, 4),
                         ),

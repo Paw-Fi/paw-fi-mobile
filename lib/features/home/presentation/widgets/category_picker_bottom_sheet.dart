@@ -117,8 +117,11 @@ class CategoryPicker extends HookWidget {
       ),
       child: SafeArea(
         top: false,
-        child: Stack(
-          children: [
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: Stack(
+            children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
               child: Column(
@@ -131,6 +134,8 @@ class CategoryPicker extends HookWidget {
                   const SizedBox(height: 8),
                   Expanded(
                     child: ListView(
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
                       children: [
                         for (final entry in filtered.entries)
                           _CategoryGroupSection(
@@ -206,6 +211,7 @@ class CategoryPicker extends HookWidget {
           ],
         ),
       ),
+    )
     );
   }
 }

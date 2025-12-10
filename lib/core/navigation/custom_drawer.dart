@@ -183,8 +183,8 @@ class _CustomDrawerState extends State<CustomDrawer>
                           borderRadius: BorderRadius.circular(radiusValue),
                           boxShadow: [
                             BoxShadow(
-                              color:
-                                  Colors.black.withOpacity(0.05 * slideValue),
+                              color: Colors.black
+                                  .withValues(alpha: 0.05 * slideValue),
                               blurRadius: 8,
                               offset: const Offset(-2, 0),
                             ),
@@ -200,7 +200,8 @@ class _CustomDrawerState extends State<CustomDrawer>
                           onHorizontalDragEnd: _onDragEnd,
                           onTap: close,
                           child: Container(
-                            color: Colors.black.withOpacity(0.2 * slideValue),
+                            color: Colors.black
+                                .withValues(alpha: 0.2 * slideValue),
                           ),
                         ),
                     ],

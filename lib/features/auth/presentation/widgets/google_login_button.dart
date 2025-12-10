@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
-import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/l10n/l10n.dart';
-import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:moneko/features/auth/auth.dart';
 /// Google Sign-In button matching web implementation
 /// Uses Supabase OAuth with Google provider
 class GoogleLoginButton extends HookConsumerWidget {
@@ -48,12 +48,16 @@ class GoogleLoginButton extends HookConsumerWidget {
         if (redirectUrl != null) {
           debugPrint('🔐 Will redirect to: $redirectUrl after auth');
         }
-        
-        // OAuth will redirect to browser, then back to app via deep link
-        // No need to set loading to false - app will be backgrounded
+
+        // signInWithOAuth only initiates the browser flow; it does not
+        // guarantee that the user completed auth. Reset loading state so
+        // that if the user cancels and returns, the button is interactive
+        // again. The actual sign-in completion is still handled via
+        // onAuthStateChange elsewhere.
+        isLoading.value = false;
       } catch (e) {
         debugPrint('❌ OAuth error: $e');
-        error.value = e.toString().replaceAll('Exception: ', '').replaceAll('AuthException: ', '');
+        error.value = formatAuthErrorMessage(e);
         isLoading.value = false;
       }
     }

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/l10n/l10n.dart';
-import 'package:moneko/shared/widgets/moneko-switch.dart';
 
 void showEnvelopeModeSettingsModal(
   BuildContext context,

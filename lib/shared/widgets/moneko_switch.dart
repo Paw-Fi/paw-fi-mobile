@@ -25,8 +25,8 @@ class MonekoSwitch extends StatelessWidget {
       return CupertinoSwitch(
         value: value,
         onChanged: onChanged,
-        activeColor: activeColor,
-        trackColor: trackColor,
+        activeTrackColor: activeColor,
+        inactiveTrackColor: trackColor,
         thumbColor: thumbColor,
       );
     }
@@ -34,7 +34,7 @@ class MonekoSwitch extends StatelessWidget {
     return Switch(
       value: value,
       onChanged: onChanged,
-      activeColor: activeColor,
+      activeThumbColor: activeColor,
       activeTrackColor: trackColor,
       thumbColor:
           thumbColor != null ? WidgetStateProperty.all(thumbColor) : null,

@@ -1,11 +1,9 @@
 import 'dart:math' as math;
 
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:moneko/shared/widgets/outlined-adaptive-button.dart';
-import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+import 'package:moneko/shared/widgets/outlined_adaptive_button.dart';
+import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../../core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
@@ -455,10 +453,10 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                               isIncome: false,
                               trailingWidget: Text(
                                 context.l10n.youOwe,
-                                style: TextStyle(
+                                style: const TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
-                                  color: const Color(0xFFFF453A),
+                                  color: Color(0xFFFF453A),
                                 ),
                               ),
                             ),
@@ -485,10 +483,10 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                                 isIncome: true,
                                 trailingWidget: Text(
                                   context.l10n.owesYou,
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w600,
-                                    color: const Color(0xFF30D158),
+                                    color: Color(0xFF30D158),
                                   ),
                                 ),
                               ),
@@ -506,10 +504,10 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                               isIncome: true,
                               trailingWidget: Text(
                                 context.l10n.owesYou,
-                                style: TextStyle(
+                                style: const TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
-                                  color: const Color(0xFF30D158),
+                                  color: Color(0xFF30D158),
                                 ),
                               ),
                             ),
@@ -557,7 +555,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
   Future<bool> _showConfirm() async {
     final title = context.l10n.confirmSettlement;
     final msg = context.l10n.confirmSettlementMessage;
-    final noteLabel = 'Note (optional)';
+    const noteLabel = 'Note (optional)';
 
     final result = await MonekoAlertDialog.show(
       context: context,

@@ -12,7 +12,7 @@ import 'package:intl/intl.dart';
 import 'dart:ui' as ui;
 import 'package:flutter/cupertino.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
-import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/subtle_adaptive_button.dart';
 
 /// Supported sentence word orders for arranging the scenario inputs

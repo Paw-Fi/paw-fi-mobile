@@ -53,9 +53,9 @@ Widget buildWhatsAppBindingCard(BuildContext context, WidgetRef ref) {
           ),
           child: Row(
             children: [
-              Icon(
+              const Icon(
                 Icons.chat_bubble_rounded,
-                color: const Color(0xFF25D366),
+                color: Color(0xFF25D366),
                 size: 22,
               ),
               const SizedBox(width: 12),

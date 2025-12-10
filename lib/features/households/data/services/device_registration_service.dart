@@ -96,7 +96,7 @@ class DeviceRegistrationService {
       const Duration(seconds: 5),
       onTimeout: () {
         debugPrint('⚠️ FCM permission request timed out');
-        return NotificationSettings(
+        return const NotificationSettings(
           authorizationStatus: AuthorizationStatus.notDetermined,
           alert: AppleNotificationSetting.notSupported,
           announcement: AppleNotificationSetting.notSupported,

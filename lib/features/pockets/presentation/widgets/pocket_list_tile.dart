@@ -46,7 +46,7 @@ class PocketListTile extends StatelessWidget {
     // Derive text colors for readability based on theme and background
     final titleColor = isDarkMode ? Colors.white : Colors.black87;
     final subtitleColor = isDarkMode
-        ? Colors.white.withOpacity(0.75)
+        ? Colors.white.withValues(alpha: 0.75)
         : Colors.black54;
 
     return GestureDetector(
@@ -75,11 +75,12 @@ class PocketListTile extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(isDarkMode ? 0.18 : 0.9),
+                  color: Colors.white
+                      .withValues(alpha: isDarkMode ? 0.18 : 0.9),
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 6,
                       offset: const Offset(0, 2),
                     ),
@@ -100,12 +101,12 @@ class PocketListTile extends StatelessWidget {
                     vertical: 10,
                   ),
                   decoration: BoxDecoration(
-                    color:
-                        Colors.white.withOpacity(isDarkMode ? 0.20 : 0.9),
+                    color: Colors.white
+                        .withValues(alpha: isDarkMode ? 0.20 : 0.9),
                     borderRadius: BorderRadius.circular(18),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.04),
+                        color: Colors.black.withValues(alpha: 0.04),
                         blurRadius: 6,
                         offset: const Offset(0, 2),
                       ),
@@ -149,7 +150,7 @@ class PocketListTile extends StatelessWidget {
                               child: Container(
                                 height: 4,
                                 width: double.infinity,
-                                color: Colors.black.withOpacity(0.08),
+                                color: Colors.black.withValues(alpha: 0.08),
                                 child: FractionallySizedBox(
                                   alignment: Alignment.centerLeft,
                                   widthFactor: progress.clamp(0.0, 1.0),

@@ -8,8 +8,8 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/l10n/l10n.dart';
-import 'package:moneko/shared/widgets/outlined-adaptive-button.dart';
-import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+import 'package:moneko/shared/widgets/outlined_adaptive_button.dart';
+import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -432,9 +432,9 @@ class _AvatarCustomizerScreenState
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: scheme.background,
+      backgroundColor: scheme.surface,
       appBar: AppBar(
-        backgroundColor: scheme.background,
+        backgroundColor: scheme.surface,
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
@@ -777,7 +777,7 @@ class _AvatarCustomizerScreenState
             const SizedBox(width: 8),
             Text(
               label,
-              style: TextStyle(color: scheme.onBackground, fontSize: 13),
+              style: TextStyle(color: scheme.onSurface, fontSize: 13),
             ),
           ],
         ),

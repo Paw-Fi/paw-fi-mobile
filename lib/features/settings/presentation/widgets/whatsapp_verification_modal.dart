@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/l10n/l10n.dart';
-import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/otp_input.dart';
 
 class WhatsAppVerificationModal extends StatefulWidget {

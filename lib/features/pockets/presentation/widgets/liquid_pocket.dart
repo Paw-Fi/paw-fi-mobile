@@ -25,7 +25,7 @@ class LiquidPocket extends HookWidget {
       child: Stack(
         children: [
           // Background (empty part)
-          Container(color: color.withOpacity(0.1)),
+          Container(color: color.withValues(alpha: 0.1)),
 
           // Liquid Layer 1 (Back)
           AnimatedBuilder(
@@ -34,7 +34,7 @@ class LiquidPocket extends HookWidget {
               return CustomPaint(
                 painter: LiquidPainter(
                   fillLevel: fillLevel,
-                  color: color.withOpacity(0.3),
+                  color: color.withValues(alpha: 0.3),
                   phase: controller.value * 2 * 3.14159,
                   amplitude: 8,
                 ),

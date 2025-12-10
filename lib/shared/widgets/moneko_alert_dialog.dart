@@ -1,7 +1,7 @@
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
-import 'package:moneko/shared/widgets/outlined-adaptive-button.dart';
-import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+import 'package:moneko/shared/widgets/outlined_adaptive_button.dart';
+import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
 /// Configuration for an optional text input inside the dialog.
 class MonekoAlertDialogInputConfig {
@@ -55,7 +55,7 @@ class MonekoAlertDialog {
       context: context,
       barrierDismissible: barrierDismissible,
       barrierLabel: 'dialog',
-      barrierColor: Colors.black.withOpacity(0.35),
+      barrierColor: Colors.black.withValues(alpha: 0.35),
       transitionDuration: const Duration(milliseconds: 220),
       pageBuilder: (_, __, ___) => const SizedBox.shrink(),
       transitionBuilder: (ctx, animation, secondaryAnimation, child) {
@@ -204,12 +204,12 @@ class _MonekoAlertDialogWidgetState
                 color: scheme.surface,
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(
-                  color: scheme.outlineVariant.withOpacity(0.4),
+                  color: scheme.outlineVariant.withValues(alpha: 0.4),
                   width: 0.6,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.25),
+                    color: Colors.black.withValues(alpha: 0.25),
                     blurRadius: 40,
                     offset: const Offset(0, 20),
                   ),
@@ -234,7 +234,7 @@ class _MonekoAlertDialogWidgetState
                       Text(
                         widget.description!,
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          color: scheme.onSurface.withOpacity(0.72),
+                          color: scheme.onSurface.withValues(alpha: 0.72),
                           height: 1.4,
                         ),
                       ),

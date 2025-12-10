@@ -7,7 +7,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
-import 'package:moneko/features/home/presentation/widgets/home_ai_fab.dart';
 
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
@@ -851,9 +850,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       ),
       floatingActionButton: _shouldShowFAB(viewMode, householdsAsync)
           ? Padding(
-              padding: false
-                  ? const EdgeInsets.only(bottom: 80, right: 6)
-                  : const EdgeInsets.all(0),
+              padding: const EdgeInsets.all(0),
               child: _buildExpandableFAB(colorScheme),
             )
           : null,

@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/auth/auth.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
@@ -100,7 +99,7 @@ class Auth extends _$Auth {
             final data = (idDyn.identityData ?? idDyn['identity_data']) as Map?;
             walletAddress = (data?['wallet_address'] ?? data?['address'] ?? data?['publicKey'])?.toString();
             chain = (data?['chain'] ?? data?['network'])?.toString();
-            if (walletAddress != null && walletAddress!.isNotEmpty) break;
+            if (walletAddress != null && walletAddress.isNotEmpty) break;
           }
         }
       } catch (_) {}
@@ -292,4 +291,21 @@ class Auth extends _$Auth {
   dispose() {
     _authStateSubscription.cancel();
   }
+}
+
+/// Format Supabase auth errors into concise, user-facing messages.
+///
+/// - For [AuthException], this returns [AuthException.message] directly.
+/// - For any other error type, this falls back to a cleaned string without
+///   Dart exception class prefixes.
+String formatAuthErrorMessage(Object error) {
+  if (error is AuthException) {
+    return error.message;
+  }
+
+  final raw = error.toString();
+  return raw
+      .replaceAll('Exception: ', '')
+      .replaceAll('AuthException: ', '')
+      .replaceAll('AuthApiException: ', '');
 }

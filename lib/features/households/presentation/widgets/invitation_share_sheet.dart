@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:moneko/l10n/app_localizations.dart';
-import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
 import 'package:share_plus/share_plus.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';

@@ -41,8 +41,7 @@ class HomeHeaderLeading extends ConsumerWidget {
               final household = selectedHouseholdState.household ?? households.first;
               return household.name;
             },
-          ) ??
-            '';
+          );
 
     return GestureDetector(
       onTap: () => zoomController.toggle?.call(),
@@ -171,8 +170,7 @@ class HomeHeaderSliver extends ConsumerWidget {
                                           households.first;
                                   return household.name;
                                 },
-                              )??
-                                '',
+                              ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         softWrap: false,

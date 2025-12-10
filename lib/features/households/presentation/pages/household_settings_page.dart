@@ -6,8 +6,8 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/utils/sub_page_top_padding.dart';
-import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
-import 'package:moneko/shared/widgets/destructive-adaptive-button.dart';
+import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
+import 'package:moneko/shared/widgets/destructive_adaptive_button.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 // removed shared budgets UI from settings; budgets are managed elsewhere
 import '../../domain/entities/household.dart';
@@ -950,7 +950,7 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
                       onPressed: () => _showCreateInviteDialog(context)),
                   const SizedBox(height: 32),
                 ] else ...[
-                  _PermissionNotice(),
+                  const _PermissionNotice(),
                   const SizedBox(height: 32),
                 ],
                 _SectionHeader(
@@ -1376,9 +1376,9 @@ class _CreateInviteCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      const Text(
                         'Invite New Member',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,

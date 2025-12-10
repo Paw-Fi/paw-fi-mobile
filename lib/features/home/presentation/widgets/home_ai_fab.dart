@@ -34,15 +34,19 @@ Future<void> handleAiCameraCapture(BuildContext context, WidgetRef ref) async {
     debugPrint('🎥 Photo captured: ${photo != null}');
 
     if (photo != null) {
-      await _processExpense(context, ref, imagePath: photo.path);
+      if (context.mounted) {
+        await _processExpense(context, ref, imagePath: photo.path);
+      }
     } else {
       debugPrint('🎥 User cancelled or permission denied');
     }
   } catch (e) {
-    AppToast.error(
-      context,
-      '${context.l10n.failedToCapturePhoto}: ${e.toString()}',
-    );
+    if (context.mounted) {
+      AppToast.error(
+        context,
+        '${context.l10n.failedToCapturePhoto}: ${e.toString()}',
+      );
+    }
   }
 }
 
@@ -77,7 +81,9 @@ Future<void> handleAiFileUpload(
     final path = file.path;
 
     if (path == null) {
-      AppToast.error(context, context.l10n.failedToAnalyze);
+      if (context.mounted) {
+        AppToast.error(context, context.l10n.failedToAnalyze);
+      }
       return;
     }
 
@@ -105,16 +111,20 @@ Future<void> handleAiFileUpload(
       },
     ];
 
-    await _processExpense(
-      context,
-      ref,
-      attachments: attachments,
-    );
+    if (context.mounted) {
+      await _processExpense(
+        context,
+        ref,
+        attachments: attachments,
+      );
+    }
   } catch (e) {
-    AppToast.error(
-      context,
-      '${context.l10n.failedToAnalyze}: ${e.toString()}',
-    );
+    if (context.mounted) {
+      AppToast.error(
+        context,
+        '${context.l10n.failedToAnalyze}: ${e.toString()}',
+      );
+    }
   }
 }
 
@@ -145,13 +155,17 @@ Future<void> handleAiFileOrGallery(
             );
 
             if (image != null) {
-              await _processExpense(context, ref, imagePath: image.path);
+              if (context.mounted) {
+                await _processExpense(context, ref, imagePath: image.path);
+              }
             }
           } catch (e) {
-            AppToast.error(
-              context,
-              '${context.l10n.failedToCapturePhoto}: ${e.toString()}',
-            );
+            if (context.mounted) {
+              AppToast.error(
+                context,
+                '${context.l10n.failedToCapturePhoto}: ${e.toString()}',
+              );
+            }
           }
         },
       ),
@@ -243,7 +257,9 @@ Future<void> _processExpense(
     );
 
     // Close processing modal
-    Navigator.of(context, rootNavigator: true).pop();
+    if (context.mounted) {
+      Navigator.of(context, rootNavigator: true).pop();
+    }
 
     debugPrint('=== ANALYSIS RESPONSE ===');
     debugPrint('response.data: ${response.data}');
@@ -310,37 +326,58 @@ Future<void> _processExpense(
 
           if (parsed.length == 1) {
             ref.read(pendingExpenseProvider.notifier).state = parsed.first;
+          if (context.mounted) {
             showUnifiedTransactionSheet(
               context,
               newExpense: parsed.first,
               localImagePath: imagePath,
             );
+          }
           } else if (incomes.isNotEmpty && expenses.isNotEmpty) {
             // We don't auto-merge mixed types. Ask user to submit separately.
-            AppToast.info(context,
-                '${context.l10n.failedToAnalyzeNoData} (mixed income and expense detected; please submit separately)');
+            if (context.mounted) {
+              AppToast.info(context,
+                  '${context.l10n.failedToAnalyzeNoData} (mixed income and expense detected; please submit separately)');
+            }
           } else if (incomes.isNotEmpty) {
             // Multiple income items - combine into a single summarized income
-            _showMultiIncomeConfirmation(context, ref, incomes, imagePath);
+            if (context.mounted) {
+              _showMultiIncomeConfirmation(context, ref, incomes, imagePath);
+            }
           } else {
             // Multiple expenses - combine existing behavior
-            _showMultiExpenseConfirmation(context, ref, expenses, imagePath);
+            if (context.mounted) {
+              _showMultiExpenseConfirmation(context, ref, expenses, imagePath);
+            }
           }
         } else {
-          AppToast.info(context, context.l10n.noExpenseInformationExtracted);
+          if (context.mounted) {
+            AppToast.info(context, context.l10n.noExpenseInformationExtracted);
+          }
         }
       } else {
-        AppToast.info(context, context.l10n.failedToAnalyzeNoData);
+        if (context.mounted) {
+          AppToast.info(context, context.l10n.failedToAnalyzeNoData);
+        }
       }
     } else {
-      final error = response.data?['error'] ?? context.l10n.failedToAnalyze;
-      AppToast.error(context, '${context.l10n.failedToAnalyze}: $error');
+      String error;
+      if (context.mounted) {
+        error = response.data?['error'] ?? context.l10n.failedToAnalyze;
+      } else {
+        error = response.data?['error'] ?? 'Failed to analyze';
+      }
+      if (context.mounted) {
+        AppToast.error(context, '${context.l10n.failedToAnalyze}: $error');
+      }
     }
   } catch (e) {
     debugPrint('=== ERROR IN ANALYSIS: $e ===');
 
     // Close processing modal
-    Navigator.of(context, rootNavigator: true).pop();
+    if (context.mounted) {
+      Navigator.of(context, rootNavigator: true).pop();
+    }
 
     String errorMessage;
     // Check if exception has a 'details' property with an 'error' field
@@ -355,18 +392,20 @@ Future<void> _processExpense(
         final errorMatch = RegExp(r'error: ([^,]+)').firstMatch(detailsStr);
         if (errorMatch != null) {
           errorMessage = errorMatch.group(1)?.replaceAll("'", '').trim() ??
-              context.l10n.failedToAnalyze;
+              (context.mounted ? context.l10n.failedToAnalyze : 'Failed to analyze');
         } else {
-          errorMessage = context.l10n.failedToAnalyze;
+          errorMessage = context.mounted ? context.l10n.failedToAnalyze : 'Failed to analyze';
         }
       } else {
-        errorMessage = context.l10n.failedToAnalyze;
+        errorMessage = context.mounted ? context.l10n.failedToAnalyze : 'Failed to analyze';
       }
     } else {
       errorMessage = e.toString();
     }
 
-    AppToast.error(context, '${context.l10n.failedToAnalyze}: $errorMessage');
+    if (context.mounted) {
+      AppToast.error(context, '${context.l10n.failedToAnalyze}: $errorMessage');
+    }
   }
 }
 

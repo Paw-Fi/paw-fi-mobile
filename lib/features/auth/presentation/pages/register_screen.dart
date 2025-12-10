@@ -6,13 +6,12 @@ import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/auth/presentation/widgets/wallet_login_button.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/shared/widgets/otp_input.dart';
 
 import 'dart:async';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
-import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
 // State provider to store registered email for OTP verification
 final registeredEmailProvider = StateProvider<String?>((ref) => null);
@@ -94,7 +93,6 @@ class _RegistrationFormView extends HookConsumerWidget {
     }, [errorShake.value]);
 
     Future<void> handleSignUp() async {
-      final l10n = context.l10n;
       final fullName = fullNameController.text.trim();
       final email = emailController.text.trim();
       final password = passwordController.text;
@@ -138,18 +136,7 @@ class _RegistrationFormView extends HookConsumerWidget {
           onVerificationSent(email);
         }
       } catch (e) {
-        String errorMessage = e.toString().replaceAll('Exception: ', '').replaceAll('AuthException: ', '');
-
-        // Handle specific error messages
-        if (errorMessage.contains('User already registered')) {
-          errorMessage = 'An account with this email already exists. Please sign in instead.';
-        } else if (errorMessage.contains('Invalid email')) {
-          errorMessage = l10n.enterValidEmail;
-        } else if (errorMessage.contains('rate limit')) {
-          errorMessage = 'Too many attempts. Please wait a moment before trying again.';
-        }
-
-        error.value = errorMessage;
+        error.value = formatAuthErrorMessage(e);
         errorShake.value = true;
       } finally {
         isLoading.value = false;
@@ -630,15 +617,7 @@ class _OTPVerificationView extends HookConsumerWidget {
           context.go('/avatar');
         }
       } catch (e) {
-        String errorMessage = e.toString().replaceAll('Exception: ', '').replaceAll('AuthException: ', '');
-
-        if (errorMessage.contains('expired')) {
-          errorMessage = l10n.verificationCodeExpired;
-        } else if (errorMessage.contains('invalid')) {
-          errorMessage = l10n.invalidVerificationCode;
-        }
-
-        error.value = errorMessage;
+        error.value = formatAuthErrorMessage(e);
       } finally {
         isVerifying.value = false;
       }
@@ -662,13 +641,7 @@ class _OTPVerificationView extends HookConsumerWidget {
           AppToast.success(context, context.l10n.verificationCodeSent);
         }
       } catch (e) {
-        String errorMessage = e.toString().replaceAll('Exception: ', '').replaceAll('AuthException: ', '');
-
-        if (errorMessage.contains('rate limit')) {
-          errorMessage = 'You\'ve reached the email limit. Please wait 5-10 minutes before trying again.';
-        }
-
-        error.value = errorMessage;
+        error.value = formatAuthErrorMessage(e);
       }
     }
 

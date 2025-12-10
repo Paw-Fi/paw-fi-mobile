@@ -71,8 +71,6 @@ class MainShell extends HookConsumerWidget {
       }
     });
 
-    final currentPage = pages[currentIndex.value];
-
     return CustomDrawer(
       controller: zoomController,
       menuScreen: const MainMenuScreen(),
@@ -80,7 +78,8 @@ class MainShell extends HookConsumerWidget {
       showShadow: false,
       angle: 0,
       menuBackgroundColor: colorScheme.drawerBackground,
-      drawerShadowsBackgroundColor: Colors.black.withOpacity(0.2),
+      drawerShadowsBackgroundColor:
+          Colors.black.withValues(alpha: 0.2),
       slideWidth: MediaQuery.of(context).size.width * 0.75,
       menuScreenWidth: MediaQuery.of(context).size.width * 0.75,
       mainScreen: AdaptiveScaffold(
@@ -179,7 +178,7 @@ class _WidgetConfigurationDialog extends HookConsumerWidget {
         children: [
           // Scope Selector
           DropdownButtonFormField<String>(
-            value: selectedScope.value,
+            initialValue: selectedScope.value,
             decoration: const InputDecoration(labelText: 'Household'),
             items: [
               const DropdownMenuItem(
@@ -198,7 +197,7 @@ class _WidgetConfigurationDialog extends HookConsumerWidget {
           const SizedBox(height: 16),
           // Currency Selector
           DropdownButtonFormField<String>(
-            value: selectedCurrency.value,
+            initialValue: selectedCurrency.value,
             decoration: const InputDecoration(labelText: 'Currency'),
             items: (availableCurrencies.isNotEmpty
                     ? availableCurrencies

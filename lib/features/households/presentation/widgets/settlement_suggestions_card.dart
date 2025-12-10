@@ -7,7 +7,7 @@ import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 
 import 'package:moneko/features/households/presentation/pages/settlement_history_page.dart';
 import 'package:moneko/features/households/presentation/widgets/settle_up_sheet.dart';
-import 'package:moneko/shared/widgets/moneko-switch.dart';
+import 'package:moneko/shared/widgets/moneko_switch.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../../core/l10n/l10n.dart';

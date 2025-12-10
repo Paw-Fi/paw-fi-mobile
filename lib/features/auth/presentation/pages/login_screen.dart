@@ -10,7 +10,6 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/constants/links.dart';
 class LoginScreen extends HookConsumerWidget {
   const LoginScreen({super.key});
@@ -87,7 +86,7 @@ class LoginScreen extends HookConsumerWidget {
         }
       } catch (e) {
         if (!context.mounted) return; // Widget may have been disposed after navigation
-        error.value = e.toString().replaceAll('Exception: ', '').replaceAll('AuthException: ', '');
+        error.value = formatAuthErrorMessage(e);
         errorShake.value = true;
       } finally {
         if (context.mounted) {
@@ -127,28 +126,6 @@ class LoginScreen extends HookConsumerWidget {
       // Early return for now so we keep the legacy reset flow below
       // without executing it. This allows us to re-enable email-based
       // password reset in the future without losing the implementation.
-      return;
-
-      // Legacy reset password flow (kept for future use)
-      final email = await showDialog<String>(
-        context: context,
-        builder: (context) => _ResetPasswordDialog(),
-      );
-
-      if (email == null || email.isEmpty) return;
-
-      try {
-        await ref.read(authProvider.notifier).resetPassword(
-              email,
-              redirectUrl: 'https://moneko.io/reset-password',
-            );
-        AppToast.success(context, context.l10n.passwordResetEmailSent);
-      } catch (e) {
-        AppToast.error(
-          context,
-          e.toString().replaceAll('Exception: ', ''),
-        );
-      }
     }
 
     return Scaffold(
@@ -530,50 +507,3 @@ class LoginScreen extends HookConsumerWidget {
   }
 }
 
-class _ResetPasswordDialog extends HookWidget {
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final emailController = useTextEditingController();
-
-    return AlertDialog(
-      title: Text(context.l10n.resetYourPassword),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            context.l10n.sendResetLink,
-            style: TextStyle(
-              fontSize: 14,
-              color: theme.colorScheme.mutedForeground,
-            ),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: emailController,
-            keyboardType: TextInputType.emailAddress,
-            textCapitalization: TextCapitalization.none,
-            autocorrect: false,
-            enableSuggestions: false,
-            decoration: InputDecoration(
-              labelText: context.l10n.email,
-              hintText: context.l10n.exampleEmail,
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(context.l10n.cancel),
-        ),
-        TextButton(
-          onPressed: () =>
-              Navigator.of(context).pop(emailController.text.trim()),
-          child: Text(context.l10n.sendResetLink),
-        ),
-      ],
-    );
-  }
-}

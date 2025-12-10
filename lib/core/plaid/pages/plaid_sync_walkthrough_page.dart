@@ -1,5 +1,4 @@
 import 'dart:io' show Platform;
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -13,14 +12,10 @@ import 'package:moneko/core/plaid/plaid_country_flags.dart';
 import 'package:moneko/core/plaid/plaid_country_selector_modal.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
-import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
-import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
-import 'package:moneko/features/recurring/presentation/widgets/add_recurring_sheet.dart';
-import 'package:moneko/core/plaid/models/synced_transaction.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
@@ -42,8 +37,6 @@ class _PlaidSyncWalkthroughPageState
   bool _isSuccess = false;
   bool _postRefreshScheduled = false;
   bool _postRefreshComplete = false;
-  List<SyncedTransaction> _addedTransactions = [];
-
   final int _numPages = 4; // Intro, Security, Benefits, Country selection
 
   @override
@@ -52,93 +45,6 @@ class _PlaidSyncWalkthroughPageState
     super.dispose();
   }
 
-  Future<void> _handleDeleteTransaction(SyncedTransaction tx) async {
-    final uid = Supabase.instance.client.auth.currentUser?.id;
-    if (uid == null) return;
-    try {
-      final res = await Supabase.instance.client.functions.invoke(
-        'delete-expense',
-        body: {
-          'userId': uid,
-          'expenseId': tx.expense.id,
-        },
-      );
-
-      if (res.data != null && res.data['success'] == true) {
-        setState(() {
-          _addedTransactions = _addedTransactions
-              .where((t) => t.expense.id != tx.expense.id)
-              .toList();
-        });
-        if (mounted) {
-          AppToast.success(context, context.l10n.transactionDeleted);
-        }
-      } else {
-        if (mounted) {
-          AppToast.error(context, context.l10n.anErrorOccurred);
-        }
-      }
-    } catch (err) {
-      if (mounted) {
-        AppToast.error(context, '${context.l10n.error}: $err');
-      }
-    }
-  }
-
-  Future<void> _handleEditTransaction(SyncedTransaction tx) async {
-    if (tx.isRecurring) {
-      final recur = _toRecurringTransaction(tx);
-      await showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (ctx) {
-          return FractionallySizedBox(
-            heightFactor: 0.96,
-            child: AddRecurringSheet(
-              type: recur.type,
-              existingTransaction: recur,
-            ),
-          );
-        },
-      );
-    } else {
-      await showUnifiedTransactionSheet(
-        context,
-        existingExpense: tx.expense,
-      );
-    }
-  }
-
-  RecurringTransaction _toRecurringTransaction(SyncedTransaction tx) {
-    RecurrenceRule? recurrence;
-    if (tx.recurrenceRule != null &&
-        tx.recurrenceRule!['anchor_date'] != null) {
-      try {
-        recurrence = RecurrenceRule.fromJson(tx.recurrenceRule!);
-      } catch (_) {
-        recurrence = null;
-      }
-    }
-
-    return RecurringTransaction(
-      id: tx.expense.id,
-      date: tx.expense.date,
-      category: tx.expense.category ?? 'other',
-      description: tx.expense.rawText,
-      source: null,
-      amount: tx.expense.amount,
-      currency: tx.expense.currency ?? 'USD',
-      ownerType: 'me',
-      privacyScope: 'full',
-      householdId: tx.expense.householdId,
-      recurrenceRule: recurrence,
-      type: (tx.expense.type ?? 'expense').toLowerCase(),
-      attachments: const [],
-      createdAt: tx.expense.createdAt,
-      updatedAt: tx.expense.updatedAt,
-    );
-  }
 
   void _nextPage() {
     if (_currentPage < _numPages - 1) {
@@ -415,10 +321,8 @@ class _PlaidSyncWalkthroughPageState
       );
     }
 
-    return WillPopScope(
-      onWillPop: () async {
-        return !_isSyncing;
-      },
+    return PopScope(
+      canPop: !_isSyncing,
       child: Scaffold(
         backgroundColor: colorScheme.surface,
         body: SafeArea(

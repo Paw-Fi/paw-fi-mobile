@@ -153,7 +153,7 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
                           padding: const EdgeInsets.all(24),
                           decoration: BoxDecoration(
                             color: colorScheme.surfaceContainerHighest
-                                .withOpacity(0.3),
+                                .withValues(alpha: 0.3),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
@@ -173,7 +173,7 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          '${context.l10n.settlementsWillAppearHere} (${selectedCurrency})',
+                          '${context.l10n.settlementsWillAppearHere} ($selectedCurrency)',
                           style: TextStyle(
                             fontSize: 16,
                             color: colorScheme.mutedForeground,
@@ -194,7 +194,7 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
                           padding: const EdgeInsets.all(24),
                           decoration: BoxDecoration(
                             color: colorScheme.surfaceContainerHighest
-                                .withOpacity(0.3),
+                                .withValues(alpha: 0.3),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
@@ -428,7 +428,8 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: colorScheme.primary.withOpacity(0.2),
+                            color:
+                                colorScheme.primary.withValues(alpha: 0.2),
                             blurRadius: 4,
                             offset: const Offset(0, 2),
                           ),
@@ -440,7 +441,7 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
                         width: 2,
                         color: (isLastGroup && isLastItem)
                             ? Colors.transparent
-                            : colorScheme.border.withOpacity(0.5),
+                            : colorScheme.border.withValues(alpha: 0.5),
                         margin: const EdgeInsets.symmetric(vertical: 4),
                       ),
                     ),
@@ -481,7 +482,7 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
     }
     final isExpress = event.isExpressNetting == true;
 
-    int _sumDirection(
+    int sumDirection(
         List<SettlementLine> lines, String fromId, String toId) {
       return lines
           .where((l) =>
@@ -491,10 +492,10 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
     }
 
     final totalPayerToParticipant = event.lines.isNotEmpty
-        ? _sumDirection(event.lines, event.payerUserId, event.participantUserId)
+        ? sumDirection(event.lines, event.payerUserId, event.participantUserId)
         : event.payerToParticipantCents;
     final totalParticipantToPayer = event.lines.isNotEmpty
-        ? _sumDirection(event.lines, event.participantUserId, event.payerUserId)
+        ? sumDirection(event.lines, event.participantUserId, event.payerUserId)
         : event.participantToPayerCents;
 
     return Material(
@@ -541,7 +542,7 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
                     child: Icon(
                       Icons.arrow_forward_rounded,
                       size: 16,
-                      color: colorScheme.mutedForeground.withOpacity(0.5),
+                      color: colorScheme.mutedForeground.withValues(alpha: 0.5),
                     ),
                   ),
                   Expanded(
@@ -612,7 +613,7 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
                             width: 4,
                             height: 4,
                             decoration: BoxDecoration(
-                              color: colorScheme.mutedForeground.withOpacity(0.5),
+                              color: colorScheme.mutedForeground.withValues(alpha: 0.5),
                               shape: BoxShape.circle,
                             ),
                           ),
@@ -669,14 +670,14 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '${participantName} → ${payerName}: ${formatCurrency(totalParticipantToPayer / 100.0, event.currency.toUpperCase())}',
+                            '$participantName → $payerName: ${formatCurrency(totalParticipantToPayer / 100.0, event.currency.toUpperCase())}',
                             style: TextStyle(
                               fontSize: 12,
                               color: colorScheme.mutedForeground,
                             ),
                           ),
                           Text(
-                            '${payerName} → ${participantName}: ${formatCurrency(totalPayerToParticipant / 100.0, event.currency.toUpperCase())}',
+                            '$payerName → $participantName: ${formatCurrency(totalPayerToParticipant / 100.0, event.currency.toUpperCase())}',
                             style: TextStyle(
                               fontSize: 12,
                               color: colorScheme.mutedForeground,
@@ -690,7 +691,8 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: colorScheme.primary.withOpacity(0.12),
+                        color:
+                            colorScheme.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
@@ -748,44 +750,6 @@ class SettlementDetailsSheet extends StatefulWidget {
       _SettlementDetailsSheetState();
 }
 
-// Backward-compatible shim for older references (e.g., hot reload state).
-// This keeps the previous private name working while we transition.
-class _SettlementDetailsSheet extends SettlementDetailsSheet {
-  static String _fallbackNameFor(String _) => 'Member';
-  static final SettlementEvent _fallbackEvent = SettlementEvent(
-    settledAt: DateTime(1970, 1, 1),
-    payerUserId: '',
-    participantUserId: '',
-    currency: 'USD',
-    amountCents: 0,
-    lineCount: 0,
-    lines: const [],
-    isExpressNetting: false,
-    payerToParticipantCents: 0,
-    participantToPayerCents: 0,
-    settlementNote: null,
-  );
-
-  _SettlementDetailsSheet({Key? key})
-      : super(
-          key: key,
-          event: _fallbackEvent,
-          nameFor: _fallbackNameFor,
-          householdId: '',
-        );
-
-  _SettlementDetailsSheet.withData({
-    Key? key,
-    required SettlementEvent event,
-    required String Function(String) nameFor,
-    required String householdId,
-  }) : super(
-          key: key,
-          event: event,
-          nameFor: nameFor,
-          householdId: householdId,
-        );
-}
 
 class _SettlementDetailsSheetState extends State<SettlementDetailsSheet> {
   List<SettlementLine> _lines = const [];
@@ -947,7 +911,7 @@ class _SettlementDetailsSheetState extends State<SettlementDetailsSheet> {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.green.withOpacity(0.1),
+                      color: Colors.green.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
@@ -959,12 +923,13 @@ class _SettlementDetailsSheetState extends State<SettlementDetailsSheet> {
                   const SizedBox(height: 16),
                   if (isExpress) ...[
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: colorScheme.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color:
+                          colorScheme.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                       child: Text(
                         'Express netting',
                         style: TextStyle(

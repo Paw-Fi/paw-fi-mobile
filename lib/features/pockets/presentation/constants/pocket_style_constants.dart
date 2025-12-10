@@ -22,8 +22,8 @@ List<Color> getProgressGradient(
   if (isOverBudget) {
     // Over budget: Use red tones
     final errorColor = isDarkMode
-        ? HSLColor.fromAHSL(1.0, 0, 0.7, 0.5) // Bright red for dark mode
-        : HSLColor.fromAHSL(1.0, 0, 0.7, 0.45); // Deep red for light mode
+        ? const HSLColor.fromAHSL(1.0, 0, 0.7, 0.5) // Bright red for dark mode
+        : const HSLColor.fromAHSL(1.0, 0, 0.7, 0.45); // Deep red for light mode
     return [
       errorColor.toColor(),
       errorColor
@@ -33,8 +33,8 @@ List<Color> getProgressGradient(
   } else if (progress > 0.9) {
     // Warning state (90-100%): Use orange/amber tones
     final warningColor = isDarkMode
-        ? HSLColor.fromAHSL(1.0, 30, 0.8, 0.55) // Bright orange for dark mode
-        : HSLColor.fromAHSL(1.0, 30, 0.8, 0.5); // Deep orange for light mode
+        ? const HSLColor.fromAHSL(1.0, 30, 0.8, 0.55) // Bright orange for dark mode
+        : const HSLColor.fromAHSL(1.0, 30, 0.8, 0.5); // Deep orange for light mode
     return [
       warningColor.toColor(),
       warningColor

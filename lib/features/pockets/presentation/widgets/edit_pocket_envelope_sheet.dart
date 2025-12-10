@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -21,8 +20,8 @@ import 'package:moneko/features/pockets/presentation/state/pockets_providers.dar
 import 'package:moneko/features/pockets/presentation/constants/pocket_icon_constants.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
-import 'package:moneko/shared/widgets/plain-adaptive-button.dart';
-import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
+import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
 class EditPocketEnvelopeSheet extends HookConsumerWidget {
   const EditPocketEnvelopeSheet({
@@ -90,7 +89,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
     useListenable(percentageController);
     useListenable(nameController);
 
-    final effectiveMax = 100.0;
+    const effectiveMax = 100.0;
 
     final currentPct = double.tryParse(percentageController.text) ?? 0.0;
     final sliderValue = useState<double>(currentPct.clamp(0, effectiveMax));
@@ -349,7 +348,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
         }
       } catch (e) {
         if (context.mounted) {
-          AppToast.error(context, l10n.failedToSave(e.toString()));
+          AppToast.error(context, e.toString());
         }
       } finally {
         if (isMounted()) {
@@ -436,11 +435,22 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                       ),
                     ),
                     IconButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: Icon(
-                        Icons.close,
-                        color: colorScheme.mutedForeground,
-                      ),
+                      onPressed: isLoading.value ? null : handleSave,
+                      icon: isLoading.value
+                          ? SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  colorScheme.foreground,
+                                ),
+                              ),
+                            )
+                          : Icon(
+                              Icons.check_rounded,
+                              color: colorScheme.foreground,
+                            ),
                     ),
                   ],
                 ),
@@ -527,7 +537,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                               ),
                                               decoration: BoxDecoration(
                                                 color: colorScheme.primary
-                                                    .withOpacity(0.1),
+                                                    .withValues(alpha: 0.1),
                                                 borderRadius:
                                                     BorderRadius.circular(12),
                                               ),
@@ -670,7 +680,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                               color: colorScheme.foreground,
                                               width: 2)
                                           : Border.all(color: colorScheme.border),
-                                      boxShadow: [
+                                      boxShadow: const [
                                         // Shadow removed as requested
                                       ],
                                     ),
@@ -705,7 +715,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                             color: colorScheme.foreground,
                                             width: 2)
                                         : null,
-                                    boxShadow: [
+                                    boxShadow: const [
                                       // Shadow removed as requested
                                     ],
                                   ),
@@ -808,7 +818,8 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                 height: 44,
                                 decoration: BoxDecoration(
                                   color: isSelected
-                                      ? selectedColorValue.withOpacity(0.1)
+                                      ? selectedColorValue
+                                          .withValues(alpha: 0.1)
                                       : colorScheme.card,
                                   shape: BoxShape.circle,
                                   border: Border.all(
@@ -933,14 +944,14 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                             ),
                             const SizedBox(height: 16),
                             SliderTheme(
-                              data: SliderThemeData(
+                              data: SliderTheme.of(context).copyWith(
                                 trackHeight: 6,
                                 activeTrackColor: colorScheme.primary,
                                 inactiveTrackColor:
-                                    colorScheme.primary.withOpacity(0.1),
+                                    colorScheme.primary.withValues(alpha: 0.1),
                                 thumbColor: Colors.white,
                                 overlayColor:
-                                    colorScheme.primary.withOpacity(0.1),
+                                    colorScheme.primary.withValues(alpha: 0.1),
                                 thumbShape: const RoundSliderThumbShape(
                                     enabledThumbRadius: 12, elevation: 4),
                                 overlayShape: const RoundSliderOverlayShape(

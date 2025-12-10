@@ -153,18 +153,18 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
     } catch (e) {
       // 6. Error: Rollback optimistic update
       debugPrint('❌ Update failed: $e');
-      
+
       try {
         final analyticsData = ref.read(analyticsProvider);
         final currentExpenses = analyticsData.allExpenses;
         final originalExpenseIndex = currentExpenses.indexWhere((exp) => exp.id == expenseId);
-        
+
         if (originalExpenseIndex != -1) {
           // Find the expense that was there before our optimistic update
           // We need to reload from backend to get the original state
           final user = ref.read(authProvider);
           await ref.read(analyticsProvider.notifier).loadData(user.uid);
-          
+
           if (kDebugMode) {
             debugPrint('🔄 Rolled back optimistic update');
           }
@@ -172,13 +172,13 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       } catch (rollbackError) {
         debugPrint('⚠️ Failed to rollback: $rollbackError');
       }
-      
+
       state = state.copyWith(
         isLoading: false,
-        error: _formatErrorMessage(e.toString()),
+        error: _formatErrorMessage(e),
         clearOptimisticUpdate: true,
       );
-      
+
       return false;
     }
   }
@@ -223,19 +223,27 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
     );
   }
   
-  /// Format error message to be user-friendly
-  String _formatErrorMessage(String error) {
-    if (error.contains('VALIDATION_ERROR')) {
-      return 'Invalid input. Please check your values.';
-    } else if (error.contains('NOT_FOUND')) {
-      return 'Transaction not found.';
-    } else if (error.contains('UNAUTHORIZED')) {
-      return 'You don\'t have permission to edit this transaction.';
-    } else if (error.contains('Network') || error.contains('Failed host lookup')) {
-      return 'Network error. Please check your connection and try again.';
-    } else {
-      return 'Failed to update. Please try again.';
+  /// Extract a concise backend error message.
+  ///
+  /// If this came from a Supabase `FunctionException`, we try to read
+  /// `details['error']` so the UI shows only the backend `error` field
+  /// (e.g. "Cannot change splits after any lines have been settled").
+  /// Otherwise, we fall back to the full exception string.
+  String _formatErrorMessage(Object error) {
+    // Best-effort dynamic inspection to avoid hard dependency on
+    // the Supabase FunctionException type while still reading
+    // its `details` payload.
+    try {
+      final dynamic err = error;
+      final details = err.details;
+      if (details is Map && details['error'] is String) {
+        return details['error'] as String;
+      }
+    } catch (_) {
+      // Ignore and fall through to default.
     }
+
+    return error.toString();
   }
   
   /// Clear any error state

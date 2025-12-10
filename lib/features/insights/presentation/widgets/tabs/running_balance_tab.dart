@@ -8,7 +8,7 @@ import 'package:moneko/features/insights/presentation/widgets/chart_legend.dart'
 import 'package:moneko/features/insights/presentation/widgets/insights_ui.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
 Widget buildRunningBalanceTab(
     BuildContext context, ColorScheme colorScheme, AnalyticsData analyticsData,

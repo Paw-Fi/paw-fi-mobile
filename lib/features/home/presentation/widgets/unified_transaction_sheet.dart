@@ -33,9 +33,9 @@ import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/widgets/transaction_currency_picker.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
-import 'package:moneko/shared/widgets/destructive-adaptive-button.dart';
-import 'package:moneko/shared/widgets/moneko-switch.dart';
-import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+import 'package:moneko/shared/widgets/destructive_adaptive_button.dart';
+import 'package:moneko/shared/widgets/moneko_switch.dart';
+import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 
 /// Format date with relative terms
@@ -655,7 +655,7 @@ class _UnifiedTransactionSheetState
                       child: DestructiveAdaptiveButton(
                         onPressed: _isDeleting ? null : _handleDelete,
                         child: _isDeleting
-                            ? SizedBox(
+                            ? const SizedBox(
                                 width: 20,
                                 height: 20,
                                 child: CircularProgressIndicator(
@@ -2055,7 +2055,6 @@ class _UnifiedTransactionSheetState
           // Save EXPENSE
           // Create updated expense with time
           final expenseWithTime = expense.copyWith(date: expenseDateTime);
-          final l10n = context.l10n;
 
           // Upload receipt image if available
           String? receiptUrl;
@@ -2339,17 +2338,24 @@ class _UnifiedTransactionSheetState
 
           // Close the sheet so when user reopens it, they see fresh data
           Navigator.of(context).pop();
-
           AppToast.success(context, context.l10n.expenseUpdatedSuccessfully);
         } else {
-          throw Exception('Failed to update expense');
+          // Surface the raw error from the edit provider (which contains the
+          // backend/FunctionException message) instead of a generic exception.
+          final editState = ref.read(transactionEditProvider);
+          final message = (editState.error != null && editState.error!.trim().isNotEmpty)
+              ? editState.error!
+              : 'Failed to update expense';
+
+          AppToast.error(context, message);
+          return;
         }
       }
     } catch (error) {
       debugPrint('❌ Error saving expense: $error');
       if (!mounted) return;
 
-      AppToast.error(context, context.l10n.failedToSave(""));
+      AppToast.error(context, error.toString());
     } finally {
       if (mounted) {
         setState(() => _isSaving = false);

@@ -1,4 +1,3 @@
-import 'dart:ui';
 
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
@@ -14,7 +13,6 @@ import 'package:moneko/features/pockets/presentation/constants/pocket_icon_const
 import 'package:intl/intl.dart';
 import 'package:moneko/features/pockets/presentation/state/pocket_details_provider.dart';
 
-import 'package:flutter/cupertino.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:moneko/features/pockets/presentation/widgets/edit_pocket_envelope_sheet.dart';
 
@@ -259,9 +257,10 @@ class PocketDetailsPage extends HookConsumerWidget {
                             child: LinearProgressIndicator(
                               value: progress.clamp(0.0, 1.0),
                               minHeight: 8,
-                              backgroundColor: textColor.withOpacity(0.1),
+                              backgroundColor:
+                                  textColor.withValues(alpha: 0.1),
                               valueColor: AlwaysStoppedAnimation<Color>(
-                                textColor.withOpacity(0.8),
+                                textColor.withValues(alpha: 0.8),
                               ),
                             ),
                           ),
@@ -275,7 +274,7 @@ class PocketDetailsPage extends HookConsumerWidget {
                 hasScrollBody: false,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: colorScheme.background,
+                    color: colorScheme.surface,
                     borderRadius: const BorderRadius.only(
                       topLeft: Radius.circular(32),
                       topRight: Radius.circular(32),
@@ -301,7 +300,7 @@ class PocketDetailsPage extends HookConsumerWidget {
                               children: [
                                 Text(
                                   context.l10n.keyInsights,
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -432,7 +431,7 @@ class _StatCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: colorScheme.shadow.withOpacity(0.05),
+            color: colorScheme.shadow.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -467,93 +466,6 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-class _DailyTrendCard extends StatelessWidget {
-  const _DailyTrendCard({
-    required this.dailySpending,
-    required this.color,
-  });
-
-  final List<DailySpend> dailySpending;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final spots =
-        dailySpending.map((e) => FlSpot(e.day.toDouble(), e.amount)).toList();
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.shadow.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                context.l10n.dailyTrend,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: colorScheme.foreground,
-                ),
-              ),
-              Icon(
-                Icons.chevron_right,
-                color: colorScheme.mutedForeground,
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          SizedBox(
-            height: 120,
-            child: LineChart(
-              LineChartData(
-                gridData: const FlGridData(show: false),
-                titlesData: const FlTitlesData(show: false),
-                borderData: FlBorderData(show: false),
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: spots,
-                    isCurved: true,
-                    color: color,
-                    barWidth: 3,
-                    isStrokeCapRound: true,
-                    dotData: const FlDotData(show: false),
-                    belowBarData: BarAreaData(
-                      show: true,
-                      color: color.withOpacity(0.1),
-                    ),
-                  ),
-                ],
-                minY: 0,
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            context.l10n.past30Days,
-            style: TextStyle(
-              fontSize: 12,
-              color: colorScheme.mutedForeground,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _SpendingBreakdownCard extends StatelessWidget {
   const _SpendingBreakdownCard({
@@ -584,7 +496,7 @@ class _SpendingBreakdownCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: colorScheme.shadow.withOpacity(0.05),
+            color: colorScheme.shadow.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -702,7 +614,7 @@ class _TransactionsListCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: colorScheme.shadow.withOpacity(0.05),
+            color: colorScheme.shadow.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),

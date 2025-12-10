@@ -24,7 +24,7 @@ import 'package:moneko/features/households/domain/entities/expense_split.dart'
     hide SplitType;
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
-import 'package:moneko/shared/widgets/moneko-switch.dart';
+import 'package:moneko/shared/widgets/moneko_switch.dart';
 import 'package:moneko/features/utils/currency.dart';
 
 /// Modern bottom sheet for adding/editing recurring transactions
@@ -667,7 +667,7 @@ class AddRecurringSheet extends HookConsumerWidget {
             AppToast.success(context, successMsg);
           }
         } else {
-          // Try to surface a more helpful error message from the save provider
+          // Surface raw backend/provider error message if available.
           String? detailedError;
           final saveState = ref.read(recurringTransactionSaveProvider);
 
@@ -679,47 +679,36 @@ class AddRecurringSheet extends HookConsumerWidget {
             },
           );
 
-          String errMsg;
-          if (detailedError != null && detailedError!.trim().isNotEmpty) {
-            // Map common backend validation errors to clearer, user-friendly messages.
-            final lower = detailedError!.toLowerCase();
-            if (lower.contains('custom splits must include all household members')) {
-              // This backend string is already user-friendly; surface it directly.
-              errMsg = detailedError!;
-            } else if (lower.contains('amount splits') &&
-                lower.contains('must equal total expense amount')) {
-              // Reuse existing localized helper used by the split editor
-              final symbol = resolveCurrencySymbol(selectedCurrency.value);
-              errMsg = context.l10n.splitAmountsMustEqual(
-                symbol,
-                amount.toStringAsFixed(2),
-                symbol,
-              );
-            } else if (lower.contains('percentage splits') &&
-                lower.contains('must equal 100%')) {
-              errMsg = context.l10n.percentagesMustTotal100;
-            } else if (lower.contains('at least one member must have a share greater than 0')) {
-              errMsg = context.l10n.eachPersonMustHaveAtLeast1Share;
-            } else {
-              // Fallback to the raw backend message if we don't recognize it
-              errMsg = detailedError!;
-            }
-          } else {
-            // Ultimate fallback: generic message
-            errMsg = isExpense
-                ? l10n.failedToUpdateRecurringExpense
-                : l10n.failedToUpdateRecurringIncome;
-          }
+          final msg = (detailedError != null && detailedError!.trim().isNotEmpty)
+              ? detailedError!
+              : 'Failed to save recurring transaction';
 
           if (context.mounted) {
-            AppToast.error(context, errMsg);
+            AppToast.error(context, msg);
           }
         }
-      } catch (e, stackTrace) {
+      } catch (e) {
         isLoading.value = false;
-        if (context.mounted) {
-          AppToast.error(context, l10n.failedToSave(e.toString()));
+        if (!context.mounted) {
+          return;
         }
+
+        String? detailedError;
+        final saveState = ref.read(recurringTransactionSaveProvider);
+
+        saveState.when(
+          data: (_) {},
+          loading: () {},
+          error: (err, _) {
+            detailedError = err.toString();
+          },
+        );
+
+        final msg = (detailedError != null && detailedError!.trim().isNotEmpty)
+            ? detailedError!
+            : e.toString();
+
+        AppToast.error(context, msg);
       }
     }
 
@@ -762,11 +751,22 @@ class AddRecurringSheet extends HookConsumerWidget {
                     ),
                   ),
                   IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: Icon(
-                      Icons.close,
-                      color: colorScheme.mutedForeground,
-                    ),
+                    onPressed: isLoading.value ? null : handleSave,
+                    icon: isLoading.value
+                        ? SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                colorScheme.foreground,
+                              ),
+                            ),
+                          )
+                        : Icon(
+                            Icons.check_rounded,
+                            color: colorScheme.foreground,
+                          ),
                   ),
                 ],
               ),
@@ -998,7 +998,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                           currencySymbol:
                               resolveCurrencySymbol(selectedCurrency.value),
                           isEditing: isEditing,
-                          currentUserId: user?.id,
+                          currentUserId: user.id,
                         );
                       },
                       loading: () => const SizedBox.shrink(),

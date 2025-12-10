@@ -10,7 +10,7 @@ import 'package:moneko/features/home/presentation/state/transaction_edit_notifie
 import 'package:moneko/features/home/presentation/widgets/category_picker_bottom_sheet.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/currency_flags.dart';
-import 'package:moneko/shared/widgets/primary-adaptive-button.dart';
+import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';

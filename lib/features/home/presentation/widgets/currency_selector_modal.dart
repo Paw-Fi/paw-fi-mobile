@@ -350,7 +350,7 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
                           analyticsNotifier.updatePreferredCurrency(summary.currencyCode);
 
                           // Close modal immediately for better UX and return selected currency
-                          if (mounted) {
+                          if (context.mounted) {
                             Navigator.pop(context, summary.currencyCode);
                           }
 
@@ -388,32 +388,38 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
                               }
 
                               // Use AppToast with action so message appears above any bottom sheet
-                              AppToast.action(
-                                context,
-                                'Failed to sync currency preference: $error',
-                                actionLabel: 'Retry',
-                                type: AppToastType.warning,
-                                onPressed: () async {
-                                  try {
-                                    final retryResponse = await supabase.functions.invoke(
-                                      'update-preferred-currency',
-                                      body: {
-                                        'userId': authState.uid,
-                                        'currency': summary.currencyCode,
-                                      },
-                                    );
-                                    if (retryResponse.status >= 400) {
-                                      throw Exception('Retry failed');
+                              if (context.mounted) {
+                                AppToast.action(
+                                  context,
+                                  'Failed to sync currency preference: $error',
+                                  actionLabel: 'Retry',
+                                  type: AppToastType.warning,
+                                  onPressed: () async {
+                                    try {
+                                      final retryResponse = await supabase.functions.invoke(
+                                        'update-preferred-currency',
+                                        body: {
+                                          'userId': authState.uid,
+                                          'currency': summary.currencyCode,
+                                        },
+                                      );
+                                      if (retryResponse.status >= 400) {
+                                        throw Exception('Retry failed');
+                                      }
+                                      await service.setSelectedCurrency(summary.currencyCode);
+                                      filterNotifier.setSelectedCurrency(summary.currencyCode);
+                                      analyticsNotifier.updatePreferredCurrency(summary.currencyCode);
+                                      if (context.mounted) {
+                                        AppToast.success(context, 'Currency updated successfully');
+                                      }
+                                    } catch (retryError) {
+                                      if (context.mounted) {
+                                        AppToast.error(context, 'Retry failed: $retryError');
+                                      }
                                     }
-                                    await service.setSelectedCurrency(summary.currencyCode);
-                                    filterNotifier.setSelectedCurrency(summary.currencyCode);
-                                    analyticsNotifier.updatePreferredCurrency(summary.currencyCode);
-                                    AppToast.success(context, 'Currency updated successfully');
-                                  } catch (retryError) {
-                                    AppToast.error(context, 'Retry failed: $retryError');
-                                  }
-                                },
-                              );
+                                  },
+                                );
+                              }
                             }
                           }
                         },

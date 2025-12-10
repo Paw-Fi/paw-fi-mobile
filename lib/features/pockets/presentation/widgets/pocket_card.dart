@@ -61,13 +61,13 @@ class PocketCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(32),
         boxShadow: [
           BoxShadow(
-            color: colorScheme.shadow.withOpacity(0.08),
+            color: colorScheme.shadow.withValues(alpha: 0.08),
             blurRadius: 24,
             offset: const Offset(0, 8),
           ),
         ],
         border: Border.all(
-          color: colorScheme.outlineVariant.withOpacity(0.4),
+          color: colorScheme.outlineVariant.withValues(alpha: 0.4),
           width: 1,
         ),
       ),
@@ -106,11 +106,13 @@ class PocketCard extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.9),
+                              color:
+                                  Colors.white.withValues(alpha: 0.9),
                               shape: BoxShape.circle,
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.05),
+                                  color: Colors.black
+                                      .withValues(alpha: 0.05),
                                   blurRadius: 8,
                                   offset: const Offset(0, 2),
                                 ),
@@ -144,11 +146,13 @@ class PocketCard extends StatelessWidget {
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.85),
+                          color:
+                              Colors.white.withValues(alpha: 0.85),
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
+                              color: Colors.black
+                                  .withValues(alpha: 0.05),
                               blurRadius: 4,
                             ),
                           ],
@@ -160,7 +164,7 @@ class PocketCard extends StatelessWidget {
                               pocket.name,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,
                                 color: Colors.black87,
@@ -181,7 +185,7 @@ class PocketCard extends StatelessWidget {
                                 ),
                                 Text(
                                   ' / ${formatCurrency(limit, pocket.currency)}',
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w500,
                                     color: Colors.black54,
@@ -195,7 +199,8 @@ class PocketCard extends StatelessWidget {
                               child: Container(
                                 height: 4,
                                 width: double.infinity,
-                                color: Colors.black.withOpacity(0.1),
+                                color:
+                                    Colors.black.withValues(alpha: 0.1),
                                 child: FractionallySizedBox(
                                   alignment: Alignment.centerLeft,
                                   widthFactor: progress.clamp(0.0, 1.0),

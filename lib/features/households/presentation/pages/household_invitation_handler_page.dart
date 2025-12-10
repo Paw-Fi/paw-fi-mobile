@@ -100,7 +100,7 @@ class _HouseholdInvitationHandlerPageState extends ConsumerState<HouseholdInvita
 
     if (_error != null) {
       return Scaffold(
-        backgroundColor: colors.background,       
+        backgroundColor: colors.surface,       
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -134,7 +134,7 @@ class _HouseholdInvitationHandlerPageState extends ConsumerState<HouseholdInvita
     }
 
     return Scaffold(
-      backgroundColor: colors.background,
+      backgroundColor: colors.surface,
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,

@@ -7,7 +7,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/core/app/app_initialization_provider_v2.dart';
 import 'package:moneko/l10n/app_localizations.dart';
-import 'package:moneko/shared/widgets/destructive-adaptive-button.dart';
+import 'package:moneko/shared/widgets/destructive_adaptive_button.dart';
 
 import 'package:url_launcher/url_launcher.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -20,7 +20,6 @@ import 'package:moneko/features/subscription/data/models/subscription_details.da
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:go_router/go_router.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/app/locale_provider.dart';
 import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
@@ -126,7 +125,7 @@ class SettingsPage extends HookConsumerWidget {
     final selectedLocale = ref.watch(localeProvider);
     const supportedLocales = AppLocalizations.supportedLocales;
     final dropdownValue = _coerceToSupported(selectedLocale, supportedLocales);
-    final timezoneValue = selectedTimezone.value ?? deviceTimezone ?? 'UTC';
+    final timezoneValue = selectedTimezone.value ?? 'UTC';
     final timezoneDisplay = _formatTimezoneLabel(
       _resolveTimezoneOption(
         timezone: timezoneValue,

@@ -4,8 +4,8 @@
 
 // ignore: avoid_web_libraries_in_flutter
 import 'dart:js_interop';
-import 'package:web/web.dart' as web;
 import 'dart:async';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 /// Performs Web3 sign-in using browser wallet extensions
 /// 
@@ -27,7 +27,7 @@ Future<Map<String, dynamic>?> web3SignIn({
   required String anonKey,
 }) async {
   try {
-    print('[Web3Auth] Starting authentication for chain: $chain');
+    FirebaseCrashlytics.instance.log('[Web3Auth] Starting authentication for chain: $chain');
     
     // Use external helpers to access window properties
     if (!_hasSupabase()) {
@@ -38,7 +38,7 @@ Future<Map<String, dynamic>?> web3SignIn({
       );
     }
     
-    print('[Web3Auth] Supabase JS SDK detected');
+    FirebaseCrashlytics.instance.log('[Web3Auth] Supabase JS SDK detected');
     
     final chainLower = chain.toLowerCase();
     
@@ -51,7 +51,7 @@ Future<Map<String, dynamic>?> web3SignIn({
       throw Exception('Unsupported chain: $chain. Use "ethereum" or "solana"');
     }
     
-    print('[Web3Auth] Wallet connected, calling signInWithWeb3');
+    FirebaseCrashlytics.instance.log('[Web3Auth] Wallet connected, calling signInWithWeb3');
     
     // Call external JS function that handles the Supabase auth
     final jsResult = await _callSupabaseWeb3SignIn(
@@ -64,11 +64,11 @@ Future<Map<String, dynamic>?> web3SignIn({
     // Convert JSObject to Dart Map
     final sessionData = _jsObjectToDart(jsResult);
     
-    print('[Web3Auth] Authentication successful');
+    FirebaseCrashlytics.instance.log('[Web3Auth] Authentication successful');
     
     return sessionData;
   } catch (e) {
-    print('[Web3Auth] Error: $e');
+    FirebaseCrashlytics.instance.log('[Web3Auth] Error: $e');
     rethrow;
   }
 }
@@ -105,8 +105,6 @@ Map<String, dynamic> _jsObjectToDart(JSAny? jsObj) {
 @JS('JSON.stringify')
 external String _jsObjectToJsonString(JSAny obj);
 
-@JS('JSON.parse')
-external JSAny _jsonParse(String json);
 
 Map<String, dynamic> _parseJsonString(String jsonString) {
   // We'll manually extract the values since JSON.parse returns JSAny
@@ -157,10 +155,10 @@ Map<String, dynamic> _parseJsonString(String jsonString) {
 
 /// Connects to Ethereum wallet (MetaMask, etc.)
 Future<void> _connectEthereumWallet() async {
-  print('[Web3Auth] Connecting to Ethereum wallet');
+  FirebaseCrashlytics.instance.log('[Web3Auth] Connecting to Ethereum wallet');
   try {
     await _connectEthereum().toDart;
-    print('[Web3Auth] Ethereum wallet connected');
+    FirebaseCrashlytics.instance.log('[Web3Auth] Ethereum wallet connected');
   } catch (e) {
     if (e.toString().contains('rejected') || e.toString().contains('denied')) {
       throw Exception('You rejected the wallet connection request');
@@ -171,10 +169,10 @@ Future<void> _connectEthereumWallet() async {
 
 /// Connects to Solana wallet (Phantom, etc.)
 Future<void> _connectSolanaWallet() async {
-  print('[Web3Auth] Connecting to Solana wallet');
+  FirebaseCrashlytics.instance.log('[Web3Auth] Connecting to Solana wallet');
   try {
     await _connectSolana().toDart;
-    print('[Web3Auth] Solana wallet connected');
+    FirebaseCrashlytics.instance.log('[Web3Auth] Solana wallet connected');
   } catch (e) {
     if (e.toString().contains('rejected') || e.toString().contains('denied')) {
       throw Exception('You rejected the wallet connection request');
