@@ -182,7 +182,7 @@ class PocketsPage extends HookConsumerWidget {
             child: Padding(
               padding: const EdgeInsets.all(24),
               child: Text(
-                'Select a household to manage shared budgets.',
+                context.l10n.selectHouseholdToManageSharedBudgets,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: colorScheme.onSurfaceVariant,
@@ -428,7 +428,7 @@ class _CopyBudgetBanner extends StatelessWidget {
       child: Column(
         children: [
           Text(
-            'Start with last month\'s budget?',
+            context.l10n.startWithLastMonthsBudget,
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -437,7 +437,7 @@ class _CopyBudgetBanner extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'You had a budget of $formattedAmount last month.',
+            context.l10n.youHadBudgetLastMonth(formattedAmount),
             style: TextStyle(
               fontSize: 14,
               color: colorScheme.onSurfaceVariant,
@@ -448,7 +448,9 @@ class _CopyBudgetBanner extends StatelessWidget {
             width: double.infinity,
             child: PrimaryAdaptiveButton(
               onPressed: onCopy,
-              child: Text('Copy Budget ($formattedAmount)'),
+              child: Text(
+                context.l10n.copyBudgetWithAmount(formattedAmount),
+              ),
             ),
           ),
         ],

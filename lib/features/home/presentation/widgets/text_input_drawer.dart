@@ -149,7 +149,7 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
         _isRecording = false;
       });
       await _recorder.cancel();
-      AppToast.error(context, "Hold longer to record");
+      AppToast.error(context, context.l10n.holdLongerToRecord);
       return;
     }
 
@@ -160,19 +160,19 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
 
     final path = await _recorder.stop();
     if (path == null) {
-      AppToast.error(widget.parentContext, "Recording failed");
+      AppToast.error(widget.parentContext, widget.parentContext.l10n.recordingFailed);
       return;
     }
 
     final file = File(path);
     if (!await file.exists()) {
-      AppToast.error(widget.parentContext, "Recording file missing");
+      AppToast.error(widget.parentContext, widget.parentContext.l10n.recordingFileMissing);
       return;
     }
 
     final bytes = await file.readAsBytes();
     if (bytes.isEmpty) {
-      AppToast.error(widget.parentContext, "Recording is empty");
+      AppToast.error(widget.parentContext, widget.parentContext.l10n.recordingIsEmpty);
       return;
     }
 

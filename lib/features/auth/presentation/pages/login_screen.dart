@@ -99,8 +99,7 @@ class LoginScreen extends HookConsumerWidget {
       await AdaptiveAlertDialog.show(
         context: context,
         title: context.l10n.resetYourPassword,
-        message:
-            'If you need to change your password, please contact our support team in the Discord channel.',
+        message: context.l10n.resetPasswordDiscordMessage,
         icon: 'lock.fill',
         actions: [
           AlertAction(
@@ -109,7 +108,7 @@ class LoginScreen extends HookConsumerWidget {
             onPressed: () {},
           ),
           AlertAction(
-            title: 'Open Discord',
+            title: context.l10n.openDiscord,
             style: AlertActionStyle.primary,
             onPressed: () async {
               try {

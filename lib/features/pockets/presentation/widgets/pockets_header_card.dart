@@ -68,6 +68,7 @@ class PocketsHeaderCard extends StatelessWidget {
     this.onSave,
     required this.currency,
     this.onDateSelected,
+    this.amountSpotlightKey,
   });
 
   final double totalBudget;
@@ -81,6 +82,7 @@ class PocketsHeaderCard extends StatelessWidget {
   final VoidCallback? onSave;
   final String currency;
   final ValueChanged<DateTime>? onDateSelected;
+  final GlobalKey? amountSpotlightKey;
 
   @override
   Widget build(BuildContext context) {
@@ -163,6 +165,7 @@ class PocketsHeaderCard extends StatelessWidget {
 
           // Budget Amount
           GestureDetector(
+            key: amountSpotlightKey,
             behavior: HitTestBehavior.opaque,
             onTap: () => _showBudgetInputSheet(context, effectiveBudget),
             child: Column(

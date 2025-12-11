@@ -83,7 +83,7 @@ class ErrorPage extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Details',
+                          context.l10n.details,
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         const SizedBox(height: 8),
@@ -95,7 +95,7 @@ class ErrorPage extends ConsumerWidget {
                         if (stack != null) ...[
                           const SizedBox(height: 12),
                           Text(
-                            'Technical info',
+                            context.l10n.technicalInfo,
                             style: Theme.of(context)
                                 .textTheme
                                 .titleSmall
@@ -127,9 +127,9 @@ class ErrorPage extends ConsumerWidget {
                           vertical: 12,
                         ),
                       ),
-                      child: const Text(
-                        'Retry initialization',
-                        style: TextStyle(fontSize: 16),
+                      child: Text(
+                        context.l10n.retryInitialization,
+                        style: const TextStyle(fontSize: 16),
                       ),
                     ),
                   if (hasInitFailure) const SizedBox(height: 12),

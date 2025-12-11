@@ -1,34 +1,34 @@
 {
-"notYetSplitBanner": {
-"en": "This expense is not yet split. Configure how to split it below.",
-"de": "Diese Ausgabe ist noch nicht aufgeteilt. Konfigurieren Sie unten, wie sie aufgeteilt werden soll.",
-"es": "Este gasto aún no está dividido. Configure cómo dividirlo a continuación.",
-"fr": "Cette dépense n'est pas encore partagée. Configurez le partage ci-dessous.",
-"it": "Questa spesa non è ancora divisa. Configura come dividerla qui sotto.",
-"ja": "この経費はまだ分割されていません。以下で分割方法を設定してください。",
-"kr": "이 비용은 아직 분할되지 않았습니다. 아래에서 분할 방법을 설정하세요.",
-"nl": "Deze uitgave is nog niet gesplitst. Configureer hieronder hoe te splitsen.",
-"ur": "یہ خرچہ ابھی تقسیم نہیں ہوا۔ نیچے تقسیم کی ترتیب دیں۔",
-"ru": "Этот расход еще не разделен. Настройте разделение ниже.",
-"uk": "Ця витрата ще не розділена. Налаштуйте розподіл нижче.",
-"zh": "此费用尚未分摊。请在下方配置分摊方式。",
-"zh_TW": "此費用尚未分攤。請在下方配置分攤方式。",
-"vi": "Chi phí này chưa được chia. Cấu hình cách chia bên dưới."
-},
-"note": {
-"en": "Note",
-"de": "Hinweis",
-"es": "Nota",
-"fr": "Note",
-"it": "Nota",
-"ja": "メモ",
-"kr": "메모",
-"nl": "Notitie",
-"ur": "نوٹ",
-"ru": "Примечание",
-"uk": "Примітка",
-"zh": "备注",
-"zh_TW": "備註",
-"vi": "Ghi chú"
-}
+  "change_currency_title": {
+    "en": "Change Currency",
+    "de": "Währung ändern",
+    "es": "Cambiar moneda",
+    "fr": "Changer la devise",
+    "it": "Cambia valuta",
+    "ja": "通貨を変更",
+    "kr": "통화 변경",
+    "nl": "Valuta wijzigen",
+    "ur": "کرنسی تبدیل کریں",
+    "ru": "Изменить валюту",
+    "uk": "Змінити валюту",
+    "zh": "更改货币",
+    "zh_TW": "更改貨幣",
+    "vi": "Đổi tiền tệ"
+  },
+  "change_currency_desc": {
+    "en": "Click here to switch to your preferred currency.",
+    "de": "Klicke hier, um zur bevorzugten Währung zu wechseln.",
+    "es": "Haz clic aquí para cambiar a tu moneda preferida.",
+    "fr": "Cliquez ici pour passer à votre devise préférée.",
+    "it": "Fai clic qui per passare alla tua valuta preferita.",
+    "ja": "ここをクリックして希望の通貨に切り替えます。",
+    "kr": "여기를 클릭하여 원하는 통화로 변경하세요.",
+    "nl": "Klik hier om over te schakelen naar je gewenste valuta.",
+    "ur": "اپنی پسند کی کرنسی پر سوئچ کرنے کے لیے یہاں کلک کریں۔",
+    "ru": "Нажмите здесь, чтобы переключиться на предпочитаемую валюту.",
+    "uk": "Натисніть тут, щоб перейти на бажану валюту.",
+    "zh": "点击此处切换到您偏好的货币。",
+    "zh_TW": "點擊此處切換到您偏好的貨幣。",
+    "vi": "Nhấn vào đây để đổi sang tiền tệ bạn muốn."
+  }
 }

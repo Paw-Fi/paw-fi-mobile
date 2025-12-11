@@ -193,7 +193,10 @@ void showScenarioResultSheet(
                                 }
 
                                 if (!context.mounted) return;
-                                AppToast.success(context, 'Scenario saved');
+                                AppToast.success(
+                                  context,
+                                  context.l10n.scenarioSaved,
+                                );
                               } catch (e) {
                                 if (!context.mounted) return;
                                 AppToast.error(
@@ -207,7 +210,7 @@ void showScenarioResultSheet(
                                 context: context,
                                 title: context.l10n.delete,
                                 message:
-                                    'Are you sure you want to delete this scenario? This will permanently remove it and can’t be undone.',
+                                    context.l10n.deleteScenarioConfirmation,
                                 actions: [
                                   AlertAction(
                                     title: context.l10n.cancel,
@@ -223,7 +226,7 @@ void showScenarioResultSheet(
                                           if (context.mounted) {
                                             AppToast.error(
                                               context,
-                                              'Unable to delete this scenario',
+                                              context.l10n.unableToDeleteScenario,
                                             );
                                           }
                                           return;
@@ -244,7 +247,9 @@ void showScenarioResultSheet(
 
                                         if (!context.mounted) return;
                                         AppToast.success(
-                                            context, 'Scenario deleted');
+                                          context,
+                                          context.l10n.scenarioDeleted,
+                                        );
 
                                         // Close the result sheet after
                                         // successful deletion.
@@ -318,7 +323,9 @@ void showScenarioResultSheet(
 
                                       if (!context.mounted) return;
                                       AppToast.success(
-                                          context, 'Scenario saved');
+                                        context,
+                                        context.l10n.scenarioSaved,
+                                      );
                                     } catch (e) {
                                       if (!context.mounted) return;
                                       AppToast.error(
@@ -333,7 +340,7 @@ void showScenarioResultSheet(
                                       context: context,
                                       title: context.l10n.delete,
                                       message:
-                                          'Are you sure you want to delete this scenario? This will permanently remove it and can’t be undone.',
+                                          context.l10n.deleteScenarioConfirmation,
                                       actions: [
                                         AlertAction(
                                           title: context.l10n.cancel,
@@ -349,7 +356,8 @@ void showScenarioResultSheet(
                                                 if (context.mounted) {
                                                   AppToast.error(
                                                     context,
-                                                    'Unable to delete this scenario',
+                                                    context.l10n
+                                                        .unableToDeleteScenario,
                                                   );
                                                 }
                                                 return;
@@ -370,8 +378,10 @@ void showScenarioResultSheet(
                                               }
 
                                               if (!context.mounted) return;
-                                              AppToast.success(context,
-                                                  'Scenario deleted');
+                                              AppToast.success(
+                                                context,
+                                                context.l10n.scenarioDeleted,
+                                              );
 
                                               // Close the result sheet after
                                               // successful deletion.

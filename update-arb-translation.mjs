@@ -28,26 +28,18 @@ if (!fs.existsSync(translationsPath)) {
   process.exit(1);
 }
 
-const translationsRaw = fs.readFileSync(translationsPath, 'utf8');
-const translations = JSON.parse(translationsRaw);
+const translations = JSON.parse(fs.readFileSync(translationsPath, 'utf8'));
 
 function updateLocale(locale) {
   const fileName = localeToFile[locale];
-  if (!fileName) {
-    console.warn(`No ARB file mapping for locale: ${locale}`);
-    return;
-  }
+  if (!fileName) return;
 
   const arbPath = path.join(l10nDir, fileName);
-  if (!fs.existsSync(arbPath)) {
-    console.warn(`ARB file not found for locale ${locale}: ${arbPath}`);
-    return;
-  }
+  if (!fs.existsSync(arbPath)) return;
 
-  const arbRaw = fs.readFileSync(arbPath, 'utf8');
   let arbJson;
   try {
-    arbJson = JSON.parse(arbRaw);
+    arbJson = JSON.parse(fs.readFileSync(arbPath, 'utf8'));
   } catch (err) {
     console.error(`Failed to parse JSON in ${arbPath}:`, err.message);
     return;
@@ -58,23 +50,25 @@ function updateLocale(locale) {
   for (const key of Object.keys(translations)) {
     const perLocale = translations[key];
     if (!perLocale || !(locale in perLocale)) continue;
+
+    // skip if the key already exists
+    if (key in arbJson) continue;
+
     arbJson[key] = perLocale[locale];
-    addedCount += 1;
+    addedCount++;
   }
 
-  if (addedCount === 0) {
-    console.log(`No new keys added for ${locale} (${fileName}).`);
-    return;
+  if (addedCount > 0) {
+    fs.writeFileSync(arbPath, JSON.stringify(arbJson, null, 2) + '\n', 'utf8');
+    console.log(`Updated ${fileName}: added ${addedCount} key(s).`);
+  } else {
+    console.log(`No new keys for ${locale}.`);
   }
-
-  const updated = JSON.stringify(arbJson, null, 2) + '\n';
-  fs.writeFileSync(arbPath, updated, 'utf8');
-  console.log(`Updated ${fileName}: added ${addedCount} key(s) for locale ${locale}.`);
 }
 
 function main() {
   for (const locale of Object.keys(localeToFile)) {
-    updateLocale(locale); // Include all locales, including English
+    updateLocale(locale);
   }
 }
 

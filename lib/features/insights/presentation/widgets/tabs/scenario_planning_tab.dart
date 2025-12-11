@@ -652,7 +652,7 @@ class _ScenarioPlanningTabContentState
                                       if (!sheetOpened) {
                                         final advice =
                                             adviceNotifier.value.isEmpty
-                                                ? 'No analysis available'
+                                                ? context.l10n.noAnalysisAvailable
                                                 : adviceNotifier.value;
 
                                         if (!context.mounted) return;

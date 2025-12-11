@@ -1,5 +1,6 @@
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/shared/widgets/outlined_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
@@ -46,8 +47,8 @@ class MonekoAlertDialog {
     required BuildContext context,
     required String title,
     String? description,
-    String confirmLabel = 'Confirm',
-    String? cancelLabel = 'Cancel',
+    String? confirmLabel,
+    String? cancelLabel,
     bool barrierDismissible = true,
     MonekoAlertDialogInputConfig? inputConfig,
   }) {
@@ -72,8 +73,8 @@ class MonekoAlertDialog {
             child: _MonekoAlertDialogWidget(
               title: title,
               description: description,
-              confirmLabel: confirmLabel,
-              cancelLabel: cancelLabel,
+              confirmLabel: confirmLabel ?? context.l10n.confirm,
+              cancelLabel: cancelLabel ?? context.l10n.cancel,
               inputConfig: inputConfig,
             ),
           ),
@@ -138,11 +139,11 @@ class _MonekoAlertDialogWidgetState
 
     final trimmed = value.trim();
     if (cfg.isRequired && trimmed.isEmpty) {
-      return cfg.validationMessage ?? 'This field is required.';
+      return cfg.validationMessage ?? context.l10n.thisFieldIsRequired;
     }
     if (cfg.validationPattern != null && trimmed.isNotEmpty) {
       if (!cfg.validationPattern!.hasMatch(trimmed)) {
-        return cfg.validationMessage ?? 'Please enter a valid value.';
+        return cfg.validationMessage ?? context.l10n.pleaseEnterAValidValue;
       }
     }
     return null;

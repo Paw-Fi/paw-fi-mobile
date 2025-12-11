@@ -8,6 +8,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/navigation/custom_drawer.dart';
 import 'package:moneko/core/navigation/zoom_drawer_provider.dart';
+import 'package:moneko/shared/widgets/spotlight/spotlight_target.dart';
+import 'package:moneko/features/home/presentation/state/home_spotlight_providers.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
@@ -131,61 +133,76 @@ class HomeHeaderSliver extends ConsumerWidget {
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
     final AppDrawerController zoomController =
         ref.read(zoomDrawerControllerProvider);
+    final spotlightController = ref.read(homeSpotlightControllerProvider);
 
-    return SizedBox(
-      child: Padding(
-        padding: EdgeInsets.only(right: 10,left: PlatformInfo.isAndroid ? 10 : 0),
+    final headerRow = Flexible(
+      child: GestureDetector(
+        onTap: () => zoomController.toggle?.call(),
+        behavior: HitTestBehavior.opaque,
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.start,
           children: [
+            _HeaderAvatarButton(
+              user: user,
+              viewMode: viewMode,
+              householdsAsync: householdsAsync,
+              selectedHouseholdState: selectedHouseholdState,
+              colorScheme: colorScheme,
+            ),
+            const SizedBox(width: 12),
             Flexible(
-              child: GestureDetector(
-                onTap: () => zoomController.toggle?.call(),
-                behavior: HitTestBehavior.opaque,
-                child: Row(
-                  children: [
-                    _HeaderAvatarButton(
-                      user: user,
-                      viewMode: viewMode,
-                      householdsAsync: householdsAsync,
-                      selectedHouseholdState: selectedHouseholdState,
-                      colorScheme: colorScheme,
-                    ),
-                    const SizedBox(width: 12),
-                    Flexible(
-                      child: Text(
-                        viewMode.mode == ViewMode.personal
-                            ? (user.displayName?.isNotEmpty == true
-                                ? user.displayName!
-                                : user.email)
-                            : householdsAsync.when(
-                                loading: () => context.l10n.forUs,
-                                error: (_, __) => context.l10n.forUs,
-                                data: (households) {
-                                  if (households.isEmpty) {
-                                    return context.l10n.forUs;
-                                  }
-                                  final household =
-                                      selectedHouseholdState.household ??
-                                          households.first;
-                                  return household.name;
-                                },
-                              ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        softWrap: false,
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.3,
-                          color: colorScheme.foreground,
-                        ),
+              child: Text(
+                viewMode.mode == ViewMode.personal
+                    ? (user.displayName?.isNotEmpty == true
+                        ? user.displayName!
+                        : user.email)
+                    : householdsAsync.when(
+                        loading: () => context.l10n.forUs,
+                        error: (_, __) => context.l10n.forUs,
+                        data: (households) {
+                          if (households.isEmpty) {
+                            return context.l10n.forUs;
+                          }
+                          final household = selectedHouseholdState.household ??
+                              households.first;
+                          return household.name;
+                        },
                       ),
-                    ),
-                  ],
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                softWrap: false,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.3,
+                  color: colorScheme.foreground,
                 ),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+
+    final headerWithSpotlight = SpotlightTarget(
+      controller: spotlightController,
+      id: 'home_header_currency',
+      // Reuse existing localization keys for now; we can
+      // introduce dedicated strings later if needed.
+      title: context.l10n.change_currency_title,
+      description: context.l10n.change_currency_desc,
+      padding: 6,
+      borderRadius: 24,
+      child: headerRow,
+    );
+
+    return SizedBox(
+      child: Padding(
+        padding:
+            EdgeInsets.only(right: 10, left: PlatformInfo.isAndroid ? 10 : 0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            headerWithSpotlight,
             const SizedBox(width: 12),
             const HomeHeaderTrailing(),
           ],

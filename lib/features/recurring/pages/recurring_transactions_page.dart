@@ -185,8 +185,8 @@ class _RecurringTransactionsPageState
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: EmptyRecurringState(
-                  type: 'expense',
-                  onAddPressed: () => _showAddSheet('expense'),
+                  type: context.l10n.expense,
+                  onAddPressed: () => _showAddSheet(context.l10n.expense),
                 ),
               ),
             ),
@@ -211,7 +211,7 @@ class _RecurringTransactionsPageState
         );
       },
       loading: () => _buildLoadingSliver(),
-      error: (error, _) => _buildErrorSliver(error.toString(), 'expense'),
+      error: (error, _) => _buildErrorSliver(error.toString(), context.l10n.expense),
     );
   }
 
@@ -237,8 +237,8 @@ class _RecurringTransactionsPageState
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: EmptyRecurringState(
-                  type: 'income',
-                  onAddPressed: () => _showAddSheet('income'),
+                  type: context.l10n.income,
+                  onAddPressed: () => _showAddSheet(context.l10n.income),
                 ),
               ),
             ),
@@ -263,7 +263,7 @@ class _RecurringTransactionsPageState
         );
       },
       loading: () => _buildLoadingSliver(),
-      error: (error, _) => _buildErrorSliver(error.toString(), 'income'),
+      error: (error, _) => _buildErrorSliver(error.toString(), context.l10n.income),
     );
   }
 
@@ -342,7 +342,7 @@ class _RecurringTransactionsPageState
     final isExpense = selectedTab == 0;
 
     return AdaptiveFloatingActionButton(
-      onPressed: () => _showAddSheet(isExpense ? 'expense' : 'income'),
+      onPressed: () => _showAddSheet(isExpense ? context.l10n.expense : context.l10n.income),
       backgroundColor: colorScheme.primary,
       foregroundColor: colorScheme.primaryForeground,
       child: const Icon(Icons.add),

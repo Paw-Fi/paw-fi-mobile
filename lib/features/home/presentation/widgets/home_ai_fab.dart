@@ -144,17 +144,17 @@ Future<void> handleAiFileOrGallery(
   await AdaptiveAlertDialog.show(
     context: context,
     title: context.l10n.appTitle,
-    message: 'Choose source for analysis',
+    message: context.l10n.chooseSourceForAnalysis,
     actions: [
       AlertAction(
-        title: 'Files',
+        title: context.l10n.files,
         style: AlertActionStyle.primary,
         onPressed: () async {
           await handleAiFileUpload(context, ref);
         },
       ),
       AlertAction(
-        title: 'Gallery',
+        title: context.l10n.gallery,
         style: AlertActionStyle.primary,
         onPressed: () async {
           try {
@@ -547,7 +547,7 @@ class HomeAiExpandableFab extends ConsumerWidget {
             width: 25,
             height: 25,
           ),
-          label: "Text/Audio",
+          label: context.l10n.textAudio,
         ),
         ActionButton(
           onPressed: () async {
@@ -563,7 +563,7 @@ class HomeAiExpandableFab extends ConsumerWidget {
             await handleAiFileOrGallery(context, ref);
           },
           icon: const Icon(Icons.attach_file),
-          label: 'Files',
+          label: context.l10n.files,
         ),
       ],
     );

@@ -3,23 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:moneko/core/l10n/l10n.dart';
-import 'package:moneko/core/theme/app_theme.dart';
 
-class ForceUpdateDialog extends StatelessWidget {
-  final String currentVersion;
-  final String minVersion;
-  final String? message;
-  final String? appStoreUrl;
-
-  const ForceUpdateDialog({
-    Key? key,
-    required this.currentVersion,
-    required this.minVersion,
-    this.message,
-    this.appStoreUrl,
-  }) : super(key: key);
-
-  Future<void> _openStore() async {
+Future<void> showForceUpdateDialog({
+  required BuildContext context,
+  required String currentVersion,
+  String? message,
+  String? appStoreUrl,
+}) async {
+  Future<void> openStore() async {
     String? storeUrl = appStoreUrl;
 
     // Default URLs if not provided
@@ -30,7 +21,8 @@ class ForceUpdateDialog extends StatelessWidget {
         // OR App Store link:
         // storeUrl = 'https://apps.apple.com/app/idYOUR_APP_ID';
       } else if (Platform.isAndroid) {
-        storeUrl = 'https://play.google.com/store/apps/details?id=com.moneko.app';
+        storeUrl =
+            'https://play.google.com/store/apps/details?id=com.moneko.app';
       }
     }
 
@@ -42,69 +34,16 @@ class ForceUpdateDialog extends StatelessWidget {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return PopScope(
-      canPop: false, // Prevent dismissing with back button
-      child: Dialog(
-        backgroundColor: colorScheme.appBackground,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Icon
-              Icon(
-                Icons.system_update,
-                size: 64,
-                color: colorScheme.primary,
-              ),
-              const SizedBox(height: 24),
-
-              // Title
-              Text(
-                'Update Required',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.foreground,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-
-              // Message
-              Text(
-                message ??
-                    'A new version of Moneko is available. Please update to continue using the app.',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: colorScheme.mutedForeground,
-                  height: 1.5,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 12),
-
-            
-              // Update button
-              SizedBox(
-                width: double.infinity,
-                child: AdaptiveButton(
-                  onPressed: _openStore,
-                  label: context.l10n.updateNow,
-                  style: AdaptiveButtonStyle.filled,
-                ),
-              ),
-            ],
-          ),
-        ),
+  await AdaptiveAlertDialog.show(
+    context: context,
+    title: context.l10n.updateRequiredTitle,
+    message: message ?? context.l10n.updateRequiredMessage,
+    actions: [
+      AlertAction(
+        title: context.l10n.updateNow,
+        style: AlertActionStyle.primary,
+        onPressed: openStore,
       ),
-    );
-  }
+    ],
+  );
 }

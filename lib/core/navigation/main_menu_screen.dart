@@ -371,7 +371,7 @@ class _ProfileHeader extends StatelessWidget {
               Text(
                 user.displayName?.isNotEmpty == true
                     ? user.displayName!
-                    : 'User',
+                    : context.l10n.user,
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,

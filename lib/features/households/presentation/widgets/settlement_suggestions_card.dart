@@ -617,7 +617,7 @@ class _SuggestionRow extends StatelessWidget {
 
     // Left text: "Alice owes you" or "You owe Bob"
     final label = isPayer
-        ? '${context.l10n.youOwe} $otherName'
+        ? '${context.l10n.youOweOthers} $otherName'
         : '$otherName ${context.l10n.owesYou}';
 
     return InkWell(

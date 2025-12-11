@@ -25,6 +25,10 @@ import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/home/presentation/widgets/mom_trend_bar.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:moneko/shared/widgets/spotlight/spotlight_controller.dart';
+import 'package:moneko/shared/widgets/spotlight/spotlight_step.dart';
+import 'package:moneko/shared/widgets/spotlight/spotlight_target.dart';
+import 'package:moneko/features/home/presentation/state/home_spotlight_providers.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/features/households/presentation/widgets/financial_calendar_widget.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
@@ -48,9 +52,13 @@ class _HomePageState extends ConsumerState<HomePage> {
   final ImagePicker _imagePicker = ImagePicker();
   final TextEditingController _textController = TextEditingController();
 
+  late final SpotlightTourController _fabTourController;
+
   @override
   void initState() {
     super.initState();
+
+    _fabTourController = ref.read(homeSpotlightControllerProvider);
 
     // Initialize filters on first mount
     // NOTE: Analytics data is loaded by app_initialization_provider - no need to trigger here
@@ -459,6 +467,10 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
+  Future<void> _startFabTourIfNeeded() async {
+    await _fabTourController.start(context);
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -467,6 +479,15 @@ class _HomePageState extends ConsumerState<HomePage> {
     final user = ref.watch(authProvider);
     final viewMode = ref.watch(viewModeProvider);
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
+
+    final shouldShowFab = _shouldShowFAB(viewMode, householdsAsync);
+
+    if (shouldShowFab) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _startFabTourIfNeeded();
+      });
+    }
 
     // Global currency remains shared; date ranges move to per-card filters
     final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
@@ -643,7 +664,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                           ),
                         ),
                         error: (e, st) => SliverToBoxAdapter(
-                          child: Text('Error initializing repository: $e'),
+                          child: Text('${context.l10n.errorInitializingRepository}: $e'),
                         ),
                         data: (_) {
                           final dashboardAsync =
@@ -656,7 +677,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                     child: Center(
                                         child: CircularProgressIndicator()))),
                             error: (e, st) => SliverToBoxAdapter(
-                                child: Text('Error loading dashboard: $e')),
+                                child: Text('${context.l10n.errorLoadingDashboard}: $e')),
                             data: (configs) {
                               return DraggableDashboardList(
                                 configs: configs,
@@ -867,9 +888,18 @@ class _HomePageState extends ConsumerState<HomePage> {
         ],
       ),
       floatingActionButton: _shouldShowFAB(viewMode, householdsAsync)
-          ? const Padding(
-              padding: EdgeInsets.all(0),
-              child: HomeAiExpandableFab(),
+          ? SpotlightTarget(
+              controller: _fabTourController,
+              id: 'home_unified_fab',
+              title: context.l10n.homeFabTourTitle,
+              description: context.l10n.homeFabTourDescription,
+              placement: SpotlightPlacement.top,
+              padding: 6,
+              borderRadius: 34,
+              child: const Padding(
+                padding: EdgeInsets.all(0),
+                child: HomeAiExpandableFab(),
+              ),
             )
           : null,
     );

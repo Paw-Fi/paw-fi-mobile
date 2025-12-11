@@ -387,7 +387,7 @@ Widget _buildMemberRow(
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            'You',
+                            context.l10n.you,
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
@@ -415,7 +415,7 @@ Widget _buildMemberRow(
                               borderRadius: BorderRadius.circular(7),
                             ),
                             child:  Text(
-                            'Nudge',
+                            context.l10n.nudge,
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,

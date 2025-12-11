@@ -19,6 +19,7 @@ import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/core/services/widget_service.dart';
+import 'package:moneko/core/navigation/navigation_providers.dart';
 import 'main_menu_screen.dart';
 
 /// Main navigation shell with bottom navigation bar
@@ -27,7 +28,7 @@ class MainShell extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentIndex = useState(0);
+    final currentIndex = ref.watch(mainShellTabIndexProvider);
     final colorScheme = Theme.of(context).colorScheme;
     final zoomController = ref.read(zoomDrawerControllerProvider);
 
@@ -46,13 +47,13 @@ class MainShell extends HookConsumerWidget {
       if (next.type == WidgetLaunchActionType.textInput ||
           next.type == WidgetLaunchActionType.cameraInput) {
         // Quick actions stay on Overview (index 0) as before.
-        if (currentIndex.value != 0) {
-          currentIndex.value = 0;
+        if (ref.read(mainShellTabIndexProvider) != 0) {
+          ref.read(mainShellTabIndexProvider.notifier).state = 0;
         }
       } else if (next.type == WidgetLaunchActionType.openPockets) {
         // Any tap on the widget surface should open the Pockets tab.
-        if (currentIndex.value != 2) {
-          currentIndex.value = 2;
+        if (ref.read(mainShellTabIndexProvider) != 2) {
+          ref.read(mainShellTabIndexProvider.notifier).state = 2;
         }
         // Reset state
         ref.read(widgetLaunchProvider.notifier).state =
@@ -102,7 +103,7 @@ class MainShell extends HookConsumerWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 0.0),
                 child: IndexedStack(
-                  index: currentIndex.value,
+                  index: currentIndex,
                   children: pages,
                 ),
               ),
@@ -138,10 +139,9 @@ class MainShell extends HookConsumerWidget {
               label: context.l10n.insights,
             ),
           ],
-          selectedIndex: currentIndex.value,
+          selectedIndex: currentIndex,
           onTap: (index) {
-            debugPrint('🔄 Switching to index $index');
-            currentIndex.value = index;
+            ref.read(mainShellTabIndexProvider.notifier).state = index;
           },
         ),
       ),
@@ -172,18 +172,20 @@ class _WidgetConfigurationDialog extends HookConsumerWidget {
     final selectedCurrency = useState<String>('USD');
 
     return AlertDialog(
-      title: const Text('Configure Widget'),
+      title: Text(context.l10n.configureWidgetTitle),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           // Scope Selector
           DropdownButtonFormField<String>(
             initialValue: selectedScope.value,
-            decoration: const InputDecoration(labelText: 'Household'),
+            decoration: InputDecoration(
+              labelText: context.l10n.widgetHouseholdLabel,
+            ),
             items: [
-              const DropdownMenuItem(
+              DropdownMenuItem(
                 value: 'personal',
-                child: Text('Personal'),
+                child: Text(context.l10n.personalScope),
               ),
               ...?householdsAsync.valueOrNull?.map((h) => DropdownMenuItem(
                     value: h.id,
@@ -198,7 +200,9 @@ class _WidgetConfigurationDialog extends HookConsumerWidget {
           // Currency Selector
           DropdownButtonFormField<String>(
             initialValue: selectedCurrency.value,
-            decoration: const InputDecoration(labelText: 'Currency'),
+            decoration: InputDecoration(
+              labelText: context.l10n.currencyLabel,
+            ),
             items: (availableCurrencies.isNotEmpty
                     ? availableCurrencies
                     : ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD'])
@@ -216,7 +220,7 @@ class _WidgetConfigurationDialog extends HookConsumerWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text(context.l10n.cancel),
         ),
         FilledButton(
           onPressed: () async {
@@ -227,7 +231,7 @@ class _WidgetConfigurationDialog extends HookConsumerWidget {
             );
             if (context.mounted) Navigator.pop(context);
           },
-          child: const Text('Save'),
+          child: Text(context.l10n.save),
         ),
       ],
     );

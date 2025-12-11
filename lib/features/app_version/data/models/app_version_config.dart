@@ -1,5 +1,4 @@
 class AppVersionConfig {
-  final String minVersion;
   final String latestVersion;
   final bool forceUpdate;
   final String? updateMessage;
@@ -7,7 +6,6 @@ class AppVersionConfig {
   final String? androidPlayStoreUrl;
 
   AppVersionConfig({
-    required this.minVersion,
     required this.latestVersion,
     required this.forceUpdate,
     this.updateMessage,
@@ -17,7 +15,6 @@ class AppVersionConfig {
 
   factory AppVersionConfig.fromJson(Map<String, dynamic> json) {
     return AppVersionConfig(
-      minVersion: json['min_version'] as String,
       latestVersion: json['latest_version'] as String,
       forceUpdate: json['force_update'] as bool,
       updateMessage: json['update_message'] as String?,

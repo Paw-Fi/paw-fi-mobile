@@ -62,7 +62,7 @@ class WalletLoginButton extends HookConsumerWidget {
         // Step 2: Call web3SignIn from JS interop  
         final sessionData = await web3SignIn(
           chain: chain,
-          statement: 'I accept the Terms of Service at https://moneko.io/terms',
+          statement: context.l10n.walletSignInStatement,
           projectUrl: Constants.supabaseUrl,
           anonKey: Constants.supabaseAnon,
         );

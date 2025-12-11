@@ -22,8 +22,9 @@ class VersionService {
     try {
       // Dynamically detect platform
       final platform = Platform.isIOS ? 'ios' : 'android';
-      developer.log('Fetching version config for platform: $platform', name: 'VersionService');
-      
+      developer.log('Fetching version config for platform: $platform',
+          name: 'VersionService');
+
       final List<dynamic> response = await supabase
           .from('app_version_config')
           .select()
@@ -32,20 +33,22 @@ class VersionService {
 
       // Safely parse list payload
       if (response.isEmpty) {
-        developer.log('No version config found in database', name: 'VersionService');
+        developer.log('No version config found in database',
+            name: 'VersionService');
         return null;
       }
 
       final first = response.first as Map<String, dynamic>;
       final config = AppVersionConfig.fromJson(first);
       developer.log(
-        'Config loaded: minVersion=${config.minVersion}, forceUpdate=${config.forceUpdate}',
+        'Config loaded: latestVersion=${config.latestVersion}, forceUpdate=${config.forceUpdate}',
         name: 'VersionService',
       );
-      
+
       return config;
     } catch (e) {
-      developer.log('Error fetching version config: $e', name: 'VersionService', error: e);
+      developer.log('Error fetching version config: $e',
+          name: 'VersionService', error: e);
       return null;
     }
   }
@@ -78,14 +81,16 @@ class VersionService {
     if (!config.forceUpdate) return false;
 
     final currentVersion = await getCurrentVersion();
-    final comparison = compareVersions(currentVersion, config.minVersion);
+    // Using latestVersion as the minimum required version per new logic
+    final comparison = compareVersions(currentVersion, config.latestVersion);
 
     developer.log(
-      'Current: $currentVersion, Min Required: ${config.minVersion}, Update Required: ${comparison < 0}',
+      'Current: $currentVersion, Latest Required: ${config.latestVersion}, Update Required: ${comparison < 0}',
       name: 'VersionService',
     );
 
-    return comparison < 0; // Current version is older than minimum
+    return comparison <
+        0; // Current version is older than latest (which is now properly enforced if forceUpdate is true)
   }
 
   /// Check if newer version is available (optional update)

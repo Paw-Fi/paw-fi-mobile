@@ -22,6 +22,9 @@ import 'package:moneko/features/pockets/presentation/widgets/simple_spending_lis
 import 'package:moneko/features/pockets/presentation/widgets/uncategorized_banner.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:moneko/shared/widgets/spotlight/spotlight_controller.dart';
+import 'package:moneko/shared/widgets/spotlight/spotlight_step.dart';
+import 'package:moneko/core/navigation/navigation_providers.dart';
 
 class PocketsGridSection extends HookConsumerWidget {
   const PocketsGridSection({
@@ -73,6 +76,50 @@ class PocketsGridSection extends HookConsumerWidget {
       });
       return null;
     }, []);
+
+    final currentTabIndex = ref.watch(mainShellTabIndexProvider);
+
+    // Key attached to the budget amount row inside PocketsHeaderCard;
+    // we use this as the spotlight anchor so only the amount is
+    // highlighted, not the entire header card.
+    final headerAmountKey = useMemoized(() => GlobalKey(), []);
+
+    final pocketsBudgetTourController = useMemoized(
+      () => SpotlightTourController(
+        tourId: 'pockets_budget_header_v1',
+        steps: [
+          SpotlightStep(
+            id: 'pockets_budget_header',
+            targetKey: headerAmountKey,
+            title: context.l10n.pocketsBudgetTourTitle,
+            description: context.l10n.pocketsBudgetTourDescription,
+            placement: SpotlightPlacement.bottom,
+            padding: 6,
+            borderRadius: 24,
+          ),
+        ],
+      ),
+      [],
+    );
+
+    useEffect(() {
+      if (state.isLoading || state.error != null) return null;
+      // Only run the pockets header tour when the Pockets tab is the
+      // active tab (index 2 in MainShell).
+      if (currentTabIndex != 2) return null;
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) return;
+        pocketsBudgetTourController.start(context);
+      });
+
+      return null;
+    }, [
+      state.isLoading,
+      state.error,
+      currentTabIndex,
+      pocketsBudgetTourController,
+    ]);
 
     void markHelpAsSeen() {
       hasSeenEnvelopeModeHelp.value = true;
@@ -192,6 +239,7 @@ class PocketsGridSection extends HookConsumerWidget {
           onSave: notifier.saveChanges,
           currency: selectedCurrency,
           onDateSelected: onDateSelected,
+          amountSpotlightKey: headerAmountKey,
         ),
         const SizedBox(height: 24),
 

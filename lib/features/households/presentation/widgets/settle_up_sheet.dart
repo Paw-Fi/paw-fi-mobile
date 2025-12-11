@@ -452,7 +452,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                               currency: currency,
                               isIncome: false,
                               trailingWidget: Text(
-                                context.l10n.youOwe,
+                                context.l10n.youOweOthers,
                                 style: const TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,

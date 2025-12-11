@@ -245,7 +245,7 @@ class _UnifiedTransactionSheetState
       final pending = ref.read(pendingExpenseProvider);
       return pending?.currency ?? widget.newExpense!.currency;
     }
-    return widget.existingExpense!.currency ?? 'USD';
+    return widget.existingExpense!.currency ?? context.l10n.usd;
   }
 
   String get currencySymbol {
@@ -298,9 +298,16 @@ class _UnifiedTransactionSheetState
     final displayAmount = (pending?.amount ?? amount);
     final displayCategory = (pending?.category ?? category);
     if (isIncomeMode) {
-      return 'I earned $currencySymbol${displayAmount.toStringAsFixed(2)} ($displayCategory)';
+      return context.l10n.iEarnedAmountOnCategory(
+        '$currencySymbol${displayAmount.toStringAsFixed(2)}',
+        displayCategory,
+      );
     }
-    return 'I spent $currencySymbol${displayAmount.toStringAsFixed(2)} on $displayCategory';
+    return context.l10n.iSpentAmountOnCategory(
+      currencySymbol,
+      displayAmount.toStringAsFixed(2),
+      displayCategory,
+    );
   }
 
   /// Handle adding a photo to existing expense
@@ -324,7 +331,7 @@ class _UnifiedTransactionSheetState
     } catch (e) {
       debugPrint('❌ Error capturing photo: $e');
       if (mounted) {
-        AppToast.error(context, 'Failed to capture photo: $e');
+        AppToast.error(context, '${context.l10n.failedToCapturePhoto}: $e');
       }
     }
   }
@@ -1988,7 +1995,7 @@ class _UnifiedTransactionSheetState
                 description: expense.description,
                 householdId: _isSharedWithHousehold
                     ? selectedHousehold
-                    : null, // ✅ FIX: Only pass if toggle is ON
+                    : null, // 
               );
 
           // Reset state
@@ -2001,23 +2008,21 @@ class _UnifiedTransactionSheetState
               expense.localImagePath ?? widget.localImagePath;
 
           if (imagePathToUpload != null) {
-            debugPrint('📤 Uploading receipt image: $imagePathToUpload');
+            debugPrint(' Uploading receipt image: $imagePathToUpload');
             receiptUrl = await ref
                 .read(expenseSaveNotifierProvider.notifier)
                 .uploadReceiptImage(File(imagePathToUpload), user.uid);
-            debugPrint('📤 Receipt upload result: $receiptUrl');
+            debugPrint(' Receipt upload result: $receiptUrl');
           } else {
-            debugPrint('📤 No local image path to upload');
+            debugPrint(' No local image path to upload');
           }
 
-          // ═══════════════════════════════════════════════════════════════
-          // CRITICAL FIX: Comprehensive UI refresh for INCOME
-          // ═══════════════════════════════════════════════════════════════
-          debugPrint('🔄 [SAVE INCOME] Triggering comprehensive UI refresh...');
+          // 
+          debugPrint(' Triggering comprehensive UI refresh...');
           
           // Refresh the household where income was saved (if shared)
           if (selectedHousehold != null) {
-            debugPrint('🏠 [SAVE INCOME] Refreshing saved household UI: $selectedHousehold');
+            debugPrint(' Refreshing saved household UI: $selectedHousehold');
             _refreshHouseholdUiAfterExpenseChange(selectedHousehold);
           }
           
@@ -2027,12 +2032,12 @@ class _UnifiedTransactionSheetState
           final currentHouseholdId = currentHouseholdState.householdId;
           
           if (currentViewMode.mode == ViewMode.household && currentHouseholdId != null) {
-            debugPrint('👁️ [SAVE INCOME] Also refreshing CURRENT household view: $currentHouseholdId');
+            debugPrint(' Also refreshing CURRENT household view: $currentHouseholdId');
             if (currentHouseholdId != selectedHousehold) {
               _refreshHouseholdUiAfterExpenseChange(currentHouseholdId);
             }
           } else {
-            debugPrint('👁️ [SAVE INCOME] Also refreshing CURRENT personal view');
+            debugPrint(' Also refreshing CURRENT personal view');
             _refreshPersonalUiAfterExpenseChange(user.uid);
           }
 
@@ -2064,23 +2069,21 @@ class _UnifiedTransactionSheetState
                 .uploadReceiptImage(File(widget.localImagePath!), user.uid);
           }
 
-          // ═══════════════════════════════════════════════════════════════
-          // CRITICAL FIX: Only pass householdId if sharing toggle is ON
-          // ═══════════════════════════════════════════════════════════
+          // 
           // When _isSharedWithHousehold is false, we must pass null for householdId
           // This ensures the expense is saved as PERSONAL (household_id = null in DB)
           // which makes it appear in the personal page, not the household page.
           //
           // Before fix: Always passed selectedHousehold (even when toggle OFF)
           // After fix: Only pass selectedHousehold when _isSharedWithHousehold is true
-          // ═══════════════════════════════════════════════════════════
+          // 
           // Save expense with time and custom splits (if configured)
-          debugPrint('💾 [SAVE] Saving expense - household: ${_isSharedWithHousehold ? selectedHousehold : "null"}, viewMode: ${viewMode.mode}');
+          debugPrint(' Saving expense - household: ${_isSharedWithHousehold ? selectedHousehold : "null"}, viewMode: ${viewMode.mode}');
           await ref.read(expenseSaveNotifierProvider.notifier).saveExpense(
                 expense: expenseWithTime,
                 householdId: _isSharedWithHousehold
                     ? selectedHousehold
-                    : null, // ✅ FIX: Only pass if toggle is ON
+                    : null, // 
                 receiptImageUrl: receiptUrl,
                 customSplitType: _customSplitType,
                 customSplits: _customSplits,
@@ -2088,20 +2091,18 @@ class _UnifiedTransactionSheetState
                     _isSharedWithHousehold ? _selectedPayerUserId : null,
               );
 
-          debugPrint('✅ [SAVE] Expense saved successfully');
+          debugPrint(' Expense saved successfully');
           AppToast.success(context, context.l10n.expenseSaved);
 
-          // ═══════════════════════════════════════════════════════════════
-          // CRITICAL FIX: Refresh BOTH the saved household (if shared) AND current view
-          // ═══════════════════════════════════════════════════════════════
+          // 
           // The user might be viewing household mode while adding a personal expense,
           // or vice versa. We need to refresh:
           // 1. The household where expense was saved (if shared)
           // 2. The current view mode (personal or household)
           // This ensures ALL affected UIs update correctly.
-          // ═══════════════════════════════════════════════════════════════
+          // 
           
-          debugPrint('🔄 [SAVE] Triggering comprehensive UI refresh...');
+          debugPrint(' Triggering comprehensive UI refresh...');
           debugPrint('    Expense shared: $_isSharedWithHousehold');
           debugPrint('    Household ID: $selectedHousehold');
           debugPrint('    Current view mode: ${viewMode.mode}');
@@ -2112,7 +2113,7 @@ class _UnifiedTransactionSheetState
           
           // Step 1: Refresh the household where expense was saved (if shared)
           if (_isSharedWithHousehold && selectedHousehold != null) {
-            debugPrint('🏠 [SAVE] Refreshing saved household UI: $selectedHousehold');
+            debugPrint(' Refreshing saved household UI: $selectedHousehold');
             _refreshHouseholdUiAfterExpenseChange(selectedHousehold);
           }
           
@@ -2124,19 +2125,19 @@ class _UnifiedTransactionSheetState
           
           if (currentViewMode.mode == ViewMode.household && currentHouseholdId != null) {
             // Currently viewing household mode - refresh it
-            debugPrint('👁️ [SAVE] Also refreshing CURRENT household view: $currentHouseholdId');
+            debugPrint(' Also refreshing CURRENT household view: $currentHouseholdId');
             if (currentHouseholdId != selectedHousehold) {
               // Different household than where we saved - need to refresh it too
               _refreshHouseholdUiAfterExpenseChange(currentHouseholdId);
             }
           } else {
             // Currently viewing personal mode - refresh it
-            debugPrint('👁️ [SAVE] Also refreshing CURRENT personal view');
+            debugPrint(' Also refreshing CURRENT personal view');
             _refreshPersonalUiAfterExpenseChange(user.uid);
           }
 
-          debugPrint('✅ [SAVE] All UI refresh triggers completed');
-          debugPrint('🚪 [SAVE] Closing transaction sheet');
+          debugPrint(' All UI refresh triggers completed');
+          debugPrint(' Closing transaction sheet');
           if (!mounted) return;
           Navigator.of(context).pop();
         }
@@ -2211,11 +2212,11 @@ class _UnifiedTransactionSheetState
         // Handle receipt image upload for existing expenses
         if (_localImagePath != null) {
           debugPrint(
-              '📤 Uploading new receipt image for existing expense: $_localImagePath');
+              ' Uploading new receipt image for existing expense: $_localImagePath');
           final receiptUrl = await ref
               .read(expenseSaveNotifierProvider.notifier)
               .uploadReceiptImage(File(_localImagePath!), user.uid);
-          debugPrint('📤 New receipt upload result: $receiptUrl');
+          debugPrint(' New receipt upload result: $receiptUrl');
 
           if (receiptUrl != null) {
             updates['receipt_image_url'] = receiptUrl;
@@ -2293,7 +2294,7 @@ class _UnifiedTransactionSheetState
           return;
         }
 
-        debugPrint('💾 Updating expense with: $updates extraBody=$extraBody');
+        debugPrint(' Updating expense with: $updates extraBody=$extraBody');
 
         // Call update API (this already handles provider refresh internally)
         final success = await ref
@@ -2307,17 +2308,15 @@ class _UnifiedTransactionSheetState
         if (!mounted) return;
 
         if (success) {
-          // ═══════════════════════════════════════════════════════════════
-          // CRITICAL FIX: Comprehensive UI refresh for EDIT
-          // ═══════════════════════════════════════════════════════════════
-          debugPrint('🔄 [EDIT] Triggering comprehensive UI refresh...');
+          // 
+          debugPrint(' Triggering comprehensive UI refresh...');
           
           // Get the household from the edited expense
           final editedHouseholdId = widget.existingExpense!.householdId;
           
           // Refresh the household where expense exists (if it's shared)
           if (editedHouseholdId != null) {
-            debugPrint('🏠 [EDIT] Refreshing expense household UI: $editedHouseholdId');
+            debugPrint(' Refreshing expense household UI: $editedHouseholdId');
             _refreshHouseholdUiAfterExpenseChange(editedHouseholdId);
           }
           
@@ -2327,12 +2326,12 @@ class _UnifiedTransactionSheetState
           final currentHouseholdId = currentHouseholdState.householdId;
           
           if (currentViewMode.mode == ViewMode.household && currentHouseholdId != null) {
-            debugPrint('👁️ [EDIT] Also refreshing CURRENT household view: $currentHouseholdId');
+            debugPrint(' Also refreshing CURRENT household view: $currentHouseholdId');
             if (currentHouseholdId != editedHouseholdId) {
               _refreshHouseholdUiAfterExpenseChange(currentHouseholdId);
             }
           } else {
-            debugPrint('👁️ [EDIT] Also refreshing CURRENT personal view');
+            debugPrint(' Also refreshing CURRENT personal view');
             _refreshPersonalUiAfterExpenseChange(user.uid);
           }
 
@@ -2345,14 +2344,14 @@ class _UnifiedTransactionSheetState
           final editState = ref.read(transactionEditProvider);
           final message = (editState.error != null && editState.error!.trim().isNotEmpty)
               ? editState.error!
-              : 'Failed to update expense';
+              : context.l10n.failedToUpdateExpense;
 
           AppToast.error(context, message);
           return;
         }
       }
     } catch (error) {
-      debugPrint('❌ Error saving expense: $error');
+      debugPrint(' Error saving expense: $error');
       if (!mounted) return;
 
       AppToast.error(context, error.toString());
@@ -2380,7 +2379,7 @@ class _UnifiedTransactionSheetState
     try {
       final user = ref.read(authProvider);
 
-      debugPrint('🗑️ Deleting expense: ${widget.existingExpense!.id}');
+      debugPrint(' Deleting expense: ${widget.existingExpense!.id}');
 
       // Call delete API
       final response = await supabase.functions.invoke(
@@ -2392,24 +2391,24 @@ class _UnifiedTransactionSheetState
       );
 
       if (response.data == null || response.data['success'] != true) {
-        throw Exception(response.data?['error'] ?? 'Failed to delete expense');
+        throw Exception(response.data?['error'] ?? context.l10n.failedToDeleteExpense);
       }
 
-      debugPrint('✅ Expense deleted successfully');
+      debugPrint(' Expense deleted successfully');
 
       // Refresh analytics data (personal expenses)
       await ref.read(analyticsProvider.notifier).loadData(user.uid);
       
       // CRITICAL: Always invalidate ALL pocket providers (all scopes, all months)
       // This ensures pockets page refreshes regardless of personal/household mode
-      debugPrint('🗑️ [DELETE] Invalidating ALL pockets provider families...');
+      debugPrint(' Invalidating ALL pockets provider families...');
       ref.invalidate(pocketsProvider);
 
       // If this was a household expense, invalidate household providers
       final householdId = widget.existingExpense!.householdId;
       if (householdId != null) {
         debugPrint(
-            '🔄 Invalidating household providers for household: $householdId');
+            ' Invalidating household providers for household: $householdId');
 
         // Clear cached data first
         ref.read(cacheInvalidatorProvider).invalidateHouseholdData(householdId);
@@ -2426,7 +2425,7 @@ class _UnifiedTransactionSheetState
         ref.invalidate(householdBudgetsProvider);
         ref.invalidate(householdMembersProvider);
 
-        debugPrint('✅ Invalidated household providers');
+        debugPrint(' Invalidated household providers');
       }
 
       if (!mounted) return;
@@ -2435,7 +2434,7 @@ class _UnifiedTransactionSheetState
 
       AppToast.success(context, context.l10n.expenseDeletedSuccessfully);
     } catch (error) {
-      debugPrint('❌ Error deleting expense: $error');
+      debugPrint(' Error deleting expense: $error');
       if (!mounted) return;
 
       AppToast.error(context, context.l10n.failedToDeleteExpense);
@@ -2507,7 +2506,7 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
                         );
                       },
                       errorBuilder: (context, error, stackTrace) {
-                        return const Center(
+                        return  Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -2518,7 +2517,7 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
                               ),
                               SizedBox(height: 16),
                               Text(
-                                'Failed to load image',
+                                context.l10n.failedToLoadImage,
                                 style: TextStyle(
                                   color: Colors.white54,
                                   fontSize: 16,

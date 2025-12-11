@@ -114,7 +114,7 @@ class SettingsPage extends HookConsumerWidget {
         if (context.mounted) {
           AppToast.success(
             context,
-            'Notifications refreshed successfully',
+            context.l10n.notificationsRefreshedSuccessfully,
           );
         }
       } catch (e) {
@@ -134,8 +134,8 @@ class SettingsPage extends HookConsumerWidget {
       ),
     );
     final timezoneSubtitle = selectedTimezone.value == null
-        ? 'Defaults to your device time'
-        : 'Used for dates and reminders';
+        ? context.l10n.defaultsToYourDeviceTime
+        : context.l10n.usedForDatesAndReminders;
     final timezoneOptions = _buildTimezoneOptionsList(
       deviceTimezone: deviceTimezone,
       currentTimezone: selectedTimezone.value,
@@ -495,7 +495,7 @@ class SettingsPage extends HookConsumerWidget {
                 const SizedBox(height: 24),
 
                 // Timezone Section
-                const _SectionHeader(title: 'Timezone'),
+                _SectionHeader(title: context.l10n.timezone),
                 const SizedBox(height: 12),
                 AdaptiveListTile(
                   leading: Icon(
@@ -528,9 +528,11 @@ class SettingsPage extends HookConsumerWidget {
                       context: context,
                       items: timezoneOptions,
                       initial: currentTimezoneOption,
-                      title: 'Choose timezone',
+                      title: context.l10n.chooseTimezone,
                       labelBuilder: (option) => _formatTimezoneLabel(option) +
-                          (option.value == deviceTimezone ? ' (Device)' : ''),
+                          (option.value == deviceTimezone
+                              ? ' (${context.l10n.deviceLabel})'
+                              : ''),
                     );
                     if (selection != null &&
                         selection.value != selectedTimezone.value) {
@@ -650,7 +652,7 @@ class SettingsPage extends HookConsumerWidget {
                     onPressed: () async {
                       showBlockingProcessingDialog(
                         context: context,
-                        message: 'Signing out...',
+                        message: context.l10n.signingOut,
                       );
 
                       try {
@@ -825,7 +827,10 @@ Future<File?> _pickAndCropAvatarImage(
     return File(croppedFile.path);
   } catch (e) {
     if (context.mounted) {
-      AppToast.error(context, 'Failed to process image: $e');
+      AppToast.error(
+        context,
+        context.l10n.failedToProcessImage(e.toString()),
+      );
     }
     return null;
   }
@@ -843,7 +848,7 @@ Future<void> _uploadAndSaveAvatar(
 
   showBlockingProcessingDialog(
     context: context,
-    message: 'Updating avatar...',
+    message: context.l10n.updatingAvatar,
   );
 
   try {
@@ -892,7 +897,7 @@ Future<void> _uploadAndSaveAvatar(
     if (context.mounted) {
       AppToast.error(
         context,
-        '${context.l10n.failedToSaveAvatar}: $e',
+        context.l10n.failedToSaveAvatar,
       );
     }
   } finally {
@@ -1098,7 +1103,7 @@ Future<void> _showEditNameSheet({
       keyboardType: TextInputType.text,
       // Basic validation, more detailed checks remain in _saveName
       validationPattern: RegExp(r'^.{2,}$'),
-      validationMessage: 'Please enter a valid name',
+      validationMessage: l10n.pleaseEnterAValidName,
     ),
   );
 
@@ -1125,7 +1130,7 @@ Future<void> _saveName(
 ) async {
   final newName = controller.text.trim();
   if (newName.isEmpty || newName.length < 2) {
-    AppToast.info(ctx, 'Please enter a valid name');
+    AppToast.info(ctx, AppLocalizations.of(ctx)!.pleaseEnterAValidName);
     return;
   }
 
@@ -1149,10 +1154,13 @@ Future<void> _saveName(
     if (navigator.canPop()) {
       navigator.pop();
     }
-    AppToast.success(ctx, 'Profile updated');
+    AppToast.success(ctx, AppLocalizations.of(ctx)!.profileUpdated);
   } catch (e) {
     if (ctx.mounted) {
-      AppToast.error(ctx, 'Failed to update: $e');
+      AppToast.error(
+        ctx,
+        AppLocalizations.of(ctx)!.failedToUpdate(e.toString()),
+      );
     }
   }
 }
