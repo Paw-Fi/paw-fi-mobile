@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 // import 'package:moneko/core/theme/theme.dart'; // Unnecessary (covered by core.dart)
@@ -46,7 +47,6 @@ class HomePage extends ConsumerStatefulWidget {
 class _HomePageState extends ConsumerState<HomePage> {
   final ImagePicker _imagePicker = ImagePicker();
   final TextEditingController _textController = TextEditingController();
-  final GlobalKey<ExpandableFabState> _fabKey = GlobalKey<ExpandableFabState>();
 
   @override
   void initState() {
@@ -156,7 +156,12 @@ class _HomePageState extends ConsumerState<HomePage> {
     }
   }
 
-  Future<void> _processExpense({String? text, String? imagePath}) async {
+  Future<void> _processExpense({
+    String? text,
+    String? imagePath,
+    Uint8List? audioBytes,
+    String? audioContentType,
+  }) async {
     final user = ref.read(authProvider);
     final contact = ref.read(analyticsProvider).contact;
 
@@ -194,7 +199,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         body['currency'] = contact!.preferredCurrency!.toUpperCase();
       }
 
-      // Add either text or image to the request
+      // Add either text, image, audio, or attachments to the request
       if (text != null) {
         body['text'] = text;
       } else if (imagePath != null) {
@@ -217,6 +222,14 @@ class _HomePageState extends ConsumerState<HomePage> {
         body['image'] = {
           'data': base64Image,
           'contentType': contentType,
+        };
+      }
+
+      if (audioBytes != null && audioBytes.isNotEmpty) {
+        final base64Audio = base64Encode(audioBytes);
+        body['audio'] = {
+          'data': base64Audio,
+          'contentType': audioContentType ?? 'audio/mpeg',
         };
       }
 
@@ -435,8 +448,13 @@ class _HomePageState extends ConsumerState<HomePage> {
       context,
       _textController,
       (text) async {
-        // Process the expense with text
         await _processExpense(text: text);
+      },
+      onSubmitAudio: (audioBytes, contentType) async {
+        await _processExpense(
+          audioBytes: audioBytes,
+          audioContentType: contentType,
+        );
       },
     );
   }
@@ -849,9 +867,9 @@ class _HomePageState extends ConsumerState<HomePage> {
         ],
       ),
       floatingActionButton: _shouldShowFAB(viewMode, householdsAsync)
-          ? Padding(
-              padding: const EdgeInsets.all(0),
-              child: _buildExpandableFAB(colorScheme),
+          ? const Padding(
+              padding: EdgeInsets.all(0),
+              child: HomeAiExpandableFab(),
             )
           : null,
     );
@@ -870,39 +888,6 @@ class _HomePageState extends ConsumerState<HomePage> {
     return householdsAsync.maybeWhen(
       data: (households) => households.isNotEmpty,
       orElse: () => true, // Show FAB during loading or error states
-    );
-  }
-
-  Widget _buildExpandableFAB(ColorScheme colorScheme) {
-    return ExpandableFab(
-      key: _fabKey,
-      distance: 120,
-      children: [
-        ActionButton(
-          onPressed: () async {
-            _fabKey.currentState?.close();
-            await handleAiFreeFormText(context, ref);
-          },
-          icon: const Icon(Icons.text_fields),
-          label: context.l10n.freeFormText,
-        ),
-        ActionButton(
-          onPressed: () async {
-            _fabKey.currentState?.close();
-            await handleAiCameraCapture(context, ref);
-          },
-          icon: const Icon(Icons.camera_alt),
-          label: context.l10n.takePhoto,
-        ),
-        ActionButton(
-          onPressed: () async {
-            _fabKey.currentState?.close();
-            await handleAiFileOrGallery(context, ref);
-          },
-          icon: const Icon(Icons.attach_file),
-          label: 'Files',
-        ),
-      ],
     );
   }
 

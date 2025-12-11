@@ -266,7 +266,7 @@ void showScenarioResultSheet(
                     )
                   else
                     ValueListenableBuilder<bool>(
-                      valueListenable: isCompleteNotifier!,
+                      valueListenable: isCompleteNotifier,
                       builder: (context, isComplete, _) {
                         if (!isComplete) {
                           // Reserve icon space but hide the actual button

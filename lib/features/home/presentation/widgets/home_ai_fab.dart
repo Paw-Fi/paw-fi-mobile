@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -58,6 +59,14 @@ Future<void> handleAiFreeFormText(BuildContext context, WidgetRef ref) async {
     controller,
     (text) async {
       await _processExpense(context, ref, text: text);
+    },
+    onSubmitAudio: (audioBytes, contentType) async {
+      await _processExpense(
+        context,
+        ref,
+        audioBytes: audioBytes,
+        audioContentType: contentType,
+      );
     },
   );
 }
@@ -184,6 +193,8 @@ Future<void> _processExpense(
   String? text,
   String? imagePath,
   List<Map<String, dynamic>>? attachments,
+  Uint8List? audioBytes,
+  String? audioContentType,
 }) async {
   final user = ref.read(authProvider);
   final contact = ref.read(analyticsProvider).contact;
@@ -220,7 +231,7 @@ Future<void> _processExpense(
       body['currency'] = contact!.preferredCurrency!.toUpperCase();
     }
 
-    // Add either text, image, or file attachments to the request
+    // Add either text, image, audio, or file attachments to the request
     if (text != null) {
       body['text'] = text;
     } else if (imagePath != null) {
@@ -248,6 +259,14 @@ Future<void> _processExpense(
 
     if (attachments != null && attachments.isNotEmpty) {
       body['attachments'] = attachments;
+    }
+
+    if (audioBytes != null && audioBytes.isNotEmpty) {
+      final base64Audio = base64Encode(audioBytes);
+      body['audio'] = {
+        'data': base64Audio,
+        'contentType': audioContentType ?? 'audio/mpeg',
+      };
     }
 
     // Call analyze-expense endpoint (NEW: doesn't save yet). Backend now classifies income vs expense.
@@ -523,8 +542,12 @@ class HomeAiExpandableFab extends ConsumerWidget {
             fabKey.currentState?.close();
             await handleAiFreeFormText(context, ref);
           },
-          icon: const Icon(Icons.text_fields),
-          label: context.l10n.freeFormText,
+          icon: Image.asset(
+            'lib/assets/images/audio-message.png',
+            width: 25,
+            height: 25,
+          ),
+          label: "Text/Audio",
         ),
         ActionButton(
           onPressed: () async {

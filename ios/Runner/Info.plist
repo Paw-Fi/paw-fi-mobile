@@ -51,6 +51,8 @@
 	<string>We need access to your photo library to select receipt images for expense tracking.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>We need permission to save receipt photos to your photo library.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>We need access to your microphone so you can record voice notes about your expenses.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

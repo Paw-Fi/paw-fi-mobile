@@ -20,6 +20,8 @@
     <!-- Android 13+ runtime notifications permission -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Microphone access for recording voice notes in the AI expense assistant -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- Required for Supabase/auth and any network calls in release builds -->
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Helpful for connectivity checks and some libraries -->
