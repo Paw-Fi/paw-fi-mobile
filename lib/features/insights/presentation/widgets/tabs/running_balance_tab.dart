@@ -7,6 +7,7 @@ import 'package:moneko/features/insights/presentation/widgets/charts/charts.dart
 import 'package:moneko/features/insights/presentation/widgets/chart_legend.dart';
 import 'package:moneko/features/insights/presentation/widgets/insights_ui.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
@@ -328,9 +329,9 @@ class _AllTimeSummaryPills extends StatelessWidget {
 
     final net = totalBudget - totalSpent;
     final code = selectedCurrency ?? 'USD';
-    final spentTxt = formatCurrency(totalSpent.abs(), code);
-    final budgetTxt = formatCurrency(totalBudget.abs(), code);
-    final netTxt = formatCurrency(net.abs(), code);
+    final spentTxt = _formatCurrencyValue(context, totalSpent.abs(), code);
+    final budgetTxt = _formatCurrencyValue(context, totalBudget.abs(), code);
+    final netAbsTxt = _formatCurrencyValue(context, net.abs(), code);
     final spanStart = minDate != null
         ? '${minDate.year}-${minDate.month.toString().padLeft(2, '0')}-${minDate.day.toString().padLeft(2, '0')}'
         : '';
@@ -370,11 +371,23 @@ class _AllTimeSummaryPills extends StatelessWidget {
           colorScheme: colorScheme,
           icon: Icons.stacked_line_chart,
           label: context.l10n.net,
-          value: (net < 0 ? '-' : '+') + netTxt,
+          value: net < 0 ? '-$netAbsTxt' : '+$netAbsTxt',
           tint: netTint,
         ),
       ],
     );
+  }
+
+  String _formatCurrencyValue(
+    BuildContext context,
+    double amount,
+    String? currencyCode,
+  ) {
+    final code = currencyCode ?? 'USD';
+    final normalized = double.parse(formatAmount(amount));
+    final symbol = resolveCurrencySymbol(code);
+    final localized = formatLocalizedNumber(context, normalized);
+    return '$symbol$localized';
   }
 }
 

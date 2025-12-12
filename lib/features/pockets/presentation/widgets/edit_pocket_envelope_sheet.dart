@@ -20,6 +20,7 @@ import 'package:moneko/features/pockets/presentation/state/pockets_providers.dar
 import 'package:moneko/features/pockets/presentation/constants/pocket_icon_constants.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
@@ -174,6 +175,11 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
     }, [isEditing ? existingEnvelope!.id : null]);
 
     final allCategories = getExpenseCategories();
+
+    String _formatLocalizedAmount(num value) {
+      final normalized = double.parse(value.toStringAsFixed(0));
+      return formatLocalizedNumber(context, normalized);
+    }
 
     Future<void> handleSave() async {
       final l10n = context.l10n;
@@ -933,7 +939,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                   ],
                                 ),
                                 Text(
-                                  formatCurrency(totalBudget, currency),
+                                  '${resolveCurrencySymbol(currency)}${formatLocalizedNumber(context, double.parse(formatAmount(totalBudget)))}',
                                   style: TextStyle(
                                     fontSize: 13,
                                     color: colorScheme.mutedForeground,
@@ -978,7 +984,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
-                                        '${context.l10n.budgetExceededByLabel} ${(unallocatedBudget.abs()).toStringAsFixed(0)}',
+                                        '${context.l10n.budgetExceededByLabel} ${_formatLocalizedAmount(unallocatedBudget.abs())}',
                                         style: TextStyle(
                                           fontSize: 12,
                                           color: colorScheme.error,

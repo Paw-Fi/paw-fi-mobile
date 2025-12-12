@@ -3,10 +3,22 @@ import 'package:flutter/material.dart';
 import 'package:moneko/features/households/domain/entities/shared_budget.dart';
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/theme/widget_text_styles.dart';
+
+String _formatLocalizedCurrency(
+  BuildContext context,
+  double amount,
+  String currency,
+) {
+  final normalized = double.parse(formatAmount(amount));
+  final symbol = resolveCurrencySymbol(currency);
+  final localized = formatLocalizedNumber(context, normalized);
+  return '$symbol$localized';
+}
 
 Widget buildHouseholdBudgetCard(
   BuildContext context,
@@ -63,7 +75,11 @@ Widget buildHouseholdBudgetCard(
         ),
         const SizedBox(height: 16),
         Text(
-          formatCurrency((remainingAmount ?? totalAmount), currencyCode.toUpperCase()),
+          _formatLocalizedCurrency(
+            context,
+            (remainingAmount ?? totalAmount),
+            currencyCode.toUpperCase(),
+          ),
           style: WidgetTextStyles.amount.copyWith(
             color: colorScheme.foreground,
           ),
@@ -116,7 +132,7 @@ Widget buildHouseholdNetPositionCard(
   final isNegative = netCents < 0;
   final currency = (summary?.currency ?? 'USD').toUpperCase();
   final amount = (netCents.abs()) / 100.0;
-  final formatted = formatCurrency(amount, currency);
+  final formatted = _formatLocalizedCurrency(context, amount, currency);
   final displayText = isNegative ? '-$formatted' : formatted;
 
   final statusColor = isNegative ? const Color(0xFFEF4444) : const Color(0xFF10B981);
@@ -220,7 +236,7 @@ Widget buildHouseholdTotalSpentCard(
   final totalExpensesCents = summary?.totals.totalExpensesCents ?? 0;
   final currency = (summary?.currency ?? 'USD').toUpperCase();
   final amount = totalExpensesCents / 100.0;
-  final formatted = formatCurrency(amount, currency);
+  final formatted = _formatLocalizedCurrency(context, amount, currency);
   final transactionCount = summary?.totals.transactionCount ?? 0;
 
   final card = IntrinsicWidth(
@@ -249,60 +265,60 @@ Widget buildHouseholdTotalSpentCard(
             children: [
               Text(
                 context.l10n.spentByHousehold,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: colorScheme.mutedForeground,
-                letterSpacing: 0.3,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.mutedForeground,
+                  letterSpacing: 0.3,
+                ),
               ),
-            ),
-            Builder(
-              builder: (context) {
-                return IconButton(
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  icon: Icon(
-                    Icons.help_outline,
-                    size: 16,
-                    color: colorScheme.mutedForeground,
-                  ),
-                  onPressed: () => _showTotalSpentInfoDialog(context, colorScheme),
-                );
-              },
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Text(
-          formatted,
-          style: WidgetTextStyles.amount.copyWith(
-            color: colorScheme.foreground,
+              Builder(
+                builder: (context) {
+                  return IconButton(
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    icon: Icon(
+                      Icons.help_outline,
+                      size: 16,
+                      color: colorScheme.mutedForeground,
+                    ),
+                    onPressed: () => _showTotalSpentInfoDialog(context, colorScheme),
+                  );
+                },
+              ),
+            ],
           ),
-        ),
-        const Spacer(),
-        Row(
-          children: [
-            Container(
-              width: 6,
-              height: 6,
-              decoration: BoxDecoration(
-                color: colorScheme.primary.withValues(alpha: 0.6),
-                shape: BoxShape.circle,
-              ),
+          const SizedBox(height: 16),
+          Text(
+            formatted,
+            style: WidgetTextStyles.amount.copyWith(
+              color: colorScheme.foreground,
             ),
-            const SizedBox(width: 6),
-            Text(
-              '$transactionCount ${transactionCount == 1 ? 'transaction' : 'transactions'}',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: colorScheme.mutedForeground,
-                letterSpacing: 0.1,
+          ),
+          const Spacer(),
+          Row(
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: colorScheme.primary.withValues(alpha: 0.6),
+                  shape: BoxShape.circle,
+                ),
               ),
-            ),
-          ],
-        ),
-      ],
+              const SizedBox(width: 6),
+              Text(
+                '$transactionCount ${transactionCount == 1 ? 'transaction' : 'transactions'}',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: colorScheme.mutedForeground,
+                  letterSpacing: 0.1,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     ),
   );
@@ -384,7 +400,7 @@ Widget buildMemberSpendingCard(
                 ? (member.totalSpentCents / totalSpent) * 100
                 : 0.0;
             final amount = member.totalSpentCents / 100.0;
-            final formatted = formatCurrency(amount, currency);
+            final formatted = _formatLocalizedCurrency(context, amount, currency);
             final displayName = member.userName ?? member.userEmail?.split('@').first ?? 'Unknown';
 
             return Padding(

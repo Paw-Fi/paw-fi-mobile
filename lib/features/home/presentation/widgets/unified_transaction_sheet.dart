@@ -21,6 +21,7 @@ import 'package:moneko/features/home/presentation/constants/category_constants.d
 import 'package:moneko/features/home/presentation/widgets/category_picker_bottom_sheet.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/features/utils/datetime.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
@@ -299,13 +300,13 @@ class _UnifiedTransactionSheetState
     final displayCategory = (pending?.category ?? category);
     if (isIncomeMode) {
       return context.l10n.iEarnedAmountOnCategory(
-        '$currencySymbol${displayAmount.toStringAsFixed(2)}',
+        '$currencySymbol${formatLocalizedNumber(context, double.parse(displayAmount.toStringAsFixed(2)))}',
         displayCategory,
       );
     }
     return context.l10n.iSpentAmountOnCategory(
       currencySymbol,
-      displayAmount.toStringAsFixed(2),
+      formatLocalizedNumber(context, double.parse(displayAmount.toStringAsFixed(2))),
       displayCategory,
     );
   }
@@ -470,7 +471,7 @@ class _UnifiedTransactionSheetState
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          '${isIncomeMode ? '+' : '-'}$currencySymbol${displayAmount.toStringAsFixed(2)}',
+                          '${isIncomeMode ? '+' : '-'}$currencySymbol${formatLocalizedNumber(context, double.parse(displayAmount.toStringAsFixed(2)))}',
                           style: TextStyle(
                             fontSize: 48,
                             fontWeight: FontWeight.w700,

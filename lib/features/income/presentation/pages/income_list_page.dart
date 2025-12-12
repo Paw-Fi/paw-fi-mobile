@@ -8,6 +8,7 @@ import 'package:moneko/features/income/presentation/providers/income_providers.d
 import 'package:moneko/features/income/presentation/constants/income_categories.dart';
 import 'package:moneko/features/income/presentation/widgets/income_entry_sheet.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
@@ -156,6 +157,17 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
     );
   }
 
+  String _formatLocalizedCurrency(
+    BuildContext context,
+    double amount,
+    String currency,
+  ) {
+    final normalized = double.parse(formatAmount(amount));
+    final symbol = resolveCurrencySymbol(currency);
+    final localized = formatLocalizedNumber(context, normalized);
+    return '$symbol$localized';
+  }
+
   Widget _buildIncomeCard(
     IncomeEntry income,
     ColorScheme colorScheme,
@@ -170,6 +182,18 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
     final categoryColor = Color(
       int.parse(getIncomeCategoryColor(income.category).replaceFirst('#', '0xFF')),
     );
+    final amountDisplay =
+        _formatLocalizedCurrency(context, income.amount, income.currency);
+    String? normalizedDisplay;
+    if (income.normalizedAmount != null &&
+        income.baseCurrency != null &&
+        income.currency != income.baseCurrency) {
+      normalizedDisplay = _formatLocalizedCurrency(
+        context,
+        income.normalizedAmount!,
+        income.baseCurrency!,
+      );
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -243,7 +267,7 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          formatCurrency(income.amount, income.currency),
+                          amountDisplay,
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -255,7 +279,7 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
                             income.currency != income.baseCurrency) ...[
                           const SizedBox(height: 4),
                           Text(
-                            formatCurrency(income.normalizedAmount!, income.baseCurrency!),
+                            normalizedDisplay!,
                             style: TextStyle(
                               fontSize: 12,
                               color: colorScheme.mutedForeground,

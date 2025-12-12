@@ -8,6 +8,7 @@ import 'package:moneko/features/home/presentation/constants/category_constants.d
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dart';
@@ -203,6 +204,18 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
   String get chartIntervalType =>
       getChartIntervalTypeFromPeriod(selectedPeriod);
+
+  String _formatLocalizedCurrency(
+    BuildContext context,
+    double amount,
+    String? currency,
+  ) {
+    final code = currency ?? 'USD';
+    final normalized = double.parse(formatAmount(amount));
+    final symbol = resolveCurrencySymbol(code);
+    final localized = formatLocalizedNumber(context, normalized);
+    return '$symbol$localized';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -500,9 +513,11 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     final totalSpent = spendOnly.fold(0.0, (sum, e) => sum + e.amount.abs());
     final filterState = ref.watch(homeFilterProvider);
 
-    // selectedCurrency is never null (defaults to USD)
-    final displayText =
-        formatCurrency(totalSpent, filterState.selectedCurrency ?? 'USD');
+    final displayText = _formatLocalizedCurrency(
+      context,
+      totalSpent,
+      filterState.selectedCurrency,
+    );
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
 

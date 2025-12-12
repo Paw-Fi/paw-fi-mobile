@@ -7,6 +7,7 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/pockets/presentation/constants/pocket_icon_constants.dart';
 
@@ -231,8 +232,11 @@ class PocketDetailsPage extends HookConsumerWidget {
                           const SizedBox(height: 16),
                           // Big Amount (Remaining)
                           Text(
-                            formatCurrency(
-                                limit - pocket.spent, pocket.currency),
+                            _formatLocalizedCurrency(
+                              context,
+                              limit - pocket.spent,
+                              pocket.currency,
+                            ),
                             style: TextStyle(
                               fontSize: 48,
                               fontWeight: FontWeight.w800,
@@ -243,7 +247,7 @@ class PocketDetailsPage extends HookConsumerWidget {
                           const SizedBox(height: 8),
                           // Allocated
                           Text(
-                            '${formatCurrency(limit, pocket.currency)} allocated',
+                            '${_formatLocalizedCurrency(context, limit, pocket.currency)} allocated',
                             style: TextStyle(
                               fontSize: 16,
                               color: secondaryTextColor,
@@ -370,6 +374,17 @@ PocketEnvelope? _findPocket(PocketsState state, String pocketId) {
   }
 }
 
+String _formatLocalizedCurrency(
+  BuildContext context,
+  double amount,
+  String currency,
+) {
+  final normalized = double.parse(formatAmount(amount));
+  final symbol = resolveCurrencySymbol(currency);
+  final localized = formatLocalizedNumber(context, normalized);
+  return '$symbol$localized';
+}
+
 class _StatsGrid extends StatelessWidget {
   const _StatsGrid({
     required this.spent,
@@ -390,21 +405,21 @@ class _StatsGrid extends StatelessWidget {
         Expanded(
           child: _StatCard(
             label: context.l10n.spentThisMonth,
-            value: formatCurrency(spent, currency),
+            value: _formatLocalizedCurrency(context, spent, currency),
           ),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: _StatCard(
             label: context.l10n.avgDaily,
-            value: formatCurrency(dailyAverage, currency),
+            value: _formatLocalizedCurrency(context, dailyAverage, currency),
           ),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: _StatCard(
             label: context.l10n.allowance,
-            value: formatCurrency(allowance, currency),
+            value: _formatLocalizedCurrency(context, allowance, currency),
           ),
         ),
       ],
@@ -654,6 +669,8 @@ class _TransactionsListCard extends StatelessWidget {
                 final date = DateTime.parse(tx['date']);
                 final category = tx['category'] as String?;
                 final description = tx['description'] ?? context.l10n.expense;
+                final amountDisplay =
+                    _formatLocalizedCurrency(context, amount, currency);
 
                 return Column(
                   children: [
@@ -698,7 +715,7 @@ class _TransactionsListCard extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          formatCurrency(amount, currency),
+                          amountDisplay,
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,

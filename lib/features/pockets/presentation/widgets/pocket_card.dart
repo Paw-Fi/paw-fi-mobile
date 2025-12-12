@@ -5,6 +5,7 @@ import 'package:moneko/features/pockets/presentation/constants/pocket_icon_const
 import 'package:moneko/features/pockets/presentation/constants/pocket_style_constants.dart';
 import 'package:moneko/features/pockets/presentation/widgets/liquid_pocket.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/number_format_utils.dart';
 
 class PocketCard extends StatelessWidget {
   const PocketCard({
@@ -15,6 +16,7 @@ class PocketCard extends StatelessWidget {
     required this.envelopeMode,
     required this.onPercentageChanged,
     this.onTap,
+    this.isSkeleton = false,
   });
 
   final PocketEnvelope pocket;
@@ -23,24 +25,34 @@ class PocketCard extends StatelessWidget {
   final bool envelopeMode;
   final ValueChanged<double> onPercentageChanged;
   final VoidCallback? onTap;
+  final bool isSkeleton;
 
   @override
   Widget build(BuildContext context) {
     final limit = pocket.getLimit(totalBudget);
     final progress = limit > 0 ? (pocket.spent / limit) : 0.0;
-    final isOverBudget = pocket.isOverBudget(totalBudget);
+    final isOverBudget = !isSkeleton && pocket.isOverBudget(totalBudget);
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     // Determine base color
-    Color baseColor = getPocketColor(pocket.color, colorScheme.primary);
-    if (isDarkMode && pocket.color != null) {
-      final hsl = HSLColor.fromColor(baseColor);
-      baseColor =
-          hsl.withLightness((hsl.lightness - 0.15).clamp(0.0, 1.0)).toColor();
+    Color baseColor;
+    if (isSkeleton) {
+      // Neutral light grey when showing skeletons, avoid pocket accent colors
+      baseColor = colorScheme.surfaceContainerHighest;
+    } else {
+      baseColor = getPocketColor(pocket.color, colorScheme.primary);
+      if (isDarkMode && pocket.color != null) {
+        final hsl = HSLColor.fromColor(baseColor);
+        baseColor = hsl
+            .withLightness((hsl.lightness - 0.15).clamp(0.0, 1.0))
+            .toColor();
+      }
     }
 
     final Color fillColor;
-    if (isOverBudget) {
+    if (isSkeleton) {
+      fillColor = baseColor;
+    } else if (isOverBudget) {
       fillColor = colorScheme.error;
     } else if (progress > 0.9) {
       fillColor = Colors.orange;
@@ -49,6 +61,15 @@ class PocketCard extends StatelessWidget {
     }
 
     final iconData = getPocketIconData(pocket.icon);
+
+    final currencySymbol = resolveCurrencySymbol(pocket.currency);
+    final spentNormalized = double.parse(formatAmount(pocket.spent));
+    final spentLocalized = formatLocalizedNumber(context, spentNormalized);
+    final spentDisplay = '$currencySymbol$spentLocalized';
+
+    final limitNormalized = double.parse(formatAmount(limit));
+    final limitLocalized = formatLocalizedNumber(context, limitNormalized);
+    final limitDisplay = '$currencySymbol$limitLocalized';
 
     // Calculate text color based on fill level for contrast
     // Since we are using a liquid fill, the text might be over the liquid or the background.
@@ -174,7 +195,7 @@ class PocketCard extends StatelessWidget {
                             Row(
                               children: [
                                 Text(
-                                  formatCurrency(pocket.spent, pocket.currency),
+                                  spentDisplay,
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
@@ -184,7 +205,7 @@ class PocketCard extends StatelessWidget {
                                   ),
                                 ),
                                 Text(
-                                  ' / ${formatCurrency(limit, pocket.currency)}',
+                                  ' / $limitDisplay',
                                   style: const TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w500,

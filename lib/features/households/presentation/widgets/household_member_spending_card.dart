@@ -5,6 +5,7 @@ import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
@@ -269,7 +270,10 @@ Widget _buildMemberRow(
       ? (member.totalSpentCents / totalMemberSpent) * 100
       : 0.0;
   final amount = member.totalSpentCents / 100.0;
-  final formatted = formatCurrency(amount, currency);
+  final normalized = double.parse(formatAmount(amount));
+  final symbol = resolveCurrencySymbol(currency);
+  final localized = formatLocalizedNumber(context, normalized);
+  final formatted = '$symbol$localized';
 
   // Get member data from the members list to ensure we have the correct name
   final memberData = members?.firstWhere(

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/services.dart';
 
@@ -63,6 +64,8 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
   DateTime? _recordingStartTime;
   Timer? _mockTranscribingTimer;
   final AudioRecorder _recorder = AudioRecorder();
+  final FocusNode _textFocusNode = FocusNode();
+  double? _keyboardInsetOnRecordStart;
 
   // Animation for the mic button scale
   late AnimationController _micScaleController;
@@ -83,6 +86,7 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
     _micScaleController.dispose();
     _mockTranscribingTimer?.cancel();
     _recorder.dispose();
+    _textFocusNode.dispose();
     super.dispose();
   }
 
@@ -120,6 +124,8 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
     setState(() {
       _isRecording = true;
       _recordingStartTime = DateTime.now();
+      final currentInset = MediaQuery.of(context).viewInsets.bottom;
+      _keyboardInsetOnRecordStart = currentInset > 0 ? currentInset : _keyboardInsetOnRecordStart;
     });
     _micScaleController.forward();
 
@@ -141,38 +147,37 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
     }
 
     final duration = DateTime.now().difference(startedAt);
+    print('🎙️ Recording finished. Duration: ${duration.inMilliseconds} ms');
 
     if (duration.inMilliseconds < 1000) {
-      HapticFeedback.heavyImpact(); // Simulate error feedback
-      // Short recording error
-      setState(() {
-        _isRecording = false;
-      });
-      await _recorder.cancel();
-      AppToast.error(context, context.l10n.holdLongerToRecord);
-      return;
+      HapticFeedback.vibrate();
+    } else {
+      HapticFeedback.lightImpact();
     }
-
-    HapticFeedback.lightImpact();
     setState(() {
       _isRecording = false;
     });
 
     final path = await _recorder.stop();
     if (path == null) {
-      AppToast.error(widget.parentContext, widget.parentContext.l10n.recordingFailed);
+      AppToast.error(
+          widget.parentContext, widget.parentContext.l10n.recordingFailed);
       return;
     }
 
     final file = File(path);
     if (!await file.exists()) {
-      AppToast.error(widget.parentContext, widget.parentContext.l10n.recordingFileMissing);
+      AppToast.error(
+          widget.parentContext, widget.parentContext.l10n.recordingFileMissing);
       return;
     }
 
     final bytes = await file.readAsBytes();
+    print('🎙️ Recording file path: $path');
+    print('🎙️ Recording byte length: ${bytes.length}');
     if (bytes.isEmpty) {
-      AppToast.error(widget.parentContext, widget.parentContext.l10n.recordingIsEmpty);
+      AppToast.error(
+          widget.parentContext, widget.parentContext.l10n.recordingIsEmpty);
       return;
     }
 
@@ -187,7 +192,10 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
   @override
   Widget build(BuildContext context) {
     final scheme = widget.colorScheme;
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final rawBottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final effectiveBottomInset = _isRecording
+        ? (_keyboardInsetOnRecordStart ?? rawBottomInset)
+        : rawBottomInset;
 
     final String dynamicTitle = context.l10n.addEntry;
     final String placeholder = context.l10n.enterExpenseDetails;
@@ -209,7 +217,7 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
           left: 20,
           right: 20,
           top: 10,
-          bottom: bottomInset > 0 ? bottomInset : 20,
+          bottom: effectiveBottomInset > 0 ? effectiveBottomInset : 20,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -261,50 +269,58 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
 
             const SizedBox(height: 12),
 
-            // Content Area (Swaps between TextField and Audio Visualizer)
+            // Content Area (Stack to maintain TextField focus/keyboard stability)
             SizedBox(
-              height: 120, // Check height consistency
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
-                transitionBuilder: (Widget child, Animation<double> animation) {
-                  return FadeTransition(opacity: animation, child: child);
-                },
-                child: _isRecording
-                    ? _RecordingVisualizer(
-                        colorScheme: scheme,
-                        recorder: _recorder,
-                      )
-                    : TextField(
-                        key: const ValueKey('textField'),
-                        controller: widget.textController,
-                        autofocus: true,
-                        maxLines: 4,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w400,
-                          color: scheme.onSurface,
+              height: 120,
+              child: Stack(
+                children: [
+                  // TextField always in tree to prevent keyboard dismissal
+                  TextField(
+                    key: const ValueKey('textField'),
+                    controller: widget.textController,
+                    focusNode: _textFocusNode,
+                    autofocus: true,
+                    maxLines: 4,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w400,
+                      color: scheme.onSurface,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: placeholder,
+                      hintStyle: TextStyle(
+                        color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 14),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: scheme.outlineVariant),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: scheme.primary),
+                      ),
+                      filled: true,
+                      fillColor: scheme.surfaceContainerLow,
+                    ),
+                  ),
+
+                  // Visualizer Overlay
+                  if (_isRecording)
+                    Positioned.fill(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: scheme.surface,
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        decoration: InputDecoration(
-                          hintText: placeholder,
-                          hintStyle: TextStyle(
-                            color:
-                                scheme.onSurfaceVariant.withValues(alpha: 0.6),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 14),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide:
-                                BorderSide(color: scheme.outlineVariant),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: scheme.primary),
-                          ),
-                          filled: true,
-                          fillColor: scheme.surfaceContainerLow,
+                        child: _RecordingVisualizer(
+                          colorScheme: scheme,
+                          recorder: _recorder,
                         ),
                       ),
+                    ),
+                ],
               ),
             ),
 
@@ -331,8 +347,9 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
                 ),
                 const SizedBox(width: 12),
                 GestureDetector(
-                  onLongPressStart: (_) => _onRecordStart(),
-                  onLongPressEnd: (_) => _onRecordEnd(),
+                  onTapDown: (_) => _onRecordStart(),
+                  onTapUp: (_) => _onRecordEnd(),
+                  onTapCancel: () => _onRecordEnd(),
                   child: ScaleTransition(
                     scale: _micScaleAnimation,
                     child: Container(
@@ -388,7 +405,8 @@ class _RecordingVisualizer extends StatefulWidget {
 class _RecordingVisualizerState extends State<_RecordingVisualizer> {
   Timer? _timer;
   // Initialize with small values for a "ready" state
-  final List<double> _history = List.filled(10, 0.05);
+  final List<double> _history = List.filled(15, 0.0);
+  double _phase = 0;
 
   @override
   void initState() {
@@ -404,18 +422,32 @@ class _RecordingVisualizerState extends State<_RecordingVisualizer> {
       final amp = await widget.recorder.getAmplitude();
       final currentDb = amp.current;
 
-      // Normalize dBFS (-160 to 0) to 0.0 - 1.0 range
-      // -50dB as noise floor, 0dB as max
-      double normalized = (currentDb + 50) / 50;
+      // Normalize dBFS (-160 to 0)
+      // Lower noise floor to -60dB to catch quieter input
+      double normalized;
 
-      // Clamp
+      // Map a practical voice range (around -60dB..-20dB) into 0..1
+      const double minDb = -60.0;
+      const double maxDb = -20.0;
+      final double clampedDb = currentDb.clamp(minDb, maxDb);
+      normalized = (clampedDb - minDb) / (maxDb - minDb);
+
       if (normalized < 0) normalized = 0;
       if (normalized > 1.0) normalized = 1.0;
 
+      print('🎙️ Amplitude current: $currentDb, normalized: $normalized');
+
       if (mounted) {
         setState(() {
-          _history.removeAt(0);
-          _history.add(normalized);
+          _phase += 0.7;
+          for (var i = 0; i < _history.length; i++) {
+            final angle = ((_phase + i) / _history.length) * 2 * pi;
+            final wave = sin(angle).abs(); // 0..1
+
+            // Silence → almost flat, loud voice → tall moving wave
+            final double value = 0.005 + (normalized * wave);
+            _history[i] = value.clamp(0.005, 1.0);
+          }
         });
       }
     } catch (e) {
@@ -448,12 +480,12 @@ class _RecordingVisualizerState extends State<_RecordingVisualizer> {
               duration: const Duration(milliseconds: 100),
               curve: Curves.easeOutQuad,
               margin: const EdgeInsets.symmetric(horizontal: 4),
-              width: 6,
-              height: 4 +
-                  (_history[index] *
-                      96), // Scale height dynamically, min 4, max 100
+              width: 5,
+              // Further lower baseline when silent, still within visual bounds
+              height: 16 + (_history[index] * 72),
               decoration: BoxDecoration(
-                color: widget.colorScheme.primary,
+                color: widget.colorScheme.primary
+                    .withOpacity(0.8 + (_history[index] * 0.2)),
                 borderRadius: BorderRadius.circular(3),
               ),
             );

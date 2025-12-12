@@ -7,6 +7,7 @@ import 'package:moneko/features/insights/presentation/widgets/charts/charts.dart
 import 'package:moneko/features/insights/presentation/widgets/chart_legend.dart';
 import 'package:moneko/features/insights/presentation/widgets/insights_ui.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
@@ -224,6 +225,18 @@ void _showThirtyDayGuide(BuildContext context, ColorScheme colorScheme) {
   );
 }
 
+String _formatCurrencyValue(
+  BuildContext context,
+  double amount,
+  String? currencyCode,
+) {
+  final code = currencyCode ?? 'USD';
+  final normalized = double.parse(formatAmount(amount));
+  final symbol = resolveCurrencySymbol(code);
+  final localized = formatLocalizedNumber(context, normalized);
+  return '$symbol$localized';
+}
+
 class _InsightsHelpSlideData {
   const _InsightsHelpSlideData(
       {required this.title, required this.summary, required this.points});
@@ -353,8 +366,8 @@ class _ThirtyDaySummaryPills extends StatelessWidget {
     final total = recent.fold<double>(0, (s, e) => s + e.amount);
     final avgDaily = recent.isEmpty ? 0.0 : total / 30.0;
     final code = selectedCurrency ?? 'USD';
-    final totalTxt = formatCurrency(total.abs(), code);
-    final avgTxt = formatCurrency(avgDaily.abs(), code);
+    final totalTxt = _formatCurrencyValue(context, total.abs(), code);
+    final avgTxt = _formatCurrencyValue(context, avgDaily.abs(), code);
     final span =
         '${thirtyDaysAgo.year}-${thirtyDaysAgo.month.toString().padLeft(2, '0')}-${thirtyDaysAgo.day.toString().padLeft(2, '0')} → ${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
 

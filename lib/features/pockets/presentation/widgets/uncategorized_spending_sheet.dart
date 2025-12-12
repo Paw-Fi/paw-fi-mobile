@@ -8,6 +8,18 @@ import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/constants/pocket_icon_constants.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/number_format_utils.dart';
+
+String _formatLocalizedCurrency(
+  BuildContext context,
+  double amount,
+  String currency,
+) {
+  final normalized = double.parse(formatAmount(amount));
+  final symbol = resolveCurrencySymbol(currency);
+  final localized = formatLocalizedNumber(context, normalized);
+  return '$symbol$localized';
+}
 
 void showUncategorizedSheet(
   BuildContext context,
@@ -275,7 +287,11 @@ class _UncategorizedCategoryTileState extends State<_UncategorizedCategoryTile>
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        formatCurrency(widget.item.amount, widget.currency),
+                        _formatLocalizedCurrency(
+                          context,
+                          widget.item.amount,
+                          widget.currency,
+                        ),
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
@@ -384,8 +400,11 @@ class _UncategorizedCategoryTileState extends State<_UncategorizedCategoryTile>
                                     ),
                                   ),
                                   Text(
-                                    formatCurrency(
-                                        amountCents / 100.0, widget.currency),
+                                    _formatLocalizedCurrency(
+                                      context,
+                                      amountCents / 100.0,
+                                      widget.currency,
+                                    ),
                                     style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,

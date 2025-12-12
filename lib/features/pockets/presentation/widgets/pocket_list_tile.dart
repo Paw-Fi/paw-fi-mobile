@@ -3,6 +3,7 @@ import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/constants/pocket_icon_constants.dart';
 import 'package:moneko/features/pockets/presentation/constants/pocket_style_constants.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/number_format_utils.dart';
 
 class PocketListTile extends StatelessWidget {
   const PocketListTile({
@@ -48,6 +49,17 @@ class PocketListTile extends StatelessWidget {
     final subtitleColor = isDarkMode
         ? Colors.white.withValues(alpha: 0.75)
         : Colors.black54;
+
+    final currencySymbol = resolveCurrencySymbol(pocket.currency);
+    final spentNormalized = double.parse(formatAmount(pocket.spent));
+    final spentLocalized =
+        formatLocalizedNumber(context, spentNormalized);
+    final spentDisplay = '$currencySymbol$spentLocalized';
+
+    final limitNormalized = double.parse(formatAmount(limit));
+    final limitLocalized =
+        formatLocalizedNumber(context, limitNormalized);
+    final limitDisplay = '$currencySymbol$limitLocalized';
 
     return GestureDetector(
       onTap: onTap,
@@ -178,7 +190,7 @@ class PocketListTile extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            formatCurrency(pocket.spent, pocket.currency),
+                            spentDisplay,
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
@@ -188,7 +200,7 @@ class PocketListTile extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            '/ ${formatCurrency(limit, pocket.currency)}',
+                            '/ $limitDisplay',
                             style: TextStyle(
                               fontSize: 11,
                               color: subtitleColor,

@@ -15,6 +15,7 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 /// Modern recurring transactions page with Apple-inspired design
 /// Features tabbed interface for expenses and income
@@ -118,6 +119,7 @@ class _RecurringTransactionsPageState
               householdId,
             ),
             householdId,
+            recurringExpenses.isLoading,
           ),
           _buildRecurringTabView(
             colorScheme,
@@ -128,6 +130,7 @@ class _RecurringTransactionsPageState
               householdId,
             ),
             householdId,
+            recurringIncomes.isLoading,
           ),
         ],
         onTabChanged: (index) {
@@ -147,18 +150,25 @@ class _RecurringTransactionsPageState
     ColorScheme colorScheme,
     Widget sliver,
     String? householdId,
+    bool isLoading,
   ) {
     return RefreshIndicator(
       onRefresh: () => _refresh(householdId),
-      child: CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          // Header is now provided globally in MainShell; add spacing only
-          const SliverToBoxAdapter(
-            child: SizedBox(height: 20),
-          ),
-          sliver,
-        ],
+      child: Skeletonizer(
+        enabled: isLoading,
+        effect: ShimmerEffect(
+          baseColor: colorScheme.skeletonBase,
+          highlightColor: colorScheme.skeletonHighlight,
+        ),
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            const SliverToBoxAdapter(
+              child: SizedBox(height: 20),
+            ),
+            sliver,
+          ],
+        ),
       ),
     );
   }
@@ -171,47 +181,42 @@ class _RecurringTransactionsPageState
   ) {
     return recurringExpenses.when(
       data: (expenses) {
-        final filtered = selectedCurrency == null
-            ? expenses
-            : expenses
-                .where((e) =>
-                    (e as RecurringTransaction).currency.toUpperCase() ==
-                    selectedCurrency)
-                .toList();
-        if (filtered.isEmpty) {
-          return SliverFillRemaining(
-            hasScrollBody: false,
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: EmptyRecurringState(
-                  type: context.l10n.expense,
-                  onAddPressed: () => _showAddSheet(context.l10n.expense),
-                ),
-              ),
-            ),
-          );
-        }
+        final filtered = (selectedCurrency == null
+                ? expenses
+                : expenses
+                    .where((e) =>
+                        (e as RecurringTransaction)
+                            .currency
+                            .toUpperCase() ==
+                        selectedCurrency)
+                    .toList())
+            .cast<RecurringTransaction>();
 
-        return SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-          sliver: SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final expense = filtered[index] as RecurringTransaction;
-                return RecurringTransactionCard(
-                  transaction: expense,
-                  onTap: () => _showTransactionDetails(expense),
-                  onDelete: () => _deleteTransaction(expense, householdId),
-                );
-              },
-              childCount: filtered.length,
-            ),
-          ),
+        return _buildTransactionsListSliver(
+          filtered,
+          colorScheme,
+          context.l10n.expense,
+          householdId,
+          isLoading: false,
         );
       },
-      loading: () => _buildLoadingSliver(),
-      error: (error, _) => _buildErrorSliver(error.toString(), context.l10n.expense),
+      loading: () {
+        final currency = selectedCurrency ?? 'USD';
+        final fakeExpenses = _buildFakeRecurringTransactions(
+          isIncome: false,
+          currency: currency,
+        );
+
+        return _buildTransactionsListSliver(
+          fakeExpenses,
+          colorScheme,
+          context.l10n.expense,
+          householdId,
+          isLoading: true,
+        );
+      },
+      error: (error, _) =>
+          _buildErrorSliver(error.toString(), context.l10n.expense),
     );
   }
 
@@ -223,55 +228,84 @@ class _RecurringTransactionsPageState
   ) {
     return recurringIncomes.when(
       data: (incomes) {
-        final filtered = selectedCurrency == null
-            ? incomes
-            : incomes
-                .where((e) =>
-                    (e as RecurringTransaction).currency.toUpperCase() ==
-                    selectedCurrency)
-                .toList();
-        if (filtered.isEmpty) {
-          return SliverFillRemaining(
-            hasScrollBody: false,
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: EmptyRecurringState(
-                  type: context.l10n.income,
-                  onAddPressed: () => _showAddSheet(context.l10n.income),
-                ),
-              ),
-            ),
-          );
-        }
+        final filtered = (selectedCurrency == null
+                ? incomes
+                : incomes
+                    .where((e) =>
+                        (e as RecurringTransaction)
+                            .currency
+                            .toUpperCase() ==
+                        selectedCurrency)
+                    .toList())
+            .cast<RecurringTransaction>();
 
-        return SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-          sliver: SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final income = filtered[index] as RecurringTransaction;
-                return RecurringTransactionCard(
-                  transaction: income,
-                  onTap: () => _showTransactionDetails(income),
-                  onDelete: () => _deleteTransaction(income, householdId),
-                );
-              },
-              childCount: filtered.length,
-            ),
-          ),
+        return _buildTransactionsListSliver(
+          filtered,
+          colorScheme,
+          context.l10n.income,
+          householdId,
+          isLoading: false,
         );
       },
-      loading: () => _buildLoadingSliver(),
-      error: (error, _) => _buildErrorSliver(error.toString(), context.l10n.income),
+      loading: () {
+        final currency = selectedCurrency ?? 'USD';
+        final fakeIncomes = _buildFakeRecurringTransactions(
+          isIncome: true,
+          currency: currency,
+        );
+
+        return _buildTransactionsListSliver(
+          fakeIncomes,
+          colorScheme,
+          context.l10n.income,
+          householdId,
+          isLoading: true,
+        );
+      },
+      error: (error, _) =>
+          _buildErrorSliver(error.toString(), context.l10n.income),
     );
   }
 
-  Widget _buildLoadingSliver() {
-    return const SliverFillRemaining(
-      hasScrollBody: false,
-      child: Center(
-        child: CircularProgressIndicator(),
+  Widget _buildTransactionsListSliver(
+    List<RecurringTransaction> transactions,
+    ColorScheme colorScheme,
+    String type,
+    String? householdId, {
+    required bool isLoading,
+  }) {
+    if (!isLoading && transactions.isEmpty) {
+      return SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: EmptyRecurringState(
+              type: type,
+              onAddPressed: () => _showAddSheet(type),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      sliver: SliverList(
+        delegate: SliverChildBuilderDelegate(
+          (context, index) {
+            final transaction = transactions[index];
+            return RecurringTransactionCard(
+              transaction: transaction,
+              onTap:
+                  isLoading ? null : () => _showTransactionDetails(transaction),
+              onDelete: isLoading
+                  ? null
+                  : () => _deleteTransaction(transaction, householdId),
+            );
+          },
+          childCount: transactions.length,
+        ),
       ),
     );
   }
@@ -347,6 +381,52 @@ class _RecurringTransactionsPageState
       foregroundColor: colorScheme.primaryForeground,
       child: const Icon(Icons.add),
     );
+  }
+
+  List<RecurringTransaction> _buildFakeRecurringTransactions({
+    required bool isIncome,
+    required String currency,
+  }) {
+    final now = DateTime.now();
+
+    return [
+      RecurringTransaction(
+        id: isIncome ? 'fake-income-1' : 'fake-expense-1',
+        date: now,
+        category: isIncome ? 'Salary' : 'Rent',
+        description: isIncome ? 'Monthly salary' : 'Monthly rent',
+        source: isIncome ? 'Company' : null,
+        amount: isIncome ? 2500 : 1200,
+        currency: currency,
+        ownerType: 'me',
+        privacyScope: 'full',
+        householdId: null,
+        payerUserId: null,
+        recurrenceRule: null,
+        type: isIncome ? 'income' : 'expense',
+        attachments: const [],
+        createdAt: now,
+        updatedAt: null,
+      ),
+      RecurringTransaction(
+        id: isIncome ? 'fake-income-2' : 'fake-expense-2',
+        date: now,
+        category: isIncome ? 'Bonus' : 'Utilities',
+        description: isIncome ? 'Bonus' : 'Utilities',
+        source: isIncome ? 'Company' : null,
+        amount: isIncome ? 400 : 150,
+        currency: currency,
+        ownerType: 'me',
+        privacyScope: 'full',
+        householdId: null,
+        payerUserId: null,
+        recurrenceRule: null,
+        type: isIncome ? 'income' : 'expense',
+        attachments: const [],
+        createdAt: now,
+        updatedAt: null,
+      ),
+    ];
   }
 
   void _showAddSheet(String type) {

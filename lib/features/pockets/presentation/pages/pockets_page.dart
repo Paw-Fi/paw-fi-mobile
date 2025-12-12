@@ -218,6 +218,7 @@ class PocketsPage extends HookConsumerWidget {
     final currentPocketsNotifier =
         ref.read(pocketsProvider(currentScopeParams).notifier);
     final hasChanges = currentPocketsState.hasChanges;
+    final isPocketsLoading = currentPocketsState.isLoading;
 
     return AdaptiveScaffold(
       body: Stack(
@@ -327,12 +328,13 @@ class PocketsPage extends HookConsumerWidget {
           ),
         ],
       ),
-      floatingActionButton: shouldShowHomeFab(viewMode, householdsAsync)
-          ? const Padding(
-              padding: EdgeInsets.all(0),
-              child: HomeAiExpandableFab(),
-            )
-          : null,
+      floatingActionButton:
+          shouldShowHomeFab(viewMode, householdsAsync) && !isPocketsLoading
+              ? const Padding(
+                  padding: EdgeInsets.all(0),
+                  child: HomeAiExpandableFab(),
+                )
+              : null,
     );
   }
 }

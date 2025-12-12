@@ -4,6 +4,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/income/presentation/providers/income_providers.dart';
 import 'package:moneko/features/income/presentation/pages/income_list_page.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
 /// Income summary card for dashboard
@@ -39,6 +40,13 @@ class IncomeCard extends ConsumerWidget {
           padding: const EdgeInsets.all(16.0),
           child: incomeSummaryState.when(
             data: (summary) {
+              String _formatLocalizedCurrency(double amount) {
+                final normalized = double.parse(formatAmount(amount));
+                final symbol = resolveCurrencySymbol(summary.currency);
+                final localized = formatLocalizedNumber(context, normalized);
+                return '$symbol$localized';
+              }
+
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -85,7 +93,7 @@ class IncomeCard extends ConsumerWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      formatCurrency(summary.mtdIncome!, summary.currency),
+                      _formatLocalizedCurrency(summary.mtdIncome!),
                       style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
@@ -102,7 +110,7 @@ class IncomeCard extends ConsumerWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      formatCurrency(summary.totalIncome, summary.currency),
+                      _formatLocalizedCurrency(summary.totalIncome),
                       style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
@@ -125,7 +133,7 @@ class IncomeCard extends ConsumerWidget {
                           ),
                         ),
                         Text(
-                          formatCurrency(summary.ytdIncome!, summary.currency),
+                          _formatLocalizedCurrency(summary.ytdIncome!),
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,

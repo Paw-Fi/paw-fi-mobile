@@ -8,6 +8,7 @@ import 'package:moneko/features/recurring/domain/models/recurring_transaction.da
 import 'package:moneko/features/recurring/presentation/widgets/recurring_transaction_card.dart';
 import 'package:moneko/core/utils/date_formatter.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/features/utils/sub_page_top_padding.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -180,6 +181,17 @@ class DailyFinancialDetailsPage extends StatelessWidget {
   }
 }
 
+String _formatLocalizedCurrency(
+  BuildContext context,
+  double amount,
+  String currency,
+) {
+  final normalized = double.parse(formatAmount(amount));
+  final symbol = resolveCurrencySymbol(currency);
+  final localized = formatLocalizedNumber(context, normalized);
+  return '$symbol$localized';
+}
+
 class _SummaryCard extends StatelessWidget {
   final double income;
   final double expense;
@@ -258,7 +270,7 @@ class _SummaryCard extends StatelessWidget {
                 ),
               ),
               Text(
-                formatCurrency(net, currency),
+                _formatLocalizedCurrency(context, net, currency),
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -301,7 +313,7 @@ class _StatItem extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          formatCurrency(amount, currency),
+          _formatLocalizedCurrency(context, amount, currency),
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
@@ -486,7 +498,7 @@ class _DailySpendingChart extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        formatCurrency(totalSpent, currency),
+                        _formatLocalizedCurrency(context, totalSpent, currency),
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,

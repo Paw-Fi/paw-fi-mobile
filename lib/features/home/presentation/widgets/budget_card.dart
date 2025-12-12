@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
@@ -18,8 +19,8 @@ Widget buildBudgetCard(
 }) {
   final totalBudget = _getTotalBudget(budgets);
 
-  // selectedCurrency is never null (defaults to USD)
-  final displayText = formatCurrency(totalBudget, selectedCurrency ?? 'USD');
+  final currency = selectedCurrency ?? 'USD';
+  final displayText = _formatLocalizedCurrency(context, totalBudget, currency);
 
   final title = _budgetTitleForFilter(context, filter);
 
@@ -96,6 +97,17 @@ Widget buildBudgetCard(
 
 double _getTotalBudget(List<DailyBudgetEntry> budgets) {
   return budgets.fold(0.0, (sum, b) => sum + b.amount);
+}
+
+String _formatLocalizedCurrency(
+  BuildContext context,
+  double amount,
+  String currency,
+) {
+  final normalized = double.parse(formatAmount(amount));
+  final symbol = resolveCurrencySymbol(currency);
+  final localized = formatLocalizedNumber(context, normalized);
+  return '$symbol$localized';
 }
 
 String _budgetTitleForFilter(BuildContext context, DateRangeFilter filter) {

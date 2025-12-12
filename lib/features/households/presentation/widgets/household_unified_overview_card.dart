@@ -3,9 +3,21 @@ import 'package:flutter/material.dart';
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+
+String _formatLocalizedCurrency(
+  BuildContext context,
+  double amount,
+  String currency,
+) {
+  final normalized = double.parse(formatAmount(amount));
+  final symbol = resolveCurrencySymbol(currency);
+  final localized = formatLocalizedNumber(context, normalized);
+  return '$symbol$localized';
+}
 /// Unified overview card that combines household total spent, budget info, and member spending
 Widget buildHouseholdUnifiedOverviewCard(
   BuildContext context,
@@ -17,7 +29,7 @@ Widget buildHouseholdUnifiedOverviewCard(
   final totalExpensesCents = summary?.totals.totalExpensesCents ?? 0;
   final currency = (summary?.currency ?? 'USD').toUpperCase();
   final totalSpentAmount = totalExpensesCents / 100.0;
-  final formattedTotalSpent = formatCurrency(totalSpentAmount, currency);
+  final formattedTotalSpent = _formatLocalizedCurrency(context, totalSpentAmount, currency);
   final transactionCount = summary?.totals.transactionCount ?? 0;
 
   // Budget data
@@ -228,7 +240,7 @@ Widget buildHouseholdUnifiedOverviewCard(
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      formatCurrency(budgetSpentAmount, currency),
+                      _formatLocalizedCurrency(context, budgetSpentAmount, currency),
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -256,7 +268,7 @@ Widget buildHouseholdUnifiedOverviewCard(
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      formatCurrency(budgetRemainingAmount.abs(), currency),
+                      _formatLocalizedCurrency(context, budgetRemainingAmount.abs(), currency),
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -332,7 +344,7 @@ Widget buildHouseholdUnifiedOverviewCard(
                 ? (member.totalSpentCents / totalMemberSpent) * 100
                 : 0.0;
             final amount = member.totalSpentCents / 100.0;
-            final formatted = formatCurrency(amount, currency);
+            final formatted = _formatLocalizedCurrency(context, amount, currency);
 
             // Get member data from the members list to ensure we have the correct name
             final memberData = members?.firstWhere(

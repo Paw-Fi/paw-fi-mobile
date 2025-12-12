@@ -20,6 +20,7 @@ import 'package:moneko/features/pockets/presentation/widgets/pocket_list_tile.da
 import 'package:moneko/features/pockets/presentation/widgets/pockets_header_card.dart';
 import 'package:moneko/features/pockets/presentation/widgets/simple_spending_list.dart';
 import 'package:moneko/features/pockets/presentation/widgets/uncategorized_banner.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_controller.dart';
@@ -128,18 +129,6 @@ class PocketsGridSection extends HookConsumerWidget {
       });
     }
 
-    if (state.isLoading) {
-      return Padding(
-        padding: const EdgeInsets.only(top: 32),
-        child: Center(
-          child: CircularProgressIndicator(
-            strokeWidth: 3,
-            valueColor: AlwaysStoppedAnimation(colorScheme.primary),
-          ),
-        ),
-      );
-    }
-
     if (state.error != null) {
       return Padding(
         padding: const EdgeInsets.all(24),
@@ -157,6 +146,7 @@ class PocketsGridSection extends HookConsumerWidget {
       );
     }
 
+    final isLoading = state.isLoading;
     final totalBudget = state.totalBudget;
     final totalSpent = state.totalSpent;
     final uncategorized = state.uncategorized;
@@ -183,6 +173,9 @@ class PocketsGridSection extends HookConsumerWidget {
     }, [state.editing, orderedIds.value]);
 
     void onReorder(int oldIndex, int newIndex) {
+      if (state.isLoading) {
+        return;
+      }
       if (oldIndex >= sortedPockets.length || newIndex > sortedPockets.length) {
         return;
       }
@@ -209,288 +202,356 @@ class PocketsGridSection extends HookConsumerWidget {
       });
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 8),
-        if (uncategorized.isNotEmpty) ...[
-          UncategorizedBanner(
-            colorScheme: colorScheme,
-            currency: selectedCurrency,
-            uncategorized: uncategorized,
-            uncategorizedExpenses: uncategorizedExpenses,
-            availablePockets: state.editing,
-            onAssignCategory: notifier.assignCategoryToPocket,
-          ),
-          const SizedBox(height: 16),
-        ],
-        PocketsHeaderCard(
-          totalBudget: totalBudget,
-          totalAllocated: state.editing
-              .fold(0.0, (sum, e) => sum + e.getLimit(totalBudget)),
-          totalSpent: totalSpent,
-          periodMonth: state.periodMonth,
-          previousBudget: state.previousBudget,
-          onReusePrevious: state.previousBudget > 0
-              ? () => notifier.reusePreviousBudget(state.previousBudget)
-              : null,
-          colorScheme: colorScheme,
-          onTotalChanged: notifier.updateTotalBudget,
-          onSave: notifier.saveChanges,
-          currency: selectedCurrency,
-          onDateSelected: onDateSelected,
-          amountSpotlightKey: headerAmountKey,
-        ),
-        const SizedBox(height: 24),
+    final pocketsForDisplay = isLoading && sortedPockets.isEmpty
+        ? _buildFakePockets(selectedCurrency)
+        : sortedPockets;
 
-        // Mode-Specific Content
-        if (envelopeMode.value) ...[
-          Row(
-            children: [
-              Text(
-                context.l10n.yourPockets,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.5,
-                  color: colorScheme.foreground,
-                ),
-              ),
-              const SizedBox(width: 8),
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () {
-                  showEnvelopeModeSettingsModal(
-                    context,
-                    colorScheme,
-                    envelopeMode.value,
-                    (value) => envelopeMode.value = value,
-                  );
-                  markHelpAsSeen();
-                },
-                child: Icon(
-                  Icons.help_outline_rounded,
-                  size: 20,
-                  color: colorScheme.mutedForeground,
-                ),
-              ),
-              const Spacer(),
-              // View Toggle
-              SizedBox(
-                width: PlatformInfo.isIOS ? 90 : 150,
-                height: 40,
-                child: AdaptiveSegmentedControl(
-                  labels: const [],
-                  // Platform-specific icons for grid view
-                  sfSymbols: [
-                    PlatformInfo.isIOS26OrHigher()
-                        ? 'square.grid.2x2.fill'
-                        : PlatformInfo.isIOS
-                            ? CupertinoIcons.square_grid_2x2_fill
-                            : Icons.dashboard,
-                    PlatformInfo.isIOS26OrHigher()
-                        ? 'list.bullet'
-                        : PlatformInfo.isIOS
-                            ? CupertinoIcons.list_bullet
-                            : Icons.list,
-                  ],
-                  selectedIndex: viewMode.value == 'grid' ? 0 : 1,
-                  onValueChanged: (index) {
-                    viewMode.value = index == 0 ? 'grid' : 'list';
-                    SharedPreferences.getInstance().then((prefs) {
-                      prefs.setString('pockets_view_mode', viewMode.value);
-                    });
-                  },
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          if (viewMode.value == 'grid')
-            ReorderableGridView.builder(
-              padding: const EdgeInsets.only(bottom: 100),
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 0.85,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-              ),
-              itemCount: sortedPockets.length + 1,
-              onReorder: (oldIndex, newIndex) {
-                // If moving the "Add" button (last item), cancel
-                if (oldIndex == sortedPockets.length) return;
-                // If moving to the "Add" button position, move to before it
-                if (newIndex > sortedPockets.length) {
-                  newIndex = sortedPockets.length;
-                }
-
-                onReorder(oldIndex, newIndex);
-              },
-              itemBuilder: (context, index) {
-                final isAddTile = index == sortedPockets.length;
-                if (isAddTile) {
-                  return KeyedSubtree(
-                    key: const ValueKey('add_button'),
-                    child: AddEnvelopeCard(
-                      colorScheme: colorScheme,
-                      onTap: () {
-                        if (totalBudget <= 0) {
-                          AppToast.info(context,
-                              context.l10n.pleaseSetMonthlyBudgetFirst);
-                          return;
-                        }
-                        showModalBottomSheet<void>(
-                          context: context,
-                          isScrollControlled: true,
-                          backgroundColor: Colors.transparent,
-                          builder: (sheetContext) {
-                            return EditPocketEnvelopeSheet(
-                              scopeParams: scopeParams,
-                              budgetId: state.budgetId,
-                              totalBudget: totalBudget,
-                              unallocatedBudget: state.unallocatedSpend,
-                              allPockets: state.editing,
-                            );
-                          },
-                        );
-                      },
-                    ),
-                  );
-                }
-
-                final pocket = sortedPockets[index];
-                return KeyedSubtree(
-                  key: ValueKey(pocket.id),
-                  child: PocketCard(
-                    pocket: pocket,
-                    colorScheme: colorScheme,
-                    totalBudget: totalBudget,
-                    envelopeMode: true,
-                    onPercentageChanged: (value) =>
-                        notifier.updatePocketPercentage(pocket.id, value),
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => PocketDetailsPage(
-                            pocketId: pocket.id,
-                            scopeParams: scopeParams,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                );
-              },
-            )
-          else
-            ReorderableGridView.builder(
-              padding: const EdgeInsets.only(bottom: 100),
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 1,
-                childAspectRatio: 4.0,
-                crossAxisSpacing: 0,
-                mainAxisSpacing: 8,
-              ),
-              itemCount: sortedPockets.length + 1,
-              onReorder: (oldIndex, newIndex) {
-                if (oldIndex == sortedPockets.length) return;
-                if (newIndex > sortedPockets.length) {
-                  newIndex = sortedPockets.length;
-                }
-                onReorder(oldIndex, newIndex);
-              },
-              itemBuilder: (context, index) {
-                final isAddTile = index == sortedPockets.length;
-                if (isAddTile) {
-                  return Padding(
-                    key: const ValueKey('add_button'),
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: AddEnvelopeListTile(
-                      colorScheme: colorScheme,
-                      onTap: () {
-                        if (totalBudget <= 0) {
-                          AppToast.info(context,
-                              context.l10n.pleaseSetMonthlyBudgetFirst);
-                          return;
-                        }
-                        showModalBottomSheet<void>(
-                          context: context,
-                          isScrollControlled: true,
-                          backgroundColor: Colors.transparent,
-                          builder: (sheetContext) {
-                            return EditPocketEnvelopeSheet(
-                              scopeParams: scopeParams,
-                              budgetId: state.budgetId,
-                              totalBudget: totalBudget,
-                              unallocatedBudget: state.unallocatedSpend,
-                              allPockets: state.editing,
-                            );
-                          },
-                        );
-                      },
-                    ),
-                  );
-                }
-
-                final pocket = sortedPockets[index];
-                return Padding(
-                  key: ValueKey(pocket.id),
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: PocketListTile(
-                    pocket: pocket,
-                    colorScheme: colorScheme,
-                    totalBudget: totalBudget,
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => PocketDetailsPage(
-                            pocketId: pocket.id,
-                            scopeParams: scopeParams,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                );
-              },
+    return Skeletonizer(
+      enabled: isLoading,
+      effect: ShimmerEffect(
+        baseColor: colorScheme.skeletonBase,
+        highlightColor: colorScheme.skeletonHighlight,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 8),
+          if (uncategorized.isNotEmpty) ...[
+            UncategorizedBanner(
+              colorScheme: colorScheme,
+              currency: selectedCurrency,
+              uncategorized: uncategorized,
+              uncategorizedExpenses: uncategorizedExpenses,
+              availablePockets: pocketsForDisplay,
+              onAssignCategory: notifier.assignCategoryToPocket,
             ),
-        ] else ...[
-          // Simple Mode: Spending Breakdown List
-          Row(
-            children: [
-              Text(
-                context.l10n.spendingBreakdown,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.5,
-                  color: colorScheme.foreground,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                context.l10n.byCategory,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: colorScheme.mutedForeground,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          SimpleSpendingList(
-            pockets: state.editing,
+            const SizedBox(height: 16),
+          ],
+          PocketsHeaderCard(
+            totalBudget: totalBudget,
+            totalAllocated: pocketsForDisplay
+                .fold(0.0, (sum, e) => sum + e.getLimit(totalBudget)),
             totalSpent: totalSpent,
+            periodMonth: state.periodMonth,
+            previousBudget: state.previousBudget,
+            onReusePrevious: state.previousBudget > 0
+                ? () => notifier.reusePreviousBudget(state.previousBudget)
+                : null,
             colorScheme: colorScheme,
+            onTotalChanged: notifier.updateTotalBudget,
+            onSave: notifier.saveChanges,
             currency: selectedCurrency,
+            onDateSelected: onDateSelected,
+            amountSpotlightKey: headerAmountKey,
+            isSkeleton: isLoading,
           ),
+          const SizedBox(height: 24),
+
+          // Mode-Specific Content
+          if (envelopeMode.value) ...[
+            Row(
+              children: [
+                Text(
+                  context.l10n.yourPockets,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.5,
+                    color: colorScheme.foreground,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    showEnvelopeModeSettingsModal(
+                      context,
+                      colorScheme,
+                      envelopeMode.value,
+                      (value) => envelopeMode.value = value,
+                    );
+                    markHelpAsSeen();
+                  },
+                  child: Icon(
+                    Icons.help_outline_rounded,
+                    size: 20,
+                    color: colorScheme.mutedForeground,
+                  ),
+                ),
+                const Spacer(),
+                if (!isLoading)
+                  // View Toggle
+                  SizedBox(
+                    width: PlatformInfo.isIOS ? 90 : 150,
+                    height: 40,
+                    child: AdaptiveSegmentedControl(
+                      labels: const [],
+                      // Platform-specific icons for grid view
+                      sfSymbols: [
+                        PlatformInfo.isIOS26OrHigher()
+                            ? 'square.grid.2x2.fill'
+                            : PlatformInfo.isIOS
+                                ? CupertinoIcons.square_grid_2x2_fill
+                                : Icons.dashboard,
+                        PlatformInfo.isIOS26OrHigher()
+                            ? 'list.bullet'
+                            : PlatformInfo.isIOS
+                                ? CupertinoIcons.list_bullet
+                                : Icons.list,
+                      ],
+                      selectedIndex: viewMode.value == 'grid' ? 0 : 1,
+                      onValueChanged: (index) {
+                        viewMode.value = index == 0 ? 'grid' : 'list';
+                        SharedPreferences.getInstance().then((prefs) {
+                          prefs.setString('pockets_view_mode', viewMode.value);
+                        });
+                      },
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (viewMode.value == 'grid')
+              ReorderableGridView.builder(
+                padding: const EdgeInsets.only(bottom: 100),
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  childAspectRatio: 0.85,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                ),
+                itemCount: pocketsForDisplay.length + 1,
+                onReorder: (oldIndex, newIndex) {
+                  // If moving the "Add" button (last item), cancel
+                  if (oldIndex == sortedPockets.length) return;
+                  // If moving to the "Add" button position, move to before it
+                  if (newIndex > sortedPockets.length) {
+                    newIndex = sortedPockets.length;
+                  }
+
+                  onReorder(oldIndex, newIndex);
+                },
+                itemBuilder: (context, index) {
+                  final isAddTile = index == pocketsForDisplay.length;
+                  if (isAddTile) {
+                    return KeyedSubtree(
+                      key: const ValueKey('add_button'),
+                      child: AddEnvelopeCard(
+                        colorScheme: colorScheme,
+                        onTap: () {
+                          if (totalBudget <= 0) {
+                            AppToast.info(context,
+                                context.l10n.pleaseSetMonthlyBudgetFirst);
+                            return;
+                          }
+                          showModalBottomSheet<void>(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (sheetContext) {
+                              return EditPocketEnvelopeSheet(
+                                scopeParams: scopeParams,
+                                budgetId: state.budgetId,
+                                totalBudget: totalBudget,
+                                unallocatedBudget: state.unallocatedSpend,
+                                allPockets: state.editing,
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    );
+                  }
+
+                  final pocket = pocketsForDisplay[index];
+                  return KeyedSubtree(
+                    key: ValueKey(pocket.id),
+                    child: PocketCard(
+                      pocket: pocket,
+                      colorScheme: colorScheme,
+                      totalBudget: totalBudget,
+                      envelopeMode: true,
+                      onPercentageChanged: (value) =>
+                          notifier.updatePocketPercentage(pocket.id, value),
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => PocketDetailsPage(
+                              pocketId: pocket.id,
+                              scopeParams: scopeParams,
+                            ),
+                          ),
+                        );
+                      },
+                      isSkeleton: isLoading,
+                    ),
+                  );
+                },
+              )
+            else
+              ReorderableGridView.builder(
+                padding: const EdgeInsets.only(bottom: 100),
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 1,
+                  childAspectRatio: 4.0,
+                  crossAxisSpacing: 0,
+                  mainAxisSpacing: 8,
+                ),
+                itemCount: pocketsForDisplay.length + 1,
+                onReorder: (oldIndex, newIndex) {
+                  if (oldIndex == sortedPockets.length) return;
+                  if (newIndex > sortedPockets.length) {
+                    newIndex = sortedPockets.length;
+                  }
+                  onReorder(oldIndex, newIndex);
+                },
+                itemBuilder: (context, index) {
+                  final isAddTile = index == pocketsForDisplay.length;
+                  if (isAddTile) {
+                    return Padding(
+                      key: const ValueKey('add_button'),
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: AddEnvelopeListTile(
+                        colorScheme: colorScheme,
+                        onTap: () {
+                          if (totalBudget <= 0) {
+                            AppToast.info(context,
+                                context.l10n.pleaseSetMonthlyBudgetFirst);
+                            return;
+                          }
+                          showModalBottomSheet<void>(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (sheetContext) {
+                              return EditPocketEnvelopeSheet(
+                                scopeParams: scopeParams,
+                                budgetId: state.budgetId,
+                                totalBudget: totalBudget,
+                                unallocatedBudget: state.unallocatedSpend,
+                                allPockets: state.editing,
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    );
+                  }
+
+                  final pocket = pocketsForDisplay[index];
+                  return Padding(
+                    key: ValueKey(pocket.id),
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: PocketListTile(
+                      pocket: pocket,
+                      colorScheme: colorScheme,
+                      totalBudget: totalBudget,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => PocketDetailsPage(
+                              pocketId: pocket.id,
+                              scopeParams: scopeParams,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  );
+                },
+              ),
+          ] else ...[
+            // Simple Mode: Spending Breakdown List
+            Row(
+              children: [
+                Text(
+                  context.l10n.spendingBreakdown,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.5,
+                    color: colorScheme.foreground,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  context.l10n.byCategory,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: colorScheme.mutedForeground,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            SimpleSpendingList(
+              pockets: pocketsForDisplay,
+              totalSpent: totalSpent,
+              colorScheme: colorScheme,
+              currency: selectedCurrency,
+            ),
+          ],
         ],
-      ],
+      ),
     );
   }
+}
+
+List<PocketEnvelope> _buildFakePockets(String currency) {
+  final now = DateTime.now();
+  return [
+    PocketEnvelope(
+      id: 'fake-1',
+      name: 'Groceries',
+      percentage: 25,
+      spent: 350,
+      currency: currency,
+      icon: 'shopping_bag',
+      color: null,
+      budgetId: null,
+      householdId: null,
+      lastUpdated: now,
+    ),
+    PocketEnvelope(
+      id: 'fake-2',
+      name: 'Bills',
+      percentage: 30,
+      spent: 420,
+      currency: currency,
+      icon: 'receipt_long',
+      color: null,
+      budgetId: null,
+      householdId: null,
+      lastUpdated: now,
+    ),
+    PocketEnvelope(
+      id: 'fake-3',
+      name: 'Dining Out',
+      percentage: 15,
+      spent: 120,
+      currency: currency,
+      icon: 'restaurant',
+      color: null,
+      budgetId: null,
+      householdId: null,
+      lastUpdated: now,
+    ),
+    PocketEnvelope(
+      id: 'fake-4',
+      name: 'Fun',
+      percentage: 10,
+      spent: 80,
+      currency: currency,
+      icon: 'celebration',
+      color: null,
+      budgetId: null,
+      householdId: null,
+      lastUpdated: now,
+    ),
+  ];
 }

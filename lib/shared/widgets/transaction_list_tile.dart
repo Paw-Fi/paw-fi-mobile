@@ -4,6 +4,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/number_format_utils.dart';
 
 class TransactionListTile extends StatelessWidget {
   final String category;
@@ -62,7 +63,11 @@ class TransactionListTile extends StatelessWidget {
     final color = getCategoryColor(category);
     final icon = getCategoryIcon(category);
     final sign = isIncome ? '+' : '-';
-    final formattedAmount = formatCurrency(amount.abs(), currency);
+    final normalizedAmount = double.parse(formatAmount(amount.abs()));
+    final localizedNumber =
+        formatLocalizedNumber(context, normalizedAmount);
+    final currencySymbol = resolveCurrencySymbol(currency);
+    final formattedAmount = '$currencySymbol$localizedNumber';
     final trimmedDescription = description?.trim() ?? '';
     final trimmedTitle = title.trim();
     final displayTitle = trimmedDescription.isNotEmpty

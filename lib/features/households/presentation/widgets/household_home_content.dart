@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 import '../providers/household_providers.dart';
 import '../providers/cached_providers.dart';
 import '../providers/selected_household_provider.dart';
@@ -273,13 +274,37 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                           final transactions = expensesAsync.valueOrNull;
                           final splits = splitsAsync.valueOrNull;
 
-                          // Show loading only if we have no data and are loading
+                          // Show loading skeleton only if we have no data and are loading
                           if ((expensesAsync.isLoading ||
                                   splitsAsync.isLoading) &&
                               (transactions == null || splits == null)) {
-                            return const Padding(
-                              padding: EdgeInsets.all(16.0),
-                              child: Center(child: CircularProgressIndicator()),
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16.0),
+                              child: Skeletonizer(
+                                effect: ShimmerEffect(
+                                  baseColor: colorScheme.skeletonBase,
+                                  highlightColor:
+                                      colorScheme.skeletonHighlight,
+                                ),
+                                child: buildSpendingCard(
+                                  context,
+                                  colorScheme,
+                                  [
+                                    ExpenseEntry(
+                                      id: 'skeleton',
+                                      date: to,
+                                      amountCents: 0,
+                                      createdAt: DateTime.now(),
+                                      userId: userId ?? '',
+                                      currency: selectedCurrency,
+                                    ),
+                                  ],
+                                  null,
+                                  config.dateRange,
+                                  selectedCurrency: selectedCurrency,
+                                ),
+                              ),
                             );
                           }
 
@@ -467,10 +492,33 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                             padding:
                                 const EdgeInsets.symmetric(horizontal: 16.0),
                             child: summaryAsync.when(
-                              loading: () => const SizedBox(
+                              loading: () => Skeletonizer(
+                                effect: ShimmerEffect(
+                                  baseColor: colorScheme.skeletonBase,
+                                  highlightColor:
+                                      colorScheme.skeletonHighlight,
+                                ),
+                                child: SizedBox(
                                   height: 200,
-                                  child: Center(
-                                      child: CircularProgressIndicator())),
+                                  child: Card(
+                                    color: colorScheme.cardSurface,
+                                    child: const Padding(
+                                      padding: EdgeInsets.all(16),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text('Budget overview'),
+                                          SizedBox(height: 8),
+                                          Text('Primary value placeholder'),
+                                          SizedBox(height: 4),
+                                          Text('Secondary text placeholder'),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
                               error: (e, st) => SizedBox(
                                   height: 200,
                                   child: Center(
@@ -581,27 +629,48 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
 
                           // Safely read summary and related AsyncValues to avoid crashes on errors/timeouts.
                           final summary = summaryAsync.valueOrNull;
+                          final splits = splitsAsync.valueOrNull;
+                          final transactions = expensesAsync.valueOrNull;
+                          final members = membersAsync.valueOrNull;
+
+                          final isSummaryLoading = summaryAsync.isLoading;
+                          final isSplitsLoading =
+                              splitsAsync.isLoading && splits == null;
+                          final isExpensesLoading =
+                              expensesAsync.isLoading && transactions == null;
+                          final isMembersLoading =
+                              membersAsync.isLoading && members == null;
+
+                          final showSkeleton = isSummaryLoading ||
+                              isSplitsLoading ||
+                              isExpensesLoading ||
+                              isMembersLoading;
+
+                          if (showSkeleton) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16.0),
+                              child:
+                                  _buildSettlementSkeleton(colorScheme),
+                            );
+                          }
 
                           if (summary == null) {
-                            // If summary failed to load or is still loading, omit the settlement card.
+                            // If summary failed to load or is unavailable, omit the settlement card.
                             return const SizedBox.shrink();
                           }
 
                           // If splits failed to load, hide the card instead of showing "All settled up" falsely
-                          final splits = splitsAsync.valueOrNull;
                           if (splits == null && splitsAsync.hasError) {
                             return const SizedBox.shrink();
                           }
 
-                          final transactions = expensesAsync.valueOrNull ?? [];
-                          final members = membersAsync.valueOrNull;
-
                           return Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 16.0),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16.0),
                             child: SettlementSuggestionsCard(
                               summary: summary,
-                              transactions: transactions,
+                              transactions: transactions ?? const [],
                               splits: splits,
                               currency: selectedCurrency,
                               members: members,
@@ -644,13 +713,32 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                           ));
 
                           return Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 16.0),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16.0),
                             child: summaryAsync.when(
-                              loading: () => const SizedBox(
-                                  height: 200,
-                                  child: Center(
-                                      child: CircularProgressIndicator())),
+                              loading: () => Skeletonizer(
+                                effect: ShimmerEffect(
+                                  baseColor: colorScheme.skeletonBase,
+                                  highlightColor:
+                                      colorScheme.skeletonHighlight,
+                                ),
+                                // Use the real card layout with empty data so
+                                // the skeleton spans the full widget width
+                                // and matches the final design.
+                                child: buildHouseholdMemberSpendingCard(
+                                  context,
+                                  colorScheme,
+                                  null,
+                                  members: const [],
+                                  householdId: household.id,
+                                  transactions: null,
+                                  splits: null,
+                                  from: null,
+                                  to: null,
+                                  selectedCurrency: selectedCurrency,
+                                  onTap: null,
+                                ),
+                              ),
                               error: (e, st) => const SizedBox.shrink(),
                               data: (summary) =>
                                   buildHouseholdMemberSpendingCard(
@@ -689,10 +777,43 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                           // Handle loading/error safely so timeouts don't crash the UI
                           if (expensesAsync.isLoading &&
                               !expensesAsync.hasValue) {
-                            return const Padding(
-                              padding: EdgeInsets.all(16.0),
-                              child:
-                                  Center(child: CircularProgressIndicator()),
+                            // Skeleton card for recent transactions list
+                            return Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16.0),
+                              child: Skeletonizer(
+                                effect: ShimmerEffect(
+                                  baseColor: colorScheme.skeletonBase,
+                                  highlightColor:
+                                      colorScheme.skeletonHighlight,
+                                ),
+                                child: buildRecentTransactionsCard(
+                                  context,
+                                  colorScheme,
+                                  [
+                                    ExpenseEntry(
+                                      id: 'skeleton-1',
+                                      date: DateTime.now(),
+                                      amountCents: 0,
+                                      createdAt: DateTime.now(),
+                                      userId: userId ?? '',
+                                      currency: selectedCurrency,
+                                    ),
+                                    ExpenseEntry(
+                                      id: 'skeleton-2',
+                                      date: DateTime.now(),
+                                      amountCents: 0,
+                                      createdAt: DateTime.now(),
+                                      userId: userId ?? '',
+                                      currency: selectedCurrency,
+                                    ),
+                                  ],
+                                  null,
+                                  selectedCurrency: selectedCurrency,
+                                  householdId: household.id,
+                                  onViewAll: () {},
+                                ),
+                              ),
                             );
                           }
 
@@ -749,10 +870,34 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                           // Gracefully handle loading/errors from the provider
                           if (expensesAsync.isLoading &&
                               !expensesAsync.hasValue) {
-                            return const Padding(
-                              padding: EdgeInsets.all(16.0),
-                              child:
-                                  Center(child: CircularProgressIndicator()),
+                            // Skeleton chart card while data loads
+                            return Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16.0),
+                              child: Skeletonizer(
+                                effect: ShimmerEffect(
+                                  baseColor: colorScheme.skeletonBase,
+                                  highlightColor:
+                                      colorScheme.skeletonHighlight,
+                                ),
+                                child: Card(
+                                  color: colorScheme.cardSurface,
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(16),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text('Spending breakdown'),
+                                        SizedBox(height: 8),
+                                        Text('Chart placeholder'),
+                                        SizedBox(height: 4),
+                                        Text('Legend placeholder'),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
                             );
                           }
 
@@ -815,9 +960,35 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                           // Gracefully handle loading/errors from the provider so
                           // timeouts don't crash the UI.
                           if (expensesAsync.isLoading && !expensesAsync.hasValue) {
-                            return const Padding(
-                              padding: EdgeInsets.all(16.0),
-                              child: Center(child: CircularProgressIndicator()),
+                            return Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16.0),
+                              child: Skeletonizer(
+                                effect: ShimmerEffect(
+                                  baseColor: colorScheme.skeletonBase,
+                                  highlightColor:
+                                      colorScheme.skeletonHighlight,
+                                ),
+                                child: Card(
+                                  color: colorScheme.cardSurface,
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(16),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text('Where the money went'),
+                                        SizedBox(height: 8),
+                                        Text('Row placeholder'),
+                                        SizedBox(height: 4),
+                                        Text('Row placeholder'),
+                                        SizedBox(height: 4),
+                                        Text('Row placeholder'),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
                             );
                           }
 
@@ -859,28 +1030,194 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
     );
   }
 
+  /// Skeleton placeholder for the settlement suggestions card
+  Widget _buildSettlementSkeleton(ColorScheme colorScheme) {
+    return Skeletonizer(
+      effect: ShimmerEffect(
+        baseColor: colorScheme.skeletonBase,
+        highlightColor: colorScheme.skeletonHighlight,
+      ),
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: colorScheme.cardSurface,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 20,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: const [
+            // Header row placeholder
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Settlement'),
+                SizedBox(
+                  width: 80,
+                  height: 20,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 16),
+            // Two stat cards row placeholder
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('You owe'),
+                      SizedBox(height: 4),
+                      Text('Amount placeholder'),
+                    ],
+                  ),
+                ),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('You are owed'),
+                      SizedBox(height: 4),
+                      Text('Amount placeholder'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 16),
+            // Suggested transfers header placeholder
+            Text('Suggested transfers'),
+            SizedBox(height: 12),
+            // A few suggestion rows
+            Text('Suggestion row 1'),
+            SizedBox(height: 8),
+            Text('Suggestion row 2'),
+            SizedBox(height: 8),
+            Text('Suggestion row 3'),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// Full-page loading state with skeleton
   Widget _buildLoadingState(ColorScheme colorScheme) {
-    return Container(
-      color: colorScheme.appBackground,
-      child: Center(
+    return Skeletonizer(
+      effect: ShimmerEffect(
+        baseColor: colorScheme.skeletonBase,
+        highlightColor: colorScheme.skeletonHighlight,
+      ),
+      child: Container(
+        color: colorScheme.appBackground,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            SizedBox(
-              width: 48,
-              height: 48,
-              child: CircularProgressIndicator(
-                strokeWidth: 3,
-                valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+            const SizedBox(height: 8),
+            // Simulated header card
+            Card(
+              color: colorScheme.cardSurface,
+              child: const ListTile(
+                leading: CircleAvatar(),
+                title: Text('Household name placeholder'),
+                subtitle: Text('Summary placeholder'),
               ),
             ),
-            const SizedBox(height: 24),
-            Text(
-              context.l10n.loadingHousehold,
-              style: TextStyle(
-                fontSize: 16,
-                color: colorScheme.mutedForeground,
+            const SizedBox(height: 16),
+            // A few card placeholders that roughly match the dashboard layout
+            Card(
+              color: colorScheme.cardSurface,
+              child: const Padding(
+                padding: EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Card title placeholder'),
+                    SizedBox(height: 8),
+                    Text('Primary value placeholder'),
+                    SizedBox(height: 4),
+                    Text('Secondary text placeholder'),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Card(
+              color: colorScheme.cardSurface,
+              child: const Padding(
+                padding: EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Card title placeholder'),
+                    SizedBox(height: 8),
+                    Text('Primary value placeholder'),
+                    SizedBox(height: 4),
+                    Text('Secondary text placeholder'),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Card(
+              color: colorScheme.cardSurface,
+              child: const Padding(
+                padding: EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Card title placeholder'),
+                    SizedBox(height: 8),
+                    Text('Primary value placeholder'),
+                    SizedBox(height: 4),
+                    Text('Secondary text placeholder'),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Card(
+              color: colorScheme.cardSurface,
+              child: const Padding(
+                padding: EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Card title placeholder'),
+                    SizedBox(height: 8),
+                    Text('Primary value placeholder'),
+                    SizedBox(height: 4),
+                    Text('Secondary text placeholder'),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Card(
+              color: colorScheme.cardSurface,
+              child: const Padding(
+                padding: EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Card title placeholder'),
+                    SizedBox(height: 8),
+                    Text('Primary value placeholder'),
+                    SizedBox(height: 4),
+                    Text('Secondary text placeholder'),
+                  ],
+                ),
               ),
             ),
           ],

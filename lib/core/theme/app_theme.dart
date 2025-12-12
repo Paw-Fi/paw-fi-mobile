@@ -116,6 +116,16 @@ extension AppColorScheme on ColorScheme {
   Color get chartBackground => brightness == Brightness.dark
       ? AppTheme.darkChartBackground
       : AppTheme.lightChartBackground;
+
+  /// Base color for skeleton loaders
+  Color get skeletonBase => brightness == Brightness.dark
+      ? AppTheme.darkSkeletonBase
+      : AppTheme.lightSkeletonBase;
+
+  /// Highlight color for skeleton loaders
+  Color get skeletonHighlight => brightness == Brightness.dark
+      ? AppTheme.darkSkeletonHighlight
+      : AppTheme.lightSkeletonHighlight;
 }
 
 /// Moneko app theme configuration matching web's Tailwind design system
@@ -167,6 +177,12 @@ class AppTheme {
 
   static const Color lightChartBackground = Color(0xFFFFFFFF);
   static const Color darkChartBackground = Color(0xFF1C1C1E);
+
+  // Skeleton (shimmer) colors tuned for light/dark themes
+  static const Color lightSkeletonBase = Color(0xFFE5E7EB);
+  static const Color lightSkeletonHighlight = Color(0xFFF3F4F6);
+  static const Color darkSkeletonBase = Color(0xFF1F2937);
+  static const Color darkSkeletonHighlight = Color(0xFF4B5563);
 
   /// Light theme matching web design, expressed as Material [ThemeData]
   static ThemeData lightTheme() {

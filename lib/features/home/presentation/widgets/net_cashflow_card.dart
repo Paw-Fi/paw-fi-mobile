@@ -85,7 +85,8 @@ Widget buildNetCashflowCard(
     final isNegative = currentNet < 0;
     final absAmount = currentNet.abs();
     final symbol = resolveCurrencySymbol(selectedCurrency ?? 'USD');
-    final localizedAmount = formatLocalizedNumber(context, absAmount);
+    final normalized = double.parse(formatAmount(absAmount));
+    final localizedAmount = formatLocalizedNumber(context, normalized);
     final displayText =
         isNegative ? '-$symbol$localizedAmount' : '$symbol$localizedAmount';
 

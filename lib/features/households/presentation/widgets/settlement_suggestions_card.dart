@@ -8,6 +8,8 @@ import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/households/presentation/pages/settlement_history_page.dart';
 import 'package:moneko/features/households/presentation/widgets/settle_up_sheet.dart';
 import 'package:moneko/shared/widgets/moneko_switch.dart';
+import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../../core/l10n/l10n.dart';
@@ -239,6 +241,7 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
                       label: context.l10n.youOwe,
                       amountCents: youOweTotal,
                       color: const Color(0xFFFF453A), // Apple Red
+                      currency: widget.currency,
                       onTap: youOweTotal > 0
                           ? () => _openSettleUpSheet(
                                 context,
@@ -258,6 +261,7 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
                       label: context.l10n.youAreOwed,
                       amountCents: owedToYouTotal,
                       color: const Color(0xFF30D158), // Apple Green
+                      currency: widget.currency,
                       onTap: null,
                     ),
                   ),
@@ -317,6 +321,7 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
                     suggestion: s,
                     isPayer: isPayer,
                     scheme: colorScheme,
+                    currency: widget.currency,
                     onTap: () => _openSettleUpSheet(
                       context,
                       householdId: widget.summary.householdId,
@@ -536,6 +541,7 @@ class _StatCard extends StatelessWidget {
   final String label;
   final int amountCents;
   final Color color;
+  final String? currency;
   final VoidCallback? onTap;
 
   const _StatCard({
@@ -543,12 +549,22 @@ class _StatCard extends StatelessWidget {
     required this.amountCents,
     required this.color,
     this.onTap,
+    this.currency,
   });
 
   @override
   Widget build(BuildContext context) {
     final isZero = amountCents == 0;
-    final amountText = (amountCents / 100).toStringAsFixed(2);
+    final amountValue = amountCents / 100.0;
+    final String amountText;
+    if (currency != null && currency!.isNotEmpty) {
+      final symbol = resolveCurrencySymbol(currency);
+      final normalized = double.parse(formatAmount(amountValue));
+      final localized = formatLocalizedNumber(context, normalized);
+      amountText = '$symbol$localized';
+    } else {
+      amountText = formatLocalizedNumber(context, amountValue);
+    }
     final labelColor = isZero
         ? Theme.of(context).colorScheme.mutedForeground
         : color.withValues(alpha: 0.8);
@@ -600,6 +616,7 @@ class _SuggestionRow extends StatelessWidget {
   final _Suggestion suggestion;
   final bool isPayer;
   final ColorScheme scheme;
+  final String? currency;
   final VoidCallback onTap;
 
   const _SuggestionRow({
@@ -607,12 +624,22 @@ class _SuggestionRow extends StatelessWidget {
     required this.isPayer,
     required this.scheme,
     required this.onTap,
+    this.currency,
   });
 
   @override
   Widget build(BuildContext context) {
     final otherName = isPayer ? suggestion.toName : suggestion.fromName;
-    final amountText = (suggestion.amountCents / 100).toStringAsFixed(2);
+    final amountValue = suggestion.amountCents / 100.0;
+    final String amountText;
+    if (currency != null && currency!.isNotEmpty) {
+      final symbol = resolveCurrencySymbol(currency);
+      final normalized = double.parse(formatAmount(amountValue));
+      final localized = formatLocalizedNumber(context, normalized);
+      amountText = '$symbol$localized';
+    } else {
+      amountText = formatLocalizedNumber(context, amountValue);
+    }
     final color = isPayer ? const Color(0xFFFF453A) : const Color(0xFF30D158);
 
     // Left text: "Alice owes you" or "You owe Bob"

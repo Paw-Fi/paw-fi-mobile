@@ -4,6 +4,7 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/features/pockets/presentation/widgets/uncategorized_spending_sheet.dart';
 
 class UncategorizedBanner extends StatelessWidget {
@@ -27,6 +28,10 @@ class UncategorizedBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final total = uncategorized.fold<double>(0.0, (sum, e) => sum + e.amount);
+    final normalized = double.parse(formatAmount(total));
+    final symbol = resolveCurrencySymbol(currency);
+    final localized = formatLocalizedNumber(context, normalized);
+    final totalDisplay = '$symbol$localized';
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
         onTap: () => showUncategorizedSheet(
@@ -85,7 +90,7 @@ class UncategorizedBanner extends StatelessWidget {
                         ),
                         children: [
                           TextSpan(
-                            text: formatCurrency(total, currency),
+                            text: totalDisplay,
                             style: TextStyle(
                               fontWeight: FontWeight.w700,
                               color: isDark

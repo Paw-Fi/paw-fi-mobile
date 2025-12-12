@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/utils/date_formatter.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 
@@ -69,6 +70,7 @@ class PocketsHeaderCard extends StatelessWidget {
     required this.currency,
     this.onDateSelected,
     this.amountSpotlightKey,
+    this.isSkeleton = false,
   });
 
   final double totalBudget;
@@ -83,6 +85,7 @@ class PocketsHeaderCard extends StatelessWidget {
   final String currency;
   final ValueChanged<DateTime>? onDateSelected;
   final GlobalKey? amountSpotlightKey;
+  final bool isSkeleton;
 
   @override
   Widget build(BuildContext context) {
@@ -110,9 +113,18 @@ class PocketsHeaderCard extends StatelessWidget {
 
     // Theme-aware colors
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardColor = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final baseCardColor = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final cardColor =
+        isSkeleton ? colorScheme.surfaceContainerHighest : baseCardColor;
     final textColor = isDark ? Colors.white : Colors.black;
     final subTextColor = isDark ? Colors.white54 : Colors.black54;
+
+    String _formatLocalizedCurrency(double amount) {
+      final normalized = double.parse(formatAmount(amount));
+      final symbol = resolveCurrencySymbol(currency);
+      final localized = formatLocalizedNumber(context, normalized);
+      return '$symbol$localized';
+    }
 
     return Container(
       width: double.infinity,
@@ -181,7 +193,7 @@ class PocketsHeaderCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  formatCurrency(effectiveBudget, currency),
+                  _formatLocalizedCurrency(effectiveBudget),
                   style: TextStyle(
                     fontSize: 42,
                     fontWeight: FontWeight.w700,
@@ -195,54 +207,55 @@ class PocketsHeaderCard extends StatelessWidget {
           ),
 
           const SizedBox(height: 32),
-
-          // Slider Section
-          SizedBox(
-            width: double.infinity,
-            child: AdaptiveSlider(
-              activeColor: colorScheme.primary,
-              value: sliderValue,
-              min: sliderMin,
-              max: sliderMax,
-              onChanged: (value) {
-                final roundedValue = ((value - sliderMin) / sliderStep).round() *
-                        sliderStep +
-                    sliderMin;
-                onTotalChanged(
-                  roundedValue.clamp(sliderMin, sliderMax).toDouble(),
-                );
-              },
-              divisions: sliderDivisions,
+          if (!isSkeleton) ...[
+            // Slider Section
+            SizedBox(
+              width: double.infinity,
+              child: AdaptiveSlider(
+                activeColor: colorScheme.primary,
+                value: sliderValue,
+                min: sliderMin,
+                max: sliderMax,
+                onChanged: (value) {
+                  final roundedValue =
+                      ((value - sliderMin) / sliderStep).round() * sliderStep +
+                          sliderMin;
+                  onTotalChanged(
+                    roundedValue.clamp(sliderMin, sliderMax).toDouble(),
+                  );
+                },
+                divisions: sliderDivisions,
+              ),
             ),
-          ),
 
-          const SizedBox(height: 8),
+            const SizedBox(height: 8),
 
-          // Min/Max Labels
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  formatCurrency(sliderMin, currency),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: subTextColor,
-                    fontWeight: FontWeight.w500,
+            // Min/Max Labels
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '${resolveCurrencySymbol(currency)}${formatLocalizedNumber(context, sliderMin)}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: subTextColor,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                ),
-                Text(
-                  formatCurrency(sliderMax, currency),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: subTextColor,
-                    fontWeight: FontWeight.w500,
+                  Text(
+                    _formatLocalizedCurrency(sliderMax),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: subTextColor,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );

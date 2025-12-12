@@ -8,10 +8,22 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/user_avatar.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
+
+String _formatLocalizedCurrency(
+  BuildContext context,
+  double amount,
+  String currency,
+) {
+  final normalized = double.parse(formatAmount(amount));
+  final symbol = resolveCurrencySymbol(currency);
+  final localized = formatLocalizedNumber(context, normalized);
+  return '$symbol$localized';
+}
 
 class SettlementHistoryPage extends ConsumerStatefulWidget {
   final String householdId;
@@ -839,9 +851,11 @@ class _SettlementDetailsSheetState extends State<SettlementDetailsSheet> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final amount =
-        formatCurrency(widget.event.amountCents / 100.0,
-            widget.event.currency.toUpperCase());
+    final amount = _formatLocalizedCurrency(
+      context,
+      widget.event.amountCents / 100.0,
+      widget.event.currency.toUpperCase(),
+    );
     final lineItems = (_lines.isNotEmpty ? _lines : widget.event.lines)
         .toList()
       ..sort((a, b) => b.settledAt.compareTo(a.settledAt));
