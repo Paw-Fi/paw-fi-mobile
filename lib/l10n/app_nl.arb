@@ -1626,5 +1626,7 @@
   "nudge": "Seintje",
   "you": "Jij",
   "change_currency_title": "Valuta wijzigen",
-  "change_currency_desc": "Klik hier om over te schakelen naar je gewenste valuta."
+  "change_currency_desc": "Klik hier om over te schakelen naar je gewenste valuta.",
+  "homeModeTourTitle": "Wissel tussen persoonlijk en gedeeld budget",
+  "homeModeTourDescription": "Tik hier om te wisselen tussen je persoonlijke budget en gedeelde huishoudbudgetten."
 }

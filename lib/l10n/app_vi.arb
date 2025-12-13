@@ -1678,5 +1678,7 @@
   "nudge": "Nhắc",
   "you": "Bạn",
   "change_currency_title": "Đổi tiền tệ",
-  "change_currency_desc": "Nhấn vào đây để đổi sang tiền tệ bạn muốn."
+  "change_currency_desc": "Nhấn vào đây để đổi sang tiền tệ bạn muốn.",
+  "homeModeTourTitle": "Chuyển giữa ngân sách cá nhân và ngân sách được chia sẻ",
+  "homeModeTourDescription": "Nhấn vào đây để chuyển giữa ngân sách cá nhân và ngân sách gia đình dùng chung."
 }

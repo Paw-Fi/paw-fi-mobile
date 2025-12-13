@@ -1681,5 +1681,7 @@
   "nudge": "Aviso",
   "you": "Tú",
   "change_currency_title": "Cambiar moneda",
-  "change_currency_desc": "Haz clic aquí para cambiar a tu moneda preferida."
+  "change_currency_desc": "Haz clic aquí para cambiar a tu moneda preferida.",
+  "homeModeTourTitle": "Cambiar entre presupuesto personal y compartido",
+  "homeModeTourDescription": "Toca aquí para cambiar entre tu presupuesto personal y los presupuestos compartidos del hogar."
 }

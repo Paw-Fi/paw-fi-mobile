@@ -1679,5 +1679,7 @@
   "nudge": "Relance",
   "you": "Vous",
   "change_currency_title": "Changer la devise",
-  "change_currency_desc": "Cliquez ici pour passer à votre devise préférée."
+  "change_currency_desc": "Cliquez ici pour passer à votre devise préférée.",
+  "homeModeTourTitle": "Basculer entre budgets personnel et partagé",
+  "homeModeTourDescription": "Appuyez ici pour basculer entre votre budget personnel et les budgets partagés du foyer."
 }

@@ -1,5 +1,6 @@
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -9,6 +10,8 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/navigation/custom_drawer.dart';
 import 'package:moneko/core/navigation/zoom_drawer_provider.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_target.dart';
+import 'package:moneko/shared/widgets/spotlight/spotlight_step.dart';
+import 'package:moneko/shared/widgets/spotlight/spotlight_controller.dart';
 import 'package:moneko/features/home/presentation/state/home_spotlight_providers.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
@@ -195,6 +198,17 @@ class HomeHeaderSliver extends ConsumerWidget {
       child: headerRow,
     );
 
+    final modeSwitchWithSpotlight = SpotlightTarget(
+      controller: spotlightController,
+      id: 'home_header_mode_switch',
+      title: context.l10n.homeModeTourTitle,
+      description: context.l10n.homeModeTourDescription,
+      padding: 4,
+      borderRadius: 20,
+      placement: SpotlightPlacement.bottom,
+      child: const HomeHeaderTrailing(),
+    );
+
     return SizedBox(
       child: Padding(
         padding:
@@ -204,7 +218,18 @@ class HomeHeaderSliver extends ConsumerWidget {
           children: [
             headerWithSpotlight,
             const SizedBox(width: 12),
-            const HomeHeaderTrailing(),
+            modeSwitchWithSpotlight,
+            if (kDebugMode) ...[
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.bug_report_outlined, size: 20),
+                tooltip: 'Reset tours',
+                onPressed: () async {
+                  await SpotlightTourController.resetAllTours();
+                  debugPrint('🔁 Spotlight tours reset for debugging');
+                },
+              ),
+            ],
           ],
         ),
       ),

@@ -69,8 +69,8 @@ class PocketsHeaderCard extends StatelessWidget {
     this.onSave,
     required this.currency,
     this.onDateSelected,
-    this.amountSpotlightKey,
     this.isSkeleton = false,
+    this.amountSpotlightKey,
   });
 
   final double totalBudget;
@@ -84,8 +84,8 @@ class PocketsHeaderCard extends StatelessWidget {
   final VoidCallback? onSave;
   final String currency;
   final ValueChanged<DateTime>? onDateSelected;
-  final GlobalKey? amountSpotlightKey;
   final bool isSkeleton;
+  final GlobalKey? amountSpotlightKey;
 
   @override
   Widget build(BuildContext context) {
@@ -126,26 +126,29 @@ class PocketsHeaderCard extends StatelessWidget {
       return '$symbol$localized';
     }
 
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: colorScheme.outline.withValues(alpha: 0.05),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
-            blurRadius: 32,
-            offset: const Offset(0, 8),
-            spreadRadius: -4,
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _showBudgetInputSheet(context, effectiveBudget),
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: colorScheme.outline.withValues(alpha: 0.05),
+            width: 1,
           ),
-        ],
-      ),
-      padding: const EdgeInsets.all(24),
-      child: Column(
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
+              blurRadius: 32,
+              offset: const Offset(0, 8),
+              spreadRadius: -4,
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // Month Label
@@ -175,11 +178,9 @@ class PocketsHeaderCard extends StatelessWidget {
 
           const SizedBox(height: 24),
 
-          // Budget Amount
-          GestureDetector(
+          // Budget Amount (spotlight target)
+          KeyedSubtree(
             key: amountSpotlightKey,
-            behavior: HitTestBehavior.opaque,
-            onTap: () => _showBudgetInputSheet(context, effectiveBudget),
             child: Column(
               children: [
                 Text(
@@ -257,6 +258,7 @@ class PocketsHeaderCard extends StatelessWidget {
             ),
           ],
         ],
+      ),
       ),
     );
   }

@@ -73,6 +73,10 @@ class _SpotlightTourOverlayState extends State<SpotlightTourOverlay>
         final size = renderObject.size;
         final padding = step.padding;
 
+        if (step.id == 'pockets_budget_header') {
+          debugPrint('🟣 Pockets spotlight: target size=${size.width}x${size.height} at ${pos.dx},${pos.dy}, padding=$padding');
+        }
+
         // For the home unified FAB, the GlobalKey is attached to the
         // entire ExpandableFab, which reserves extra invisible space
         // for the expanding action buttons. Visually, however, we only
@@ -101,13 +105,23 @@ class _SpotlightTourOverlayState extends State<SpotlightTourOverlay>
 
         // Default behavior: expand the widget's rect by the configured
         // padding to create a subtle halo around the component.
-        return Rect.fromLTWH(
+        final rect = Rect.fromLTWH(
           pos.dx - padding,
           pos.dy - padding,
           size.width + padding * 2,
           size.height + padding * 2,
         );
+
+        if (step.id == 'pockets_budget_header') {
+          debugPrint('🟣 Pockets spotlight: computed rect=$rect');
+        }
+
+        return rect;
       }
+    }
+
+    if (step.id == 'pockets_budget_header') {
+      debugPrint('🟣 Pockets spotlight: target context or renderBox not ready yet');
     }
     return null;
   }
@@ -131,6 +145,20 @@ class _SpotlightTourOverlayState extends State<SpotlightTourOverlay>
                 : null;
 
         if (currentStep == null) return const SizedBox.shrink();
+
+        // If we still don't have a valid target rect (e.g. because the
+        // target widget was not laid out yet when the tour started),
+        // schedule another rect calculation on the next frame. This is
+        // especially important for deeply nested widgets like the
+        // Pockets header card, which may become ready slightly later
+        // than the initial overlay insert.
+        if (_targetRect == null || _targetRect!.isEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              _updateTargetRect();
+            }
+          });
+        }
 
         // Use the cached rect calculated when the step became active.
         // If it is still null (e.g. target not found), fall back to a

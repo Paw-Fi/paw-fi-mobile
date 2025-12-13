@@ -239,7 +239,9 @@ class PocketsPage extends HookConsumerWidget {
 
               final scopeParams = viewMode.mode == ViewMode.personal
                   ? PocketsScopeParams(
-                      scope: PocketsScopeType.personal, periodMonth: month)
+                      scope: PocketsScopeType.personal,
+                      periodMonth: month,
+                    )
                   : PocketsScopeParams(
                       scope: PocketsScopeType.household,
                       householdId: resolvedHouseholdId,
@@ -250,6 +252,7 @@ class PocketsPage extends HookConsumerWidget {
                 scopeParams: scopeParams,
                 colorScheme: colorScheme,
                 isPersonalMode: viewMode.mode == ViewMode.personal,
+                isActiveMonth: scopeParams == currentScopeParams,
                 onDateSelected: (date) {
                   final diffYears = date.year - initialMonth.year;
                   final diffMonths = date.month - initialMonth.month;
@@ -344,12 +347,14 @@ class _PocketsMonthView extends HookConsumerWidget {
     required this.scopeParams,
     required this.colorScheme,
     required this.isPersonalMode,
+    required this.isActiveMonth,
     this.onDateSelected,
   });
 
   final PocketsScopeParams scopeParams;
   final ColorScheme colorScheme;
   final bool isPersonalMode;
+  final bool isActiveMonth;
   final ValueChanged<DateTime>? onDateSelected;
 
   @override
@@ -391,6 +396,7 @@ class _PocketsMonthView extends HookConsumerWidget {
                 scopeParams: scopeParams,
                 colorScheme: colorScheme,
                 isPersonalMode: isPersonalMode,
+                isActiveMonth: isActiveMonth,
                 uncategorizedExpenses: pocketsState.uncategorizedExpenses,
                 onDateSelected: onDateSelected,
               ),

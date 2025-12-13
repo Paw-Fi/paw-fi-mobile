@@ -8,6 +8,8 @@ class SpotlightTourController {
   /// overlapping overlays from being shown at the same time.
   static SpotlightTourController? _activeController;
 
+  static const String _prefsPrefix = 'onboarding_tour_completed_';
+
   final String tourId;
   final List<SpotlightStep> _steps = [];
 
@@ -18,6 +20,16 @@ class SpotlightTourController {
     List<SpotlightStep> steps = const [],
   }) {
     _steps.addAll(steps);
+  }
+
+  /// Clears completion flags for all spotlight tours. Intended for
+  /// development/debugging so tours can be re-run easily.
+  static Future<void> resetAllTours() async {
+    final prefs = await SharedPreferences.getInstance();
+    final keys = prefs.getKeys().where((key) => key.startsWith(_prefsPrefix));
+    for (final key in keys) {
+      await prefs.remove(key);
+    }
   }
 
   OverlayEntry? _overlayEntry;
@@ -142,6 +154,27 @@ class SpotlightTourController {
     } else {
       _steps.add(step);
     }
+
+    // Maintain a stable, intentional ordering for known Home tour steps
+    // so the user sees the FAB first, then the header name, then the
+    // personal/household switch.
+    const Map<String, int> homeStepOrder = {
+      'home_unified_fab': 0,
+      'home_header_currency': 1,
+      'home_header_mode_switch': 2,
+    };
+
+    _steps.sort((a, b) {
+      final int? aOrder = homeStepOrder[a.id];
+      final int? bOrder = homeStepOrder[b.id];
+
+      if (aOrder != null && bOrder != null) {
+        return aOrder.compareTo(bOrder);
+      }
+      if (aOrder != null) return -1;
+      if (bOrder != null) return 1;
+      return 0;
+    });
   }
 
   void unregisterStep(String id) {
