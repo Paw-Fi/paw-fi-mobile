@@ -34,6 +34,7 @@ class DeepLinks {
   static const String paymentCallback = '$appScheme://payment';
 
   static const String plaidCallback = '$appScheme://plaid';
+  static const String tinkCallback = '$appScheme://tink';
 
   // ==================== WhatsApp Verification Deep Links ====================
 
@@ -176,6 +177,10 @@ class DeepLinks {
 
   static bool isPlaidCallback(Uri uri) {
     return uri.scheme == appScheme && uri.host == 'plaid';
+  }
+
+  static bool isTinkCallback(Uri uri) {
+    return uri.scheme == appScheme && uri.host == 'tink';
   }
 
   /// Legacy OAuth callback (kept for backward compatibility)

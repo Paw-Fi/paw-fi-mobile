@@ -1,11 +1,14 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 
+import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/plaid/plaid_link_service.dart';
+import 'package:moneko/core/constants/deep_links.dart';
 import 'package:moneko/core/navigation/main_menu_screen.dart'; // For plaidCountryCodeProvider
 import 'package:moneko/core/plaid/plaid_countries.dart';
 import 'package:moneko/core/plaid/plaid_country_flags.dart';
@@ -18,6 +21,7 @@ import 'package:moneko/features/pockets/presentation/state/pockets_providers.dar
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class PlaidSyncWalkthroughPage extends ConsumerStatefulWidget {
   const PlaidSyncWalkthroughPage({super.key});
@@ -152,6 +156,7 @@ class _PlaidSyncWalkthroughPageState
     }
     final userId = user.uid;
     final selectedCountryCode = ref.read(plaidCountryCodeProvider);
+    final usePlaid = _isPlaidCountry(selectedCountryCode);
 
     // We don't use the blocking dialog here because we have a UI for it,
     // but for consistency with the original code, or to show progress clearly:
@@ -163,63 +168,17 @@ class _PlaidSyncWalkthroughPageState
     final client = Supabase.instance.client;
 
     try {
-      final linkTokenResponse = await client.functions.invoke(
-        'plaid-create-link-token',
-        body: {
-          'platform': Platform.isAndroid ? 'android' : 'ios',
-          if (selectedCountryCode.isNotEmpty)
-            'countryCode': selectedCountryCode,
-        },
-      );
+      final flowSucceeded = usePlaid
+          ? await _performPlaidFlow(client, selectedCountryCode)
+          : await _performTinkFlow(client, selectedCountryCode);
 
-      if (linkTokenResponse.status >= 400) {
-        throw Exception('Failed to create link token');
-      }
-
-      final linkData = linkTokenResponse.data as Map<String, dynamic>?;
-      final linkToken = linkData?['linkToken'] as String?;
-      if (linkToken == null || linkToken.isEmpty) {
-        throw Exception('Missing Plaid link token');
-      }
-
-      final linkResult = await openPlaidLink(linkToken);
-      if (linkResult == null) {
-        // User cancelled Plaid Link
+      if (!flowSucceeded) {
         setState(() {
           _isSyncing = false;
-          _fakeProgress = 0.0;
           _showSyncProgress = false;
+          _fakeProgress = 0.0;
         });
         return;
-      }
-
-      final exchangeResponse = await client.functions.invoke(
-        'plaid-exchange-public-token',
-        body: {
-          'publicToken': linkResult.publicToken,
-          if (linkResult.institutionId != null)
-            'institutionId': linkResult.institutionId,
-          if (linkResult.institutionName != null)
-            'institutionName': linkResult.institutionName,
-        },
-      );
-
-      if (exchangeResponse.status >= 400) {
-        throw Exception('Failed to exchange token');
-      }
-
-      // Start visible progress only for the long-running sync
-      setState(() {
-        _showSyncProgress = true;
-      });
-      _startFakeProgress();
-
-      final syncResponse = await client.functions.invoke(
-        'plaid-sync-transactions',
-      );
-
-      if (syncResponse.status >= 400) {
-        throw Exception('Failed to sync transactions');
       }
 
       if (mounted) {
@@ -244,6 +203,160 @@ class _PlaidSyncWalkthroughPageState
           _showSyncProgress = false;
         });
       }
+    }
+  }
+
+  bool _isPlaidCountry(String code) {
+    final upper = code.toUpperCase();
+    return upper == 'US' || upper == 'CA' || upper == 'GB' || upper == 'UK';
+  }
+
+  Future<bool> _performPlaidFlow(
+    SupabaseClient client,
+    String countryCode,
+  ) async {
+    final linkTokenResponse = await client.functions.invoke(
+      'plaid-create-link-token',
+      body: {
+        'platform': Platform.isAndroid ? 'android' : 'ios',
+        if (countryCode.isNotEmpty) 'countryCode': countryCode,
+      },
+    );
+
+    if (linkTokenResponse.status >= 400) {
+      throw Exception('Failed to create link token');
+    }
+
+    final linkData = linkTokenResponse.data as Map<String, dynamic>?;
+    final linkToken = linkData?['linkToken'] as String?;
+    if (linkToken == null || linkToken.isEmpty) {
+      throw Exception('Missing Plaid link token');
+    }
+
+    final linkResult = await openPlaidLink(linkToken);
+    if (linkResult == null) {
+      // User cancelled Plaid Link
+      setState(() {
+        _isSyncing = false;
+        _fakeProgress = 0.0;
+        _showSyncProgress = false;
+      });
+      return false;
+    }
+
+    final exchangeResponse = await client.functions.invoke(
+      'plaid-exchange-public-token',
+      body: {
+        'publicToken': linkResult.publicToken,
+        if (linkResult.institutionId != null) 'institutionId': linkResult.institutionId,
+        if (linkResult.institutionName != null) 'institutionName': linkResult.institutionName,
+      },
+    );
+
+    if (exchangeResponse.status >= 400) {
+      throw Exception('Failed to exchange token');
+    }
+
+    // Start visible progress only for the long-running sync
+    setState(() {
+      _showSyncProgress = true;
+    });
+    _startFakeProgress();
+
+    final syncResponse = await client.functions.invoke(
+      'plaid-sync-transactions',
+    );
+
+    if (syncResponse.status >= 400) {
+      throw Exception('Failed to sync transactions');
+    }
+
+    return true;
+  }
+
+  Future<bool> _performTinkFlow(
+    SupabaseClient client,
+    String countryCode,
+  ) async {
+    final linkResponse = await client.functions.invoke(
+      'tink-create-link-token',
+      body: {
+        if (countryCode.isNotEmpty) 'countryCode': countryCode,
+        'locale': 'en_US',
+      },
+    );
+
+    if (linkResponse.status >= 400) {
+      throw Exception('Failed to create Tink link');
+    }
+
+    final linkData = linkResponse.data as Map<String, dynamic>?;
+    final linkUrl = linkData?['linkUrl'] as String?;
+    if (linkUrl == null || linkUrl.isEmpty) {
+      throw Exception('Missing Tink link URL');
+    }
+
+    final uri = Uri.tryParse(linkUrl);
+    if (uri == null) {
+      throw Exception('Invalid Tink link URL');
+    }
+
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!launched) {
+      throw Exception('Could not open Tink Link');
+    }
+
+    final authCode = await _awaitTinkAuthCode();
+    if (authCode == null || authCode.isEmpty) {
+      return false;
+    }
+
+    final exchangeResponse = await client.functions.invoke(
+      'tink-exchange-auth-code',
+      body: {'code': authCode},
+    );
+
+    if (exchangeResponse.status >= 400) {
+      throw Exception('Failed to exchange Tink code');
+    }
+
+    setState(() {
+      _showSyncProgress = true;
+    });
+    _startFakeProgress();
+
+    final syncResponse = await client.functions.invoke(
+      'tink-sync-transactions',
+    );
+
+    if (syncResponse.status >= 400) {
+      throw Exception('Failed to sync Tink transactions');
+    }
+
+    return true;
+  }
+
+  Future<String?> _awaitTinkAuthCode() async {
+    final appLinks = AppLinks();
+
+    try {
+      final initialLink = await appLinks.getInitialLink();
+      if (initialLink != null && DeepLinks.isTinkCallback(initialLink)) {
+        return initialLink.queryParameters['code'];
+      }
+    } catch (_) {
+      // ignore initial link failures
+    }
+
+    try {
+      final code = await appLinks.uriLinkStream
+          .where((uri) => DeepLinks.isTinkCallback(uri))
+          .map((uri) => uri.queryParameters['code'])
+          .first
+          .timeout(const Duration(minutes: 5));
+      return code;
+    } on TimeoutException {
+      return null;
     }
   }
 

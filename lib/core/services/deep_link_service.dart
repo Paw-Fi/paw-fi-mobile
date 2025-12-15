@@ -107,6 +107,12 @@ class DeepLinkService {
       return;
     }
 
+    if (DeepLinks.isTinkCallback(uri)) {
+      final params = uri.queryParameters;
+      debugPrint('🏦 Tink deep link received with params: $params');
+      return;
+    }
+
     // Widget quick actions: moneko://text, moneko://camera, moneko://pockets
     if (DeepLinks.isWidgetTextLink(uri)) {
       debugPrint('🧭 Widget deep link: text');
