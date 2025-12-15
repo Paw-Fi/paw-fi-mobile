@@ -211,21 +211,25 @@ class _UnifiedTransactionSheetState
       if (vm.mode == ViewMode.household) {
         _isSharedWithHousehold = true; // safe to set local field in initState
         debugPrint('🆕 [ADD EXPENSE] Auto-enabling household sharing');
-        // Defer provider writes until after first frame to avoid modifying providers during build
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          final selected = ref.read(selectedHouseholdProvider).householdId;
-          debugPrint('🆕 [ADD EXPENSE] Selected household from provider: $selected');
-          if (selected != null) {
-            debugPrint('🆕 [ADD EXPENSE] Setting selectedHouseholdForSharingProvider to: $selected');
-            ref.read(selectedHouseholdForSharingProvider.notifier).state =
-                selected;
-            debugPrint('🆕 [ADD EXPENSE] Calling _loadMembers for household: $selected');
-            _loadMembers(selected);
-          } else {
-            debugPrint('⚠️ [ADD EXPENSE] No household selected in provider!');
-          }
-        });
       }
+
+      // Seed the dropdown with the main menu's currently selected household (if any)
+      // BEFORE build to avoid the first-household fallback firing.
+      final selected = ref.read(selectedHouseholdProvider).householdId;
+      debugPrint('🆕 [ADD EXPENSE] Selected household from provider: $selected');
+      
+      // Defer provider state modification to after widget tree is built
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (selected != null) {
+          ref.read(selectedHouseholdForSharingProvider.notifier).state = selected;
+          if (_isSharedWithHousehold) {
+            debugPrint('🆕 [ADD EXPENSE] Sharing enabled; loading members for $selected');
+            _loadMembers(selected);
+          }
+        } else {
+          debugPrint('⚠️ [ADD EXPENSE] No household selected in provider!');
+        }
+      });
     }
   }
 
@@ -696,10 +700,11 @@ class _UnifiedTransactionSheetState
     String? selectedHousehold,
     bool isIncomeMode,
   ) {
-    // Auto-select first household when sharing is enabled but no selection exists yet
+    // Auto-select first household ONLY if no selection exists anywhere (paranoid guard)
     if (_isSharedWithHousehold &&
         households.isNotEmpty &&
         selectedHousehold == null) {
+      debugPrint('🏠 [SHARE SECTION] No selected household found; falling back to first in list');
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         final firstId = households.first.id;

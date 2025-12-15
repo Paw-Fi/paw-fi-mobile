@@ -65,8 +65,12 @@ class _SpendingCardState extends State<SpendingCard> {
     }).toList();
 
     // Group expenses by appropriate interval
-    final periodTotals =
-        groupExpensesByInterval(filteredExpenses, intervalType);
+    final periodTotals = groupExpensesByInterval(
+      filteredExpenses,
+      intervalType,
+      rangeStart: from,
+      rangeEnd: to,
+    );
     final sortedDates = periodTotals.keys.toList()..sort();
 
     // Compute total spent robustly

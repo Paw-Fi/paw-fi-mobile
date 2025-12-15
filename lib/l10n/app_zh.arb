@@ -1680,5 +1680,6 @@
   "change_currency_title": "更改货币",
   "change_currency_desc": "点击此处切换到您偏好的货币。",
   "homeModeTourTitle": "切换个人与共享预算",
-  "homeModeTourDescription": "点击这里，在你的个人预算和家庭共享预算之间切换。"
+  "homeModeTourDescription": "点击这里，在你的个人预算和家庭共享预算之间切换。",
+  "topCategory": "主要类别"
 }

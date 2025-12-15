@@ -1681,5 +1681,6 @@
   "change_currency_title": "通貨を変更",
   "change_currency_desc": "ここをクリックして希望の通貨に切り替えます。",
   "homeModeTourTitle": "個人予算と共有予算を切り替える",
-  "homeModeTourDescription": "ここをタップして、個人の予算と家計の共有予算を切り替えます。"
+  "homeModeTourDescription": "ここをタップして、個人の予算と家計の共有予算を切り替えます。",
+  "topCategory": "トップカテゴリ"
 }

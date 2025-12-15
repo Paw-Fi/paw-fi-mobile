@@ -1,34 +1,18 @@
 {
-  "homeModeTourTitle": {
-    "en": "Switch between personal and shared budgets",
-    "de": "Zwischen privatem und gemeinsamem Budget wechseln",
-    "es": "Cambiar entre presupuesto personal y compartido",
-    "fr": "Basculer entre budgets personnel et partagé",
-    "it": "Passa tra budget personale e condiviso",
-    "ja": "個人予算と共有予算を切り替える",
-    "kr": "개인 예산과 공유 예산 전환하기",
-    "nl": "Wissel tussen persoonlijk en gedeeld budget",
-    "ur": "ذاتی اور مشترکہ بجٹ کے درمیان تبدیلی",
-    "ru": "Переключение между личным и общим бюджетом",
-    "uk": "Перемикання між особистим і спільним бюджетом",
-    "zh": "切换个人与共享预算",
-    "zh_TW": "切換個人與共享預算",
-    "vi": "Chuyển giữa ngân sách cá nhân và ngân sách được chia sẻ"
-  },
-  "homeModeTourDescription": {
-    "en": "Tap here to switch between your personal budget and shared household budgets.",
-    "de": "Tippe hier, um zwischen deinem persönlichen Budget und geteilten Haushaltsbudgets zu wechseln.",
-    "es": "Toca aquí para cambiar entre tu presupuesto personal y los presupuestos compartidos del hogar.",
-    "fr": "Appuyez ici pour basculer entre votre budget personnel et les budgets partagés du foyer.",
-    "it": "Tocca qui per passare tra il tuo budget personale e i budget domestici condivisi.",
-    "ja": "ここをタップして、個人の予算と家計の共有予算を切り替えます。",
-    "kr": "여기를 눌러 개인 예산과 가계 공유 예산을 전환하세요.",
-    "nl": "Tik hier om te wisselen tussen je persoonlijke budget en gedeelde huishoudbudgetten.",
-    "ur": "اپنے ذاتی بجٹ اور مشترکہ گھریلو بجٹس کے درمیان تبدیلی کے لیے یہاں ٹیپ کریں۔",
-    "ru": "Нажмите здесь, чтобы переключаться между личным бюджетом и общими семейными бюджетами.",
-    "uk": "Торкніться тут, щоб перемикатися між особистим бюджетом і спільними сімейними бюджетами.",
-    "zh": "点击这里，在你的个人预算和家庭共享预算之间切换。",
-    "zh_TW": "點擊這裡，在你的個人預算與家庭共享預算之間切換。",
-    "vi": "Nhấn vào đây để chuyển giữa ngân sách cá nhân và ngân sách gia đình dùng chung."
+  "topCategory": {
+    "en": "Top category",
+    "de": "Top-Kategorie",
+    "es": "Categoría principal",
+    "fr": "Catégorie principale",
+    "it": "Categoria principale",
+    "ja": "トップカテゴリ",
+    "kr": "상위 카테고리",
+    "nl": "Topcategorie",
+    "ur": "اعلیٰ درجے کی کیٹیگری",
+    "ru": "Топ-категория",
+    "uk": "Топ категорія",
+    "zh": "主要类别",
+    "zh_TW": "主要類別",
+    "vi": "Danh mục chính"
   }
 }

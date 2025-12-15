@@ -658,8 +658,12 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
   Widget _buildLineChart(ColorScheme colorScheme) {
     // Group expenses using utility function
-    final periodTotals =
-        groupExpensesByInterval(filteredExpenses, chartIntervalType);
+    final periodTotals = groupExpensesByInterval(
+      filteredExpenses,
+      chartIntervalType,
+      rangeStart: _ignoreDateFilter ? null : _customStartDate,
+      rangeEnd: _ignoreDateFilter ? null : _customEndDate,
+    );
     final sortedDates = periodTotals.keys.toList()..sort();
     if (sortedDates.isEmpty) {
       return Center(

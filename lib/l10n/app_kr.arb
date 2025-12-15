@@ -1494,5 +1494,6 @@
   "change_currency_title": "통화 변경",
   "change_currency_desc": "여기를 클릭하여 원하는 통화로 변경하세요.",
   "homeModeTourTitle": "개인 예산과 공유 예산 전환하기",
-  "homeModeTourDescription": "여기를 눌러 개인 예산과 가계 공유 예산을 전환하세요."
+  "homeModeTourDescription": "여기를 눌러 개인 예산과 가계 공유 예산을 전환하세요.",
+  "topCategory": "상위 카테고리"
 }

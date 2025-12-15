@@ -400,7 +400,9 @@ class DeviceRegistrationService {
       enableVibration: true,
       icon: '@mipmap/ic_launcher_monochrome',
       color: Color(0xFF7458FF),
-      largeIcon: DrawableResourceAndroidBitmap('moneko_logo'),
+      // Use a guaranteed-present drawable to avoid runtime crashes if a custom
+      // logo resource is missing in a given build.
+      largeIcon: DrawableResourceAndroidBitmap('ic_stat_notification'),
     );
 
     const iosDetails = DarwinNotificationDetails(

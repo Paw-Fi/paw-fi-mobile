@@ -631,7 +631,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                                     const SizedBox(width: 12),
                                                     Expanded(
                                                       child:
-                                                          buildNetCashflowCard(
+                                                      buildNetCashflowCard(
                                                         context,
                                                         colorScheme,
                                                         netBudgets,
@@ -642,6 +642,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                                                         selectedCurrency:
                                                             filterState
                                                                 .selectedCurrency,
+                                                        customStartDate:
+                                                            config.customStartDate,
+                                                        customEndDate:
+                                                            config.customEndDate,
                                                       ),
                                                     ),
                                                   ],

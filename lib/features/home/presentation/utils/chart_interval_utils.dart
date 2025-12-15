@@ -54,6 +54,7 @@ class HourRange {
 Map<DateTime, double> groupExpensesByInterval(
   List<ExpenseEntry> expenses,
   String intervalType,
+  {DateTime? rangeStart, DateTime? rangeEnd}
 ) {
   // Exclude income entries; this util is used for spending charts
   final spendOnly = expenses
@@ -65,13 +66,21 @@ Map<DateTime, double> groupExpensesByInterval(
     case 'hourly':
       return _groupByHourRanges(spendOnly);
     case 'daily':
-      return _groupBySevenDays(spendOnly);
+      return _groupBySevenDays(
+        spendOnly,
+        rangeStart: rangeStart,
+        rangeEnd: rangeEnd,
+      );
     case 'monthly':
       return _groupByMonthPairs(spendOnly);
     case 'yearly':
       return _groupBySevenYears(spendOnly);
     default:
-      return _groupBySevenDays(spendOnly);
+      return _groupBySevenDays(
+        spendOnly,
+        rangeStart: rangeStart,
+        rangeEnd: rangeEnd,
+      );
   }
 }
 
@@ -117,63 +126,96 @@ Map<DateTime, double> _groupByHourRanges(List<ExpenseEntry> expenses) {
 }
 
 /// Groups expenses into exactly 7 days going backwards from today
-Map<DateTime, double> _groupBySevenDays(List<ExpenseEntry> expenses) {
+Map<DateTime, double> _groupBySevenDays(
+  List<ExpenseEntry> expenses, {
+  DateTime? rangeStart,
+  DateTime? rangeEnd,
+}) {
   if (expenses.isEmpty) return {};
 
-  final Map<DateTime, double> buckets = {};
-
-  // Anchor the last bucket to "today" (local, date only)
+  // Normalize and order expenses to compute the proper span
   final sortedExpenses = expenses.toList()
     ..sort((a, b) => a.date.compareTo(b.date));
-  final oldestDate = DateTime(sortedExpenses.first.date.year,
-      sortedExpenses.first.date.month, sortedExpenses.first.date.day);
-  final newestDate = DateTime(sortedExpenses.last.date.year,
-      sortedExpenses.last.date.month, sortedExpenses.last.date.day);
-  final today = DateTime.now();
-  final todayOnly = DateTime(today.year, today.month, today.day);
 
-  // If newest expense is in the future (unlikely), clamp to that day, otherwise to today
-  final endDate = newestDate.isAfter(todayOnly) ? newestDate : todayOnly;
+  final oldestExpenseDate = DateTime(
+    sortedExpenses.first.date.year,
+    sortedExpenses.first.date.month,
+    sortedExpenses.first.date.day,
+  );
+  final newestExpenseDate = DateTime(
+    sortedExpenses.last.date.year,
+    sortedExpenses.last.date.month,
+    sortedExpenses.last.date.day,
+  );
 
-  // Calculate day span
-  final daySpan = endDate.difference(oldestDate).inDays + 1;
+  // Respect the requested range when provided; otherwise, fall back to
+  // the actual data boundaries.
+  final normalizedStart = rangeStart != null
+      ? DateTime(rangeStart.year, rangeStart.month, rangeStart.day)
+      : oldestExpenseDate;
+  final normalizedEnd = rangeEnd != null
+      ? DateTime(rangeEnd.year, rangeEnd.month, rangeEnd.day)
+      : newestExpenseDate;
 
-  // Create 7 evenly distributed buckets going backwards from endDate
-  final bucketSize = (daySpan / 7).ceil().clamp(1, 999);
+  // Ensure start <= end to avoid negative spans.
+  final start = normalizedEnd.isBefore(normalizedStart)
+      ? normalizedEnd
+      : normalizedStart;
+  final end = normalizedEnd.isBefore(normalizedStart)
+      ? normalizedStart
+      : normalizedEnd;
 
-  for (int i = 6; i >= 0; i--) {
-    final bucketStart = endDate.subtract(Duration(days: i * bucketSize));
-    final normalizedDate =
-        DateTime(bucketStart.year, bucketStart.month, bucketStart.day);
-    buckets[normalizedDate] = 0.0;
+  final daySpan = end.difference(start).inDays + 1;
+  final bucketCount = daySpan < 7 ? daySpan : 7;
+
+  // Evenly distribute buckets across the requested range so every selected
+  // date window (e.g., "this month", custom ranges) produces visible points.
+  final Map<DateTime, double> buckets = {};
+  if (bucketCount == 1) {
+    buckets[start] = 0.0;
+  } else {
+    for (int i = 0; i < bucketCount; i++) {
+      final offset = ((daySpan - 1) * i / (bucketCount - 1)).round();
+      final bucketDate = start.add(Duration(days: offset));
+      buckets[bucketDate] = 0.0;
+    }
   }
 
-  // Fill buckets with expense data
+  final sortedBuckets = buckets.keys.toList()..sort();
+
   for (final expense in expenses) {
-    final expenseDate =
-        DateTime(expense.date.year, expense.date.month, expense.date.day);
+    final expenseDate = DateTime(
+      expense.date.year,
+      expense.date.month,
+      expense.date.day,
+    );
 
-    // Find which bucket this expense belongs to
-    DateTime? targetBucket;
-    final sortedBuckets = buckets.keys.toList()..sort();
-
-    for (int i = 0; i < sortedBuckets.length; i++) {
-      final bucketDate = sortedBuckets[i];
-      final bucketEnd = i < sortedBuckets.length - 1
-          ? sortedBuckets[i + 1]
-          : bucketDate.add(Duration(days: bucketSize));
-
-      if ((expenseDate.isAtSameMomentAs(bucketDate) ||
-              expenseDate.isAfter(bucketDate)) &&
-          expenseDate.isBefore(bucketEnd)) {
-        targetBucket = bucketDate;
-        break;
-      }
+    // Assign to the bucket whose start is <= expenseDate and whose next bucket
+    // start is > expenseDate; clamp beyond edges to nearest bucket.
+    if (expenseDate.isBefore(sortedBuckets.first)) {
+      buckets[sortedBuckets.first] =
+          (buckets[sortedBuckets.first] ?? 0) + expense.amount.abs();
+      continue;
     }
 
-    if (targetBucket != null) {
-      buckets[targetBucket] =
-          (buckets[targetBucket] ?? 0) + expense.amount.abs();
+    if (expenseDate.isAfter(sortedBuckets.last) ||
+        expenseDate.isAtSameMomentAs(sortedBuckets.last)) {
+      buckets[sortedBuckets.last] =
+          (buckets[sortedBuckets.last] ?? 0) + expense.amount.abs();
+      continue;
+    }
+
+    for (int i = 0; i < sortedBuckets.length - 1; i++) {
+      final bucketStart = sortedBuckets[i];
+      final bucketEnd = sortedBuckets[i + 1];
+
+      if ((expenseDate.isAtSameMomentAs(bucketStart) ||
+              expenseDate.isAfter(bucketStart)) &&
+          expenseDate.isBefore(bucketEnd)) {
+        buckets[bucketStart] =
+            (buckets[bucketStart] ?? 0) + expense.amount.abs();
+        break;
+      }
     }
   }
 

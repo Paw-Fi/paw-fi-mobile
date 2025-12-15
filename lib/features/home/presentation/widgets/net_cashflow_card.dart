@@ -22,6 +22,8 @@ Widget buildNetCashflowCard(
   UserContact? contact,
   DateRangeFilter filter, {
   String? selectedCurrency,
+  DateTime? customStartDate,
+  DateTime? customEndDate,
 }) {
   final now = DateTime.now();
 
@@ -33,19 +35,26 @@ Widget buildNetCashflowCard(
     }
     const String? householdId = null;
 
+    // Only consider personal transactions for this card (exclude household data).
+    final personalTransactions = allTransactions
+        .where((t) => t.householdId == null)
+        .toList(growable: false);
+
     // NOTE: Recurring transactions are loaded by app_initialization_provider
     // The derived providers below (recurringExpensesProvider, recurringIncomesProvider)
     // automatically watch the base provider
 
     // 1. Define Date Ranges
-    final currentRange = _getDateRangeForFilter(filter, now);
-    final previousRange = _getPreviousDateRangeForFilter(filter, now);
+    final currentRange =
+        _getDateRangeForFilter(filter, now, customStartDate, customEndDate);
+    final previousRange =
+        _getPreviousDateRangeForFilter(filter, now, customStartDate, customEndDate);
 
     // 2. Filter Transactions & Calculate Actuals
     final currentTransactions = _filterTransactions(
-        allTransactions, currentRange.$1, currentRange.$2, selectedCurrency);
+        personalTransactions, currentRange.$1, currentRange.$2, selectedCurrency);
     final previousTransactions = _filterTransactions(
-        allTransactions, previousRange.$1, previousRange.$2, selectedCurrency);
+        personalTransactions, previousRange.$1, previousRange.$2, selectedCurrency);
 
     final currentActuals = _getIncomeAndExpenses(currentTransactions);
     final previousActuals = _getIncomeAndExpenses(previousTransactions);
@@ -191,8 +200,28 @@ Widget buildNetCashflowCard(
 String _netCashflowTitleForFilter(
     BuildContext context, DateRangeFilter filter) {
   final l10n = context.l10n;
-  // Always show "This Month" regardless of external filters
-  return l10n.netCashflowThisMonth;
+  switch (filter) {
+    case DateRangeFilter.today:
+      return l10n.netCashflowToday;
+    case DateRangeFilter.yesterday:
+      return l10n.netCashflowYesterday;
+    case DateRangeFilter.thisWeek:
+      return l10n.netCashflowThisWeek;
+    case DateRangeFilter.lastWeek:
+      return l10n.netCashflowLastWeek;
+    case DateRangeFilter.last30Days:
+      return l10n.netCashflowLast30Days;
+    case DateRangeFilter.thisMonth:
+      return l10n.netCashflowThisMonth;
+    case DateRangeFilter.custom:
+      return l10n.netCashflowCustom;
+    // Fallback to a sensible label when we don't have a dedicated string
+    case DateRangeFilter.last7Days:
+    case DateRangeFilter.lastMonth:
+    case DateRangeFilter.thisYear:
+    case DateRangeFilter.allTime:
+      return l10n.netCashflowThisMonth;
+  }
 }
 
 double _netCashflowFontSize(String displayText) {
@@ -212,68 +241,136 @@ double _netCashflowFontSize(String displayText) {
 // --- Helper Methods for Comparison Logic ---
 
 (DateTime, DateTime) _getDateRangeForFilter(
-    DateRangeFilter filter, DateTime now) {
-  final today = DateTime(now.year, now.month, now.day, 23, 59, 59);
+    DateRangeFilter filter, DateTime now, DateTime? customStart, DateTime? customEnd) {
+  final todayEnd = DateTime(now.year, now.month, now.day, 23, 59, 59);
+  final todayStart = DateTime(now.year, now.month, now.day);
 
   switch (filter) {
-    case DateRangeFilter.thisMonth:
-      return (DateTime(now.year, now.month, 1), today);
-    case DateRangeFilter.last30Days:
-      return (
-        today.subtract(const Duration(days: 29)),
-        today
-      ); // 30 days inclusive
-    case DateRangeFilter.thisWeek:
-      final weekStart = today.subtract(Duration(days: today.weekday - 1));
-      return (weekStart, today);
     case DateRangeFilter.today:
-      return (DateTime(now.year, now.month, now.day), today);
-    default:
-      // Default to This Month if logic is unclear or AllTime
-      return (DateTime(now.year, now.month, 1), today);
+      return (todayStart, todayEnd);
+    case DateRangeFilter.yesterday:
+      final yStart = todayStart.subtract(const Duration(days: 1));
+      final yEnd = todayEnd.subtract(const Duration(days: 1));
+      return (yStart, yEnd);
+    case DateRangeFilter.thisWeek:
+      final weekStart = todayStart.subtract(Duration(days: todayStart.weekday - 1));
+      return (weekStart, todayEnd);
+    case DateRangeFilter.lastWeek:
+      final thisWeekStart =
+          todayStart.subtract(Duration(days: todayStart.weekday - 1));
+      final lastWeekStart = thisWeekStart.subtract(const Duration(days: 7));
+      final lastWeekEnd = thisWeekStart.subtract(const Duration(seconds: 1));
+      return (lastWeekStart, lastWeekEnd);
+    case DateRangeFilter.last7Days:
+      final start = todayStart.subtract(const Duration(days: 6));
+      return (start, todayEnd);
+    case DateRangeFilter.thisMonth:
+      final start = DateTime(now.year, now.month, 1);
+      return (start, todayEnd);
+    case DateRangeFilter.lastMonth:
+      final start = DateTime(now.year, now.month - 1, 1);
+      final end = DateTime(now.year, now.month, 1).subtract(const Duration(seconds: 1));
+      return (start, end);
+    case DateRangeFilter.last30Days:
+      final start = todayStart.subtract(const Duration(days: 29));
+      return (start, todayEnd);
+    case DateRangeFilter.thisYear:
+      final start = DateTime(now.year, 1, 1);
+      return (start, todayEnd);
+    case DateRangeFilter.allTime:
+      final start = DateTime.fromMillisecondsSinceEpoch(0);
+      return (start, todayEnd);
+    case DateRangeFilter.custom:
+      if (customStart != null && customEnd != null) {
+        final start = DateTime(customStart.year, customStart.month, customStart.day);
+        final end = DateTime(customEnd.year, customEnd.month, customEnd.day, 23, 59, 59);
+        return (start, end);
+      }
+      // Fallback to last 30 days if custom dates are missing
+      final start = todayStart.subtract(const Duration(days: 29));
+      return (start, todayEnd);
   }
 }
 
-(DateTime, DateTime) _getPreviousDateRangeForFilter(
-    DateRangeFilter filter, DateTime now) {
-  final today = DateTime(now.year, now.month, now.day, 23, 59, 59);
+(DateTime, DateTime) _getPreviousDateRangeForFilter(DateRangeFilter filter,
+    DateTime now, DateTime? customStart, DateTime? customEnd) {
+  final todayEnd = DateTime(now.year, now.month, now.day, 23, 59, 59);
+  final todayStart = DateTime(now.year, now.month, now.day);
 
   switch (filter) {
-    case DateRangeFilter.thisMonth:
-      // Previous month, up to same day
-      final prevMonthStart = DateTime(now.year, now.month - 1, 1);
-      final lastDayPrevMonth = DateTime(now.year, now.month, 0).day;
-      final dayToCompare = min(now.day, lastDayPrevMonth);
-      final prevMonthEnd =
-          DateTime(now.year, now.month - 1, dayToCompare, 23, 59, 59);
-      return (prevMonthStart, prevMonthEnd);
-
-    case DateRangeFilter.last30Days:
-      // Previous 30 days (31-60 days ago)
-      final end = today.subtract(const Duration(days: 30));
-      final start = end.subtract(const Duration(days: 29));
-      return (start, end);
-
-    case DateRangeFilter.thisWeek:
-      // Previous week, up to same weekday
-      final currentStart = today.subtract(Duration(days: today.weekday - 1));
-      final prevStart = currentStart.subtract(const Duration(days: 7));
-      final prevEnd = today.subtract(const Duration(days: 7));
-      return (prevStart, prevEnd);
-
     case DateRangeFilter.today:
-      final yesterday = today.subtract(const Duration(days: 1));
-      final start = DateTime(yesterday.year, yesterday.month, yesterday.day);
-      return (start, yesterday);
-
-    default:
-      // Fallback
+      final yStart = todayStart.subtract(const Duration(days: 1));
+      final yEnd = todayEnd.subtract(const Duration(days: 1));
+      return (yStart, yEnd);
+    case DateRangeFilter.yesterday:
+      final prevStart = todayStart.subtract(const Duration(days: 2));
+      final prevEnd = todayEnd.subtract(const Duration(days: 2));
+      return (prevStart, prevEnd);
+    case DateRangeFilter.thisWeek:
+      final thisWeekStart =
+          todayStart.subtract(Duration(days: todayStart.weekday - 1));
+      final prevStart = thisWeekStart.subtract(const Duration(days: 7));
+      final prevEnd = thisWeekStart.subtract(const Duration(seconds: 1));
+      return (prevStart, prevEnd);
+    case DateRangeFilter.lastWeek:
+      final thisWeekStart =
+          todayStart.subtract(Duration(days: todayStart.weekday - 1));
+      final lastWeekStart = thisWeekStart.subtract(const Duration(days: 7));
+      final prevStart = lastWeekStart.subtract(const Duration(days: 7));
+      final prevEnd = lastWeekStart.subtract(const Duration(seconds: 1));
+      return (prevStart, prevEnd);
+    case DateRangeFilter.last7Days:
+      final currentStart = todayStart.subtract(const Duration(days: 6));
+      final prevEnd = currentStart.subtract(const Duration(seconds: 1));
+      final prevStart = prevEnd.subtract(const Duration(days: 6));
+      return (prevStart, prevEnd);
+    case DateRangeFilter.thisMonth:
       final prevMonthStart = DateTime(now.year, now.month - 1, 1);
       final lastDayPrevMonth = DateTime(now.year, now.month, 0).day;
       final dayToCompare = min(now.day, lastDayPrevMonth);
       final prevMonthEnd =
           DateTime(now.year, now.month - 1, dayToCompare, 23, 59, 59);
       return (prevMonthStart, prevMonthEnd);
+    case DateRangeFilter.lastMonth:
+      final currentStart = DateTime(now.year, now.month - 1, 1);
+      final prevStart = DateTime(now.year, now.month - 2, 1);
+      final prevEnd = currentStart.subtract(const Duration(seconds: 1));
+      return (prevStart, prevEnd);
+    case DateRangeFilter.last30Days:
+      final currentStart = todayStart.subtract(const Duration(days: 29));
+      final prevEnd = currentStart.subtract(const Duration(seconds: 1));
+      final prevStart = prevEnd.subtract(const Duration(days: 29));
+      return (prevStart, prevEnd);
+    case DateRangeFilter.thisYear:
+      final prevYear = now.year - 1;
+      final lastDayPrevYear = DateTime(prevYear + 1, 1, 0).day;
+      final dayToCompare = min(now.day, lastDayPrevYear);
+      final prevEnd =
+          DateTime(prevYear, now.month, dayToCompare, 23, 59, 59);
+      final prevStart = DateTime(prevYear, 1, 1);
+      return (prevStart, prevEnd);
+    case DateRangeFilter.allTime:
+      // Mirror the current span backwards so comparison remains consistent
+      final currentStart = DateTime.fromMillisecondsSinceEpoch(0);
+      final currentEnd = todayEnd;
+      final span = currentEnd.difference(currentStart);
+      final prevEnd = currentStart.subtract(const Duration(seconds: 1));
+      final prevStart = prevEnd.subtract(span);
+      return (prevStart, prevEnd);
+    case DateRangeFilter.custom:
+      if (customStart != null && customEnd != null) {
+        final start = DateTime(customStart.year, customStart.month, customStart.day);
+        final end = DateTime(customEnd.year, customEnd.month, customEnd.day, 23, 59, 59);
+        final span = end.difference(start);
+        final prevEnd = start.subtract(const Duration(seconds: 1));
+        final prevStart = prevEnd.subtract(span);
+        return (prevStart, prevEnd);
+      }
+      // Fallback to same as last30Days comparison
+      final currentStart = todayStart.subtract(const Duration(days: 29));
+      final prevEnd = currentStart.subtract(const Duration(seconds: 1));
+      final prevStart = prevEnd.subtract(const Duration(days: 29));
+      return (prevStart, prevEnd);
   }
 }
 
