@@ -181,7 +181,14 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
           final selectedState = ref.watch(selectedHouseholdProvider);
 
           // Determine which household to show
-          final household = selectedState.household ?? households.first;
+          final selectedId =
+              selectedState.householdId ?? selectedState.household?.id;
+          final household = selectedId != null
+              ? households.firstWhere(
+                  (h) => h.id == selectedId,
+                  orElse: () => households.first,
+                )
+              : households.first;
 
           // Filters
           final filterState = ref.watch(homeFilterProvider);
@@ -296,7 +303,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                                       date: to,
                                       amountCents: 0,
                                       createdAt: DateTime.now(),
-                                      userId: userId ?? '',
+                                      userId: userId,
                                       currency: selectedCurrency,
                                     ),
                                   ],
@@ -796,7 +803,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                                       date: DateTime.now(),
                                       amountCents: 0,
                                       createdAt: DateTime.now(),
-                                      userId: userId ?? '',
+                                      userId: userId,
                                       currency: selectedCurrency,
                                     ),
                                     ExpenseEntry(
@@ -804,7 +811,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                                       date: DateTime.now(),
                                       amountCents: 0,
                                       createdAt: DateTime.now(),
-                                      userId: userId ?? '',
+                                      userId: userId,
                                       currency: selectedCurrency,
                                     ),
                                   ],

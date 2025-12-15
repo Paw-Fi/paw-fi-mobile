@@ -11,7 +11,6 @@ import 'package:moneko/features/home/presentation/widgets/widgets.dart';
 
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
-import 'package:moneko/features/home/presentation/state/widget_launch_provider.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'package:moneko/features/households/presentation/widgets/household_home_content.dart';
@@ -20,6 +19,7 @@ import 'package:moneko/features/households/presentation/providers/cached_provide
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
+import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
@@ -139,6 +139,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     super.dispose();
   }
 
+  // ignore: unused_element
   Future<void> _handleCameraCapture() async {
     debugPrint('🎥 Starting camera capture...');
 
@@ -452,6 +453,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
+  // ignore: unused_element
   void _showTextInputDrawer() {
     showTextInputDrawer(
       context,
@@ -793,6 +795,9 @@ class _HomePageState extends ConsumerState<HomePage> {
         children: [
           RefreshIndicator(
             onRefresh: () async {
+              final user = ref.read(authProvider);
+              if (user.uid.isEmpty) return;
+
               // Refresh based on current view mode
               if (viewMode.mode == ViewMode.household) {
                 // In household mode: invalidate ALL household-related providers
@@ -800,34 +805,24 @@ class _HomePageState extends ConsumerState<HomePage> {
                 ref.read(cacheInvalidatorProvider).invalidateAll();
                 ref.invalidate(userHouseholdsProvider(user.uid));
                 ref.invalidate(householdExpensesProvider);
+                ref.invalidate(cachedHouseholdExpensesProvider);
                 ref.invalidate(householdSplitsProvider);
-                final householdIds = ref
-                    .read(userHouseholdsProvider(user.uid))
-                    .valueOrNull
-                    ?.map((h) => h.id)
-                    .toList();
-                if (householdIds != null) {
-                  for (final hid in householdIds) {
-                    ref.invalidate(cachedHouseholdExpensesProvider(
-                      HouseholdExpensesParams(householdId: hid),
-                    ));
-                    ref.invalidate(cachedHouseholdSplitsProvider(
-                      HouseholdSplitsParams(householdId: hid),
-                    ));
-                  }
-                }
+                ref.invalidate(cachedHouseholdSplitsProvider);
                 ref.invalidate(householdBudgetsProvider);
                 ref.invalidate(householdSummaryProvider);
-                ref.invalidate(
-                    householdMembersProvider); // FIXED: Added member info refresh
+                ref.invalidate(householdMembersProvider);
                 debugPrint(
                     '✅ Invalidated: households, expenses, splits, cached splits/expenses, budgets, summary, members');
               } else {
                 // In personal mode: refresh analytics with current date filters
                 // TODO: Once global date filter is fully removed, refresh should
                 // simply reload all-time analytics without a date window.
-                ref.read(analyticsProvider.notifier).refresh(user.uid);
+                await ref.read(analyticsProvider.notifier).loadData(user.uid);
               }
+
+              // Keep other tabs and selectors consistent.
+              ref.invalidate(pocketsProvider);
+              ref.invalidate(currencyTransactionCountsProvider);
               await Future.delayed(const Duration(milliseconds: 500));
             },
             child: scrollContent,

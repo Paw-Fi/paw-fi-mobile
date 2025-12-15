@@ -462,7 +462,7 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
       final userId = user.uid;
 
       await ref.read(userHouseholdsProvider(userId).notifier).load();
-      await ref.read(selectedHouseholdProvider.notifier).initialize(userId);
+      await ref.read(selectedHouseholdProvider.notifier).initialize();
 
       if (!mounted) return;
 
@@ -519,7 +519,7 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
       final selectedState = ref.read(selectedHouseholdProvider);
       if (selectedState.householdId == widget.householdId) {
         final user = ref.read(authProvider);
-        await ref.read(selectedHouseholdProvider.notifier).refresh(user.uid);
+        await ref.read(selectedHouseholdProvider.notifier).refresh();
       }
 
       if (mounted) {

@@ -19,20 +19,16 @@ enum ViewMode {
 /// View mode state
 class ViewModeState {
   final ViewMode mode;
-  final String? selectedHouseholdId;
 
   const ViewModeState({
     required this.mode,
-    this.selectedHouseholdId,
   });
 
   ViewModeState copyWith({
     ViewMode? mode,
-    String? selectedHouseholdId,
   }) {
     return ViewModeState(
       mode: mode ?? this.mode,
-      selectedHouseholdId: selectedHouseholdId ?? this.selectedHouseholdId,
     );
   }
 
@@ -41,11 +37,10 @@ class ViewModeState {
       identical(this, other) ||
       other is ViewModeState &&
           runtimeType == other.runtimeType &&
-          mode == other.mode &&
-          selectedHouseholdId == other.selectedHouseholdId;
+          mode == other.mode;
 
   @override
-  int get hashCode => mode.hashCode ^ selectedHouseholdId.hashCode;
+  int get hashCode => mode.hashCode;
 }
 
 /// View mode notifier
@@ -61,7 +56,6 @@ class ViewModeNotifier extends StateNotifier<ViewModeState> {
       final prefs = await SharedPreferences.getInstance();
       final stored = prefs.getString(_storageKey);
       if (stored == 'household') {
-        // Keep selectedHouseholdId as-is (handled by its own provider)
         state = state.copyWith(mode: ViewMode.household);
       } else if (stored == 'personal') {
         state = state.copyWith(mode: ViewMode.personal);
@@ -85,14 +79,6 @@ class ViewModeNotifier extends StateNotifier<ViewModeState> {
     _persist(mode);
   }
 
-  void setHouseholdMode(String householdId) {
-    state = ViewModeState(
-      mode: ViewMode.household,
-      selectedHouseholdId: householdId,
-    );
-    _persist(ViewMode.household);
-  }
-
   void setPersonalMode() {
     state = const ViewModeState(mode: ViewMode.personal);
     _persist(ViewMode.personal);
@@ -100,8 +86,6 @@ class ViewModeNotifier extends StateNotifier<ViewModeState> {
 
   void toggleMode() {
     if (state.mode == ViewMode.personal) {
-      // When switching to household mode, we need a household ID
-      // This should be set by the UI when a household is selected
       state = state.copyWith(mode: ViewMode.household);
       _persist(ViewMode.household);
     } else {

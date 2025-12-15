@@ -11,6 +11,7 @@ import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/ui/widgets/custom_text_field.dart';
+import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/widgets/category_picker_bottom_sheet.dart';
@@ -354,7 +355,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
         }
       } catch (e) {
         if (context.mounted) {
-          AppToast.error(context, e.toString());
+          AppToast.error(context, ErrorHandler.getUserFriendlyMessage(e));
         }
       } finally {
         if (isMounted()) {

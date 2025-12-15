@@ -15,6 +15,7 @@ import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
 import 'package:moneko/features/home/presentation/models/user_contact.dart';
 import 'package:moneko/features/home/presentation/state/transaction_edit_notifier.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
+import 'package:moneko/features/home/presentation/state/currency_transaction_counts_provider.dart';
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
@@ -26,6 +27,7 @@ import 'package:moneko/features/utils/datetime.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/core/utils/error_handler.dart';
 
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
@@ -1948,6 +1950,9 @@ class _UnifiedTransactionSheetState
     
     debugPrint('🗑️ [REFRESH] Invalidating pockets provider...');
     ref.invalidate(pocketsProvider);
+
+    // Keep currency selector counts up-to-date.
+    ref.invalidate(currencyTransactionCountsProvider);
     
     debugPrint('✅ [REFRESH] Household UI refresh complete - all provider families invalidated');
   }
@@ -1960,6 +1965,9 @@ class _UnifiedTransactionSheetState
     // This ensures all months and all scopes refresh with new data
     debugPrint('🗑️ [REFRESH] Invalidating ALL pockets provider families...');
     ref.invalidate(pocketsProvider);
+
+    // Keep currency selector counts up-to-date.
+    ref.invalidate(currencyTransactionCountsProvider);
     
     debugPrint('✅ [REFRESH] Personal UI refresh complete');
   }
@@ -2360,7 +2368,7 @@ class _UnifiedTransactionSheetState
       debugPrint(' Error saving expense: $error');
       if (!mounted) return;
 
-      AppToast.error(context, error.toString());
+      AppToast.error(context, ErrorHandler.getUserFriendlyMessage(error));
     } finally {
       if (mounted) {
         setState(() => _isSaving = false);
@@ -2409,6 +2417,7 @@ class _UnifiedTransactionSheetState
       // This ensures pockets page refreshes regardless of personal/household mode
       debugPrint(' Invalidating ALL pockets provider families...');
       ref.invalidate(pocketsProvider);
+      ref.invalidate(currencyTransactionCountsProvider);
 
       // If this was a household expense, invalidate household providers
       final householdId = widget.existingExpense!.householdId;
@@ -2443,7 +2452,7 @@ class _UnifiedTransactionSheetState
       debugPrint(' Error deleting expense: $error');
       if (!mounted) return;
 
-      AppToast.error(context, context.l10n.failedToDeleteExpense);
+      AppToast.error(context, ErrorHandler.getUserFriendlyMessage(error));
     } finally {
       if (mounted) {
         setState(() => _isDeleting = false);

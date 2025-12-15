@@ -4,11 +4,15 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
+import 'package:moneko/features/auth/auth.dart';
 import '../../domain/entities/household.dart';
 import 'household_providers.dart';
 
 /// Storage key for selected household ID
-const String _kSelectedHouseholdIdKey = 'selected_household_id';
+const String _kLegacySelectedHouseholdIdKey = 'selected_household_id';
+
+String _selectedHouseholdIdKeyForUser(String userId) =>
+    'selected_household_id:$userId';
 
 /// Selected household state
 class SelectedHouseholdState {
@@ -29,12 +33,15 @@ class SelectedHouseholdState {
     Household? household,
     bool? isLoading,
     String? error,
+    bool clearHouseholdId = false,
+    bool clearHousehold = false,
+    bool clearError = false,
   }) {
     return SelectedHouseholdState(
-      householdId: householdId ?? this.householdId,
-      household: household ?? this.household,
+      householdId: clearHouseholdId ? null : (householdId ?? this.householdId),
+      household: clearHousehold ? null : (household ?? this.household),
       isLoading: isLoading ?? this.isLoading,
-      error: error ?? this.error,
+      error: clearError ? null : (error ?? this.error),
     );
   }
 
@@ -46,18 +53,45 @@ class SelectedHouseholdState {
 class SelectedHouseholdNotifier extends StateNotifier<SelectedHouseholdState> {
   final Ref ref;
   final SharedPreferences prefs;
+  final String _userId;
+  int _operationId = 0;
 
-  SelectedHouseholdNotifier(this.ref, this.prefs)
-      : super(const SelectedHouseholdState());
+  SelectedHouseholdNotifier(this.ref, this.prefs, this._userId)
+      : super(_initialState(prefs, _userId));
+
+  static SelectedHouseholdState _initialState(
+    SharedPreferences prefs,
+    String userId,
+  ) {
+    if (userId.isEmpty) return const SelectedHouseholdState();
+
+    final perUser = prefs.getString(_selectedHouseholdIdKeyForUser(userId));
+    final legacy = prefs.getString(_kLegacySelectedHouseholdIdKey);
+
+    final initialId = perUser ?? legacy;
+    return SelectedHouseholdState(
+      householdId: initialId,
+      household: null,
+      isLoading: false,
+      error: null,
+    );
+  }
 
   /// Initialize - loads selected household from storage
-  Future<void> initialize(String userId, {List<Household>? preloadedHouseholds}) async {
-    state = state.copyWith(isLoading: true, error: null);
+  Future<void> initialize({List<Household>? preloadedHouseholds}) async {
+    if (_userId.isEmpty) {
+      state = const SelectedHouseholdState();
+      return;
+    }
+
+    final operationId = ++_operationId;
+    state = state.copyWith(isLoading: true, clearError: true);
 
     try {
-      debugPrint('🔍 Initializing selected household for user: $userId');
+      debugPrint('🔍 Initializing selected household for user: $_userId');
 
-      final households = preloadedHouseholds ?? await _waitForHouseholds(userId);
+      final households =
+          preloadedHouseholds ?? await _waitForHouseholds(_userId);
       
       if (households == null || households.isEmpty) {
         debugPrint('📭 No households found for user (or load failed)');
@@ -65,45 +99,57 @@ class SelectedHouseholdNotifier extends StateNotifier<SelectedHouseholdState> {
         return;
       }
 
-      // Try to load saved selection from local storage
-      final savedId = prefs.getString(_kSelectedHouseholdIdKey);
-      debugPrint('💾 Saved household ID from storage: $savedId');
-
-      String? selectedId;
+      // Prefer the in-memory selection first if it is still valid for this list.
       Household? selectedHousehold;
-
-      if (savedId != null) {
-        // Check if saved household still exists
-        selectedHousehold = households.firstWhere(
-          (h) => h.id == savedId,
-          orElse: () => households.first,
-        );
-        selectedId = selectedHousehold.id;
-        
-        if (savedId != selectedId) {
-          debugPrint('⚠️ Saved household not found, falling back to first');
-        } else {
-          debugPrint('✅ Restored saved household: ${selectedHousehold.name}');
+      final currentId = state.householdId;
+      if (currentId != null) {
+        for (final h in households) {
+          if (h.id == currentId) {
+            selectedHousehold = h;
+            break;
+          }
         }
-      } else {
-        // No saved selection, use first household
-        selectedHousehold = households.first;
-        selectedId = selectedHousehold.id;
-        debugPrint('🆕 No saved selection, using first household: ${selectedHousehold.name}');
+      }
+
+      // Otherwise, restore from storage (per-user key, with legacy migration).
+      if (selectedHousehold == null) {
+        final savedId = await _readPersistedId(households);
+        debugPrint('💾 Saved household ID from storage: $savedId');
+        if (savedId != null) {
+          for (final h in households) {
+            if (h.id == savedId) {
+              selectedHousehold = h;
+              debugPrint('✅ Restored saved household: ${h.name}');
+              break;
+            }
+          }
+        }
+      }
+
+      // Still nothing? Default to the first household.
+      selectedHousehold ??= households.first;
+      final selectedId = selectedHousehold.id;
+      if (currentId != null && currentId != selectedId) {
+        debugPrint(
+          '⚠️ Current selection invalid ($currentId), falling back to first: $selectedId',
+        );
       }
 
       // Update state
+      if (_operationId != operationId) return;
       state = SelectedHouseholdState(
         householdId: selectedId,
         household: selectedHousehold,
         isLoading: false,
+        error: null,
       );
 
-      // Persist to storage
+      // Persist to storage (per-user key)
       await _saveToStorage(selectedId);
     } catch (e, stack) {
       debugPrint('❌ Error initializing selected household: $e');
       debugPrint('Stack: $stack');
+      if (_operationId != operationId) return;
       state = SelectedHouseholdState(
         isLoading: false,
         error: e.toString(),
@@ -146,61 +192,122 @@ class SelectedHouseholdNotifier extends StateNotifier<SelectedHouseholdState> {
   }
 
   /// Select a household by ID
-  Future<void> selectHousehold(String householdId, String userId) async {
+  Future<void> selectHousehold(String householdId) async {
+    if (_userId.isEmpty) {
+      state = state.copyWith(error: 'User not authenticated');
+      return;
+    }
+
+    final operationId = ++_operationId;
     try {
       debugPrint('🎯 Selecting household: $householdId');
 
-      // Get household details
-      final householdAsync = await ref.read(householdProvider(householdId).future);
-      
-      if (householdAsync == null) {
-        debugPrint('❌ Household not found: $householdId');
-        state = state.copyWith(error: 'Household not found');
-        return;
+      // Prefer local list to avoid unnecessary network calls.
+      Household? resolved;
+      final householdsState = ref.read(userHouseholdsProvider(_userId));
+      final households = householdsState.valueOrNull;
+      if (households != null) {
+        for (final h in households) {
+          if (h.id == householdId) {
+            resolved = h;
+            break;
+          }
+        }
       }
+
+      // Fallback: fetch household details (may fail offline). Still persist ID even if null.
+      resolved ??=
+          await ref.read(householdProvider(householdId).future);
 
       // Update state
       state = SelectedHouseholdState(
         householdId: householdId,
-        household: householdAsync,
+        household: resolved,
         isLoading: false,
+        error: resolved == null ? 'Household not found' : null,
       );
 
       // Persist to storage
       await _saveToStorage(householdId);
       
-      debugPrint('✅ Selected household: ${householdAsync.name}');
+      if (_operationId != operationId) return;
+      if (resolved != null) {
+        debugPrint('✅ Selected household: ${resolved.name}');
+      } else {
+        debugPrint('⚠️ Selected household persisted but could not be resolved yet');
+      }
     } catch (e, stack) {
       debugPrint('❌ Error selecting household: $e');
       debugPrint('Stack: $stack');
+      if (_operationId != operationId) return;
+      // Keep the selected ID if possible, so the choice persists even if fetching fails.
       state = state.copyWith(error: e.toString());
+      await _saveToStorage(householdId);
     }
   }
 
   /// Clear selection
   Future<void> clearSelection() async {
     debugPrint('🗑️ Clearing household selection');
-    await prefs.remove(_kSelectedHouseholdIdKey);
+    if (_userId.isNotEmpty) {
+      await prefs.remove(_selectedHouseholdIdKeyForUser(_userId));
+    }
+    await prefs.remove(_kLegacySelectedHouseholdIdKey);
     state = const SelectedHouseholdState();
   }
 
   /// Refresh current household data
-  Future<void> refresh(String userId) async {
+  Future<void> refresh() async {
     if (state.householdId == null) return;
     
     debugPrint('🔄 Refreshing household: ${state.householdId}');
-    await selectHousehold(state.householdId!, userId);
+    await selectHousehold(state.householdId!);
   }
 
   /// Save to local storage
   Future<void> _saveToStorage(String householdId) async {
+    if (_userId.isEmpty) return;
+
     try {
-      await prefs.setString(_kSelectedHouseholdIdKey, householdId);
-      debugPrint('💾 Saved household selection to storage: $householdId');
+      await prefs.setString(
+        _selectedHouseholdIdKeyForUser(_userId),
+        householdId,
+      );
+      final legacy = prefs.getString(_kLegacySelectedHouseholdIdKey);
+      if (legacy == householdId) {
+        await prefs.remove(_kLegacySelectedHouseholdIdKey);
+      }
+      debugPrint(
+        '💾 Saved household selection to storage (user=$_userId): $householdId',
+      );
     } catch (e) {
       debugPrint('⚠️ Failed to save to storage: $e');
       // Non-critical error, continue anyway
     }
+  }
+
+  Future<String?> _readPersistedId(List<Household> households) async {
+    final perUserKey = _selectedHouseholdIdKeyForUser(_userId);
+
+    final perUserSaved = prefs.getString(perUserKey);
+    if (perUserSaved != null &&
+        households.any((h) => h.id == perUserSaved)) {
+      return perUserSaved;
+    }
+
+    final legacySaved = prefs.getString(_kLegacySelectedHouseholdIdKey);
+    if (legacySaved != null &&
+        households.any((h) => h.id == legacySaved)) {
+      // Migrate legacy → per-user once we confirm it is valid for this account.
+      try {
+        await prefs.setString(perUserKey, legacySaved);
+        await prefs.remove(_kLegacySelectedHouseholdIdKey);
+        debugPrint('🔁 Migrated legacy selected household ID → per-user key');
+      } catch (_) {}
+      return legacySaved;
+    }
+
+    return null;
   }
 }
 
@@ -217,7 +324,8 @@ final selectedHouseholdProvider =
     StateNotifierProvider<SelectedHouseholdNotifier, SelectedHouseholdState>(
   (ref) {
     final prefs = ref.watch(sharedPreferencesProvider);
-    return SelectedHouseholdNotifier(ref, prefs);
+    final userId = ref.watch(authProvider.select((u) => u.uid));
+    return SelectedHouseholdNotifier(ref, prefs, userId);
   },
 );
 

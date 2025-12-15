@@ -3,6 +3,7 @@ import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 
 /// Local filter state for home page only
 /// This doesn't affect the analytics provider data
@@ -133,6 +134,7 @@ final homeFilteredExpensesProvider = Provider<List<ExpenseEntry>>((ref) {
   final analyticsData = ref.watch(analyticsProvider);
   final filterState = ref.watch(homeFilterProvider);
   final viewMode = ref.watch(viewModeProvider);
+  final selectedHouseholdId = ref.watch(selectedHouseholdProvider).householdId;
 
   // Get all expenses from provider
   final allExpenses = analyticsData.allExpenses;
@@ -165,9 +167,9 @@ final homeFilteredExpensesProvider = Provider<List<ExpenseEntry>>((ref) {
         final viewModeOk = viewMode.mode == ViewMode.personal
             ? expense.householdId ==
                 null // Personal mode: only expenses without household_id
-            : expense.householdId ==
-                viewMode
-                    .selectedHouseholdId; // Household mode: only expenses for selected household
+            : (selectedHouseholdId != null &&
+                expense.householdId ==
+                    selectedHouseholdId); // Household mode: only expenses for selected household
 
         return dateOk && currencyOk && viewModeOk;
       })
@@ -182,6 +184,7 @@ final homeFilteredTransactionsProvider = Provider<List<ExpenseEntry>>((ref) {
   final analyticsData = ref.watch(analyticsProvider);
   final filterState = ref.watch(homeFilterProvider);
   final viewMode = ref.watch(viewModeProvider);
+  final selectedHouseholdId = ref.watch(selectedHouseholdProvider).householdId;
 
   final all = analyticsData.allExpenses;
 
@@ -201,7 +204,8 @@ final homeFilteredTransactionsProvider = Provider<List<ExpenseEntry>>((ref) {
         (tx.currency?.toUpperCase() == selectedCurrency);
     final viewModeOk = viewMode.mode == ViewMode.personal
         ? tx.householdId == null
-        : tx.householdId == viewMode.selectedHouseholdId;
+        : (selectedHouseholdId != null &&
+            tx.householdId == selectedHouseholdId);
     return dateOk && currencyOk && viewModeOk;
   }).toList();
 });

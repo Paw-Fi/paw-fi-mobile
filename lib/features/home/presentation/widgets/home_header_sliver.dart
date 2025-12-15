@@ -20,6 +20,27 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
+Household _resolveSelectedHousehold(
+  SelectedHouseholdState selectedState,
+  List<Household> households,
+) {
+  if (households.isEmpty) {
+    throw ArgumentError.value(
+      households,
+      'households',
+      'Must not be empty when resolving selection',
+    );
+  }
+
+  final selectedId = selectedState.householdId ?? selectedState.household?.id;
+  if (selectedId == null) return households.first;
+
+  return households.firstWhere(
+    (h) => h.id == selectedId,
+    orElse: () => households.first,
+  );
+}
+
 /// Leading widget for app bar that includes:
 /// - Profile/Household avatar
 /// - Personal/Household name
@@ -43,8 +64,8 @@ class HomeHeaderLeading extends ConsumerWidget {
             error: (_, __) => context.l10n.forUs,
             data: (households) {
               if (households.isEmpty) return context.l10n.forUs;
-              final household = selectedHouseholdState.household ?? households.first;
-              return household.name;
+              return _resolveSelectedHousehold(selectedHouseholdState, households)
+                  .name;
             },
           );
 
@@ -165,9 +186,10 @@ class HomeHeaderSliver extends ConsumerWidget {
                           if (households.isEmpty) {
                             return context.l10n.forUs;
                           }
-                          final household = selectedHouseholdState.household ??
-                              households.first;
-                          return household.name;
+                          return _resolveSelectedHousehold(
+                            selectedHouseholdState,
+                            households,
+                          ).name;
                         },
                       ),
                 maxLines: 1,

@@ -163,12 +163,15 @@ class _HouseholdSection extends ConsumerWidget {
       data: (households) {
         if (households.isEmpty) return const SizedBox.shrink();
 
-        if (!selectedState.isLoading && selectedState.householdId == null) {
+        final selectionIsValid = selectedState.householdId != null &&
+            households.any((h) => h.id == selectedState.householdId);
+        if (!selectedState.isLoading &&
+            (!selectedState.hasSelection || !selectionIsValid)) {
           if (user.uid.isNotEmpty) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               ref
                   .read(selectedHouseholdProvider.notifier)
-                  .initialize(user.uid, preloadedHouseholds: households);
+                  .initialize(preloadedHouseholds: households);
             });
           }
         }
@@ -227,10 +230,9 @@ class _HouseholdSection extends ConsumerWidget {
                     ),
                     child: InkWell(
                       onTap: () async {
-                        final user = ref.read(authProvider);
                         await ref
                             .read(selectedHouseholdProvider.notifier)
-                            .selectHousehold(household.id, user.uid);
+                            .selectHousehold(household.id);
                       },
                       borderRadius: BorderRadius.circular(12),
                       child: Padding(

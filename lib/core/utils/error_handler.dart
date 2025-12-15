@@ -30,6 +30,26 @@ class ErrorHandler {
       return _handleStorageException(error);
     }
 
+    // Supabase Edge Function errors
+    if (error is FunctionException) {
+      // Prefer the structured `{ error: "..." }` payload returned by our Edge
+      // Functions, instead of the full `FunctionException(...)` string.
+      final details = error.details;
+      if (details is Map && details['error'] is String) {
+        final message = (details['error'] as String).trim();
+        if (message.isNotEmpty) return message;
+      }
+      if (details is String) {
+        final message = details.trim();
+        if (message.isNotEmpty) return message;
+      }
+      // Fall back to a generic permission message for common statuses.
+      if (error.status == 401 || error.status == 403) {
+        return 'You don\'t have permission to perform this action.';
+      }
+      return 'Something went wrong. Please try again.';
+    }
+
     // Invitation-specific errors
     if (errorString.contains('expired')) {
       return 'This invitation has expired. Please request a new one.';

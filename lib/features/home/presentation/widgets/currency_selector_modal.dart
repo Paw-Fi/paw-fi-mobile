@@ -34,13 +34,11 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
   List<String>? _customOrder;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
-  Map<String, int>? _currencyCounts;
 
   @override
   void initState() {
     super.initState();
     _loadCustomOrder();
-     _loadCurrencyCounts();
   }
 
   Future<void> _loadCustomOrder() async {
@@ -68,38 +66,6 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
       }
     } catch (e) {
       debugPrint('Error saving currency order: $e');
-    }
-  }
-
-  Future<void> _loadCurrencyCounts() async {
-    try {
-      final authState = ref.read(authProvider);
-      final userId = authState.uid;
-      if (userId.isEmpty) return;
-
-      final response = await supabase
-          .from('expenses')
-          .select('currency')
-          .eq('user_id', userId)
-          .not('currency', 'is', null)
-          .limit(5000);
-
-      final rows = response as List<dynamic>;
-      final counts = <String, int>{};
-
-      for (final row in rows) {
-        final data = row as Map<String, dynamic>;
-        final code = (data['currency'] as String?)?.toUpperCase();
-        if (code == null || code.isEmpty) continue;
-        counts[code] = (counts[code] ?? 0) + 1;
-      }
-
-      if (!mounted) return;
-      setState(() {
-        _currencyCounts = counts;
-      });
-    } catch (e) {
-      debugPrint('Error loading currency counts: $e');
     }
   }
 
@@ -136,6 +102,7 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
     final colorScheme = Theme.of(context).colorScheme;
     final summaries = ref.watch(currencySummariesProvider);
     final filterState = ref.watch(homeFilterProvider);
+    final currencyCounts = ref.watch(currencyTransactionCountsProvider).valueOrNull;
     
     // Get all supported currencies from backend
     final currencyOptions = getAvailableCurrencyOptions();
@@ -157,14 +124,14 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
     
     // Separate currencies into active (with transactions) and inactive
     var activeCurrencies = allCurrencySummaries.where((s) {
-      final dbCount = _currencyCounts?[s.currencyCode];
-      final txCount = dbCount ?? s.transactionCount;
+      final txCount =
+          currencyCounts?[s.currencyCode] ?? s.transactionCount;
       return txCount > 0;
     }).toList();
     
     var inactiveCurrencies = allCurrencySummaries.where((s) {
-      final dbCount = _currencyCounts?[s.currencyCode];
-      final txCount = dbCount ?? s.transactionCount;
+      final txCount =
+          currencyCounts?[s.currencyCode] ?? s.transactionCount;
       return txCount == 0;
     }).toList()
       ..sort((a, b) => a.currencyCode.compareTo(b.currencyCode));
@@ -335,7 +302,8 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
                       child: _CurrencyCard(
                         summary: summary,
                         transactionCount:
-                            (_currencyCounts?[summary.currencyCode] ?? summary.transactionCount),
+                            (currencyCounts?[summary.currencyCode] ??
+                                summary.transactionCount),
                         isSelected: filterState.selectedCurrency?.toUpperCase() == summary.currencyCode,
                         onTap: () async {
                           final authState = ref.read(authProvider);

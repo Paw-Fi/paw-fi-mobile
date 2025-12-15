@@ -1238,7 +1238,9 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
             if (userId != null && householdId != null) {
               // refresh list and set selection
               await ref.read(userHouseholdsProvider(userId).notifier).load();
-              await ref.read(selectedHouseholdProvider.notifier).selectHousehold(householdId, userId);
+              await ref
+                  .read(selectedHouseholdProvider.notifier)
+                  .selectHousehold(householdId);
             }
             if (!mounted) return;
             setState(() {
@@ -1300,7 +1302,9 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
         if (userId != null) {
           await ref.read(userHouseholdsProvider(userId).notifier).load();
           if (acceptedHouseholdId != null) {
-            await ref.read(selectedHouseholdProvider.notifier).selectHousehold(acceptedHouseholdId, userId);
+            await ref
+                .read(selectedHouseholdProvider.notifier)
+                .selectHousehold(acceptedHouseholdId);
           }
         }
 
@@ -1322,7 +1326,9 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
           final householdId = _invitePreview?['household']?['id'] as String?;
           if (userId != null && householdId != null) {
             await ref.read(userHouseholdsProvider(userId).notifier).load();
-            await ref.read(selectedHouseholdProvider.notifier).selectHousehold(householdId, userId);
+            await ref
+                .read(selectedHouseholdProvider.notifier)
+                .selectHousehold(householdId);
           }
           if (!mounted) return;
           setState(() {

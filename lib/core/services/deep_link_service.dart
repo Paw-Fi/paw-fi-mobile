@@ -369,14 +369,11 @@ class DeepLinkService {
     }
 
     try {
-      // Switch to household view mode and set the household ID
-      ref.read(viewModeProvider.notifier).setHouseholdMode(householdId);
-
-      // Also update the selected household provider (needs user ID)
-      final user = ref.read(authProvider);
+      // Switch to household view mode
+      ref.read(viewModeProvider.notifier).setMode(ViewMode.household);
       await ref
           .read(selectedHouseholdProvider.notifier)
-          .selectHousehold(householdId, user.uid);
+          .selectHousehold(householdId);
 
       // Navigate to dashboard (which will show household content)
       if (navigatorContext.mounted) {

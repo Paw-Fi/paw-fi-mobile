@@ -1,9 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
+import 'package:moneko/core/utils/error_handler.dart';
+import 'package:moneko/features/home/presentation/state/currency_transaction_counts_provider.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart'
     show SplitType, MemberSplit;
+import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:intl/intl.dart';
 
 // ============================================================================
@@ -30,6 +33,22 @@ class RecurringTransactionsState {
       hasLoadedOnce: hasLoadedOnce ?? this.hasLoadedOnce,
     );
   }
+}
+
+@immutable
+class DeleteRecurringResult {
+  final bool success;
+  final String? error;
+
+  const DeleteRecurringResult._({
+    required this.success,
+    this.error,
+  });
+
+  const DeleteRecurringResult.success() : this._(success: true);
+
+  const DeleteRecurringResult.failure([String? error])
+      : this._(success: false, error: error);
 }
 
 // ============================================================================
@@ -202,10 +221,19 @@ class RecurringTransactionsNotifier
   }
 
   /// Delete transaction
-  Future<bool> deleteRecurring(String userId, String transactionId) async {
+  Future<DeleteRecurringResult> deleteRecurring(
+    String userId,
+    String transactionId,
+  ) async {
     try {
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      debugPrint('🗑️ [RecurringTx] DELETE REQUESTED');
+      debugPrint('   Scope: ${householdId == null ? 'PERSONAL' : 'HOUSEHOLD($householdId)'}');
+      debugPrint('   UserId: $userId');
+      debugPrint('   TransactionId: $transactionId');
+
       // Optimistic update
-      if (!mounted) return false;
+      if (!mounted) return const DeleteRecurringResult.failure('Provider unmounted');
       state.data.whenData((transactions) {
         state = state.copyWith(
           data: AsyncValue.data(
@@ -220,16 +248,44 @@ class RecurringTransactionsNotifier
         body: {'userId': userId, 'expenseId': transactionId},
       );
 
-      if (response.data['success'] == true) {
-        return true;
-      } else {
-        await refresh(userId);
-        return false;
+      debugPrint('✅ [RecurringTx] delete-expense response: status=${response.status} data=${response.data}');
+
+      if (response.data is Map<String, dynamic> &&
+          (response.data as Map<String, dynamic>)['success'] == true) {
+        // Keep other tabs (pockets + currency selector) in sync with the
+        // underlying `expenses` table mutation.
+        ref.invalidate(pocketsProvider);
+        ref.invalidate(currencyTransactionCountsProvider);
+
+        debugPrint('✅ [RecurringTx] DELETE SUCCEEDED');
+        debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        return const DeleteRecurringResult.success();
       }
-    } catch (e) {
+
+      final payload = response.data;
+      final errorMessage = _extractFunctionError(payload) ??
+          (response.status >= 400 ? 'Request failed (${response.status})' : null);
+
+      debugPrint('❌ [RecurringTx] DELETE FAILED: $errorMessage');
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       await refresh(userId);
-      return false;
+      return DeleteRecurringResult.failure(errorMessage);
+    } catch (e) {
+      debugPrint('❌ [RecurringTx] DELETE EXCEPTION: $e');
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      await refresh(userId);
+      return DeleteRecurringResult.failure(ErrorHandler.getUserFriendlyMessage(e));
     }
+  }
+
+  String? _extractFunctionError(dynamic payload) {
+    if (payload is Map<String, dynamic>) {
+      final error = payload['error'];
+      if (error is String && error.trim().isNotEmpty) return error.trim();
+      final message = payload['message'];
+      if (message is String && message.trim().isNotEmpty) return message.trim();
+    }
+    return null;
   }
 }
 

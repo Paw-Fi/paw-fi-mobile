@@ -285,7 +285,9 @@ class _HouseholdInvitationSheetState
                 // Switch to household mode and set the selected household
                 // This will show the "For Us" view with the household selected
                 ref.read(viewModeProvider.notifier).setMode(ViewMode.household);
-                await ref.read(selectedHouseholdProvider.notifier).selectHousehold(householdId, userId);
+                await ref
+                    .read(selectedHouseholdProvider.notifier)
+                    .selectHousehold(householdId);
 
                 // Close the bottom sheet and navigate using the root navigator
                 // Use root navigator directly to avoid context issues

@@ -13,6 +13,7 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/moneko_switch.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/utils/error_handler.dart';
 
 void showIncomeEntrySheet(BuildContext context) {
   showModalBottomSheet(
@@ -151,7 +152,7 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
       }
     } catch (e) {
       if (mounted) {
-         AppToast.error(context, e.toString());
+        AppToast.error(context, ErrorHandler.getUserFriendlyMessage(e));
       }
     } finally {
       if (mounted) {

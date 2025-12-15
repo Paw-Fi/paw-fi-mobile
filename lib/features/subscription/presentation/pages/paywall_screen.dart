@@ -8,6 +8,7 @@ import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/constants/links.dart';
+import 'package:moneko/core/utils/error_handler.dart';
 import '../providers/subscription_provider.dart';
 import '../providers/referral_code_provider.dart';
 
@@ -132,7 +133,7 @@ class _PaywallContentState extends ConsumerState<_PaywallContent> {
       }
     } catch (e) {
       if (mounted) {
-        AppToast.error(context, 'Failed to start trial: ${e.toString()}');
+        AppToast.error(context, ErrorHandler.getUserFriendlyMessage(e));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

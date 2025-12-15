@@ -46,7 +46,6 @@ class WhereTheMoneyWentWidget extends StatelessWidget {
     final totalSpent = categoryTotals.values.fold<double>(0, (a, b) => a + b);
     final sortedCategories = categoryTotals.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
-    final topCategory = sortedCategories.isNotEmpty ? sortedCategories.first : null;
 
     String formatAmount(double amount) {
       final symbol = resolveCurrencySymbol(currency ?? 'USD');
@@ -186,13 +185,7 @@ class _LegendChip extends StatelessWidget {
                   color: colorScheme.foreground,
                 ),
               ),
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: colorScheme.mutedForeground,
-                ),
-              ),
+             
             ],
           ),
         ],

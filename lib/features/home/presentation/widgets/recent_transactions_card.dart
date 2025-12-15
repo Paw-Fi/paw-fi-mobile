@@ -9,8 +9,11 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
+import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
+import 'package:moneko/core/utils/error_handler.dart';
 
 Widget buildRecentTransactionsCard(
   BuildContext context,
@@ -122,20 +125,46 @@ Widget buildRecentTransactionsCard(
     
                             if (res.data != null &&
                                 (res.data['success'] == true)) {
-                              if (householdId == null) {
-                                ref.read(analyticsProvider.notifier).refresh(uid);
-                              } else {
+                              // Always refresh analytics (personal tab) since the
+                              // deleted row may be present in the user's dataset.
+                              ref.read(analyticsProvider.notifier).refresh(uid);
+
+                              if (householdId != null) {
+                                ref.read(cacheInvalidatorProvider).invalidateHouseholdData(householdId);
+                                ref.invalidate(userHouseholdsProvider(uid));
                                 ref.invalidate(householdExpensesProvider);
+                                ref.invalidate(cachedHouseholdExpensesProvider);
                                 ref.invalidate(householdSplitsProvider);
+                                ref.invalidate(cachedHouseholdSplitsProvider);
                                 ref.invalidate(householdSummaryProvider);
+                                ref.invalidate(householdBudgetsProvider);
+                                ref.invalidate(householdMembersProvider);
                               }
+
+                              // Keep other tabs and the currency selector in sync.
+                              ref.invalidate(pocketsProvider);
+                              ref.invalidate(currencyTransactionCountsProvider);
                               AppToast.success(context, l10n.transactionDeleted);
                             } else {
-                              AppToast.error(context, l10n.anErrorOccurred);
+                              final payload =
+                                  res.data is Map<String, dynamic>
+                                      ? (res.data as Map<String, dynamic>)
+                                      : null;
+                              final message =
+                                  (payload?['error'] as String?)?.trim();
+                              AppToast.error(
+                                context,
+                                (message != null && message.isNotEmpty)
+                                    ? message
+                                    : l10n.anErrorOccurred,
+                              );
                             }
                           } catch (err) {
                             if (context.mounted) {
-                              AppToast.error(context, '${l10n.error}: $err');
+                              AppToast.error(
+                                context,
+                                ErrorHandler.getUserFriendlyMessage(err),
+                              );
                             }
                           }
                         },

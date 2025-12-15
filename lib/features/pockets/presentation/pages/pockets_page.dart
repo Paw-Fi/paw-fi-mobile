@@ -94,7 +94,7 @@ class PocketsPage extends HookConsumerWidget {
       Future.microtask(() {
         ref
             .read(selectedHouseholdProvider.notifier)
-            .selectHousehold(resolvedHouseholdId, user.uid);
+            .selectHousehold(resolvedHouseholdId);
       });
 
       return null;

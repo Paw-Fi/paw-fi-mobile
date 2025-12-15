@@ -8,6 +8,7 @@ import 'package:moneko/features/recurring/domain/models/recurring_transaction.da
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
+import 'package:moneko/features/home/presentation/state/currency_transaction_counts_provider.dart';
 import 'package:moneko/core/ui/widgets/transaction_category_picker.dart';
 import 'package:moneko/core/ui/widgets/transaction_currency_picker.dart';
 import 'package:moneko/core/ui/widgets/transaction_frequency_picker.dart';
@@ -600,11 +601,8 @@ class AddRecurringSheet extends HookConsumerWidget {
             await ref.read(recurringTransactionsProvider(currentHouseholdId).notifier)
                 .refresh(user.id);
             
-            debugPrint('   ♻️  Invalidating pocketsProvider(household: $currentHouseholdId)');
-            ref.invalidate(pocketsProvider(PocketsScopeParams(
-              scope: PocketsScopeType.household,
-              householdId: currentHouseholdId,
-            )));
+            debugPrint('   ♻️  Invalidating pocketsProvider family (household view)');
+            ref.invalidate(pocketsProvider);
           } else {
             debugPrint('👤 [REFRESH] Refreshing PERSONAL view');
             
@@ -613,10 +611,8 @@ class AddRecurringSheet extends HookConsumerWidget {
             await ref.read(recurringTransactionsProvider(null).notifier)
                 .refresh(user.id);
             
-            debugPrint('   ♻️  Invalidating pocketsProvider(personal)');
-            ref.invalidate(pocketsProvider(const PocketsScopeParams(
-              scope: PocketsScopeType.personal,
-            )));
+            debugPrint('   ♻️  Invalidating pocketsProvider family (personal view)');
+            ref.invalidate(pocketsProvider);
           }
           
           // ALSO refresh the scope where the transaction is actually stored (if different from current view)
@@ -633,11 +629,8 @@ class AddRecurringSheet extends HookConsumerWidget {
             await ref.read(recurringTransactionsProvider(activeHouseholdId).notifier)
                 .refresh(user.id);
             
-            debugPrint('   ♻️  Invalidating pocketsProvider(household: $activeHouseholdId)');
-            ref.invalidate(pocketsProvider(PocketsScopeParams(
-              scope: PocketsScopeType.household,
-              householdId: activeHouseholdId,
-            )));
+            debugPrint('   ♻️  Invalidating pocketsProvider family (transaction household scope)');
+            ref.invalidate(pocketsProvider);
           } else if (activeHouseholdId == null && currentViewMode.mode == ViewMode.household) {
             // Transaction is personal but we're in household view - also refresh personal scope
             debugPrint('🔄 [REFRESH] Also refreshing personal scope (transaction is personal)');
@@ -646,11 +639,12 @@ class AddRecurringSheet extends HookConsumerWidget {
             await ref.read(recurringTransactionsProvider(null).notifier)
                 .refresh(user.id);
             
-            debugPrint('   ♻️  Invalidating pocketsProvider(personal)');
-            ref.invalidate(pocketsProvider(const PocketsScopeParams(
-              scope: PocketsScopeType.personal,
-            )));
+            debugPrint('   ♻️  Invalidating pocketsProvider family (personal scope)');
+            ref.invalidate(pocketsProvider);
           }
+
+          // Keep currency selector counts up-to-date.
+          ref.invalidate(currencyTransactionCountsProvider);
           
           debugPrint('✅ [REFRESH] All providers refreshed/invalidated successfully');
           debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');

@@ -299,13 +299,7 @@ class _SpendingBreakdownChartState extends State<SpendingBreakdownChart> {
                           color: widget.colorScheme.foreground,
                         ),
                       ),
-                      Text(
-                        '${displayAmount(category.amount)} · $percent',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: widget.colorScheme.mutedForeground,
-                        ),
-                      ),
+                      
                     ],
                   ),
                 ],

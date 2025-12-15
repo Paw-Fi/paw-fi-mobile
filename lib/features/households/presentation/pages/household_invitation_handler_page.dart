@@ -126,7 +126,9 @@ class _HouseholdInvitationHandlerPageState extends ConsumerState<HouseholdInvita
           final userId = Supabase.instance.client.auth.currentUser?.id;
           if (userId != null) {
             ref.read(viewModeProvider.notifier).setMode(ViewMode.household);
-            ref.read(selectedHouseholdProvider.notifier).selectHousehold(_householdId!, userId);
+            ref
+                .read(selectedHouseholdProvider.notifier)
+                .selectHousehold(_householdId!);
             context.go('/dashboard');
           }
         }

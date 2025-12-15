@@ -8,7 +8,9 @@ import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 
 // ============================================================================
 // PENDING EXPENSE PROVIDER
@@ -153,10 +155,17 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
 
     // Always refresh personal analytics (expense is in user's expenses table)
     ref.read(analyticsProvider.notifier).refresh(userId);
+
+    // Always refresh pockets + currency counts so other tabs reflect changes.
+    ref.invalidate(pocketsProvider);
+    ref.invalidate(currencyTransactionCountsProvider);
     
     if (householdId != null) {
       // Shared expense: refresh household data
       debugPrint('🔄 Invalidating household providers for household: $householdId');
+
+      // Clear RequestDeduplicator cache so cached providers don't serve stale data.
+      ref.read(cacheInvalidatorProvider).invalidateHouseholdData(householdId);
 
       // Invalidate household list (to update counts)
       ref.invalidate(userHouseholdsProvider(userId));
@@ -166,6 +175,12 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       ref.invalidate(householdExpensesProvider); // fix: refresh all limits (e.g., 500)
       ref.invalidate(householdSplitsProvider);
       ref.invalidate(householdBudgetsProvider);
+      ref.invalidate(householdMembersProvider);
+
+      // Invalidate cached family providers too (they do not depend on the base
+      // providers via ref.watch, so they must be invalidated explicitly).
+      ref.invalidate(cachedHouseholdExpensesProvider);
+      ref.invalidate(cachedHouseholdSplitsProvider);
 
       debugPrint('✅ Invalidated families: expenses, splits, budgets, summary');
     }

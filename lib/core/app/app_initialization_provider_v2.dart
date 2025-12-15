@@ -309,7 +309,7 @@ class AppInitializationV2 extends _$AppInitializationV2 {
 
       await ref
           .read(selectedHouseholdProvider.notifier)
-          .initialize(userId, preloadedHouseholds: households);
+          .initialize(preloadedHouseholds: households);
       debugPrint('✅ [InitV2] Selected household initialized during app init');
       
     } on TimeoutException {

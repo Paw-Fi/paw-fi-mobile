@@ -59,8 +59,14 @@ class _RecurringTransactionsPageState
       final households = householdsAsync.valueOrNull ?? [];
       
       if (households.isNotEmpty) {
-        // Use selected household if available, otherwise fall back to first
-        final household = selectedHousehold.household ?? households.first;
+        final selectedId =
+            selectedHousehold.householdId ?? selectedHousehold.household?.id;
+        final household = selectedId != null
+            ? households.firstWhere(
+                (h) => h.id == selectedId,
+                orElse: () => households.first,
+              )
+            : households.first;
         householdId = household.id;
         
         debugPrint('🏠 [RecurringPage] Resolved household: ${household.name} (${household.id})');
@@ -195,7 +201,7 @@ class _RecurringTransactionsPageState
         return _buildTransactionsListSliver(
           filtered,
           colorScheme,
-          context.l10n.expense,
+          'expense',
           householdId,
           isLoading: false,
         );
@@ -210,7 +216,7 @@ class _RecurringTransactionsPageState
         return _buildTransactionsListSliver(
           fakeExpenses,
           colorScheme,
-          context.l10n.expense,
+          'expense',
           householdId,
           isLoading: true,
         );
@@ -242,7 +248,7 @@ class _RecurringTransactionsPageState
         return _buildTransactionsListSliver(
           filtered,
           colorScheme,
-          context.l10n.income,
+          'income',
           householdId,
           isLoading: false,
         );
@@ -257,7 +263,7 @@ class _RecurringTransactionsPageState
         return _buildTransactionsListSliver(
           fakeIncomes,
           colorScheme,
-          context.l10n.income,
+          'income',
           householdId,
           isLoading: true,
         );
@@ -323,7 +329,14 @@ class _RecurringTransactionsPageState
       final householdsAsync = ref.watch(userHouseholdsProvider(user.id));
       final households = householdsAsync.valueOrNull ?? [];
       if (households.isNotEmpty) {
-        final household = selectedHousehold.household ?? households.first;
+        final selectedId =
+            selectedHousehold.householdId ?? selectedHousehold.household?.id;
+        final household = selectedId != null
+            ? households.firstWhere(
+                (h) => h.id == selectedId,
+                orElse: () => households.first,
+              )
+            : households.first;
         householdId = household.id;
       }
     }
@@ -376,7 +389,7 @@ class _RecurringTransactionsPageState
     final isExpense = selectedTab == 0;
 
     return AdaptiveFloatingActionButton(
-      onPressed: () => _showAddSheet(isExpense ? context.l10n.expense : context.l10n.income),
+      onPressed: () => _showAddSheet(isExpense ? 'expense' : 'income'),
       backgroundColor: colorScheme.primary,
       foregroundColor: colorScheme.primaryForeground,
       child: const Icon(Icons.add),
@@ -463,6 +476,10 @@ class _RecurringTransactionsPageState
 
   Future<void> _deleteTransaction(
       RecurringTransaction transaction, String? householdId) async {
+    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    debugPrint('🗑️ [RecurringPage] Delete tapped');
+    debugPrint('   txId=${transaction.id} type=${transaction.type} txHouseholdId=${transaction.householdId} scopeHouseholdId=$householdId');
+
     final result = await MonekoAlertDialog.show(
       context: context,
       title: context.l10n.deleteRecurringTransaction,
@@ -474,23 +491,35 @@ class _RecurringTransactionsPageState
     );
 
     if (result == null || !result.confirmed) {
+      debugPrint('⏭️  [RecurringPage] Delete cancelled');
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       return;
     }
 
     final user = supabase.auth.currentUser;
-    if (user == null) return;
+    if (user == null) {
+      debugPrint('⚠️  [RecurringPage] Delete aborted: user is null');
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      return;
+    }
 
-    final success = await ref
+    final deleteResult = await ref
         .read(recurringTransactionsProvider(householdId).notifier)
         .deleteRecurring(user.id, transaction.id);
 
     if (!mounted) return;
 
-    if (success) {
+    if (deleteResult.success) {
       AppToast.success(context, context.l10n.recurringTransactionDeleted);
     } else {
-      AppToast.error(
-          context, context.l10n.failedToDeleteRecurringTransaction);
+      final message = (deleteResult.error != null &&
+              deleteResult.error!.trim().isNotEmpty)
+          ? deleteResult.error!
+          : context.l10n.failedToDeleteRecurringTransaction;
+      AppToast.error(context, message);
     }
+
+    debugPrint('✅ [RecurringPage] Delete finished success=${deleteResult.success} error=${deleteResult.error}');
+    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   }
 }

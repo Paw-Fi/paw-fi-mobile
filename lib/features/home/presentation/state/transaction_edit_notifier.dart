@@ -4,8 +4,11 @@ import 'package:moneko/core/core.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
+import 'package:moneko/features/home/presentation/state/currency_transaction_counts_provider.dart';
 import 'package:moneko/features/home/presentation/state/transaction_edit_state.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
+import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 
 /// Manages transaction editing with optimistic UI updates and automatic rollback on error
 class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
@@ -140,7 +143,15 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       ref.invalidate(householdExpensesProvider);
       ref.invalidate(householdSplitsProvider);
       ref.invalidate(householdBudgetsProvider);
+      ref.invalidate(householdMembersProvider);
+      ref.invalidate(cachedHouseholdExpensesProvider);
+      ref.invalidate(cachedHouseholdSplitsProvider);
+      ref.read(cacheInvalidatorProvider).invalidateAll();
       debugPrint('✅ Invalidated household providers');
+
+      // Keep other tabs in sync (pockets + currency counts).
+      ref.invalidate(pocketsProvider);
+      ref.invalidate(currencyTransactionCountsProvider);
 
       state = state.copyWith(
         isLoading: false,
