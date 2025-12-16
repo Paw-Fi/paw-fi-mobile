@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:intl/intl.dart';
 
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/utils/currency.dart';
@@ -220,23 +221,57 @@ class _SpendingCardState extends State<SpendingCard> {
                       sideTitles: SideTitles(
                         showTitles: true,
                         interval: 1,
-                        reservedSize: 24,
+                        reservedSize: 34,
                         getTitlesWidget: (value, meta) {
                           if (value.toInt() >= visibleDates.length ||
                               value.toInt() < 0) {
                             return const SizedBox();
                           }
                           final date = visibleDates[value.toInt()];
+                          final locale = Localizations.localeOf(context);
+
                           return Padding(
                             padding: const EdgeInsets.only(top: 8.0),
-                            child: Text(
-                              formatDateForInterval(date, intervalType),
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                color: widget.colorScheme.mutedForeground,
-                              ),
-                            ),
+                            child: widget.dateFilter == DateRangeFilter.thisMonth
+                                ? Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        DateFormat('d', locale.toLanguageTag())
+                                            .format(date),
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: widget
+                                              .colorScheme.mutedForeground,
+                                          height: 1.0,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        DateFormat(
+                                          'MMM',
+                                          locale.toLanguageTag(),
+                                        ).format(date),
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w500,
+                                          color: widget
+                                              .colorScheme.mutedForeground,
+                                          height: 1.0,
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : Text(
+                                    formatDateForInterval(date, intervalType),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                      color: widget
+                                          .colorScheme.mutedForeground,
+                                    ),
+                                  ),
                           );
                         },
                       ),
@@ -260,8 +295,15 @@ class _SpendingCardState extends State<SpendingCard> {
                             return null;
                           }
                           final date = visibleDates[spot.spotIndex];
-                          final formattedDate =
-                              formatDateForInterval(date, intervalType);
+                          final locale = Localizations.localeOf(context);
+                          final formattedDate = widget.dateFilter ==
+                                      DateRangeFilter.thisMonth &&
+                                  intervalType == 'daily'
+                              ? DateFormat(
+                                  'd MMM',
+                                  locale.toLanguageTag(),
+                                ).format(date)
+                              : formatDateForInterval(date, intervalType);
                           final currencyCode =
                               widget.selectedCurrency ?? 'USD';
                           final symbol = resolveCurrencySymbol(currencyCode);

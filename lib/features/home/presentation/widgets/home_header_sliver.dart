@@ -1,6 +1,5 @@
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -10,15 +9,21 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/navigation/custom_drawer.dart';
 import 'package:moneko/core/navigation/zoom_drawer_provider.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_target.dart';
-import 'package:moneko/shared/widgets/spotlight/spotlight_step.dart';
-import 'package:moneko/shared/widgets/spotlight/spotlight_controller.dart';
 import 'package:moneko/features/home/presentation/state/home_spotlight_providers.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/home/presentation/widgets/currency_selector_modal.dart';
+import 'package:moneko/shared/widgets/spotlight/spotlight_step.dart';
+
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
+import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/features/households/presentation/pages/household_create_page.dart';
+import 'package:moneko/features/households/presentation/pages/household_settings_page.dart';
+import 'package:moneko/features/profile/presentation/pages/settings_page.dart';
 
 Household _resolveSelectedHousehold(
   SelectedHouseholdState selectedState,
@@ -58,13 +63,16 @@ class HomeHeaderLeading extends ConsumerWidget {
         ref.read(zoomDrawerControllerProvider);
 
     final name = viewMode.mode == ViewMode.personal
-        ? (user.displayName?.isNotEmpty == true ? user.displayName! : user.email)
+        ? (user.displayName?.isNotEmpty == true
+            ? user.displayName!
+            : user.email)
         : householdsAsync.when(
             loading: () => context.l10n.forUs,
             error: (_, __) => context.l10n.forUs,
             data: (households) {
               if (households.isEmpty) return context.l10n.forUs;
-              return _resolveSelectedHousehold(selectedHouseholdState, households)
+              return _resolveSelectedHousehold(
+                      selectedHouseholdState, households)
                   .name;
             },
           );
@@ -103,46 +111,20 @@ class HomeHeaderLeading extends ConsumerWidget {
 }
 
 /// Trailing widget for app bar that includes:
-/// - Personal/Household mode switch
+/// - Personal/Household mode switch list
 class HomeHeaderTrailing extends ConsumerWidget {
   const HomeHeaderTrailing({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final viewMode = ref.watch(viewModeProvider);
-
-    return _AccountTypeSwitch(
-      viewMode: viewMode,
-      colorScheme: colorScheme,
-      onPersonalSelected: () => _setPersonalMode(ref),
-      onHouseholdSelected: () => _switchToHouseholdMode(context, ref),
-    );
-  }
-
-  static void _setPersonalMode(WidgetRef ref) {
-    HapticFeedback.lightImpact();
-    SystemSound.play(SystemSoundType.click);
-    ref.read(viewModeProvider.notifier).setPersonalMode();
-  }
-
-  static void _switchToHouseholdMode(BuildContext context, WidgetRef ref) {
-    HapticFeedback.lightImpact();
-    SystemSound.play(SystemSoundType.click);
-
-    // Switch to household mode and invalidate households so data is refreshed.
-    final user = ref.read(authProvider);
-    debugPrint(
-        '🔄 Switching to household mode - invalidating userHouseholdsProvider');
-    ref.invalidate(userHouseholdsProvider(user.uid));
-    ref.read(viewModeProvider.notifier).setMode(ViewMode.household);
+    return const SizedBox.shrink();
   }
 }
 
 /// Header for pages that includes:
-/// - Profile/Household cover photo
-/// - Personal/Household switch
-///
+/// - Profile/Household cover photo (Pill shape)
+/// - Currency Selector
+/// - Settings Menu
 class HomeHeaderSliver extends ConsumerWidget {
   const HomeHeaderSliver({
     super.key,
@@ -155,15 +137,27 @@ class HomeHeaderSliver extends ConsumerWidget {
     final user = ref.watch(authProvider);
     final selectedHouseholdState = ref.watch(selectedHouseholdProvider);
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
-    final AppDrawerController zoomController =
-        ref.read(zoomDrawerControllerProvider);
     final spotlightController = ref.read(homeSpotlightControllerProvider);
+    // Move currency state reading here
+    final currencyCode =
+        ref.watch(homeFilterProvider).selectedCurrency ?? 'USD';
 
-    final headerRow = Flexible(
-      child: GestureDetector(
-        onTap: () => zoomController.toggle?.call(),
-        behavior: HitTestBehavior.opaque,
+    final selectedHouseholdIdForSettings = viewMode.mode == ViewMode.household
+        ? (selectedHouseholdState.householdId ??
+            selectedHouseholdState.household?.id)
+        : null;
+
+    // Profile Pill (Left)
+    final profilePill = AdaptivePopupMenuButton.widget(
+      child: Container(
+        height: 40,
+        padding: const EdgeInsets.fromLTRB(4, 4, 12, 4),
+        decoration: BoxDecoration(
+          color: colorScheme.cardSurface, // Adaptive light/dark gray
+          borderRadius: BorderRadius.circular(20),
+        ),
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             _HeaderAvatarButton(
               user: user,
@@ -171,14 +165,15 @@ class HomeHeaderSliver extends ConsumerWidget {
               householdsAsync: householdsAsync,
               selectedHouseholdState: selectedHouseholdState,
               colorScheme: colorScheme,
+              size: 32, // Smaller size for the pill
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
             Flexible(
               child: Text(
                 viewMode.mode == ViewMode.personal
                     ? (user.displayName?.isNotEmpty == true
                         ? user.displayName!
-                        : user.email)
+                        : user.email.split('@').first)
                     : householdsAsync.when(
                         loading: () => context.l10n.forUs,
                         error: (_, __) => context.l10n.forUs,
@@ -194,67 +189,224 @@ class HomeHeaderSliver extends ConsumerWidget {
                       ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                softWrap: false,
                 style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.3,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
                   color: colorScheme.foreground,
                 ),
               ),
             ),
+            const SizedBox(width: 4),
+            Icon(
+              Icons.keyboard_arrow_down_rounded,
+              size: 16,
+              color: colorScheme.mutedForeground,
+            ),
           ],
         ),
       ),
+      items: [
+        AdaptivePopupMenuItem(
+          label: "Personal Account",
+          icon: PlatformInfo.isIOS26OrHigher()
+              ? 'person.crop.circle.fill'
+              : Icons.account_circle,
+          value: 'personal',
+        ),
+        ...householdsAsync.when(
+          data: (households) => households
+              .map(
+                (household) => AdaptivePopupMenuItem(
+                  label: household.name,
+                  icon:
+                      PlatformInfo.isIOS26OrHigher() ? 'person.2.fill' : Icons.group,
+                  value: 'household:${household.id}',
+                ),
+              )
+              .toList(),
+          loading: () => <AdaptivePopupMenuItem>[],
+          error: (_, __) => <AdaptivePopupMenuItem>[],
+        ),
+        AdaptivePopupMenuItem(
+          label: context.l10n.createHousehold,
+          icon: PlatformInfo.isIOS26OrHigher() ? 'plus' : Icons.add,
+          value: 'create_household',
+        ),
+      ],
+      onSelected: (index, item) async {
+        HapticFeedback.selectionClick();
+        SystemSound.play(SystemSoundType.click);
+
+        if (item.value == 'personal') {
+          if (viewMode.mode != ViewMode.personal) {
+            ref.read(viewModeProvider.notifier).setPersonalMode();
+          }
+          return;
+        }
+
+        if (item.value == 'create_household') {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const HouseholdCreatePage(),
+            ),
+          );
+          return;
+        }
+
+        if (item.value is String && (item.value as String).startsWith('household:')) {
+          final householdId = (item.value as String).split(':').last;
+          await ref
+              .read(selectedHouseholdProvider.notifier)
+              .selectHousehold(householdId);
+
+          debugPrint('🔄 Switching to household mode');
+          ref.invalidate(userHouseholdsProvider(user.uid));
+          ref.read(viewModeProvider.notifier).setMode(ViewMode.household);
+        }
+      },
     );
 
-    final headerWithSpotlight = SpotlightTarget(
-      controller: spotlightController,
-      id: 'home_header_currency',
-      // Reuse existing localization keys for now; we can
-      // introduce dedicated strings later if needed.
-      title: context.l10n.change_currency_title,
-      description: context.l10n.change_currency_desc,
-      padding: 6,
-      borderRadius: 24,
-      child: headerRow,
-    );
+    // Currency Pill (Right)
+    final currencyPill = GestureDetector(
+      onTap: () async {
+        await showCurrencySelectorModal(context, ref);
+        // Logic from main_menu_screen.dart to refresh data after currency change
+        if (user.uid.isEmpty) return;
+        ref.read(analyticsProvider.notifier).refresh(user.uid);
 
-    final modeSwitchWithSpotlight = SpotlightTarget(
-      controller: spotlightController,
-      id: 'home_header_mode_switch',
-      title: context.l10n.homeModeTourTitle,
-      description: context.l10n.homeModeTourDescription,
-      padding: 4,
-      borderRadius: 20,
-      placement: SpotlightPlacement.bottom,
-      child: const HomeHeaderTrailing(),
-    );
+        final currentViewMode = ref.read(viewModeProvider);
+        final currentSelectedHousehold = ref.read(selectedHouseholdProvider);
+        final householdId = currentViewMode.mode == ViewMode.household
+            ? currentSelectedHousehold.householdId
+            : null;
 
-    return SizedBox(
-      child: Padding(
-        padding:
-            EdgeInsets.only(right: 10, left: PlatformInfo.isAndroid ? 10 : 0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: [
-            headerWithSpotlight,
-            const SizedBox(width: 12),
-            modeSwitchWithSpotlight,
-            if (kDebugMode) ...[
-              const SizedBox(width: 8),
-              IconButton(
-                icon: const Icon(Icons.bug_report_outlined, size: 20),
-                tooltip: 'Reset tours',
-                onPressed: () async {
-                  await SpotlightTourController.resetAllTours();
-                  debugPrint('🔁 Spotlight tours reset for debugging');
-                },
+        ref
+            .read(recurringTransactionsProvider(householdId).notifier)
+            .refresh(user.uid);
+        ref.invalidate(pocketsProvider);
+      },
+      child: SpotlightTarget(
+        controller: spotlightController,
+        id: 'home_header_currency',
+        title: context.l10n.change_currency_title,
+        description: context.l10n.change_currency_desc,
+        padding: 4,
+        borderRadius: 20,
+        child: Container(
+          height: 40,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            color: colorScheme.cardSurface,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                currencyCode,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.foreground,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: 16,
+                color: colorScheme.mutedForeground,
               ),
             ],
-          ],
+          ),
         ),
       ),
+    );
+
+    // Menu Button (Right)
+    final menuButton = AdaptivePopupMenuButton.widget(
+      child: Container(
+        height: 40,
+        width: 40,
+        alignment: Alignment.center,
+        child: Icon(
+          Icons.more_horiz_rounded,
+          color: colorScheme.foreground,
+          size: 24,
+        ),
+      ),
+      items: [
+        AdaptivePopupMenuItem(
+          label: context.l10n.settings,
+          icon: PlatformInfo.isIOS26OrHigher()
+              ? 'gearshape'
+              : Icons.settings_outlined,
+          value: 'settings',
+        ),
+        if (selectedHouseholdIdForSettings != null)
+          AdaptivePopupMenuItem(
+            label: '${context.l10n.manage} ${context.l10n.household}',
+            icon: PlatformInfo.isIOS26OrHigher()
+                ? 'person.2.badge.gearshape'
+                : Icons.manage_accounts_outlined,
+            value: 'manage_household',
+          ),
+      ],
+      onSelected: (index, item) {
+        if (item.value == 'settings') {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const SettingsPage(),
+            ),
+          );
+        }
+
+        if (item.value == 'manage_household' &&
+            selectedHouseholdIdForSettings != null) {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => HouseholdSettingsPage(
+                householdId: selectedHouseholdIdForSettings,
+              ),
+            ),
+          );
+        }
+      },
+    );
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Left side: Profile Pill
+              SpotlightTarget(
+                controller: spotlightController,
+                id: 'home_header_mode_switch',
+                title: context.l10n.homeModeTourTitle,
+                description: context.l10n.homeModeTourDescription,
+                padding: 4,
+                borderRadius: 20,
+                placement: SpotlightPlacement.bottom,
+                child: profilePill,
+              ),
+
+              // Right side: Currency + Menu
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  currencyPill,
+                  const SizedBox(width: 8),
+                  menuButton,
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -266,6 +418,7 @@ class _HeaderAvatarButton extends StatelessWidget {
     required this.householdsAsync,
     required this.selectedHouseholdState,
     required this.colorScheme,
+    this.size = 44,
   });
 
   final AppUser user;
@@ -273,14 +426,15 @@ class _HeaderAvatarButton extends StatelessWidget {
   final AsyncValue<List<Household>> householdsAsync;
   final SelectedHouseholdState selectedHouseholdState;
   final ColorScheme colorScheme;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
-      width: 44,
-      height: 44,
+      width: size,
+      height: size,
       child: ClipOval(
         child: _buildContent(),
       ),
@@ -373,89 +527,6 @@ class _HeaderAvatarButton extends StatelessWidget {
   Widget _placeholder() {
     return Container(
       color: colorScheme.muted.withValues(alpha: 0.3),
-    );
-  }
-}
-
-class _AccountTypeSwitch extends StatelessWidget {
-  const _AccountTypeSwitch({
-    required this.viewMode,
-    required this.colorScheme,
-    required this.onPersonalSelected,
-    required this.onHouseholdSelected,
-  });
-
-  final ViewModeState viewMode;
-  final ColorScheme colorScheme;
-  final VoidCallback onPersonalSelected;
-  final VoidCallback onHouseholdSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: colorScheme.muted,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Personal
-          GestureDetector(
-            onTap:
-                viewMode.mode == ViewMode.personal ? null : onPersonalSelected,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-              decoration: BoxDecoration(
-                color: viewMode.mode == ViewMode.personal
-                    ? colorScheme.primary
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                context.l10n.forMe,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: viewMode.mode == ViewMode.personal
-                      ? FontWeight.w600
-                      : FontWeight.w500,
-                  color: viewMode.mode == ViewMode.personal
-                      ? colorScheme.primaryForeground
-                      : colorScheme.mutedForeground,
-                ),
-              ),
-            ),
-          ),
-          // Household
-          GestureDetector(
-            onTap: viewMode.mode == ViewMode.household
-                ? null
-                : onHouseholdSelected,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-              decoration: BoxDecoration(
-                color: viewMode.mode == ViewMode.household
-                    ? colorScheme.primary
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                context.l10n.forUs,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: viewMode.mode == ViewMode.household
-                      ? FontWeight.w600
-                      : FontWeight.w500,
-                  color: viewMode.mode == ViewMode.household
-                      ? colorScheme.primaryForeground
-                      : colorScheme.mutedForeground,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

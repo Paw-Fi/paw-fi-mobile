@@ -205,7 +205,9 @@ class EmptyRecurringState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isExpense = type == 'expense';
+    final normalizedType = type.trim().toLowerCase();
+    final isExpense = normalizedType == 'expense' || normalizedType == 'expenses';
+    final isIncome = normalizedType == 'income' || normalizedType == 'incomes';
 
     return Center(
       child: Padding(
@@ -234,7 +236,9 @@ class EmptyRecurringState extends StatelessWidget {
             Text(
               isExpense
                   ? context.l10n.noRecurringExpenses
-                  : context.l10n.noRecurringIncome,
+                  : isIncome
+                      ? context.l10n.noRecurringIncome
+                      : context.l10n.noRecurringExpenses,
               style: TextStyle(
                 color: colorScheme.foreground,
                 fontSize: 20,
@@ -249,7 +253,9 @@ class EmptyRecurringState extends StatelessWidget {
             Text(
               isExpense
                   ? context.l10n.setupAutomaticExpenseTracking
-                  : context.l10n.setupAutomaticIncomeTracking,
+                  : isIncome
+                      ? context.l10n.setupAutomaticIncomeTracking
+                      : context.l10n.setupAutomaticExpenseTracking,
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: colorScheme.mutedForeground,

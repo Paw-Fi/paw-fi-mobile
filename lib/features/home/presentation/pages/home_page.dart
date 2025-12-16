@@ -536,17 +536,17 @@ class _HomePageState extends ConsumerState<HomePage> {
     final scrollView = CustomScrollView(
       slivers: [
         // Content only: header is provided globally in MainShell
+        const SliverToBoxAdapter(child: HomeHeaderSliver()),
+        const SliverToBoxAdapter(child: SizedBox(height: 16)),
         if (viewMode.mode == ViewMode.household) ...[
           const HouseholdHomeContent(),
           const SliverToBoxAdapter(child: EditDashboardButton()),
           const SliverToBoxAdapter(child: SizedBox(height: 24)),
-        ]
-        else ...[
+        ] else ...[
           // Personal mode - show customizable dashboard
           Consumer(
             builder: (context, ref, _) {
-              final repoAsync =
-                  ref.watch(dashboardRepositoryFutureProvider);
+              final repoAsync = ref.watch(dashboardRepositoryFutureProvider);
 
               return repoAsync.when(
                 loading: () => const SliverToBoxAdapter(
@@ -556,7 +556,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                   ),
                 ),
                 error: (e, st) => SliverToBoxAdapter(
-                  child: Text('${context.l10n.errorInitializingRepository}: $e'),
+                  child:
+                      Text('${context.l10n.errorInitializingRepository}: $e'),
                 ),
                 data: (_) {
                   final dashboardAsync =
@@ -566,33 +567,30 @@ class _HomePageState extends ConsumerState<HomePage> {
                     loading: () => const SliverToBoxAdapter(
                         child: SizedBox(
                             height: 200,
-                            child: Center(
-                                child: CircularProgressIndicator()))),
+                            child: Center(child: CircularProgressIndicator()))),
                     error: (e, st) => SliverToBoxAdapter(
-                        child: Text('${context.l10n.errorLoadingDashboard}: $e')),
+                        child:
+                            Text('${context.l10n.errorLoadingDashboard}: $e')),
                     data: (configs) {
                       return DraggableDashboardList(
                         configs: configs,
                         onReorder: (oldIndex, newIndex) {
                           ref
                               .read(
-                                  personalDashboardProvider(user.uid)
-                                      .notifier)
+                                  personalDashboardProvider(user.uid).notifier)
                               .reorder(oldIndex, newIndex);
                         },
                         onToggleVisibility: (id) {
                           ref
                               .read(
-                                  personalDashboardProvider(user.uid)
-                                      .notifier)
+                                  personalDashboardProvider(user.uid).notifier)
                               .toggleVisibility(id);
                         },
                         onUpdateConfig: (id,
                             {dateRange, viewMode, start, end}) {
                           ref
                               .read(
-                                  personalDashboardProvider(user.uid)
-                                      .notifier)
+                                  personalDashboardProvider(user.uid).notifier)
                               .updateConfig(id,
                                   dateRange: dateRange,
                                   viewMode: viewMode,
@@ -600,170 +598,143 @@ class _HomePageState extends ConsumerState<HomePage> {
                                   end: end);
                         },
                         widgetBuilders: {
-                                    DashboardWidgetType.spendingSummary:
-                                        (context, config) => Padding(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 16.0),
-                                              child: buildSpendingCard(
-                                                context,
-                                                colorScheme,
-                                                personalExpensesAll,
-                                                analyticsData.contact,
-                                                config.dateRange,
-                                                selectedCurrency:
-                                                    filterState.selectedCurrency,
-                                                customStartDate:
-                                                    config.customStartDate,
-                                                customEndDate:
-                                                    config.customEndDate,
-                                              ),
-                                            ),
-                                    DashboardWidgetType.netCashflow:
-                                        (context, config) => Padding(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 16.0),
-                                              child: SizedBox(
-                                                height: 180,
-                                                child: Row(
-                                                  children: [
-                                                    const Expanded(
-                                                        child: MoMTrendBar()),
-                                                    const SizedBox(width: 12),
-                                                    Expanded(
-                                                      child:
-                                                      buildNetCashflowCard(
-                                                        context,
-                                                        colorScheme,
-                                                        netBudgets,
-                                                        analyticsData
-                                                            .allExpenses,
-                                                        analyticsData.contact,
-                                                        config.dateRange,
-                                                        selectedCurrency:
-                                                            filterState
-                                                                .selectedCurrency,
-                                                        customStartDate:
-                                                            config.customStartDate,
-                                                        customEndDate:
-                                                            config.customEndDate,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                    DashboardWidgetType.financialCalendar:
-                                        (context, config) => Padding(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 16.0),
-                                              child: Consumer(
-                                                builder: (context, ref, _) {
-                                                  // NOTE: Recurring transactions are loaded by app_initialization_provider
-                                                  // Just watch the data here - no need to trigger load
-                                                  final recurringAsync = ref.watch(
-                                                      recurringTransactionsProvider(
-                                                          null));
-                                                  return FinancialCalendarWidget(
-                                                    transactions:
-                                                        personalExpensesAll,
-                                                    recurringTransactions:
-                                                        recurringAsync
-                                                                .data
-                                                                .valueOrNull ??
-                                                            [],
-                                                    currency: selectedCurrency ??
-                                                        analyticsData
-                                                                .contact
-                                                                ?.preferredCurrency ??
-                                                        'USD',
-                                                    isExpanded: config
-                                                            .viewMode ==
-                                                        DashboardWidgetViewMode
-                                                            .full,
-                                                  );
-                                                },
-                                              ),
-                                            ),
-                                    DashboardWidgetType.recentTransactions:
-                                        (context, config) => Padding(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 16.0),
-                                              child:
-                                                  buildRecentTransactionsCard(
-                                                context,
-                                                colorScheme,
-                                                personalExpensesAll,
-                                                analyticsData.contact,
-                                                selectedCurrency:
-                                                    filterState.selectedCurrency,
-                                                onViewAll: () {
-                                                  Navigator.of(context).push(
-                                                    MaterialPageRoute(
-                                                      builder: (_) =>
-                                                          const TransactionsPage(),
-                                                    ),
-                                                  );
-                                                },
-                                              ),
-                                            ),
-                                    DashboardWidgetType.spendingBreakdownChart:
-                                        (context, config) => Padding(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 16.0),
-                                              child:
-                                                  buildSpendingBreakdownChart(
-                                                context,
-                                                colorScheme,
-                                                personalExpensesAll,
-                                                analyticsData.allBudgets,
-                                                analyticsData.contact,
-                                                config.dateRange,
-                                                selectedCurrency:
-                                                    filterState.selectedCurrency,
-                                                customStartDate:
-                                                    config.customStartDate,
-                                                customEndDate:
-                                                    config.customEndDate,
-                                              ),
-                                            ),
-                                    DashboardWidgetType.whereTheMoneyWent:
-                                        (context, config) {
-                                      final range = getDateRangeFromFilter(
-                                        config.dateRange,
-                                        config.customStartDate,
-                                        config.customEndDate,
-                                      );
-                                      final from = range['from']!;
-                                      final to = range['to']!;
-
-                                      final dateFilteredExpenses =
-                                          personalExpensesAll.where((e) {
-                                        final d = DateTime(
-                                            e.date.year,
-                                            e.date.month,
-                                            e.date.day);
-                                        return !d.isBefore(from) &&
-                                            !d.isAfter(to);
-                                      }).toList();
-
-                                      return Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 16.0),
-                                        child: WhereTheMoneyWentWidget(
-                                          expenses: dateFilteredExpenses,
-                                          currency:
+                          DashboardWidgetType.spendingSummary:
+                              (context, config) => Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16.0),
+                                    child: buildSpendingCard(
+                                      context,
+                                      colorScheme,
+                                      personalExpensesAll,
+                                      analyticsData.contact,
+                                      config.dateRange,
+                                      selectedCurrency:
+                                          filterState.selectedCurrency,
+                                      customStartDate: config.customStartDate,
+                                      customEndDate: config.customEndDate,
+                                    ),
+                                  ),
+                          DashboardWidgetType.netCashflow: (context, config) =>
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16.0),
+                                child: SizedBox(
+                                  height: 180,
+                                  child: Row(
+                                    children: [
+                                      const Expanded(child: MoMTrendBar()),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: buildNetCashflowCard(
+                                          context,
+                                          colorScheme,
+                                          netBudgets,
+                                          analyticsData.allExpenses,
+                                          analyticsData.contact,
+                                          config.dateRange,
+                                          selectedCurrency:
                                               filterState.selectedCurrency,
-                                          onHelpTap: () => showCategoryGuide(
-                                              context, colorScheme),
-                                          dateRange: config.dateRange,
+                                          customStartDate:
+                                              config.customStartDate,
+                                          customEndDate: config.customEndDate,
                                         ),
-                                      );
-                                    },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                          DashboardWidgetType.financialCalendar: (context,
+                                  config) =>
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16.0),
+                                child: Consumer(
+                                  builder: (context, ref, _) {
+                                    // NOTE: Recurring transactions are loaded by app_initialization_provider
+                                    // Just watch the data here - no need to trigger load
+                                    final recurringAsync = ref.watch(
+                                        recurringTransactionsProvider(null));
+                                    return FinancialCalendarWidget(
+                                      transactions: personalExpensesAll,
+                                      recurringTransactions:
+                                          recurringAsync.data.valueOrNull ?? [],
+                                      currency: selectedCurrency ??
+                                          analyticsData
+                                              .contact?.preferredCurrency ??
+                                          'USD',
+                                      isExpanded: config.viewMode ==
+                                          DashboardWidgetViewMode.full,
+                                    );
+                                  },
+                                ),
+                              ),
+                          DashboardWidgetType.recentTransactions:
+                              (context, config) => Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16.0),
+                                    child: buildRecentTransactionsCard(
+                                      context,
+                                      colorScheme,
+                                      personalExpensesAll,
+                                      analyticsData.contact,
+                                      selectedCurrency:
+                                          filterState.selectedCurrency,
+                                      onViewAll: () {
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) =>
+                                                const TransactionsPage(),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                          DashboardWidgetType.spendingBreakdownChart:
+                              (context, config) => Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16.0),
+                                    child: buildSpendingBreakdownChart(
+                                      context,
+                                      colorScheme,
+                                      personalExpensesAll,
+                                      analyticsData.allBudgets,
+                                      analyticsData.contact,
+                                      config.dateRange,
+                                      selectedCurrency:
+                                          filterState.selectedCurrency,
+                                      customStartDate: config.customStartDate,
+                                      customEndDate: config.customEndDate,
+                                    ),
+                                  ),
+                          DashboardWidgetType.whereTheMoneyWent:
+                              (context, config) {
+                            final range = getDateRangeFromFilter(
+                              config.dateRange,
+                              config.customStartDate,
+                              config.customEndDate,
+                            );
+                            final from = range['from']!;
+                            final to = range['to']!;
+
+                            final dateFilteredExpenses =
+                                personalExpensesAll.where((e) {
+                              final d = DateTime(
+                                  e.date.year, e.date.month, e.date.day);
+                              return !d.isBefore(from) && !d.isAfter(to);
+                            }).toList();
+
+                            return Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16.0),
+                              child: WhereTheMoneyWentWidget(
+                                expenses: dateFilteredExpenses,
+                                currency: filterState.selectedCurrency,
+                                onHelpTap: () =>
+                                    showCategoryGuide(context, colorScheme),
+                                dateRange: config.dateRange,
+                              ),
+                            );
+                          },
                         },
                       );
                     },

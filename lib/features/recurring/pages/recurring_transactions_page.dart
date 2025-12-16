@@ -12,6 +12,7 @@ import 'package:moneko/features/home/presentation/state/home_filter_provider.dar
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/home/presentation/widgets/home_header_sliver.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
@@ -29,14 +30,15 @@ class RecurringTransactionsPage extends ConsumerStatefulWidget {
 
 class _RecurringTransactionsPageState
     extends ConsumerState<RecurringTransactionsPage> {
-  
   /// Force refresh (used by pull-to-refresh)
   Future<void> _refresh(String? householdId) async {
     final user = supabase.auth.currentUser;
     if (user == null) return;
-    
+
     // Force refresh the unified list for current scope
-    await ref.read(recurringTransactionsProvider(householdId).notifier).refresh(user.id);
+    await ref
+        .read(recurringTransactionsProvider(householdId).notifier)
+        .refresh(user.id);
     await Future.delayed(const Duration(milliseconds: 500));
   }
 
@@ -44,20 +46,20 @@ class _RecurringTransactionsPageState
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final user = supabase.auth.currentUser;
-    
+
     // Determine current scope
     final viewMode = ref.watch(viewModeProvider);
-    
+
     // Resolve household ID correctly - same logic as household_home_content.dart
     String? householdId;
     if (viewMode.mode == ViewMode.household) {
       final selectedHousehold = ref.watch(selectedHouseholdProvider);
-      final householdsAsync = user != null 
+      final householdsAsync = user != null
           ? ref.watch(userHouseholdsProvider(user.id))
           : const AsyncValue<List<Household>>.data([]);
-      
+
       final households = householdsAsync.valueOrNull ?? [];
-      
+
       if (households.isNotEmpty) {
         final selectedId =
             selectedHousehold.householdId ?? selectedHousehold.household?.id;
@@ -68,10 +70,12 @@ class _RecurringTransactionsPageState
               )
             : households.first;
         householdId = household.id;
-        
-        debugPrint('🏠 [RecurringPage] Resolved household: ${household.name} (${household.id})');
+
+        debugPrint(
+            '🏠 [RecurringPage] Resolved household: ${household.name} (${household.id})');
       } else {
-        debugPrint('⚠️ [RecurringPage] No households available in household mode');
+        debugPrint(
+            '⚠️ [RecurringPage] No households available in household mode');
       }
     }
 
@@ -83,7 +87,7 @@ class _RecurringTransactionsPageState
 
     // Ensure data is loaded for this scope
     final state = ref.watch(recurringTransactionsProvider(householdId));
-    
+
     debugPrint('📊 [RecurringPage] Provider State:');
     debugPrint('   HasLoadedOnce: ${state.hasLoadedOnce}');
     debugPrint('   IsLoading: ${state.data.isLoading}');
@@ -92,15 +96,17 @@ class _RecurringTransactionsPageState
     if (state.data.hasValue) {
       debugPrint('   Data count: ${state.data.value?.length ?? 0}');
     }
-    
+
     if (user != null && !state.hasLoadedOnce && !state.data.isLoading) {
       debugPrint('🚀 [RecurringPage] Triggering initial load...');
       Future.microtask(() {
-        ref.read(recurringTransactionsProvider(householdId).notifier)
+        ref
+            .read(recurringTransactionsProvider(householdId).notifier)
             .loadRecurringTransactions(user.id);
       });
     } else {
-      debugPrint('⏭️  [RecurringPage] Not triggering load (hasLoadedOnce=${state.hasLoadedOnce}, isLoading=${state.data.isLoading})');
+      debugPrint(
+          '⏭️  [RecurringPage] Not triggering load (hasLoadedOnce=${state.hasLoadedOnce}, isLoading=${state.data.isLoading})');
     }
 
     // Watch the filtered providers (they derive from the unified provider)
@@ -108,40 +114,47 @@ class _RecurringTransactionsPageState
     final recurringIncomes = ref.watch(recurringIncomesProvider(householdId));
     final selectedCurrency =
         ref.watch(homeFilterProvider).selectedCurrency?.toUpperCase();
-        
+
     return AdaptiveScaffold(
-      body: AdaptiveTabBarView(
-        tabs: [
-          context.l10n.expenses,
-          context.l10n.income,
-        ],
+      body: Column(
         children: [
-          _buildRecurringTabView(
-            colorScheme,
-            _buildExpensesSliver(
-              recurringExpenses,
-              colorScheme,
-              selectedCurrency,
-              householdId,
+          const HomeHeaderSliver(),
+          Expanded(
+            child: AdaptiveTabBarView(
+              tabs: [
+                context.l10n.expenses,
+                context.l10n.income,
+              ],
+              children: [
+                _buildRecurringTabView(
+                  colorScheme,
+                  _buildExpensesSliver(
+                    recurringExpenses,
+                    colorScheme,
+                    selectedCurrency,
+                    householdId,
+                  ),
+                  householdId,
+                  recurringExpenses.isLoading,
+                ),
+                _buildRecurringTabView(
+                  colorScheme,
+                  _buildIncomesSliver(
+                    recurringIncomes,
+                    colorScheme,
+                    selectedCurrency,
+                    householdId,
+                  ),
+                  householdId,
+                  recurringIncomes.isLoading,
+                ),
+              ],
+              onTabChanged: (index) {
+                ref.read(selectedRecurringTabProvider.notifier).state = index;
+              },
             ),
-            householdId,
-            recurringExpenses.isLoading,
-          ),
-          _buildRecurringTabView(
-            colorScheme,
-            _buildIncomesSliver(
-              recurringIncomes,
-              colorScheme,
-              selectedCurrency,
-              householdId,
-            ),
-            householdId,
-            recurringIncomes.isLoading,
           ),
         ],
-        onTabChanged: (index) {
-          ref.read(selectedRecurringTabProvider.notifier).state = index;
-        },
       ),
 
       // Floating action button
@@ -191,9 +204,7 @@ class _RecurringTransactionsPageState
                 ? expenses
                 : expenses
                     .where((e) =>
-                        (e as RecurringTransaction)
-                            .currency
-                            .toUpperCase() ==
+                        (e as RecurringTransaction).currency.toUpperCase() ==
                         selectedCurrency)
                     .toList())
             .cast<RecurringTransaction>();
@@ -238,9 +249,7 @@ class _RecurringTransactionsPageState
                 ? incomes
                 : incomes
                     .where((e) =>
-                        (e as RecurringTransaction)
-                            .currency
-                            .toUpperCase() ==
+                        (e as RecurringTransaction).currency.toUpperCase() ==
                         selectedCurrency)
                     .toList())
             .cast<RecurringTransaction>();
@@ -322,7 +331,7 @@ class _RecurringTransactionsPageState
     // Get householdId for retry logic
     final user = supabase.auth.currentUser;
     final viewMode = ref.watch(viewModeProvider);
-    
+
     String? householdId;
     if (viewMode.mode == ViewMode.household && user != null) {
       final selectedHousehold = ref.watch(selectedHouseholdProvider);
@@ -478,7 +487,8 @@ class _RecurringTransactionsPageState
       RecurringTransaction transaction, String? householdId) async {
     debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     debugPrint('🗑️ [RecurringPage] Delete tapped');
-    debugPrint('   txId=${transaction.id} type=${transaction.type} txHouseholdId=${transaction.householdId} scopeHouseholdId=$householdId');
+    debugPrint(
+        '   txId=${transaction.id} type=${transaction.type} txHouseholdId=${transaction.householdId} scopeHouseholdId=$householdId');
 
     final result = await MonekoAlertDialog.show(
       context: context,
@@ -512,14 +522,15 @@ class _RecurringTransactionsPageState
     if (deleteResult.success) {
       AppToast.success(context, context.l10n.recurringTransactionDeleted);
     } else {
-      final message = (deleteResult.error != null &&
-              deleteResult.error!.trim().isNotEmpty)
-          ? deleteResult.error!
-          : context.l10n.failedToDeleteRecurringTransaction;
+      final message =
+          (deleteResult.error != null && deleteResult.error!.trim().isNotEmpty)
+              ? deleteResult.error!
+              : context.l10n.failedToDeleteRecurringTransaction;
       AppToast.error(context, message);
     }
 
-    debugPrint('✅ [RecurringPage] Delete finished success=${deleteResult.success} error=${deleteResult.error}');
+    debugPrint(
+        '✅ [RecurringPage] Delete finished success=${deleteResult.success} error=${deleteResult.error}');
     debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   }
 }
