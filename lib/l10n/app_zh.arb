@@ -313,18 +313,18 @@
   "txns": "笔",
   "pleaseEnterExpenseDetails": "请输入支出详情",
   "userNotLoggedIn": "用户未登录",
-  "errorLoadingHouseholds": "家庭加载失败",
-  "welcomeToHouseholds": "欢迎使用「家庭」功能",
+  "errorLoadingHouseholds": "小组加载失败",
+  "welcomeToHouseholds": "欢迎使用「小组」功能",
   "householdsDescription": "与您的家人、伴侣或室友共同管理财务。一起跟踪预算、分摊支出，并共同规划财务。",
-  "createHousehold": "创建家庭",
+  "createHousehold": "创建小组",
   "joinWithInvite": "使用邀请加入",
-  "pleaseUseInvitationLink": "请使用邀请链接加入家庭",
-  "householdName": "家庭名称",
+  "pleaseUseInvitationLink": "请使用邀请链接加入小组",
+  "householdName": "小组名称",
   "householdNameHint": "例如：幸福一家人",
-  "pleaseEnterHouseholdName": "请输入家庭名称",
-  "errorCreatingHousehold": "创建家庭失败",
-  "householdsFeature": "“家庭”功能",
-  "householdsFeatureDescription": "“家庭”功能现已推出！与家人、伴侣或室友共同管理财务。",
+  "pleaseEnterHouseholdName": "请输入小组名称",
+  "errorCreatingHousehold": "创建小组失败",
+  "householdsFeature": "“小组”功能",
+  "householdsFeatureDescription": "“小组”功能现已推出！与家人、伴侣或室友共同管理财务。",
   "gotIt": "知道了",
   "confirmExpense": "确认支出",
   "expenseDetails": "支出详情",
@@ -336,18 +336,18 @@
   "notes": "备注",
   "receipt": "收据",
   "saveExpense": "保存支出",
-  "shareWithHousehold": "与家庭分享",
-  "loadingHouseholdMembers": "正在加载家庭成员...",
-  "selectHouseholdToConfigureSplit": "选择一个家庭以配置分摊",
-  "currencyManagedByHousehold": "家庭货币统一设置，无法在此更改",
-  "currencyCannotBeChanged": "分享至家庭时无法更改货币",
+  "shareWithHousehold": "与小组分享",
+  "loadingHouseholdMembers": "正在加载小组成员...",
+  "selectHouseholdToConfigureSplit": "选择一个小组以配置分摊",
+  "currencyManagedByHousehold": "小组货币统一设置，无法在此更改",
+  "currencyCannotBeChanged": "分享至小组时无法更改货币",
   "cannotEditOthersExpenses": "您只能编辑自己的支出",
   "failedToLoadImage": "图片加载失败",
   "editAmount": "编辑金额",
   "amount": "金额",
   "editNotes": "编辑备注",
   "addANote": "添加备注...",
-  "noMembersFoundInHousehold": "未找到家庭成员",
+  "noMembersFoundInHousehold": "未找到小组成员",
   "errorLoadingMembers": "成员加载失败",
   "noExpenseToSave": "没有要保存的支出",
   "expenseSaved": "支出已保存！",
@@ -358,36 +358,36 @@
   "iSpentAmountOnCategory": "我在 {category} 上花了 {currencySymbol}{amount}",
   "enterNewTotalDailyBudgetDescription": "请输入新的每日总预算。",
   "@household": {},
-  "pleaseSignInToAccessHouseholdFeatures": "请登录以使用家庭功能",
+  "pleaseSignInToAccessHouseholdFeatures": "请登录以使用小组功能",
   "quickActions": "快捷操作",
   "members": "成员",
   "invites": "邀请",
   "errorLoadingExpenses": "支出加载失败",
   "budgets": "预算",
-  "loadingHousehold": "正在加载家庭信息...",
+  "loadingHousehold": "正在加载小组信息...",
   "remaining": "剩余",
   "overBudget": "超出預算",
   "sharedBudgets": "共享预算",
   "netPosition": "净差额",
-  "spentByHousehold": "家庭支出",
+  "spentByHousehold": "小组支出",
   "memberSpending": "成员支出",
-  "spentByHouseholdTooltip": "显示所选期间内所有家庭成员的总支出金额。包括家庭任何成员记录的所有共享支出。",
+  "spentByHouseholdTooltip": "显示所选期间内所有小组成员的总支出金额。包括小组任何成员记录的所有共享支出。",
   "manageMoneyTogether": "在同一共享空间中，与您的伴侣、家人或室友共同管理财务。",
   "sharedBudgetsExpenses": "共享预算与支出",
-  "sharedBudgetsExpensesDesc": "设置预算、跟踪支出，实时查看您家庭的资金流向。",
+  "sharedBudgetsExpensesDesc": "设置预算、跟踪支出，实时查看您小组的资金流向。",
   "smartExpenseSplitting": "智能分摊支出",
   "smartExpenseSplittingDesc": "通过灵活的分摊选项（均摊、按百分比或自定义金额）自动计算谁欠谁。",
   "stayInSync": "保持同步",
   "stayInSyncDesc": "当添加支出、达到预算或需要结算分摊时收到通知。",
   "@householdSettings": {},
-  "householdSettings": "家庭设置",
-  "householdNotFound": "未找到家庭",
+  "householdSettings": "小组设置",
+  "householdNotFound": "未找到小组",
   "coverPhoto": "封面照片",
   "changeCoverPhoto": "更换封面",
   "saveChanges": "保存更改",
-  "errorLoadingHousehold": "家庭信息加载失败",
-  "householdUpdatedSuccessfully": "家庭信息更新成功",
-  "failedToUpdateHousehold": "家庭信息更新失败",
+  "errorLoadingHousehold": "小组信息加载失败",
+  "householdUpdatedSuccessfully": "小组信息更新成功",
+  "failedToUpdateHousehold": "小组信息更新失败",
   "@householdMembers": {},
   "inviteMember": "邀请成员",
   "removeMember": "移除成员",
@@ -408,7 +408,7 @@
   "emailOptional": "邮箱（可选）",
   "friendEmailExample": "friend@example.com",
   "personalMessageOptional": "个性化消息（可选）",
-  "joinHouseholdBudget": "加入我们的家庭预算吧！",
+  "joinHouseholdBudget": "加入我们的小组预算吧！",
   "expiresIn": "有效期至",
   "oneDay": "1 天",
   "threeDays": "3 天",
@@ -519,7 +519,7 @@
   "accepted": "已接受",
   "revoked": "已撤销",
   "tapToChangeCover": "点击更换封面",
-  "personalMessageHint": "给被邀请人留句话（例如：“加入我们的家庭预算吧！”）",
+  "personalMessageHint": "给被邀请人留句话（例如：“加入我们的小组预算吧！”）",
   "invitationExpiresIn": "邀请有效期",
   "daysCount": "{days} 天",
   "@daysCount": {
@@ -527,14 +527,13 @@
       "days": {
         "type": "int"
       }
-    },
-    "plural": "days"
+    }
   },
   "createHouseholdDescription": "创建一个共享空间，与家人或室友一起跟踪预算和支出。",
   "uploadingImage": "正在上传图片...",
   "creating": "正在创建...",
   "generatingInvite": "正在生成邀请...",
-  "pleaseSelectValidCurrency": "请选择有效的家庭货币",
+  "pleaseSelectValidCurrency": "请选择有效的小组货币",
   "nameMaxLength": "名称必须少于 {max} 个字符",
   "@nameMaxLength": {
     "placeholders": {
@@ -543,9 +542,9 @@
       }
     }
   },
-  "createHouseholdPage": "创建家庭页面",
+  "createHouseholdPage": "创建小组页面",
   "invitationPersonalMessageInput": "邀请消息输入框",
-  "householdNameInput": "家庭名称输入框",
+  "householdNameInput": "小组名称输入框",
   "invitationExpirationSelector": "邀请有效期选择器",
   "unlimitedExpiration": "无限期",
   "daysExpiration": "{days} 天有效期",
@@ -554,12 +553,11 @@
       "days": {
         "type": "int"
       }
-    },
-    "plural": "days"
+    }
   },
-  "householdInformation": "家庭信息",
-  "creatingHousehold": "正在创建家庭",
-  "createHouseholdButton": "创建家庭按钮",
+  "householdInformation": "小组信息",
+  "creatingHousehold": "正在创建小组",
+  "createHouseholdButton": "创建小组按钮",
   "searchExpenses": "搜索支出...",
   "clearAll": "全部清除",
   "allCategories": "全部",
@@ -587,7 +585,7 @@
   "noData": "暂无数据",
   "filterTransactions": "筛选交易",
   "noTransactionsFound": "未找到交易记录",
-  "failedToLoadHouseholdTransactions": "家庭交易记录加载失败",
+  "failedToLoadHouseholdTransactions": "小组交易记录加载失败",
   "reset": "重置",
   "apply": "应用",
   "expenses": "支出",
@@ -597,7 +595,7 @@
   "tryAdjustingFilters": "尝试调整您的筛选条件",
   "split": "分摊",
   "note": "备注",
-  "currencyCannotBeChangedWhenSharing": "分享至家庭时无法更改货币",
+  "currencyCannotBeChangedWhenSharing": "分享至小组时无法更改货币",
   "createBudget": "创建预算",
   "pleaseEnterABudgetName": "请输入预算名称",
   "pleaseEnterAValidAmountGreaterThan0": "请输入一个大于 0 的有效金额",
@@ -608,14 +606,14 @@
   "failedToCreateBudget": "预算创建失败",
   "groceriesRentEntertainment": "例如：买菜、房租、娱乐",
   "budgetType": "预算类型",
-  "sharedWithAllHouseholdMembers": "与所有家庭成员共享",
+  "sharedWithAllHouseholdMembers": "与所有小组成员共享",
   "personalBudgetForYourExpensesOnly": "仅用于您个人支出的预算",
   "countSplitPortionOnly": "仅计算分摊部分",
   "onlyCountYourPortionOfSplitExpenses": "仅将您在分摊支出中承担的部分计入此预算",
-  "joinHousehold": "加入家庭",
-  "joinAHousehold": "加入一个家庭",
+  "joinHousehold": "加入小组",
+  "joinAHousehold": "加入一个小组",
   "enterYourInvitationLinkToJoin": "输入您的邀请链接以加入\n共享的财务空间",
-  "pasteTheInvitationLinkYouReceived": "粘贴您从家庭成员收到的邀请链接",
+  "pasteTheInvitationLinkYouReceived": "粘贴您从小组成员收到的邀请链接",
   "pasteInvitationLink": "粘贴邀请链接",
   "pleaseEnterAnInvitationLink": "请输入邀请链接",
   "pleaseEnterAValidInvitationLink": "请输入有效的邀请链接",
@@ -623,19 +621,19 @@
   "validating": "验证中...",
   "continueAction": "继续",
   "welcomeAboard": "欢迎加入！",
-  "youreNowPartOfTheHousehold": "您现在是家庭的一员了。\n开始共同管理您的财务吧！",
+  "youreNowPartOfTheHousehold": "您现在是小组的一员了。\n开始共同管理您的财务吧！",
   "thisWillOnlyTakeAMoment": "只需片刻",
   "unableToJoin": "无法加入",
   "tryAgain": "重试",
-  "goToHousehold": "前往家庭",
+  "goToHousehold": "前往小组",
   "expiresSoon": "即将过期",
   "invitationValidUntil": "邀请有效期至 {formattedDate}",
   "whatYoullGet": "您将获得",
   "viewSharedBudgetsAndExpenses": "查看共享预算和支出",
-  "trackHouseholdFinancialHealth": "跟踪家庭财务健康状况",
+  "trackHouseholdFinancialHealth": "跟踪小组财务健康状况",
   "collaborateOnFinancialDecisions": "共同制定财务决策",
   "@householdOverview": {},
-  "household": "家庭",
+  "household": "小组",
   "viewAll": "查看全部",
   "manage": "管理",
   "noBudgetsYet": "暂无预算",
@@ -719,7 +717,7 @@
   "transactionDeleted": "交易已删除",
   "failedToDeleteRecurringTransaction": "删除周期性交易失败",
   "recurringTransactions": "周期性交易",
-  "currencyIsManagedByHousehold": "家庭货币统一设置，无法在此更改",
+  "currencyIsManagedByHousehold": "小组货币统一设置，无法在此更改",
   "expenseSavedAndShared": "支出已保存并分享{splitInfo}！",
   "@expenseSavedAndShared": {
     "placeholders": {
@@ -739,7 +737,7 @@
   "selectTargetDate": "选择目标日期",
   "scenarioQuestionTemplate": "我可以在 {date} 前 {action} 吗",
   "@scenarioQuestionTemplate": {
-    "description": "Template for scenario planning questions. CRITICAL: Adjust word order for your language's grammar structure.\n\nLANGUAGE STRUCTURE EXAMPLES:\n• English (SVO): Can I {action} before {date}?\n• Chinese (STV): 我可以在{date}前{action}吗？\n• Japanese (SOV): {date}前に{action}できますか？\n• Korean (SOV): {date} 전에 {action}할 수 있나요?\n• Spanish (VSO): ¿Puedo {action} antes del {date}?\n• French (VSO): Puis-je {action} avant le {date}?\n• German (V2): Kann ich {action} vor dem {date}?\n• Russian (SVO): Могу ли я {action} до {date}?\n• Arabic (VSO): هل يمكنني {action} قبل {date}؟\n• Hindi (SOV): क्या मैं {date} से पहले {action} कर सकता हूँ?\n• Urdu (SOV): کیا میں {date} سے पहले {action} کر سکتا ہوں؟\n• Turkish (SOV): {date} öncesi {action} yapabilir miyim?\n• Dutch (SVO): Kan ik {action} voor {date}?\n• Swedish (SVO): Kan jag {action} före {date}?\n• Polish (SVO): Czy mogę {action} przed {date}?\n• Thai (SVO): ฉันสามารถ {action} ก่อน {date} ได้ไหม?\n• Vietnamese (SVO): Tôi có thể {action} trước {date} không?\n• Indonesian (SVO): Bisakah saya {action}S-11sebelum {date}?\n\nIMPORTANT: Consider your language's unique features:\n- Gender agreement (Romance languages)\n- Case systems (Germanic, Slavic languages)\n- Honorific levels (Asian languages)\n- Right-to-left script (Arabic, Hebrew)\n- Postpositions (Indian languages)\n- Verb position variations",
+    "description": "Template for scenario planning questions. CRITICAL: Adjust word order for your language's grammar structure.",
     "placeholders": {
       "action": {
         "type": "String",
@@ -753,8 +751,7 @@
   },
   "scenarioDateFormat": "yyyy/MM/dd",
   "@scenarioDateFormat": {
-    "description": "Date format for scenario planning. Use standard ICU DateFormat patterns.\n\nREGIONAL DATE FORMAT EXAMPLES:\n• United States: MM/dd/yyyy (01/25/2025)\n• United Kingdom: dd/MM/yyyy (25/01/2025)\n• China/Japan/Korea: yyyy/MM/dd (2025/01/25)\n• Germany: dd.MM.yyyy (25.01.2025)\n• France: dd/MM/yyyy (25/01/2025)\n• Spain: dd/MM/yyyy (25/01/2025)\n• Italy: dd/MM/yyyy (25/01/2025)\n• Russia: dd.MM.yyyy (25.01.2025)\n• Arabic (Egypt): dd/MM/yyyy (25/01/2025)\n• Hindi: dd-MM-yyyy (25-01-2025)\n• Urdu: dd/MM/yyyy (25/01/2025)\n• Thai: dd/MM/yyyy (25/01/2565) [Note: Buddhist calendar]\n• Vietnamese: dd/MM/yyyy (25/01/2025)\n• Indonesian: dd/MM/yyyy (25/01/2025)\n• Turkish: dd.MM.yyyy (25.01.2025)\n• Dutch: dd-MM-yyyy (25-01-2025)\n• Swedish: yyyy-MM-dd (2025-01-25)\n• Polish: dd.MM.yyyy (25.01.2025)\n\nSPECIAL CONSIDERATIONS:\n- Buddhist calendar (Thailand): Year + 543\n- Islamic calendar (Arabic countries): Different year system\n- Hebrew calendar (Israel): Different year system\n- Era naming (Japanese): Reiwa, Heisei, etc.\n- Lunar calendars (Chinese, Korean, Vietnamese)\n- Week start day (Sunday vs Monday)\n- Use of separators: /, -, ., or spaces",
-    "example": "2025/01/25"
+    "description": "Date format for scenario planning, following yyyy/MM/dd pattern"
   },
   "analysisFailed": "分析失败：{error}",
   "@analysisFailed": {
@@ -811,9 +808,9 @@
   "expenseDeletedSuccessfully": "支出删除成功",
   "failedToDeleteExpense": "支出删除失败",
   "expenseNotFoundOrDeleted": "支出未找到或已被删除",
-  "onlyAdminsAndOwnersCanEditHouseholdSettings": "只有管理员和所有者可以编辑家庭设置",
+  "onlyAdminsAndOwnersCanEditHouseholdSettings": "只有管理员和所有者可以编辑小组设置",
   "onlyAdminsAndOwnersCanCreateInvitations": "只有管理员和所有者可以创建邀请",
-  "shareInvitationForHousehold": "分享家庭 {householdName} 的邀请",
+  "shareInvitationForHousehold": "分享小组 {groupName} 的邀请",
   "@shareInvitationForHousehold": {
     "placeholders": {
       "householdName": {
@@ -822,7 +819,7 @@
     }
   },
   "shareInvitation": "分享邀请",
-  "householdCreatedSuccessfully": "家庭 {householdName} 创建成功",
+  "householdCreatedSuccessfully": "小组 {groupName} 创建成功",
   "@householdCreatedSuccessfully": {
     "placeholders": {
       "householdName": {
@@ -830,7 +827,7 @@
       }
     }
   },
-  "householdCreatedSuccessfullyWithQuotes": "家庭 \"{householdName}\" 创建成功！",
+  "householdCreatedSuccessfullyWithQuotes": "小组 \"{groupName}\" 创建成功！",
   "@householdCreatedSuccessfullyWithQuotes": {
     "placeholders": {
       "householdName": {
@@ -853,7 +850,7 @@
   "share": "分享",
   "closeShareSheet": "关闭分享面板",
   "invitationLinkCopiedToClipboard": "邀请链接已复制到剪贴板！",
-  "joinMyHouseholdMessage": "来 Moneko 加入我的家庭 \"{householdName}\" 吧！\n\n{inviteUrl}",
+  "joinMyHouseholdMessage": "来 Moneko 加入我的小组 \"{groupName}\" 吧！\n\n{inviteUrl}",
   "@joinMyHouseholdMessage": {
     "placeholders": {
       "householdName": {
@@ -864,7 +861,7 @@
       }
     }
   },
-  "joinMyHouseholdSubject": "来 Moneko 加入我的家庭吧",
+  "joinMyHouseholdSubject": "来 Moneko 加入我的小组吧",
   "zeroAmount": "0.00",
   "dollarPrefix": "$ ",
   "notificationSettings": "通知设置",
@@ -877,7 +874,7 @@
   "weekly": "每周",
   "monthly": "每月",
   "yearly": "每年",
-  "householdBudgetType": "家庭预算",
+  "householdBudgetType": "小组预算",
   "personalBudgetType": "个人预算",
   "@householdJoin": {},
   "joinHouseholdName": "加入 \"{householdName}\"",
@@ -888,7 +885,7 @@
       }
     }
   },
-  "householdPreview": "家庭预览：{householdName}，邀请者：{inviterEmail}",
+  "householdPreview": "小组预览：{groupName}，邀请者：{inviterEmail}",
   "@householdPreview": {
     "placeholders": {
       "householdName": {
@@ -925,7 +922,7 @@
   "invitationValidUntilLabel": "邀请有效期至",
   "personalMessageFromInviter": "邀请者的个人消息",
   "messageFromInviter": "来自邀请者的消息",
-  "joiningHousehold": "正在加入家庭",
+  "joiningHousehold": "正在加入小组",
   "errorWithMessage": "错误：{errorMessage}",
   "@errorWithMessage": {
     "placeholders": {
@@ -992,7 +989,7 @@
   "addIncome": "添加收入",
   "incomeAdded": "收入添加成功",
   "noIncome": "暂无收入",
-  "noIncomeDescription": "记录您的收入以跟踪家庭的财务健康状况",
+  "noIncomeDescription": "记录您的收入以跟踪小组的财务健康状况",
   "totalIncome": "总收入",
   "monthToDate": "本月至今",
   "yearToDate": "本年至今",
@@ -1010,7 +1007,7 @@
   "privacyPrivate": "私密",
   "privacyFullExplanation": "伴侣可以看到所有详细信息，包括金额、来源和描述。",
   "privacyBalancesOnlyExplanation": "伴侣可以在总额中看到此收入，但无法看到详细信息（来源、描述隐藏）。",
-  "privacyPrivateExplanation": "只有您可以看到此收入。它有助于家庭总额，但伴侣无法看到详细信息。",
+  "privacyPrivateExplanation": "只有您可以看到此收入。它有助于小组总额，但伴侣无法看到详细信息。",
   "incomeSalary": "工资",
   "incomeFreelance": "自由职业",
   "incomeInvestment": "投资",
@@ -1168,7 +1165,7 @@
   "noOutstandingAmounts": "没有未结金额",
   "groupFairnessTitle": "小组公平度",
   "groupFairness": "小组公平度",
-  "groupFairnessExplanation": "显示家庭成员之间支出分担的均衡程度。\n\n百分比越高，说明大家贡献越均衡；越低则表示有人承担的支出更多。\n\n把它看作团队协作：当大家分担相近时，公平度得分更高；当某个人承担大部分时，得分会下降。\n\n“均摊金额”表示如果完全平均分配，每个人应承担的数额。",
+  "groupFairnessExplanation": "显示小组成员之间支出分担的均衡程度。\n\n百分比越高，说明大家贡献越均衡；越低则表示有人承担的支出更多。\n\n把它看作团队协作：当大家分担相近时，公平度得分更高；当某个人承担大部分时，得分会下降。\n\n“均摊金额”表示如果完全平均分配，每个人应承担的数额。",
   "noMemberDataYet": "暂无成员数据",
   "evenShare": "均摊金额：{amount}",
   "@evenShare": {
@@ -1178,8 +1175,8 @@
       }
     }
   },
-  "viewHousehold": "查看家庭",
-  "invalidInvitationMissingInfo": "邀请无效：缺少家庭信息",
+  "viewHousehold": "查看小组",
+  "invalidInvitationMissingInfo": "邀请无效：缺少小组信息",
   "joinedHouseholdWithName": "已成功加入 {name}！",
   "@joinedHouseholdWithName": {
     "placeholders": {
@@ -1188,7 +1185,7 @@
       }
     }
   },
-  "joinedHousehold": "已成功加入该家庭！",
+  "joinedHousehold": "已成功加入该小组！",
   "errorLoadingSplits": "加载分摊出错",
   "markAsSettled": "标记为已结清",
   "splitDetails": "分摊详情",
@@ -1208,7 +1205,7 @@
     }
   },
   "noSplitsYet": "暂无分摊",
-  "startSplittingExpensesWithYourHousehold": "开始与家庭一起分摊支出",
+  "startSplittingExpensesWithYourHousehold": "开始与小组一起分摊支出",
   "minutesAgoShort": "{count} 分钟前",
   "@minutesAgoShort": {
     "placeholders": {
@@ -1249,8 +1246,8 @@
   "youreIn": "已加入！🎉",
   "invitationError": "邀请错误",
   "processingInvitation": "正在处理邀请...",
-  "noHouseholdsAvailableCreateOrJoin": "没有可用的家庭。请先创建或加入一个家庭。",
-  "selectHousehold": "选择家庭",
+  "noHouseholdsAvailableCreateOrJoin": "没有可用的小组。请先创建或加入一个小组。",
+  "selectHousehold": "选择小组",
   "yourPockets": "您的口袋",
   "editPocket": "编辑口袋",
   "addPocket": "添加口袋",
@@ -1275,7 +1272,7 @@
   "pleaseEnterPocketName": "请输入口袋名称",
   "pleaseEnterPocketPercentage": "请输入此口袋的百分比",
   "pleaseEnterValidPocketPercentage": "请输入有效的口袋百分比",
-  "pleaseSelectHouseholdFirst": "请先选择一个家庭",
+  "pleaseSelectHouseholdFirst": "请先选择一个小组",
   "pleaseSetMonthlyBudgetFirst": "请先设置月度预算",
   "pocketAllocationLabel": "口袋分配",
   "pocketCategoriesLabel": "口袋分类",
@@ -1369,7 +1366,7 @@
   "takeoutAndDelivery": "外卖和配送",
   "cofeeAndTea": "咖啡和茶",
   "snacks": "零食",
-  "householdSupplies": "家居用品",
+  "householdSupplies": "小组物资",
   "cleaningSupplies": "清洁用品",
   "homeRepairs": "家庭维修",
   "homeServices": "家庭服务",
@@ -1490,7 +1487,7 @@
   "categoryTakeoutDelivery": "外卖和配送",
   "categoryCoffeeTea": "咖啡和茶",
   "categorySnacks": "零食",
-  "categoryHouseholdSupplies": "家居用品",
+  "categoryHouseholdSupplies": "小组物资",
   "categoryCleaningSupplies": "清洁用品",
   "categoryHomeRepairs": "家庭维修",
   "categoryHomeServices": "家庭服务",
@@ -1631,7 +1628,7 @@
   "updateRequiredTitle": "需要更新",
   "updateRequiredMessage": "Moneko 新版本已发布，请更新以继续使用。",
   "configureWidgetTitle": "配置小组件",
-  "widgetHouseholdLabel": "家庭",
+  "widgetHouseholdLabel": "小组",
   "personalScope": "个人",
   "currencyLabel": "货币",
   "noAnalysisAvailable": "暂无分析数据",
@@ -1665,7 +1662,7 @@
   "switchingToIndex": "切换到索引 {index}",
   "errorInitializingRepository": "初始化存储库错误",
   "errorLoadingDashboard": "加载仪表盘错误",
-  "selectHouseholdToManageSharedBudgets": "选择一个家庭以管理共享预算。",
+  "selectHouseholdToManageSharedBudgets": "选择一个小组以管理共享预算。",
   "usd": "美元",
   "iEarnedAmountOnCategory": "我在 {category} 赚了 {amount}",
   "failedToUpdateExpense": "更新支出失败",
@@ -1680,6 +1677,6 @@
   "change_currency_title": "更改货币",
   "change_currency_desc": "点击此处切换到您偏好的货币。",
   "homeModeTourTitle": "切换个人与共享预算",
-  "homeModeTourDescription": "点击这里，在你的个人预算和家庭共享预算之间切换。",
+  "homeModeTourDescription": "点击这里，在你的个人预算和小组共享预算之间切换。",
   "topCategory": "主要类别"
 }

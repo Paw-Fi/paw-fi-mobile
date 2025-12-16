@@ -315,17 +315,17 @@
   "pleaseEnterExpenseDetails": "支出の詳細を入力してください",
   "userNotLoggedIn": "ユーザーがログインしていません",
   "errorLoadingHouseholds": "グループの読み込みエラー",
-  "welcomeToHouseholds": "「グループ」へようこそ",
+  "welcomeToHouseholds": "グループへようこそ",
   "householdsDescription": "家族、パートナー、ルームメイトと共有の家計を管理しましょう。予算の追跡、支出の割り勘、お金に関する意思決定を共同で行えます。",
   "createHousehold": "グループを作成",
   "joinWithInvite": "招待リンクで参加",
-  "pleaseUseInvitationLink": "グループに参加するには招待リンクを使用してください",
+  "pleaseUseInvitationLink": "招待リンクを使用してグループに参加してください",
   "householdName": "グループ名",
   "householdNameHint": "例：山田家、シェアハウス",
   "pleaseEnterHouseholdName": "グループ名を入力してください",
-  "errorCreatingHousehold": "グループの作成エラー",
-  "householdsFeature": "グループ機能",
-  "householdsFeatureDescription": "グループ機能が利用可能になりました！家族、パートナー、ルームメイトと共有の家計を管理しましょう。",
+  "errorCreatingHousehold": "グループの作成中にエラーが発生しました",
+  "householdsFeature": "「グループ」機能",
+  "householdsFeatureDescription": "「グループ」機能が登場しました！家族、パートナー、ルームメイトと一緒にお金を管理しましょう。",
   "gotIt": "OK",
   "confirmExpense": "支出を確認",
   "expenseDetails": "支出の詳細",
@@ -337,18 +337,18 @@
   "notes": "メモ",
   "receipt": "レシート",
   "saveExpense": "支出を保存",
-  "shareWithHousehold": "世帯と共有",
-  "loadingHouseholdMembers": "グループメンバーを読み込み中...",
-  "selectHouseholdToConfigureSplit": "割り勘を設定するグループを選択",
-  "currencyManagedByHousehold": "通貨はグループによって管理されており、変更できません",
-  "currencyCannotBeChanged": "グループと共有する場合、通貨は変更できません",
+  "shareWithHousehold": "グループと共有",
+  "loadingHouseholdMembers": "メンバーを読み込み中...",
+  "selectHouseholdToConfigureSplit": "割り勘を設定するグループを選択してください",
+  "currencyManagedByHousehold": "通貨はグループによって管理されているため変更できません",
+  "currencyCannotBeChanged": "グループと共有中は通貨を変更できません",
   "cannotEditOthersExpenses": "自分の支出のみ編集できます",
   "failedToLoadImage": "画像の読み込みに失敗しました",
   "editAmount": "金額を編集",
   "amount": "金額",
   "editNotes": "メモを編集",
   "addANote": "メモを追加...",
-  "noMembersFoundInHousehold": "グループにメンバーが見つかりません",
+  "noMembersFoundInHousehold": "グループメンバーが見つかりません",
   "errorLoadingMembers": "メンバーの読み込みエラー",
   "noExpenseToSave": "保存する支出がありません",
   "expenseSavedAndShared": "支出を保存・共有しました{splitInfo}！",
@@ -360,7 +360,7 @@
   "iSpentAmountOnCategory": "{category} に {currencySymbol}{amount} を使いました",
   "enterNewTotalDailyBudgetDescription": "新しい1日の総予算を入力してください。",
   "@household": {},
-  "pleaseSignInToAccessHouseholdFeatures": "グループ機能にアクセスするにはログインしてください",
+  "pleaseSignInToAccessHouseholdFeatures": "グループ機能を利用するにはサインインしてください",
   "quickActions": "クイック操作",
   "members": "メンバー",
   "invites": "招待",
@@ -373,10 +373,10 @@
   "netPosition": "収支状況",
   "spentByHousehold": "グループの支出",
   "memberSpending": "メンバー別支出",
-  "spentByHouseholdTooltip": "選択した期間にすべてのグループメンバーが支出した合計金額を示します。グループのメンバーによって記録されたすべての共有支出が含まれます。",
+  "spentByHouseholdTooltip": "選択した期間中にグループメンバー全員が支出した合計額を表示します。メンバーが記録したすべての共有経費が含まれます。",
   "manageMoneyTogether": "パートナー、家族、ルームメイトと、一つの共有スペースで一緒にお金を管理しましょう。",
   "sharedBudgetsExpenses": "予算と支出の共有",
-  "sharedBudgetsExpensesDesc": "予算を設定し、支出を追跡し、グループのお金がリアルタイムでどこに使われているかを確認できます。",
+  "sharedBudgetsExpensesDesc": "予算を設定し、支出を記録して、グループのお金がどこに使われているかリアルタイムで確認できます。",
   "smartExpenseSplitting": "スマートな割り勘",
   "smartExpenseSplittingDesc": "均等、割合、カスタム金額など、柔軟な割り勘オプションで「誰がいくら払うか」を自動計算します。",
   "stayInSync": "常に同期",
@@ -387,9 +387,9 @@
   "coverPhoto": "カバー写真",
   "changeCoverPhoto": "カバー写真を変更",
   "saveChanges": "変更を保存",
-  "errorLoadingHousehold": "グループの読み込みエラー",
+  "errorLoadingHousehold": "グループの読み込み中にエラーが発生しました",
   "householdUpdatedSuccessfully": "グループを更新しました",
-  "failedToUpdateHousehold": "グループの更新に失敗しました",
+  "failedToUpdateHousehold": "グループを更新できませんでした",
   "@householdMembers": {},
   "inviteMember": "メンバーを招待",
   "removeMember": "メンバーを削除",
@@ -410,7 +410,7 @@
   "emailOptional": "メールアドレス（任意）",
   "friendEmailExample": "friend@example.com",
   "personalMessageOptional": "パーソナルメッセージ（任意）",
-  "joinHouseholdBudget": "私たちのグループ予算に参加しませんか？",
+  "joinHouseholdBudget": "私たちのグループ予算に参加しましょう！",
   "expiresIn": "有効期限",
   "oneDay": "1日",
   "threeDays": "3日間",
@@ -521,7 +521,7 @@
   "accepted": "承認済み",
   "revoked": "取り消し済み",
   "tapToChangeCover": "タップしてカバーを変更",
-  "personalMessageHint": "招待する人へのメッセージ（例：「私たちのグループ予算に参加しませんか？」）",
+  "personalMessageHint": "招待する相手にメッセージを添えましょう（例：「予算管理を一緒にやろう！」）",
   "invitationExpiresIn": "招待の有効期限",
   "daysCount": "{days}日間",
   "@daysCount": {
@@ -536,7 +536,7 @@
   "uploadingImage": "画像をアップロード中...",
   "creating": "作成中...",
   "generatingInvite": "招待を作成中...",
-  "pleaseSelectValidCurrency": "有効なグループの通貨を選択してください",
+  "pleaseSelectValidCurrency": "有効なグループ通貨を選択してください",
   "nameMaxLength": "名前は{max}文字未満である必要があります",
   "@nameMaxLength": {
     "placeholders": {
@@ -588,7 +588,7 @@
   "noData": "データなし",
   "filterTransactions": "取引履歴をフィルター",
   "noTransactionsFound": "取引履歴が見つかりません",
-  "failedToLoadHouseholdTransactions": "グループの取引履歴の読み込みに失敗しました",
+  "failedToLoadHouseholdTransactions": "グループの取引履歴を読み込めませんでした",
   "reset": "リセット",
   "apply": "適用",
   "expenses": "支出",
@@ -598,7 +598,7 @@
   "tryAdjustingFilters": "フィルターを調整してみてください",
   "split": "割り勘",
   "note": "メモ",
-  "currencyCannotBeChangedWhenSharing": "グループと共有する場合、通貨は変更できません",
+  "currencyCannotBeChangedWhenSharing": "グループと共有中は通貨を変更できません",
   "createBudget": "予算を作成",
   "pleaseEnterABudgetName": "予算名を入力してください",
   "pleaseEnterAValidAmountGreaterThan0": "0より大きい有効な金額を入力してください",
@@ -609,12 +609,12 @@
   "failedToCreateBudget": "予算の作成に失敗しました",
   "groceriesRentEntertainment": "例：食料品、家賃、娯楽",
   "budgetType": "予算タイプ",
-  "sharedWithAllHouseholdMembers": "すべてのグループメンバーと共有",
+  "sharedWithAllHouseholdMembers": "グループメンバー全員と共有",
   "personalBudgetForYourExpensesOnly": "あなた個人の支出のみを対象とする予算",
   "countSplitPortionOnly": "割り勘の自分の負担分のみ集計",
   "onlyCountYourPortionOfSplitExpenses": "割り勘した支出のうち、あなたの負担分のみをこの予算に計上します",
   "joinHousehold": "グループに参加",
-  "joinAHousehold": "グループに参加する",
+  "joinAHousehold": "グループに参加",
   "enterYourInvitationLinkToJoin": "共有の財務スペースに参加するため\n招待リンクを入力してください",
   "pasteTheInvitationLinkYouReceived": "グループメンバーから受け取った招待リンクを貼り付けてください",
   "pasteInvitationLink": "招待リンクを貼り付け",
@@ -624,19 +624,19 @@
   "validating": "検証中...",
   "continueAction": "続ける",
   "welcomeAboard": "ようこそ！",
-  "youreNowPartOfTheHousehold": "あなたは今グループのメンバーです。\nさっそく家計の管理を始めましょう！",
+  "youreNowPartOfTheHousehold": "グループの一員になりました。\nお金の管理を協力して始めましょう！",
   "thisWillOnlyTakeAMoment": "すぐに完了します",
   "unableToJoin": "参加できません",
   "tryAgain": "再試行",
-  "goToHousehold": "グループへ",
+  "goToHousehold": "グループへ移動",
   "expiresSoon": "間もなく期限切れ",
   "invitationValidUntil": "招待は{formattedDate}まで有効です",
   "whatYoullGet": "得られるもの",
   "viewSharedBudgetsAndExpenses": "共有の予算と支出を表示",
-  "trackHouseholdFinancialHealth": "グループの財務健全性を追跡",
+  "trackHouseholdFinancialHealth": "グループの財政状態を管理",
   "collaborateOnFinancialDecisions": "財務判断を共同で行う",
   "@householdOverview": {},
-  "household": "世帯",
+  "household": "グループ",
   "viewAll": "すべて表示",
   "manage": "管理",
   "noBudgetsYet": "まだ予算がありません",
@@ -721,7 +721,7 @@
   "transactionDeleted": "取引が削除されました",
   "failedToDeleteRecurringTransaction": "定期取引の削除に失敗しました",
   "recurringTransactions": "定期取引",
-  "currencyIsManagedByHousehold": "通貨はグループによって管理されており、変更できません",
+  "currencyIsManagedByHousehold": "通貨はグループによって管理されているため変更できません",
   "@expenseSavedAndShared": {
     "placeholders": {
       "splitInfo": {
@@ -812,9 +812,9 @@
   "expenseDeletedSuccessfully": "支出を削除しました",
   "failedToDeleteExpense": "支出の削除に失敗しました",
   "expenseNotFoundOrDeleted": "支出が見つからないか、すでに削除されています",
-  "onlyAdminsAndOwnersCanEditHouseholdSettings": "管理者とオーナーのみが世帯設定を編集できます",
+  "onlyAdminsAndOwnersCanEditHouseholdSettings": "グループ設定を編集できるのは管理者と所有者のみです",
   "onlyAdminsAndOwnersCanCreateInvitations": "管理者とオーナーのみが招待を作成できます",
-  "shareInvitationForHousehold": "グループ「{householdName}」の招待を共有",
+  "shareInvitationForHousehold": "{groupName} グループの招待を共有",
   "@shareInvitationForHousehold": {
     "placeholders": {
       "householdName": {
@@ -823,7 +823,7 @@
     }
   },
   "shareInvitation": "招待を共有",
-  "householdCreatedSuccessfully": "グループ「{householdName}」が作成されました",
+  "householdCreatedSuccessfully": "グループ {groupName} を作成しました",
   "@householdCreatedSuccessfully": {
     "placeholders": {
       "householdName": {
@@ -831,7 +831,7 @@
       }
     }
   },
-  "householdCreatedSuccessfullyWithQuotes": "グループ「{householdName}」が作成されました！",
+  "householdCreatedSuccessfullyWithQuotes": "グループ「{groupName}」を作成しました！",
   "@householdCreatedSuccessfullyWithQuotes": {
     "placeholders": {
       "householdName": {
@@ -854,7 +854,7 @@
   "share": "共有",
   "closeShareSheet": "共有シートを閉じる",
   "invitationLinkCopiedToClipboard": "招待リンクをクリップボードにコピーしました！",
-  "joinMyHouseholdMessage": "Monekoで私のグループ「{householdName}」に参加してください！\n\n{inviteUrl}",
+  "joinMyHouseholdMessage": "Monekoで私のグループ「{groupName}」に参加してください！\n\n{inviteUrl}",
   "@joinMyHouseholdMessage": {
     "placeholders": {
       "householdName": {
@@ -865,7 +865,7 @@
       }
     }
   },
-  "joinMyHouseholdSubject": "Monekoで私のグループに参加してください",
+  "joinMyHouseholdSubject": "Monekoでグループに参加しませんか",
   "zeroAmount": "0.00",
   "dollarPrefix": "$ ",
   "notificationSettings": "通知設定",
@@ -889,7 +889,7 @@
       }
     }
   },
-  "householdPreview": "グループプレビュー：{householdName}、招待者：{inviterEmail}",
+  "householdPreview": "グループプレビュー: {groupName}、招待者 {inviterEmail}",
   "@householdPreview": {
     "placeholders": {
       "householdName": {
@@ -926,7 +926,7 @@
   "invitationValidUntilLabel": "有効期限",
   "personalMessageFromInviter": "招待者からの個人メッセージ",
   "messageFromInviter": "招待者からのメッセージ",
-  "joiningHousehold": "世帯に参加中",
+  "joiningHousehold": "グループに参加中",
   "errorWithMessage": "エラー：{errorMessage}",
   "@errorWithMessage": {
     "placeholders": {
@@ -993,7 +993,7 @@
   "addIncome": "収入を追加",
   "incomeAdded": "収入が正常に追加されました",
   "noIncome": "まだ収入がありません",
-  "noIncomeDescription": "世帯の財務健全性を追跡するために収入を記録してください",
+  "noIncomeDescription": "収入を記録して、グループの財政状況を把握しましょう",
   "totalIncome": "総収入",
   "monthToDate": "月累計",
   "yearToDate": "年累計",
@@ -1011,7 +1011,7 @@
   "privacyPrivate": "非公開",
   "privacyFullExplanation": "パートナーは金額・収入源・説明を含むすべての詳細を閲覧できます。",
   "privacyBalancesOnlyExplanation": "パートナーは合計のみ確認でき、詳細（収入源・説明）は表示されません。",
-  "privacyPrivateExplanation": "あなたのみがこの収入を見ることができます。世帯の合計に貢献しますが、パートナーは詳細を見ることができません。",
+  "privacyPrivateExplanation": "この収入はあなただけに見えます。グループの合計には加算されますが、パートナーには詳細は表示されません。",
   "incomeSalary": "給与",
   "incomeFreelance": "フリーランス",
   "incomeInvestment": "投資",
@@ -1168,7 +1168,7 @@
   "noOutstandingAmounts": "未精算の金額はありません",
   "groupFairnessTitle": "グループの公平性",
   "groupFairness": "グループの公平性",
-  "groupFairnessExplanation": "世帯メンバー間で支出がどれだけ均等に分担されているかを示します。\n\nパーセンテージが高いほど、全員が公平に負担していることを意味します。低い場合は、一部のメンバーが他より多く支出を負担していることを示します。\n\nチームワークのようなものです。みんなが同じくらい負担すると公平性スコアは高くなり、誰か一人の負担が大きいと下がります。\n\n「均等負担」は、すべてを均等に分けた場合に一人あたりが負担する金額を示します。",
+  "groupFairnessExplanation": "グループメンバー間での支出の分担バランスを表示します。\n\nパーセンテージが高いほど、全員が公平に負担しています。低い場合は、特定のメンバーが他のメンバーよりも多く支払っていることを示唆します。\n\nチームワークと考えてください。全員が平等に貢献していれば、公平性スコアは高くなります。誰か一人が負担を背負っていると、スコアは下がります。\n\n「均等割り」は、すべての費用を平等に割った場合に一人あたりが負担すべき金額を示しています。",
   "noMemberDataYet": "メンバーのデータはまだありません",
   "evenShare": "均等負担: {amount}",
   "@evenShare": {
@@ -1178,8 +1178,8 @@
       }
     }
   },
-  "viewHousehold": "世帯を表示",
-  "invalidInvitationMissingInfo": "無効な招待です：世帯情報が不足しています",
+  "viewHousehold": "グループを表示",
+  "invalidInvitationMissingInfo": "無効な招待です：グループ情報が不足しています",
   "joinedHouseholdWithName": "{name} に参加しました！",
   "@joinedHouseholdWithName": {
     "placeholders": {
@@ -1188,7 +1188,7 @@
       }
     }
   },
-  "joinedHousehold": "世帯に参加しました！",
+  "joinedHousehold": "グループへの参加が完了しました！",
   "errorLoadingSplits": "分割の読み込みエラー",
   "markAsSettled": "精算済みにする",
   "splitDetails": "分割の詳細",
@@ -1208,7 +1208,7 @@
     }
   },
   "noSplitsYet": "まだ分割はありません",
-  "startSplittingExpensesWithYourHousehold": "世帯で支出の分割を始めましょう",
+  "startSplittingExpensesWithYourHousehold": "グループでの割り勘を始めましょう",
   "minutesAgoShort": "{count}分前",
   "@minutesAgoShort": {
     "placeholders": {
@@ -1249,8 +1249,8 @@
   "youreIn": "参加できました！🎉",
   "invitationError": "招待のエラー",
   "processingInvitation": "招待を処理しています...",
-  "noHouseholdsAvailableCreateOrJoin": "世帯がありません。まず世帯を作成するか参加してください。",
-  "selectHousehold": "世帯を選択",
+  "noHouseholdsAvailableCreateOrJoin": "利用可能なグループがありません。まずはグループを作成するか参加してください。",
+  "selectHousehold": "グループを選択",
   "yourPockets": "あなたのポケット",
   "editPocket": "ポケットを編集",
   "addPocket": "ポケットを追加",
@@ -1276,7 +1276,7 @@
   "pleaseEnterPocketName": "ポケット名を入力してください",
   "pleaseEnterPocketPercentage": "このポケットの割合を入力してください",
   "pleaseEnterValidPocketPercentage": "有効な割合を入力してください",
-  "pleaseSelectHouseholdFirst": "先に世帯を選択してください",
+  "pleaseSelectHouseholdFirst": "先にグループを選択してください",
   "pleaseSetMonthlyBudgetFirst": "先に月間予算を設定してください",
   "pocketAllocationLabel": "ポケットの配分",
   "pocketCategoriesLabel": "ポケットの分類",
@@ -1370,7 +1370,7 @@
   "takeoutAndDelivery": "テイクアウトとデリバリー",
   "cofeeAndTea": "コーヒーとお茶",
   "snacks": "スナック",
-  "householdSupplies": "家庭用品",
+  "householdSupplies": "グループの備品",
   "cleaningSupplies": "掃除用品",
   "homeRepairs": "住宅の修理",
   "homeServices": "家事サービス",
@@ -1491,7 +1491,7 @@
   "categoryTakeoutDelivery": "テイクアウトとデリバリー",
   "categoryCoffeeTea": "コーヒーとお茶",
   "categorySnacks": "スナック",
-  "categoryHouseholdSupplies": "家庭用品",
+  "categoryHouseholdSupplies": "グループの備品",
   "categoryCleaningSupplies": "掃除用品",
   "categoryHomeRepairs": "住宅の修理",
   "categoryHomeServices": "家事サービス",
@@ -1632,7 +1632,7 @@
   "updateRequiredTitle": "アップデートが必要です",
   "updateRequiredMessage": "Monekoの新しいバージョンがあります。利用を続けるには更新してください。",
   "configureWidgetTitle": "ウィジェットの設定",
-  "widgetHouseholdLabel": "家計",
+  "widgetHouseholdLabel": "グループ",
   "personalScope": "個人",
   "currencyLabel": "通貨",
   "noAnalysisAvailable": "分析データがありません",
@@ -1666,7 +1666,7 @@
   "switchingToIndex": "インデックス {index} に切り替え中",
   "errorInitializingRepository": "リポジトリの初期化エラー",
   "errorLoadingDashboard": "ダッシュボードの読み込みエラー",
-  "selectHouseholdToManageSharedBudgets": "共有予算を管理するには家計を選択してください。",
+  "selectHouseholdToManageSharedBudgets": "共有予算を管理するグループを選択してください。",
   "usd": "USD",
   "iEarnedAmountOnCategory": "{category}で{amount}稼ぎました",
   "failedToUpdateExpense": "支出の更新に失敗しました",
@@ -1681,6 +1681,6 @@
   "change_currency_title": "通貨を変更",
   "change_currency_desc": "ここをクリックして希望の通貨に切り替えます。",
   "homeModeTourTitle": "個人予算と共有予算を切り替える",
-  "homeModeTourDescription": "ここをタップして、個人の予算と家計の共有予算を切り替えます。",
+  "homeModeTourDescription": "ここをタップすると、個人予算とグループ予算を切り替えられます。",
   "topCategory": "トップカテゴリ"
 }

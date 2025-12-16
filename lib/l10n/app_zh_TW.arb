@@ -528,8 +528,7 @@
       "days": {
         "type": "int"
       }
-    },
-    "plural": "days"
+    }
   },
   "createHouseholdDescription": "建立一個共享空間，與家人或室友一起追蹤預算和支出。",
   "uploadingImage": "正在上傳圖片...",
@@ -555,8 +554,7 @@
       "days": {
         "type": "int"
       }
-    },
-    "plural": "days"
+    }
   },
   "householdInformation": "家庭資訊",
   "creatingHousehold": "正在建立家庭",
@@ -637,7 +635,7 @@
   "personalMessageFromInviter": "邀請者的個人訊息",
   "messageFromInviter": "來自邀請者的訊息",
   "joinHouseholdName": "加入「{householdName}」",
-  "householdPreview": "家庭預覽：{householdName}，邀請者：{inviterEmail}",
+  "householdPreview": "家庭預覽：{groupName}，邀請者：{inviterEmail}",
   "invitedBy": "邀請者：{inviterEmail}",
   "invitationExpiresSoon": "邀請將於 {formattedDate} 到期",
   "invitationValidUntilLabel": "邀請有效期限",
@@ -765,7 +763,7 @@
   "selectTargetDate": "選擇目標日期",
   "scenarioQuestionTemplate": "我可以在 {date} 之前 {action} 嗎？",
   "@scenarioQuestionTemplate": {
-    "description": "Template for scenario planning questions. CRITICAL: Adjust word order for your language's grammar structure.\n\nLANGUAGE STRUCTURE EXAMPLES:\n• English (SVO): Can I {action} before {date}?\n• Chinese (STV): 我可以在{date}前{action}吗？\n• Japanese (SOV): {date}前に{action}できますか？\n• Korean (SOV): {date} 전에 {action}할 수 있나요?\n• Spanish (VSO): ¿Puedo {action} antes del {date}?\n• French (VSO): Puis-je {action} avant le {date}?\n• German (V2): Kann ich {action} vor dem {date}?\n• Russian (SVO): Могу ли я {action} до {date}?\n• Arabic (VSO): هل يمكنني {action} قبل {date}؟\n• Hindi (SOV): क्या मैं {date} से पहले {action} कर सकता हूँ?\n• Urdu (SOV): کیا میں {date} से पहले {action} कर سکتا ہوں؟\n• Turkish (SOV): {date} öncesi {action} yapabilir miyim?\n• Dutch (SVO): Kan ik {action} voor {date}?\n• Swedish (SVO): Kan jag {action} före {date}?\n• Polish (SVO): Czy mogę {action} przed {date}?\n• Thai (SVO): ฉันสามารถ {action} ก่อน {date} ได้ไหม?\n• Vietnamese (SVO): Tôi có thể {action} trước {date} không?\n• Indonesian (SVO): Bisakah saya {action} sebelum {date}?\n\nIMPORTANT: Consider your language's unique features:\n- Gender agreement (Romance languages)\n- Case systems (Germanic, Slavic languages)\n- Honorific levels (Asian languages)\n- Right-to-left script (Arabic, Hebrew)\n- Postpositions (Indian languages)\n- Verb position variations",
+    "description": "Template for scenario planning questions. CRITICAL: Adjust word order for your language's grammar structure.",
     "placeholders": {
       "action": {
         "type": "String",
@@ -779,8 +777,7 @@
   },
   "scenarioDateFormat": "yyyy/MM/dd",
   "@scenarioDateFormat": {
-    "description": "Date format for scenario planning. Use standard ICU DateFormat patterns.\n\nREGIONAL DATE FORMAT EXAMPLES:\n• United States: MM/dd/yyyy (01/25/2025)\n• United Kingdom: dd/MM/yyyy (25/01/2025)\n• China/Japan/Korea: yyyy/MM/dd (2025/01/25)\n• Germany: dd.MM.yyyy (25.01.2025)\n• France: dd/MM/yyyy (25/01/2025)\n• Spain: dd/MM/yyyy (25/01/2025)\n• Italy: dd/MM/yyyy (25/01/2025)\n• Russia: dd.MM.yyyy (25.01.2025)\n• Arabic (Egypt): dd/MM/yyyy (25/01/2025)\n• Hindi: dd-MM-yyyy (25-01-2025)\n• Urdu: dd/MM/yyyy (25/01/2025)\n• Thai: dd/MM/yyyy (25/01/2565) [Note: Buddhist calendar]\n• Vietnamese: dd/MM/yyyy (25/01/2025)\n• Indonesian: dd/MM/yyyy (25/01/2025)\n• Turkish: dd.MM.yyyy (25.01.2025)\n• Dutch: dd-MM-yyyy (25-01-2025)\n• Swedish: yyyy-MM-dd (2025-01-25)\n• Polish: dd.MM.yyyy (25.01.2025)\n\nSPECIAL CONSIDERATIONS:\n- Buddhist calendar (Thailand): Year + 543\n- Islamic calendar (Arabic countries): Different year system\n- Hebrew calendar (Israel): Different year system\n- Era naming (Japanese): Reiwa, Heisei, etc.\n- Lunar calendars (Chinese, Korean, Vietnamese)\n- Week start day (Sunday vs Monday)\n- Use of separators: /, -, ., or spaces",
-    "example": "2025/01/25"
+    "description": "Date format for scenario planning, following yyyy/MM/dd pattern"
   },
   "analysisFailed": "分析失敗：{error}",
   "@analysisFailed": {
@@ -839,7 +836,7 @@
   "expenseNotFoundOrDeleted": "找不到支出或支出已被刪除",
   "onlyAdminsAndOwnersCanEditHouseholdSettings": "只有管理員和擁有者可以編輯家庭設定",
   "onlyAdminsAndOwnersCanCreateInvitations": "只有管理員和擁有者可以建立邀請",
-  "shareInvitationForHousehold": "分享家庭 {householdName} 的邀請",
+  "shareInvitationForHousehold": "分享家庭 {groupName} 的邀請",
   "@shareInvitationForHousehold": {
     "placeholders": {
       "householdName": {
@@ -848,7 +845,7 @@
     }
   },
   "shareInvitation": "分享邀請",
-  "householdCreatedSuccessfully": "家庭 {householdName} 建立成功",
+  "householdCreatedSuccessfully": "家庭 {groupName} 建立成功",
   "@householdCreatedSuccessfully": {
     "placeholders": {
       "householdName": {
@@ -856,7 +853,7 @@
       }
     }
   },
-  "householdCreatedSuccessfullyWithQuotes": "家庭 \"{householdName}\" 建立成功！",
+  "householdCreatedSuccessfullyWithQuotes": "家庭 \"{groupName}\" 建立成功！",
   "@householdCreatedSuccessfullyWithQuotes": {
     "placeholders": {
       "householdName": {
@@ -879,7 +876,7 @@
   "share": "分享",
   "closeShareSheet": "關閉分享面板",
   "invitationLinkCopiedToClipboard": "邀請連結已複製到剪貼簿！",
-  "joinMyHouseholdMessage": "來 Moneko 加入我的家庭 \"{householdName}\" 吧！\n\n{inviteUrl}",
+  "joinMyHouseholdMessage": "來 Moneko 加入我的家庭 \"{groupName}\" 吧！\n\n{inviteUrl}",
   "@joinMyHouseholdMessage": {
     "placeholders": {
       "householdName": {

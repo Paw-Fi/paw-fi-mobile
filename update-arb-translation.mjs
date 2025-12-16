@@ -52,7 +52,7 @@ function updateLocale(locale) {
     if (!perLocale || !(locale in perLocale)) continue;
 
     // skip if the key already exists
-    if (key in arbJson) continue;
+    //if (key in arbJson) continue;
 
     arbJson[key] = perLocale[locale];
     addedCount++;

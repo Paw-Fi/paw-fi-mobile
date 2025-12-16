@@ -329,18 +329,18 @@
   "txns": "txns",
   "pleaseEnterExpenseDetails": "Please enter expense details",
   "userNotLoggedIn": "User not logged in",
-  "errorLoadingHouseholds": "Error Loading Households",
-  "welcomeToHouseholds": "Welcome to Households",
+  "errorLoadingHouseholds": "Error Loading Groups",
+  "welcomeToHouseholds": "Welcome to Groups",
   "householdsDescription": "Manage shared finances with your family, partner, or roommates. Track budgets, split expenses, and collaborate on money decisions.",
-  "createHousehold": "Create Household",
+  "createHousehold": "Create Group",
   "joinWithInvite": "Join with Invite",
-  "pleaseUseInvitationLink": "Please use an invitation link to join a household",
-  "householdName": "Household Name",
+  "pleaseUseInvitationLink": "Please use an invitation link to join a group",
+  "householdName": "Group Name",
   "householdNameHint": "e.g., The Smiths",
-  "pleaseEnterHouseholdName": "Please enter a household name",
-  "errorCreatingHousehold": "Error creating household",
-  "householdsFeature": "Households Feature",
-  "householdsFeatureDescription": "The Households feature is now available! Manage shared finances with family, partners, or roommates.",
+  "pleaseEnterHouseholdName": "Please enter a group name",
+  "errorCreatingHousehold": "Error creating group",
+  "householdsFeature": "Groups Feature",
+  "householdsFeatureDescription": "The Groups feature is now available! Manage shared finances with family, partners, or roommates.",
   "gotIt": "Got it!",
   "confirmExpense": "Confirm Expense",
   "expenseDetails": "Expense Details",
@@ -352,18 +352,18 @@
   "notes": "Notes",
   "receipt": "Receipt",
   "saveExpense": "Save Expense",
-  "shareWithHousehold": "Share with Household",
-  "loadingHouseholdMembers": "Loading household members...",
-  "selectHouseholdToConfigureSplit": "Select a household to configure split",
-  "currencyManagedByHousehold": "Currency is managed by the household and cannot be changed",
-  "currencyCannotBeChanged": "Currency cannot be changed when sharing with a household",
+  "shareWithHousehold": "Share with Group",
+  "loadingHouseholdMembers": "Loading group members...",
+  "selectHouseholdToConfigureSplit": "Select a group to configure split",
+  "currencyManagedByHousehold": "Currency is managed by the group and cannot be changed",
+  "currencyCannotBeChanged": "Currency cannot be changed when sharing with a group",
   "cannotEditOthersExpenses": "You can only edit your own expenses",
   "failedToLoadImage": "Failed to load image",
   "editAmount": "Edit Amount",
   "amount": "Amount",
   "editNotes": "Edit Notes",
   "addANote": "Add a note...",
-  "noMembersFoundInHousehold": "No members found in household",
+  "noMembersFoundInHousehold": "No members found in group",
   "errorLoadingMembers": "Error loading members",
   "noExpenseToSave": "No expense to save",
   "expenseSavedAndShared": "Expense saved and shared{splitInfo}!",
@@ -375,36 +375,36 @@
   "iSpentAmountOnCategory": "I spent {currencySymbol}{amount} on {category}",
   "enterNewTotalDailyBudgetDescription": "Enter the new total daily budget.",
   "@household": {},
-  "pleaseSignInToAccessHouseholdFeatures": "Please sign in to access household features",
+  "pleaseSignInToAccessHouseholdFeatures": "Please sign in to access group features",
   "quickActions": "Quick Actions",
   "members": "Members",
   "invites": "Invites",
   "errorLoadingExpenses": "Error Loading Expenses",
   "budgets": "Budgets",
-  "loadingHousehold": "Loading household...",
+  "loadingHousehold": "Loading group...",
   "remaining": "Remaining",
   "overBudget": "Over Budget",
   "sharedBudgets": "Shared Budgets",
   "netPosition": "Net position",
-  "spentByHousehold": "Spent by Household",
+  "spentByHousehold": "Spent by Group",
   "memberSpending": "Member Spending",
-  "spentByHouseholdTooltip": "This shows the total amount spent by all household members during the selected period. It includes all shared expenses logged by any member of the household.",
+  "spentByHouseholdTooltip": "This shows the total amount spent by all group members during the selected period. It includes all shared expenses logged by any member of the group.",
   "manageMoneyTogether": "Manage money together with your partner, family, or roommates in one shared space.",
   "sharedBudgetsExpenses": "Shared Budgets & Expenses",
-  "sharedBudgetsExpensesDesc": "Set budgets, track spending, and see where your household money goes in real-time.",
+  "sharedBudgetsExpensesDesc": "Set budgets, track spending, and see where your group money goes in real-time.",
   "smartExpenseSplitting": "Smart Expense Splitting",
   "smartExpenseSplittingDesc": "Automatically calculate who owes what with flexible split options: equal, percentage, or custom amounts.",
   "stayInSync": "Stay in Sync",
   "stayInSyncDesc": "Get notified when expenses are added, budgets are reached, or splits need settling.",
   "@householdSettings": {},
-  "householdSettings": "Household Settings",
-  "householdNotFound": "Household not found",
+  "householdSettings": "Group Settings",
+  "householdNotFound": "Group not found",
   "coverPhoto": "Cover Photo",
   "changeCoverPhoto": "Change Cover Photo",
   "saveChanges": "Save Changes",
-  "errorLoadingHousehold": "Error loading household",
-  "householdUpdatedSuccessfully": "Household updated successfully",
-  "failedToUpdateHousehold": "Failed to update household",
+  "errorLoadingHousehold": "Error loading group",
+  "householdUpdatedSuccessfully": "Group updated successfully",
+  "failedToUpdateHousehold": "Failed to update group",
   "@householdMembers": {},
   "inviteMember": "Invite Member",
   "removeMember": "Remove Member",
@@ -425,7 +425,7 @@
   "emailOptional": "Email (optional)",
   "friendEmailExample": "friend@example.com",
   "personalMessageOptional": "Personal Message (optional)",
-  "joinHouseholdBudget": "Join our household budget!",
+  "joinHouseholdBudget": "Join our group budget!",
   "expiresIn": "Expires In",
   "oneDay": "1 Day",
   "threeDays": "3 Days",
@@ -535,7 +535,7 @@
   "categoryTakeoutDelivery": "Takeout & Delivery",
   "categoryCoffeeTea": "Coffee & Tea",
   "categorySnacks": "Snacks",
-  "categoryHouseholdSupplies": "Household Supplies",
+  "categoryHouseholdSupplies": "Group Supplies",
   "categoryCleaningSupplies": "Cleaning Supplies",
   "categoryHomeRepairs": "Home Repairs",
   "categoryHomeServices": "Home Services",
@@ -649,7 +649,7 @@
   "accepted": "Accepted",
   "revoked": "Revoked",
   "tapToChangeCover": "Tap to change cover",
-  "personalMessageHint": "Say something to your invitees (e.g., \"Join our household budget!\")",
+  "personalMessageHint": "Say something to your invitees (e.g., \"Join our group budget!\")",
   "invitationExpiresIn": "Invitation Expires In",
   "daysCount": "{days} day{days, plural, =1 {} other {s}}",
   "@daysCount": {
@@ -663,7 +663,7 @@
   "uploadingImage": "Uploading Image...",
   "creating": "Creating...",
   "generatingInvite": "Generating Invite...",
-  "pleaseSelectValidCurrency": "Please select a valid household currency",
+  "pleaseSelectValidCurrency": "Please select a valid group currency",
   "nameMaxLength": "Name must be less than {max} characters",
   "@nameMaxLength": {
     "placeholders": {
@@ -672,9 +672,9 @@
       }
     }
   },
-  "createHouseholdPage": "Create household page",
+  "createHouseholdPage": "Create a group",
   "invitationPersonalMessageInput": "Invitation personal message input",
-  "householdNameInput": "Household name input",
+  "householdNameInput": "Group name input",
   "invitationExpirationSelector": "Invitation expiration selector",
   "unlimitedExpiration": "Unlimited expiration",
   "daysExpiration": "{days} day{days, plural, =1 {} other {s}} expiration",
@@ -685,9 +685,9 @@
       }
     }
   },
-  "householdInformation": "Household information",
-  "creatingHousehold": "Creating household",
-  "createHouseholdButton": "Create household button",
+  "householdInformation": "Group information",
+  "creatingHousehold": "Creating group",
+  "createHouseholdButton": "Create group",
   "searchExpenses": "Search expenses...",
   "clearAll": "Clear All",
   "allCategories": "All Categories",
@@ -714,7 +714,7 @@
   "noData": "No data",
   "filterTransactions": "Filter Transactions",
   "noTransactionsFound": "No transactions found",
-  "failedToLoadHouseholdTransactions": "Failed to load household transactions",
+  "failedToLoadHouseholdTransactions": "Failed to load group transactions",
   "reset": "Reset",
   "apply": "Apply",
   "expenses": "Expenses",
@@ -724,7 +724,7 @@
   "tryAdjustingFilters": "Try adjusting your filters",
   "split": "Split",
   "note": "Note",
-  "currencyCannotBeChangedWhenSharing": "Currency cannot be changed when sharing with a household",
+  "currencyCannotBeChangedWhenSharing": "Currency cannot be changed when sharing with a group",
   "createBudget": "Create Budget",
   "pleaseEnterABudgetName": "Please enter a budget name",
   "pleaseEnterAValidAmountGreaterThan0": "Please enter a valid amount greater than 0",
@@ -735,14 +735,14 @@
   "failedToCreateBudget": "Failed to create budget",
   "groceriesRentEntertainment": "e.g., Groceries, Rent, Entertainment",
   "budgetType": "Budget Type",
-  "sharedWithAllHouseholdMembers": "Shared with all household members",
+  "sharedWithAllHouseholdMembers": "Shared with all group members",
   "personalBudgetForYourExpensesOnly": "Personal budget for your expenses only",
   "countSplitPortionOnly": "Count Split Portion Only",
   "onlyCountYourPortionOfSplitExpenses": "Only count your portion of split expenses towards this budget",
-  "joinHousehold": "Join Household",
-  "joinAHousehold": "Join a Household",
+  "joinHousehold": "Join Group",
+  "joinAHousehold": "Join a Group",
   "enterYourInvitationLinkToJoin": "Enter your invitation link to join\na shared financial space",
-  "pasteTheInvitationLinkYouReceived": "Paste the invitation link you received from a household member",
+  "pasteTheInvitationLinkYouReceived": "Paste the invitation link you received from a group member",
   "pasteInvitationLink": "Paste invitation link",
   "pleaseEnterAnInvitationLink": "Please enter an invitation link",
   "pleaseEnterAValidInvitationLink": "Please enter a valid invitation link",
@@ -750,19 +750,19 @@
   "validating": "Validating...",
   "continueAction": "Continue",
   "welcomeAboard": "Welcome Aboard!",
-  "youreNowPartOfTheHousehold": "You're now part of the household.\nStart collaborating on your finances!",
+  "youreNowPartOfTheHousehold": "You're now part of the group.\nStart collaborating on your finances!",
   "thisWillOnlyTakeAMoment": "This will only take a moment",
   "unableToJoin": "Unable to Join",
   "tryAgain": "Try Again",
-  "goToHousehold": "Go to Household",
+  "goToHousehold": "Go to Group",
   "expiresSoon": "Expires soon",
   "invitationValidUntil": "Invitation valid until {formattedDate}",
   "whatYoullGet": "What you'll get",
   "viewSharedBudgetsAndExpenses": "View shared budgets and expenses",
-  "trackHouseholdFinancialHealth": "Track household financial health",
+  "trackHouseholdFinancialHealth": "Track group financial health",
   "collaborateOnFinancialDecisions": "Collaborate on financial decisions",
   "@householdOverview": {},
-  "household": "Household",
+  "household": "Group",
   "viewAll": "View All",
   "manage": "Manage",
   "noBudgetsYet": "No budgets yet",
@@ -847,7 +847,7 @@
   "transactionDeleted": "Transaction deleted",
   "recentTransactions": "Recent transactions",
   "failedToDeleteRecurringTransaction": "Failed to delete recurring transaction",
-  "currencyIsManagedByHousehold": "Currency is managed by the household and cannot be changed",
+  "currencyIsManagedByHousehold": "Currency is managed by the group and cannot be changed",
   "@expenseSavedAndShared": {
     "placeholders": {
       "splitInfo": {
@@ -937,29 +937,29 @@
   "expenseDeletedSuccessfully": "Expense deleted successfully",
   "failedToDeleteExpense": "Failed to delete expense",
   "expenseNotFoundOrDeleted": "Expense not found or has been deleted",
-  "onlyAdminsAndOwnersCanEditHouseholdSettings": "Only admins and owners can edit household settings",
+  "onlyAdminsAndOwnersCanEditHouseholdSettings": "Only admins and owners can edit group settings",
   "onlyAdminsAndOwnersCanCreateInvitations": "Only admins and owners can create invitations",
-  "shareInvitationForHousehold": "Share invitation for {householdName} household",
+  "shareInvitationForHousehold": "Share invitation for {groupName} group",
   "@shareInvitationForHousehold": {
     "placeholders": {
-      "householdName": {
+      "groupName": {
         "type": "String"
       }
     }
   },
   "shareInvitation": "Share Invitation",
-  "householdCreatedSuccessfully": "Household {householdName} created successfully",
+  "householdCreatedSuccessfully": "Group {groupName} created successfully",
   "@householdCreatedSuccessfully": {
     "placeholders": {
-      "householdName": {
+      "groupName": {
         "type": "String"
       }
     }
   },
-  "householdCreatedSuccessfullyWithQuotes": "Household \"{householdName}\" created successfully!",
+  "householdCreatedSuccessfullyWithQuotes": "Group \"{groupName}\" created successfully!",
   "@householdCreatedSuccessfullyWithQuotes": {
     "placeholders": {
-      "householdName": {
+      "groupName": {
         "type": "String"
       }
     }
@@ -979,10 +979,10 @@
   "share": "Share",
   "closeShareSheet": "Close share sheet",
   "invitationLinkCopiedToClipboard": "Invitation link copied to clipboard!",
-  "joinMyHouseholdMessage": "Join my household \"{householdName}\" on Moneko!\n\n{inviteUrl}",
+  "joinMyHouseholdMessage": "Join my group \"{groupName}\" on Moneko!\n\n{inviteUrl}",
   "@joinMyHouseholdMessage": {
     "placeholders": {
-      "householdName": {
+      "groupName": {
         "type": "String"
       },
       "inviteUrl": {
@@ -990,7 +990,7 @@
       }
     }
   },
-  "joinMyHouseholdSubject": "Join my household on Moneko",
+  "joinMyHouseholdSubject": "Join my group on Moneko",
   "zeroAmount": "0.00",
   "dollarPrefix": "$ ",
   "notificationSettings": "Notification Settings",
@@ -1051,7 +1051,7 @@
       }
     }
   },
-  "householdBudgetType": "Household Budget",
+  "householdBudgetType": "Group Budget",
   "personalBudgetType": "Personal Budget",
   "@householdJoin": {},
   "joinHouseholdName": "Join \"{householdName}\"",
@@ -1062,10 +1062,10 @@
       }
     }
   },
-  "householdPreview": "Household preview: {householdName}, invited by {inviterEmail}",
+  "householdPreview": "Group preview: {groupName}, invited by {inviterEmail}",
   "@householdPreview": {
     "placeholders": {
-      "householdName": {
+      "groupName": {
         "type": "String"
       },
       "inviterEmail": {
@@ -1099,7 +1099,7 @@
   "invitationValidUntilLabel": "Invitation valid until",
   "personalMessageFromInviter": "Personal message from inviter",
   "messageFromInviter": "Message from inviter",
-  "joiningHousehold": "Joining Household",
+  "joiningHousehold": "Joining Group",
   "errorWithMessage": "Error: {errorMessage}",
   "@errorWithMessage": {
     "placeholders": {
@@ -1168,7 +1168,7 @@
   "incomeSaved": "Income saved",
   "incomeSavedAndShared": "Income saved and shared",
   "noIncome": "No Income Yet",
-  "noIncomeDescription": "Record your income to track your household's financial health",
+  "noIncomeDescription": "Record your income to track your group's financial health",
   "totalIncome": "Total Income",
   "monthToDate": "Month-to-Date",
   "yearToDate": "YTD",
@@ -1186,7 +1186,7 @@
   "privacyPrivate": "Private",
   "privacyFullExplanation": "Partner can see all details including amount, source, and description.",
   "privacyBalancesOnlyExplanation": "Partner can see this income in totals but not the details (source, description hidden).",
-  "privacyPrivateExplanation": "Only you can see this income. It contributes to household totals but partner cannot see details.",
+  "privacyPrivateExplanation": "Only you can see this income. It contributes to group totals but partner cannot see details.",
   "incomeSalary": "Salary",
   "incomeFreelance": "Freelance",
   "incomeInvestment": "Investment",
@@ -1305,7 +1305,7 @@
   "noOutstandingAmounts": "No outstanding amounts",
   "groupFairnessTitle": "Group Fairness",
   "groupFairness": "Group fairness",
-  "groupFairnessExplanation": "This shows how evenly spending is distributed among household members.\n\nA higher percentage means everyone is contributing their fair share. A lower percentage suggests some members are covering more expenses than others.\n\nThink of it like a team effort — when everyone pitches in equally, the fairness score is high. When one person is carrying most of the load, it drops.\n\nThe \"even share\" tells you what each person would owe if everything was split equally.",
+  "groupFairnessExplanation": "This shows how evenly spending is distributed among group members.\n\nA higher percentage means everyone is contributing their fair share. A lower percentage suggests some members are covering more expenses than others.\n\nThink of it like a team effort — when everyone pitches in equally, the fairness score is high. When one person is carrying most of the load, it drops.\n\nThe \"even share\" tells you what each person would owe if everything was split equally.",
   "noMemberDataYet": "No member data yet",
   "evenShare": "Even share: {amount}",
   "@evenShare": {
@@ -1315,8 +1315,8 @@
       }
     }
   },
-  "viewHousehold": "View Household",
-  "invalidInvitationMissingInfo": "Invalid invitation: missing household information",
+  "viewHousehold": "View Group",
+  "invalidInvitationMissingInfo": "Invalid invitation: missing group information",
   "joinedHouseholdWithName": "You've successfully joined {name}!",
   "@joinedHouseholdWithName": {
     "placeholders": {
@@ -1325,7 +1325,7 @@
       }
     }
   },
-  "joinedHousehold": "You've successfully joined the household!",
+  "joinedHousehold": "You've successfully joined the group!",
   "errorLoadingSplits": "Error loading splits",
   "markAsSettled": "Mark as Settled",
   "splitDetails": "Split Details",
@@ -1345,7 +1345,7 @@
     }
   },
   "noSplitsYet": "No splits yet",
-  "startSplittingExpensesWithYourHousehold": "Start splitting expenses with your household",
+  "startSplittingExpensesWithYourHousehold": "Start splitting expenses with your group",
   "minutesAgoShort": "{count}m ago",
   "@minutesAgoShort": {
     "placeholders": {
@@ -1386,8 +1386,8 @@
   "youreIn": "You're in! 🎉",
   "invitationError": "Invitation Error",
   "processingInvitation": "Processing invitation...",
-  "noHouseholdsAvailableCreateOrJoin": "No households available. Create or join a household first.",
-  "selectHousehold": "Select Household",
+  "noHouseholdsAvailableCreateOrJoin": "No groups available. Create or join a group first.",
+  "selectHousehold": "Select Group",
   "yourPockets": "Your Pockets",
   "editPocket": "Edit Pocket",
   "addPocket": "Add Pocket",
@@ -1399,7 +1399,7 @@
   "pleaseEnterPocketName": "Please enter a pocket name",
   "pleaseEnterPocketPercentage": "Please enter a percentage",
   "pleaseEnterValidPocketPercentage": "Please enter a valid percentage (0-100)",
-  "pleaseSelectHouseholdFirst": "Please select a household first",
+  "pleaseSelectHouseholdFirst": "Please select a group first",
   "pleaseSetMonthlyBudgetFirst": "Please set a monthly budget first",
   "pocketAllocationLabel": "Allocation",
   "pocketCategoriesLabel": "Categories",
@@ -1487,7 +1487,7 @@
   "takeoutAndDelivery": "Takeout & Delivery",
   "cofeeAndTea": "Coffee & Tea",
   "snacks": "Snacks",
-  "householdSupplies": "Household Supplies",
+  "householdSupplies": "Group Supplies",
   "cleaningSupplies": "Cleaning Supplies",
   "homeRepairs": "Home Repairs",
   "homeServices": "Home Services",
@@ -1636,7 +1636,7 @@
   "updateRequiredTitle": "Update Required",
   "updateRequiredMessage": "A new version of Moneko is available. Please update to continue using the app.",
   "configureWidgetTitle": "Configure Widget",
-  "widgetHouseholdLabel": "Household",
+  "widgetHouseholdLabel": "Group",
   "personalScope": "Personal",
   "currencyLabel": "Currency",
   "noAnalysisAvailable": "No analysis available",
@@ -1670,7 +1670,7 @@
   "switchingToIndex": "Switching to index {index}",
   "errorInitializingRepository": "Error initializing repository",
   "errorLoadingDashboard": "Error loading dashboard",
-  "selectHouseholdToManageSharedBudgets": "Select a household to manage shared budgets.",
+  "selectHouseholdToManageSharedBudgets": "Select a group to manage shared budgets.",
   "usd": "USD",
   "iEarnedAmountOnCategory": "I earned {amount} on {category}",
   "failedToUpdateExpense": "Failed to update expense",
@@ -1685,6 +1685,6 @@
   "change_currency_title": "Change Currency",
   "change_currency_desc": "Click here to switch to your preferred currency.",
   "homeModeTourTitle": "Switch between personal and shared budgets",
-  "homeModeTourDescription": "Tap here to switch between your personal budget and shared household budgets.",
+  "homeModeTourDescription": "Tap here to switch between your personal budget and shared group budgets.",
   "topCategory": "Top category"
 }
