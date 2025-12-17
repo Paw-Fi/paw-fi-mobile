@@ -1680,7 +1680,7 @@
   "you": "Du",
   "change_currency_title": "Währung ändern",
   "change_currency_desc": "Klicke hier, um zur bevorzugten Währung zu wechseln.",
-  "homeModeTourTitle": "Zwischen privatem und gemeinsamem Budget wechseln",
-  "homeModeTourDescription": "Tippe hier, um zwischen deinem persönlichen Budget und geteilten Gruppenbudgets zu wechseln.",
+  "homeModeTourTitle": "Zwischen persönlichem und Gruppenmodus wechseln",
+  "homeModeTourDescription": "Tippe hier, um zwischen deinen persönlichen Daten und den Daten der Gruppe zu wechseln.",
   "topCategory": "Top-Kategorie"
 }

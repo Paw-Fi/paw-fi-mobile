@@ -535,8 +535,6 @@ class _HomePageState extends ConsumerState<HomePage> {
 
     final scrollView = CustomScrollView(
       slivers: [
-        // Content only: header is provided globally in MainShell
-        const SliverToBoxAdapter(child: HomeHeaderSliver()),
         const SliverToBoxAdapter(child: SizedBox(height: 16)),
         if (viewMode.mode == ViewMode.household) ...[
           const HouseholdHomeContent(),

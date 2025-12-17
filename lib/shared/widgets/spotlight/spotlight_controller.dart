@@ -160,8 +160,8 @@ class SpotlightTourController {
     // personal/household switch.
     const Map<String, int> homeStepOrder = {
       'home_unified_fab': 0,
-      'home_header_currency': 1,
-      'home_header_mode_switch': 2,
+      'home_header_mode_switch': 1,
+      'home_header_currency': 2,
     };
 
     _steps.sort((a, b) {

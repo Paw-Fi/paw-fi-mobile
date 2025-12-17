@@ -1680,7 +1680,7 @@
   "you": "あなた",
   "change_currency_title": "通貨を変更",
   "change_currency_desc": "ここをクリックして希望の通貨に切り替えます。",
-  "homeModeTourTitle": "個人予算と共有予算を切り替える",
-  "homeModeTourDescription": "ここをタップすると、個人予算とグループ予算を切り替えられます。",
+  "homeModeTourTitle": "個人モードとグループモードを切り替える",
+  "homeModeTourDescription": "ここをタップして、あなた個人のデータとグループのデータを切り替えます。",
   "topCategory": "トップカテゴリ"
 }

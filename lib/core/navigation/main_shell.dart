@@ -2,16 +2,15 @@ import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:moneko/core/navigation/custom_drawer.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:moneko/core/navigation/zoom_drawer_provider.dart';
 
 import 'package:moneko/features/home/presentation/pages/home_page.dart';
 import 'package:moneko/features/insights/presentation/pages/insights_page.dart';
 import 'package:moneko/features/recurring/pages/recurring_transactions_page.dart';
 import 'package:moneko/features/pockets/presentation/pages/pockets_page.dart';
+import 'package:moneko/features/home/presentation/widgets/home_header_sliver.dart';
 import 'package:moneko/features/home/presentation/state/widget_launch_provider.dart';
 import 'package:moneko/features/home/presentation/services/widget_sync_manager.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -29,7 +28,6 @@ class MainShell extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final currentIndex = ref.watch(mainShellTabIndexProvider);
     final colorScheme = Theme.of(context).colorScheme;
-    final zoomController = ref.read(zoomDrawerControllerProvider);
 
     final pages = [
       const HomePage(),
@@ -83,16 +81,23 @@ class MainShell extends HookConsumerWidget {
       body: SafeArea(
         child: Material(
           color: colorScheme.appBackground,
-          child: Stack(
+          child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 0.0),
-                child: IndexedStack(
-                  index: currentIndex,
-                  children: pages,
+              const HomeHeaderSliver(),
+              Expanded(
+                child: Stack(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 0.0),
+                      child: IndexedStack(
+                        index: currentIndex,
+                        children: pages,
+                      ),
+                    ),
+                    const WidgetSyncManager(),
+                  ],
                 ),
               ),
-              const WidgetSyncManager(),
             ],
           ),
         ),

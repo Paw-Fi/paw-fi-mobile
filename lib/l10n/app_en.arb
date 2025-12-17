@@ -1684,7 +1684,7 @@
   "you": "You",
   "change_currency_title": "Change Currency",
   "change_currency_desc": "Click here to switch to your preferred currency.",
-  "homeModeTourTitle": "Switch between personal and shared budgets",
-  "homeModeTourDescription": "Tap here to switch between your personal budget and shared group budgets.",
+  "homeModeTourTitle": "Switch between personal and group mode",
+  "homeModeTourDescription": "Tap here to switch between your personal data and your group’s data.",
   "topCategory": "Top category"
 }

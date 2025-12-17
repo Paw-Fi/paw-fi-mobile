@@ -1,4 +1,5 @@
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -8,6 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/navigation/custom_drawer.dart';
 import 'package:moneko/core/navigation/zoom_drawer_provider.dart';
+import 'package:moneko/shared/widgets/spotlight/spotlight_controller.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_target.dart';
 import 'package:moneko/features/home/presentation/state/home_spotlight_providers.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -44,6 +46,12 @@ Household _resolveSelectedHousehold(
     (h) => h.id == selectedId,
     orElse: () => households.first,
   );
+}
+
+String _truncateMenuLabel(String label, {int maxLength = 20}) {
+  final trimmed = label.trim();
+  if (trimmed.length <= maxLength) return trimmed;
+  return '${trimmed.substring(0, maxLength - 1)}…';
 }
 
 /// Leading widget for app bar that includes:
@@ -147,6 +155,33 @@ class HomeHeaderSliver extends ConsumerWidget {
             selectedHouseholdState.household?.id)
         : null;
 
+    final personalLabel = _truncateMenuLabel(
+      (user.displayName?.trim().isNotEmpty == true)
+          ? user.displayName!
+          : (user.email.contains('@') ? user.email.split('@').first : user.email),
+    );
+
+    final profilePillLabel = _truncateMenuLabel(
+      viewMode.mode == ViewMode.personal
+          ? ((user.displayName?.trim().isNotEmpty == true)
+              ? user.displayName!
+              : (user.email.contains('@')
+                  ? user.email.split('@').first
+                  : user.email))
+          : householdsAsync.when(
+              loading: () => context.l10n.forUs,
+              error: (_, __) => context.l10n.forUs,
+              data: (households) {
+                if (households.isEmpty) return context.l10n.forUs;
+                return _resolveSelectedHousehold(
+                  selectedHouseholdState,
+                  households,
+                ).name;
+              },
+            ),
+      maxLength: 18,
+    );
+
     // Profile Pill (Left)
     final profilePill = AdaptivePopupMenuButton.widget(
       child: Container(
@@ -170,23 +205,7 @@ class HomeHeaderSliver extends ConsumerWidget {
             const SizedBox(width: 8),
             Flexible(
               child: Text(
-                viewMode.mode == ViewMode.personal
-                    ? (user.displayName?.isNotEmpty == true
-                        ? user.displayName!
-                        : user.email.split('@').first)
-                    : householdsAsync.when(
-                        loading: () => context.l10n.forUs,
-                        error: (_, __) => context.l10n.forUs,
-                        data: (households) {
-                          if (households.isEmpty) {
-                            return context.l10n.forUs;
-                          }
-                          return _resolveSelectedHousehold(
-                            selectedHouseholdState,
-                            households,
-                          ).name;
-                        },
-                      ),
+                profilePillLabel,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -207,7 +226,7 @@ class HomeHeaderSliver extends ConsumerWidget {
       ),
       items: [
         AdaptivePopupMenuItem(
-          label: "Personal Account",
+          label: personalLabel,
           icon: PlatformInfo.isIOS26OrHigher()
               ? 'person.crop.circle.fill'
               : Icons.account_circle,
@@ -217,7 +236,7 @@ class HomeHeaderSliver extends ConsumerWidget {
           data: (households) => households
               .map(
                 (household) => AdaptivePopupMenuItem(
-                  label: household.name,
+                  label: _truncateMenuLabel(household.name),
                   icon:
                       PlatformInfo.isIOS26OrHigher() ? 'person.2.fill' : Icons.group,
                   value: 'household:${household.id}',
@@ -290,8 +309,8 @@ class HomeHeaderSliver extends ConsumerWidget {
         id: 'home_header_currency',
         title: context.l10n.change_currency_title,
         description: context.l10n.change_currency_desc,
-        padding: 4,
-        borderRadius: 20,
+        padding: 6,
+        borderRadius: 24,
         child: Container(
           height: 40,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -401,6 +420,17 @@ class HomeHeaderSliver extends ConsumerWidget {
                   currencyPill,
                   const SizedBox(width: 8),
                   menuButton,
+                  if (kDebugMode) ...[
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.bug_report_outlined, size: 20),
+                      tooltip: 'Reset tours',
+                      onPressed: () async {
+                        await SpotlightTourController.resetAllTours();
+                        debugPrint('🔁 Spotlight tours reset for debugging');
+                      },
+                    ),
+                  ],
                 ],
               ),
             ],

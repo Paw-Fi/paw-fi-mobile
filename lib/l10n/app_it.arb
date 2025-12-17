@@ -1627,7 +1627,7 @@
   "you": "Tu",
   "change_currency_title": "Cambia valuta",
   "change_currency_desc": "Fai clic qui per passare alla tua valuta preferita.",
-  "homeModeTourTitle": "Passa tra budget personale e condiviso",
-  "homeModeTourDescription": "Tocca qui per passare dal budget personale ai budget condivisi del gruppo.",
+  "homeModeTourTitle": "Passa tra la modalità personale e quella di gruppo",
+  "homeModeTourDescription": "Tocca qui per passare dai tuoi dati personali a quelli del gruppo.",
   "topCategory": "Categoria principale"
 }

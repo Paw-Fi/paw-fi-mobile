@@ -1679,7 +1679,7 @@
   "you": "Bạn",
   "change_currency_title": "Đổi tiền tệ",
   "change_currency_desc": "Nhấn vào đây để đổi sang tiền tệ bạn muốn.",
-  "homeModeTourTitle": "Chuyển giữa ngân sách cá nhân và ngân sách được chia sẻ",
-  "homeModeTourDescription": "Nhấn vào đây để chuyển đổi giữa ngân sách cá nhân và ngân sách nhóm.",
+  "homeModeTourTitle": "Chuyển giữa chế độ cá nhân và nhóm",
+  "homeModeTourDescription": "Nhấn vào đây để chuyển giữa dữ liệu cá nhân và dữ liệu của nhóm.",
   "topCategory": "Danh mục chính"
 }

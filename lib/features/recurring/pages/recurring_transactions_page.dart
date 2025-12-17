@@ -12,7 +12,6 @@ import 'package:moneko/features/home/presentation/state/home_filter_provider.dar
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
-import 'package:moneko/features/home/presentation/widgets/home_header_sliver.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
@@ -118,7 +117,6 @@ class _RecurringTransactionsPageState
     return AdaptiveScaffold(
       body: Column(
         children: [
-          const HomeHeaderSliver(),
           Expanded(
             child: AdaptiveTabBarView(
               tabs: [

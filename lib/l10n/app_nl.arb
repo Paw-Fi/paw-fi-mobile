@@ -1627,7 +1627,7 @@
   "you": "Jij",
   "change_currency_title": "Valuta wijzigen",
   "change_currency_desc": "Klik hier om over te schakelen naar je gewenste valuta.",
-  "homeModeTourTitle": "Wissel tussen persoonlijk en gedeeld budget",
-  "homeModeTourDescription": "Tik hier om te wisselen tussen je persoonlijke budget en gedeelde groepsbudgetten.",
+  "homeModeTourTitle": "Schakelen tussen persoonlijke en groepsmodus",
+  "homeModeTourDescription": "Tik hier om te wisselen tussen je persoonlijke gegevens en groepsgegevens.",
   "topCategory": "Topcategorie"
 }
