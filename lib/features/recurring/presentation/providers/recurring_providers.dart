@@ -366,8 +366,10 @@ class RecurringTransactionSaveNotifier
       final dateFormatter = DateFormat('yyyy-MM-dd');
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
+      // Normalize startDate to date-only to avoid timezone issues
+      final startDateOnly = DateTime(startDate.year, startDate.month, startDate.day);
       
-      final accountingDate = startDate.isAfter(today) ? today : startDate;
+      final accountingDate = startDateOnly.isAfter(today) ? today : startDateOnly;
       final formattedAccountingDate = dateFormatter.format(accountingDate);
       
       final recurrenceRule = <String, dynamic>{
@@ -486,8 +488,10 @@ class RecurringTransactionSaveNotifier
       final dateFormatter = DateFormat('yyyy-MM-dd');
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
+      // Normalize startDate to date-only to avoid timezone issues
+      final startDateOnly = DateTime(startDate.year, startDate.month, startDate.day);
       
-      final accountingDate = startDate.isAfter(today) ? today : startDate;
+      final accountingDate = startDateOnly.isAfter(today) ? today : startDateOnly;
       final formattedAccountingDate = dateFormatter.format(accountingDate);
       
       final recurrenceRule = <String, dynamic>{
@@ -574,8 +578,10 @@ class RecurringTransactionSaveNotifier
       final dateFormatter = DateFormat('yyyy-MM-dd');
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
+      // Normalize startDate to date-only to avoid timezone issues
+      final startDateOnly = DateTime(startDate.year, startDate.month, startDate.day);
       
-      final accountingDate = startDate.isAfter(today) ? today : startDate;
+      final accountingDate = startDateOnly.isAfter(today) ? today : startDateOnly;
       final formattedAccountingDate = dateFormatter.format(accountingDate);
       
       final recurrenceRule = <String, dynamic>{
@@ -758,8 +764,10 @@ class RecurringTransactionSaveNotifier
       final dateFormatter = DateFormat('yyyy-MM-dd');
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
+      // Normalize startDate to date-only to avoid timezone issues
+      final startDateOnly = DateTime(startDate.year, startDate.month, startDate.day);
       
-      final accountingDate = startDate.isAfter(today) ? today : startDate;
+      final accountingDate = startDateOnly.isAfter(today) ? today : startDateOnly;
       final formattedAccountingDate = dateFormatter.format(accountingDate);
       
       final recurrenceRule = <String, dynamic>{
