@@ -819,9 +819,15 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
         if (_selectedDate == null) {
           return 'Please select a date';
         }
+        // Normalize both dates to start of day in local timezone to avoid timezone issues
         final now = DateTime.now();
         final today = DateTime(now.year, now.month, now.day);
-        if (_selectedDate!.isAfter(today)) {
+        final selectedDateOnly = DateTime(
+          _selectedDate!.year,
+          _selectedDate!.month,
+          _selectedDate!.day,
+        );
+        if (selectedDateOnly.isAfter(today)) {
           return 'Date cannot be in the future';
         }
         return null;
