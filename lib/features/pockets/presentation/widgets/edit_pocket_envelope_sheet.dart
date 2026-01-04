@@ -499,7 +499,8 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                           showModalBottomSheet<void>(
                             context: context,
                             isScrollControlled: true,
-                            backgroundColor: Colors.transparent,
+                            backgroundColor:
+                                colorScheme.surface.withValues(alpha: 0.0),
                             builder: (sheetContext) {
                               return CategoryPickerBottomSheet(
                                 title:context.l10n.selectCategoriesMultiple,
@@ -581,27 +582,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                       ),
                       const SizedBox(height: 12),
                       Builder(builder: (context) {
-                        final presetColors = [
-                          Colors.red,
-                          Colors.pink,
-                          Colors.purple,
-                          Colors.deepPurple,
-                          Colors.indigo,
-                          Colors.blue,
-                          Colors.lightBlue,
-                          Colors.cyan,
-                          Colors.teal,
-                          Colors.green,
-                          Colors.lightGreen,
-                          Colors.lime,
-                          Colors.yellow,
-                          Colors.amber,
-                          Colors.orange,
-                          Colors.deepOrange,
-                          Colors.brown,
-                          Colors.grey,
-                          Colors.blueGrey,
-                        ];
+                        final presetColors = AppTheme.pocketPresetColors;
                         return SizedBox(
                           height: 44,
                           child: ListView.separated(
@@ -639,7 +620,8 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                                     .substring(1, 7),
                                                 radix: 16) +
                                             0xFF000000)
-                                        : const Color(0xFF007AFF); // Default blue
+                                        : AppTheme
+                                            .pocketDefaultBlue; // Default blue
 
                                     AdaptiveColorPicker.show(
                                       context: context,
@@ -671,15 +653,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                       gradient: isCustomColor
                                           ? null
                                           : const SweepGradient(
-                                              colors: [
-                                                Colors.red,
-                                                Colors.yellow,
-                                                Colors.green,
-                                                Colors.cyan,
-                                                Colors.blue,
-                                                Colors.purpleAccent,
-                                                Colors.red
-                                              ],
+                                              colors: AppTheme.pocketColorSweep,
                                             ),
                                       shape: BoxShape.circle,
                                       border: isCustomColor
@@ -692,10 +666,14 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                       ],
                                     ),
                                     child: isCustomColor
-                                        ? const Icon(Icons.check,
-                                            color: Colors.white, size: 20)
-                                        : const Icon(Icons.colorize,
-                                            color: Colors.white, size: 20),
+                                        ? Icon(Icons.check,
+                                            color:
+                                                colorScheme.primaryForeground,
+                                            size: 20)
+                                        : Icon(Icons.colorize,
+                                            color:
+                                                colorScheme.primaryForeground,
+                                            size: 20),
                                   ),
                                 );
                               }
@@ -727,8 +705,10 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                     ],
                                   ),
                                   child: isSelected
-                                      ? const Icon(Icons.check,
-                                          color: Colors.white, size: 20)
+                                      ? Icon(Icons.check,
+                                          color:
+                                              colorScheme.primaryForeground,
+                                          size: 20)
                                       : null,
                                 ),
                               );
@@ -956,7 +936,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                 activeTrackColor: colorScheme.primary,
                                 inactiveTrackColor:
                                     colorScheme.primary.withValues(alpha: 0.1),
-                                thumbColor: Colors.white,
+                                thumbColor: colorScheme.primaryForeground,
                                 overlayColor:
                                     colorScheme.primary.withValues(alpha: 0.1),
                                 thumbShape: const RoundSliderThumbShape(
@@ -1184,7 +1164,9 @@ class _BudgetDistributionPreview extends StatelessWidget {
                   if (remaining > 0)
                     Flexible(
                       flex: remaining.clamp(0, 100).round(),
-                      child: Container(color: Colors.transparent),
+                      child: Container(
+                        color: colorScheme.surface.withValues(alpha: 0.0),
+                      ),
                     ),
                 ],
               ),

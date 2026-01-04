@@ -453,10 +453,10 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                               isIncome: false,
                               trailingWidget: Text(
                                 context.l10n.youOweOthers,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xFFFF453A),
+                                  color: colorScheme.destructive,
                                 ),
                               ),
                             ),
@@ -483,10 +483,10 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                               isIncome: true,
                               trailingWidget: Text(
                                 context.l10n.owesYou,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xFF30D158),
+                                  color: colorScheme.success,
                                 ),
                               ),
                             ),
@@ -504,10 +504,10 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                               isIncome: true,
                               trailingWidget: Text(
                                 context.l10n.owesYou,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xFF30D158),
+                                  color: colorScheme.success,
                                 ),
                               ),
                             ),
@@ -539,7 +539,10 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.white))
+                                strokeWidth: 2,
+                                color: colorScheme.primaryForeground,
+                              ),
+                            )
                           : Text(context.l10n.settle),
                     ),
                   ),

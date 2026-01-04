@@ -4,16 +4,17 @@
 import 'package:flutter/material.dart';
 import '../../domain/entities/household.dart';
 import '../../../../core/l10n/l10n.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 /// Gets the color associated with a household role
-Color getRoleColor(HouseholdRole role) {
+Color getRoleColor(HouseholdRole role, ColorScheme scheme) {
   switch (role) {
     case HouseholdRole.owner:
-      return Colors.purple;
+      return scheme.householdOwner;
     case HouseholdRole.admin:
-      return Colors.blue;
+      return scheme.householdAdmin;
     case HouseholdRole.member:
-      return Colors.green;
+      return scheme.householdMember;
   }
 }
 
@@ -49,7 +50,7 @@ class RoleBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = getRoleColor(role);
+    final color = getRoleColor(role, Theme.of(context).colorScheme);
     
     return Text(
       _getLocalizedRole(context, role),
@@ -92,7 +93,7 @@ class MemberAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = getRoleColor(role);
+    final color = getRoleColor(role, Theme.of(context).colorScheme);
     final initials = getInitials(name ?? email);
     
     if (avatarUrl != null && avatarUrl!.isNotEmpty) {
@@ -110,7 +111,7 @@ class MemberAvatar extends StatelessWidget {
       child: Text(
         initials,
         style: TextStyle(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.primaryForeground,
           fontWeight: FontWeight.w600,
           fontSize: radius * 0.7,
         ),

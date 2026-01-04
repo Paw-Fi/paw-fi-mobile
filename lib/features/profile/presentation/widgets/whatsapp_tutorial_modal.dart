@@ -67,7 +67,7 @@ class WhatsAppTutorialModal extends HookWidget {
     }
 
     return Dialog(
-      backgroundColor: Colors.transparent,
+      backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
       child: Container(
         constraints: const BoxConstraints(maxWidth: 500, maxHeight: 700),
         decoration: BoxDecoration(
@@ -75,7 +75,7 @@ class WhatsAppTutorialModal extends HookWidget {
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.2),
+              color: colorScheme.shadow.withValues(alpha: 0.2),
               blurRadius: 30,
               offset: const Offset(0, 10),
             ),
@@ -98,7 +98,6 @@ class WhatsAppTutorialModal extends HookWidget {
                       color: colorScheme.foreground,
                     ),
                   ),
-                
                 ],
               ),
             ),
@@ -175,30 +174,34 @@ class WhatsAppTutorialModal extends HookWidget {
                         : Container(
                             height: 54,
                             decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFF25D366), Color(0xFF128C7E)],
+                              gradient: LinearGradient(
+                                colors: [
+                                  AppTheme.whatsappGreen,
+                                  AppTheme.whatsappDarkGreen,
+                                ],
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               ),
                               borderRadius: BorderRadius.circular(12),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFF25D366).withValues(alpha: 0.3),
+                                  color: AppTheme.whatsappGreen
+                                      .withValues(alpha: 0.3),
                                   blurRadius: 12,
                                   offset: const Offset(0, 4),
                                 ),
                               ],
                             ),
                             child: Material(
-                              color: Colors.transparent,
+                              color: colorScheme.surface.withValues(alpha: 0.0),
                               child: InkWell(
                                 onTap: handleBindWhatsApp,
                                 borderRadius: BorderRadius.circular(12),
                                 child: Center(
                                   child: Text(
                                     context.l10n.connectWhatsApp,
-                                    style: const TextStyle(
-                                      color: Colors.white,
+                                    style: TextStyle(
+                                      color: colorScheme.primaryForeground,
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -231,9 +234,7 @@ class WhatsAppTutorialModal extends HookWidget {
           Container(
             width: 250,
             height: 300,
-            decoration: const BoxDecoration(
-             
-            ),
+            decoration: const BoxDecoration(),
             child: Image.asset(step.imagePath, fit: BoxFit.contain),
           ),
           const SizedBox(height: 15),

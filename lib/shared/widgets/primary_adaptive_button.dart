@@ -1,5 +1,6 @@
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 class PrimaryAdaptiveButton extends StatelessWidget {
   const PrimaryAdaptiveButton({
@@ -18,7 +19,7 @@ class PrimaryAdaptiveButton extends StatelessWidget {
       color: scheme.primary,
       onPressed: onPressed,
       child: DefaultTextStyle.merge(
-        style: const TextStyle(color: Colors.white),
+        style: TextStyle(color: scheme.primaryForeground),
         child: child,
       ),
     );

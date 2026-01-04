@@ -84,7 +84,7 @@ Widget build30DayLookAheadTab(
                 [
                   {
                     'label': context.l10n.projectedSpendingLegend,
-                    'color': const Color(0xFF10B981)
+                    'color': AppTheme.insightsProjection
                   },
                 ],
               ),
@@ -380,21 +380,21 @@ class _ThirtyDaySummaryPills extends StatelessWidget {
           icon: Icons.calendar_month,
           label: context.l10n.last30Days,
           value: span,
-          tint: const Color(0xFF10B981),
+          tint: AppTheme.insightsProjection,
         ),
         MetricPill(
           colorScheme: colorScheme,
           icon: Icons.shopping_bag_outlined,
           label: context.l10n.spent,
           value: totalTxt,
-          tint: const Color(0xFFEF4444),
+          tint: AppTheme.insightsSpent,
         ),
         MetricPill(
           colorScheme: colorScheme,
           icon: Icons.show_chart,
           label: '${context.l10n.day} avg',
           value: avgTxt,
-          tint: const Color(0xFF10B981),
+          tint: AppTheme.insightsProjection,
         ),
       ],
     );

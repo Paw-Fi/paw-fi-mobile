@@ -64,7 +64,7 @@ void showScenarioResultSheet(
 
   showModalBottomSheet(
     context: context,
-    backgroundColor: Colors.transparent,
+    backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
     isScrollControlled: true,
     builder: (context) {
       // Consider anything opened from history (no meta.stats but with question)

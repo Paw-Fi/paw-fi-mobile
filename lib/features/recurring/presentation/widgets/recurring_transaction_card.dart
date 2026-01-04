@@ -76,7 +76,7 @@ class RecurringTransactionCard extends ConsumerWidget {
                 }
               },
               backgroundColor: colorScheme.destructive,
-              foregroundColor: Colors.white,
+              foregroundColor: colorScheme.onError,
               icon: Icons.delete,
               label: context.l10n.delete,
               borderRadius: BorderRadius.circular(24),
@@ -101,7 +101,7 @@ class RecurringTransactionCard extends ConsumerWidget {
             ],
           ),
           child: Material(
-            color: Colors.transparent,
+            color: colorScheme.surface.withValues(alpha: 0.0),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
               child: TransactionListTile(

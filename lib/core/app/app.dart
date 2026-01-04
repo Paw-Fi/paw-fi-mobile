@@ -112,7 +112,7 @@ class _AppState extends ConsumerState<App> {
         brightness: Brightness.light,
         applyThemeToAll: true,
         primaryColor: AppTheme.monekoPrimary,
-        primaryContrastingColor: CupertinoColors.white,
+        primaryContrastingColor: AppTheme.lightButtonText,
         // Match Material light background (near-white) for all iOS scaffolds
         scaffoldBackgroundColor: AppTheme.lightBackground,
         barBackgroundColor: AppTheme.lightBackground,
@@ -127,7 +127,7 @@ class _AppState extends ConsumerState<App> {
         brightness: Brightness.dark,
         applyThemeToAll: true,
         primaryColor: AppTheme.darkPrimary,
-        primaryContrastingColor: CupertinoColors.white,
+        primaryContrastingColor: AppTheme.darkButtonText,
         // Match Material dark background so dark mode is consistently black-ish
         scaffoldBackgroundColor: AppTheme.darkBackground,
         barBackgroundColor: AppTheme.darkBackground,

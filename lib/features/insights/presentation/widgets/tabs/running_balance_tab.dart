@@ -84,15 +84,15 @@ Widget buildRunningBalanceTab(
                 [
                   {
                     'label': context.l10n.runningBalanceLegend,
-                    'color': const Color(0xFF8B5CF6)
+                    'color': AppTheme.insightsRunning
                   },
                   {
                     'label': context.l10n.budgetLegend,
-                    'color': const Color(0xFF3B82F6)
+                    'color': AppTheme.insightsBudget
                   },
                   {
                     'label': context.l10n.spentLegend,
-                    'color': const Color(0xFFEF4444)
+                    'color': AppTheme.insightsSpent
                   },
                 ],
               ),
@@ -340,7 +340,7 @@ class _AllTimeSummaryPills extends StatelessWidget {
         : '';
 
     final netTint =
-        net >= 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+        net >= 0 ? AppTheme.insightsProjection : AppTheme.insightsSpent;
 
     return Wrap(
       spacing: 10,
@@ -358,14 +358,14 @@ class _AllTimeSummaryPills extends StatelessWidget {
           icon: Icons.shopping_bag_outlined,
           label: context.l10n.spent,
           value: spentTxt,
-          tint: const Color(0xFFEF4444),
+          tint: AppTheme.insightsSpent,
         ),
         MetricPill(
           colorScheme: colorScheme,
           icon: Icons.account_balance_wallet_outlined,
           label: context.l10n.budget,
           value: budgetTxt,
-          tint: const Color(0xFF3B82F6),
+          tint: AppTheme.insightsBudget,
         ),
         MetricPill(
           colorScheme: colorScheme,

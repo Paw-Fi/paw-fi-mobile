@@ -75,7 +75,8 @@ void showCustomSplitSheet({
 }) {
   showModalBottomSheet(
     context: context,
-    backgroundColor: Colors.transparent,
+    backgroundColor:
+        Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
     isScrollControlled: true,
     isDismissible: true,
     builder: (context) => _CustomSplitSheet(

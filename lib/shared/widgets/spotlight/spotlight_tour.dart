@@ -182,7 +182,10 @@ class _SpotlightTourOverlayState extends State<SpotlightTourOverlay>
               painter: _SpotlightPainter(
                 rect: targetRect,
                 borderRadius: currentStep.borderRadius,
-                color: Colors.black.withValues(alpha: 0.7), // Scrim color
+                color: Theme.of(context)
+                    .colorScheme
+                    .shadow
+                    .withValues(alpha: 0.7),
               ),
             ),
 
@@ -367,7 +370,6 @@ class _SpotlightCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
     final isIOS = defaultTargetPlatform == TargetPlatform.iOS;
 
     return Container(
@@ -377,7 +379,7 @@ class _SpotlightCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.15),
+            color: colorScheme.spotlightShadow,
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),

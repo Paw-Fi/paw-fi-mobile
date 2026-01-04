@@ -20,7 +20,7 @@ Widget buildBenefitIcon(BuildContext context, IconData icon, String label) {
     children: [
       Icon(
         icon,
-        color: const Color(0xFF25D366),
+        color: AppTheme.whatsappGreen,
         size: 24,
       ),
       const SizedBox(height: 4),

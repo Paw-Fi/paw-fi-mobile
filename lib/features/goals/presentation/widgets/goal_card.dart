@@ -4,6 +4,7 @@ import '../../domain/models/goal.dart';
 import '../providers/goals_providers.dart';
 import '../../../../core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 class GoalCard extends ConsumerWidget {
   final Goal goal;
@@ -18,6 +19,7 @@ class GoalCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -38,13 +40,14 @@ class GoalCard extends ConsumerWidget {
                     height: 40,
                     decoration: BoxDecoration(
                       color: goal.isSavings
-                          ? Colors.green.withValues(alpha: 0.1)
-                          : Colors.orange.withValues(alpha: 0.1),
+                          ? colorScheme.success.withValues(alpha: 0.1)
+                          : colorScheme.warning.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(
                       goal.isSavings ? Icons.savings : Icons.trending_down,
-                      color: goal.isSavings ? Colors.green : Colors.orange,
+                      color:
+                          goal.isSavings ? colorScheme.success : colorScheme.warning,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -73,7 +76,7 @@ class GoalCard extends ConsumerWidget {
                               : l10n.paydown,
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.grey[600],
+                            color: colorScheme.mutedForeground,
                           ),
                         ),
                       ],
@@ -84,14 +87,14 @@ class GoalCard extends ConsumerWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.green.withValues(alpha: 0.1),
+                        color: colorScheme.success.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
                         l10n.completed,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 10,
-                          color: Colors.green,
+                          color: colorScheme.success,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -100,14 +103,14 @@ class GoalCard extends ConsumerWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.red.withValues(alpha: 0.1),
+                        color: colorScheme.destructive.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
                         l10n.offTrack,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 10,
-                          color: Colors.red,
+                          color: colorScheme.destructive,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -133,7 +136,7 @@ class GoalCard extends ConsumerWidget {
                         '${goal.currency} ${goal.targetAmount.toStringAsFixed(2)}',
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.grey[600],
+                          color: colorScheme.mutedForeground,
                         ),
                       ),
                     ],
@@ -142,9 +145,11 @@ class GoalCard extends ConsumerWidget {
                   LinearProgressIndicator(
                     value: goal.progressPercentage / 100,
                     minHeight: 8,
-                    backgroundColor: Colors.grey[200],
+                    backgroundColor: colorScheme.muted,
                     valueColor: AlwaysStoppedAnimation<Color>(
-                      goal.isSavings ? Colors.green : Colors.orange,
+                      goal.isSavings
+                          ? colorScheme.success
+                          : colorScheme.warning,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -152,7 +157,7 @@ class GoalCard extends ConsumerWidget {
                     '${goal.progressPercentage.toStringAsFixed(1)}% ${l10n.complete}',
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.grey[600],
+                      color: colorScheme.mutedForeground,
                     ),
                   ),
                 ],
@@ -164,13 +169,14 @@ class GoalCard extends ConsumerWidget {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.calendar_today, size: 14, color: Colors.grey[600]),
+                      Icon(Icons.calendar_today,
+                          size: 14, color: colorScheme.mutedForeground),
                       const SizedBox(width: 4),
                       Text(
                         goal.targetDate,
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey[600],
+                          color: colorScheme.mutedForeground,
                         ),
                       ),
                     ],
@@ -191,13 +197,14 @@ class GoalCard extends ConsumerWidget {
                   else if (!goal.isOwner && goal.isAcknowledged)
                     Row(
                       children: [
-                        const Icon(Icons.check_circle, size: 14, color: Colors.green),
+                        Icon(Icons.check_circle,
+                            size: 14, color: colorScheme.success),
                         const SizedBox(width: 4),
                         Text(
                           l10n.acknowledged,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
-                            color: Colors.green,
+                            color: colorScheme.success,
                           ),
                         ),
                       ],
@@ -213,23 +220,24 @@ class GoalCard extends ConsumerWidget {
 
   Widget _buildPrivacyBadge(BuildContext context) {
     final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: Colors.grey.withValues(alpha: 0.2),
+        color: colorScheme.muted.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.visibility_off, size: 10, color: Colors.grey),
+          Icon(Icons.visibility_off, size: 10, color: colorScheme.mutedForeground),
           const SizedBox(width: 4),
           Text(
             l10n.balancesOnly,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 9,
-              color: Colors.grey,
+              color: colorScheme.mutedForeground,
             ),
           ),
         ],

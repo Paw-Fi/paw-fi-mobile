@@ -100,7 +100,8 @@ Future<void> showMultiTransactionReviewSheet(
 
   return showModalBottomSheet<void>(
     context: context,
-    backgroundColor: Colors.transparent,
+    backgroundColor:
+        Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
     isScrollControlled: true,
     isDismissible: true,
     builder: (context) => _MultiTransactionReviewSheet(
@@ -406,7 +407,8 @@ class _MultiTransactionReviewSheetState
     final result = await showModalBottomSheet<_EditTransactionResult>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor:
+          Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
       builder: (sheetContext) {
         return _EditTransactionSheet(
           transaction: original,
@@ -990,13 +992,15 @@ class _MultiTransactionReviewSheetState
                 child: PrimaryAdaptiveButton(
                   onPressed: _isSaving ? null : _handleSave,
                   child: _isSaving
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
                             valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.white,
+                              Theme.of(context)
+                                  .colorScheme
+                                  .primaryForeground,
                             ),
                           ),
                         )
@@ -1226,7 +1230,8 @@ class _EditTransactionSheetState extends State<_EditTransactionSheet> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor:
+          Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
       builder: (sheetContext) {
         return CategoryPickerBottomSheet(
           allCategories: categories,

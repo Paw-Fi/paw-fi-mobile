@@ -18,6 +18,7 @@ Future<String?> showCategoryPicker({
   required String currentCategory,
   required bool isIncome,
 }) async {
+  final colorScheme = Theme.of(context).colorScheme;
   final normalizedCurrent = currentCategory.trim().toLowerCase();
   final baseCategories =
       isIncome ? getIncomeCategories() : getExpenseCategories();
@@ -35,7 +36,7 @@ Future<String?> showCategoryPicker({
   return await showModalBottomSheet<String>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.transparent,
+    backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
     builder: (sheetContext) {
       return CategoryPickerBottomSheet(
         allCategories: categories,

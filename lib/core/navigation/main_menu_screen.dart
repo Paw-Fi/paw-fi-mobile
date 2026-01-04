@@ -57,7 +57,7 @@ class MainMenuScreen extends ConsumerWidget {
 
     return SafeArea(
       child: Material(
-        color: Colors.transparent,
+        color: colorScheme.surface.withValues(alpha: 0.0),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           child: Column(
@@ -225,7 +225,7 @@ class _HouseholdSection extends ConsumerWidget {
                     decoration: BoxDecoration(
                       color: isSelected
                           ? colorScheme.selectedStateBackground
-                          : Colors.transparent,
+                          : colorScheme.surface.withValues(alpha: 0.0),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: InkWell(

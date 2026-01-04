@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:moneko/features/households/presentation/pages/household_member_details_page.dart';
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
@@ -8,7 +9,6 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
 /// Member spending breakdown card with modern, Apple-inspired design
@@ -189,6 +189,10 @@ Widget buildHouseholdMemberSpendingCard(
                         currentUserId,
                         householdId,
                         isLast,
+                        transactions ?? [],
+                        splits,
+                        from ?? DateTime.now(),
+                        to ?? DateTime.now(),
                       );
                     }).toList(),
                   ),
@@ -263,6 +267,10 @@ Widget _buildMemberRow(
   String? currentUserId,
   String? householdId,
   bool isLast,
+  List<ExpenseEntry> transactions,
+  List<ExpenseSplitGroup>? splits,
+  DateTime from,
+  DateTime to,
 ) {
   final percentage = totalMemberSpent > 0
       ? (member.totalSpentCents / totalMemberSpent) * 100
@@ -295,129 +303,118 @@ Widget _buildMemberRow(
       : (memberData?.userEmail ?? member.userEmail ?? 'Unknown');
 
   final isCurrentUser = currentUserId != null && member.userId == currentUserId;
-  final canRemind = currentUserId != null &&
-      member.userId != currentUserId &&
-      householdId != null;
 
-  return Padding(
-    padding: EdgeInsets.only(bottom: isLast ? 0 : 20),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Member info row
-        Row(
-          children: [
-            // Avatar with online indicator style
-            Stack(
-              children: [
-                FutureBuilder<String?>(
-                  future: _getUserAvatarUrl(member.userId),
-                  builder: (context, snapshot) {
-                    final avatarUrl = snapshot.data;
-                    return Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: colorScheme.muted.withValues(alpha: 0.5),
-                        border: Border.all(
-                          color: colorScheme.border.withValues(alpha: 0.15),
-                          width: 1,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.02),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
+  return GestureDetector(
+    onTap: () {
+      if (memberData != null) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => HouseholdMemberDetailsPage(
+              member: memberData,
+              transactions: transactions,
+              splits: splits,
+              from: from,
+              to: to,
+              currency: currency,
+              totalSpentCents: member.totalSpentCents,
+              householdId: householdId,
+            ),
+          ),
+        );
+      }
+    },
+    behavior: HitTestBehavior.opaque,
+    child: Padding(
+      padding: EdgeInsets.only(bottom: isLast ? 0 : 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Member info row
+          Row(
+            children: [
+              // Avatar with online indicator style
+              Stack(
+                children: [
+                  FutureBuilder<String?>(
+                    future: _getUserAvatarUrl(member.userId),
+                    builder: (context, snapshot) {
+                      final avatarUrl = snapshot.data;
+                      return Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: colorScheme.muted.withValues(alpha: 0.5),
+                          border: Border.all(
+                            color: colorScheme.border.withValues(alpha: 0.15),
+                            width: 1,
                           ),
-                        ],
-                      ),
-                      child: ClipOval(
-                        child: avatarUrl != null
-                            ? Image.network(
-                                avatarUrl,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stack) => Icon(
+                          boxShadow: [
+                            BoxShadow(
+                              color: colorScheme.shadow.withValues(alpha: 0.06),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: ClipOval(
+                          child: avatarUrl != null
+                              ? Image.network(
+                                  avatarUrl,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stack) => Icon(
+                                    Icons.person_rounded,
+                                    size: 22,
+                                    color: colorScheme.mutedForeground
+                                        .withValues(alpha: 0.6),
+                                  ),
+                                )
+                              : Icon(
                                   Icons.person_rounded,
                                   size: 22,
                                   color: colorScheme.mutedForeground
                                       .withValues(alpha: 0.6),
                                 ),
-                              )
-                            : Icon(
-                                Icons.person_rounded,
-                                size: 22,
-                                color: colorScheme.mutedForeground
-                                    .withValues(alpha: 0.6),
-                              ),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-            const SizedBox(width: 14),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(width: 14),
 
-            // Name and stats
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          displayName,
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: colorScheme.foreground,
-                            letterSpacing: -0.3,
-                            height: 1.3,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                        ),
-                      ),
-                      if (isCurrentUser) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: colorScheme.primary.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
+              // Name and stats
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
                           child: Text(
-                            context.l10n.you,
+                            displayName,
                             style: TextStyle(
-                              fontSize: 11,
+                              fontSize: 15,
                               fontWeight: FontWeight.w600,
-                              color: colorScheme.primary,
-                              letterSpacing: 0.2,
+                              color: colorScheme.foreground,
+                              letterSpacing: -0.3,
+                              height: 1.3,
                             ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
                           ),
                         ),
-                      ],
-                      if (canRemind) ...[
-                        const SizedBox(width: 8),
-                        GestureDetector(
-                          onTap: () => _showReminderModal(
-                            context,
-                            colorScheme,
-                            member.userId,
-                            displayName,
-                            householdId,
-                          ),
-                          child: Container(
-                            padding: const EdgeInsets.all(5),
+                        if (isCurrentUser) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color:
-                                  colorScheme.primary.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(7),
+                              color: colorScheme.primary.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
-                              context.l10n.nudge,
+                              context.l10n.you,
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
@@ -426,97 +423,98 @@ Widget _buildMemberRow(
                               ),
                             ),
                           ),
+                        ],
+                        // Nudge button removed here, moved to details page
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Text(
+                          '${member.transactionCount} ${context.l10n.transactions}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: colorScheme.mutedForeground
+                                .withValues(alpha: 0.6),
+                            letterSpacing: -0.1,
+                          ),
                         ),
                       ],
-                    ],
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(width: 12),
+
+              // Amount with percentage
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    formatted,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: colorScheme.foreground,
+                      letterSpacing: -0.4,
+                      height: 1.3,
+                    ),
                   ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Text(
-                        '${member.transactionCount} ${context.l10n.transactions}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: colorScheme.mutedForeground
-                              .withValues(alpha: 0.6),
-                          letterSpacing: -0.1,
+                  if (totalMemberSpent > 0) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      '${percentage.toStringAsFixed(0)}%',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.mutedForeground.withValues(alpha: 0.5),
+                        letterSpacing: -0.1,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          // Modern progress bar
+          Container(
+            height: 6,
+            decoration: BoxDecoration(
+              color: colorScheme.muted.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: Stack(
+                children: [
+                  if (percentage > 0)
+                    FractionallySizedBox(
+                      widthFactor: percentage / 100,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                            colors: [
+                              colorScheme.primary,
+                              colorScheme.primary.withValues(alpha: 0.8),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(3),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
                 ],
               ),
             ),
-
-            const SizedBox(width: 12),
-
-            // Amount with percentage
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  formatted,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: colorScheme.foreground,
-                    letterSpacing: -0.4,
-                    height: 1.3,
-                  ),
-                ),
-                if (totalMemberSpent > 0) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    '${percentage.toStringAsFixed(0)}%',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: colorScheme.mutedForeground.withValues(alpha: 0.5),
-                      letterSpacing: -0.1,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ],
-        ),
-
-        const SizedBox(height: 12),
-
-        // Modern progress bar
-        Container(
-          height: 6,
-          decoration: BoxDecoration(
-            color: colorScheme.muted.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(3),
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(3),
-            child: Stack(
-              children: [
-                if (percentage > 0)
-                  FractionallySizedBox(
-                    widthFactor: percentage / 100,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                          colors: [
-                            colorScheme.primary,
-                            colorScheme.primary.withValues(alpha: 0.8),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ],
+        ],
+      ),
     ),
   );
 }
@@ -538,314 +536,3 @@ Future<String?> _getUserAvatarUrl(String userId) async {
   }
 }
 
-/// Check if user can send reminder (24-hour cooldown)
-Future<bool> _canSendReminder(String householdId, String targetUserId) async {
-  try {
-    final supabase = Supabase.instance.client;
-    final currentUserId = supabase.auth.currentUser?.id;
-
-    if (currentUserId == null) return false;
-
-    // Check for existing reminder in last 24 hours
-    final twentyFourHoursAgo =
-        DateTime.now().subtract(const Duration(hours: 24));
-
-    final response = await supabase
-        .from('notification_events')
-        .select('created_at')
-        .eq('household_id', householdId)
-        .eq('user_id', targetUserId)
-        .eq('event_type', 'member_reminded')
-        .gte('created_at', twentyFourHoursAgo.toIso8601String())
-        .order('created_at', ascending: false)
-        .limit(1)
-        .maybeSingle();
-
-    return response == null; // Can send if no recent reminder found
-  } catch (e) {
-    debugPrint('Error in _canSendReminder: $e');
-    return true; // Allow on error
-  }
-}
-
-/// Show reminder modal to send a nudge to a household member
-void _showReminderModal(
-  BuildContext context,
-  ColorScheme colorScheme,
-  String targetUserId,
-  String targetUserName,
-  String householdId,
-) {
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (modalContext) {
-      return _ReminderModalContent(
-        colorScheme: colorScheme,
-        targetUserId: targetUserId,
-        targetUserName: targetUserName,
-        householdId: householdId,
-        parentContext: context,
-      );
-    },
-  );
-}
-
-/// Stateful widget for reminder modal content with loading state
-class _ReminderModalContent extends StatefulWidget {
-  final ColorScheme colorScheme;
-  final String targetUserId;
-  final String targetUserName;
-  final String householdId;
-  final BuildContext parentContext;
-
-  const _ReminderModalContent({
-    required this.colorScheme,
-    required this.targetUserId,
-    required this.targetUserName,
-    required this.householdId,
-    required this.parentContext,
-  });
-
-  @override
-  State<_ReminderModalContent> createState() => _ReminderModalContentState();
-}
-
-class _ReminderModalContentState extends State<_ReminderModalContent> {
-  final TextEditingController messageController = TextEditingController();
-  bool isLoading = false;
-
-  @override
-  void dispose() {
-    messageController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _sendReminder() async {
-    if (isLoading) return;
-
-    setState(() {
-      isLoading = true;
-    });
-
-    final supabase = Supabase.instance.client;
-
-    try {
-      // Check cooldown
-      final canSend =
-          await _canSendReminder(widget.householdId, widget.targetUserId);
-
-      if (!canSend) {
-        if (mounted) {
-          Navigator.of(context).pop();
-        }
-        if (widget.parentContext.mounted) {
-          AppToast.warning(
-              widget.parentContext,
-              widget.parentContext.l10n
-                  .pleaseWait24HoursBeforeSendingAnotherReminder(
-                      widget.targetUserName));
-        }
-        return;
-      }
-
-      // Send reminder
-      final response = await supabase.functions.invoke(
-        'households-remind-member',
-        body: {
-          'household_id': widget.householdId,
-          'target_user_id': widget.targetUserId,
-          'message': messageController.text.trim(),
-        },
-      );
-
-      if (mounted) {
-        Navigator.of(context).pop();
-      }
-      if (response.status == 200) {
-        if (widget.parentContext.mounted) {
-          AppToast.success(
-              widget.parentContext,
-              widget.parentContext.l10n
-                  .reminderSentToName(widget.targetUserName));
-        }
-      } else {
-        throw Exception('Failed to send reminder');
-      }
-    } catch (e) {
-      debugPrint('Error sending reminder: $e');
-      if (mounted) {
-        Navigator.of(context).pop();
-      }
-      if (widget.parentContext.mounted) {
-        AppToast.error(widget.parentContext,
-            widget.parentContext.l10n.failedToSendReminderTryAgain);
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          isLoading = false;
-        });
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: widget.colorScheme.sheetBackground,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: widget.colorScheme.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      Icons.notifications_active,
-                      color: widget.colorScheme.primary,
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          context.l10n.remindUser(widget.targetUserName),
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: widget.colorScheme.foreground,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          context.l10n.sendFriendlySpendingReminder,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: widget.colorScheme.mutedForeground,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 14),
-              Text(context.l10n.addMessageOptional,
-                  style: TextStyle(
-                      fontSize: 14, color: widget.colorScheme.mutedForeground)),
-              const SizedBox(height: 6),
-
-              // Message input
-              TextField(
-                controller: messageController,
-                enabled: !isLoading,
-                maxLines: 3,
-                maxLength: 100,
-                decoration: InputDecoration(
-                  hintText: context.l10n.messageHintExample,
-                  hintStyle: TextStyle(
-                    color: widget.colorScheme.mutedForeground
-                        .withValues(alpha: 0.5),
-                  ),
-                  filled: true,
-                  fillColor: widget.colorScheme.muted.withValues(alpha: 0.3),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                  contentPadding: const EdgeInsets.all(16),
-                ),
-                style: TextStyle(
-                  fontSize: 14,
-                  color: widget.colorScheme.foreground,
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // Action buttons
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed:
-                          isLoading ? null : () => Navigator.of(context).pop(),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        side: BorderSide(color: widget.colorScheme.border),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Text(
-                        context.l10n.cancel,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: widget.colorScheme.foreground,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: isLoading ? null : _sendReminder,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        backgroundColor: widget.colorScheme.primary,
-                        disabledBackgroundColor: widget.colorScheme.muted,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: isLoading
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor:
-                                    AlwaysStoppedAnimation<Color>(Colors.white),
-                              ),
-                            )
-                          : Text(
-                              context.l10n.sendReminder,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                              ),
-                            ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}

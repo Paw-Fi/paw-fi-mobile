@@ -84,7 +84,7 @@ Widget buildLongTermProjectionTab(
                 [
                   {
                     'label': context.l10n.month18ProjectionLegend,
-                    'color': const Color(0xFF10B981)
+                    'color': AppTheme.insightsProjection
                   },
                 ],
               ),
@@ -383,14 +383,14 @@ class _LongTermSummaryPills extends StatelessWidget {
           icon: Icons.shopping_bag_outlined,
           label: context.l10n.spent,
           value: totalTxt,
-          tint: const Color(0xFFEF4444),
+          tint: AppTheme.insightsSpent,
         ),
         MetricPill(
           colorScheme: colorScheme,
           icon: Icons.calendar_view_month,
           label: context.l10n.monthly,
           value: avgTxt,
-          tint: const Color(0xFF10B981),
+          tint: AppTheme.insightsProjection,
         ),
       ],
     );

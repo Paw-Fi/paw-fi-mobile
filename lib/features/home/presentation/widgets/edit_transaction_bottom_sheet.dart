@@ -229,7 +229,8 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
       await showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
-        backgroundColor: Colors.transparent,
+        backgroundColor:
+            Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
         builder: (sheetContext) {
           return CategoryPickerBottomSheet(
             allCategories: categories,
@@ -758,7 +759,7 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: colorScheme.primary,
-                      foregroundColor: Colors.white,
+                      foregroundColor: colorScheme.primaryForeground,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),

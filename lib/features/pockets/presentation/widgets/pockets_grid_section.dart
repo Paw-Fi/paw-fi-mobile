@@ -352,7 +352,8 @@ class PocketsGridSection extends HookConsumerWidget {
                           showModalBottomSheet<void>(
                             context: context,
                             isScrollControlled: true,
-                            backgroundColor: Colors.transparent,
+                            backgroundColor:
+                                colorScheme.surface.withValues(alpha: 0.0),
                             builder: (sheetContext) {
                               return EditPocketEnvelopeSheet(
                                 scopeParams: scopeParams,
@@ -429,7 +430,8 @@ class PocketsGridSection extends HookConsumerWidget {
                           showModalBottomSheet<void>(
                             context: context,
                             isScrollControlled: true,
-                            backgroundColor: Colors.transparent,
+                            backgroundColor:
+                                colorScheme.surface.withValues(alpha: 0.0),
                             builder: (sheetContext) {
                               return EditPocketEnvelopeSheet(
                                 scopeParams: scopeParams,

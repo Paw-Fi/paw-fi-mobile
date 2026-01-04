@@ -282,7 +282,9 @@ class WalletLoginButton extends HookConsumerWidget {
   Future<String?> _pickChain(BuildContext context) async {
     return showModalBottomSheet<String>(
       context: context,
-      backgroundColor: Colors.transparent,
+      backgroundColor: Theme.of(context).colorScheme.surface.withValues(
+            alpha: 0.0,
+          ),
       builder: (ctx) {
         final scheme = Theme.of(ctx).colorScheme;
         return Container(

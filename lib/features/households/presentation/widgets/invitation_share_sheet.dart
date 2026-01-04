@@ -30,6 +30,9 @@ class InvitationShareSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final successBase = colorScheme.success;
+    final successBackground = colorScheme.successSurface;
+    final successBorder = colorScheme.successBorder;
 
     return Semantics(
       label: AppLocalizations.of(context)!
@@ -86,26 +89,29 @@ class InvitationShareSheet extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.green.withValues(alpha: 0.1),
+                  color: successBackground,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: Colors.green.withValues(alpha: 0.12),
+                    color: successBorder,
                     width: 1,
                   ),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.check_circle,
-                        color: Colors.green, size: 24),
+                    Icon(
+                      Icons.check_circle,
+                      color: successBase,
+                      size: 24,
+                    ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         AppLocalizations.of(context)!
                             .householdCreatedSuccessfullyWithQuotes(
                                 householdName),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 15,
-                          color: Colors.green,
+                          color: successBase,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -298,7 +304,9 @@ class InvitationShareSheet extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: Theme.of(context).colorScheme.surface.withValues(
+            alpha: 0.0,
+          ),
       builder: (context) => InvitationShareSheet(
         inviteUrl: inviteUrl,
         householdName: householdName,

@@ -154,6 +154,10 @@ class _HouseholdInvitationSheetState
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final errorBase = colorScheme.errorAccent;
+    final successBase = colorScheme.success;
+    final errorBackground = colorScheme.errorSurface;
+    final successBackground = colorScheme.successSurface;
 
     return Container(
       padding: EdgeInsets.only(
@@ -213,12 +217,12 @@ class _HouseholdInvitationSheetState
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.red.withValues(alpha: 0.1),
+                color: errorBackground,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.error_outline, color: Colors.red, size: 24),
+                  Icon(Icons.error_outline, color: errorBase, size: 24),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -244,12 +248,12 @@ class _HouseholdInvitationSheetState
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.green.withValues(alpha: 0.1),
+                color: successBackground,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.check_circle, color: Colors.green, size: 24),
+                  Icon(Icons.check_circle, color: successBase, size: 24),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -322,7 +326,9 @@ Future<void> showHouseholdInvitationSheet(
     isScrollControlled: true,
     isDismissible: true,
     enableDrag: true,
-    backgroundColor: Colors.transparent,
+    backgroundColor: Theme.of(context).colorScheme.surface.withValues(
+          alpha: 0.0,
+        ),
     builder: (context) {
       final colorScheme = Theme.of(context).colorScheme;
       return Container(

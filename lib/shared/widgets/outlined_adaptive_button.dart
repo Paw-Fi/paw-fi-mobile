@@ -23,7 +23,7 @@ class OutlinedAdaptiveButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(8.0),
       ),
       child: AdaptiveButton.child(
-        color: Colors.transparent,
+        color: scheme.surface.withValues(alpha: 0.0),
         style: AdaptiveButtonStyle.plain,
         onPressed: onPressed,
         child: DefaultTextStyle.merge(

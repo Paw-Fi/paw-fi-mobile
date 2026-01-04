@@ -286,13 +286,12 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                                   splitsAsync.isLoading) &&
                               (transactions == null || splits == null)) {
                             return Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16.0),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16.0),
                               child: Skeletonizer(
                                 effect: ShimmerEffect(
                                   baseColor: colorScheme.skeletonBase,
-                                  highlightColor:
-                                      colorScheme.skeletonHighlight,
+                                  highlightColor: colorScheme.skeletonHighlight,
                                 ),
                                 child: buildSpendingCard(
                                   context,
@@ -502,8 +501,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               loading: () => Skeletonizer(
                                 effect: ShimmerEffect(
                                   baseColor: colorScheme.skeletonBase,
-                                  highlightColor:
-                                      colorScheme.skeletonHighlight,
+                                  highlightColor: colorScheme.skeletonHighlight,
                                 ),
                                 child: SizedBox(
                                   height: 200,
@@ -655,10 +653,9 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
 
                           if (showSkeleton) {
                             return Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16.0),
-                              child:
-                                  _buildSettlementSkeleton(colorScheme),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16.0),
+                              child: _buildSettlementSkeleton(colorScheme),
                             );
                           }
 
@@ -673,8 +670,8 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                           }
 
                           return Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16.0),
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 16.0),
                             child: SettlementSuggestionsCard(
                               summary: summary,
                               transactions: transactions ?? const [],
@@ -720,14 +717,13 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                           ));
 
                           return Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16.0),
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 16.0),
                             child: summaryAsync.when(
                               loading: () => Skeletonizer(
                                 effect: ShimmerEffect(
                                   baseColor: colorScheme.skeletonBase,
-                                  highlightColor:
-                                      colorScheme.skeletonHighlight,
+                                  highlightColor: colorScheme.skeletonHighlight,
                                 ),
                                 // Use the real card layout with empty data so
                                 // the skeleton spans the full widget width
@@ -791,8 +787,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               child: Skeletonizer(
                                 effect: ShimmerEffect(
                                   baseColor: colorScheme.skeletonBase,
-                                  highlightColor:
-                                      colorScheme.skeletonHighlight,
+                                  highlightColor: colorScheme.skeletonHighlight,
                                 ),
                                 child: buildRecentTransactionsCard(
                                   context,
@@ -824,8 +819,8 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                             );
                           }
 
-                          final allExpenses =
-                              expensesAsync.valueOrNull ?? const <ExpenseEntry>[];
+                          final allExpenses = expensesAsync.valueOrNull ??
+                              const <ExpenseEntry>[];
                           final currencyFilteredExpenses =
                               allExpenses.where((e) {
                             final code =
@@ -884,8 +879,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               child: Skeletonizer(
                                 effect: ShimmerEffect(
                                   baseColor: colorScheme.skeletonBase,
-                                  highlightColor:
-                                      colorScheme.skeletonHighlight,
+                                  highlightColor: colorScheme.skeletonHighlight,
                                 ),
                                 child: Card(
                                   color: colorScheme.cardSurface,
@@ -909,8 +903,8 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                           }
 
                           // If there was an error and no cached data, hide the chart
-                          final allExpenses =
-                              expensesAsync.valueOrNull ?? const <ExpenseEntry>[];
+                          final allExpenses = expensesAsync.valueOrNull ??
+                              const <ExpenseEntry>[];
                           // Filter by date AND currency
                           final filteredExpenses = allExpenses.where((e) {
                             final d =
@@ -966,15 +960,15 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
 
                           // Gracefully handle loading/errors from the provider so
                           // timeouts don't crash the UI.
-                          if (expensesAsync.isLoading && !expensesAsync.hasValue) {
+                          if (expensesAsync.isLoading &&
+                              !expensesAsync.hasValue) {
                             return Padding(
                               padding:
                                   const EdgeInsets.symmetric(horizontal: 16.0),
                               child: Skeletonizer(
                                 effect: ShimmerEffect(
                                   baseColor: colorScheme.skeletonBase,
-                                  highlightColor:
-                                      colorScheme.skeletonHighlight,
+                                  highlightColor: colorScheme.skeletonHighlight,
                                 ),
                                 child: Card(
                                   color: colorScheme.cardSurface,
@@ -999,8 +993,8 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                             );
                           }
 
-                          final allExpenses =
-                              expensesAsync.valueOrNull ?? const <ExpenseEntry>[];
+                          final allExpenses = expensesAsync.valueOrNull ??
+                              const <ExpenseEntry>[];
                           // Filter by date AND currency
                           final filteredExpenses = allExpenses.where((e) {
                             final d =
@@ -1051,7 +1045,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
+              color: colorScheme.shadow.withValues(alpha: 0.08),
               blurRadius: 20,
               offset: const Offset(0, 4),
             ),

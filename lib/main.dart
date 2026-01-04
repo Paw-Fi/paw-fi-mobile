@@ -14,6 +14,7 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/core/util/constants.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
+import 'package:moneko/core/theme/app_theme.dart';
 
 /// Top-level background message handler for Firebase Cloud Messaging
 /// Must be a top-level function for iOS background execution
@@ -107,7 +108,7 @@ void main() {
       return Directionality(
         textDirection: TextDirection.ltr,
         child: ColoredBox(
-          color: const Color(0xFF000000),
+          color: AppTheme.darkBackground,
           child: Center(
             child: Padding(
               padding: const EdgeInsets.all(24.0),
@@ -119,7 +120,7 @@ void main() {
                   const Text(
                     'Moneko encountered an error',
                     style: TextStyle(
-                        color: Color(0xFFFFFFFF),
+                        color: AppTheme.darkForeground,
                         fontSize: 18,
                         fontWeight: FontWeight.w600),
                     textAlign: TextAlign.center,
@@ -128,14 +129,20 @@ void main() {
                   const Text(
                     message,
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Color(0xFFE5E7EB), fontSize: 14),
+                    style: TextStyle(
+                      color: AppTheme.darkMutedForeground,
+                      fontSize: 14,
+                    ),
                   ),
                   const SizedBox(height: 20),
                   // Minimal diagnostic info for screenshots
                   Text(
                     'ID: $fid\nEnv: $env\nRoute: ${route.isEmpty ? '-' : route}\nType: $errorType\nTop: ${topFrame.isEmpty ? '-' : topFrame}',
                     style: const TextStyle(
-                        color: Color(0xFF9CA3AF), fontSize: 12, height: 1.4),
+                      color: AppTheme.darkMutedForeground,
+                      fontSize: 12,
+                      height: 1.4,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                 ],

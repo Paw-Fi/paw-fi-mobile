@@ -371,12 +371,16 @@ class _CategoryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final color = getCategoryColor(categoryKey);
     final icon = getCategoryIcon(categoryKey);
     final label = getCategoryTranslation(context, categoryKey);
 
-    final circleColor = isSelected ? color : Colors.transparent;
-    final iconColor = isSelected ? Colors.white : color.withValues(alpha: 0.2);
+    final circleColor = isSelected
+        ? color
+        : colorScheme.surface.withValues(alpha: 0.0);
+    final iconColor =
+        isSelected ? colorScheme.primaryForeground : color.withValues(alpha: 0.2);
 
     return GestureDetector(
       onTap: onTap,

@@ -9,6 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:moneko/core/services/deep_link_service.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 /// Global container for deep link handling from FCM
 class DeepLinkContainer {
@@ -399,7 +400,7 @@ class DeviceRegistrationService {
       playSound: true,
       enableVibration: true,
       icon: '@mipmap/ic_launcher_monochrome',
-      color: Color(0xFF7458FF),
+      color: AppTheme.monekoPrimary,
       // Use a guaranteed-present drawable to avoid runtime crashes if a custom
       // logo resource is missing in a given build.
       largeIcon: DrawableResourceAndroidBitmap('ic_stat_notification'),

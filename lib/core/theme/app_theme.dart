@@ -120,6 +120,22 @@ extension AppColorScheme on ColorScheme {
       ? AppTheme.darkTabInactiveForeground
       : AppTheme.lightForeground;
 
+  /// Segmented control thumb background
+  Color get tabThumb => brightness == Brightness.dark ? foreground : card;
+
+  /// Segmented control selected text
+  Color get tabSelectedForeground =>
+      brightness == Brightness.dark ? AppTheme.lightForeground : foreground;
+
+  /// Segmented control unselected text
+  Color get tabUnselectedForeground => brightness == Brightness.dark
+      ? tabInactiveForeground
+      : mutedForeground;
+
+  /// Tab bar default text color (non-iOS)
+  Color get tabDefaultForeground =>
+      brightness == Brightness.dark ? tabInactiveForeground : foreground;
+
   Color get destructive =>
       brightness == Brightness.dark ? AppTheme.darkDanger : AppTheme.danger;
 
@@ -139,6 +155,48 @@ extension AppColorScheme on ColorScheme {
 
   /// Error accent color for icons and emphasis.
   Color get errorAccent => AppSurface.statusBase(AppSurfaceStatus.error);
+
+  /// Success surface for banners/cards with subtle tinting.
+  Color get successSurface => AppSurface.tintedBackground(
+        scheme: this,
+        base: AppSurface.statusBase(AppSurfaceStatus.success),
+        isDark: brightness == Brightness.dark,
+      );
+
+  /// Success border for subtle outlines.
+  Color get successBorder => AppSurface.tintedBorder(
+        scheme: this,
+        base: AppSurface.statusBase(AppSurfaceStatus.success),
+        isDark: brightness == Brightness.dark,
+      );
+
+  /// Info surface for banners/cards with subtle tinting.
+  Color get infoSurface => AppSurface.tintedBackground(
+        scheme: this,
+        base: AppSurface.statusBase(AppSurfaceStatus.info),
+        isDark: brightness == Brightness.dark,
+      );
+
+  /// Info border for subtle outlines.
+  Color get infoBorder => AppSurface.tintedBorder(
+        scheme: this,
+        base: AppSurface.statusBase(AppSurfaceStatus.info),
+        isDark: brightness == Brightness.dark,
+      );
+
+  /// Warning surface for banners/cards with subtle tinting.
+  Color get warningSurface => AppSurface.tintedBackground(
+        scheme: this,
+        base: AppSurface.statusBase(AppSurfaceStatus.warning),
+        isDark: brightness == Brightness.dark,
+      );
+
+  /// Warning border for subtle outlines.
+  Color get warningBorder => AppSurface.tintedBorder(
+        scheme: this,
+        base: AppSurface.statusBase(AppSurfaceStatus.warning),
+        isDark: brightness == Brightness.dark,
+      );
 
   /// Success color
   Color get success =>
@@ -162,6 +220,11 @@ extension AppColorScheme on ColorScheme {
   /// Surface color for cards (matching Apple-style cards)
   Color get cardSurface =>
       brightness == Brightness.dark ? AppTheme.darkCardBg : Colors.white;
+
+  /// Spotlight card shadow
+  Color get spotlightShadow => shadow.withValues(
+        alpha: brightness == Brightness.dark ? 0.3 : 0.15,
+      );
 
   /// Background color for charts
   Color get chartBackground => brightness == Brightness.dark
@@ -287,6 +350,11 @@ extension AppColorScheme on ColorScheme {
         alpha: brightness == Brightness.dark ? 0.18 : 0.12,
       );
 
+  /// Households: role colors
+  Color get householdOwner => AppTheme.householdOwner;
+  Color get householdAdmin => AppTheme.householdAdmin;
+  Color get householdMember => AppTheme.householdMember;
+
   /// Home: standard card surface
   Color get homeCardSurface => cardSurface;
 
@@ -323,6 +391,11 @@ class AppTheme {
   static const Color info = monekoPrimary; // brand primary for neutral/info
   static const Color darkPrimary =
       Color(0xFF8B70FF); // Slightly lighter purple for dark mode
+
+  // Household role accents
+  static const Color householdOwner = Color(0xFF7C5CFF);
+  static const Color householdAdmin = Color(0xFF4C8DFF);
+  static const Color householdMember = Color(0xFF34C759);
 
 // Light theme colors
   static const Color lightBackground = Color(0xFFF9FAFB); // --moneko-background
@@ -361,6 +434,37 @@ class AppTheme {
     Color(0xFFA78BFA), // Purple
     Color(0xFFFB923C), // Orange
   ];
+  static const Color pocketDefaultBlue = Color(0xFF007AFF);
+  static const List<Color> pocketPresetColors = [
+    Color(0xFFF87171), // Red
+    Color(0xFFF472B6), // Pink
+    Color(0xFFA855F7), // Purple
+    Color(0xFF7C3AED), // Deep Purple
+    Color(0xFF6366F1), // Indigo
+    Color(0xFF3B82F6), // Blue
+    Color(0xFF38BDF8), // Light Blue
+    Color(0xFF22D3EE), // Cyan
+    Color(0xFF14B8A6), // Teal
+    Color(0xFF22C55E), // Green
+    Color(0xFF4ADE80), // Light Green
+    Color(0xFFA3E635), // Lime
+    Color(0xFFFACC15), // Yellow
+    Color(0xFFF59E0B), // Amber
+    Color(0xFFFB923C), // Orange
+    Color(0xFFF97316), // Deep Orange
+    Color(0xFF8B5E34), // Brown
+    Color(0xFF9CA3AF), // Grey
+    Color(0xFF64748B), // Blue Grey
+  ];
+  static const List<Color> pocketColorSweep = [
+    Color(0xFFF87171),
+    Color(0xFFFACC15),
+    Color(0xFF22C55E),
+    Color(0xFF22D3EE),
+    Color(0xFF3B82F6),
+    Color(0xFFA855F7),
+    Color(0xFFF87171),
+  ];
   static const Color darkSelectedStateBackground =
       Color(0xFF26272E); // Neutral selection
   static const Color lightPocketAddSurface =
@@ -382,6 +486,16 @@ class AppTheme {
 
   static const Color lightChartBackground = Color(0xFFFFFFFF);
   static const Color darkChartBackground = Color(0xFF17181D);
+
+  // Insights chart palette
+  static const Color insightsRunning = Color(0xFF8B5CF6);
+  static const Color insightsBudget = Color(0xFF3B82F6);
+  static const Color insightsSpent = Color(0xFFEF4444);
+  static const Color insightsProjection = Color(0xFF10B981);
+
+  // WhatsApp brand colors
+  static const Color whatsappGreen = Color(0xFF25D366);
+  static const Color whatsappDarkGreen = Color(0xFF128C7E);
 
   // Skeleton (shimmer) colors tuned for light/dark themes
   // Skeleton (shimmer) colors tuned for light/dark themes

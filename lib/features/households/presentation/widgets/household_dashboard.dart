@@ -35,8 +35,8 @@ class HouseholdDashboard extends ConsumerWidget {
         // Household Header
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-          decoration: const BoxDecoration(
-            color: Colors.transparent,
+          decoration: BoxDecoration(
+            color: colorScheme.surface.withValues(alpha: 0.0),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -74,8 +74,8 @@ class HouseholdDashboard extends ConsumerWidget {
                       Icons.settings_outlined,
                       color: colorScheme.foreground,
                     ),
-                    splashColor: Colors.transparent,
-                    highlightColor: Colors.transparent,
+                    splashColor: colorScheme.surface.withValues(alpha: 0.0),
+                    highlightColor: colorScheme.surface.withValues(alpha: 0.0),
                     onPressed: () {
                       Navigator.push(
                         context,

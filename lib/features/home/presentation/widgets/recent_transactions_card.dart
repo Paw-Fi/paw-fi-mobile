@@ -170,7 +170,7 @@ Widget buildRecentTransactionsCard(
                           }
                         },
                         backgroundColor: colorScheme.destructive,
-                        foregroundColor: Colors.white,
+                        foregroundColor: colorScheme.onError,
                         icon: Icons.delete,
                         label: context.l10n.delete,
                         borderRadius: BorderRadius.circular(12),

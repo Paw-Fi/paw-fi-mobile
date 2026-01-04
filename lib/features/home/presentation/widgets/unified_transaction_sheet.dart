@@ -81,7 +81,8 @@ Future<void> showUnifiedTransactionSheet(
 
   return showModalBottomSheet<void>(
     context: context,
-    backgroundColor: Colors.transparent,
+    backgroundColor:
+        Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
     isScrollControlled: true,
     isDismissible: true,
     builder: (context) => _UnifiedTransactionSheet(
@@ -658,13 +659,13 @@ class _UnifiedTransactionSheetState
                     child: PrimaryAdaptiveButton(
                       onPressed: _isSaving ? null : _handleSave,
                       child: _isSaving
-                          ? const SizedBox(
+                          ? SizedBox(
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
                                 valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white,
+                                  colorScheme.primaryForeground,
                                 ),
                               ),
                             )
@@ -684,13 +685,13 @@ class _UnifiedTransactionSheetState
                       child: DestructiveAdaptiveButton(
                         onPressed: _isDeleting ? null : _handleDelete,
                         child: _isDeleting
-                            ? const SizedBox(
+                            ? SizedBox(
                                 width: 20,
                                 height: 20,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
                                   valueColor: AlwaysStoppedAnimation<Color>(
-                                    Colors.white,
+                                    colorScheme.onError,
                                   ),
                                 ),
                               )
@@ -1215,7 +1216,9 @@ class _UnifiedTransactionSheetState
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: hasImage ? Colors.transparent : colorScheme.sheetBorder,
+                color: hasImage
+                    ? colorScheme.surface.withValues(alpha: 0.0)
+                    : colorScheme.sheetBorder,
                 width: 2,
               ),
             ),
@@ -1382,7 +1385,8 @@ class _UnifiedTransactionSheetState
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor:
+          Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
       builder: (sheetContext) {
         return CategoryPickerBottomSheet(
           allCategories: categories,
@@ -1656,7 +1660,8 @@ class _UnifiedTransactionSheetState
       result = await showModalBottomSheet<String>(
         context: context,
         isScrollControlled: true,
-        backgroundColor: Colors.transparent,
+        backgroundColor:
+            Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
         builder: (context) => Container(
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -2621,11 +2626,12 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: colorScheme.appBackground,
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        iconTheme: const IconThemeData(color: Colors.white),
+        backgroundColor: colorScheme.appBackground,
+        iconTheme: IconThemeData(color: colorScheme.foreground),
         elevation: 0,
       ),
       body: Center(
@@ -2650,7 +2656,7 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
                                 ? loadingProgress.cumulativeBytesLoaded /
                                     loadingProgress.expectedTotalBytes!
                                 : null,
-                            color: Colors.white,
+                            color: colorScheme.foreground,
                           ),
                         );
                       },
@@ -2662,13 +2668,13 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
                               Icon(
                                 Icons.image_not_supported_outlined,
                                 size: 64,
-                                color: Colors.white54,
+                                color: colorScheme.mutedForeground,
                               ),
-                              SizedBox(height: 16),
+                              const SizedBox(height: 16),
                               Text(
                                 context.l10n.failedToLoadImage,
                                 style: TextStyle(
-                                  color: Colors.white54,
+                                  color: colorScheme.mutedForeground,
                                   fontSize: 16,
                                 ),
                               ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 /// Domain model representing a single budget pocket/envelope.
 class PocketEnvelope {
@@ -63,8 +64,8 @@ class PocketEnvelope {
   }
 
   Color statusColor(Color safeColor, double totalBudget) {
-    if (isOverBudget(totalBudget)) return Colors.redAccent;
-    if (isNearLimit(totalBudget)) return Colors.orangeAccent;
+    if (isOverBudget(totalBudget)) return AppTheme.danger;
+    if (isNearLimit(totalBudget)) return AppTheme.warning;
     return safeColor;
   }
 

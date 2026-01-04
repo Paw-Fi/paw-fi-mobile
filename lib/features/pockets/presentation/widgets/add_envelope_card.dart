@@ -15,7 +15,7 @@ class AddEnvelopeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
+      color: colorScheme.surface.withValues(alpha: 0.0),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(32),

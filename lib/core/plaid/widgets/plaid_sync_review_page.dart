@@ -192,8 +192,8 @@ class _MonthSection extends StatelessWidget {
                 children: [
                   SlidableAction(
                     onPressed: (_) => onDelete(tx),
-                    backgroundColor: const Color(0xFFFE4A49),
-                    foregroundColor: Colors.white,
+                    backgroundColor: colorScheme.destructive,
+                    foregroundColor: colorScheme.onError,
                     icon: Icons.delete,
                     label: context.l10n.delete,
                     borderRadius: BorderRadius.circular(12),

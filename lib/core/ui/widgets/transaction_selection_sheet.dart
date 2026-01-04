@@ -79,12 +79,12 @@ Future<T?> showTransactionSelectionSheet<T>({
       },
     );
   } else {
+    final scheme = Theme.of(context).colorScheme;
     return await showModalBottomSheet<T>(
       context: context,
-      backgroundColor: Colors.transparent,
+      backgroundColor: scheme.surface.withValues(alpha: 0.0),
       isScrollControlled: true,
       builder: (context) {
-        final scheme = Theme.of(context).colorScheme;
         return Container(
           decoration: BoxDecoration(
             color: scheme.card,

@@ -112,7 +112,7 @@ class PocketCard extends StatelessWidget {
 
             // Content Overlay
             Material(
-              color: Colors.transparent,
+              color: colorScheme.surface.withValues(alpha: 0.0),
               child: InkWell(
                 onTap: onTap,
                 child: Padding(
@@ -149,9 +149,9 @@ class PocketCard extends StatelessWidget {
                                 color: colorScheme.error,
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.priority_high_rounded,
-                                color: Colors.white,
+                                color: colorScheme.primaryForeground,
                                 size: 14,
                               ),
                             ),

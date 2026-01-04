@@ -13,30 +13,36 @@ Widget buildWhatsAppBindingCard(BuildContext context, WidgetRef ref) {
   final colorScheme = Theme.of(context).colorScheme;
   final whatsappBinding = ref.watch(whatsAppBindingProvider);
 
-    Future<void> handleBindWhatsApp() async {
-      // This wa link doesnt contains a "start" welcome message
-      final Uri url = Uri.parse('https://wa.link/zxwtld');
-      try {
-        // Prefer external browser/WhatsApp if available
-        bool launched = await launchUrl(url, mode: LaunchMode.externalApplication);
-        if (!launched) {
-          // Some Android emulators/devices may not have a browser handler.
-          // Fall back to an in-app webview so the flow still works.
-          launched = await launchUrl(url, mode: LaunchMode.inAppBrowserView);
-        }
-        if (!launched) {
-          // Final fallback
-          launched = await launchUrl(url, mode: LaunchMode.inAppWebView);
-        }
-        if (launched && context.mounted) {
-          Navigator.of(context).pop(true); // Return true to refresh status
-        } else if (!launched) {
-          AppToast.error(context, 'Unable to open WhatsApp link. Please install a browser or WhatsApp.');
-        }
-      } catch (_) {
-        AppToast.error(context, 'Could not launch WhatsApp link.');
+  Future<void> handleBindWhatsApp() async {
+    // This wa link doesnt contains a "start" welcome message
+    final Uri url = Uri.parse('https://wa.link/zxwtld');
+    try {
+      // Prefer external browser/WhatsApp if available
+      bool launched = await launchUrl(
+        url,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched) {
+        // Some Android emulators/devices may not have a browser handler.
+        // Fall back to an in-app webview so the flow still works.
+        launched = await launchUrl(url, mode: LaunchMode.inAppBrowserView);
       }
+      if (!launched) {
+        // Final fallback
+        launched = await launchUrl(url, mode: LaunchMode.inAppWebView);
+      }
+      if (launched && context.mounted) {
+        Navigator.of(context).pop(true); // Return true to refresh status
+      } else if (!launched) {
+        AppToast.error(
+          context,
+          'Unable to open WhatsApp link. Please install a browser or WhatsApp.',
+        );
+      }
+    } catch (_) {
+      AppToast.error(context, 'Could not launch WhatsApp link.');
     }
+  }
 
   return whatsappBinding.when(
     data: (isBound) {
@@ -45,50 +51,53 @@ Widget buildWhatsAppBindingCard(BuildContext context, WidgetRef ref) {
         return InkWell(
           onTap: () => handleBindWhatsApp(),
           child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          decoration: BoxDecoration(
-            color: colorScheme.card,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFF25D366).withValues(alpha: 0.3)),
-          ),
-          child: Row(
-            children: [
-              const Icon(
-                Icons.chat_bubble_rounded,
-                color: Color(0xFF25D366),
-                size: 22,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            decoration: BoxDecoration(
+              color: colorScheme.card,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: AppTheme.whatsappGreen.withValues(alpha: 0.3),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      context.l10n.whatsAppConnected,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.foreground,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      context.l10n.logExpensesViaWhatsApp,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: colorScheme.mutedForeground,
-                      ),
-                    ),
-                  ],
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.chat_bubble_rounded,
+                  color: AppTheme.whatsappGreen,
+                  size: 22,
                 ),
-              ),
-              Icon(
-                Icons.chevron_right,
-                color: colorScheme.mutedForeground,
-              ),
-            ],
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.l10n.whatsAppConnected,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.foreground,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        context.l10n.logExpensesViaWhatsApp,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: colorScheme.mutedForeground,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right,
+                  color: colorScheme.mutedForeground,
+                ),
+              ],
+            ),
           ),
-        ));
+        );
       }
 
       // CTA state - not bound yet
@@ -107,15 +116,15 @@ Widget buildWhatsAppBindingCard(BuildContext context, WidgetRef ref) {
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                const Color(0xFF25D366).withValues(alpha: 0.1),
-                const Color(0xFF128C7E).withValues(alpha: 0.05),
+                AppTheme.whatsappGreen.withValues(alpha: 0.1),
+                AppTheme.whatsappDarkGreen.withValues(alpha: 0.05),
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: const Color(0xFF25D366).withValues(alpha: 0.3),
+              color: AppTheme.whatsappGreen.withValues(alpha: 0.3),
               width: 2,
             ),
           ),
@@ -144,15 +153,15 @@ Widget buildWhatsAppBindingCard(BuildContext context, WidgetRef ref) {
                                 vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF25D366),
+                                color: AppTheme.whatsappGreen,
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
                                 context.l10n.newBadge,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.white,
+                                  color: colorScheme.primaryForeground,
                                 ),
                               ),
                             ),

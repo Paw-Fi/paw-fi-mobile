@@ -95,7 +95,7 @@ class BudgetProgressCard extends ConsumerWidget {
                 if (percentageUsed >= budget.alertThreshold) {
                   progressColor = colorScheme.destructive;
                 } else if (percentageUsed >= budget.warnThreshold) {
-                  progressColor = Colors.orange;
+                  progressColor = colorScheme.warning;
                 }
 
                 return Column(

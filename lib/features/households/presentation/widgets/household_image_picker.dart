@@ -28,7 +28,7 @@ class HouseholdImagePicker {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent,
+      backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
       isScrollControlled: true,
       builder: (context) => Consumer(
         builder: (context, ref, child) {
@@ -182,7 +182,7 @@ class HouseholdImagePicker {
     required VoidCallback onTap,
   }) {
     return Material(
-      color: Colors.transparent,
+      color: colorScheme.surface.withValues(alpha: 0.0),
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
@@ -207,20 +207,24 @@ class HouseholdImagePicker {
                 width: 56,
                 height: 56,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
+                  color: colorScheme.primaryForeground.withValues(alpha: 0.2),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, color: Colors.white, size: 28),
+                child: Icon(
+                  icon,
+                  color: colorScheme.primaryForeground,
+                  size: 28,
+                ),
               ),
               const SizedBox(height: 12),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Text(
                   label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                    color: colorScheme.primaryForeground,
                   ),
                   textAlign: TextAlign.center,
                   maxLines: 2,
@@ -383,6 +387,7 @@ class HouseholdImagePicker {
   static Future<CroppedFile?> _cropImage(
       BuildContext context, String imagePath) async {
     try {
+      final colorScheme = Theme.of(context).colorScheme;
       return await ImageCropper().cropImage(
         sourcePath: imagePath,
         aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
@@ -393,8 +398,8 @@ class HouseholdImagePicker {
         uiSettings: [
           AndroidUiSettings(
             toolbarTitle: context.l10n.cropCoverImage,
-            toolbarColor: Colors.black,
-            toolbarWidgetColor: Colors.white,
+            toolbarColor: colorScheme.appBackground,
+            toolbarWidgetColor: colorScheme.foreground,
             initAspectRatio: CropAspectRatioPreset.square,
             lockAspectRatio: true,
           ),

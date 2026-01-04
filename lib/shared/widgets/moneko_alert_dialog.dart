@@ -56,7 +56,9 @@ class MonekoAlertDialog {
       context: context,
       barrierDismissible: barrierDismissible,
       barrierLabel: 'dialog',
-      barrierColor: Colors.black.withValues(alpha: 0.35),
+      barrierColor: Theme.of(context).colorScheme.shadow.withValues(
+            alpha: 0.35,
+          ),
       transitionDuration: const Duration(milliseconds: 220),
       pageBuilder: (_, __, ___) => const SizedBox.shrink(),
       transitionBuilder: (ctx, animation, secondaryAnimation, child) {
@@ -197,7 +199,7 @@ class _MonekoAlertDialogWidgetState
           final dialogWidth = maxWidth > 480 ? 420.0 : maxWidth - 32.0;
 
           return Material(
-            color: Colors.transparent,
+            color: scheme.surface.withValues(alpha: 0.0),
             child: Container(
               width: dialogWidth,
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
@@ -210,7 +212,7 @@ class _MonekoAlertDialogWidgetState
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.25),
+                    color: scheme.shadow.withValues(alpha: 0.25),
                     blurRadius: 40,
                     offset: const Offset(0, 20),
                   ),

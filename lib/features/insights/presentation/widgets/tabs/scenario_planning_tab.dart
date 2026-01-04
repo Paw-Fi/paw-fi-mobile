@@ -128,7 +128,7 @@ class _ScenarioPlanningTabContentState
         builder: (ctx) {
           final bg = widget.colorScheme.appBackground;
           return Material(
-            color: Colors.transparent,
+            color: widget.colorScheme.surface.withValues(alpha: 0.0),
             child: Container(
               height: 320,
               color: bg,

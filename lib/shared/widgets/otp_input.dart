@@ -72,7 +72,9 @@ class _OtpInputState extends State<OtpInput> {
               border: InputBorder.none,
               counterText: '',
             ),
-            style: const TextStyle(color: Colors.transparent),
+            style: TextStyle(
+              color: colorScheme.surface.withValues(alpha: 0.0),
+            ),
           ),
         ),
         // Visible Boxes

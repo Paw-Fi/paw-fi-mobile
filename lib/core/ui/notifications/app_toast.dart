@@ -20,11 +20,11 @@ class AppToast {
     final colorScheme = Theme.of(context).colorScheme;
     switch (type) {
       case AppToastType.success:
-        return Colors.green.shade600;
+        return colorScheme.success;
       case AppToastType.warning:
-        return Colors.orange.shade600;
+        return colorScheme.warning;
       case AppToastType.error:
-        return colorScheme.error;
+        return colorScheme.destructive;
       case AppToastType.info:
         return colorScheme.primary;
     }
@@ -205,6 +205,7 @@ class AppToast {
     }
 
     final color = _getColorForType(type, context);
+    final foreground = Theme.of(context).colorScheme.primaryForeground;
     final icon = _getIconForType(type);
 
     _currentMessengerBanner = messenger;
@@ -213,15 +214,15 @@ class AppToast {
       MaterialBanner(
         elevation: 0,
         backgroundColor: color,
-        leading: Icon(icon, color: Colors.white),
+        leading: Icon(icon, color: foreground),
         content: Text(
           message,
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+          style: TextStyle(color: foreground, fontWeight: FontWeight.w500),
         ),
-        actions: const [
+        actions: [
           TextButton(
             onPressed: _dismissCurrentToast,
-            child: Text('Dismiss', style: TextStyle(color: Colors.white)),
+            child: Text('Dismiss', style: TextStyle(color: foreground)),
           ),
         ],
         forceActionsBelow: false,
@@ -300,6 +301,8 @@ class _ToastWidgetState extends State<_ToastWidget>
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final foreground = colorScheme.primaryForeground;
     return Positioned(
       top: 0,
       left: 0,
@@ -315,7 +318,7 @@ class _ToastWidgetState extends State<_ToastWidget>
               _handleDismiss();
             },
             child: Material(
-              color: Colors.transparent,
+              color: colorScheme.surface.withValues(alpha: 0.0),
               child: SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
@@ -325,7 +328,7 @@ class _ToastWidgetState extends State<_ToastWidget>
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.2),
+                          color: colorScheme.shadow.withValues(alpha: 0.2),
                           blurRadius: 8,
                           offset: const Offset(0, 4),
                         ),
@@ -338,15 +341,15 @@ class _ToastWidgetState extends State<_ToastWidget>
                         children: [
                           Icon(
                             widget.icon,
-                            color: Colors.white,
+                            color: foreground,
                             size: 24,
                           ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
                               widget.message,
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: foreground,
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -358,7 +361,7 @@ class _ToastWidgetState extends State<_ToastWidget>
                             TextButton(
                               onPressed: widget.onActionPressed,
                               style: TextButton.styleFrom(
-                                foregroundColor: Colors.white,
+                                foregroundColor: foreground,
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 12, vertical: 8),
                               ),

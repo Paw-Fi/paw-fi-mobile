@@ -379,7 +379,9 @@ class _SpendingCardState extends State<SpendingCard> {
                             );
                           }
                           return FlDotCirclePainter(
-                              radius: 0, color: Colors.transparent);
+                              radius: 0,
+                              color:
+                                  widget.colorScheme.surface.withValues(alpha: 0.0));
                         },
                       ),
                       belowBarData: BarAreaData(

@@ -185,3 +185,42 @@ Behavioral Summary
 	2.	Context7 MCP — for always-up-to-date documentation and version correctness.
 	3.	Serena MCP — for local environment management, scaffolding, dependency control, and file operations.
 	4.	mcp-feedback-enhanced — for iterative improvement and user alignment.
+
+⸻
+
+Moneko Mobile UI/Theming Addendum
+
+Scope and Intent
+	•	UI-only changes unless explicitly asked otherwise. Do not modify logic, behavior, or layout semantics.
+	•	Light theme is final and must not be changed. Dark theme is the only theme to be redesigned.
+	•	When asked to audit a page, drill into all child widgets and skeleton/loading states.
+
+Theme and Color Rules (Strict)
+	•	All colors must be centralized in `moneko-mobile/lib/core/theme/app_theme.dart`.
+	•	Use semantic tokens via the `ColorScheme` extension (e.g., sheetBackground, mutedForeground, successSurface).
+	•	Avoid `isDark ? a : b` branches. Use tokens so theme changes apply automatically.
+	•	Never introduce new `Colors.*` or `Color(0x...)` in UI files.
+	•	For transparency, use `colorScheme.surface.withValues(alpha: 0.0)` instead of `Colors.transparent`.
+	•	When adding a new token, define both light and dark values and expose via the extension.
+
+Bottom Sheets and Surfaces
+	•	Bottom sheets must be visually distinct from the app background, especially in dark mode.
+	•	Use `sheetBackground` and `sheetBorder` for sheets to avoid merging with the black background.
+	•	Unify sheet styling across features (e.g., unified_transaction_sheet and add_recurring_sheet).
+
+Widgets and Adaptive UI
+	•	Reuse shared components from `moneko-mobile/lib/shared/widgets` before creating new ones.
+	•	Prefer Adaptive Platform UI widgets:
+		- `moneko-mobile/docs/adaptive_platform_ui_widgets_example.md`
+		- `moneko-mobile/docs/adaptive_platform_ui_widgets.md`
+	•	Tab bars and segmented controls must be full width and use theme tokens for selected/unselected text.
+
+Translations (Strict)
+	•	Add new translation keys in `moneko-mobile/translations.json`.
+	•	Only fill the English value; keep other language values as empty strings.
+	•	Do not edit `.arb` files unless explicitly asked.
+
+Thoroughness Expectations
+	•	When asked to scan all pages, search by suffix (`*page.dart`, `*screen.dart`) and iterate folder-by-folder.
+	•	Do not skip components or imported widgets; update all to use theme tokens.
+	•	Ensure borders, dividers, and inactive labels are legible in dark mode.

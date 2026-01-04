@@ -54,7 +54,7 @@ Widget buildHouseholdMemberSpendingCard(
       ),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withValues(alpha: 0.04),
+          color: colorScheme.shadow.withValues(alpha: 0.08),
           blurRadius: 20,
           offset: const Offset(0, 4),
         ),
@@ -331,7 +331,7 @@ void _showReminderModal(
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.transparent,
+    backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
     builder: (modalContext) {
       return _ReminderModalContent(
         colorScheme: colorScheme,
@@ -417,7 +417,7 @@ class _ReminderModalContentState extends State<_ReminderModalContent> {
           ScaffoldMessenger.of(widget.parentContext).showSnackBar(
             SnackBar(
               content: Text('Reminder sent to ${widget.targetUserName}! 🔔'),
-              backgroundColor: Colors.green,
+              backgroundColor: widget.colorScheme.success,
             ),
           );
         } else {
@@ -575,7 +575,9 @@ class _ReminderModalContentState extends State<_ReminderModalContent> {
                                 width: 20,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    widget.colorScheme.primaryForeground,
+                                  ),
                                 ),
                               )
                             : Text(
@@ -583,7 +585,7 @@ class _ReminderModalContentState extends State<_ReminderModalContent> {
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
-                                  color: Colors.white,
+                                  color: widget.colorScheme.primaryForeground,
                                 ),
                               ),
                       ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/auth/data/services/impersonation_service.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 /// Banner that appears when admin is impersonating a user
 class ImpersonationBanner extends ConsumerWidget {
@@ -9,6 +10,10 @@ class ImpersonationBanner extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final impersonation = ref.watch(impersonationProvider);
+    final colorScheme = Theme.of(context).colorScheme;
+    final warningBase = colorScheme.warning;
+    final warningBackground = colorScheme.warningSurface;
+    final warningBorder = colorScheme.warningBorder;
 
     if (!impersonation.isImpersonating) {
       return const SizedBox.shrink();
@@ -18,10 +23,10 @@ class ImpersonationBanner extends ConsumerWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.orange.shade100,
+        color: warningBackground,
         border: Border(
           bottom: BorderSide(
-            color: Colors.orange.shade300,
+            color: warningBorder,
             width: 2,
           ),
         ),
@@ -32,7 +37,7 @@ class ImpersonationBanner extends ConsumerWidget {
           children: [
             Icon(
               Icons.warning_amber_rounded,
-              color: Colors.orange.shade900,
+              color: warningBase,
               size: 20,
             ),
             const SizedBox(width: 8),
@@ -44,7 +49,7 @@ class ImpersonationBanner extends ConsumerWidget {
                   Text(
                     'IMPERSONATING USER',
                     style: TextStyle(
-                      color: Colors.orange.shade900,
+                      color: warningBase,
                       fontWeight: FontWeight.bold,
                       fontSize: 12,
                     ),
@@ -52,7 +57,7 @@ class ImpersonationBanner extends ConsumerWidget {
                   Text(
                     impersonation.impersonatedEmail ?? '',
                     style: TextStyle(
-                      color: Colors.orange.shade800,
+                      color: warningBase.withValues(alpha: 0.9),
                       fontSize: 11,
                     ),
                   ),
@@ -64,10 +69,10 @@ class ImpersonationBanner extends ConsumerWidget {
                 ref.read(impersonationProvider.notifier).stopImpersonation();
               },
               style: TextButton.styleFrom(
-                foregroundColor: Colors.orange.shade900,
+                foregroundColor: warningBase,
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               ),
-                child: const Text(
+              child: const Text(
                 'EXIT',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,

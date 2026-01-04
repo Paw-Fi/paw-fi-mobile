@@ -23,8 +23,8 @@ class MemberAvatars extends StatelessWidget {
               backgroundColor: _getRoleColor(member.role, colorScheme),
               child: Text(
                 _getInitials(member.userEmail ?? member.userId),
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: colorScheme.primaryForeground,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -55,11 +55,11 @@ class MemberAvatars extends StatelessWidget {
   Color _getRoleColor(HouseholdRole role, ColorScheme scheme) {
     switch (role) {
       case HouseholdRole.owner:
-        return Colors.purple;
+        return scheme.householdOwner;
       case HouseholdRole.admin:
-        return Colors.blue;
+        return scheme.householdAdmin;
       case HouseholdRole.member:
-        return Colors.green;
+        return scheme.householdMember;
     }
   }
 

@@ -48,15 +48,15 @@ Widget build30DayProjectionChart(BuildContext context, ColorScheme colorScheme, 
         LineChartBarData(
           spots: projectionSpots,
           isCurved: true,
-          color: const Color(0xFF10B981),
+          color: AppTheme.insightsProjection,
           barWidth: 3,
           dotData: const FlDotData(show: false),
           belowBarData: BarAreaData(
             show: true,
             gradient: LinearGradient(
               colors: [
-                const Color(0xFF10B981).withValues(alpha: 0.2),
-                const Color(0xFF10B981).withValues(alpha: 0.0),
+                AppTheme.insightsProjection.withValues(alpha: 0.2),
+                AppTheme.insightsProjection.withValues(alpha: 0.0),
               ],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,

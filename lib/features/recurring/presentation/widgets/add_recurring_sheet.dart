@@ -797,7 +797,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                                 decoration: BoxDecoration(
                                   color: isExpense
                                       ? colorScheme.primary
-                                      : Colors.transparent,
+                                      : colorScheme.surface.withValues(alpha: 0.0),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
@@ -807,7 +807,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
                                     color: isExpense
-                                        ? Colors.white
+                                        ? colorScheme.primaryForeground
                                         : colorScheme.foreground,
                                   ),
                                 ),
@@ -827,7 +827,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                                 decoration: BoxDecoration(
                                   color: !isExpense
                                       ? colorScheme.primary
-                                      : Colors.transparent,
+                                      : colorScheme.surface.withValues(alpha: 0.0),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
@@ -837,7 +837,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
                                     color: !isExpense
-                                        ? Colors.white
+                                        ? colorScheme.primaryForeground
                                         : colorScheme.foreground,
                                   ),
                                 ),
@@ -1454,7 +1454,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                             },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: colorScheme.primary,
-                        foregroundColor: Colors.white,
+                        foregroundColor: colorScheme.primaryForeground,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -1467,7 +1467,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
                                 valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white,
+                                  colorScheme.primaryForeground,
                                 ),
                               ),
                             )

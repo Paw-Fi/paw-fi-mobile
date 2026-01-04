@@ -26,7 +26,7 @@ void showTextInputDrawer(
   showModalBottomSheet(
     context: parentContext,
     isScrollControlled: true,
-    backgroundColor: Colors.transparent,
+    backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
     builder: (modalContext) => _TextInputContent(
       parentContext: parentContext,
       textController: textController,
@@ -206,7 +206,7 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
+            color: scheme.shadow.withValues(alpha: 0.12),
             blurRadius: 20,
             offset: const Offset(0, -6),
           ),
@@ -333,13 +333,14 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
                   child: PrimaryAdaptiveButton(
                     onPressed: _isProcessing ? null : _processExpense,
                     child: _isProcessing
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 20,
                             height: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
                               valueColor:
-                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                                  AlwaysStoppedAnimation<Color>(
+                                      scheme.primaryForeground),
                             ),
                           )
                         : Text(dynamicTitle),

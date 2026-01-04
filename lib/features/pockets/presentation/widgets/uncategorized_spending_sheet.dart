@@ -33,7 +33,7 @@ void showUncategorizedSheet(
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.transparent,
+    backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
     builder: (sheetContext) {
       final sorted = [...uncategorized]
         ..sort((a, b) => b.amount.compareTo(a.amount));
@@ -464,7 +464,7 @@ void _showPocketSelectionModal(
 ) {
   showModalBottomSheet(
     context: context,
-    backgroundColor: Colors.transparent,
+    backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
     isScrollControlled: true,
     builder: (context) => ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
@@ -551,7 +551,7 @@ void _showPocketSelectionModal(
                           : colorScheme.primary;
 
                       return Material(
-                        color: Colors.transparent,
+                        color: colorScheme.surface.withValues(alpha: 0.0),
                         child: InkWell(
                           onTap: () => onSelected(pocket),
                           borderRadius: BorderRadius.circular(16),

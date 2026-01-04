@@ -90,21 +90,21 @@ Widget buildRunningBalanceChart(BuildContext context, ColorScheme colorScheme, L
         LineChartBarData(
           spots: spots,
           isCurved: true,
-          color: const Color(0xFF8B5CF6), // Purple for running
+          color: AppTheme.insightsRunning,
           barWidth: 2,
           dotData: const FlDotData(show: false),
         ),
         LineChartBarData(
           spots: budgetSpots,
           isCurved: true,
-          color: const Color(0xFF3B82F6), // Blue for budget
+          color: AppTheme.insightsBudget,
           barWidth: 2,
           dotData: const FlDotData(show: false),
         ),
         LineChartBarData(
           spots: spentSpots,
           isCurved: true,
-          color: const Color(0xFFEF4444), // Red for spent
+          color: AppTheme.insightsSpent,
           barWidth: 2,
           dotData: const FlDotData(show: false),
         ),

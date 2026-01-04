@@ -211,7 +211,7 @@ class _DashboardWidgetWrapperState extends ConsumerState<DashboardWidgetWrapper>
                   borderRadius: BorderRadius.circular(32),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.15),
+                      color: colorScheme.shadow.withValues(alpha: 0.15),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -263,7 +263,7 @@ class _DashboardWidgetWrapperState extends ConsumerState<DashboardWidgetWrapper>
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
+              color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.12),
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),
@@ -352,7 +352,8 @@ class DraggableDashboardList extends ConsumerWidget {
     }
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent,
+      backgroundColor:
+          Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
       builder: (context) => WidgetConfigurationSheet(
         config: config,
         onUpdate: (
@@ -558,12 +559,14 @@ class WidgetConfigurationSheet extends StatelessWidget {
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
-            color: isSelected ? colorScheme.surface : Colors.transparent,
+            color: isSelected
+                ? colorScheme.surface
+                : colorScheme.surface.withValues(alpha: 0.0),
             borderRadius: BorderRadius.circular(8),
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
+                      color: colorScheme.shadow.withValues(alpha: 0.12),
                       blurRadius: 2,
                       offset: const Offset(0, 1),
                     ),

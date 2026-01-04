@@ -45,6 +45,7 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return DraggableScrollableSheet(
       initialChildSize: 0.9,
@@ -63,7 +64,7 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   border: Border(
-                    bottom: BorderSide(color: Colors.grey[200]!),
+                    bottom: BorderSide(color: colorScheme.border),
                   ),
                 ),
                 child: Row(

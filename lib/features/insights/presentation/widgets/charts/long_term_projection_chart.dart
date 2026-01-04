@@ -51,7 +51,7 @@ Widget buildLongTermProjectionChart(BuildContext context, ColorScheme colorSchem
         LineChartBarData(
           spots: projectionSpots,
           isCurved: true,
-          color: const Color(0xFF10B981),
+          color: AppTheme.insightsProjection,
           barWidth: 3,
           dotData: const FlDotData(show: false),
         ),

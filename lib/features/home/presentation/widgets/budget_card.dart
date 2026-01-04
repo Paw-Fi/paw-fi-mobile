@@ -25,7 +25,7 @@ Widget buildBudgetCard(
   final title = _budgetTitleForFilter(context, filter);
 
   return Material(
-    color: Colors.transparent,
+    color: colorScheme.surface.withValues(alpha: 0.0),
     child: InkWell(
       borderRadius: BorderRadius.circular(24),
       onTap: onTap,

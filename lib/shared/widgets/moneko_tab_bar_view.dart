@@ -63,16 +63,8 @@ class _MonekoTabBarViewState extends State<MonekoTabBarView> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isDark = colorScheme.brightness == Brightness.dark;
 
     if (PlatformInfo.isIOS) {
-      final thumbColor = isDark ? colorScheme.foreground : colorScheme.card;
-      final selectedTextColor =
-          isDark ? AppTheme.lightForeground : colorScheme.foreground;
-      final unselectedTextColor = isDark
-          ? colorScheme.tabInactiveForeground
-          : colorScheme.mutedForeground;
-
       return Column(
         children: [
           Padding(
@@ -84,7 +76,7 @@ class _MonekoTabBarViewState extends State<MonekoTabBarView> {
                 return CupertinoSlidingSegmentedControl<int>(
                   groupValue: _currentIndex,
                   backgroundColor: colorScheme.muted,
-                  thumbColor: thumbColor,
+                  thumbColor: colorScheme.tabThumb,
                   children: {
                     for (int i = 0; i < widget.tabs.length; i++)
                       i: SizedBox(
@@ -96,8 +88,8 @@ class _MonekoTabBarViewState extends State<MonekoTabBarView> {
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
                               color: i == _currentIndex
-                                  ? selectedTextColor
-                                  : unselectedTextColor,
+                                  ? colorScheme.tabSelectedForeground
+                                  : colorScheme.tabUnselectedForeground,
                             ),
                           ),
                         ),
@@ -126,14 +118,13 @@ class _MonekoTabBarViewState extends State<MonekoTabBarView> {
 
     return DefaultTextStyle.merge(
       style: TextStyle(
-        color: isDark ? colorScheme.tabInactiveForeground : colorScheme.foreground,
+        color: colorScheme.tabDefaultForeground,
       ),
       child: AdaptiveTabBarView(
         tabs: widget.tabs,
         children: widget.children,
         onTabChanged: widget.onTabChanged,
-        unselectedColor:
-            isDark ? colorScheme.tabInactiveForeground : colorScheme.mutedForeground,
+        unselectedColor: colorScheme.tabUnselectedForeground,
       ),
     );
   }

@@ -86,7 +86,9 @@ class MonekoListPicker {
 
     return showModalBottomSheet<T>(
       context: context,
-      backgroundColor: Colors.transparent,
+      backgroundColor: Theme.of(context).colorScheme.surface.withValues(
+            alpha: 0.0,
+          ),
       isScrollControlled: true,
       builder: (ctx) {
         final scheme = Theme.of(ctx).colorScheme;
@@ -158,4 +160,3 @@ class MonekoListPicker {
     );
   }
 }
-

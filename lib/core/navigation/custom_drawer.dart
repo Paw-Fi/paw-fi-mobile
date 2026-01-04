@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 class AppDrawerController {
   void Function()? open;
@@ -19,8 +20,8 @@ class CustomDrawer extends StatefulWidget {
   final double menuScreenWidth;
   final double borderRadius;
   final double angle;
-  final Color menuBackgroundColor;
-  final Color drawerShadowsBackgroundColor;
+  final Color? menuBackgroundColor;
+  final Color? drawerShadowsBackgroundColor;
   final bool showShadow;
 
   const CustomDrawer({
@@ -32,8 +33,8 @@ class CustomDrawer extends StatefulWidget {
     this.menuScreenWidth = 275.0,
     this.borderRadius = 16.0,
     this.angle = -12.0,
-    this.menuBackgroundColor = Colors.grey,
-    this.drawerShadowsBackgroundColor = Colors.black12,
+    this.menuBackgroundColor,
+    this.drawerShadowsBackgroundColor,
     this.showShadow = false,
   });
 
@@ -127,10 +128,15 @@ class _CustomDrawerState extends State<CustomDrawer>
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final menuBackground =
+        widget.menuBackgroundColor ?? colorScheme.appBackground;
+    final shadowBackground = widget.drawerShadowsBackgroundColor ??
+        colorScheme.shadow.withValues(alpha: 0.12);
     final size = MediaQuery.of(context).size;
 
     return Scaffold(
-      backgroundColor: widget.menuBackgroundColor,
+      backgroundColor: menuBackground,
       body: Stack(
         children: [
           // Menu Screen
@@ -152,7 +158,7 @@ class _CustomDrawerState extends State<CustomDrawer>
                     width: size.width,
                     height: size.height,
                     decoration: BoxDecoration(
-                      color: widget.drawerShadowsBackgroundColor,
+                      color: shadowBackground,
                       borderRadius: BorderRadius.zero,
                     ),
                   ),
@@ -179,11 +185,11 @@ class _CustomDrawerState extends State<CustomDrawer>
                       Container(
                         clipBehavior: Clip.antiAlias,
                         decoration: BoxDecoration(
-                          color: Colors.white, // Will be covered by child
+                          color: colorScheme.surface,
                           borderRadius: BorderRadius.circular(radiusValue),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black
+                              color: colorScheme.shadow
                                   .withValues(alpha: 0.05 * slideValue),
                               blurRadius: 8,
                               offset: const Offset(-2, 0),
@@ -200,7 +206,7 @@ class _CustomDrawerState extends State<CustomDrawer>
                           onHorizontalDragEnd: _onDragEnd,
                           onTap: close,
                           child: Container(
-                            color: Colors.black
+                            color: colorScheme.shadow
                                 .withValues(alpha: 0.2 * slideValue),
                           ),
                         ),
@@ -221,7 +227,9 @@ class _CustomDrawerState extends State<CustomDrawer>
               behavior: HitTestBehavior.translucent,
               onHorizontalDragUpdate: _onDragUpdate,
               onHorizontalDragEnd: _onDragEnd,
-              child: Container(color: Colors.transparent),
+              child: Container(
+                color: colorScheme.surface.withValues(alpha: 0.0),
+              ),
             ),
           ),
         ],

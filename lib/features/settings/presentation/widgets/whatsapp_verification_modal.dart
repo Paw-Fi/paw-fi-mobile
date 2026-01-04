@@ -143,12 +143,13 @@ class _WhatsAppVerificationModalState extends State<WhatsAppVerificationModal> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.green.withValues(alpha: 0.1),
+                color: colorScheme.success.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.check_circle, color: Colors.green, size: 24),
+                  Icon(Icons.check_circle,
+                      color: colorScheme.success, size: 24),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -204,20 +205,20 @@ class _WhatsAppVerificationModalState extends State<WhatsAppVerificationModal> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.red.withValues(alpha: 0.1),
+                  color: colorScheme.destructive.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.error_outline,
-                        color: Colors.red, size: 20),
+                    Icon(Icons.error_outline,
+                        color: colorScheme.destructive, size: 20),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         _errorMessage!,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
-                          color: Colors.red,
+                          color: colorScheme.destructive,
                         ),
                       ),
                     ),
@@ -265,7 +266,9 @@ class _WhatsAppVerificationModalState extends State<WhatsAppVerificationModal> {
                       height: 16,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          colorScheme.primaryForeground,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -300,7 +303,8 @@ Future<void> showWhatsAppVerificationModal(
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.transparent,
+    backgroundColor:
+        Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
     builder: (context) {
       final colorScheme = Theme.of(context).colorScheme;
       return Container(

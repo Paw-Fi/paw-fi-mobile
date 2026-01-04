@@ -144,7 +144,7 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
         mySuggestions.isEmpty && youOweTotal == 0 && owedToYouTotal == 0;
 
     return Material(
-      color: Colors.transparent,
+      color: colorScheme.surface.withValues(alpha: 0.0),
       child: InkWell(
         borderRadius: BorderRadius.circular(24),
         onTap: () {
@@ -701,7 +701,8 @@ Future<void> _openSettleUpSheet(
   await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.transparent,
+    backgroundColor:
+        Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
     builder: (_) {
       return Padding(
         padding: EdgeInsets.only(

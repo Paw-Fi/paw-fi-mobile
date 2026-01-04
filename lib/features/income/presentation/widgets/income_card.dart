@@ -21,7 +21,7 @@ class IncomeCard extends ConsumerWidget {
     final incomeSummaryState = ref.watch(incomeSummaryProvider);
 
     return Material(
-      color: Colors.transparent,
+      color: colorScheme.surface.withValues(alpha: 0.0),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () {
@@ -58,7 +58,7 @@ class IncomeCard extends ConsumerWidget {
                         children: [
                           const Icon(
                             Icons.account_balance_wallet,
-                            color: Colors.green,
+                            color: colorScheme.success,
                             size: 20,
                           ),
                           const SizedBox(width: 8),
@@ -94,10 +94,10 @@ class IncomeCard extends ConsumerWidget {
                     const SizedBox(height: 4),
                     Text(
                       _formatLocalizedCurrency(summary.mtdIncome!),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
-                        color: Colors.green,
+                        color: colorScheme.success,
                       ),
                     ),
                   ] else ...[
@@ -111,10 +111,10 @@ class IncomeCard extends ConsumerWidget {
                     const SizedBox(height: 4),
                     Text(
                       _formatLocalizedCurrency(summary.totalIncome),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
-                        color: Colors.green,
+                        color: colorScheme.success,
                       ),
                     ),
                   ],
@@ -169,7 +169,7 @@ class IncomeCard extends ConsumerWidget {
                   children: [
                     const Icon(
                       Icons.account_balance_wallet,
-                      color: Colors.green,
+                      color: colorScheme.success,
                       size: 20,
                     ),
                     const SizedBox(width: 8),

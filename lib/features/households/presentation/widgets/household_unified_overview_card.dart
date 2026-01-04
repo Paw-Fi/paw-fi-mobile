@@ -77,7 +77,7 @@ Widget buildHouseholdUnifiedOverviewCard(
       ),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withValues(alpha: 0.04),
+          color: colorScheme.shadow.withValues(alpha: 0.08),
           blurRadius: 20,
           offset: const Offset(0, 4),
         ),

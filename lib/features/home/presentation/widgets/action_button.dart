@@ -29,7 +29,7 @@ class ActionButton extends StatelessWidget {
               border: Border.all(color: colorScheme.border),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.08),
+                  color: colorScheme.shadow.withValues(alpha: 0.08),
                   blurRadius: 4,
                   offset: const Offset(0, 2),
                 ),

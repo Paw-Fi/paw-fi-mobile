@@ -11,7 +11,7 @@ void showEnvelopeModeSettingsModal(
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.transparent,
+    backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
     builder: (context) => Container(
       decoration: BoxDecoration(
         color: colorScheme.sheetBackground,

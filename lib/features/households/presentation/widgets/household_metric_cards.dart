@@ -51,7 +51,7 @@ Widget buildHouseholdBudgetCard(
       ),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withValues(alpha: 0.04),
+          color: colorScheme.shadow.withValues(alpha: 0.08),
           blurRadius: 12,
           offset: const Offset(0, 2),
         ),
@@ -119,7 +119,7 @@ Widget buildHouseholdBudgetCard(
 
   if (onTap == null) return card;
   return Material(
-    color: Colors.transparent,
+    color: colorScheme.surface.withValues(alpha: 0.0),
     child: InkWell(
       borderRadius: BorderRadius.circular(20),
       onTap: onTap,
@@ -154,7 +154,7 @@ Widget buildHouseholdNetPositionCard(
       ),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withValues(alpha: 0.04),
+          color: colorScheme.shadow.withValues(alpha: 0.08),
           blurRadius: 12,
           offset: const Offset(0, 2),
         ),
@@ -224,7 +224,7 @@ Widget buildHouseholdNetPositionCard(
 
   if (onTap == null) return card;
   return Material(
-    color: Colors.transparent,
+    color: colorScheme.surface.withValues(alpha: 0.0),
     child: InkWell(
       borderRadius: BorderRadius.circular(20),
       onTap: onTap,
@@ -257,7 +257,7 @@ Widget buildHouseholdTotalSpentCard(
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: colorScheme.shadow.withValues(alpha: 0.08),
             blurRadius: 12,
             offset: const Offset(0, 2),
           ),
@@ -333,7 +333,7 @@ Widget buildHouseholdTotalSpentCard(
 
   if (onTap == null) return card;
   return Material(
-    color: Colors.transparent,
+    color: colorScheme.surface.withValues(alpha: 0.0),
     child: InkWell(
       borderRadius: BorderRadius.circular(20),
       onTap: onTap,
@@ -368,7 +368,7 @@ Widget buildMemberSpendingCard(
       ),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withValues(alpha: 0.04),
+          color: colorScheme.shadow.withValues(alpha: 0.08),
           blurRadius: 12,
           offset: const Offset(0, 2),
         ),
@@ -519,7 +519,7 @@ Widget buildMemberSpendingCard(
 
   if (onTap == null) return card;
   return Material(
-    color: Colors.transparent,
+    color: colorScheme.surface.withValues(alpha: 0.0),
     child: InkWell(
       borderRadius: BorderRadius.circular(20),
       onTap: onTap,

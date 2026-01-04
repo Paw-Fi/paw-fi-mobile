@@ -143,7 +143,7 @@ class _PlaidCountrySelectorScreenState
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Material(
-                      color: Colors.transparent,
+                      color: colorScheme.surface.withValues(alpha: 0.0),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(12),
                         onTap: () {

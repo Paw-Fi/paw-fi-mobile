@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/auth/data/services/impersonation_service.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 /// Dialog for admins to start impersonating a user
 class ImpersonationDialog extends ConsumerStatefulWidget {
@@ -66,6 +67,11 @@ class _ImpersonationDialogState extends ConsumerState<ImpersonationDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final infoBase = colorScheme.info;
+    final infoBackground = colorScheme.infoSurface;
+    final infoBorder = colorScheme.infoBorder;
+
     return AlertDialog(
       title: Text(context.l10n.impersonateUser),
       content: Column(
@@ -94,16 +100,16 @@ class _ImpersonationDialogState extends ConsumerState<ImpersonationDialog> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.blue.shade50,
+              color: infoBackground,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.blue.shade200),
+              border: Border.all(color: infoBorder),
             ),
             child: Row(
               children: [
                 Icon(
                   Icons.info_outline,
                   size: 20,
-                  color: Colors.blue.shade700,
+                  color: infoBase,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -111,7 +117,7 @@ class _ImpersonationDialogState extends ConsumerState<ImpersonationDialog> {
                     context.l10n.youWillSeeDataFromThisUsersPerspectiveWithoutLoggingInAsThem,
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.blue.shade900,
+                      color: infoBase.withValues(alpha: 0.95),
                     ),
                   ),
                 ),
@@ -138,5 +144,4 @@ class _ImpersonationDialogState extends ConsumerState<ImpersonationDialog> {
       ],
     );
   }
-
 }

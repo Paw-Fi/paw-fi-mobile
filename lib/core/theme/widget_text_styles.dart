@@ -6,21 +6,18 @@ class WidgetTextStyles {
   static const TextStyle title = TextStyle(
     fontSize: 16,
     fontWeight: FontWeight.w600,
-    color: Color(0xFF374151), // gray-700 equivalent
   );
 
   // Date range subtitle style (matches web p tag)
   static const TextStyle subtitle = TextStyle(
     fontSize: 12,
     fontWeight: FontWeight.w500,
-    color: Color(0xFF6B7280), // gray-500 equivalent
   );
 
   // Primary amount style (compact, matching web financial amounts)
   static const TextStyle amount = TextStyle(
     fontSize: 24,
     fontWeight: FontWeight.w700,
-    color: Color(0xFF111827), // gray-900 equivalent
     letterSpacing: -0.5,
     height: 1.1,
   );
@@ -29,14 +26,12 @@ class WidgetTextStyles {
   static const TextStyle category = TextStyle(
     fontSize: 14,
     fontWeight: FontWeight.w500,
-    color: Color(0xFF374151), // gray-700 equivalent
   );
 
   // Category amount style
   static const TextStyle categoryAmount = TextStyle(
     fontSize: 14,
     fontWeight: FontWeight.w600,
-    color: Color(0xFF111827), // gray-900 equivalent
   );
 
   // Date range label style (non-uppercase)

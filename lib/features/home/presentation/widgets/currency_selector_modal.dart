@@ -518,7 +518,7 @@ class _CurrencyCard extends StatelessWidget {
     final currencySymbol = resolveCurrencySymbol(summary.currencyCode);
 
     return Material(
-      color: Colors.transparent,
+      color: colorScheme.surface.withValues(alpha: 0.0),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: onTap,

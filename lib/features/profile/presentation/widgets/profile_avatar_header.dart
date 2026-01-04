@@ -40,7 +40,10 @@ Widget buildProfileAvatarHeader(BuildContext context, WidgetRef ref, user) {
               gradient: avatarUrl != null
                   ? null
                   : const LinearGradient(
-                      colors: [Color(0xFF7458FF), Color(0xFF836DFF)],
+                      colors: [
+                        AppTheme.monekoPrimary,
+                        AppTheme.monekoSecondary
+                      ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
@@ -105,7 +108,7 @@ Widget buildProfileAvatarHeader(BuildContext context, WidgetRef ref, user) {
                   style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                    color: AppTheme.lightButtonText,
                   ),
                 ),
               ),
@@ -123,21 +126,22 @@ class _InitialsFallback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       alignment: Alignment.center,
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xFF7458FF), Color(0xFF836DFF)],
+          colors: [AppTheme.monekoPrimary, AppTheme.monekoSecondary],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
       ),
       child: Text(
         initials,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 32,
           fontWeight: FontWeight.bold,
-          color: Colors.white,
+          color: colorScheme.primaryForeground,
           letterSpacing: -0.5,
         ),
       ),
