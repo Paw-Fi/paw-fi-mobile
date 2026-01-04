@@ -14,7 +14,7 @@ void showEnvelopeModeSettingsModal(
     backgroundColor: Colors.transparent,
     builder: (context) => Container(
       decoration: BoxDecoration(
-        color: colorScheme.surface,
+        color: colorScheme.sheetBackground,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: const EdgeInsets.all(24),

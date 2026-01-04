@@ -61,9 +61,7 @@ class CategoryPicker extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final searchBackground = colorScheme.brightness == Brightness.dark
-        ? AppTheme.darkInputBg
-        : AppTheme.lightInputBg;
+    final searchBackground = colorScheme.homeSearchFieldBackground;
     final searchController = useTextEditingController();
     final searchQuery = useState<String>('');
     final initialSelected = isSingleSelect && selectedCategories.isNotEmpty

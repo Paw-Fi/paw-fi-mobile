@@ -46,6 +46,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     SplitType? customSplitType,
     List<MemberSplit>? customSplits,
     String? payerUserId,
+    bool invalidateProviders = true,
   }) async {
     state = const AsyncValue.loading();
 
@@ -139,13 +140,16 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
 
       debugPrint('✅ Expense saved successfully');
 
-      // Invalidate providers to trigger UI refresh
-      await _invalidateProviders(user.uid, householdId);
+      if (invalidateProviders) {
+        // Invalidate providers to trigger UI refresh
+        await _invalidateProviders(user.uid, householdId);
+      }
 
       state = const AsyncValue.data(null);
     } catch (error, stackTrace) {
       debugPrint('❌ Error saving expense: $error');
       state = AsyncValue.error(error, stackTrace);
+      rethrow;
     }
   }
 
@@ -189,6 +193,14 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     await Future.delayed(const Duration(milliseconds: 300));
     
     debugPrint('✅ Providers invalidated and ready for refresh');
+  }
+
+  /// Allows batch save callers to skip invalidations per item and refresh once.
+  Future<void> invalidateAfterBatch({
+    required String userId,
+    String? householdId,
+  }) async {
+    await _invalidateProviders(userId, householdId);
   }
 
   /// Upload receipt image to storage (if needed)

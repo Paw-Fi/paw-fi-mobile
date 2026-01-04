@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/constants/pocket_icon_constants.dart';
 import 'package:moneko/features/pockets/presentation/constants/pocket_style_constants.dart';
@@ -24,20 +25,19 @@ class PocketListTile extends StatelessWidget {
     final limit = pocket.getLimit(totalBudget);
     final progress = limit > 0 ? (pocket.spent / limit) : 0.0;
     final isOverBudget = pocket.isOverBudget(totalBudget);
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     Color baseColor = getPocketColor(pocket.color, colorScheme.primary);
-    if (isDarkMode && pocket.color != null) {
-      final hsl = HSLColor.fromColor(baseColor);
-      baseColor =
-          hsl.withLightness((hsl.lightness - 0.15).clamp(0.0, 1.0)).toColor();
-    }
+    baseColor = AppTheme.tunedPocketBaseColor(
+      baseColor,
+      colorScheme,
+      hasCustomColor: pocket.color != null,
+    );
 
     final Color fillColor;
     if (isOverBudget) {
       fillColor = colorScheme.error;
     } else if (progress > 0.9) {
-      fillColor = Colors.orange;
+      fillColor = colorScheme.warning;
     } else {
       fillColor = baseColor;
     }
@@ -45,10 +45,8 @@ class PocketListTile extends StatelessWidget {
     final iconData = getPocketIconData(pocket.icon);
 
     // Derive text colors for readability based on theme and background
-    final titleColor = isDarkMode ? Colors.white : Colors.black87;
-    final subtitleColor = isDarkMode
-        ? Colors.white.withValues(alpha: 0.75)
-        : Colors.black54;
+    final titleColor = colorScheme.pocketTitle;
+    final subtitleColor = colorScheme.pocketSubtitle;
 
     final currencySymbol = resolveCurrencySymbol(pocket.currency);
     final spentNormalized = double.parse(formatAmount(pocket.spent));
@@ -65,10 +63,10 @@ class PocketListTile extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: fillColor.withValues(alpha: isDarkMode ? 0.2 : 0.12),
+          color: colorScheme.pocketTileFill(fillColor),
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.4),
+            color: colorScheme.pocketTileBorder,
             width: 1,
           ),
           boxShadow: [
@@ -87,12 +85,11 @@ class PocketListTile extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.white
-                      .withValues(alpha: isDarkMode ? 0.18 : 0.9),
+                  color: colorScheme.pocketTileIconSurface,
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
+                      color: colorScheme.pocketIconShadow,
                       blurRadius: 6,
                       offset: const Offset(0, 2),
                     ),
@@ -113,12 +110,11 @@ class PocketListTile extends StatelessWidget {
                     vertical: 10,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white
-                        .withValues(alpha: isDarkMode ? 0.20 : 0.9),
+                    color: colorScheme.pocketTileContentSurface,
                     borderRadius: BorderRadius.circular(18),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.04),
+                        color: colorScheme.pocketGlassShadow,
                         blurRadius: 6,
                         offset: const Offset(0, 2),
                       ),
@@ -162,7 +158,7 @@ class PocketListTile extends StatelessWidget {
                               child: Container(
                                 height: 4,
                                 width: double.infinity,
-                                color: Colors.black.withValues(alpha: 0.08),
+                                color: colorScheme.pocketProgressTrack,
                                 child: FractionallySizedBox(
                                   alignment: Alignment.centerLeft,
                                   widthFactor: progress.clamp(0.0, 1.0),
@@ -170,10 +166,10 @@ class PocketListTile extends StatelessWidget {
                                     decoration: BoxDecoration(
                                       gradient: LinearGradient(
                                         colors: getProgressGradient(
+                                          colorScheme,
                                           baseColor,
                                           progress,
                                           isOverBudget,
-                                          isDarkMode,
                                         ),
                                       ),
                                     ),

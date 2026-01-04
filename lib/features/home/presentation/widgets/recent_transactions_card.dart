@@ -19,13 +19,11 @@ Widget buildRecentTransactionsCard(
   BuildContext context,
   ColorScheme colorScheme,
   List<ExpenseEntry> allExpenses,
-  UserContact? contact,
- {
+  UserContact? contact, {
   String? selectedCurrency,
   String? householdId,
   required VoidCallback onViewAll,
 }) {
-  final isDark = Theme.of(context).brightness == Brightness.dark;
   // Recent transactions - show latest 5 by transaction date (to match
   // TransactionsPage behavior and user expectation of "recent" by date).
   final recent = allExpenses.toList()
@@ -40,15 +38,15 @@ Widget buildRecentTransactionsCard(
   return Material(
     child: Container(
       decoration: BoxDecoration(
-        color: colorScheme.cardSurface,
+        color: colorScheme.homeCardSurface,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: colorScheme.outline.withValues(alpha: 0.05),
+          color: colorScheme.homeCardBorder,
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
+            color: colorScheme.homeCardShadow,
             blurRadius: 32,
             offset: const Offset(0, 8),
             spreadRadius: -4,
@@ -69,7 +67,7 @@ Widget buildRecentTransactionsCard(
               ),
             );
           }
-    
+
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -84,7 +82,8 @@ Widget buildRecentTransactionsCard(
               ),
               const SizedBox(height: 16),
               ...latest.map((e) {
-                final isIncome = (e.type ?? 'expense').toLowerCase() == 'income';
+                final isIncome =
+                    (e.type ?? 'expense').toLowerCase() == 'income';
 
                 // Use the same semantics as the unified transaction sheet:
                 // date comes from the transaction's logical date field, while
@@ -120,9 +119,9 @@ Widget buildRecentTransactionsCard(
                               'userId': uid,
                               'expenseId': e.id,
                             });
-    
+
                             if (!context.mounted) return;
-    
+
                             if (res.data != null &&
                                 (res.data['success'] == true)) {
                               // Always refresh analytics (personal tab) since the
@@ -130,7 +129,9 @@ Widget buildRecentTransactionsCard(
                               ref.read(analyticsProvider.notifier).refresh(uid);
 
                               if (householdId != null) {
-                                ref.read(cacheInvalidatorProvider).invalidateHouseholdData(householdId);
+                                ref
+                                    .read(cacheInvalidatorProvider)
+                                    .invalidateHouseholdData(householdId);
                                 ref.invalidate(userHouseholdsProvider(uid));
                                 ref.invalidate(householdExpensesProvider);
                                 ref.invalidate(cachedHouseholdExpensesProvider);
@@ -144,12 +145,12 @@ Widget buildRecentTransactionsCard(
                               // Keep other tabs and the currency selector in sync.
                               ref.invalidate(pocketsProvider);
                               ref.invalidate(currencyTransactionCountsProvider);
-                              AppToast.success(context, l10n.transactionDeleted);
+                              AppToast.success(
+                                  context, l10n.transactionDeleted);
                             } else {
-                              final payload =
-                                  res.data is Map<String, dynamic>
-                                      ? (res.data as Map<String, dynamic>)
-                                      : null;
+                              final payload = res.data is Map<String, dynamic>
+                                  ? (res.data as Map<String, dynamic>)
+                                  : null;
                               final message =
                                   (payload?['error'] as String?)?.trim();
                               AppToast.error(
@@ -168,7 +169,7 @@ Widget buildRecentTransactionsCard(
                             }
                           }
                         },
-                        backgroundColor: const Color(0xFFFE4A49),
+                        backgroundColor: colorScheme.destructive,
                         foregroundColor: Colors.white,
                         icon: Icons.delete,
                         label: context.l10n.delete,

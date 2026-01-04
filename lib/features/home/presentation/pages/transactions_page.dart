@@ -333,9 +333,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                     ),
                   ),
                 ),
-          
+
                 const SliverToBoxAdapter(child: SizedBox(height: 16)),
-          
+
                 // Period Selector
                 SliverToBoxAdapter(
                   child: Padding(
@@ -343,8 +343,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
-                        children:
-                            ['1W', '1M', '6M', '1Y', 'All'].map((period) {
+                        children: ['1W', '1M', '6M', '1Y', 'All'].map((period) {
                           final isSelected = selectedPeriod == period;
                           return Padding(
                             padding: const EdgeInsets.only(right: 8.0),
@@ -367,7 +366,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                                   getPeriodLabel(period),
                                   style: TextStyle(
                                     color: isSelected
-                                        ? Colors.white
+                                        ? colorScheme.primaryForeground
                                         : colorScheme.foreground,
                                     fontWeight: isSelected
                                         ? FontWeight.w600
@@ -382,9 +381,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                     ),
                   ),
                 ),
-          
+
                 const SliverToBoxAdapter(child: SizedBox(height: 16)),
-          
+
                 // Chart Display
                 SliverToBoxAdapter(
                   child: Padding(
@@ -392,9 +391,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                     child: _buildChart(colorScheme, contact),
                   ),
                 ),
-          
+
                 const SliverToBoxAdapter(child: SizedBox(height: 24)),
-          
+
                 // Category Filter Header
                 SliverToBoxAdapter(
                   child: Padding(
@@ -424,7 +423,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                     ),
                   ),
                 ),
-          
+
                 // Type filter chips
                 SliverToBoxAdapter(
                   child: Padding(
@@ -454,9 +453,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                     ),
                   ),
                 ),
-          
+
                 const SliverToBoxAdapter(child: SizedBox(height: 8)),
-          
+
                 // Transactions List
                 filteredExpenses.isEmpty
                     ? SliverToBoxAdapter(
@@ -489,8 +488,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                           (context, index) {
                             final expense = filteredExpenses[index];
                             return Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16.0),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16.0),
                               child: _buildTransactionItem(
                                   context, expense, contact),
                             );
@@ -519,19 +518,17 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       filterState.selectedCurrency,
     );
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        color: colorScheme.homeCardSurface,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: colorScheme.outline.withValues(alpha: 0.05),
+          color: colorScheme.homeCardBorder,
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
+            color: colorScheme.homeCardShadow,
             blurRadius: 32,
             offset: const Offset(0, 8),
             spreadRadius: -4,
@@ -754,12 +751,12 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                       radius: 7,
                       color: AppTheme.danger,
                       strokeWidth: 3,
-                      strokeColor: Colors.white,
+                      strokeColor: colorScheme.onError,
                     );
                   }
                   return FlDotCirclePainter(
                     radius: 0,
-                    color: Colors.transparent,
+                    color: colorScheme.surface.withValues(alpha: 0.0),
                   );
                 },
               ),
@@ -846,7 +843,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
               barRods: [
                 BarChartRodData(
                   toY: value,
-                  color: const Color(0xFF10B981),
+                  color: colorScheme.success,
                   width: 40,
                   borderRadius:
                       const BorderRadius.vertical(top: Radius.circular(4)),
@@ -921,7 +918,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   Widget _buildTransactionItem(
       BuildContext context, ExpenseEntry expense, UserContact? contact) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     final isIncome = (expense.type ?? 'expense').toLowerCase() == 'income';
     final currentUserId = ref.watch(authProvider).uid;
     final isYou = widget.householdId != null &&
@@ -931,15 +928,15 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        color: colorScheme.homeCardSurface,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: colorScheme.outline.withValues(alpha: 0.05),
+          color: colorScheme.homeCardBorder,
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
+            color: colorScheme.homeCardShadow,
             blurRadius: 32,
             offset: const Offset(0, 8),
             spreadRadius: -4,
@@ -947,7 +944,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         ],
       ),
       child: Material(
-        color: Colors.transparent,
+        color: colorScheme.surface.withValues(alpha: 0.0),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
           child: TransactionListTile(
@@ -1043,7 +1040,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                                 : getCategoryTranslation(context, category),
                             style: TextStyle(
                               color: isSelected
-                                  ? Colors.white
+                                  ? colorScheme.primaryForeground
                                   : colorScheme.foreground,
                               fontWeight: isSelected
                                   ? FontWeight.w600

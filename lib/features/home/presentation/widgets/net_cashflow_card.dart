@@ -47,14 +47,14 @@ Widget buildNetCashflowCard(
     // 1. Define Date Ranges
     final currentRange =
         _getDateRangeForFilter(filter, now, customStartDate, customEndDate);
-    final previousRange =
-        _getPreviousDateRangeForFilter(filter, now, customStartDate, customEndDate);
+    final previousRange = _getPreviousDateRangeForFilter(
+        filter, now, customStartDate, customEndDate);
 
     // 2. Filter Transactions & Calculate Actuals
-    final currentTransactions = _filterTransactions(
-        personalTransactions, currentRange.$1, currentRange.$2, selectedCurrency);
-    final previousTransactions = _filterTransactions(
-        personalTransactions, previousRange.$1, previousRange.$2, selectedCurrency);
+    final currentTransactions = _filterTransactions(personalTransactions,
+        currentRange.$1, currentRange.$2, selectedCurrency);
+    final previousTransactions = _filterTransactions(personalTransactions,
+        previousRange.$1, previousRange.$2, selectedCurrency);
 
     final currentActuals = _getIncomeAndExpenses(currentTransactions);
     final previousActuals = _getIncomeAndExpenses(previousTransactions);
@@ -100,7 +100,6 @@ Widget buildNetCashflowCard(
         isNegative ? '-$symbol$localizedAmount' : '$symbol$localizedAmount';
 
     final title = _netCashflowTitleForFilter(context, filter);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // 5. Comparison Logic
     final isBetter = currentNet > previousNet;
@@ -108,15 +107,15 @@ Widget buildNetCashflowCard(
 
     return Container(
       decoration: BoxDecoration(
-        color: colorScheme.cardSurface,
+        color: colorScheme.homeCardSurface,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: colorScheme.outline.withValues(alpha: 0.05),
+          color: colorScheme.homeCardBorder,
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
+            color: colorScheme.homeCardShadow,
             blurRadius: 32,
             offset: const Offset(0, 8),
             spreadRadius: -4,
@@ -156,9 +155,8 @@ Widget buildNetCashflowCard(
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color:
-                  (isBetter ? const Color(0xFF10B981) : const Color(0xFFEF4444))
-                      .withValues(alpha: 0.1),
+              color: (isBetter ? colorScheme.success : colorScheme.destructive)
+                  .withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Row(
@@ -168,9 +166,8 @@ Widget buildNetCashflowCard(
                   isBetter
                       ? Icons.trending_up_rounded
                       : Icons.trending_down_rounded,
-                  color: isBetter
-                      ? const Color(0xFF10B981)
-                      : const Color(0xFFEF4444),
+                  color:
+                      isBetter ? colorScheme.success : colorScheme.destructive,
                   size: 16,
                 ),
               ],
@@ -240,8 +237,8 @@ double _netCashflowFontSize(String displayText) {
 
 // --- Helper Methods for Comparison Logic ---
 
-(DateTime, DateTime) _getDateRangeForFilter(
-    DateRangeFilter filter, DateTime now, DateTime? customStart, DateTime? customEnd) {
+(DateTime, DateTime) _getDateRangeForFilter(DateRangeFilter filter,
+    DateTime now, DateTime? customStart, DateTime? customEnd) {
   final todayEnd = DateTime(now.year, now.month, now.day, 23, 59, 59);
   final todayStart = DateTime(now.year, now.month, now.day);
 
@@ -253,7 +250,8 @@ double _netCashflowFontSize(String displayText) {
       final yEnd = todayEnd.subtract(const Duration(days: 1));
       return (yStart, yEnd);
     case DateRangeFilter.thisWeek:
-      final weekStart = todayStart.subtract(Duration(days: todayStart.weekday - 1));
+      final weekStart =
+          todayStart.subtract(Duration(days: todayStart.weekday - 1));
       return (weekStart, todayEnd);
     case DateRangeFilter.lastWeek:
       final thisWeekStart =
@@ -269,7 +267,8 @@ double _netCashflowFontSize(String displayText) {
       return (start, todayEnd);
     case DateRangeFilter.lastMonth:
       final start = DateTime(now.year, now.month - 1, 1);
-      final end = DateTime(now.year, now.month, 1).subtract(const Duration(seconds: 1));
+      final end =
+          DateTime(now.year, now.month, 1).subtract(const Duration(seconds: 1));
       return (start, end);
     case DateRangeFilter.last30Days:
       final start = todayStart.subtract(const Duration(days: 29));
@@ -282,8 +281,10 @@ double _netCashflowFontSize(String displayText) {
       return (start, todayEnd);
     case DateRangeFilter.custom:
       if (customStart != null && customEnd != null) {
-        final start = DateTime(customStart.year, customStart.month, customStart.day);
-        final end = DateTime(customEnd.year, customEnd.month, customEnd.day, 23, 59, 59);
+        final start =
+            DateTime(customStart.year, customStart.month, customStart.day);
+        final end = DateTime(
+            customEnd.year, customEnd.month, customEnd.day, 23, 59, 59);
         return (start, end);
       }
       // Fallback to last 30 days if custom dates are missing
@@ -345,8 +346,7 @@ double _netCashflowFontSize(String displayText) {
       final prevYear = now.year - 1;
       final lastDayPrevYear = DateTime(prevYear + 1, 1, 0).day;
       final dayToCompare = min(now.day, lastDayPrevYear);
-      final prevEnd =
-          DateTime(prevYear, now.month, dayToCompare, 23, 59, 59);
+      final prevEnd = DateTime(prevYear, now.month, dayToCompare, 23, 59, 59);
       final prevStart = DateTime(prevYear, 1, 1);
       return (prevStart, prevEnd);
     case DateRangeFilter.allTime:
@@ -359,8 +359,10 @@ double _netCashflowFontSize(String displayText) {
       return (prevStart, prevEnd);
     case DateRangeFilter.custom:
       if (customStart != null && customEnd != null) {
-        final start = DateTime(customStart.year, customStart.month, customStart.day);
-        final end = DateTime(customEnd.year, customEnd.month, customEnd.day, 23, 59, 59);
+        final start =
+            DateTime(customStart.year, customStart.month, customStart.day);
+        final end = DateTime(
+            customEnd.year, customEnd.month, customEnd.day, 23, 59, 59);
         final span = end.difference(start);
         final prevEnd = start.subtract(const Duration(seconds: 1));
         final prevStart = prevEnd.subtract(span);

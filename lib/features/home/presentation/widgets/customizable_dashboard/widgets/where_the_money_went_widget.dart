@@ -26,7 +26,6 @@ class WhereTheMoneyWentWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Filter expenses by selected currency if applicable
     var filteredExpenses = expenses;
@@ -52,21 +51,22 @@ class WhereTheMoneyWentWidget extends StatelessWidget {
       return '$symbol${formatLocalizedNumber(context, amount)}';
     }
 
-    String percent(double amount) =>
-        totalSpent == 0 ? '0%' : '${((amount / totalSpent) * 100).toStringAsFixed(0)}%';
+    String percent(double amount) => totalSpent == 0
+        ? '0%'
+        : '${((amount / totalSpent) * 100).toStringAsFixed(0)}%';
 
     return Material(
       child: Container(
         decoration: BoxDecoration(
-          color: colorScheme.chartBackground,
+          color: colorScheme.homeCardSurface,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: colorScheme.outline.withValues(alpha: 0.05),
+            color: colorScheme.homeCardBorder,
             width: 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
+              color: colorScheme.homeCardShadow,
               blurRadius: 32,
               offset: const Offset(0, 8),
               spreadRadius: -4,
@@ -132,7 +132,8 @@ class WhereTheMoneyWentWidget extends StatelessWidget {
                   final name = getCategoryTranslation(context, entry.key);
                   return _LegendChip(
                     label: name,
-                    value: '${formatAmount(entry.value)} · ${percent(entry.value)}',
+                    value:
+                        '${formatAmount(entry.value)} · ${percent(entry.value)}',
                     color: getCategoryColor(entry.key),
                     colorScheme: colorScheme,
                   );
@@ -185,7 +186,6 @@ class _LegendChip extends StatelessWidget {
                   color: colorScheme.foreground,
                 ),
               ),
-             
             ],
           ),
         ],

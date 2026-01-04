@@ -16,6 +16,7 @@ import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:skeletonizer/skeletonizer.dart';
+import 'package:moneko/shared/widgets/moneko_tab_bar_view.dart';
 
 /// Modern recurring transactions page with Apple-inspired design
 /// Features tabbed interface for expenses and income
@@ -118,7 +119,7 @@ class _RecurringTransactionsPageState
       body: Column(
         children: [
           Expanded(
-            child: AdaptiveTabBarView(
+            child: MonekoTabBarView(
               tabs: [
                 context.l10n.expenses,
                 context.l10n.income,
@@ -450,10 +451,11 @@ class _RecurringTransactionsPageState
   }
 
   void _showAddSheet(String type) {
+    final colorScheme = Theme.of(context).colorScheme;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
       builder: (context) => Padding(
         padding: EdgeInsets.only(
           bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -464,11 +466,12 @@ class _RecurringTransactionsPageState
   }
 
   void _showTransactionDetails(RecurringTransaction transaction) {
+    final colorScheme = Theme.of(context).colorScheme;
     // Show the add sheet with prefilled data for editing
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
       builder: (context) => Padding(
         padding: EdgeInsets.only(
           bottom: MediaQuery.of(context).viewInsets.bottom,

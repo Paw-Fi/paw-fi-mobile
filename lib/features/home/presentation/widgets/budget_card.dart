@@ -24,8 +24,6 @@ Widget buildBudgetCard(
 
   final title = _budgetTitleForFilter(context, filter);
 
-  final isDark = Theme.of(context).brightness == Brightness.dark;
-
   return Material(
     color: Colors.transparent,
     child: InkWell(
@@ -33,15 +31,15 @@ Widget buildBudgetCard(
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+          color: colorScheme.homeCardSurface,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: colorScheme.outline.withValues(alpha: 0.05),
+            color: colorScheme.homeCardBorder,
             width: 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
+              color: colorScheme.homeCardShadow,
               blurRadius: 32,
               offset: const Offset(0, 8),
               spreadRadius: -4,

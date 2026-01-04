@@ -33,6 +33,8 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
+import 'package:moneko/features/households/domain/entities/expense_split.dart'
+    as household_split;
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/widgets/transaction_currency_picker.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
@@ -120,6 +122,8 @@ class _UnifiedTransactionSheetState
   TimeOfDay _selectedTime = TimeOfDay.now();
   SplitType? _customSplitType;
   List<MemberSplit>? _customSplits;
+  String? _initialSplitSignature;
+  String? _loadedSplitGroupType;
   bool _isLoadingMembers = false;
   String? _membersError;
   List<HouseholdMember>? _householdMembers;
@@ -142,10 +146,9 @@ class _UnifiedTransactionSheetState
     // Default payer to the expense owner (fallback to current user) so we don't
     // incorrectly show the viewer as the payer before loading split data.
     final currentUserId = ref.read(authProvider).uid;
-    _selectedPayerUserId =
-        widget.existingExpense?.userId?.isNotEmpty == true
-            ? widget.existingExpense!.userId
-            : currentUserId;
+    _selectedPayerUserId = widget.existingExpense?.userId?.isNotEmpty == true
+        ? widget.existingExpense!.userId
+        : currentUserId;
 
     // DEBUG: Log expense ID for deep link testing
     if (widget.existingExpense != null) {
@@ -184,23 +187,28 @@ class _UnifiedTransactionSheetState
           if (mounted) {
             debugPrint('🏠 [EDIT EXPENSE] postFrameCallback executing');
             final householdId = widget.existingExpense!.householdId!;
-            debugPrint('🏠 [EDIT EXPENSE] Setting selectedHouseholdForSharingProvider to: $householdId');
+            debugPrint(
+                '🏠 [EDIT EXPENSE] Setting selectedHouseholdForSharingProvider to: $householdId');
             ref.read(selectedHouseholdForSharingProvider.notifier).state =
                 householdId;
-            debugPrint('🏠 [EDIT EXPENSE] Calling _loadMembers for household: $householdId');
+            debugPrint(
+                '🏠 [EDIT EXPENSE] Calling _loadMembers for household: $householdId');
             _loadMembers(householdId);
 
             // Load existing split configuration if expense has a split group
             if (widget.existingExpense!.splitGroupId != null) {
-              debugPrint('🏠 [EDIT EXPENSE] Expense has split group: ${widget.existingExpense!.splitGroupId}');
-              debugPrint('🏠 [EDIT EXPENSE] Calling _loadExistingSplitConfiguration');
+              debugPrint(
+                  '🏠 [EDIT EXPENSE] Expense has split group: ${widget.existingExpense!.splitGroupId}');
+              debugPrint(
+                  '🏠 [EDIT EXPENSE] Calling _loadExistingSplitConfiguration');
               _loadExistingSplitConfiguration(
                   widget.existingExpense!.splitGroupId!);
             } else {
               debugPrint('🏠 [EDIT EXPENSE] Expense has no split group');
             }
           } else {
-            debugPrint('⚠️ [EDIT EXPENSE] Widget unmounted before postFrameCallback');
+            debugPrint(
+                '⚠️ [EDIT EXPENSE] Widget unmounted before postFrameCallback');
           }
         });
       }
@@ -217,15 +225,19 @@ class _UnifiedTransactionSheetState
 
       // Seed the dropdown with the main menu's currently selected household (if any)
       // BEFORE build to avoid the first-household fallback firing.
-      final selected = ref.read(selectedHouseholdProvider).householdId;
-      debugPrint('🆕 [ADD EXPENSE] Selected household from provider: $selected');
-      
+      final selectedState = ref.read(selectedHouseholdProvider);
+      final selected = selectedState.householdId ?? selectedState.household?.id;
+      debugPrint(
+          '🆕 [ADD EXPENSE] Selected household from provider: $selected');
+
       // Defer provider state modification to after widget tree is built
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (selected != null) {
-          ref.read(selectedHouseholdForSharingProvider.notifier).state = selected;
+          ref.read(selectedHouseholdForSharingProvider.notifier).state =
+              selected;
           if (_isSharedWithHousehold) {
-            debugPrint('🆕 [ADD EXPENSE] Sharing enabled; loading members for $selected');
+            debugPrint(
+                '🆕 [ADD EXPENSE] Sharing enabled; loading members for $selected');
             _loadMembers(selected);
           }
         } else {
@@ -312,7 +324,8 @@ class _UnifiedTransactionSheetState
     }
     return context.l10n.iSpentAmountOnCategory(
       currencySymbol,
-      formatLocalizedNumber(context, double.parse(displayAmount.toStringAsFixed(2))),
+      formatLocalizedNumber(
+          context, double.parse(displayAmount.toStringAsFixed(2))),
       displayCategory,
     );
   }
@@ -364,6 +377,7 @@ class _UnifiedTransactionSheetState
     final user = ref.watch(authProvider);
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
     final selectedHousehold = ref.watch(selectedHouseholdForSharingProvider);
+    final selectedHouseholdState = ref.watch(selectedHouseholdProvider);
 
     // For new expenses, use pending expense provider
     final pendingExpense =
@@ -391,7 +405,7 @@ class _UnifiedTransactionSheetState
         maxHeight: MediaQuery.of(context).size.height * 0.92,
       ),
       decoration: BoxDecoration(
-        color: colorScheme.card,
+        color: colorScheme.sheetBackground,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
@@ -403,7 +417,7 @@ class _UnifiedTransactionSheetState
             width: 36,
             height: 4,
             decoration: BoxDecoration(
-              color: colorScheme.border,
+              color: colorScheme.sheetBorder,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -482,7 +496,7 @@ class _UnifiedTransactionSheetState
                             fontSize: 48,
                             fontWeight: FontWeight.w700,
                             color: isIncomeMode
-                                ? const Color(0xFF10B981)
+                                ? colorScheme.success
                                 : colorScheme.foreground,
                             letterSpacing: -1.5,
                           ),
@@ -516,6 +530,7 @@ class _UnifiedTransactionSheetState
                             colorScheme,
                             households,
                             selectedHousehold,
+                            selectedHouseholdState,
                             isIncomeMode,
                           ),
                           const SizedBox(height: 24),
@@ -700,18 +715,35 @@ class _UnifiedTransactionSheetState
     ColorScheme colorScheme,
     List households,
     String? selectedHousehold,
+    SelectedHouseholdState selectedHouseholdState,
     bool isIncomeMode,
   ) {
-    // Auto-select first household ONLY if no selection exists anywhere (paranoid guard)
-    if (_isSharedWithHousehold &&
-        households.isNotEmpty &&
-        selectedHousehold == null) {
-      debugPrint('🏠 [SHARE SECTION] No selected household found; falling back to first in list');
+    // Auto-select household only if no valid selection exists.
+    final hasValidSelection = selectedHousehold != null &&
+        households.any((h) => h.id == selectedHousehold);
+    String _resolveDefaultHouseholdId() {
+      final headerId = selectedHouseholdState.householdId ??
+          selectedHouseholdState.household?.id;
+      if (headerId != null && households.any((h) => h.id == headerId)) {
+        return headerId;
+      }
+      return households.first.id;
+    }
+
+    if (_isSharedWithHousehold && households.isNotEmpty && !hasValidSelection) {
+      debugPrint(
+          '🏠 [SHARE SECTION] No valid selected household found; using header selection');
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        final firstId = households.first.id;
-        ref.read(selectedHouseholdForSharingProvider.notifier).state = firstId;
-        _loadMembers(firstId);
+        final currentSelection = ref.read(selectedHouseholdForSharingProvider);
+        final isCurrentValid = currentSelection != null &&
+            currentSelection.isNotEmpty &&
+            households.any((h) => h.id == currentSelection);
+        if (isCurrentValid) return;
+        final preferredId = _resolveDefaultHouseholdId();
+        ref.read(selectedHouseholdForSharingProvider.notifier).state =
+            preferredId;
+        _loadMembers(preferredId);
       });
     }
     return Container(
@@ -738,7 +770,8 @@ class _UnifiedTransactionSheetState
               MonekoSwitch(
                 value: _isSharedWithHousehold,
                 onChanged: (value) {
-                  debugPrint('🔀 [SHARE TOGGLE] User toggled sharing to: $value');
+                  debugPrint(
+                      '🔀 [SHARE TOGGLE] User toggled sharing to: $value');
                   setState(() {
                     _isSharedWithHousehold = value;
                     if (!value) {
@@ -749,18 +782,52 @@ class _UnifiedTransactionSheetState
                           .state = null;
                       _customSplitType = null;
                       _customSplits = null;
+                      _initialSplitSignature = null;
+                      _loadedSplitGroupType = null;
                       _householdMembers = null;
                       _membersError = null;
                       _isLoadingMembers = false;
                     } else if (households.isNotEmpty) {
-                      // Auto-select first household when toggling on
-                      final firstHouseholdId = households.first.id;
-                      debugPrint('🔀 [SHARE TOGGLE] Auto-selecting first household: $firstHouseholdId');
+                      _initialSplitSignature = null;
+                      _loadedSplitGroupType = null;
+
+                      // Prefer the current selection, otherwise restore the
+                      // expense's household (edit mode), otherwise fallback
+                      // to the first available household.
+                      final preferredId = () {
+                        final current =
+                            ref.read(selectedHouseholdForSharingProvider);
+                        if (current != null &&
+                            current.isNotEmpty &&
+                            households.any((h) => h.id == current)) {
+                          return current;
+                        }
+                        if (isExistingExpense) {
+                          final existingId =
+                              widget.existingExpense?.householdId;
+                          if (existingId != null &&
+                              households.any((h) => h.id == existingId)) {
+                            return existingId;
+                          }
+                        }
+                        return _resolveDefaultHouseholdId();
+                      }();
+
+                      debugPrint(
+                          '🔀 [SHARE TOGGLE] Selecting household: $preferredId');
                       ref
                           .read(selectedHouseholdForSharingProvider.notifier)
-                          .state = firstHouseholdId;
+                          .state = preferredId;
                       debugPrint('🔀 [SHARE TOGGLE] Calling _loadMembers');
-                      _loadMembers(firstHouseholdId);
+                      _loadMembers(preferredId);
+
+                      // Restore existing split config when editing.
+                      if (isExistingExpense &&
+                          widget.existingExpense?.splitGroupId != null &&
+                          widget.existingExpense?.householdId == preferredId) {
+                        _loadExistingSplitConfiguration(
+                            widget.existingExpense!.splitGroupId!);
+                      }
                     }
                   });
                 },
@@ -779,7 +846,9 @@ class _UnifiedTransactionSheetState
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
-                  value: selectedHousehold ?? households.first.id,
+                  value: hasValidSelection
+                      ? selectedHousehold
+                      : _resolveDefaultHouseholdId(),
                   isExpanded: true,
                   icon: Icon(Icons.arrow_drop_down,
                       color: colorScheme.foreground),
@@ -842,22 +911,36 @@ class _UnifiedTransactionSheetState
                     );
                   }).toList(),
                   onChanged: (value) {
-                    debugPrint('🔄 [HOUSEHOLD DROPDOWN] User changed household to: $value');
+                    debugPrint(
+                        '🔄 [HOUSEHOLD DROPDOWN] User changed household to: $value');
                     if (value != null) {
                       ref
                           .read(selectedHouseholdForSharingProvider.notifier)
                           .state = value;
                       // Reset custom splits when changing household
-                      debugPrint('🔄 [HOUSEHOLD DROPDOWN] Resetting splits and members');
+                      debugPrint(
+                          '🔄 [HOUSEHOLD DROPDOWN] Resetting splits and members');
                       setState(() {
                         _customSplitType = null;
                         _customSplits = null;
+                        _initialSplitSignature = null;
+                        _loadedSplitGroupType = null;
                         _householdMembers = null;
                         _membersError = null;
                         _isLoadingMembers = false;
                       });
-                      debugPrint('🔄 [HOUSEHOLD DROPDOWN] Calling _loadMembers for: $value');
+                      debugPrint(
+                          '🔄 [HOUSEHOLD DROPDOWN] Calling _loadMembers for: $value');
                       _loadMembers(value);
+
+                      // If user navigated back to the original household while
+                      // editing an existing shared expense, restore the split config.
+                      if (isExistingExpense &&
+                          widget.existingExpense?.splitGroupId != null &&
+                          widget.existingExpense?.householdId == value) {
+                        _loadExistingSplitConfiguration(
+                            widget.existingExpense!.splitGroupId!);
+                      }
                     }
                   },
                 ),
@@ -942,101 +1025,29 @@ class _UnifiedTransactionSheetState
                 if (isIncomeMode) {
                   return const SizedBox();
                 }
-                return Container(
-                  decoration: BoxDecoration(
-                    color: colorScheme.muted.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(16),
+                return GroupSplitEditorSection(
+                  members: _householdMembers!,
+                  selectedPayerUserId: _selectedPayerUserId,
+                  onPayerChanged: (v) => setState(() {
+                    _selectedPayerUserId = v;
+                    debugPrint(
+                        '👥 [UI] Who paid changed to: $_selectedPayerUserId');
+                  }),
+                  totalAmount: currentAmount,
+                  currencySymbol: currencySymbol,
+                  initialSplitType: _customSplitType,
+                  initialSplits: _customSplits,
+                  splitEditorKey: ValueKey(
+                    'split_${_customSplitType}_${_customSplits?.length}',
                   ),
-                  child: Column(
-                    children: [
-                      // Show "not yet split" banner for existing expenses without split group
-                      if (isExistingWithoutSplit)
-                        Container(
-                          margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: colorScheme.primary.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: colorScheme.primary.withValues(alpha: 0.3),
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.info_outline,
-                                color: colorScheme.primary,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  context.l10n.notYetSplitBanner,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: colorScheme.primary,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      // Who paid selector
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                context.l10n.whoPaid,
-                                style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: colorScheme.foreground),
-                              ),
-                            ),
-                            DropdownButtonHideUnderline(
-                              child: DropdownButton<String>(
-                                value: _selectedPayerUserId,
-                                items: _householdMembers!
-                                    .map((m) => DropdownMenuItem<String>(
-                                          value: m.userId,
-                                          child: Text(
-                                              m.userName ??
-                                                  m.userEmail ??
-                                                  'Member',
-                                              overflow: TextOverflow.ellipsis),
-                                        ))
-                                    .toList(),
-                                onChanged: (v) => setState(() {
-                                  _selectedPayerUserId = v;
-                                  debugPrint(
-                                      '👥 [UI] Who paid changed to: $_selectedPayerUserId');
-                                }),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      CustomSplitEditor(
-                        key: ValueKey(
-                            'split_${_customSplitType}_${_customSplits?.length}'),
-                        members: _householdMembers!,
-                        totalAmount: currentAmount,
-                        currencySymbol: currencySymbol,
-                        initialSplitType: _customSplitType,
-                        initialSplits: _customSplits,
-                        onChanged: (splitType, splits) {
-                          setState(() {
-                            _customSplitType = splitType;
-                            _customSplits = splits;
-                          });
-                        },
-                      ),
-                    ],
-                  ),
+                  showNotYetSplitBanner: isExistingWithoutSplit,
+                  notYetSplitMessage: context.l10n.notYetSplitBanner,
+                  onSplitChanged: (splitType, splits) {
+                    setState(() {
+                      _customSplitType = splitType;
+                      _customSplits = splits;
+                    });
+                  },
                 );
               },
             ),
@@ -1204,7 +1215,7 @@ class _UnifiedTransactionSheetState
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: hasImage ? Colors.transparent : colorScheme.border,
+                color: hasImage ? Colors.transparent : colorScheme.sheetBorder,
                 width: 2,
               ),
             ),
@@ -1651,7 +1662,7 @@ class _UnifiedTransactionSheetState
             bottom: MediaQuery.of(context).viewInsets.bottom,
           ),
           decoration: BoxDecoration(
-            color: colorScheme.card,
+            color: colorScheme.sheetBackground,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: Column(
@@ -1664,7 +1675,7 @@ class _UnifiedTransactionSheetState
                 height: 4,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: colorScheme.border,
+                  color: colorScheme.sheetBorder,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -1748,56 +1759,62 @@ class _UnifiedTransactionSheetState
   }
 
   Future<void> _loadMembers(String householdId) async {
-    debugPrint('👥 [LOAD MEMBERS] Starting to load members for household: $householdId');
-    debugPrint('👥 [LOAD MEMBERS] Current _selectedPayerUserId: $_selectedPayerUserId');
-    
+    debugPrint(
+        '👥 [LOAD MEMBERS] Starting to load members for household: $householdId');
+    debugPrint(
+        '👥 [LOAD MEMBERS] Current _selectedPayerUserId: $_selectedPayerUserId');
+
     setState(() {
       _isLoadingMembers = true;
       _membersError = null;
       _householdMembers = null;
     });
-    
+
     debugPrint('👥 [LOAD MEMBERS] Set loading state, cleared members');
-    
+
     try {
       final repository = ref.read(householdRepositoryProvider);
       debugPrint('👥 [LOAD MEMBERS] Fetching members from repository...');
       final members = await repository.getHouseholdMembers(householdId);
       debugPrint('👥 [LOAD MEMBERS] Fetched ${members.length} members');
-      
+
       if (mounted) {
         // Validate that _selectedPayerUserId exists in members
         // This is critical for the "Who paid" dropdown to work correctly
         final currentPayerId = _selectedPayerUserId;
         final payerExists = members.any((m) => m.userId == currentPayerId);
-        
+
         debugPrint('👥 [LOAD MEMBERS] Current payer ID: $currentPayerId');
         debugPrint('👥 [LOAD MEMBERS] Payer exists in members: $payerExists');
-        
+
         String? validPayerId = currentPayerId;
-        
+
         if (!payerExists) {
           // Current payer not in household members
           // For ADD action: Default to first member
           // For EDIT action: This shouldn't happen, but fallback to first member
           if (members.isNotEmpty) {
             validPayerId = members.first.userId;
-            debugPrint('⚠️ [LOAD MEMBERS] Payer not found in members! Defaulting to first member: ${members.first.userName ?? members.first.userEmail}');
+            debugPrint(
+                '⚠️ [LOAD MEMBERS] Payer not found in members! Defaulting to first member: ${members.first.userName ?? members.first.userEmail}');
           } else {
             validPayerId = null;
-            debugPrint('⚠️ [LOAD MEMBERS] No members found! Cannot set default payer.');
+            debugPrint(
+                '⚠️ [LOAD MEMBERS] No members found! Cannot set default payer.');
           }
         } else {
           debugPrint('✅ [LOAD MEMBERS] Current payer is valid');
         }
-        
+
         setState(() {
           _householdMembers = members;
           _selectedPayerUserId = validPayerId;
         });
-        
-        debugPrint('✅ [LOAD MEMBERS] Successfully loaded and set ${members.length} members');
-        debugPrint('✅ [LOAD MEMBERS] Final _selectedPayerUserId: $_selectedPayerUserId');
+
+        debugPrint(
+            '✅ [LOAD MEMBERS] Successfully loaded and set ${members.length} members');
+        debugPrint(
+            '✅ [LOAD MEMBERS] Final _selectedPayerUserId: $_selectedPayerUserId');
       } else {
         debugPrint('⚠️ [LOAD MEMBERS] Widget unmounted, skipping state update');
       }
@@ -1814,7 +1831,8 @@ class _UnifiedTransactionSheetState
         setState(() {
           _isLoadingMembers = false;
         });
-        debugPrint('👥 [LOAD MEMBERS] Finished loading (isLoadingMembers = false)');
+        debugPrint(
+            '👥 [LOAD MEMBERS] Finished loading (isLoadingMembers = false)');
       }
     }
   }
@@ -1836,6 +1854,38 @@ class _UnifiedTransactionSheetState
       default:
         return SplitType.amount; // fallback
     }
+  }
+
+  SplitType _normalizeUiSplitTypeForEditor(SplitType type) {
+    // The editor UI currently exposes Amount / Percent / Share. Represent Equal
+    // splits as Amount so users see a selected chip and can edit amounts.
+    return type == SplitType.equal ? SplitType.amount : type;
+  }
+
+  String _buildSplitSignature(SplitType type, List<MemberSplit> splits) {
+    final effectiveType = _normalizeUiSplitTypeForEditor(type);
+    final entries = splits.map((split) {
+      final userId = split.member.userId;
+      switch (effectiveType) {
+        case SplitType.amount:
+          final cents = ((split.amount ?? 0) * 100).round();
+          return MapEntry(userId, cents.toString());
+        case SplitType.percentage:
+          final basisPoints =
+              ((split.percentage ?? 0) * 100).round(); // 100.00% = 10000
+          return MapEntry(userId, basisPoints.toString());
+        case SplitType.shares:
+          final shares = (split.shares ?? 0) > 0 ? split.shares : null;
+          return MapEntry(userId, shares?.toString() ?? 'n');
+        case SplitType.equal:
+          // Normalized above, but keep a safe fallback.
+          final cents = ((split.amount ?? 0) * 100).round();
+          return MapEntry(userId, cents.toString());
+      }
+    }).toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+
+    return '${effectiveType.name}|${entries.map((e) => '${e.key}:${e.value}').join(',')}';
   }
 
   /// Load existing split configuration from database
@@ -1889,55 +1939,96 @@ class _UnifiedTransactionSheetState
         return;
       }
 
-      // Convert split lines to MemberSplit objects
+      final dbSplitType = splitGroup.splitType.toString().split('.').last;
+      final uiSplitType = _normalizeUiSplitTypeForEditor(
+        _mapSplitType(splitGroup.splitType),
+      );
+
+      final splitLinesByUserId = <String, household_split.ExpenseSplitLine>{};
+      for (final line in splitGroup.splitLines!) {
+        splitLinesByUserId[line.userId] = line;
+      }
+
+      final totalGroupCents = splitGroup.totalAmountCents;
+
+      // Convert split lines to MemberSplit objects. Be resilient to:
+      // - members joining after the split was created (no line)
+      // - legacy invalid shares values (0)
       final memberSplits = <MemberSplit>[];
       for (final member in _householdMembers!) {
-        final splitLine = splitGroup.splitLines!.firstWhere(
-          (line) => line.userId == member.userId,
-          orElse: () => throw Exception(
-              'Split line not found for member ${member.userId}'),
+        final splitLine = splitLinesByUserId[member.userId];
+        final amountCents = splitLine?.amountCents ?? 0;
+
+        double? percentage = splitLine?.percentage;
+        if (dbSplitType == 'percentage' && percentage == null) {
+          percentage = totalGroupCents > 0
+              ? (amountCents * 100.0) / totalGroupCents
+              : 0.0;
+        }
+
+        int? shares = splitLine?.shares;
+        // Legacy/defensive: treat <= 0 as excluded.
+        if ((shares ?? 0) <= 0) shares = null;
+        // Defensive: if a shares split line has cents but no shares, show it as included.
+        if (dbSplitType == 'shares' && shares == null && amountCents > 0) {
+          shares = 1;
+        }
+
+        final bool included = switch (dbSplitType) {
+          // Equal splits: treat existing lines as included; new members (missing line) default excluded.
+          'equal' => splitLine != null,
+          'amount' => amountCents > 0,
+          'percentage' => (percentage ?? 0) > 0 || amountCents > 0,
+          'shares' => (shares ?? 0) > 0 || amountCents > 0,
+          _ => amountCents > 0,
+        };
+
+        memberSplits.add(
+          MemberSplit(
+            member: member,
+            amount: amountCents / 100.0,
+            percentage: percentage,
+            shares: shares,
+            // Persist inclusion across type switches in the editor.
+            includedInAmount: included,
+            includedInPercentage: included,
+          ),
         );
 
-        memberSplits.add(MemberSplit(
-          member: member,
-          amount: splitLine.amountCents != null
-              ? splitLine.amountCents! / 100.0
-              : null,
-          percentage: splitLine.percentage,
-          shares: splitLine.shares,
-          includedInAmount: true,
-          includedInPercentage: true,
-        ));
-
         debugPrint(
-            '🔄 [LOAD SPLIT] Member ${member.userName ?? member.userEmail}: amountCents=${splitLine.amountCents}');
+          '🔄 [LOAD SPLIT] Member ${member.userName ?? member.userEmail}: amountCents=$amountCents pct=$percentage shares=$shares included=$included',
+        );
       }
 
-      if (mounted) {
-        // Map ExpenseSplitGroup.SplitType to CustomSplitSheet.SplitType
-        final uiSplitType = _mapSplitType(splitGroup.splitType);
+      if (!mounted) return;
 
-        setState(() {
-          _customSplitType = uiSplitType;
-          _customSplits = memberSplits;
-        });
-        debugPrint(
-            '✅ [LOAD SPLIT] Initialized split editor with existing configuration: $uiSplitType');
-      }
+      final signature = _buildSplitSignature(uiSplitType, memberSplits);
+      setState(() {
+        _customSplitType = uiSplitType;
+        _customSplits = memberSplits;
+        _initialSplitSignature ??= signature;
+        _loadedSplitGroupType ??= dbSplitType;
+      });
+
+      debugPrint(
+        '✅ [LOAD SPLIT] Initialized split editor with existing configuration: $uiSplitType signature=$signature',
+      );
     } catch (error) {
       debugPrint('❌ [LOAD SPLIT] Error loading split configuration: $error');
     }
   }
 
   void _refreshHouseholdUiAfterExpenseChange(String householdId) {
-    debugPrint('🔄 [REFRESH] Starting household UI refresh for household: $householdId');
-    
+    debugPrint(
+        '🔄 [REFRESH] Starting household UI refresh for household: $householdId');
+
     // CRITICAL: Invalidate RequestDeduplicator cache FIRST
     // This ensures fresh data is fetched, not the 30-second cached data
     debugPrint('🗑️ [REFRESH] Invalidating RequestDeduplicator cache...');
     ref.read(cacheInvalidatorProvider).invalidateHouseholdData(householdId);
-    
-    debugPrint('🗑️ [REFRESH] Invalidating ALL provider families (this catches all parameter combinations)...');
+
+    debugPrint(
+        '🗑️ [REFRESH] Invalidating ALL provider families (this catches all parameter combinations)...');
     // CRITICAL: Invalidate the ENTIRE provider families, not just specific params
     // This ensures ALL widgets watching these providers refresh, regardless of their parameters
     ref.invalidate(householdExpensesProvider);
@@ -1947,20 +2038,21 @@ class _UnifiedTransactionSheetState
     ref.invalidate(householdSummaryProvider);
     ref.invalidate(householdBudgetsProvider);
     ref.invalidate(householdMembersProvider);
-    
+
     debugPrint('🗑️ [REFRESH] Invalidating pockets provider...');
     ref.invalidate(pocketsProvider);
 
     // Keep currency selector counts up-to-date.
     ref.invalidate(currencyTransactionCountsProvider);
-    
-    debugPrint('✅ [REFRESH] Household UI refresh complete - all provider families invalidated');
+
+    debugPrint(
+        '✅ [REFRESH] Household UI refresh complete - all provider families invalidated');
   }
 
   void _refreshPersonalUiAfterExpenseChange(String userId) {
     debugPrint('👤 [REFRESH] Refreshing personal UI after expense change');
     ref.read(analyticsProvider.notifier).refresh(userId);
-    
+
     // CRITICAL: Invalidate ALL pocket providers, not just personal scope
     // This ensures all months and all scopes refresh with new data
     debugPrint('🗑️ [REFRESH] Invalidating ALL pockets provider families...');
@@ -1968,7 +2060,7 @@ class _UnifiedTransactionSheetState
 
     // Keep currency selector counts up-to-date.
     ref.invalidate(currencyTransactionCountsProvider);
-    
+
     debugPrint('✅ [REFRESH] Personal UI refresh complete');
   }
 
@@ -1988,11 +2080,12 @@ class _UnifiedTransactionSheetState
           throw Exception('No transaction to save');
         }
 
-        // Combine date with time
+        // Combine extracted date (calendar day) with the selected time in local timezone.
+        final expenseLocalDate = toLocalTime(expense.date);
         final expenseDateTime = DateTime(
-          expense.date.year,
-          expense.date.month,
-          expense.date.day,
+          expenseLocalDate.year,
+          expenseLocalDate.month,
+          expenseLocalDate.day,
           _selectedTime.hour,
           _selectedTime.minute,
         );
@@ -2007,9 +2100,8 @@ class _UnifiedTransactionSheetState
                 currency: expense.currency,
                 date: expenseDateTime,
                 description: expense.description,
-                householdId: _isSharedWithHousehold
-                    ? selectedHousehold
-                    : null, // 
+                householdId:
+                    _isSharedWithHousehold ? selectedHousehold : null, //
               );
 
           // Reset state
@@ -2031,22 +2123,24 @@ class _UnifiedTransactionSheetState
             debugPrint(' No local image path to upload');
           }
 
-          // 
+          //
           debugPrint(' Triggering comprehensive UI refresh...');
-          
+
           // Refresh the household where income was saved (if shared)
           if (selectedHousehold != null) {
             debugPrint(' Refreshing saved household UI: $selectedHousehold');
             _refreshHouseholdUiAfterExpenseChange(selectedHousehold);
           }
-          
+
           // ALSO refresh the current view
           final currentViewMode = ref.read(viewModeProvider);
           final currentHouseholdState = ref.read(selectedHouseholdProvider);
           final currentHouseholdId = currentHouseholdState.householdId;
-          
-          if (currentViewMode.mode == ViewMode.household && currentHouseholdId != null) {
-            debugPrint(' Also refreshing CURRENT household view: $currentHouseholdId');
+
+          if (currentViewMode.mode == ViewMode.household &&
+              currentHouseholdId != null) {
+            debugPrint(
+                ' Also refreshing CURRENT household view: $currentHouseholdId');
             if (currentHouseholdId != selectedHousehold) {
               _refreshHouseholdUiAfterExpenseChange(currentHouseholdId);
             }
@@ -2083,21 +2177,21 @@ class _UnifiedTransactionSheetState
                 .uploadReceiptImage(File(widget.localImagePath!), user.uid);
           }
 
-          // 
+          //
           // When _isSharedWithHousehold is false, we must pass null for householdId
           // This ensures the expense is saved as PERSONAL (household_id = null in DB)
           // which makes it appear in the personal page, not the household page.
           //
           // Before fix: Always passed selectedHousehold (even when toggle OFF)
           // After fix: Only pass selectedHousehold when _isSharedWithHousehold is true
-          // 
+          //
           // Save expense with time and custom splits (if configured)
-          debugPrint(' Saving expense - household: ${_isSharedWithHousehold ? selectedHousehold : "null"}, viewMode: ${viewMode.mode}');
+          debugPrint(
+              ' Saving expense - household: ${_isSharedWithHousehold ? selectedHousehold : "null"}, viewMode: ${viewMode.mode}');
           await ref.read(expenseSaveNotifierProvider.notifier).saveExpense(
                 expense: expenseWithTime,
-                householdId: _isSharedWithHousehold
-                    ? selectedHousehold
-                    : null, // 
+                householdId:
+                    _isSharedWithHousehold ? selectedHousehold : null, //
                 receiptImageUrl: receiptUrl,
                 customSplitType: _customSplitType,
                 customSplits: _customSplits,
@@ -2106,16 +2200,17 @@ class _UnifiedTransactionSheetState
               );
 
           debugPrint(' Expense saved successfully');
+          if (!mounted) return;
           AppToast.success(context, context.l10n.expenseSaved);
 
-          // 
+          //
           // The user might be viewing household mode while adding a personal expense,
           // or vice versa. We need to refresh:
           // 1. The household where expense was saved (if shared)
           // 2. The current view mode (personal or household)
           // This ensures ALL affected UIs update correctly.
-          // 
-          
+          //
+
           debugPrint(' Triggering comprehensive UI refresh...');
           debugPrint('    Expense shared: $_isSharedWithHousehold');
           debugPrint('    Household ID: $selectedHousehold');
@@ -2124,22 +2219,24 @@ class _UnifiedTransactionSheetState
           debugPrint('    Custom split type: $_customSplitType');
           debugPrint(
               '    Custom splits count: ${_customSplits?.length ?? 0} (null means default equal)');
-          
+
           // Step 1: Refresh the household where expense was saved (if shared)
           if (_isSharedWithHousehold && selectedHousehold != null) {
             debugPrint(' Refreshing saved household UI: $selectedHousehold');
             _refreshHouseholdUiAfterExpenseChange(selectedHousehold);
           }
-          
+
           // Step 2: ALSO refresh the current view (household or personal)
           // This is critical because user might be viewing a different mode
           final currentViewMode = ref.read(viewModeProvider);
           final currentHouseholdState = ref.read(selectedHouseholdProvider);
           final currentHouseholdId = currentHouseholdState.householdId;
-          
-          if (currentViewMode.mode == ViewMode.household && currentHouseholdId != null) {
+
+          if (currentViewMode.mode == ViewMode.household &&
+              currentHouseholdId != null) {
             // Currently viewing household mode - refresh it
-            debugPrint(' Also refreshing CURRENT household view: $currentHouseholdId');
+            debugPrint(
+                ' Also refreshing CURRENT household view: $currentHouseholdId');
             if (currentHouseholdId != selectedHousehold) {
               // Different household than where we saved - need to refresh it too
               _refreshHouseholdUiAfterExpenseChange(currentHouseholdId);
@@ -2177,16 +2274,22 @@ class _UnifiedTransactionSheetState
 
         // Handle date and time updates separately
         final finalDate = _editedDate ?? widget.existingExpense!.date;
+        final finalLocalDate = toLocalTime(finalDate);
+        final finalDateOnly = DateTime(
+          finalLocalDate.year,
+          finalLocalDate.month,
+          finalLocalDate.day,
+        );
         final expenseDateTime = DateTime(
-          finalDate.year,
-          finalDate.month,
-          finalDate.day,
+          finalDateOnly.year,
+          finalDateOnly.month,
+          finalDateOnly.day,
           _selectedTime.hour,
           _selectedTime.minute,
         );
 
         // Backend expects date in YYYY-MM-DD format (local date)
-        updates['date'] = DateFormat('yyyy-MM-dd').format(finalDate);
+        updates['date'] = DateFormat('yyyy-MM-dd').format(finalDateOnly);
 
         // Send full datetime as created_at in UTC to preserve timezone consistency
         updates['created_at'] = expenseDateTime.toUtc().toIso8601String();
@@ -2199,8 +2302,7 @@ class _UnifiedTransactionSheetState
         final existingSplitGroupId = widget.existingExpense!.splitGroupId;
         // Persist payer changes for shared expenses even without split edits
         if (_isSharedWithHousehold && existingHouseholdId != null) {
-          final payer =
-              _selectedPayerUserId ?? ref.read(authProvider).uid;
+          final payer = _selectedPayerUserId ?? ref.read(authProvider).uid;
           updates['payer_user_id'] = payer;
           updates['payerUserId'] = payer; // compatibility with edge fn
         }
@@ -2212,16 +2314,9 @@ class _UnifiedTransactionSheetState
             _customSplits != null &&
             _customSplits!.isNotEmpty;
 
-        // When editing an already-shared expense that has an existing split
-        // group, treat changes from the inline CustomSplitEditor as a split
-        // update. The backend will validate and rewrite the split lines as
-        // long as none of them have been settled yet.
-        final hasExistingSplitGroupForUpdate = _isSharedWithHousehold &&
+        final hasExistingSplitGroup = _isSharedWithHousehold &&
             existingHouseholdId != null &&
-            existingSplitGroupId != null &&
-            _customSplitType != null &&
-            _customSplits != null &&
-            _customSplits!.isNotEmpty;
+            existingSplitGroupId != null;
 
         // Handle receipt image upload for existing expenses
         if (_localImagePath != null) {
@@ -2245,60 +2340,96 @@ class _UnifiedTransactionSheetState
             'householdId': existingHouseholdId,
             'customSplits': {
               'splitType': splitTypeStr,
-              'memberSplits': _customSplits!
-                  .map((split) {
-                    final memberUserId = split.member.userId;
-                    final member = <String, dynamic>{
-                      'userId': memberUserId,
-                    };
-                    switch (_customSplitType!) {
-                      case SplitType.amount:
-                        member['amount'] = split.amount;
-                        break;
-                      case SplitType.percentage:
-                        member['percentage'] = split.percentage;
-                        break;
-                      case SplitType.shares:
-                        member['shares'] = split.shares;
-                        break;
-                      case SplitType.equal:
-                        break;
-                    }
-                    return member;
-                  })
-                  .toList(),
+              'memberSplits': _customSplits!.map((split) {
+                final memberUserId = split.member.userId;
+                final member = <String, dynamic>{
+                  'userId': memberUserId,
+                };
+                switch (_customSplitType!) {
+                  case SplitType.amount:
+                    member['amount'] = split.amount;
+                    break;
+                  case SplitType.percentage:
+                    member['percentage'] = split.percentage;
+                    break;
+                  case SplitType.shares:
+                    member['shares'] = split.shares;
+                    break;
+                  case SplitType.equal:
+                    break;
+                }
+                return member;
+              }).toList(),
             },
             'payerUserId': _selectedPayerUserId ?? ref.read(authProvider).uid,
           };
-        } else if (hasExistingSplitGroupForUpdate) {
-          final splitTypeStr = _customSplitType!.toString().split('.').last;
-          extraBody = {
-            'splitUpdate': {
-              'splitType': splitTypeStr,
-              'memberSplits': _customSplits!
-                  .map((split) {
-                    final memberUserId = split.member.userId;
-                    final member = <String, dynamic>{
-                      'userId': memberUserId,
-                    };
-                    switch (_customSplitType!) {
-                      case SplitType.amount:
-                        member['amount'] = split.amount;
-                        break;
-                      case SplitType.percentage:
-                        member['percentage'] = split.percentage;
-                        break;
-                      case SplitType.shares:
-                        member['shares'] = split.shares;
-                        break;
-                      case SplitType.equal:
-                        break;
-                    }
-                    return member;
-                  })
-                  .toList(),
-            },
-          };
+        } else if (hasExistingSplitGroup) {
+          final amountCentsChanged = updates.containsKey('amount_cents');
+
+          final hasLoadedSplitConfig = _initialSplitSignature != null;
+          final hasCurrentSplitConfig = _customSplitType != null &&
+              _customSplits != null &&
+              _customSplits!.isNotEmpty;
+
+          final currentSignature = hasCurrentSplitConfig
+              ? _buildSplitSignature(_customSplitType!, _customSplits!)
+              : null;
+          final splitChanged = hasLoadedSplitConfig &&
+              currentSignature != null &&
+              currentSignature != _initialSplitSignature;
+
+          final shouldSendSplitUpdate = hasLoadedSplitConfig &&
+              hasCurrentSplitConfig &&
+              (amountCentsChanged || splitChanged);
+
+          // If the amount changed we must update split lines to stay consistent.
+          // If we can't load the split config, fail fast instead of corrupting state.
+          if (amountCentsChanged && !shouldSendSplitUpdate) {
+            if (!mounted) return;
+            AppToast.error(context, context.l10n.errorLoadingSplits);
+            return;
+          }
+
+          if (shouldSendSplitUpdate) {
+            final currentType = _customSplitType!;
+            final preserveEqualSplitType = _loadedSplitGroupType == 'equal' &&
+                currentType == SplitType.amount &&
+                amountCentsChanged &&
+                !splitChanged;
+
+            final splitTypeStr = preserveEqualSplitType
+                ? 'equal'
+                : currentType.toString().split('.').last;
+            extraBody = {
+              'splitUpdate': {
+                'splitType': splitTypeStr,
+                'memberSplits': preserveEqualSplitType
+                    ? _customSplits!
+                        .map((split) => {'userId': split.member.userId})
+                        .toList()
+                    : _customSplits!.map((split) {
+                        final memberUserId = split.member.userId;
+                        final member = <String, dynamic>{
+                          'userId': memberUserId,
+                        };
+                        switch (currentType) {
+                          case SplitType.amount:
+                            member['amount'] = split.amount;
+                            break;
+                          case SplitType.percentage:
+                            member['percentage'] = split.percentage;
+                            break;
+                          case SplitType.shares:
+                            member['shares'] = split.shares;
+                            break;
+                          case SplitType.equal:
+                            break;
+                        }
+                        return member;
+                      }).toList(),
+              },
+            };
+          }
         }
 
         // Only update if there are actual changes or we need to create a split
@@ -2311,36 +2442,37 @@ class _UnifiedTransactionSheetState
         debugPrint(' Updating expense with: $updates extraBody=$extraBody');
 
         // Call update API (this already handles provider refresh internally)
-        final success = await ref
-            .read(transactionEditProvider.notifier)
-            .updateExpense(
-              widget.existingExpense!.id,
-              updates,
-              extraBody: extraBody,
-            );
+        final success =
+            await ref.read(transactionEditProvider.notifier).updateExpense(
+                  widget.existingExpense!.id,
+                  updates,
+                  extraBody: extraBody,
+                );
 
         if (!mounted) return;
 
         if (success) {
-          // 
+          //
           debugPrint(' Triggering comprehensive UI refresh...');
-          
+
           // Get the household from the edited expense
           final editedHouseholdId = widget.existingExpense!.householdId;
-          
+
           // Refresh the household where expense exists (if it's shared)
           if (editedHouseholdId != null) {
             debugPrint(' Refreshing expense household UI: $editedHouseholdId');
             _refreshHouseholdUiAfterExpenseChange(editedHouseholdId);
           }
-          
+
           // ALSO refresh the current view
           final currentViewMode = ref.read(viewModeProvider);
           final currentHouseholdState = ref.read(selectedHouseholdProvider);
           final currentHouseholdId = currentHouseholdState.householdId;
-          
-          if (currentViewMode.mode == ViewMode.household && currentHouseholdId != null) {
-            debugPrint(' Also refreshing CURRENT household view: $currentHouseholdId');
+
+          if (currentViewMode.mode == ViewMode.household &&
+              currentHouseholdId != null) {
+            debugPrint(
+                ' Also refreshing CURRENT household view: $currentHouseholdId');
             if (currentHouseholdId != editedHouseholdId) {
               _refreshHouseholdUiAfterExpenseChange(currentHouseholdId);
             }
@@ -2356,9 +2488,10 @@ class _UnifiedTransactionSheetState
           // Surface the raw error from the edit provider (which contains the
           // backend/FunctionException message) instead of a generic exception.
           final editState = ref.read(transactionEditProvider);
-          final message = (editState.error != null && editState.error!.trim().isNotEmpty)
-              ? editState.error!
-              : context.l10n.failedToUpdateExpense;
+          final message =
+              (editState.error != null && editState.error!.trim().isNotEmpty)
+                  ? editState.error!
+                  : context.l10n.failedToUpdateExpense;
 
           AppToast.error(context, message);
           return;
@@ -2405,14 +2538,15 @@ class _UnifiedTransactionSheetState
       );
 
       if (response.data == null || response.data['success'] != true) {
-        throw Exception(response.data?['error'] ?? context.l10n.failedToDeleteExpense);
+        throw Exception(
+            response.data?['error'] ?? context.l10n.failedToDeleteExpense);
       }
 
       debugPrint(' Expense deleted successfully');
 
       // Refresh analytics data (personal expenses)
       await ref.read(analyticsProvider.notifier).loadData(user.uid);
-      
+
       // CRITICAL: Always invalidate ALL pocket providers (all scopes, all months)
       // This ensures pockets page refreshes regardless of personal/household mode
       debugPrint(' Invalidating ALL pockets provider families...');
@@ -2521,7 +2655,7 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
                         );
                       },
                       errorBuilder: (context, error, stackTrace) {
-                        return  Center(
+                        return Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [

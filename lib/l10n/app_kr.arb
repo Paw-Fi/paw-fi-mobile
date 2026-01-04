@@ -1495,5 +1495,7 @@
   "change_currency_desc": "여기를 클릭하여 원하는 통화로 변경하세요.",
   "homeModeTourTitle": "개인 모드와 그룹 모드 전환하기",
   "homeModeTourDescription": "여기를 눌러 개인 데이터와 그룹 데이터를 전환하세요.",
-  "topCategory": "상위 카테고리"
+  "topCategory": "상위 카테고리",
+  "selectAll": "전체 선택",
+  "deselectAll": "전체 선택 해제"
 }

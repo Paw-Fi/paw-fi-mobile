@@ -68,7 +68,6 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
 
     if (currentUserId == null) return const SizedBox.shrink();
@@ -160,11 +159,11 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
         child: Container(
           margin: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+            color: colorScheme.homeCardSurface,
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
+                color: colorScheme.homeCardShadow,
                 blurRadius: 20,
                 offset: const Offset(0, 4),
               ),
@@ -173,176 +172,175 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-          // Header
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  context.l10n.settlement,
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.5,
-                    color: colorScheme.foreground,
-                  ),
-                ),
-                Row(
-                  children: [
-                    if (!isAllSettled) ...[
-                      Text(
-                        context.l10n.expressNetting,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: colorScheme.mutedForeground,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Transform.scale(
-                        scale: 0.8,
-                        child: MonekoSwitch(
-                          value: _netTransfers,
-                          onChanged: _saveNettingPreference,
-                        ),
-                      ),
-                      if(isAllSettled)
-                      const SizedBox(width: 12),
-                    ],
-                    if(isAllSettled)
-                    _HistoryButton(
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => SettlementHistoryPage(
-                              householdId: widget.summary.householdId,
-                            ),
-                          ),
-                        );
-                      },
-                      colorScheme: colorScheme,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          if (isAllSettled)
-            _buildAllSettledState(context, colorScheme)
-          else ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _StatCard(
-                      label: context.l10n.youOwe,
-                      amountCents: youOweTotal,
-                      color: const Color(0xFFFF453A), // Apple Red
-                      currency: widget.currency,
-                      onTap: youOweTotal > 0
-                          ? () => _openSettleUpSheet(
-                                context,
-                                householdId: widget.summary.householdId,
-                                isExpress: _netTransfers,
-                                amountHintCents: youOweTotal,
-                                splits: widget.splits,
-                                targetUserId: null,
-                                currency: widget.currency,
-                              )
-                          : null,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _StatCard(
-                      label: context.l10n.youAreOwed,
-                      amountCents: owedToYouTotal,
-                      color: const Color(0xFF30D158), // Apple Green
-                      currency: widget.currency,
-                      onTap: null,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (mySuggestions.isNotEmpty) ...[
-              const SizedBox(height: 20),
+              // Header
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Expanded(
-                      child: Text(
-                        _netTransfers
-                            ? context.l10n.suggestedNetTransfers
-                            : context.l10n.detailedPairwiseDues,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.mutedForeground,
-                          letterSpacing: 0.5,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                    Text(
+                      context.l10n.settlement,
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.5,
+                        color: colorScheme.foreground,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    _HistoryButton(
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => SettlementHistoryPage(
-                              householdId: widget.summary.householdId,
+                    Row(
+                      children: [
+                        if (!isAllSettled) ...[
+                          Text(
+                            context.l10n.expressNetting,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: colorScheme.mutedForeground,
                             ),
                           ),
-                        );
-                      },
-                      colorScheme: colorScheme,
+                          const SizedBox(width: 8),
+                          Transform.scale(
+                            scale: 0.8,
+                            child: MonekoSwitch(
+                              value: _netTransfers,
+                              onChanged: _saveNettingPreference,
+                            ),
+                          ),
+                          if (isAllSettled) const SizedBox(width: 12),
+                        ],
+                        if (isAllSettled)
+                          _HistoryButton(
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => SettlementHistoryPage(
+                                    householdId: widget.summary.householdId,
+                                  ),
+                                ),
+                              );
+                            },
+                            colorScheme: colorScheme,
+                          ),
+                      ],
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 8),
-              ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                itemCount: mySuggestions.length,
-                separatorBuilder: (context, index) =>
-                    const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  final s = mySuggestions[index];
-                  final isPayer = s.fromUserId == currentUserId;
-                  return _SuggestionRow(
-                    suggestion: s,
-                    isPayer: isPayer,
-                    scheme: colorScheme,
-                    currency: widget.currency,
-                    onTap: () => _openSettleUpSheet(
-                      context,
-                      householdId: widget.summary.householdId,
-                      isExpress: _netTransfers,
-                      amountHintCents: s.amountCents,
-                      splits: widget.splits,
-                      targetUserId: isPayer ? s.toUserId : s.fromUserId,
-                      currency: widget.currency,
-                      settleTheyOweYou: !_netTransfers && !isPayer,
+
+              if (isAllSettled)
+                _buildAllSettledState(context, colorScheme)
+              else ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _StatCard(
+                          label: context.l10n.youOwe,
+                          amountCents: youOweTotal,
+                          color: colorScheme.destructive, // Apple Red
+                          currency: widget.currency,
+                          onTap: youOweTotal > 0
+                              ? () => _openSettleUpSheet(
+                                    context,
+                                    householdId: widget.summary.householdId,
+                                    isExpress: _netTransfers,
+                                    amountHintCents: youOweTotal,
+                                    splits: widget.splits,
+                                    targetUserId: null,
+                                    currency: widget.currency,
+                                  )
+                              : null,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _StatCard(
+                          label: context.l10n.youAreOwed,
+                          amountCents: owedToYouTotal,
+                          color: colorScheme.success, // Apple Green
+                          currency: widget.currency,
+                          onTap: null,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (mySuggestions.isNotEmpty) ...[
+                  const SizedBox(height: 20),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _netTransfers
+                                ? context.l10n.suggestedNetTransfers
+                                : context.l10n.detailedPairwiseDues,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: colorScheme.mutedForeground,
+                              letterSpacing: 0.5,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _HistoryButton(
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => SettlementHistoryPage(
+                                  householdId: widget.summary.householdId,
+                                ),
+                              ),
+                            );
+                          },
+                          colorScheme: colorScheme,
+                        ),
+                      ],
                     ),
-                  );
-                },
-              ),
-            ] else
-              const SizedBox(height: 20),
-          ],
-          ],
+                  ),
+                  const SizedBox(height: 8),
+                  ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                    itemCount: mySuggestions.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final s = mySuggestions[index];
+                      final isPayer = s.fromUserId == currentUserId;
+                      return _SuggestionRow(
+                        suggestion: s,
+                        isPayer: isPayer,
+                        scheme: colorScheme,
+                        currency: widget.currency,
+                        onTap: () => _openSettleUpSheet(
+                          context,
+                          householdId: widget.summary.householdId,
+                          isExpress: _netTransfers,
+                          amountHintCents: s.amountCents,
+                          splits: widget.splits,
+                          targetUserId: isPayer ? s.toUserId : s.fromUserId,
+                          currency: widget.currency,
+                          settleTheyOweYou: !_netTransfers && !isPayer,
+                        ),
+                      );
+                    },
+                  ),
+                ] else
+                  const SizedBox(height: 20),
+              ],
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
   }
 
   Widget _buildAllSettledState(BuildContext context, ColorScheme colorScheme) {
@@ -568,9 +566,8 @@ class _StatCard extends StatelessWidget {
     final labelColor = isZero
         ? Theme.of(context).colorScheme.mutedForeground
         : color.withValues(alpha: 0.8);
-    final valueColor = isZero
-        ? Theme.of(context).colorScheme.mutedForeground
-        : color;
+    final valueColor =
+        isZero ? Theme.of(context).colorScheme.mutedForeground : color;
 
     final content = Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -640,7 +637,7 @@ class _SuggestionRow extends StatelessWidget {
     } else {
       amountText = formatLocalizedNumber(context, amountValue);
     }
-    final color = isPayer ? const Color(0xFFFF453A) : const Color(0xFF30D158);
+    final color = isPayer ? scheme.destructive : scheme.success;
 
     // Left text: "Alice owes you" or "You owe Bob"
     final label = isPayer

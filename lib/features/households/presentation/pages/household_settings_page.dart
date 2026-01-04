@@ -204,7 +204,7 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.03),
+                            color: colorScheme.shadow.withValues(alpha: 0.04),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -254,7 +254,7 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.03),
+                              color: colorScheme.shadow.withValues(alpha: 0.04),
                               blurRadius: 8,
                               offset: const Offset(0, 2),
                             ),
@@ -307,8 +307,8 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
                                     begin: Alignment.topCenter,
                                     end: Alignment.bottomCenter,
                                     colors: [
-                                      Colors.transparent,
-                                      Colors.black.withValues(alpha: 0.5),
+                                      colorScheme.surface.withValues(alpha: 0.0),
+                                      colorScheme.shadow.withValues(alpha: 0.5),
                                     ],
                                   ),
                                 ),
@@ -325,7 +325,7 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
                                     ),
                                     decoration: BoxDecoration(
                                       color:
-                                          Colors.white.withValues(alpha: 0.9),
+                                          colorScheme.surface.withValues(alpha: 0.9),
                                       borderRadius: BorderRadius.circular(20),
                                     ),
                                     child: Row(
@@ -363,13 +363,13 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
                         onPressed:
                             _isSaving ? null : () => _saveChanges(household),
                         child: _isSaving
-                            ? const SizedBox(
+                            ? SizedBox(
                                 width: 20,
                                 height: 20,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
                                   valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.white),
+                                      colorScheme.primaryForeground),
                                 ),
                               )
                             : Text(context.l10n.saveChanges),
@@ -383,13 +383,13 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
                               ? null
                               : () => _confirmDeleteHousehold(household),
                           child: _isDeleting
-                              ? const SizedBox(
+                              ? SizedBox(
                                   width: 20,
                                   height: 20,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
                                     valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.white,
+                                      colorScheme.primaryForeground,
                                     ),
                                   ),
                                 )
@@ -713,14 +713,14 @@ class _MemberCard extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
+            color: colorScheme.shadow.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Material(
-        color: Colors.transparent,
+        color: colorScheme.surface.withValues(alpha: 0.0),
         child: InkWell(
           onTap: canManageThisMember ? () => _showOptions(context) : null,
           borderRadius: BorderRadius.circular(16),
@@ -800,6 +800,7 @@ class _MemberCard extends StatelessWidget {
   }
 
   void _showOptions(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     if (Platform.isIOS) {
       showCupertinoModalPopup(
         context: context,
@@ -861,7 +862,7 @@ class _MemberCard extends StatelessWidget {
             const Divider(),
             ListTile(
               title: Text(context.l10n.remove),
-              textColor: Colors.red,
+              textColor: colorScheme.destructive,
               onTap: () {
                 Navigator.pop(context);
                 onRemove();
@@ -1272,7 +1273,9 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
             ),
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
-              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.destructive,
+              ),
               child: Text(context.l10n.revoke),
             ),
           ],
@@ -1364,7 +1367,7 @@ class _CreateInviteCard extends StatelessWidget {
         ],
       ),
       child: Material(
-        color: Colors.transparent,
+        color: colorScheme.surface.withValues(alpha: 0.0),
         child: InkWell(
           onTap: onPressed,
           borderRadius: BorderRadius.circular(16),
@@ -1376,12 +1379,12 @@ class _CreateInviteCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Invite New Member',
                         style: TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: colorScheme.primaryForeground,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -1389,15 +1392,16 @@ class _CreateInviteCard extends StatelessWidget {
                         'Send a link to join your household',
                         style: TextStyle(
                           fontSize: 13,
-                          color: Colors.white.withValues(alpha: 0.9),
+                          color: colorScheme.primaryForeground
+                              .withValues(alpha: 0.9),
                         ),
                       ),
                     ],
                   ),
                 ),
-                const Icon(
+                Icon(
                   Icons.arrow_forward_rounded,
-                  color: Colors.white,
+                  color: colorScheme.primaryForeground,
                   size: 20,
                 ),
               ],
@@ -1579,7 +1583,7 @@ class _InviteCard extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
+            color: colorScheme.shadow.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -1757,14 +1761,18 @@ class _InviteCard extends StatelessWidget {
   }
 
   // ignore: unused_element
-  Color _getStatusColor(InviteStatus status, bool isExpired) {
-    if (isExpired) return Colors.red;
+  Color _getStatusColor(
+    InviteStatus status,
+    bool isExpired,
+    ColorScheme colorScheme,
+  ) {
+    if (isExpired) return colorScheme.destructive;
 
     return switch (status) {
-      InviteStatus.pending => Colors.orange,
-      InviteStatus.accepted => Colors.green,
-      InviteStatus.revoked => Colors.red,
-      InviteStatus.expired => Colors.grey,
+      InviteStatus.pending => colorScheme.warning,
+      InviteStatus.accepted => colorScheme.success,
+      InviteStatus.revoked => colorScheme.destructive,
+      InviteStatus.expired => colorScheme.mutedForeground,
     };
   }
 
@@ -1795,7 +1803,8 @@ class _StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _getStatusColor();
+    final colorScheme = Theme.of(context).colorScheme;
+    final color = _getStatusColor(colorScheme);
     final text = _getLocalizedStatus(context, isExpired, status);
 
     return Text(
@@ -1808,14 +1817,14 @@ class _StatusBadge extends StatelessWidget {
     );
   }
 
-  Color _getStatusColor() {
-    if (isExpired) return Colors.red;
+  Color _getStatusColor(ColorScheme colorScheme) {
+    if (isExpired) return colorScheme.destructive;
 
     return switch (status) {
-      InviteStatus.pending => Colors.orange,
-      InviteStatus.accepted => Colors.green,
-      InviteStatus.revoked => Colors.red,
-      InviteStatus.expired => Colors.grey,
+      InviteStatus.pending => colorScheme.warning,
+      InviteStatus.accepted => colorScheme.success,
+      InviteStatus.revoked => colorScheme.destructive,
+      InviteStatus.expired => colorScheme.mutedForeground,
     };
   }
 

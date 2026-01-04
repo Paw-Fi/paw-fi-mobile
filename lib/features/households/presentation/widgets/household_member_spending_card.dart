@@ -140,20 +140,18 @@ Widget buildHouseholdMemberSpendingCard(
   final sortedMembers = List<MemberContribution>.from(allMembers)
     ..sort((a, b) => b.totalSpentCents.compareTo(a.totalSpentCents));
 
-  final isDark = Theme.of(context).brightness == Brightness.dark;
-
   final card = Container(
     width: double.infinity,
     decoration: BoxDecoration(
-      color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+      color: colorScheme.homeCardSurface,
       borderRadius: BorderRadius.circular(24),
       border: Border.all(
-        color: colorScheme.outline.withValues(alpha: 0.05),
+        color: colorScheme.homeCardBorder,
         width: 1,
       ),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
+          color: colorScheme.homeCardShadow,
           blurRadius: 32,
           offset: const Offset(0, 8),
           spreadRadius: -4,
@@ -418,15 +416,15 @@ Widget _buildMemberRow(
                                   colorScheme.primary.withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(7),
                             ),
-                            child:  Text(
-                            context.l10n.nudge,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: colorScheme.primary,
-                              letterSpacing: 0.2,
+                            child: Text(
+                              context.l10n.nudge,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.primary,
+                                letterSpacing: 0.2,
+                              ),
                             ),
-                          ),
                           ),
                         ),
                       ],
@@ -697,7 +695,7 @@ class _ReminderModalContentState extends State<_ReminderModalContent> {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: widget.colorScheme.card,
+        color: widget.colorScheme.sheetBackground,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: EdgeInsets.only(

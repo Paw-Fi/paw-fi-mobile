@@ -267,6 +267,7 @@ class _SplitTypeSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Row(
       children: SplitType.values.map((type) {
         final isSelected = type == selectedType;
@@ -278,14 +279,16 @@ class _SplitTypeSelector extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
-                  color: isSelected ? Colors.purple : Colors.grey.shade200,
+                  color: isSelected ? colorScheme.primary : colorScheme.muted,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   type.toJson().toUpperCase(),
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: isSelected ? Colors.white : Colors.black,
+                    color: isSelected
+                        ? colorScheme.primaryForeground
+                        : colorScheme.foreground,
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                     fontSize: 12,
                   ),

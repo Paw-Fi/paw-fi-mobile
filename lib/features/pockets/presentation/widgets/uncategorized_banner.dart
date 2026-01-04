@@ -32,7 +32,6 @@ class UncategorizedBanner extends StatelessWidget {
     final symbol = resolveCurrencySymbol(currency);
     final localized = formatLocalizedNumber(context, normalized);
     final totalDisplay = '$symbol$localized';
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
         onTap: () => showUncategorizedSheet(
               context,
@@ -47,15 +46,10 @@ class UncategorizedBanner extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: isDark
-                ? const Color(
-                    0xFF2C1C10) // Very dark orange/brown for dark mode
-                : const Color(0xFFFFF8F0), // Very light orange for light mode
+            color: colorScheme.pocketUncategorizedSurface,
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: isDark
-                  ? Colors.orange.withValues(alpha: 0.2)
-                  : Colors.orange.withValues(alpha: 0.1),
+              color: colorScheme.pocketUncategorizedBorder,
               width: 1,
             ),
           ),
@@ -64,12 +58,12 @@ class UncategorizedBanner extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.orange.withValues(alpha: 0.15),
+                  color: colorScheme.pocketUncategorizedIconBg,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.warning_amber_rounded,
-                  color: Colors.orange,
+                  color: colorScheme.pocketUncategorizedAccent,
                   size: 24,
                 ),
               ),
@@ -93,9 +87,7 @@ class UncategorizedBanner extends StatelessWidget {
                             text: totalDisplay,
                             style: TextStyle(
                               fontWeight: FontWeight.w700,
-                              color: isDark
-                                  ? Colors.orange.shade200
-                                  : Colors.orange.shade800,
+                              color: colorScheme.pocketUncategorizedAmount,
                             ),
                           ),
                           const TextSpan(text: ' '),

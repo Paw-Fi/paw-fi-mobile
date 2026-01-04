@@ -66,15 +66,33 @@ class ThemeModeNotifier extends StateNotifier<ThemeMode> {
 extension AppColorScheme on ColorScheme {
   /// Background for cards/surfaces
   Color get card => brightness == Brightness.dark
-      ? AppTheme.darkBackground
+      ? AppTheme.darkCardBg
       : AppTheme.lightBackground;
 
   Color get appBackground => brightness == Brightness.dark
       ? AppTheme.darkBackground
       : AppTheme.lightBackground;
 
+  /// Bottom sheet and modal surface
+  Color get sheetBackground => brightness == Brightness.dark
+      ? AppTheme.darkSheetBg
+      : AppTheme.lightCardBg;
+
   /// Subtle border color
   Color get border => outlineVariant;
+
+  /// Stronger border for sheets and drag handles
+  Color get sheetBorder => outline;
+
+  /// Border for inputs and selection tiles (keeps light mode unchanged)
+  Color get controlBorder => brightness == Brightness.dark
+      ? outline.withValues(alpha: 0.6)
+      : outlineVariant.withValues(alpha: 0.2);
+
+  /// Background for input fields
+  Color get inputBackground => brightness == Brightness.dark
+      ? AppTheme.darkInputBg
+      : AppTheme.lightInputBg;
 
   /// Muted background surface
   Color get muted => brightness == Brightness.dark
@@ -97,12 +115,45 @@ extension AppColorScheme on ColorScheme {
       ? AppTheme.darkForeground
       : AppTheme.lightForeground;
 
-  /// Destructive color (mirrors shadcn destructive semantics)
+  /// Foreground for inactive tab text
+  Color get tabInactiveForeground => brightness == Brightness.dark
+      ? AppTheme.darkTabInactiveForeground
+      : AppTheme.lightForeground;
+
   Color get destructive =>
       brightness == Brightness.dark ? AppTheme.darkDanger : AppTheme.danger;
 
+  /// Error surface for banners/cards with subtle tinting.
+  Color get errorSurface => AppSurface.tintedBackground(
+        scheme: this,
+        base: AppSurface.statusBase(AppSurfaceStatus.error),
+        isDark: brightness == Brightness.dark,
+      );
+
+  /// Error border for subtle outlines.
+  Color get errorBorder => AppSurface.tintedBorder(
+        scheme: this,
+        base: AppSurface.statusBase(AppSurfaceStatus.error),
+        isDark: brightness == Brightness.dark,
+      );
+
+  /// Error accent color for icons and emphasis.
+  Color get errorAccent => AppSurface.statusBase(AppSurfaceStatus.error);
+
+  /// Success color
+  Color get success =>
+      brightness == Brightness.dark ? AppTheme.darkSuccess : AppTheme.success;
+
+  /// Warning color
+  Color get warning =>
+      brightness == Brightness.dark ? AppTheme.darkWarning : AppTheme.warning;
+
+  /// Info color
+  Color get info =>
+      brightness == Brightness.dark ? AppTheme.darkInfo : AppTheme.info;
+
   Color get drawerBackground =>
-      brightness == Brightness.dark ? Colors.black : Colors.white;
+      brightness == Brightness.dark ? AppTheme.darkBackground : Colors.white;
 
   Color get selectedStateBackground => brightness == Brightness.dark
       ? AppTheme.darkSelectedStateBackground
@@ -110,7 +161,7 @@ extension AppColorScheme on ColorScheme {
 
   /// Surface color for cards (matching Apple-style cards)
   Color get cardSurface =>
-      brightness == Brightness.dark ? const Color(0xFF1C1C1E) : Colors.white;
+      brightness == Brightness.dark ? AppTheme.darkCardBg : Colors.white;
 
   /// Background color for charts
   Color get chartBackground => brightness == Brightness.dark
@@ -126,6 +177,138 @@ extension AppColorScheme on ColorScheme {
   Color get skeletonHighlight => brightness == Brightness.dark
       ? AppTheme.darkSkeletonHighlight
       : AppTheme.lightSkeletonHighlight;
+
+  /// Pockets: Add tile surface
+  Color get pocketAddSurface => brightness == Brightness.dark
+      ? AppTheme.darkCardBg
+      : AppTheme.lightPocketAddSurface;
+
+  /// Pockets: Add tile border
+  Color get pocketAddBorder => brightness == Brightness.dark
+      ? AppTheme.darkBorderSubtle
+      : AppTheme.lightBorder.withValues(alpha: 0.15);
+
+  /// Pockets: Add tile label
+  Color get pocketAddText => brightness == Brightness.dark
+      ? AppTheme.darkForeground
+      : AppTheme.lightForeground;
+
+  /// Pockets: Card surface
+  Color get pocketCardSurface => brightness == Brightness.dark
+      ? AppTheme.darkCardBg
+      : AppTheme.lightCardBg;
+
+  /// Pockets: Card border
+  Color get pocketCardBorder => brightness == Brightness.dark
+      ? AppTheme.darkBorderSubtle
+      : AppTheme.lightBorder.withValues(alpha: 0.4);
+
+  /// Pockets: Glass overlay surface (icons/labels)
+  Color get pocketGlassSurface => brightness == Brightness.dark
+      ? AppTheme.darkCardBg.withValues(alpha: 0.9)
+      : Colors.white.withValues(alpha: 0.9);
+
+  /// Pockets: Softer glass overlay surface
+  Color get pocketGlassSurfaceSoft => brightness == Brightness.dark
+      ? AppTheme.darkCardBg.withValues(alpha: 0.88)
+      : Colors.white.withValues(alpha: 0.85);
+
+  /// Pockets: Glass shadow
+  Color get pocketGlassShadow => shadow.withValues(
+        alpha: brightness == Brightness.dark ? 0.25 : 0.05,
+      );
+
+  /// Pockets: Icon chip shadow
+  Color get pocketIconShadow => shadow.withValues(
+        alpha: brightness == Brightness.dark ? 0.3 : 0.05,
+      );
+
+  /// Pockets: Progress track
+  Color get pocketProgressTrack => brightness == Brightness.dark
+      ? foreground.withValues(alpha: 0.08)
+      : Colors.black.withValues(alpha: 0.1);
+
+  /// Pockets: List tile fill surface based on pocket color
+  Color pocketTileFill(Color baseColor) => brightness == Brightness.dark
+      ? baseColor.withValues(alpha: 0.2)
+      : baseColor.withValues(alpha: 0.12);
+
+  /// Pockets: List tile icon chip surface
+  Color get pocketTileIconSurface => brightness == Brightness.dark
+      ? Colors.white.withValues(alpha: 0.18)
+      : Colors.white.withValues(alpha: 0.9);
+
+  /// Pockets: List tile content surface
+  Color get pocketTileContentSurface => brightness == Brightness.dark
+      ? AppTheme.darkCardBg.withValues(alpha: 0.9)
+      : Colors.white.withValues(alpha: 0.9);
+
+  /// Pockets: List tile border
+  Color get pocketTileBorder => brightness == Brightness.dark
+      ? AppTheme.darkBorderSubtle
+      : AppTheme.lightBorder.withValues(alpha: 0.4);
+
+  /// Pockets: Title/subtitle colors
+  Color get pocketTitle => foreground;
+  Color get pocketSubtitle => mutedForeground;
+
+  /// Pockets: Header shadow
+  Color get pocketHeaderShadow => shadow.withValues(
+        alpha: brightness == Brightness.dark ? 0.12 : 0.05,
+      );
+
+  /// Pockets: Header border
+  Color get pocketHeaderBorder => outline.withValues(
+        alpha: brightness == Brightness.dark ? 0.12 : 0.05,
+      );
+
+  /// Pockets: Uncategorized banner surface
+  Color get pocketUncategorizedSurface => brightness == Brightness.dark
+      ? AppTheme.darkUncategorizedBanner
+      : AppTheme.lightUncategorizedBanner;
+
+  /// Pockets: Uncategorized banner accent
+  Color get pocketUncategorizedAccent => brightness == Brightness.dark
+      ? AppTheme.darkUncategorizedAccent
+      : AppTheme.lightUncategorizedAccent;
+
+  /// Pockets: Uncategorized banner border
+  Color get pocketUncategorizedBorder => pocketUncategorizedAccent.withValues(
+        alpha: brightness == Brightness.dark ? 0.2 : 0.1,
+      );
+
+  /// Pockets: Uncategorized banner amount
+  Color get pocketUncategorizedAmount => brightness == Brightness.dark
+      ? AppTheme.darkUncategorizedAmount
+      : AppTheme.lightUncategorizedAmount;
+
+  /// Pockets: Uncategorized icon background
+  Color get pocketUncategorizedIconBg => pocketUncategorizedAccent.withValues(
+        alpha: brightness == Brightness.dark ? 0.18 : 0.12,
+      );
+
+  /// Home: standard card surface
+  Color get homeCardSurface => cardSurface;
+
+  /// Home: standard card border
+  Color get homeCardBorder => outline.withValues(
+        alpha: brightness == Brightness.dark ? 0.12 : 0.05,
+      );
+
+  /// Home: standard card shadow
+  Color get homeCardShadow => shadow.withValues(
+        alpha: brightness == Brightness.dark ? 0.12 : 0.05,
+      );
+
+  /// Home: search field background
+  Color get homeSearchFieldBackground => brightness == Brightness.dark
+      ? AppTheme.darkInputBg
+      : AppTheme.lightInputBg;
+
+  /// Home: split sheet background
+  Color get homeSplitSheetBackground => brightness == Brightness.dark
+      ? AppTheme.darkCardBg
+      : AppTheme.lightSplitSheetBg;
 }
 
 /// Moneko app theme configuration matching web's Tailwind design system
@@ -138,6 +321,8 @@ class AppTheme {
   static const Color warning = Color(0xFFFFC219); // --warning
   static const Color danger = Color(0xFFFF6060); // --danger
   static const Color info = monekoPrimary; // brand primary for neutral/info
+  static const Color darkPrimary =
+      Color(0xFF8B70FF); // Slightly lighter purple for dark mode
 
 // Light theme colors
   static const Color lightBackground = Color(0xFFF9FAFB); // --moneko-background
@@ -152,37 +337,157 @@ class AppTheme {
       Color(0xFFF8F6FE); // --selected-state-background
 
 // Dark theme colors
-  static const Color darkBackground =
-      Color(0xFF0A0E1A); // --moneko-background (dark)
-  static const Color darkForeground =
-      Color(0xFFF1F5F9); // --moneko-foreground (dark)
-  static const Color darkCardBg = Color(0xFF111827); // --card-bg (dark)
-  static const Color darkInputBg = Color(0xFF1F2937); // --input-bg (dark)
-  static const Color darkBorder = Color(0xFF374151); // --subtle-border (dark)
-  static const Color darkMuted = Color(0xFF374151); // muted background (dark)
+  // Dark theme colors - refined for depth and legibility
+  static const Color darkBackground = Color(0xFF0B0B0E); // Deep black base
+  static const Color darkForeground = Color(0xFFF2F3F7); // High-contrast text
+  static const Color darkCardBg = Color(0xFF17181D); // Card surface
+  static const Color darkSheetBg = Color(0xFF14151A); // Bottom sheets
+  static const Color darkInputBg = Color(0xFF1E1F25); // Input surface
+  static const Color darkBorder = Color(0xFF40424A); // Primary outline
+  static const Color darkBorderSubtle = Color(0xFF2B2D34); // Subtle outline
+  static const Color darkMuted = Color(0xFF1B1C22); // Muted surface
   static const Color darkMutedForeground =
-      Color(0xFF9CA3AF); // muted text (dark)
-  static const Color darkButtonText = Color(0xFFFFFFFF); // button text (white)
+      Color(0xFFA2A4AE); // Muted text
+  static const Color darkButtonText = Color(0xFFFFFFFF); // White
+  static const Color darkTabInactiveForeground =
+      Color(0xFFFFFFFF); // High-contrast tab text
+
+  // Pocket chart palette (shared between light/dark)
+  static const List<Color> pocketChartPalette = [
+    Color(0xFF4ADE80), // Green
+    Color(0xFFF87171), // Red
+    Color(0xFF60A5FA), // Blue
+    Color(0xFFFBBF24), // Yellow
+    Color(0xFFA78BFA), // Purple
+    Color(0xFFFB923C), // Orange
+  ];
   static const Color darkSelectedStateBackground =
-      Color.fromARGB(59, 133, 109, 194); // --selected-state-background (dark)
+      Color(0xFF26272E); // Neutral selection
+  static const Color lightPocketAddSurface =
+      Color(0xFFF4F5F6); // Subtle add tile
+  static const Color lightUncategorizedBanner = Color(0xFFFFF8F0);
+  static const Color darkUncategorizedBanner = Color(0xFF2C1C10);
+  static const Color lightUncategorizedAccent = Color(0xFFFF9800);
+  static const Color darkUncategorizedAccent = Color(0xFFFF9800);
+  static const Color lightUncategorizedAmount = Color(0xFFB45309);
+  static const Color darkUncategorizedAmount = Color(0xFFFFCC80);
+  static const Color lightSplitSheetBg = Color(0xFFF4F4F4);
 
 // Dark mode semantic colors (suggested)
-  static const Color darkSuccess = Color(0xFF0FB894); // deeper variant
-
-  static const Color darkWarning = Color(0xFFE19A00); // richer toasted amber
-
-  static const Color darkDanger = Color(0xFFD93C3C); // deeper red
-
-  static const Color darkInfo = Color(0xFF7A72FF); // slightly brighter version
+  // Dark mode semantic colors (accessible/vibrant)
+  static const Color darkSuccess = Color(0xFF30D158); // iOS Green
+  static const Color darkWarning = Color(0xFFFFD60A); // iOS Yellow
+  static const Color darkDanger = Color(0xFFFF453A); // iOS Red
+  static const Color darkInfo = Color(0xFF0A84FF); // iOS Blue
 
   static const Color lightChartBackground = Color(0xFFFFFFFF);
-  static const Color darkChartBackground = Color(0xFF1C1C1E);
+  static const Color darkChartBackground = Color(0xFF17181D);
 
+  // Skeleton (shimmer) colors tuned for light/dark themes
   // Skeleton (shimmer) colors tuned for light/dark themes
   static const Color lightSkeletonBase = Color(0xFFE5E7EB);
   static const Color lightSkeletonHighlight = Color(0xFFF3F4F6);
-  static const Color darkSkeletonBase = Color(0xFF1F2937);
-  static const Color darkSkeletonHighlight = Color(0xFF4B5563);
+  static const Color darkSkeletonBase = Color(0xFF24262D);
+  static const Color darkSkeletonHighlight = Color(0xFF2F3138);
+
+  /// Pockets: tune base pocket color for dark surfaces
+  static Color tunedPocketBaseColor(
+    Color baseColor,
+    ColorScheme scheme, {
+    required bool hasCustomColor,
+  }) {
+    if (!hasCustomColor) {
+      return baseColor;
+    }
+    if (scheme.brightness != Brightness.dark) {
+      return baseColor;
+    }
+    final hsl = HSLColor.fromColor(baseColor);
+    return hsl
+        .withLightness((hsl.lightness - 0.15).clamp(0.0, 1.0))
+        .toColor();
+  }
+
+  /// Pockets: progress gradient tuned for the current theme
+  static List<Color> pocketProgressGradient({
+    required ColorScheme scheme,
+    required Color baseColor,
+    required double progress,
+    required bool isOverBudget,
+  }) {
+    final hsl = HSLColor.fromColor(baseColor);
+    final isDark = scheme.brightness == Brightness.dark;
+
+    if (isOverBudget) {
+      final errorColor = isDark
+          ? const HSLColor.fromAHSL(1.0, 0, 0.7, 0.5)
+          : const HSLColor.fromAHSL(1.0, 0, 0.7, 0.45);
+      return [
+        errorColor.toColor(),
+        errorColor
+            .withLightness((errorColor.lightness - 0.1).clamp(0.0, 1.0))
+            .toColor(),
+      ];
+    }
+
+    if (progress > 0.9) {
+      final warningColor = isDark
+          ? const HSLColor.fromAHSL(1.0, 30, 0.8, 0.55)
+          : const HSLColor.fromAHSL(1.0, 30, 0.8, 0.5);
+      return [
+        warningColor.toColor(),
+        warningColor
+            .withLightness((warningColor.lightness - 0.1).clamp(0.0, 1.0))
+            .toColor(),
+      ];
+    }
+
+    if (isDark) {
+      final brightened =
+          hsl.withLightness((hsl.lightness + 0.1).clamp(0.0, 1.0));
+      return [
+        brightened.toColor(),
+        brightened
+            .withLightness((brightened.lightness - 0.15).clamp(0.0, 1.0))
+            .toColor(),
+      ];
+    }
+
+    return [
+      baseColor,
+      hsl.withLightness((hsl.lightness - 0.1).clamp(0.0, 1.0)).toColor(),
+    ];
+  }
+
+  /// Pockets: detail header gradient
+  static List<Color> pocketDetailsGradient(
+    Color baseColor,
+    ColorScheme scheme,
+  ) {
+    final hsl = HSLColor.fromColor(baseColor);
+    final isDark = scheme.brightness == Brightness.dark;
+
+    if (isDark) {
+      final top = hsl
+          .withLightness((hsl.lightness * 1.0).clamp(0.3, 0.6))
+          .withSaturation((hsl.saturation * 0.9).clamp(0.5, 1.0));
+      final bottom = hsl
+          .withLightness(0.12)
+          .withSaturation((hsl.saturation * 0.7).clamp(0.4, 1.0))
+          .withHue((hsl.hue + 20) % 360);
+      return [top.toColor(), bottom.toColor()];
+    }
+
+    final top = hsl
+        .withLightness(0.75)
+        .withSaturation((hsl.saturation * 1.0).clamp(0.6, 1.0))
+        .withHue((hsl.hue - 15) % 360);
+    final bottom = hsl
+        .withLightness(0.45)
+        .withSaturation((hsl.saturation * 1.1).clamp(0.7, 1.0))
+        .withHue((hsl.hue + 10) % 360);
+    return [top.toColor(), bottom.toColor()];
+  }
 
   /// Light theme matching web design, expressed as Material [ThemeData]
   static ThemeData lightTheme() {
@@ -219,15 +524,15 @@ class AppTheme {
     );
 
     final scheme = base.copyWith(
-      primary: const Color(0xFF8B70FF),
+      primary: darkPrimary,
       onPrimary: darkButtonText,
       secondary: monekoSecondary,
       surface: darkCardBg,
       onSurface: darkForeground,
-      error: const Color(0xFFFF7A7A),
+      error: darkDanger,
       onError: darkButtonText,
       outline: darkBorder,
-      outlineVariant: darkBorder,
+      outlineVariant: darkBorderSubtle,
     );
 
     return ThemeData(

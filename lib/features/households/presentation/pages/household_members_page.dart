@@ -105,7 +105,9 @@ class HouseholdMembersPage extends ConsumerWidget {
               await ref.read(householdMembersProvider(householdId).notifier).removeMember(member.id);
               if (context.mounted) Navigator.pop(context);
             },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.destructive,
+            ),
             child: Text(context.l10n.remove),
           ),
         ],
@@ -227,9 +229,15 @@ class _MemberCard extends StatelessWidget {
                     value: 'remove',
                     child: Row(
                       children: [
-                        const Icon(Icons.remove_circle_outline, color: Colors.red),
+                        Icon(
+                          Icons.remove_circle_outline,
+                          color: colorScheme.destructive,
+                        ),
                         const SizedBox(width: 8),
-                        Text(context.l10n.remove, style: const TextStyle(color: Colors.red)),
+                        Text(
+                          context.l10n.remove,
+                          style: TextStyle(color: colorScheme.destructive),
+                        ),
                       ],
                     ),
                   ),

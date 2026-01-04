@@ -61,8 +61,6 @@ class RecurringTransactionCard extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final isIncome = transaction.type == 'income';
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: Slidable(
@@ -77,7 +75,7 @@ class RecurringTransactionCard extends ConsumerWidget {
                   onDelete!();
                 }
               },
-              backgroundColor: const Color(0xFFFE4A49),
+              backgroundColor: colorScheme.destructive,
               foregroundColor: Colors.white,
               icon: Icons.delete,
               label: context.l10n.delete,
@@ -87,15 +85,15 @@ class RecurringTransactionCard extends ConsumerWidget {
         ),
         child: Container(
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+            color: colorScheme.homeCardSurface,
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: colorScheme.outline.withValues(alpha: 0.05),
+              color: colorScheme.homeCardBorder,
               width: 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
+                color: colorScheme.homeCardShadow,
                 blurRadius: 32,
                 offset: const Offset(0, 8),
                 spreadRadius: -4,
@@ -165,7 +163,7 @@ class RecurringTransactionCard extends ConsumerWidget {
                   ),
                   decoration: BoxDecoration(
                     color: transaction.isActive
-                        ? const Color(0xFF10B981).withValues(alpha: 0.1)
+                        ? colorScheme.success.withValues(alpha: 0.1)
                         : colorScheme.muted,
                     borderRadius: BorderRadius.circular(4),
                   ),
@@ -175,7 +173,7 @@ class RecurringTransactionCard extends ConsumerWidget {
                         : context.l10n.ended,
                     style: TextStyle(
                       color: transaction.isActive
-                          ? const Color(0xFF10B981)
+                          ? colorScheme.success
                           : colorScheme.mutedForeground,
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
@@ -206,7 +204,8 @@ class EmptyRecurringState extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final normalizedType = type.trim().toLowerCase();
-    final isExpense = normalizedType == 'expense' || normalizedType == 'expenses';
+    final isExpense =
+        normalizedType == 'expense' || normalizedType == 'expenses';
     final isIncome = normalizedType == 'income' || normalizedType == 'incomes';
 
     return Center(

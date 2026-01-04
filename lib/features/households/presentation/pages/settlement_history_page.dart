@@ -78,9 +78,7 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
 
     return AdaptiveScaffold(
       appBar: AdaptiveAppBar(
-        useNativeToolbar: false,
-        title:  context.l10n.settlement
-      ),
+          useNativeToolbar: false, title: context.l10n.settlement),
       body: RefreshIndicator(
         key: _refreshIndicatorKey,
         onRefresh: _refreshHistory,
@@ -355,17 +353,16 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
 
   Widget _buildStatBadge(BuildContext context, IconData icon, String label) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        color: colorScheme.cardSurface,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-
           Text(
             label,
             style: TextStyle(
@@ -440,8 +437,7 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color:
-                                colorScheme.primary.withValues(alpha: 0.2),
+                            color: colorScheme.primary.withValues(alpha: 0.2),
                             blurRadius: 4,
                             offset: const Offset(0, 2),
                           ),
@@ -452,7 +448,7 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
                       child: Container(
                         width: 2,
                         color: (isLastGroup && isLastItem)
-                            ? Colors.transparent
+                            ? colorScheme.surface.withValues(alpha: 0.0)
                             : colorScheme.border.withValues(alpha: 0.5),
                         margin: const EdgeInsets.symmetric(vertical: 4),
                       ),
@@ -482,7 +478,6 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
     final amount =
         formatCurrency(event.amountCents / 100.0, event.currency.toUpperCase());
     final time = DateFormat.jm().format(event.settledAt.toLocal());
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
     final actorId = event.settledByUserId;
@@ -494,8 +489,7 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
     }
     final isExpress = event.isExpressNetting == true;
 
-    int sumDirection(
-        List<SettlementLine> lines, String fromId, String toId) {
+    int sumDirection(List<SettlementLine> lines, String fromId, String toId) {
       return lines
           .where((l) =>
               (l.payerUserId ?? fromId) == fromId &&
@@ -517,7 +511,7 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+            color: colorScheme.cardSurface,
             borderRadius: BorderRadius.circular(16),
           ),
           child: Column(
@@ -625,7 +619,8 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
                             width: 4,
                             height: 4,
                             decoration: BoxDecoration(
-                              color: colorScheme.mutedForeground.withValues(alpha: 0.5),
+                              color: colorScheme.mutedForeground
+                                  .withValues(alpha: 0.5),
                               shape: BoxShape.circle,
                             ),
                           ),
@@ -649,17 +644,17 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
                           ),
                         ),
                       ],
-                      ],
+                    ],
+                  ),
+                  const Spacer(),
+                  Text(
+                    amount,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.primary,
+                      letterSpacing: -0.5,
                     ),
-                    const Spacer(),
-                    Text(
-                      amount,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.primary,
-                        letterSpacing: -0.5,
-                      ),
                   ),
                 ],
               ),
@@ -703,8 +698,7 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color:
-                            colorScheme.primary.withValues(alpha: 0.1),
+                        color: colorScheme.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
@@ -729,10 +723,11 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
   void _showSettlementDetails(BuildContext context, SettlementEvent event,
       String Function(String) nameFor) {
     HapticFeedback.lightImpact();
+    final colorScheme = Theme.of(context).colorScheme;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
       builder: (context) => SettlementDetailsSheet(
         event: event,
         nameFor: nameFor,
@@ -758,10 +753,8 @@ class SettlementDetailsSheet extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<SettlementDetailsSheet> createState() =>
-      _SettlementDetailsSheetState();
+  State<SettlementDetailsSheet> createState() => _SettlementDetailsSheetState();
 }
-
 
 class _SettlementDetailsSheetState extends State<SettlementDetailsSheet> {
   List<SettlementLine> _lines = const [];
@@ -791,9 +784,12 @@ class _SettlementDetailsSheetState extends State<SettlementDetailsSheet> {
     try {
       final supabase = Supabase.instance.client;
       // Use the same minute bucket used during aggregation.
-      final bucketStart = DateTime(widget.event.settledAt.year,
-          widget.event.settledAt.month, widget.event.settledAt.day,
-          widget.event.settledAt.hour, widget.event.settledAt.minute);
+      final bucketStart = DateTime(
+          widget.event.settledAt.year,
+          widget.event.settledAt.month,
+          widget.event.settledAt.day,
+          widget.event.settledAt.hour,
+          widget.event.settledAt.minute);
       final bucketEnd = bucketStart.add(const Duration(minutes: 1));
 
       final response = await supabase
@@ -816,10 +812,11 @@ class _SettlementDetailsSheetState extends State<SettlementDetailsSheet> {
             ? DateTime.parse(settledAtStr)
             : widget.event.settledAt;
         final amount = (row['amount_cents'] as int? ?? 0).abs();
-        final group = row['expense_split_groups'] as Map<String, dynamic>? ?? {};
+        final group =
+            row['expense_split_groups'] as Map<String, dynamic>? ?? {};
         final payerId = group['payer_user_id'] as String? ?? '';
-        final participantId = row['user_id'] as String? ??
-            widget.event.participantUserId;
+        final participantId =
+            row['user_id'] as String? ?? widget.event.participantUserId;
         return SettlementLine(
           splitGroupId: (row['split_group_id'] as String?) ?? '',
           amountCents: amount,
@@ -856,8 +853,7 @@ class _SettlementDetailsSheetState extends State<SettlementDetailsSheet> {
       widget.event.amountCents / 100.0,
       widget.event.currency.toUpperCase(),
     );
-    final lineItems = (_lines.isNotEmpty ? _lines : widget.event.lines)
-        .toList()
+    final lineItems = (_lines.isNotEmpty ? _lines : widget.event.lines).toList()
       ..sort((a, b) => b.settledAt.compareTo(a.settledAt));
     final forwardTotal = lineItems.isNotEmpty
         ? lineItems
@@ -889,8 +885,6 @@ class _SettlementDetailsSheetState extends State<SettlementDetailsSheet> {
         actorDisplay = widget.nameFor(actorId);
       }
     }
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-
 
     return DraggableScrollableSheet(
       expand: false,
@@ -900,7 +894,7 @@ class _SettlementDetailsSheetState extends State<SettlementDetailsSheet> {
       builder: (context, scrollController) {
         return Container(
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+            color: colorScheme.cardSurface,
             borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(28),
               topRight: Radius.circular(28),
@@ -925,25 +919,24 @@ class _SettlementDetailsSheetState extends State<SettlementDetailsSheet> {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.green.withValues(alpha: 0.1),
+                      color: colorScheme.success.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.check_rounded,
-                      color: Colors.green,
+                      color: colorScheme.success,
                       size: 32,
                     ),
                   ),
                   const SizedBox(height: 16),
                   if (isExpress) ...[
                     Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color:
-                          colorScheme.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: colorScheme.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       child: Text(
                         'Express netting',
                         style: TextStyle(
@@ -1013,13 +1006,13 @@ class _SettlementDetailsSheetState extends State<SettlementDetailsSheet> {
                             padding: EdgeInsets.symmetric(vertical: 12),
                             child: Divider(height: 1),
                           ),
-                        _buildDetailRow(
-                          context,
-                          'Offset totals',
-                          '${widget.nameFor(widget.event.participantUserId)} → ${widget.nameFor(widget.event.payerUserId)} ${formatCurrency(reverseTotal / 100.0, widget.event.currency.toUpperCase())} • ${widget.nameFor(widget.event.payerUserId)} → ${widget.nameFor(widget.event.participantUserId)} ${formatCurrency(forwardTotal / 100.0, widget.event.currency.toUpperCase())}',
-                          icon: Icons.compare_arrows_rounded,
-                        ),
-                      ],
+                          _buildDetailRow(
+                            context,
+                            'Offset totals',
+                            '${widget.nameFor(widget.event.participantUserId)} → ${widget.nameFor(widget.event.payerUserId)} ${formatCurrency(reverseTotal / 100.0, widget.event.currency.toUpperCase())} • ${widget.nameFor(widget.event.payerUserId)} → ${widget.nameFor(widget.event.participantUserId)} ${formatCurrency(forwardTotal / 100.0, widget.event.currency.toUpperCase())}',
+                            icon: Icons.compare_arrows_rounded,
+                          ),
+                        ],
                         if (actorDisplay != null) ...[
                           const Padding(
                             padding: EdgeInsets.symmetric(vertical: 12),
@@ -1086,12 +1079,11 @@ class _SettlementDetailsSheetState extends State<SettlementDetailsSheet> {
                               child: buildExpenseTransactionTile(
                                 context: context,
                                 category: line.expenseCategory,
-                                rawText:
-                                    line.expenseDescription ?? line.expenseRawText,
+                                rawText: line.expenseDescription ??
+                                    line.expenseRawText,
                                 date: line.settledAt.toLocal(),
                                 amount: line.amountCents / 100.0,
-                                currency:
-                                    widget.event.currency.toUpperCase(),
+                                currency: widget.event.currency.toUpperCase(),
                                 isIncome: false,
                               ),
                             ),

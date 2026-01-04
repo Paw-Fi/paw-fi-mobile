@@ -180,7 +180,9 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
 
     final categoryIcon = getIncomeCategoryIcon(income.category);
     final categoryColor = Color(
-      int.parse(getIncomeCategoryColor(income.category).replaceFirst('#', '0xFF')),
+      int.parse(
+        getIncomeCategoryColor(income.category).replaceFirst('#', '0xFF'),
+      ),
     );
     final amountDisplay =
         _formatLocalizedCurrency(context, income.amount, income.currency);
@@ -198,15 +200,16 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: colorScheme.card,
+        color: colorScheme.homeCardSurface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: needsAcknowledgement ? colorScheme.primary : colorScheme.border,
+          color:
+              needsAcknowledgement ? colorScheme.primary : colorScheme.border,
           width: needsAcknowledgement ? 2 : 1,
         ),
       ),
       child: Material(
-        color: Colors.transparent,
+        color: colorScheme.surface.withValues(alpha: 0.0),
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
           onTap: () {
@@ -325,7 +328,10 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: _getPrivacyScopeColor(income.privacyScope).withValues(alpha: 0.1),
+                          color: _getPrivacyScopeColor(
+                            income.privacyScope,
+                            colorScheme,
+                          ).withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
@@ -333,16 +339,19 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
-                            color: _getPrivacyScopeColor(income.privacyScope),
+                            color: _getPrivacyScopeColor(
+                              income.privacyScope,
+                              colorScheme,
+                            ),
                           ),
                         ),
                       ),
                       if (income.acknowledgedCount > 0) ...[
                         const SizedBox(width: 8),
-                        const Icon(
+                        Icon(
                           Icons.check_circle,
                           size: 16,
-                          color: Colors.green,
+                          color: AppTheme.success,
                         ),
                         const SizedBox(width: 4),
                         Text(
@@ -412,16 +421,16 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
     }
   }
 
-  Color _getPrivacyScopeColor(String scope) {
+  Color _getPrivacyScopeColor(String scope, ColorScheme colorScheme) {
     switch (scope) {
       case 'full':
-        return Colors.green;
+        return AppTheme.success;
       case 'balances_only':
-        return Colors.orange;
+        return AppTheme.warning;
       case 'private':
-        return Colors.red;
+        return AppTheme.danger;
       default:
-        return Colors.grey;
+        return colorScheme.mutedForeground;
     }
   }
 }

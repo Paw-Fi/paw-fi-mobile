@@ -130,7 +130,6 @@ class _SpendingCardState extends State<SpendingCard> {
     }).toList();
 
     final maxY = allCumulativeData.isEmpty ? 100.0 : allCumulativeData.last.y;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return GestureDetector(
       onHorizontalDragEnd: (details) {
@@ -148,15 +147,15 @@ class _SpendingCardState extends State<SpendingCard> {
       },
       child: Container(
         decoration: BoxDecoration(
-          color: widget.colorScheme.cardSurface,
+          color: widget.colorScheme.homeCardSurface,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: widget.colorScheme.outline.withValues(alpha: 0.05),
+            color: widget.colorScheme.homeCardBorder,
             width: 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
+              color: widget.colorScheme.homeCardShadow,
               blurRadius: 32,
               offset: const Offset(0, 8),
               spreadRadius: -4,

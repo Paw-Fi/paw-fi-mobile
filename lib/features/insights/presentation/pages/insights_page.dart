@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import '../widgets/tabs/tabs.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/shared/widgets/moneko_tab_bar_view.dart';
 
 // ============================================================================
 // ADVANCED ANALYTICS PAGE
@@ -36,7 +36,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
         },
         child: SizedBox(
           width: double.infinity,
-          child: AdaptiveTabBarView(
+          child: MonekoTabBarView(
             tabs: [
               // Scenario first, then Running
               context.l10n.scenarioTab,

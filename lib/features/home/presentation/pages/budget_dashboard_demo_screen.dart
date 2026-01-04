@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_controller.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_step.dart';
 
@@ -65,6 +66,7 @@ class _BudgetDashboardDemoScreenState extends State<BudgetDashboardDemoScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
     return Scaffold(
       appBar: AppBar(
@@ -90,8 +92,8 @@ class _BudgetDashboardDemoScreenState extends State<BudgetDashboardDemoScreen> {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    theme.primaryColor,
-                    theme.primaryColor.withOpacity(0.8)
+                    colorScheme.primary,
+                    colorScheme.primary.withValues(alpha: 0.85),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -99,7 +101,7 @@ class _BudgetDashboardDemoScreenState extends State<BudgetDashboardDemoScreen> {
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: theme.primaryColor.withOpacity(0.3),
+                    color: colorScheme.primary.withValues(alpha: 0.3),
                     blurRadius: 15,
                     offset: const Offset(0, 8),
                   ),
@@ -108,15 +110,18 @@ class _BudgetDashboardDemoScreenState extends State<BudgetDashboardDemoScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Total Balance',
-                    style: TextStyle(color: Colors.white70, fontSize: 16),
+                    style: TextStyle(
+                      color: colorScheme.primaryForeground.withValues(alpha: 0.8),
+                      fontSize: 16,
+                    ),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
+                  Text(
                     '\$12,450.00',
                     style: TextStyle(
-                        color: Colors.white,
+                        color: colorScheme.primaryForeground,
                         fontSize: 32,
                         fontWeight: FontWeight.bold),
                   ),
@@ -137,9 +142,9 @@ class _BudgetDashboardDemoScreenState extends State<BudgetDashboardDemoScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: theme.cardColor,
+                color: colorScheme.homeCardSurface,
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.grey.withOpacity(0.1)),
+                border: Border.all(color: colorScheme.homeCardBorder),
               ),
               // Mock chart UI
               child: Row(
@@ -153,14 +158,16 @@ class _BudgetDashboardDemoScreenState extends State<BudgetDashboardDemoScreen> {
                         height: 50.0 + (index * 20) % 100, // Randomish heights
                         decoration: BoxDecoration(
                           color: index == 6
-                              ? theme.primaryColor
-                              : Colors.grey[300],
+                              ? colorScheme.primary
+                              : colorScheme.muted,
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
                       const SizedBox(height: 8),
-                      Text(['M', 'T', 'W', 'T', 'F', 'S', 'S'][index],
-                          style: const TextStyle(color: Colors.grey)),
+                      Text(
+                        ['M', 'T', 'W', 'T', 'F', 'S', 'S'][index],
+                        style: TextStyle(color: colorScheme.mutedForeground),
+                      ),
                     ],
                   );
                 }),
@@ -183,20 +190,22 @@ class _BudgetDashboardDemoScreenState extends State<BudgetDashboardDemoScreen> {
                 return Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: theme.cardColor,
+                    color: colorScheme.homeCardSurface,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.grey.withOpacity(0.1)),
+                    border: Border.all(color: colorScheme.homeCardBorder),
                   ),
                   child: Row(
                     children: [
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: Colors.orange.withOpacity(0.1),
+                          color: colorScheme.warning.withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.shopping_bag,
-                            color: Colors.orange),
+                        child: Icon(
+                          Icons.shopping_bag,
+                          color: colorScheme.warning,
+                        ),
                       ),
                       const SizedBox(width: 16),
                       Column(
@@ -206,7 +215,8 @@ class _BudgetDashboardDemoScreenState extends State<BudgetDashboardDemoScreen> {
                               style: TextStyle(fontWeight: FontWeight.bold)),
                           Text('Today',
                               style: TextStyle(
-                                  color: Colors.grey[500], fontSize: 12)),
+                                  color: colorScheme.mutedForeground,
+                                  fontSize: 12)),
                         ],
                       ),
                       const Spacer(),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 /// Shared color utilities for pockets.
 /// Used by both PocketCard and PocketListTile to ensure consistent visuals.
@@ -12,53 +13,15 @@ Color getPocketColor(String? colorHex, Color fallback) {
 }
 
 List<Color> getProgressGradient(
+  ColorScheme scheme,
   Color baseColor,
   double progress,
   bool isOverBudget,
-  bool isDarkMode,
 ) {
-  final hsl = HSLColor.fromColor(baseColor);
-
-  if (isOverBudget) {
-    // Over budget: Use red tones
-    final errorColor = isDarkMode
-        ? const HSLColor.fromAHSL(1.0, 0, 0.7, 0.5) // Bright red for dark mode
-        : const HSLColor.fromAHSL(1.0, 0, 0.7, 0.45); // Deep red for light mode
-    return [
-      errorColor.toColor(),
-      errorColor
-          .withLightness((errorColor.lightness - 0.1).clamp(0.0, 1.0))
-          .toColor(),
-    ];
-  } else if (progress > 0.9) {
-    // Warning state (90-100%): Use orange/amber tones
-    final warningColor = isDarkMode
-        ? const HSLColor.fromAHSL(1.0, 30, 0.8, 0.55) // Bright orange for dark mode
-        : const HSLColor.fromAHSL(1.0, 30, 0.8, 0.5); // Deep orange for light mode
-    return [
-      warningColor.toColor(),
-      warningColor
-          .withLightness((warningColor.lightness - 0.1).clamp(0.0, 1.0))
-          .toColor(),
-    ];
-  } else {
-    // Normal state: Use pocket's custom color with appropriate shading
-    if (isDarkMode) {
-      // Dark mode: Brighten the base color for visibility
-      final brightened =
-          hsl.withLightness((hsl.lightness + 0.1).clamp(0.0, 1.0));
-      return [
-        brightened.toColor(),
-        brightened
-            .withLightness((brightened.lightness - 0.15).clamp(0.0, 1.0))
-            .toColor(),
-      ];
-    } else {
-      // Light mode: Use base color with slight darkening for gradient
-      return [
-        baseColor,
-        hsl.withLightness((hsl.lightness - 0.1).clamp(0.0, 1.0)).toColor(),
-      ];
-    }
-  }
+  return AppTheme.pocketProgressGradient(
+    scheme: scheme,
+    baseColor: baseColor,
+    progress: progress,
+    isOverBudget: isOverBudget,
+  );
 }

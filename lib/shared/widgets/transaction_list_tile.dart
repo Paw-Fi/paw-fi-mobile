@@ -64,8 +64,7 @@ class TransactionListTile extends StatelessWidget {
     final icon = getCategoryIcon(category);
     final sign = isIncome ? '+' : '-';
     final normalizedAmount = double.parse(formatAmount(amount.abs()));
-    final localizedNumber =
-        formatLocalizedNumber(context, normalizedAmount);
+    final localizedNumber = formatLocalizedNumber(context, normalizedAmount);
     final currencySymbol = resolveCurrencySymbol(currency);
     final formattedAmount = '$currencySymbol$localizedNumber';
     final trimmedDescription = description?.trim() ?? '';
@@ -97,8 +96,7 @@ class TransactionListTile extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: colorScheme.primary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(6),
@@ -173,8 +171,7 @@ class TransactionListTile extends StatelessWidget {
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.bold,
-              color:
-                  isIncome ? const Color(0xFF10B981) : colorScheme.foreground,
+              color: isIncome ? colorScheme.success : colorScheme.foreground,
             ),
           ),
           if (trailingWidget != null) ...[

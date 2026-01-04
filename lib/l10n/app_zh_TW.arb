@@ -1626,5 +1626,7 @@
   "change_currency_desc": "點擊此處切換到您偏好的貨幣。",
   "homeModeTourTitle": "切換個人與共享預算",
   "homeModeTourDescription": "點擊這裡，在你的個人預算與家庭共享預算之間切換。",
-  "topCategory": "主要類別"
+  "topCategory": "主要類別",
+  "selectAll": "全選",
+  "deselectAll": "取消全選"
 }

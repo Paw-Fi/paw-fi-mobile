@@ -13,6 +13,7 @@ import 'package:moneko/features/utils/sub_page_top_padding.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
 
 class DailyFinancialDetailsPage extends StatelessWidget {
   final DateTime date;
@@ -134,7 +135,10 @@ class DailyFinancialDetailsPage extends StatelessWidget {
                                 (t.type ?? 'expense').toLowerCase() == 'income',
                             date: t.date,
                             onTap: () {
-                              // Handle transaction tap if needed
+                              showUnifiedTransactionSheet(
+                                context,
+                                existingExpense: t,
+                              );
                             },
                           ),
                         )),
@@ -208,20 +212,19 @@ class _SummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: colorScheme.cardSurface,
+        color: colorScheme.homeCardSurface,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: colorScheme.outline.withValues(alpha: 0.05),
+          color: colorScheme.homeCardBorder,
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
+            color: colorScheme.homeCardShadow,
             blurRadius: 32,
             offset: const Offset(0, 8),
             spreadRadius: -4,
@@ -338,19 +341,18 @@ class _RecurringTransactionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final isIncome = transaction.type == 'income';
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        color: colorScheme.homeCardSurface,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: colorScheme.outline.withValues(alpha: 0.05),
+          color: colorScheme.homeCardBorder,
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
+            color: colorScheme.homeCardShadow,
             blurRadius: 32,
             offset: const Offset(0, 8),
             spreadRadius: -4,
@@ -358,7 +360,7 @@ class _RecurringTransactionTile extends StatelessWidget {
         ],
       ),
       child: Material(
-        color: Colors.transparent,
+        color: colorScheme.surface.withValues(alpha: 0.0),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
           child: TransactionListTile(
@@ -431,7 +433,6 @@ class _DailySpendingChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Filter for expenses only
     final expenses = transactions.where((t) {
@@ -447,15 +448,15 @@ class _DailySpendingChart extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: colorScheme.cardSurface,
+        color: colorScheme.homeCardSurface,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: colorScheme.outline.withValues(alpha: 0.05),
+          color: colorScheme.homeCardBorder,
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
+            color: colorScheme.homeCardShadow,
             blurRadius: 32,
             offset: const Offset(0, 8),
             spreadRadius: -4,

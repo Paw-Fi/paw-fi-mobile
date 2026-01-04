@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'package:moneko/core/theme/app_theme.dart';
 
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
@@ -112,12 +113,11 @@ class PocketsHeaderCard extends StatelessWidget {
         : '${formatLocalizedMonth(context, periodMonth, abbreviated: false)} ${periodMonth.year}';
 
     // Theme-aware colors
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final baseCardColor = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final baseCardColor = colorScheme.cardSurface;
     final cardColor =
         isSkeleton ? colorScheme.surfaceContainerHighest : baseCardColor;
-    final textColor = isDark ? Colors.white : Colors.black;
-    final subTextColor = isDark ? Colors.white54 : Colors.black54;
+    final textColor = colorScheme.foreground;
+    final subTextColor = colorScheme.mutedForeground;
 
     String _formatLocalizedCurrency(double amount) {
       final normalized = double.parse(formatAmount(amount));
@@ -135,12 +135,12 @@ class PocketsHeaderCard extends StatelessWidget {
           color: cardColor,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: colorScheme.outline.withValues(alpha: 0.05),
+            color: colorScheme.pocketHeaderBorder,
             width: 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
+              color: colorScheme.pocketHeaderShadow,
               blurRadius: 32,
               offset: const Offset(0, 8),
               spreadRadius: -4,
@@ -149,116 +149,117 @@ class PocketsHeaderCard extends StatelessWidget {
         ),
         padding: const EdgeInsets.all(24),
         child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // Month Label
-          GestureDetector(
-            onTap: () => _pickMonth(context),
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 6,
-              ),
-              decoration: BoxDecoration(
-                color:
-                    colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(100),
-              ),
-              child: Text(
-                monthLabel,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.onSurfaceVariant,
-                  letterSpacing: 0.3,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Month Label
+            GestureDetector(
+              onTap: () => _pickMonth(context),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
                 ),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // Budget Amount (spotlight target)
-          KeyedSubtree(
-            key: amountSpotlightKey,
-            child: Column(
-              children: [
-                Text(
-                  context.l10n.monthlyBudget,
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHighest
+                      .withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(100),
+                ),
+                child: Text(
+                  monthLabel,
                   style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: subTextColor,
-                    letterSpacing: 0.5,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurfaceVariant,
+                    letterSpacing: 0.3,
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  _formatLocalizedCurrency(effectiveBudget),
-                  style: TextStyle(
-                    fontSize: 42,
-                    fontWeight: FontWeight.w700,
-                    color: textColor,
-                    letterSpacing: -1.5,
-                    height: 1.1,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 32),
-          if (!isSkeleton) ...[
-            // Slider Section
-            SizedBox(
-              width: double.infinity,
-              child: AdaptiveSlider(
-                activeColor: colorScheme.primary,
-                value: sliderValue,
-                min: sliderMin,
-                max: sliderMax,
-                onChanged: (value) {
-                  final roundedValue =
-                      ((value - sliderMin) / sliderStep).round() * sliderStep +
-                          sliderMin;
-                  onTotalChanged(
-                    roundedValue.clamp(sliderMin, sliderMax).toDouble(),
-                  );
-                },
-                divisions: sliderDivisions,
               ),
             ),
 
-            const SizedBox(height: 8),
+            const SizedBox(height: 24),
 
-            // Min/Max Labels
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            // Budget Amount (spotlight target)
+            KeyedSubtree(
+              key: amountSpotlightKey,
+              child: Column(
                 children: [
                   Text(
-                    '${resolveCurrencySymbol(currency)}${formatLocalizedNumber(context, sliderMin)}',
+                    context.l10n.monthlyBudget,
                     style: TextStyle(
-                      fontSize: 12,
-                      color: subTextColor,
+                      fontSize: 13,
                       fontWeight: FontWeight.w500,
+                      color: subTextColor,
+                      letterSpacing: 0.5,
                     ),
                   ),
+                  const SizedBox(height: 8),
                   Text(
-                    _formatLocalizedCurrency(sliderMax),
+                    _formatLocalizedCurrency(effectiveBudget),
                     style: TextStyle(
-                      fontSize: 12,
-                      color: subTextColor,
-                      fontWeight: FontWeight.w500,
+                      fontSize: 42,
+                      fontWeight: FontWeight.w700,
+                      color: textColor,
+                      letterSpacing: -1.5,
+                      height: 1.1,
                     ),
                   ),
                 ],
               ),
             ),
+
+            const SizedBox(height: 32),
+            if (!isSkeleton) ...[
+              // Slider Section
+              SizedBox(
+                width: double.infinity,
+                child: AdaptiveSlider(
+                  activeColor: colorScheme.primary,
+                  value: sliderValue,
+                  min: sliderMin,
+                  max: sliderMax,
+                  onChanged: (value) {
+                    final roundedValue =
+                        ((value - sliderMin) / sliderStep).round() *
+                                sliderStep +
+                            sliderMin;
+                    onTotalChanged(
+                      roundedValue.clamp(sliderMin, sliderMax).toDouble(),
+                    );
+                  },
+                  divisions: sliderDivisions,
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              // Min/Max Labels
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '${resolveCurrencySymbol(currency)}${formatLocalizedNumber(context, sliderMin)}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: subTextColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      _formatLocalizedCurrency(sliderMax),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: subTextColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
-        ],
-      ),
+        ),
       ),
     );
   }

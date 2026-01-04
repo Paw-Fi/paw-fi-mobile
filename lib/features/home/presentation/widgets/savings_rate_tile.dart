@@ -31,8 +31,14 @@ class SavingsRateTile extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(context.l10n.savingsRate, style: TextStyle(fontSize: 13, color: colorScheme.mutedForeground)),
-              Text('$pct%', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: colorScheme.foreground)),
+              Text(context.l10n.savingsRate,
+                  style: TextStyle(
+                      fontSize: 13, color: colorScheme.mutedForeground)),
+              Text('$pct%',
+                  style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: colorScheme.foreground)),
             ],
           ),
           const SizedBox(height: 8),
@@ -40,7 +46,8 @@ class SavingsRateTile extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: (positive ? const Color(0xFF10B981) : const Color(0xFFEF4444)).withValues(alpha: 0.12),
+              color: (positive ? colorScheme.success : colorScheme.destructive)
+                  .withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(6),
             ),
             child: Row(
@@ -48,14 +55,18 @@ class SavingsRateTile extends ConsumerWidget {
               children: [
                 Icon(positive ? Icons.trending_up : Icons.trending_down,
                     size: 14,
-                    color: positive ? const Color(0xFF10B981) : const Color(0xFFEF4444)),
+                    color: positive
+                        ? colorScheme.success
+                        : colorScheme.destructive),
                 const SizedBox(width: 6),
                 Text(
                   positive ? context.l10n.positive : context.l10n.negative,
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: positive ? const Color(0xFF065F46) : const Color(0xFF7F1D1D),
+                    color: positive
+                        ? colorScheme.success
+                        : colorScheme.destructive,
                   ),
                 ),
               ],

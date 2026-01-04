@@ -474,7 +474,8 @@ class _PlaidSyncWalkthroughPageState
                                 backgroundColor: colorScheme.primary,
                                 foregroundColor: colorScheme.onPrimary,
                                 elevation: 0,
-                                shadowColor: Colors.transparent,
+                                shadowColor:
+                                    colorScheme.shadow.withValues(alpha: 0.0),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(20),
                                 ),
@@ -503,7 +504,8 @@ class _PlaidSyncWalkthroughPageState
                                 backgroundColor: colorScheme.primary,
                                 foregroundColor: colorScheme.onPrimary,
                                 elevation: 0,
-                                shadowColor: Colors.transparent,
+                                shadowColor:
+                                    colorScheme.shadow.withValues(alpha: 0.0),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(20),
                                 ),
@@ -721,7 +723,7 @@ class _CountrySelectionStep extends ConsumerWidget {
                       color: colorScheme.surface,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
+                          color: colorScheme.shadow.withValues(alpha: 0.06),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),

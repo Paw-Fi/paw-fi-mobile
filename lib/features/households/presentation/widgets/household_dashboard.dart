@@ -15,6 +15,7 @@ import '../../../home/presentation/widgets/unified_transaction_sheet.dart';
 import '../../../../shared/widgets/user_avatar.dart';
 import '../../../../../core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+
 /// Main household dashboard showing budgets, expenses, and splits
 class HouseholdDashboard extends ConsumerWidget {
   final Household household;
@@ -43,7 +44,7 @@ class HouseholdDashboard extends ConsumerWidget {
               Row(
                 children: [
                   // Household cover image and name
-                 
+
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -164,12 +165,12 @@ class HouseholdDashboard extends ConsumerWidget {
         const SizedBox(height: 12),
 
         _buildRecentActivity(context, ref, colorScheme),
-
       ],
     );
   }
 
-  Widget _buildBudgetsSection(BuildContext context, WidgetRef ref, ColorScheme colorScheme) {
+  Widget _buildBudgetsSection(
+      BuildContext context, WidgetRef ref, ColorScheme colorScheme) {
     final budgetsAsync = ref.watch(householdBudgetsProvider(household.id));
 
     return budgetsAsync.when(
@@ -236,7 +237,8 @@ class HouseholdDashboard extends ConsumerWidget {
     );
   }
 
-  Widget _buildRecentActivity(BuildContext context, WidgetRef ref, ColorScheme colorScheme) {
+  Widget _buildRecentActivity(
+      BuildContext context, WidgetRef ref, ColorScheme colorScheme) {
     final expensesParams = HouseholdExpensesParams(householdId: household.id);
     final expensesAsync = ref.watch(householdExpensesProvider(expensesParams));
 
@@ -284,19 +286,23 @@ class HouseholdDashboard extends ConsumerWidget {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: expenses.length > 5 ? 5 : expenses.length, // Show max 5 recent
+              itemCount: expenses.length > 5
+                  ? 5
+                  : expenses.length, // Show max 5 recent
               itemBuilder: (context, index) {
                 final expense = expenses[index];
-                debugPrint('🔍 Expense ${expense.id}: userName=${expense.userName}, userId=${expense.userId}');
+                debugPrint(
+                    '🔍 Expense ${expense.id}: userName=${expense.userName}, userId=${expense.userId}');
                 return _ExpenseActivityCard(expense: expense);
               },
             ),
-            
+
             // View All Expenses link
             if (expenses.length > 5)
               Builder(
                 builder: (context) => Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   child: GestureDetector(
                     onTap: () {
                       Navigator.of(context).push(
@@ -329,7 +335,8 @@ class HouseholdDashboard extends ConsumerWidget {
   }
 
   // ignore: unused_element
-  Widget _buildSplitsSection(BuildContext context, WidgetRef ref, ColorScheme colorScheme) {
+  Widget _buildSplitsSection(
+      BuildContext context, WidgetRef ref, ColorScheme colorScheme) {
     final splitsParams = HouseholdSplitsParams(householdId: household.id);
     final splitsAsync = ref.watch(householdSplitsProvider(splitsParams));
 
@@ -443,7 +450,7 @@ class _BudgetCard extends ConsumerWidget {
             ),
           ),
         );
-        
+
         // If budget was modified, refresh the budgets list
         if (result == true) {
           ref.invalidate(householdBudgetsProvider);
@@ -547,7 +554,7 @@ class _ExpenseActivityCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    
+
     return GestureDetector(
       onTap: () {
         // Open unified transaction sheet for viewing/editing expense
@@ -561,12 +568,12 @@ class _ExpenseActivityCard extends StatelessWidget {
   }
 
   Widget _buildCard(BuildContext context, ColorScheme colorScheme) {
-
     // Format date
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
-    final expenseDate = DateTime(expense.date.year, expense.date.month, expense.date.day);
+    final expenseDate =
+        DateTime(expense.date.year, expense.date.month, expense.date.day);
 
     String dateText;
     if (expenseDate == today) {
@@ -574,7 +581,8 @@ class _ExpenseActivityCard extends StatelessWidget {
     } else if (expenseDate == yesterday) {
       dateText = context.l10n.yesterday;
     } else {
-      dateText = '${expense.date.month}/${expense.date.day}/${expense.date.year}';
+      dateText =
+          '${expense.date.month}/${expense.date.day}/${expense.date.year}';
     }
 
     return Container(
@@ -634,7 +642,8 @@ class _ExpenseActivityCard extends StatelessWidget {
                     if (expense.splitGroupId != null) ...[
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: colorScheme.secondary.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(4),
@@ -657,15 +666,17 @@ class _ExpenseActivityCard extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Builder(builder: (_) {
-            final isIncome = (expense.type ?? 'expense').toLowerCase() == 'income';
+            final isIncome =
+                (expense.type ?? 'expense').toLowerCase() == 'income';
             final sign = isIncome ? '+' : '-';
-            final txt = '$sign\${(expense.amountCents / 100).toStringAsFixed(2)}';
+            final txt =
+                '$sign\${(expense.amountCents / 100).toStringAsFixed(2)}';
             return Text(
               txt,
               style: TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
-                color: isIncome ? const Color(0xFF10B981) : colorScheme.foreground,
+                color: isIncome ? colorScheme.success : colorScheme.foreground,
               ),
             );
           }),

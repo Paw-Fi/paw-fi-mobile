@@ -104,14 +104,17 @@ class PocketDetailsPage extends HookConsumerWidget {
         ? Color(int.parse(pocket.color!.replaceAll('#', '0xff')))
         : colorScheme.primary;
 
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final gradientColors = _generateGradientColors(pocketColor, isDarkMode);
+    final gradientColors =
+        _generateGradientColors(pocketColor, colorScheme);
 
     // Determine text color based on background luminance
     final isBackgroundLight = gradientColors.first.computeLuminance() > 0.5;
-    final textColor = isBackgroundLight ? Colors.black87 : Colors.white;
-    final secondaryTextColor =
-        isBackgroundLight ? Colors.black54 : Colors.white70;
+    final textColor = isBackgroundLight
+        ? AppTheme.lightForeground
+        : AppTheme.darkForeground;
+    final secondaryTextColor = isBackgroundLight
+        ? AppTheme.lightMuted
+        : AppTheme.darkMutedForeground;
 
     return Scaffold(
       backgroundColor: gradientColors.first,
@@ -138,7 +141,7 @@ class PocketDetailsPage extends HookConsumerWidget {
                 expandedHeight: 320,
                 pinned: true,
                 stretch: true,
-                backgroundColor: Colors.transparent,
+                backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
                 elevation: 0,
                 leading: IconButton(
                   icon: Icon(Icons.arrow_back_ios_new, color: textColor),
@@ -167,7 +170,8 @@ class PocketDetailsPage extends HookConsumerWidget {
                       showModalBottomSheet(
                         context: context,
                         isScrollControlled: true,
-                        backgroundColor: Colors.transparent,
+                        backgroundColor:
+                            colorScheme.surface.withValues(alpha: 0.0),
                         builder: (sheetContext) => EditPocketEnvelopeSheet(
                           scopeParams: scopeParams,
                           existingEnvelope: pocket,
@@ -278,7 +282,7 @@ class PocketDetailsPage extends HookConsumerWidget {
                 hasScrollBody: false,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: colorScheme.surface,
+                    color: colorScheme.sheetBackground,
                     borderRadius: const BorderRadius.only(
                       topLeft: Radius.circular(32),
                       topRight: Radius.circular(32),
@@ -442,7 +446,7 @@ class _StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
       decoration: BoxDecoration(
-        color: colorScheme.surface,
+        color: colorScheme.pocketCardSurface,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
@@ -495,19 +499,12 @@ class _SpendingBreakdownCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     // Use a set of nice colors for the chart
-    final colors = [
-      const Color(0xFF4ADE80), // Green
-      const Color(0xFFF87171), // Red
-      const Color(0xFF60A5FA), // Blue
-      const Color(0xFFFBBF24), // Yellow
-      const Color(0xFFA78BFA), // Purple
-      const Color(0xFFFB923C), // Orange
-    ];
+    final colors = AppTheme.pocketChartPalette;
 
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: colorScheme.surface,
+        color: colorScheme.pocketCardSurface,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
@@ -625,7 +622,7 @@ class _TransactionsListCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: colorScheme.surface,
+        color: colorScheme.pocketCardSurface,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
@@ -734,33 +731,6 @@ class _TransactionsListCard extends StatelessWidget {
   }
 }
 
-List<Color> _generateGradientColors(Color baseColor, bool isDarkMode) {
-  final hsl = HSLColor.fromColor(baseColor);
-
-  if (isDarkMode) {
-    // Dark Mode: Rich, deep gradient with high contrast
-    // Top: Vibrant base color
-    final top = hsl
-        .withLightness((hsl.lightness * 1.0).clamp(0.3, 0.6))
-        .withSaturation((hsl.saturation * 0.9).clamp(0.5, 1.0));
-    // Bottom: Much darker and hue-shifted for dramatic depth
-    final bottom = hsl
-        .withLightness(0.12)
-        .withSaturation((hsl.saturation * 0.7).clamp(0.4, 1.0))
-        .withHue((hsl.hue + 20) % 360);
-    return [top.toColor(), bottom.toColor()];
-  } else {
-    // Light Mode: Vibrant gradient with strong contrast
-    // Top: Bright, saturated version
-    final top = hsl
-        .withLightness(0.75)
-        .withSaturation((hsl.saturation * 1.0).clamp(0.6, 1.0))
-        .withHue((hsl.hue - 15) % 360);
-    // Bottom: Much richer and more saturated
-    final bottom = hsl
-        .withLightness(0.45)
-        .withSaturation((hsl.saturation * 1.1).clamp(0.7, 1.0))
-        .withHue((hsl.hue + 10) % 360);
-    return [top.toColor(), bottom.toColor()];
-  }
+List<Color> _generateGradientColors(Color baseColor, ColorScheme scheme) {
+  return AppTheme.pocketDetailsGradient(baseColor, scheme);
 }

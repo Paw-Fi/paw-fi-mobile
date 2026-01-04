@@ -16,7 +16,6 @@ class ReminderPage extends HookConsumerWidget {
 
     return Scaffold(
       backgroundColor: colorScheme.appBackground,
-      
       body: Stack(
         children: [
           SafeArea(
@@ -31,117 +30,117 @@ class ReminderPage extends HookConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                // Main Title
-                Text(
-                  context.l10n.youveGotPaychecksIncomingAndBillsToPay,
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
-                    color: colorScheme.foreground,
-                    height: 1.3,
-                    letterSpacing: -0.5,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-
-
-                // Notification Setting
-                Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: colorScheme.muted,
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.notifications_outlined,
-                          size: 18,
-                          color: colorScheme.mutedForeground,
+                      // Main Title
+                      Text(
+                        context.l10n.youveGotPaychecksIncomingAndBillsToPay,
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.foreground,
+                          height: 1.3,
+                          letterSpacing: -0.5,
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          context.l10n.notifyMeDaysBefore,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: colorScheme.mutedForeground,
-                            fontWeight: FontWeight.w500,
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Notification Setting
+                      Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: colorScheme.muted,
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.notifications_outlined,
+                                size: 18,
+                                color: colorScheme.mutedForeground,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                context.l10n.notifyMeDaysBefore,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: colorScheme.mutedForeground,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 32),
-
-                // Upcoming Paychecks Section
-                _buildExpandableSection(
-                  colorScheme: colorScheme,
-                  title: context.l10n.upcomingPaychecks,
-                  isExpanded: showUpcomingPaychecks,
-                  color: const Color(0xFF10B981),
-                  child: Column(
-                    children: [
-                      _buildPaycheckCard(
-                        colorScheme: colorScheme,
-                        date: 'Sep 30',
-                        title: context.l10n.paycheckFromWork,
-                        amount: '\$2200.00',
-                        isPositive: true,
                       ),
-                      const SizedBox(height: 12),
-                      _buildPaycheckCard(
-                        colorScheme: colorScheme,
-                        date: 'Oct 2',
-                        title: context.l10n.freelanceProject,
-                        amount: '\$800.00',
-                        isPositive: true,
-                      ),
-                    ],
-                  ),
-                ),
 
-                const SizedBox(height: 24),
+                      const SizedBox(height: 32),
 
-                // Upcoming Bills Section
-                _buildExpandableSection(
-                  colorScheme: colorScheme,
-                  title: context.l10n.upcomingBills,
-                  isExpanded: showUpcomingBills,
-                  color: const Color(0xFFEF4444),
-                  child: Column(
-                    children: [
-                      _buildPaycheckCard(
+                      // Upcoming Paychecks Section
+                      _buildExpandableSection(
                         colorScheme: colorScheme,
-                        date: 'Sep 28',
-                        title: context.l10n.rentPayment,
-                        amount: '\$1500.00',
-                        isPositive: false,
+                        title: context.l10n.upcomingPaychecks,
+                        isExpanded: showUpcomingPaychecks,
+                        color: colorScheme.success,
+                        child: Column(
+                          children: [
+                            _buildPaycheckCard(
+                              colorScheme: colorScheme,
+                              date: 'Sep 30',
+                              title: context.l10n.paycheckFromWork,
+                              amount: '\$2200.00',
+                              isPositive: true,
+                            ),
+                            const SizedBox(height: 12),
+                            _buildPaycheckCard(
+                              colorScheme: colorScheme,
+                              date: 'Oct 2',
+                              title: context.l10n.freelanceProject,
+                              amount: '\$800.00',
+                              isPositive: true,
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 12),
-                      _buildPaycheckCard(
-                        colorScheme: colorScheme,
-                        date: 'Oct 1',
-                        title: context.l10n.electricityBill,
-                        amount: '\$120.00',
-                        isPositive: false,
-                      ),
-                    ],
-                  ),
-                ),
 
-                  const SizedBox(height: 32),
+                      const SizedBox(height: 24),
+
+                      // Upcoming Bills Section
+                      _buildExpandableSection(
+                        colorScheme: colorScheme,
+                        title: context.l10n.upcomingBills,
+                        isExpanded: showUpcomingBills,
+                        color: colorScheme.destructive,
+                        child: Column(
+                          children: [
+                            _buildPaycheckCard(
+                              colorScheme: colorScheme,
+                              date: 'Sep 28',
+                              title: context.l10n.rentPayment,
+                              amount: '\$1500.00',
+                              isPositive: false,
+                            ),
+                            const SizedBox(height: 12),
+                            _buildPaycheckCard(
+                              colorScheme: colorScheme,
+                              date: 'Oct 1',
+                              title: context.l10n.electricityBill,
+                              amount: '\$120.00',
+                              isPositive: false,
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 32),
                     ],
                   ),
                 ),
               ),
             ),
           ),
-          
+
           // Blur overlay with "Coming in next phase" message
           Positioned.fill(
             child: ClipRect(
@@ -151,7 +150,8 @@ class ReminderPage extends HookConsumerWidget {
                   color: colorScheme.appBackground.withValues(alpha: 0.3),
                   child: Center(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 32, vertical: 24),
                       decoration: BoxDecoration(
                         color: colorScheme.card,
                         borderRadius: BorderRadius.circular(16),
@@ -161,7 +161,7 @@ class ReminderPage extends HookConsumerWidget {
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.1),
+                            color: colorScheme.shadow.withValues(alpha: 0.12),
                             blurRadius: 20,
                             offset: const Offset(0, 4),
                           ),
@@ -240,7 +240,9 @@ class ReminderPage extends HookConsumerWidget {
                 ),
               ),
               Icon(
-                isExpanded.value ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                isExpanded.value
+                    ? Icons.keyboard_arrow_up
+                    : Icons.keyboard_arrow_down,
                 color: colorScheme.foreground,
                 size: 24,
               ),
@@ -264,8 +266,8 @@ class ReminderPage extends HookConsumerWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: isPositive
-            ? const Color(0xFF10B981).withValues(alpha: 0.1)
-            : const Color(0xFFEF4444).withValues(alpha: 0.1),
+            ? colorScheme.success.withValues(alpha: 0.1)
+            : colorScheme.destructive.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: colorScheme.border.withValues(alpha: 0.5),
@@ -305,8 +307,8 @@ class ReminderPage extends HookConsumerWidget {
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
                   color: isPositive
-                      ? const Color(0xFF10B981)
-                      : const Color(0xFFEF4444),
+                      ? colorScheme.success
+                      : colorScheme.destructive,
                 ),
               ),
             ],

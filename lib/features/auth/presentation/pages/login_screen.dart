@@ -224,7 +224,7 @@ class LoginScreen extends HookConsumerWidget {
                                   decoration: BoxDecoration(
                                     gradient: LinearGradient(
                                       colors: [
-                                        Colors.transparent,
+                                        theme.colorScheme.border.withValues(alpha: 0.0),
                                         theme.colorScheme.border.withValues(alpha: 0.5),
                                       ],
                                     ),
@@ -248,7 +248,7 @@ class LoginScreen extends HookConsumerWidget {
                                     gradient: LinearGradient(
                                       colors: [
                                         theme.colorScheme.border.withValues(alpha: 0.5),
-                                        Colors.transparent,
+                                        theme.colorScheme.border.withValues(alpha: 0.0),
                                       ],
                                     ),
                                   ),
@@ -437,7 +437,7 @@ class LoginScreen extends HookConsumerWidget {
                                 ],
                               ),
                               child: Material(
-                                color: Colors.transparent,
+                                color: theme.colorScheme.surface.withValues(alpha: 0.0),
                                 child: InkWell(
                                   onTap: isLoading.value ? null : handleSignIn,
                                   borderRadius: BorderRadius.circular(12),
@@ -505,4 +505,3 @@ class LoginScreen extends HookConsumerWidget {
     );
   }
 }
-

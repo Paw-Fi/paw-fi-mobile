@@ -288,11 +288,10 @@ class PocketsPage extends HookConsumerWidget {
                       padding: const EdgeInsets.only(
                           top: 8, left: 16, right: 16, bottom: 8),
                       decoration: BoxDecoration(
-                        color: colorScheme.surface.withValues(alpha: 0.9),
+                        color: colorScheme.sheetBackground.withValues(alpha: 0.92),
                         borderRadius: BorderRadius.circular(32),
                         border: Border.all(
-                          color:
-                              colorScheme.outlineVariant.withValues(alpha: 0.5),
+                          color: colorScheme.sheetBorder.withValues(alpha: 0.6),
                           width: 1,
                         ),
                         boxShadow: [

@@ -301,8 +301,6 @@ class _ScenarioPlanningTabContentState
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark =
-        widget.colorScheme.appBackground == AppTheme.darkBackground;
     final user = ref.watch(authProvider);
     final colorScheme = Theme.of(context).colorScheme;
     final viewMode = ref.watch(viewModeProvider);
@@ -364,9 +362,7 @@ class _ScenarioPlanningTabContentState
                             hintStyle: TextStyle(
                                 color: widget.colorScheme.mutedForeground),
                             filled: true,
-                            fillColor: isDark
-                                ? AppTheme.darkInputBg
-                                : AppTheme.lightInputBg,
+                            fillColor: widget.colorScheme.inputBackground,
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                               borderSide:

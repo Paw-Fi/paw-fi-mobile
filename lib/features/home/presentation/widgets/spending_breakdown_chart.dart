@@ -70,8 +70,6 @@ class _SpendingBreakdownChartState extends State<SpendingBreakdownChart> {
     final currencyCode = widget.selectedCurrency ?? 'USD';
     final symbol = resolveCurrencySymbol(currencyCode);
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     final hasData = totalSpent > 0 && categorySummaries.isNotEmpty;
     final selected = (_touchedIndex != null &&
             _touchedIndex! >= 0 &&
@@ -89,15 +87,15 @@ class _SpendingBreakdownChartState extends State<SpendingBreakdownChart> {
 
     return Container(
       decoration: BoxDecoration(
-        color: widget.colorScheme.cardSurface,
+        color: widget.colorScheme.homeCardSurface,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: widget.colorScheme.outline.withValues(alpha: 0.05),
+          color: widget.colorScheme.homeCardBorder,
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
+            color: widget.colorScheme.homeCardShadow,
             blurRadius: 32,
             offset: const Offset(0, 8),
             spreadRadius: -4,

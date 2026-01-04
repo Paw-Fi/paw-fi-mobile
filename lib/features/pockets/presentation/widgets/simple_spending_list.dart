@@ -52,10 +52,10 @@ class SimpleSpendingList extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: colorScheme.surface,
+            color: colorScheme.pocketCardSurface,
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: colorScheme.outlineVariant.withValues(alpha: 0.4),
+              color: colorScheme.pocketCardBorder,
               width: 1,
             ),
             boxShadow: [
@@ -126,7 +126,7 @@ class SimpleSpendingList extends StatelessWidget {
                 child: Container(
                   height: 6,
                   width: double.infinity,
-                  color: colorScheme.onSurface.withValues(alpha: 0.05),
+                  color: colorScheme.pocketProgressTrack,
                   child: FractionallySizedBox(
                     alignment: Alignment.centerLeft,
                     widthFactor: percentageOfTotal.clamp(0.0, 1.0),

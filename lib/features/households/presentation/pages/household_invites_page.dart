@@ -268,6 +268,7 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
   }
 
   Future<void> _revokeInvite(HouseholdInvite invite) async {
+    final colorScheme = Theme.of(context).colorScheme;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -280,7 +281,9 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(
+              foregroundColor: colorScheme.destructive,
+            ),
             child: Text(context.l10n.revoke),
           ),
         ],
@@ -369,7 +372,9 @@ class _InviteCard extends StatelessWidget {
                           : '${context.l10n.expires} ${_formatDate(invite.expiresAt!)}'),
                   style: TextStyle(
                     fontSize: 12,
-                    color: isExpired ? Colors.red : colorScheme.mutedForeground,
+                    color: isExpired
+                        ? colorScheme.destructive
+                        : colorScheme.mutedForeground,
                   ),
                 ),
               ],
@@ -443,7 +448,7 @@ class _StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _getStatusColor();
+    final color = _getStatusColor(Theme.of(context).colorScheme);
     final text = _getLocalizedStatus(context, isExpired, status);
 
     return Container(
@@ -464,14 +469,14 @@ class _StatusBadge extends StatelessWidget {
     );
   }
 
-  Color _getStatusColor() {
-    if (isExpired) return Colors.red;
+  Color _getStatusColor(ColorScheme colorScheme) {
+    if (isExpired) return colorScheme.destructive;
 
     return switch (status) {
-      InviteStatus.pending => Colors.orange,
-      InviteStatus.accepted => Colors.green,
-      InviteStatus.revoked => Colors.red,
-      InviteStatus.expired => Colors.grey,
+      InviteStatus.pending => colorScheme.warning,
+      InviteStatus.accepted => colorScheme.success,
+      InviteStatus.revoked => colorScheme.destructive,
+      InviteStatus.expired => colorScheme.mutedForeground,
     };
   }
 

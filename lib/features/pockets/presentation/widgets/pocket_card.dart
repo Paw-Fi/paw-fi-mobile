@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/constants/pocket_icon_constants.dart';
 import 'package:moneko/features/pockets/presentation/constants/pocket_style_constants.dart';
@@ -32,7 +33,6 @@ class PocketCard extends StatelessWidget {
     final limit = pocket.getLimit(totalBudget);
     final progress = limit > 0 ? (pocket.spent / limit) : 0.0;
     final isOverBudget = !isSkeleton && pocket.isOverBudget(totalBudget);
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     // Determine base color
     Color baseColor;
@@ -41,12 +41,11 @@ class PocketCard extends StatelessWidget {
       baseColor = colorScheme.surfaceContainerHighest;
     } else {
       baseColor = getPocketColor(pocket.color, colorScheme.primary);
-      if (isDarkMode && pocket.color != null) {
-        final hsl = HSLColor.fromColor(baseColor);
-        baseColor = hsl
-            .withLightness((hsl.lightness - 0.15).clamp(0.0, 1.0))
-            .toColor();
-      }
+      baseColor = AppTheme.tunedPocketBaseColor(
+        baseColor,
+        colorScheme,
+        hasCustomColor: pocket.color != null,
+      );
     }
 
     final Color fillColor;
@@ -55,7 +54,7 @@ class PocketCard extends StatelessWidget {
     } else if (isOverBudget) {
       fillColor = colorScheme.error;
     } else if (progress > 0.9) {
-      fillColor = Colors.orange;
+      fillColor = colorScheme.warning;
     } else {
       fillColor = baseColor;
     }
@@ -78,7 +77,7 @@ class PocketCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: colorScheme.surface,
+        color: colorScheme.pocketCardSurface,
         borderRadius: BorderRadius.circular(32),
         boxShadow: [
           BoxShadow(
@@ -88,7 +87,7 @@ class PocketCard extends StatelessWidget {
           ),
         ],
         border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.4),
+          color: colorScheme.pocketCardBorder,
           width: 1,
         ),
       ),
@@ -127,13 +126,11 @@ class PocketCard extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color:
-                                  Colors.white.withValues(alpha: 0.9),
+                              color: colorScheme.pocketGlassSurface,
                               shape: BoxShape.circle,
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black
-                                      .withValues(alpha: 0.05),
+                                  color: colorScheme.pocketIconShadow,
                                   blurRadius: 8,
                                   offset: const Offset(0, 2),
                                 ),
@@ -167,13 +164,11 @@ class PocketCard extends StatelessWidget {
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color:
-                              Colors.white.withValues(alpha: 0.85),
+                          color: colorScheme.pocketGlassSurfaceSoft,
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black
-                                  .withValues(alpha: 0.05),
+                              color: colorScheme.pocketGlassShadow,
                               blurRadius: 4,
                             ),
                           ],
@@ -185,10 +180,10 @@ class PocketCard extends StatelessWidget {
                               pocket.name,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,
-                                color: Colors.black87,
+                                color: colorScheme.pocketTitle,
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -200,16 +195,16 @@ class PocketCard extends StatelessWidget {
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
                                     color: isOverBudget
-                                        ? Colors.red.shade700
-                                        : Colors.black87,
+                                        ? colorScheme.error
+                                        : colorScheme.pocketTitle,
                                   ),
                                 ),
                                 Text(
                                   ' / $limitDisplay',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w500,
-                                    color: Colors.black54,
+                                    color: colorScheme.pocketSubtitle,
                                   ),
                                 ),
                               ],
@@ -220,8 +215,7 @@ class PocketCard extends StatelessWidget {
                               child: Container(
                                 height: 4,
                                 width: double.infinity,
-                                color:
-                                    Colors.black.withValues(alpha: 0.1),
+                                color: colorScheme.pocketProgressTrack,
                                 child: FractionallySizedBox(
                                   alignment: Alignment.centerLeft,
                                   widthFactor: progress.clamp(0.0, 1.0),
@@ -229,10 +223,10 @@ class PocketCard extends StatelessWidget {
                                     decoration: BoxDecoration(
                                       gradient: LinearGradient(
                                         colors: getProgressGradient(
+                                          colorScheme,
                                           baseColor,
                                           progress,
                                           isOverBudget,
-                                          isDarkMode,
                                         ),
                                       ),
                                     ),

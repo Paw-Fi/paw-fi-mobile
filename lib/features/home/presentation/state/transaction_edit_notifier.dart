@@ -90,6 +90,9 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
         'userId': user.uid,
         'expenseId': expenseId,
         'updates': updates,
+        // Used by the edge function to validate calendar dates against the
+        // caller's local "today" instead of server UTC.
+        'clientTimezoneOffsetMinutes': DateTime.now().timeZoneOffset.inMinutes,
       };
 
       if (extraBody != null && extraBody.isNotEmpty) {

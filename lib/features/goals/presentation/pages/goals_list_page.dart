@@ -32,6 +32,7 @@ class _GoalsListPageState extends ConsumerState<GoalsListPage> with SingleTicker
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
     final goalsState = ref.watch(goalsListProvider);
     final summaryState = ref.watch(goalSummaryProvider);
 
@@ -61,7 +62,7 @@ class _GoalsListPageState extends ConsumerState<GoalsListPage> with SingleTicker
         children: [
           // Summary card
           summaryState.when(
-            data: (summary) => _buildSummaryCard(summary),
+            data: (summary) => _buildSummaryCard(summary, colorScheme),
             loading: () => const SizedBox.shrink(),
             error: (_, __) => const SizedBox.shrink(),
           ),
@@ -86,65 +87,11 @@ class _GoalsListPageState extends ConsumerState<GoalsListPage> with SingleTicker
         label: Text(l10n.createGoal),
       ),
     ),
-        // In Development Overlay
-        // Positioned.fill(
-        //   child: BackdropFilter(
-        //     filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-        //     child: Container(
-        //       color: Colors.black.withValues(alpha: 0.3),
-        //       child: Center(
-        //         child: Container(
-        //           margin: const EdgeInsets.all(32),
-        //           padding: const EdgeInsets.all(24),
-        //           decoration: BoxDecoration(
-        //             color: Colors.white,
-        //             borderRadius: BorderRadius.circular(16),
-        //             boxShadow: [
-        //               BoxShadow(
-        //                 color: Colors.black.withValues(alpha: 0.2),
-        //                 blurRadius: 20,
-        //                 offset: const Offset(0, 10),
-        //               ),
-        //             ],
-        //           ),
-        //           child: const Column(
-        //             mainAxisSize: MainAxisSize.min,
-        //             children: [
-        //               Icon(
-        //                 Icons.construction,
-        //                 size: 64,
-        //                 color: Colors.orange,
-        //               ),
-        //               SizedBox(height: 16),
-        //               Text(
-        //                 'In Development',
-        //                 style: TextStyle(
-        //                   fontSize: 24,
-        //                   fontWeight: FontWeight.bold,
-        //                   color: Colors.black87,
-        //                 ),
-        //               ),
-        //               SizedBox(height: 12),
-        //               Text(
-        //                 'Goals feature is currently under construction.\nStay tuned for updates!',
-        //                 textAlign: TextAlign.center,
-        //                 style: TextStyle(
-        //                   fontSize: 14,
-        //                   color: Colors.black54,
-        //                 ),
-        //               ),
-        //             ],
-        //           ),
-        //         ),
-        //       ),
-        //     ),
-        //   ),
-        // ),
       ],
     );
   }
 
-  Widget _buildSummaryCard(dynamic summary) {
+  Widget _buildSummaryCard(dynamic summary, ColorScheme colorScheme) {
     final l10n = context.l10n;
 
     return Card(
@@ -160,16 +107,19 @@ class _GoalsListPageState extends ConsumerState<GoalsListPage> with SingleTicker
                   l10n.totalGoals,
                   summary.totalGoals.toString(),
                   Icons.flag,
+                  colorScheme,
                 ),
                 _buildSummaryItem(
                   l10n.active,
                   summary.activeGoals.toString(),
                   Icons.play_circle,
+                  colorScheme,
                 ),
                 _buildSummaryItem(
                   l10n.completed,
                   summary.completedGoals.toString(),
                   Icons.check_circle,
+                  colorScheme,
                 ),
               ],
             ),
@@ -181,7 +131,10 @@ class _GoalsListPageState extends ConsumerState<GoalsListPage> with SingleTicker
             const SizedBox(height: 8),
             Text(
               '${summary.overallProgress.toStringAsFixed(1)}% ${l10n.overallProgress}',
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
+              style: TextStyle(
+                fontSize: 12,
+                color: colorScheme.mutedForeground,
+              ),
             ),
           ],
         ),
@@ -189,10 +142,15 @@ class _GoalsListPageState extends ConsumerState<GoalsListPage> with SingleTicker
     );
   }
 
-  Widget _buildSummaryItem(String label, String value, IconData icon) {
+  Widget _buildSummaryItem(
+    String label,
+    String value,
+    IconData icon,
+    ColorScheme colorScheme,
+  ) {
     return Column(
       children: [
-        Icon(icon, size: 32, color: Colors.blue),
+        Icon(icon, size: 32, color: colorScheme.primary),
         const SizedBox(height: 8),
         Text(
           value,
@@ -200,7 +158,7 @@ class _GoalsListPageState extends ConsumerState<GoalsListPage> with SingleTicker
         ),
         Text(
           label,
-          style: const TextStyle(fontSize: 12, color: Colors.grey),
+          style: TextStyle(fontSize: 12, color: colorScheme.mutedForeground),
         ),
       ],
     );
@@ -240,6 +198,7 @@ class _GoalsListPageState extends ConsumerState<GoalsListPage> with SingleTicker
 
   Widget _buildEmptyState(String? category) {
     final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
 
     String message;
     if (category == 'savings') {
@@ -254,12 +213,12 @@ class _GoalsListPageState extends ConsumerState<GoalsListPage> with SingleTicker
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.flag, size: 64, color: Colors.grey),
+          Icon(Icons.flag, size: 64, color: colorScheme.mutedForeground),
           const SizedBox(height: 16),
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.grey),
+            style: TextStyle(color: colorScheme.mutedForeground),
           ),
           const SizedBox(height: 24),
           ElevatedButton.icon(

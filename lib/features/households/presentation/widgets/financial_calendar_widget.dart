@@ -108,19 +108,18 @@ class _FinancialCalendarWidgetState extends State<FinancialCalendarWidget> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       decoration: BoxDecoration(
-        color: colorScheme.cardSurface,
+        color: colorScheme.homeCardSurface,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: colorScheme.outline.withValues(alpha: 0.05),
+          color: colorScheme.homeCardBorder,
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
+            color: colorScheme.homeCardShadow,
             blurRadius: 32,
             offset: const Offset(0, 8),
             spreadRadius: -4,
@@ -313,10 +312,10 @@ class _FinancialCalendarWidgetState extends State<FinancialCalendarWidget> {
                 alignment: Alignment.centerLeft,
                 child: Text(
                   '+${NumberFormat.compact().format(totals['income'])}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 9,
                     fontWeight: FontWeight.w600,
-                    color: AppTheme.success,
+                    color: colorScheme.success,
                   ),
                 ),
               ),
@@ -326,10 +325,10 @@ class _FinancialCalendarWidgetState extends State<FinancialCalendarWidget> {
                 alignment: Alignment.centerLeft,
                 child: Text(
                   '-${NumberFormat.compact().format(totals['expense'])}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 9,
                     fontWeight: FontWeight.w600,
-                    color: AppTheme.danger,
+                    color: colorScheme.destructive,
                   ),
                 ),
               ),

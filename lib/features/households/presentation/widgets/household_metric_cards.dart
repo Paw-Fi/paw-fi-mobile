@@ -28,12 +28,16 @@ Widget buildHouseholdBudgetCard(
   List<BudgetStatus>? budgetStatuses,
   VoidCallback? onTap,
 }) {
-  final filtered = budgets.where((b) => b.currency.toUpperCase() == currencyCode.toUpperCase()).toList();
-  final totalAmount = filtered.fold<double>(0.0, (sum, b) => sum + (b.amountCents / 100.0));
+  final filtered = budgets
+      .where((b) => b.currency.toUpperCase() == currencyCode.toUpperCase())
+      .toList();
+  final totalAmount =
+      filtered.fold<double>(0.0, (sum, b) => sum + (b.amountCents / 100.0));
 
   double? remainingAmount;
   if (budgetStatuses != null && budgetStatuses.isNotEmpty) {
-    final remainingCents = budgetStatuses.fold<int>(0, (sum, s) => sum + (s.remainingCents));
+    final remainingCents =
+        budgetStatuses.fold<int>(0, (sum, s) => sum + (s.remainingCents));
     remainingAmount = remainingCents / 100.0;
   }
 
@@ -64,7 +68,9 @@ Widget buildHouseholdBudgetCard(
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
-            remainingAmount != null ? context.l10n.remaining : context.l10n.sharedBudgets,
+            remainingAmount != null
+                ? context.l10n.remaining
+                : context.l10n.sharedBudgets,
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
@@ -135,7 +141,8 @@ Widget buildHouseholdNetPositionCard(
   final formatted = _formatLocalizedCurrency(context, amount, currency);
   final displayText = isNegative ? '-$formatted' : formatted;
 
-  final statusColor = isNegative ? const Color(0xFFEF4444) : const Color(0xFF10B981);
+  final statusColor =
+      isNegative ? colorScheme.destructive : colorScheme.success;
 
   final card = Container(
     decoration: BoxDecoration(
@@ -282,7 +289,8 @@ Widget buildHouseholdTotalSpentCard(
                       size: 16,
                       color: colorScheme.mutedForeground,
                     ),
-                    onPressed: () => _showTotalSpentInfoDialog(context, colorScheme),
+                    onPressed: () =>
+                        _showTotalSpentInfoDialog(context, colorScheme),
                   );
                 },
               ),
@@ -343,7 +351,8 @@ Widget buildMemberSpendingCard(
 }) {
   final memberContributions = summary?.memberContributions ?? [];
   final currency = (summary?.currency ?? 'USD').toUpperCase();
-  final totalSpent = memberContributions.fold<int>(0, (sum, m) => sum + m.totalSpentCents);
+  final totalSpent =
+      memberContributions.fold<int>(0, (sum, m) => sum + m.totalSpentCents);
 
   // Sort members by spending (highest first)
   final sortedMembers = List<MemberContribution>.from(memberContributions)
@@ -400,8 +409,11 @@ Widget buildMemberSpendingCard(
                 ? (member.totalSpentCents / totalSpent) * 100
                 : 0.0;
             final amount = member.totalSpentCents / 100.0;
-            final formatted = _formatLocalizedCurrency(context, amount, currency);
-            final displayName = member.userName ?? member.userEmail?.split('@').first ?? 'Unknown';
+            final formatted =
+                _formatLocalizedCurrency(context, amount, currency);
+            final displayName = member.userName ??
+                member.userEmail?.split('@').first ??
+                'Unknown';
 
             return Padding(
               padding: const EdgeInsets.only(bottom: 8),
@@ -431,7 +443,8 @@ Widget buildMemberSpendingCard(
                                       ? Image.network(
                                           avatarUrl,
                                           fit: BoxFit.cover,
-                                          errorBuilder: (context, error, stack) => Icon(
+                                          errorBuilder:
+                                              (context, error, stack) => Icon(
                                             Icons.person,
                                             size: 14,
                                             color: colorScheme.mutedForeground,

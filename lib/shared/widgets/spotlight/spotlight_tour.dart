@@ -1,11 +1,10 @@
-import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'; // for defaultTargetPlatform
 import 'spotlight_step.dart';
 import 'spotlight_controller.dart';
 import 'package:moneko/core/l10n/l10n.dart';
-
+import 'package:moneko/core/theme/app_theme.dart';
 
 class SpotlightTourOverlay extends StatefulWidget {
   final SpotlightTourController controller;
@@ -68,13 +67,16 @@ class _SpotlightTourOverlayState extends State<SpotlightTourOverlay>
     final context = key.currentContext;
     if (context != null) {
       final renderObject = context.findRenderObject();
-      if (renderObject is RenderBox && renderObject.attached && renderObject.hasSize) {
+      if (renderObject is RenderBox &&
+          renderObject.attached &&
+          renderObject.hasSize) {
         final pos = renderObject.localToGlobal(Offset.zero);
         final size = renderObject.size;
         final padding = step.padding;
 
         if (step.id == 'pockets_budget_header') {
-          debugPrint('🟣 Pockets spotlight: target size=${size.width}x${size.height} at ${pos.dx},${pos.dy}, padding=$padding');
+          debugPrint(
+              '🟣 Pockets spotlight: target size=${size.width}x${size.height} at ${pos.dx},${pos.dy}, padding=$padding');
         }
 
         // For the home unified FAB, the GlobalKey is attached to the
@@ -121,7 +123,8 @@ class _SpotlightTourOverlayState extends State<SpotlightTourOverlay>
     }
 
     if (step.id == 'pockets_budget_header') {
-      debugPrint('🟣 Pockets spotlight: target context or renderBox not ready yet');
+      debugPrint(
+          '🟣 Pockets spotlight: target context or renderBox not ready yet');
     }
     return null;
   }
@@ -179,15 +182,14 @@ class _SpotlightTourOverlayState extends State<SpotlightTourOverlay>
               painter: _SpotlightPainter(
                 rect: targetRect,
                 borderRadius: currentStep.borderRadius,
-                color: Colors.black.withOpacity(0.7), // Scrim color
+                color: Colors.black.withValues(alpha: 0.7), // Scrim color
               ),
             ),
 
             // 2. Tooltip Card
-            if (currentStep != null)
-              Positioned.fill(
-                child: _buildTooltip(context, currentStep, targetRect),
-              ),
+            Positioned.fill(
+              child: _buildTooltip(context, currentStep, targetRect),
+            ),
           ],
         );
       },
@@ -223,7 +225,6 @@ class _SpotlightTourOverlayState extends State<SpotlightTourOverlay>
       ),
     );
   }
-
 }
 
 class _TooltipPositionDelegate extends SingleChildLayoutDelegate {
@@ -365,16 +366,18 @@ class _SpotlightCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
     final isIOS = defaultTargetPlatform == TargetPlatform.iOS;
 
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: theme.cardColor,
+        color: colorScheme.cardSurface,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.15), // softer shadow
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.15),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -387,13 +390,17 @@ class _SpotlightCard extends StatelessWidget {
           Text(
             step.title,
             style: isIOS
-                ? const TextStyle(
+                ? TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                     letterSpacing: -0.5,
-                    fontFamily: '.SF Pro Display')
-                : theme.textTheme.titleLarge
-                    ?.copyWith(fontWeight: FontWeight.bold),
+                    fontFamily: '.SF Pro Display',
+                    color: colorScheme.foreground,
+                  )
+                : theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.foreground,
+                  ),
           ),
           const SizedBox(height: 8),
           Text(
@@ -401,12 +408,13 @@ class _SpotlightCard extends StatelessWidget {
             style: isIOS
                 ? TextStyle(
                     fontSize: 16,
-                    color: Colors.grey[700],
+                    color: colorScheme.mutedForeground,
                     height: 1.4,
                     fontFamily: '.SF Pro Text')
                 : theme.textTheme.bodyMedium?.copyWith(
                     height: 1.4,
-                    color: theme.textTheme.bodyMedium?.color?.withOpacity(0.8)),
+                    color: colorScheme.mutedForeground,
+                  ),
           ),
           const SizedBox(height: 24),
           Row(
@@ -416,7 +424,7 @@ class _SpotlightCard extends StatelessWidget {
               TextButton(
                 onPressed: onSkip,
                 style: TextButton.styleFrom(
-                  foregroundColor: Colors.grey,
+                  foregroundColor: colorScheme.mutedForeground,
                   splashFactory: NoSplash.splashFactory,
                 ),
                 child: Text(
@@ -438,9 +446,8 @@ class _SpotlightCard extends StatelessWidget {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: isActive
-                              ? theme.colorScheme.primary
-                              : theme.colorScheme.primary
-                                  .withOpacity(0.3),
+                              ? colorScheme.primary
+                              : colorScheme.primary.withValues(alpha: 0.3),
                         ),
                       );
                     }),
@@ -451,16 +458,18 @@ class _SpotlightCard extends StatelessWidget {
               // Next/Done Button
               if (isIOS)
                 CupertinoButton(
-                  color: theme.primaryColor,
+                  color: colorScheme.primary,
                   borderRadius: BorderRadius.circular(14),
                   padding:
                       const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                  // ignore: deprecated_member_use
                   minSize: 0,
                   onPressed: onNext,
                   child: Text(
                     isLast ? context.l10n.done : context.l10n.next,
-                    style: const TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                        color: colorScheme.onPrimary,
+                        fontWeight: FontWeight.bold),
                   ),
                 )
               else

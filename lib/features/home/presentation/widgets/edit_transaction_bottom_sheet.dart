@@ -10,6 +10,7 @@ import 'package:moneko/features/home/presentation/state/transaction_edit_notifie
 import 'package:moneko/features/home/presentation/widgets/category_picker_bottom_sheet.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/currency_flags.dart';
+import 'package:moneko/features/utils/datetime.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -821,7 +822,13 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
         }
         final now = DateTime.now();
         final today = DateTime(now.year, now.month, now.day);
-        if (_selectedDate!.isAfter(today)) {
+        final selectedLocal = toLocalTime(_selectedDate!);
+        final selectedDateOnly = DateTime(
+          selectedLocal.year,
+          selectedLocal.month,
+          selectedLocal.day,
+        );
+        if (selectedDateOnly.isAfter(today)) {
           return 'Date cannot be in the future';
         }
         return null;
@@ -870,8 +877,10 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
         break;
         
       case EditField.date:
-        final newDateStr = DateFormat('yyyy-MM-dd').format(_selectedDate!);
-        final oldDateStr = DateFormat('yyyy-MM-dd').format(widget.expense.date);
+        final newDateStr =
+            DateFormat('yyyy-MM-dd').format(toLocalTime(_selectedDate!));
+        final oldDateStr =
+            DateFormat('yyyy-MM-dd').format(toLocalTime(widget.expense.date));
         if (newDateStr != oldDateStr) {
           updates['date'] = newDateStr;
         }

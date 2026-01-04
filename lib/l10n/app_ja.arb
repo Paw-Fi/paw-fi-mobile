@@ -1682,5 +1682,7 @@
   "change_currency_desc": "ここをクリックして希望の通貨に切り替えます。",
   "homeModeTourTitle": "個人モードとグループモードを切り替える",
   "homeModeTourDescription": "ここをタップして、あなた個人のデータとグループのデータを切り替えます。",
-  "topCategory": "トップカテゴリ"
+  "topCategory": "トップカテゴリ",
+  "selectAll": "すべて選択",
+  "deselectAll": "すべて選択解除"
 }

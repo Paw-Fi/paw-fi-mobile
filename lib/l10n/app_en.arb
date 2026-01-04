@@ -1686,5 +1686,7 @@
   "change_currency_desc": "Click here to switch to your preferred currency.",
   "homeModeTourTitle": "Switch between personal and group mode",
   "homeModeTourDescription": "Tap here to switch between your personal data and your group’s data.",
-  "topCategory": "Top category"
+  "topCategory": "Top category",
+  "selectAll": "Select All",
+  "deselectAll": "Deselect All"
 }

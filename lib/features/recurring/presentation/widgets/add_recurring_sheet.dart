@@ -712,7 +712,7 @@ class AddRecurringSheet extends HookConsumerWidget {
             0.85, // Limit to 85% of screen height
       ),
       decoration: BoxDecoration(
-        color: colorScheme.appBackground,
+        color: colorScheme.sheetBackground,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: GestureDetector(
@@ -876,13 +876,13 @@ class AddRecurringSheet extends HookConsumerWidget {
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                           borderSide: BorderSide(
-                            color: colorScheme.border.withValues(alpha: 0.2),
+                            color: colorScheme.controlBorder,
                           ),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                           borderSide: BorderSide(
-                            color: colorScheme.border.withValues(alpha: 0.2),
+                            color: colorScheme.controlBorder,
                           ),
                         ),
                         focusedBorder: OutlineInputBorder(
@@ -1061,7 +1061,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                         color: colorScheme.muted.withValues(alpha: 0.05),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: colorScheme.border.withValues(alpha: 0.2),
+                          color: colorScheme.controlBorder,
                           width: 1,
                         ),
                       ),
@@ -1140,13 +1140,13 @@ class AddRecurringSheet extends HookConsumerWidget {
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide(
-                          color: colorScheme.border.withValues(alpha: 0.2),
+                          color: colorScheme.controlBorder,
                         ),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide(
-                          color: colorScheme.border.withValues(alpha: 0.2),
+                          color: colorScheme.controlBorder,
                         ),
                       ),
                       focusedBorder: OutlineInputBorder(
@@ -1178,13 +1178,13 @@ class AddRecurringSheet extends HookConsumerWidget {
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                           borderSide: BorderSide(
-                            color: colorScheme.border.withValues(alpha: 0.2),
+                            color: colorScheme.controlBorder,
                           ),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                           borderSide: BorderSide(
-                            color: colorScheme.border.withValues(alpha: 0.2),
+                            color: colorScheme.controlBorder,
                           ),
                         ),
                         focusedBorder: OutlineInputBorder(
@@ -1210,7 +1210,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                         color: colorScheme.muted.withValues(alpha: 0.05),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: colorScheme.border.withValues(alpha: 0.2),
+                          color: colorScheme.controlBorder,
                           width: 1,
                         ),
                       ),
@@ -1284,14 +1284,14 @@ class AddRecurringSheet extends HookConsumerWidget {
                                 borderRadius: BorderRadius.circular(8),
                                 borderSide: BorderSide(
                                   color:
-                                      colorScheme.border.withValues(alpha: 0.2),
+                                      colorScheme.controlBorder,
                                 ),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
                                 borderSide: BorderSide(
                                   color:
-                                      colorScheme.border.withValues(alpha: 0.2),
+                                      colorScheme.controlBorder,
                                 ),
                               ),
                               focusedBorder: OutlineInputBorder(
@@ -1341,7 +1341,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
                                   color:
-                                      colorScheme.border.withValues(alpha: 0.2),
+                                      colorScheme.controlBorder,
                                   width: 1,
                                 ),
                               ),
@@ -1519,7 +1519,7 @@ class AddRecurringSheet extends HookConsumerWidget {
           color: colorScheme.muted.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: colorScheme.border.withValues(alpha: 0.2),
+            color: colorScheme.controlBorder,
             width: 1,
           ),
         ),
@@ -1574,7 +1574,7 @@ class AddRecurringSheet extends HookConsumerWidget {
         color: colorScheme.card,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: colorScheme.border.withValues(alpha: 0.2),
+          color: colorScheme.controlBorder,
         ),
       ),
       child: Row(
@@ -1633,7 +1633,7 @@ class AddRecurringSheet extends HookConsumerWidget {
             color: colorScheme.muted.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: colorScheme.border.withValues(alpha: 0.2),
+              color: colorScheme.controlBorder,
               width: 1,
             ),
           ),

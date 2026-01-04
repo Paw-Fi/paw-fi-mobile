@@ -45,30 +45,26 @@ Widget buildHouseholdBudgetOverviewCard(
   final budgetRemainingAmount = totalBudgetRemainingCents / 100.0;
   final formattedBudgetSpent =
       '$symbol${formatLocalizedNumber(context, budgetSpentAmount)}';
-  final formattedBudgetRemaining = '$symbol${
-    formatLocalizedNumber(
-      context,
-      budgetRemainingAmount.abs(),
-    )
-  }';
+  final formattedBudgetRemaining = '$symbol${formatLocalizedNumber(
+    context,
+    budgetRemainingAmount.abs(),
+  )}';
   final budgetPercentage = totalBudgetCents > 0
       ? (totalBudgetSpentCents / totalBudgetCents * 100).clamp(0, 100)
       : 0.0;
 
-  final isDark = Theme.of(context).brightness == Brightness.dark;
-
   final card = Container(
     width: double.infinity,
     decoration: BoxDecoration(
-      color: colorScheme.cardSurface,
+      color: colorScheme.homeCardSurface,
       borderRadius: BorderRadius.circular(24),
       border: Border.all(
-        color: colorScheme.outline.withValues(alpha: 0.05),
+        color: colorScheme.homeCardBorder,
         width: 1,
       ),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
+          color: colorScheme.homeCardShadow,
           blurRadius: 32,
           offset: const Offset(0, 8),
           spreadRadius: -4,
@@ -96,7 +92,8 @@ Widget buildHouseholdBudgetOverviewCard(
                 const SizedBox(height: 4),
                 Text(
                   dateFilter.getLabel(context),
-                  style: WidgetTextStyles.dateLabel(colorScheme.mutedForeground),
+                  style:
+                      WidgetTextStyles.dateLabel(colorScheme.mutedForeground),
                 ),
               ],
             ),
@@ -188,13 +185,13 @@ Widget buildHouseholdBudgetOverviewCard(
                       gradient: LinearGradient(
                         colors: isOverBudget
                             ? [
-                                const Color(0xFFEF4444),
-                                const Color(0xFFDC2626),
+                                colorScheme.destructive,
+                                colorScheme.destructive.withValues(alpha: 0.8),
                               ]
                             : budgetPercentage > 80
                                 ? [
-                                    const Color(0xFFF59E0B),
-                                    const Color(0xFFD97706),
+                                    colorScheme.warning,
+                                    colorScheme.warning.withValues(alpha: 0.8),
                                   ]
                                 : [
                                     colorScheme.primary,
@@ -268,8 +265,8 @@ Widget buildHouseholdBudgetOverviewCard(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                         color: budgetRemainingAmount >= 0
-                            ? const Color(0xFF10B981)
-                            : const Color(0xFFEF4444),
+                            ? colorScheme.success
+                            : colorScheme.destructive,
                         letterSpacing: -0.3,
                       ),
                     ),

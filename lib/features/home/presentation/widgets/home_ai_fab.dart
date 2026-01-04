@@ -345,28 +345,68 @@ Future<void> _processExpense(
 
           if (parsed.length == 1) {
             ref.read(pendingExpenseProvider.notifier).state = parsed.first;
-          if (context.mounted) {
-            showUnifiedTransactionSheet(
-              context,
-              newExpense: parsed.first,
-              localImagePath: imagePath,
-            );
-          }
-          } else if (incomes.isNotEmpty && expenses.isNotEmpty) {
-            // We don't auto-merge mixed types. Ask user to submit separately.
             if (context.mounted) {
-              AppToast.info(context,
-                  '${context.l10n.failedToAnalyzeNoData} (mixed income and expense detected; please submit separately)');
+              showUnifiedTransactionSheet(
+                context,
+                newExpense: parsed.first,
+                localImagePath: imagePath,
+              );
             }
+          } else if (incomes.isNotEmpty && expenses.isNotEmpty) {
+            if (!context.mounted) return;
+
+            await AdaptiveAlertDialog.show(
+              context: context,
+              title: context.l10n.appTitle,
+              message:
+                  'Mixed income and expenses detected. What would you like to review?',
+              actions: [
+                if (expenses.isNotEmpty)
+                  AlertAction(
+                    title: 'Expenses (${expenses.length})',
+                    style: AlertActionStyle.primary,
+                    onPressed: () async {
+                      await showMultiTransactionReviewSheet(
+                        context,
+                        transactions: expenses,
+                        localImagePath: imagePath,
+                      );
+                    },
+                  ),
+                if (incomes.isNotEmpty)
+                  AlertAction(
+                    title: 'Income (${incomes.length})',
+                    style: AlertActionStyle.primary,
+                    onPressed: () async {
+                      await showMultiTransactionReviewSheet(
+                        context,
+                        transactions: incomes,
+                        localImagePath: imagePath,
+                      );
+                    },
+                  ),
+                AlertAction(
+                  title: context.l10n.cancel,
+                  style: AlertActionStyle.cancel,
+                  onPressed: () {},
+                ),
+              ],
+            );
           } else if (incomes.isNotEmpty) {
-            // Multiple income items - combine into a single summarized income
             if (context.mounted) {
-              _showMultiIncomeConfirmation(context, ref, incomes, imagePath);
+              await showMultiTransactionReviewSheet(
+                context,
+                transactions: incomes,
+                localImagePath: imagePath,
+              );
             }
           } else {
-            // Multiple expenses - combine existing behavior
             if (context.mounted) {
-              _showMultiExpenseConfirmation(context, ref, expenses, imagePath);
+              await showMultiTransactionReviewSheet(
+                context,
+                transactions: expenses,
+                localImagePath: imagePath,
+              );
             }
           }
         } else {
@@ -426,86 +466,6 @@ Future<void> _processExpense(
       AppToast.error(context, '${context.l10n.failedToAnalyze}: $errorMessage');
     }
   }
-}
-
-void _showMultiExpenseConfirmation(
-  BuildContext context,
-  WidgetRef ref,
-  List<ParsedExpense> expenses,
-  String? imagePath,
-) {
-  // Calculate total amount
-  final totalAmount =
-      expenses.fold<double>(0, (sum, expense) => sum + expense.amount);
-
-  // Get most common category or use 'other'
-  final categoryCount = <String, int>{};
-  for (final expense in expenses) {
-    categoryCount[expense.category] =
-        (categoryCount[expense.category] ?? 0) + 1;
-  }
-  final mostCommonCategory =
-      categoryCount.entries.reduce((a, b) => a.value > b.value ? a : b).key;
-
-  // Use AI-generated descriptions as-is - DO NOT append amounts (AI already includes them)
-  final itemDescriptions = expenses
-      .map((e) => e.description ?? e.category)
-      .where((s) => s.trim().isNotEmpty)
-      .join(', ');
-
-  // Create single combined expense
-  final combinedExpense = ParsedExpense(
-    amount: totalAmount,
-    category: mostCommonCategory,
-    currency: expenses.first.currency,
-    currencySymbol: expenses.first.currencySymbol,
-    date: expenses.first.date,
-    description: itemDescriptions,
-    localImagePath: imagePath,
-  );
-
-  // Store in provider and show unified sheet
-  ref.read(pendingExpenseProvider.notifier).state = combinedExpense;
-  showUnifiedTransactionSheet(
-    context,
-    newExpense: combinedExpense,
-    localImagePath: imagePath,
-  );
-}
-
-void _showMultiIncomeConfirmation(
-  BuildContext context,
-  WidgetRef ref,
-  List<ParsedExpense> incomes,
-  String? imagePath,
-) {
-  // Sum all income amounts and use AI-generated descriptions as-is
-  final totalAmount = incomes.fold<double>(0, (sum, inc) => sum + inc.amount);
-
-  // Use AI-generated descriptions directly - DO NOT add prefixes or modify
-  final combinedDescription = incomes
-      .map((e) => e.description ?? e.category)
-      .where((s) => s.trim().isNotEmpty)
-      .join(', ');
-
-  final combined = ParsedExpense(
-    isIncome: true,
-    amount: totalAmount,
-    category: 'income',
-    currency: incomes.first.currency,
-    currencySymbol: incomes.first.currencySymbol,
-    date: incomes.first.date,
-    description:
-        combinedDescription.isNotEmpty ? combinedDescription : context.l10n.income,
-    localImagePath: imagePath,
-  );
-
-  ref.read(pendingExpenseProvider.notifier).state = combined;
-  showUnifiedTransactionSheet(
-    context,
-    newExpense: combined,
-    localImagePath: imagePath,
-  );
 }
 
 /// Determines if the unified transaction FAB should be visible for a given

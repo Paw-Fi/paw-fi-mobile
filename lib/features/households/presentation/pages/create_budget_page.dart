@@ -519,12 +519,14 @@ class CreateBudgetPage extends HookConsumerWidget {
             PrimaryAdaptiveButton(
               onPressed: isCreating.value ? null : createBudget,
               child: isCreating.value
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          Theme.of(context).colorScheme.primaryForeground,
+                        ),
                       ),
                     )
                   : Text(context.l10n.createBudgetButton),

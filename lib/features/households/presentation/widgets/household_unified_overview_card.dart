@@ -18,6 +18,7 @@ String _formatLocalizedCurrency(
   final localized = formatLocalizedNumber(context, normalized);
   return '$symbol$localized';
 }
+
 /// Unified overview card that combines household total spent, budget info, and member spending
 Widget buildHouseholdUnifiedOverviewCard(
   BuildContext context,
@@ -29,7 +30,8 @@ Widget buildHouseholdUnifiedOverviewCard(
   final totalExpensesCents = summary?.totals.totalExpensesCents ?? 0;
   final currency = (summary?.currency ?? 'USD').toUpperCase();
   final totalSpentAmount = totalExpensesCents / 100.0;
-  final formattedTotalSpent = _formatLocalizedCurrency(context, totalSpentAmount, currency);
+  final formattedTotalSpent =
+      _formatLocalizedCurrency(context, totalSpentAmount, currency);
   final transactionCount = summary?.totals.transactionCount ?? 0;
 
   // Budget data
@@ -61,7 +63,8 @@ Widget buildHouseholdUnifiedOverviewCard(
   final memberContributions = summary?.memberContributions ?? [];
   final sortedMembers = List<MemberContribution>.from(memberContributions)
     ..sort((a, b) => b.totalSpentCents.compareTo(a.totalSpentCents));
-  final totalMemberSpent = memberContributions.fold<int>(0, (sum, m) => sum + m.totalSpentCents);
+  final totalMemberSpent =
+      memberContributions.fold<int>(0, (sum, m) => sum + m.totalSpentCents);
 
   final card = Container(
     width: double.infinity,
@@ -106,11 +109,13 @@ Widget buildHouseholdUnifiedOverviewCard(
                       Builder(
                         builder: (context) {
                           return GestureDetector(
-                            onTap: () => _showTotalSpentInfoDialog(context, colorScheme),
+                            onTap: () =>
+                                _showTotalSpentInfoDialog(context, colorScheme),
                             child: Icon(
                               Icons.help_outline,
                               size: 16,
-                              color: colorScheme.mutedForeground.withValues(alpha: 0.7),
+                              color: colorScheme.mutedForeground
+                                  .withValues(alpha: 0.7),
                             ),
                           );
                         },
@@ -197,13 +202,13 @@ Widget buildHouseholdUnifiedOverviewCard(
                       gradient: LinearGradient(
                         colors: isOverBudget
                             ? [
-                                const Color(0xFFEF4444),
-                                const Color(0xFFDC2626),
+                                colorScheme.destructive,
+                                colorScheme.destructive.withValues(alpha: 0.8),
                               ]
                             : budgetPercentage > 80
                                 ? [
-                                    const Color(0xFFF59E0B),
-                                    const Color(0xFFD97706),
+                                    colorScheme.warning,
+                                    colorScheme.warning.withValues(alpha: 0.8),
                                   ]
                                 : [
                                     colorScheme.primary,
@@ -234,13 +239,15 @@ Widget buildHouseholdUnifiedOverviewCard(
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w500,
-                        color: colorScheme.mutedForeground.withValues(alpha: 0.7),
+                        color:
+                            colorScheme.mutedForeground.withValues(alpha: 0.7),
                         letterSpacing: 0.3,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _formatLocalizedCurrency(context, budgetSpentAmount, currency),
+                      _formatLocalizedCurrency(
+                          context, budgetSpentAmount, currency),
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -262,19 +269,21 @@ Widget buildHouseholdUnifiedOverviewCard(
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w500,
-                        color: colorScheme.mutedForeground.withValues(alpha: 0.7),
+                        color:
+                            colorScheme.mutedForeground.withValues(alpha: 0.7),
                         letterSpacing: 0.3,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _formatLocalizedCurrency(context, budgetRemainingAmount.abs(), currency),
+                      _formatLocalizedCurrency(
+                          context, budgetRemainingAmount.abs(), currency),
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                         color: budgetRemainingAmount >= 0
-                            ? const Color(0xFF10B981)
-                            : const Color(0xFFEF4444),
+                            ? colorScheme.success
+                            : colorScheme.destructive,
                         letterSpacing: -0.3,
                       ),
                     ),
@@ -344,7 +353,8 @@ Widget buildHouseholdUnifiedOverviewCard(
                 ? (member.totalSpentCents / totalMemberSpent) * 100
                 : 0.0;
             final amount = member.totalSpentCents / 100.0;
-            final formatted = _formatLocalizedCurrency(context, amount, currency);
+            final formatted =
+                _formatLocalizedCurrency(context, amount, currency);
 
             // Get member data from the members list to ensure we have the correct name
             final memberData = members?.firstWhere(
@@ -388,7 +398,8 @@ Widget buildHouseholdUnifiedOverviewCard(
                               shape: BoxShape.circle,
                               color: colorScheme.muted,
                               border: Border.all(
-                                color: colorScheme.border.withValues(alpha: 0.2),
+                                color:
+                                    colorScheme.border.withValues(alpha: 0.2),
                                 width: 1.5,
                               ),
                             ),
@@ -397,7 +408,8 @@ Widget buildHouseholdUnifiedOverviewCard(
                                 ? Image.network(
                                     avatarUrl,
                                     fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stack) => Icon(
+                                    errorBuilder: (context, error, stack) =>
+                                        Icon(
                                       Icons.person,
                                       size: 18,
                                       color: colorScheme.mutedForeground,

@@ -125,8 +125,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
             .from('expenses')
             .select('id, category')
             .inFilter('id', expenseIds.toList());
-        for (final row
-            in (expensesData as List).cast<Map<String, dynamic>>()) {
+        for (final row in (expensesData as List).cast<Map<String, dynamic>>()) {
           final id = row['id'] as String?;
           if (id != null && id.isNotEmpty) {
             expenseCategories[id] = row['category'] as String?;
@@ -168,7 +167,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     final homeFilter = ref.watch(homeFilterProvider);
     final currency =
         widget.currency ?? (homeFilter.selectedCurrency ?? 'USD').toUpperCase();
@@ -217,7 +216,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
       constraints: BoxConstraints(maxHeight: maxSheetHeight),
       child: Container(
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+          color: colorScheme.cardSurface,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
@@ -288,7 +287,8 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                       scheme: colorScheme,
                     );
                   },
-                  loading: () => const Center(child: CircularProgressIndicator()),
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
                   error: (_, __) => const SizedBox.shrink(),
                 )
               else
@@ -461,37 +461,37 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                               ),
                             ),
                           ),
-                        if (widget.isExpressNetting && _theyOweItems.isNotEmpty)
-                          ...[
-                            const SizedBox(height: 12),
-                            Text(
-                              context.l10n.offsetByWhatTheyOweYou,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: colorScheme.mutedForeground,
-                              ),
+                        if (widget.isExpressNetting &&
+                            _theyOweItems.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          Text(
+                            context.l10n.offsetByWhatTheyOweYou,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: colorScheme.mutedForeground,
                             ),
-                            const SizedBox(height: 8),
-                            ..._theyOweItems.map(
-                              (item) => buildExpenseTransactionTile(
-                                context: context,
-                                category: item.category,
-                                rawText: item.description,
-                                date: item.createdAt,
-                                amount: item.amountCents / 100.0,
-                                currency: currency,
-                                isIncome: true,
-                                trailingWidget: Text(
-                                  context.l10n.owesYou,
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF30D158),
-                                  ),
+                          ),
+                          const SizedBox(height: 8),
+                          ..._theyOweItems.map(
+                            (item) => buildExpenseTransactionTile(
+                              context: context,
+                              category: item.category,
+                              rawText: item.description,
+                              date: item.createdAt,
+                              amount: item.amountCents / 100.0,
+                              currency: currency,
+                              isIncome: true,
+                              trailingWidget: Text(
+                                context.l10n.owesYou,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF30D158),
                                 ),
                               ),
                             ),
-                          ],
+                          ),
+                        ],
                         if (!widget.isExpressNetting && widget.settleTheyOweYou)
                           ..._theyOweItems.map(
                             (item) => buildExpenseTransactionTile(
@@ -624,7 +624,9 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                 );
 
       // Force-refresh cached data so settlement changes show immediately
-      ref.read(cacheInvalidatorProvider).invalidateHouseholdData(widget.householdId);
+      ref
+          .read(cacheInvalidatorProvider)
+          .invalidateHouseholdData(widget.householdId);
       ref.invalidate(cachedHouseholdExpensesProvider(
         HouseholdExpensesParams(householdId: widget.householdId),
       ));
@@ -736,10 +738,14 @@ class _MemberSelector extends StatelessWidget {
                               avatarUrl,
                               fit: BoxFit.cover,
                               errorBuilder: (_, __, ___) => _InitialAvatar(
-                                  name: name, scheme: scheme, isSelected: isSelected),
+                                  name: name,
+                                  scheme: scheme,
+                                  isSelected: isSelected),
                             )
                           : _InitialAvatar(
-                              name: name, scheme: scheme, isSelected: isSelected),
+                              name: name,
+                              scheme: scheme,
+                              isSelected: isSelected),
                     );
                   },
                 ),

@@ -241,7 +241,7 @@ class _RegistrationFormView extends HookConsumerWidget {
                                   decoration: BoxDecoration(
                                     gradient: LinearGradient(
                                       colors: [
-                                        Colors.transparent,
+                                        theme.colorScheme.border.withValues(alpha: 0.0),
                                         theme.colorScheme.border.withValues(alpha: 0.5),
                                       ],
                                     ),
@@ -265,7 +265,7 @@ class _RegistrationFormView extends HookConsumerWidget {
                                     gradient: LinearGradient(
                                       colors: [
                                         theme.colorScheme.border.withValues(alpha: 0.5),
-                                        Colors.transparent,
+                                        theme.colorScheme.border.withValues(alpha: 0.0),
                                       ],
                                     ),
                                   ),
@@ -482,7 +482,7 @@ class _RegistrationFormView extends HookConsumerWidget {
                                 ],
                               ),
                               child: Material(
-                                color: Colors.transparent,
+                                color: theme.colorScheme.surface.withValues(alpha: 0.0),
                                 child: InkWell(
                                   onTap: isLoading.value ? null : handleSignUp,
                                   borderRadius: BorderRadius.circular(12),

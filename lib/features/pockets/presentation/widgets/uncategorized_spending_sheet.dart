@@ -49,19 +49,18 @@ void showUncategorizedSheet(
                   maxHeight: MediaQuery.of(sheetContext).size.height * 0.85,
                 ),
                 decoration: BoxDecoration(
-                  color: colorScheme.surface.withValues(alpha: 0.9),
+                  color: colorScheme.sheetBackground.withValues(alpha: 0.96),
                   borderRadius:
                       const BorderRadius.vertical(top: Radius.circular(32)),
                   border: Border(
                     top: BorderSide(
-                      color:
-                          colorScheme.outlineVariant.withValues(alpha: 0.3),
+                      color: colorScheme.sheetBorder.withValues(alpha: 0.5),
                       width: 1,
                     ),
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
+                      color: colorScheme.shadow.withValues(alpha: 0.1),
                       blurRadius: 40,
                       offset: const Offset(0, -10),
                     ),
@@ -216,12 +215,12 @@ class _UncategorizedCategoryTileState extends State<_UncategorizedCategoryTile>
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOutCubic,
       decoration: BoxDecoration(
-        color: colorScheme.surface,
+        color: colorScheme.pocketCardSurface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: _isExpanded
               ? colorScheme.primary.withValues(alpha: 0.2)
-              : colorScheme.outlineVariant.withValues(alpha: 0.4),
+              : colorScheme.pocketCardBorder,
           width: 1,
         ),
         boxShadow: [
@@ -327,8 +326,7 @@ class _UncategorizedCategoryTileState extends State<_UncategorizedCategoryTile>
                     children: [
                       Container(
                         height: 1,
-                        color:
-                            colorScheme.outlineVariant.withValues(alpha: 0.3),
+                        color: colorScheme.sheetBorder.withValues(alpha: 0.4),
                       ),
                       if (widget.expenses.isEmpty)
                         Padding(
@@ -352,8 +350,8 @@ class _UncategorizedCategoryTileState extends State<_UncategorizedCategoryTile>
                             height: 1,
                             indent: 56,
                             endIndent: 16,
-                            color: colorScheme.outlineVariant
-                                .withValues(alpha: 0.2),
+                            color:
+                                colorScheme.sheetBorder.withValues(alpha: 0.3),
                           ),
                           itemBuilder: (context, index) {
                             final exp = widget.expenses[index];
@@ -450,7 +448,7 @@ class _UncategorizedCategoryTileState extends State<_UncategorizedCategoryTile>
                       ),
                     ],
                   )
-                : const SizedBox.shrink(),
+                        : const SizedBox.shrink(),
           ),
         ],
       ),
@@ -477,7 +475,7 @@ void _showPocketSelectionModal(
             maxHeight: MediaQuery.of(context).size.height * 0.75,
           ),
           decoration: BoxDecoration(
-            color: colorScheme.surface.withValues(alpha: 0.95),
+            color: colorScheme.sheetBackground.withValues(alpha: 0.96),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
           ),
           padding: EdgeInsets.only(
@@ -561,8 +559,7 @@ void _showPocketSelectionModal(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               border: Border.all(
-                                color: colorScheme.outlineVariant
-                                    .withValues(alpha: 0.3),
+                                color: colorScheme.pocketCardBorder,
                               ),
                               borderRadius: BorderRadius.circular(16),
                             ),

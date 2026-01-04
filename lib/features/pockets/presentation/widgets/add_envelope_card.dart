@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 class AddEnvelopeCard extends StatelessWidget {
   const AddEnvelopeCard({
@@ -13,8 +14,6 @@ class AddEnvelopeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -22,12 +21,10 @@ class AddEnvelopeCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(32),
         child: Container(
           decoration: BoxDecoration(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.03)
-                : Colors.black.withValues(alpha: 0.02),
+            color: colorScheme.pocketAddSurface,
             borderRadius: BorderRadius.circular(32),
             border: Border.all(
-              color: colorScheme.outline.withValues(alpha: 0.15),
+              color: colorScheme.pocketAddBorder,
               width: 1.5,
             ),
           ),
@@ -53,7 +50,7 @@ class AddEnvelopeCard extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: colorScheme.onSurfaceVariant,
+                  color: colorScheme.pocketAddText,
                   letterSpacing: -0.3,
                 ),
               ),

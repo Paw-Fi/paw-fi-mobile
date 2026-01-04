@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/app/app_initialization_provider_v2.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 /// A generic error page that displays error information and provides
 /// a way to navigate back to the home page.
@@ -35,11 +36,12 @@ class ErrorPage extends ConsumerWidget {
         displayError?.toString() ??
         context.l10n.unknownError;
     final hasInitFailure = initNotifier.lastInitException != null;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(context.l10n.errorTitle),
-        backgroundColor: Colors.red.shade800,
+        backgroundColor: colorScheme.destructive,
       ),
       body: Center(
         child: SingleChildScrollView(
@@ -49,11 +51,11 @@ class ErrorPage extends ConsumerWidget {
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const Icon(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                  Icon(
                     Icons.error_outline,
-                    color: Colors.red,
+                    color: colorScheme.errorAccent,
                     size: 80,
                   ),
                   const SizedBox(height: 16),
@@ -75,9 +77,9 @@ class ErrorPage extends ConsumerWidget {
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.red.shade50,
+                      color: colorScheme.errorSurface,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.red.shade200),
+                      border: Border.all(color: colorScheme.errorBorder),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -99,7 +101,7 @@ class ErrorPage extends ConsumerWidget {
                             style: Theme.of(context)
                                 .textTheme
                                 .titleSmall
-                                ?.copyWith(color: Colors.red.shade700),
+                                ?.copyWith(color: colorScheme.errorAccent),
                           ),
                           const SizedBox(height: 4),
                           SelectableText(
@@ -107,7 +109,7 @@ class ErrorPage extends ConsumerWidget {
                             style: Theme.of(context)
                                 .textTheme
                                 .bodySmall
-                                ?.copyWith(color: Colors.red.shade700),
+                                ?.copyWith(color: colorScheme.errorAccent),
                           ),
                         ],
                       ],
@@ -121,7 +123,7 @@ class ErrorPage extends ConsumerWidget {
                         context.go('/splash');
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red.shade700,
+                        backgroundColor: colorScheme.destructive,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 32,
                           vertical: 12,

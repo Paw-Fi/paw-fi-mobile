@@ -9,6 +9,7 @@ import 'package:moneko/core/core.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/constants/links.dart';
 import 'package:moneko/core/utils/error_handler.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 import '../providers/subscription_provider.dart';
 import '../providers/referral_code_provider.dart';
 
@@ -236,14 +237,14 @@ class _PaywallContentState extends ConsumerState<_PaywallContent> {
                     Container(
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
-                        color: colorScheme.card,
+                        color: colorScheme.homeCardSurface,
                         borderRadius: BorderRadius.circular(24),
                         border: Border.all(
-                          color: colorScheme.outline.withValues(alpha: 0.1),
+                          color: colorScheme.homeCardBorder,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.05),
+                            color: colorScheme.homeCardShadow,
                             blurRadius: 20,
                             offset: const Offset(0, 4),
                           ),
@@ -284,11 +285,14 @@ class _PaywallContentState extends ConsumerState<_PaywallContent> {
                                 ? _claimTrialAccess
                                 : _launchReferralPage),
                         child: _isLoading
-                            ? const SizedBox(
+                            ? SizedBox(
                                 width: 24,
                                 height: 24,
                                 child: CircularProgressIndicator(
-                                    strokeWidth: 2.5, color: Colors.white))
+                                  strokeWidth: 2.5,
+                                  color: colorScheme.primaryForeground,
+                                ),
+                              )
                             : Text(
                                 widget.hasReferralCode
                                     ? 'Claim Free Month'
