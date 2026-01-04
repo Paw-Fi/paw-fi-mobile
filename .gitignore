@@ -81,3 +81,5 @@ dotenv-prod
 lib/l10n/app_localizations_ur.dart
 
 .gemini/
+
+coverage/

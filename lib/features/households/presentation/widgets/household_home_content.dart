@@ -739,6 +739,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                                   from: null,
                                   to: null,
                                   selectedCurrency: selectedCurrency,
+                                  dateRangeFilter: config.dateRange,
                                   onTap: null,
                                 ),
                               ),
@@ -755,6 +756,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                                 from: from,
                                 to: to,
                                 selectedCurrency: selectedCurrency,
+                                dateRangeFilter: config.dateRange,
                                 onTap: () {
                                   Navigator.of(context).push(
                                     MaterialPageRoute(

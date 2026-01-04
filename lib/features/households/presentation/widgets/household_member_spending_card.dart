@@ -5,6 +5,7 @@ import 'package:moneko/features/households/domain/entities/household_summary.dar
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -23,11 +24,14 @@ Widget buildHouseholdMemberSpendingCard(
   DateTime? from,
   DateTime? to,
   String? selectedCurrency,
+  DateRangeFilter? dateRangeFilter,
   VoidCallback? onTap,
 }) {
   final currency =
       ((selectedCurrency ?? summary?.currency) ?? 'USD').toUpperCase();
   final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+  final rangeLabel =
+      (dateRangeFilter ?? DateRangeFilter.thisMonth).getLabel(context);
 
   // ═══════════════════════════════════════════════════════════════
   // SPLIT-AWARE MEMBER SPENDING CALCULATION
@@ -163,7 +167,18 @@ Widget buildHouseholdMemberSpendingCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Divider
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
+            child: Text(
+              '${context.l10n.spent} • $rangeLabel',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.mutedForeground,
+                letterSpacing: -0.1,
+              ),
+            ),
+          ),
           Container(
             height: 0.5,
             color: colorScheme.border.withValues(alpha: 0.1),
@@ -535,4 +550,3 @@ Future<String?> _getUserAvatarUrl(String userId) async {
     return null;
   }
 }
-

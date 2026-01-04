@@ -1,9 +1,13 @@
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
+import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/utils/currency.dart';
@@ -11,6 +15,110 @@ import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:collection/collection.dart';
 import 'package:intl/intl.dart';
+
+DateTime _dateOnly(DateTime date) => DateTime(date.year, date.month, date.day);
+
+bool _sameDay(DateTime a, DateTime b) =>
+    a.year == b.year && a.month == b.month && a.day == b.day;
+
+@immutable
+class HouseholdMemberDateRangeSeed {
+  final DateTime from;
+  final DateTime to;
+
+  const HouseholdMemberDateRangeSeed({
+    required this.from,
+    required this.to,
+  });
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is HouseholdMemberDateRangeSeed &&
+          _sameDay(from, other.from) &&
+          _sameDay(to, other.to);
+
+  @override
+  int get hashCode => Object.hash(from.year, from.month, from.day, to.year, to.month, to.day);
+}
+
+@immutable
+class HouseholdMemberDateRangeState {
+  final DateRangeFilter filter;
+  final DateTime? customStartDate;
+  final DateTime? customEndDate;
+
+  const HouseholdMemberDateRangeState({
+    required this.filter,
+    this.customStartDate,
+    this.customEndDate,
+  });
+
+  HouseholdMemberDateRangeState copyWith({
+    DateRangeFilter? filter,
+    DateTime? customStartDate,
+    DateTime? customEndDate,
+    bool clearCustom = false,
+  }) {
+    return HouseholdMemberDateRangeState(
+      filter: filter ?? this.filter,
+      customStartDate: clearCustom ? null : (customStartDate ?? this.customStartDate),
+      customEndDate: clearCustom ? null : (customEndDate ?? this.customEndDate),
+    );
+  }
+}
+
+class HouseholdMemberDateRangeNotifier
+    extends StateNotifier<HouseholdMemberDateRangeState> {
+  HouseholdMemberDateRangeNotifier(HouseholdMemberDateRangeSeed seed)
+      : super(_initialState(seed));
+
+  static HouseholdMemberDateRangeState _initialState(
+      HouseholdMemberDateRangeSeed seed) {
+    final from = _dateOnly(seed.from);
+    final to = _dateOnly(seed.to);
+    final candidates = [
+      DateRangeFilter.thisMonth,
+      DateRangeFilter.last30Days,
+      DateRangeFilter.allTime,
+    ];
+
+    for (final filter in candidates) {
+      final range = getDateRangeFromFilter(filter, null, null);
+      if (_sameDay(range['from']!, from) && _sameDay(range['to']!, to)) {
+        return HouseholdMemberDateRangeState(filter: filter);
+      }
+    }
+
+    return HouseholdMemberDateRangeState(
+      filter: DateRangeFilter.custom,
+      customStartDate: from,
+      customEndDate: to,
+    );
+  }
+
+  void setFilter(DateRangeFilter filter) {
+    state = state.copyWith(
+      filter: filter,
+      clearCustom: filter != DateRangeFilter.custom,
+    );
+  }
+
+  void setCustomRange(DateTime start, DateTime end) {
+    state = state.copyWith(
+      filter: DateRangeFilter.custom,
+      customStartDate: _dateOnly(start),
+      customEndDate: _dateOnly(end),
+    );
+  }
+}
+
+final householdMemberDateRangeProvider = StateNotifierProvider.autoDispose.family<
+    HouseholdMemberDateRangeNotifier,
+    HouseholdMemberDateRangeState,
+    HouseholdMemberDateRangeSeed>(
+  (ref, seed) => HouseholdMemberDateRangeNotifier(seed),
+);
 
 class HouseholdMemberDetailsPage extends HookConsumerWidget {
   final HouseholdMember member;
@@ -38,10 +146,24 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // final themeMode = ref.watch(themeModeProvider); // Available if needed
     final colorScheme = Theme.of(context).colorScheme;
-    
-    // Filter transactions for this member within the date range
-    final memberTransactions = _getMemberTransactions();
+
+    final seed = HouseholdMemberDateRangeSeed(from: from, to: to);
+    final rangeState = ref.watch(householdMemberDateRangeProvider(seed));
+    final range = getDateRangeFromFilter(
+      rangeState.filter,
+      rangeState.customStartDate,
+      rangeState.customEndDate,
+    );
+    final rangeFrom = range['from']!;
+    final rangeTo = range['to']!;
+
+    // Filter transactions for this member within the selected date range
+    final memberTransactions = _getMemberTransactions(rangeFrom, rangeTo);
     final groupedTransactions = _groupTransactionsByDate(memberTransactions);
+    final totalSpentCentsForRange = memberTransactions.fold<int>(
+      0,
+      (sum, entry) => sum + entry.amountCents.abs(),
+    );
 
     return Scaffold(
       backgroundColor: colorScheme.appBackground,
@@ -50,7 +172,16 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
         slivers: [
           _buildAppBar(context, colorScheme),
           SliverToBoxAdapter(
-            child: _buildHeader(context, colorScheme),
+            child: _buildHeader(
+              context,
+              ref,
+              colorScheme,
+              seed,
+              rangeState,
+              rangeFrom,
+              rangeTo,
+              totalSpentCentsForRange,
+            ),
           ),
           if (memberTransactions.isEmpty)
              SliverFillRemaining(
@@ -94,7 +225,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
   Widget _buildAppBar(BuildContext context, ColorScheme colorScheme) {
     return SliverAppBar(
       backgroundColor: colorScheme.appBackground,
-      surfaceTintColor: Colors.transparent,
+      surfaceTintColor: colorScheme.surface.withValues(alpha: 0.0),
       floating: true,
       pinned: true,
       elevation: 0,
@@ -111,28 +242,28 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
           fontWeight: FontWeight.w600,
         ),
       ),
-      actions: [
-        if (householdId != null && member.userId != Supabase.instance.client.auth.currentUser?.id)
-          IconButton(
-            icon: Icon(Icons.notifications_outlined, color: colorScheme.primary),
-            onPressed: () => _showReminderModal(
-              context,
-              colorScheme,
-              member.userId,
-              member.userName ?? member.userEmail ?? 'Member',
-              householdId!,
-            ),
-          ),
-      ],
     );
   }
 
-  Widget _buildHeader(BuildContext context, ColorScheme colorScheme) {
+  Widget _buildHeader(
+    BuildContext context,
+    WidgetRef ref,
+    ColorScheme colorScheme,
+    HouseholdMemberDateRangeSeed seed,
+    HouseholdMemberDateRangeState rangeState,
+    DateTime rangeFrom,
+    DateTime rangeTo,
+    int rangeTotalSpentCents,
+  ) {
     final formattedTotal = formatLocalizedNumber(
       context, 
-      totalSpentCents / 100.0,
+      rangeTotalSpentCents / 100.0,
     );
     final symbol = resolveCurrencySymbol(currency);
+    final dateRangeLabel =
+        DateFormat('MMM d').format(rangeFrom) +
+        ' - ' +
+        DateFormat('MMM d').format(rangeTo);
     
     return Padding(
       padding: const EdgeInsets.all(24.0),
@@ -197,11 +328,72 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '${context.l10n.totalSpent} · ${DateFormat('MMM d').format(from)} - ${DateFormat('MMM d').format(to)}',
+            '${context.l10n.totalSpent} · $dateRangeLabel',
             style: TextStyle(
               fontSize: 14,
               color: colorScheme.mutedForeground,
               fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 40,
+            width: double.infinity,
+            child: AdaptiveSegmentedControl(
+              labels: [
+                DateRangeFilter.thisMonth.getLabel(context),
+                DateRangeFilter.last30Days.getLabel(context),
+                DateRangeFilter.allTime.getLabel(context),
+                DateRangeFilter.custom.getLabel(context),
+              ],
+              selectedIndex: () {
+                switch (rangeState.filter) {
+                  case DateRangeFilter.thisMonth:
+                    return 0;
+                  case DateRangeFilter.last30Days:
+                    return 1;
+                  case DateRangeFilter.allTime:
+                    return 2;
+                  case DateRangeFilter.custom:
+                    return 3;
+                  default:
+                    return 0;
+                }
+              }(),
+              onValueChanged: (index) async {
+                final notifier =
+                    ref.read(householdMemberDateRangeProvider(seed).notifier);
+                if (index == 3) {
+                  final firstDate = DateTime(2020);
+                  final lastDate = DateTime.now();
+                  final initialStart =
+                      rangeFrom.isBefore(firstDate) ? firstDate : rangeFrom;
+                  final initialEnd =
+                      rangeTo.isAfter(lastDate) ? lastDate : rangeTo;
+                  final initialRange = DateTimeRange(
+                    start: initialStart,
+                    end: initialEnd.isBefore(initialStart)
+                        ? initialStart
+                        : initialEnd,
+                  );
+                  final picked = await showDateRangePicker(
+                    context: context,
+                    firstDate: firstDate,
+                    lastDate: lastDate,
+                    initialDateRange: initialRange,
+                  );
+                  if (picked != null) {
+                    notifier.setCustomRange(picked.start, picked.end);
+                  }
+                  return;
+                }
+                final nextFilter = index == 0
+                    ? DateRangeFilter.thisMonth
+                    : index == 1
+                        ? DateRangeFilter.last30Days
+                        : DateRangeFilter.allTime;
+                notifier.setFilter(nextFilter);
+              },
             ),
           ),
           
@@ -458,13 +650,15 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
     }
   }
 
-  List<ExpenseEntry> _getMemberTransactions() {
+  List<ExpenseEntry> _getMemberTransactions(DateTime rangeFrom, DateTime rangeTo) {
     // Use similar logic to the spending card to attribute expenses
     final memberTransactions = <ExpenseEntry>[];
     
     // Convert date range to include full days
-    final startDate = DateTime(from.year, from.month, from.day);
-    final endDate = DateTime(to.year, to.month, to.day).add(const Duration(days: 1)).subtract(const Duration(milliseconds: 1));
+    final startDate = DateTime(rangeFrom.year, rangeFrom.month, rangeFrom.day);
+    final endDate = DateTime(rangeTo.year, rangeTo.month, rangeTo.day)
+        .add(const Duration(days: 1))
+        .subtract(const Duration(milliseconds: 1));
 
     // Lookup map for split groups
     final byGroupId = splits != null
