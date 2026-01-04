@@ -177,7 +177,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
 
     final allCategories = getExpenseCategories();
 
-    String _formatLocalizedAmount(num value) {
+    String formatLocalizedAmount(num value) {
       final normalized = double.parse(value.toStringAsFixed(0));
       return formatLocalizedNumber(context, normalized);
     }
@@ -582,7 +582,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                       ),
                       const SizedBox(height: 12),
                       Builder(builder: (context) {
-                        final presetColors = AppTheme.pocketPresetColors;
+                        const presetColors = AppTheme.pocketPresetColors;
                         return SizedBox(
                           height: 44,
                           child: ListView.separated(
@@ -965,7 +965,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
-                                        '${context.l10n.budgetExceededByLabel} ${_formatLocalizedAmount(unallocatedBudget.abs())}',
+                                        '${context.l10n.budgetExceededByLabel} ${formatLocalizedAmount(unallocatedBudget.abs())}',
                                         style: TextStyle(
                                           fontSize: 12,
                                           color: colorScheme.error,

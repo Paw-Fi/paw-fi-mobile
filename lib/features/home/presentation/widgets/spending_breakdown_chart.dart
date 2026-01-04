@@ -80,10 +80,11 @@ class _SpendingBreakdownChartState extends State<SpendingBreakdownChart> {
     String displayAmount(double amount) =>
         '$symbol${formatLocalizedNumber(context, amount)}';
 
-    String percentOfTotal(double amount) {
-      if (totalSpent <= 0) return '0%';
-      return '${((amount / totalSpent) * 100).toStringAsFixed(0)}%';
-    }
+    // percentOfTotal function kept for potential future use
+    // String percentOfTotal(double amount) {
+    //   if (totalSpent <= 0) return '0%';
+    //   return '${((amount / totalSpent) * 100).toStringAsFixed(0)}%';
+    // }
 
     return Container(
       decoration: BoxDecoration(
@@ -210,7 +211,9 @@ class _SpendingBreakdownChartState extends State<SpendingBreakdownChart> {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    percentOfTotal(selected.amount),
+                                    // percent calculated but not used - keep for potential future use
+                                    // percentOfTotal(selected.amount),
+                                    '',
                                     style: TextStyle(
                                       fontSize: 13,
                                       color: widget.colorScheme.mutedForeground,
@@ -270,7 +273,8 @@ class _SpendingBreakdownChartState extends State<SpendingBreakdownChart> {
             runSpacing: 12,
             alignment: WrapAlignment.start,
             children: categorySummaries.take(6).map((category) {
-              final percent = percentOfTotal(category.amount);
+              // percent calculated but not used - keep for potential future use
+              // final percent = percentOfTotal(category.amount);
               return Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [

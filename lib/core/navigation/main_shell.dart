@@ -18,7 +18,6 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/core/services/widget_service.dart';
 import 'package:moneko/core/navigation/navigation_providers.dart';
-import 'main_menu_screen.dart';
 
 /// Main navigation shell with bottom navigation bar
 class MainShell extends HookConsumerWidget {

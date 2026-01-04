@@ -491,8 +491,9 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
     switch (_selectedType) {
       case SplitType.amount:
         parsedDouble = double.tryParse(text);
-        if (parsedDouble != null && parsedDouble < 0)
+        if (parsedDouble != null && parsedDouble < 0) {
           parsedDouble = 0; // clamp negatives
+        }
         if (parsedDouble != null && parsedDouble > widget.totalAmount) {
           // Exceeds total - show error, don't auto-adjust
           setState(() {
@@ -508,8 +509,9 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
 
       case SplitType.percentage:
         parsedDouble = double.tryParse(text);
-        if (parsedDouble != null && parsedDouble < 0)
+        if (parsedDouble != null && parsedDouble < 0) {
           parsedDouble = 0; // clamp negatives
+        }
         if (parsedDouble != null && parsedDouble > 100) {
           // Exceeds 100% - show error, don't auto-adjust
           setState(() {

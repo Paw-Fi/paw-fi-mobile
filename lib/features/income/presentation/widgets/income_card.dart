@@ -40,7 +40,7 @@ class IncomeCard extends ConsumerWidget {
           padding: const EdgeInsets.all(16.0),
           child: incomeSummaryState.when(
             data: (summary) {
-              String _formatLocalizedCurrency(double amount) {
+              String formatLocalizedCurrency(double amount) {
                 final normalized = double.parse(formatAmount(amount));
                 final symbol = resolveCurrencySymbol(summary.currency);
                 final localized = formatLocalizedNumber(context, normalized);
@@ -56,7 +56,7 @@ class IncomeCard extends ConsumerWidget {
                     children: [
                       Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.account_balance_wallet,
                             color: colorScheme.success,
                             size: 20,
@@ -93,7 +93,7 @@ class IncomeCard extends ConsumerWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _formatLocalizedCurrency(summary.mtdIncome!),
+                      formatLocalizedCurrency(summary.mtdIncome!),
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
@@ -110,7 +110,7 @@ class IncomeCard extends ConsumerWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _formatLocalizedCurrency(summary.totalIncome),
+                      formatLocalizedCurrency(summary.totalIncome),
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
@@ -133,7 +133,7 @@ class IncomeCard extends ConsumerWidget {
                           ),
                         ),
                         Text(
-                          _formatLocalizedCurrency(summary.ytdIncome!),
+                          formatLocalizedCurrency(summary.ytdIncome!),
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -167,7 +167,7 @@ class IncomeCard extends ConsumerWidget {
               children: [
                 Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.account_balance_wallet,
                       color: colorScheme.success,
                       size: 20,

@@ -348,7 +348,7 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
                       ),
                       if (income.acknowledgedCount > 0) ...[
                         const SizedBox(width: 8),
-                        Icon(
+                        const Icon(
                           Icons.check_circle,
                           size: 16,
                           color: AppTheme.success,

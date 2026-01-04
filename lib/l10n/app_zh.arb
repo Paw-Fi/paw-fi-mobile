@@ -1680,5 +1680,9 @@
   "homeModeTourDescription": "点击这里，在你的个人数据和群组数据之间切换。",
   "topCategory": "主要类别",
   "selectAll": "全选",
-  "deselectAll": "取消全选"
+  "deselectAll": "取消全选",
+  "unknownMember": "未知成员",
+  "totalSpent": "总支出",
+  "sharedWithMembers": "与 {count} 位成员共享",
+  "noTransactionsForPeriod": "此时间段内未找到交易记录。"
 }

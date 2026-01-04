@@ -1461,13 +1461,13 @@ class AddRecurringSheet extends HookConsumerWidget {
                         ),
                       ),
                       child: isLoading.value
-                          ? const SizedBox(
+                          ? SizedBox(
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
                                 valueColor: AlwaysStoppedAnimation<Color>(
-                                  colorScheme.primaryForeground,
+                                  colorScheme.onPrimary,
                                 ),
                               ),
                             )

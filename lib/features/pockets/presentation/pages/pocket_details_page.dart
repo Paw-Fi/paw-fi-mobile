@@ -499,7 +499,7 @@ class _SpendingBreakdownCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     // Use a set of nice colors for the chart
-    final colors = AppTheme.pocketChartPalette;
+    const colors = AppTheme.pocketChartPalette;
 
     return Container(
       padding: const EdgeInsets.all(20),

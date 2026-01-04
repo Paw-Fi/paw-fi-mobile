@@ -1628,5 +1628,9 @@
   "homeModeTourDescription": "點擊這裡，在你的個人預算與家庭共享預算之間切換。",
   "topCategory": "主要類別",
   "selectAll": "全選",
-  "deselectAll": "取消全選"
+  "deselectAll": "取消全選",
+  "unknownMember": "未知成員",
+  "totalSpent": "總支出",
+  "sharedWithMembers": "與 {count} 位成員共享",
+  "noTransactionsForPeriod": "此期間內未找到交易紀錄。"
 }

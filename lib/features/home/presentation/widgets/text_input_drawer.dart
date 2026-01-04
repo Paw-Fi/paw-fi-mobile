@@ -114,10 +114,12 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
 
     final hasPermission = await _recorder.hasPermission();
     if (!hasPermission) {
-      AppToast.error(
-        widget.parentContext,
-        widget.parentContext.l10n.failedToAnalyze,
-      );
+      if (widget.parentContext.mounted) {
+        AppToast.error(
+          widget.parentContext,
+          widget.parentContext.l10n.failedToAnalyze,
+        );
+      }
       return;
     }
 
@@ -147,7 +149,7 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
     }
 
     final duration = DateTime.now().difference(startedAt);
-    print('🎙️ Recording finished. Duration: ${duration.inMilliseconds} ms');
+    debugPrint('🎙️ Recording finished. Duration: ${duration.inMilliseconds} ms');
 
     if (duration.inMilliseconds < 1000) {
       HapticFeedback.vibrate();
@@ -160,24 +162,30 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
 
     final path = await _recorder.stop();
     if (path == null) {
-      AppToast.error(
-          widget.parentContext, widget.parentContext.l10n.recordingFailed);
+      if (widget.parentContext.mounted) {
+        AppToast.error(
+            widget.parentContext, widget.parentContext.l10n.recordingFailed);
+      }
       return;
     }
 
     final file = File(path);
     if (!await file.exists()) {
-      AppToast.error(
-          widget.parentContext, widget.parentContext.l10n.recordingFileMissing);
+      if (widget.parentContext.mounted) {
+        AppToast.error(
+            widget.parentContext, widget.parentContext.l10n.recordingFileMissing);
+      }
       return;
     }
 
     final bytes = await file.readAsBytes();
-    print('🎙️ Recording file path: $path');
-    print('🎙️ Recording byte length: ${bytes.length}');
+    debugPrint('🎙️ Recording file path: $path');
+    debugPrint('🎙️ Recording byte length: ${bytes.length}');
     if (bytes.isEmpty) {
-      AppToast.error(
-          widget.parentContext, widget.parentContext.l10n.recordingIsEmpty);
+      if (widget.parentContext.mounted) {
+        AppToast.error(
+            widget.parentContext, widget.parentContext.l10n.recordingIsEmpty);
+      }
       return;
     }
 
@@ -340,7 +348,7 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
                               strokeWidth: 2,
                               valueColor:
                                   AlwaysStoppedAnimation<Color>(
-                                      scheme.primaryForeground),
+                                      scheme.onPrimary),
                             ),
                           )
                         : Text(dynamicTitle),
@@ -436,7 +444,7 @@ class _RecordingVisualizerState extends State<_RecordingVisualizer> {
       if (normalized < 0) normalized = 0;
       if (normalized > 1.0) normalized = 1.0;
 
-      print('🎙️ Amplitude current: $currentDb, normalized: $normalized');
+      debugPrint('🎙️ Amplitude current: $currentDb, normalized: $normalized');
 
       if (mounted) {
         setState(() {
@@ -486,7 +494,7 @@ class _RecordingVisualizerState extends State<_RecordingVisualizer> {
               height: 16 + (_history[index] * 72),
               decoration: BoxDecoration(
                 color: widget.colorScheme.primary
-                    .withOpacity(0.8 + (_history[index] * 0.2)),
+                    .withValues(alpha: 0.8 + (_history[index] * 0.2)),
                 borderRadius: BorderRadius.circular(3),
               ),
             );

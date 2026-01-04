@@ -58,11 +58,13 @@ class WhatsAppTutorialModal extends HookWidget {
         }
         if (launched && context.mounted) {
           Navigator.of(context).pop(true); // Return true to refresh status
-        } else if (!launched) {
+        } else if (!launched && context.mounted) {
           AppToast.error(context, 'Unable to open WhatsApp link. Please install a browser or WhatsApp.');
         }
       } catch (_) {
-        AppToast.error(context, 'Could not launch WhatsApp link.');
+        if (context.mounted) {
+          AppToast.error(context, 'Could not launch WhatsApp link.');
+        }
       }
     }
 
@@ -174,7 +176,7 @@ class WhatsAppTutorialModal extends HookWidget {
                         : Container(
                             height: 54,
                             decoration: BoxDecoration(
-                              gradient: LinearGradient(
+                              gradient: const LinearGradient(
                                 colors: [
                                   AppTheme.whatsappGreen,
                                   AppTheme.whatsappDarkGreen,

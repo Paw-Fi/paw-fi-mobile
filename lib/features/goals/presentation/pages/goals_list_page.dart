@@ -4,6 +4,7 @@ import '../providers/goals_providers.dart';
 import '../widgets/goal_card.dart';
 import '../widgets/create_goal_sheet.dart';
 import '../../../../core/l10n/l10n.dart';
+import '../../../../core/theme/app_theme.dart';
 
 class GoalsListPage extends ConsumerStatefulWidget {
   const GoalsListPage({super.key});

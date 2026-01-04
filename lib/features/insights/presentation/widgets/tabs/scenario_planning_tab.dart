@@ -568,6 +568,9 @@ class _ScenarioPlanningTabContentState
                                       bool done = false;
                                       bool gotMeta = false;
 
+                                      // Capture l10n before async operation
+                                      final noAnalysisAvailableMsg = context.l10n.noAnalysisAvailable;
+
                                       await for (final line in lineStream) {
                                         if (line.trim().isEmpty) continue;
                                         final obj = jsonDecode(line)
@@ -648,7 +651,7 @@ class _ScenarioPlanningTabContentState
                                       if (!sheetOpened) {
                                         final advice =
                                             adviceNotifier.value.isEmpty
-                                                ? context.l10n.noAnalysisAvailable
+                                                ? noAnalysisAvailableMsg
                                                 : adviceNotifier.value;
 
                                         if (!context.mounted) return;
@@ -879,7 +882,7 @@ class _ScenarioPlanningTabContentState
                                             horizontal: 10, vertical: 6),
                                         decoration: BoxDecoration(
                                           color: widget.colorScheme.primary
-                                              .withOpacity(0.06),
+                                              .withValues(alpha: 0.06),
                                           borderRadius:
                                               BorderRadius.circular(100),
                                         ),

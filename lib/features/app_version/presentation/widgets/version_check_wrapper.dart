@@ -97,14 +97,16 @@ class _VersionCheckWrapperState extends ConsumerState<VersionCheckWrapper>
 
         final dialogContext = rootNavigatorKey.currentContext ?? context;
 
-        await showForceUpdateDialog(
-          context: dialogContext,
-          currentVersion: currentVersion,
-          message: versionConfig.updateMessage,
-          appStoreUrl: Platform.isIOS
-              ? versionConfig.iosAppStoreUrl
-              : versionConfig.androidPlayStoreUrl,
-        );
+        if (dialogContext.mounted) {
+          await showForceUpdateDialog(
+            context: dialogContext,
+            currentVersion: currentVersion,
+            message: versionConfig.updateMessage,
+            appStoreUrl: Platform.isIOS
+                ? versionConfig.iosAppStoreUrl
+                : versionConfig.androidPlayStoreUrl,
+          );
+        }
 
         // If dialog returns (it shouldn't if it's non-dismissible, but AdaptiveAlertDialog might be),
         // we reset the flag so it can be triggered again on resume/check.

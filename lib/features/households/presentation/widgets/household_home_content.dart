@@ -1052,9 +1052,9 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
           ],
         ),
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-        child: Column(
+        child: const Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: const [
+          children: [
             // Header row placeholder
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,

@@ -36,7 +36,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final themeMode = ref.watch(themeModeProvider);
+    // final themeMode = ref.watch(themeModeProvider); // Available if needed
     final colorScheme = Theme.of(context).colorScheme;
     
     // Filter transactions for this member within the date range
@@ -258,13 +258,12 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
         Padding(
           padding: const EdgeInsets.only(bottom: 12, top: 12),
           child: Text(
-            dateStr,
+            dateStr.toUpperCase(),
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
               color: colorScheme.mutedForeground.withValues(alpha: 0.8),
               letterSpacing: 0.2,
-              uppercase: true,
             ),
           ),
         ),
@@ -547,34 +546,34 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
   }
 
   // Nudge Functionality
-  Future<bool> _canSendReminder(String householdId, String targetUserId) async {
-    try {
-      final supabase = Supabase.instance.client;
-      final currentUserId = supabase.auth.currentUser?.id;
+  // Future<bool> _canSendReminder(String householdId, String targetUserId) async {
+  //   try {
+  //     final supabase = Supabase.instance.client;
+  //     final currentUserId = supabase.auth.currentUser?.id;
 
-      if (currentUserId == null) return false;
+  //     if (currentUserId == null) return false;
 
-      // Check for existing reminder in last 24 hours
-      final twentyFourHoursAgo =
-          DateTime.now().subtract(const Duration(hours: 24));
+  //     // Check for existing reminder in last 24 hours
+  //     final twentyFourHoursAgo =
+  //         DateTime.now().subtract(const Duration(hours: 24));
 
-      final response = await supabase
-          .from('notification_events')
-          .select('created_at')
-          .eq('household_id', householdId)
-          .eq('user_id', targetUserId)
-          .eq('event_type', 'member_reminded')
-          .gte('created_at', twentyFourHoursAgo.toIso8601String())
-          .order('created_at', ascending: false)
-          .limit(1)
-          .maybeSingle();
+  //     final response = await supabase
+  //         .from('notification_events')
+  //         .select('created_at')
+  //         .eq('household_id', householdId)
+  //         .eq('user_id', targetUserId)
+  //         .eq('event_type', 'member_reminded')
+  //         .gte('created_at', twentyFourHoursAgo.toIso8601String())
+  //         .order('created_at', ascending: false)
+  //         .limit(1)
+  //         .maybeSingle();
 
-      return response == null; // Can send if no recent reminder found
-    } catch (e) {
-      debugPrint('Error in _canSendReminder: $e');
-      return true; // Allow on error
-    }
-  }
+  //     return response == null; // Can send if no recent reminder found
+  //   } catch (e) {
+  //     debugPrint('Error in _canSendReminder: $e');
+  //     return true; // Allow on error
+  //   }
+  // }
 
   void _showReminderModal(
     BuildContext context,

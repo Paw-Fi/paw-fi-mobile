@@ -1676,5 +1676,9 @@
   "homeModeTourDescription": "Натисніть тут, щоб перемикатися між особистими даними та даними групи.",
   "topCategory": "Топ категорія",
   "selectAll": "Вибрати все",
-  "deselectAll": "Скасувати вибір"
+  "deselectAll": "Скасувати вибір",
+  "unknownMember": "Невідомий учасник",
+  "totalSpent": "Всього витрачено",
+  "sharedWithMembers": "Поділено з {count} учасниками",
+  "noTransactionsForPeriod": "За цей період транзакцій не знайдено."
 }

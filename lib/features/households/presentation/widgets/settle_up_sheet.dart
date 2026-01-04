@@ -6,13 +6,13 @@ import 'package:moneko/shared/widgets/outlined_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../../core/l10n/l10n.dart';
+import '../../../../../core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import '../providers/household_providers.dart';
 import '../providers/cached_providers.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
-import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
@@ -535,12 +535,12 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                     child: PrimaryAdaptiveButton(
                       onPressed: _isProcessing ? null : _confirmAndSettle,
                       child: _isProcessing
-                          ? const SizedBox(
+                          ? SizedBox(
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: colorScheme.primaryForeground,
+                                color: colorScheme.onPrimary,
                               ),
                             )
                           : Text(context.l10n.settle),

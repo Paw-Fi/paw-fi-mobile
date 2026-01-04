@@ -1683,5 +1683,9 @@
   "homeModeTourDescription": "Nhấn vào đây để chuyển giữa dữ liệu cá nhân và dữ liệu của nhóm.",
   "topCategory": "Danh mục chính",
   "selectAll": "Chọn tất cả",
-  "deselectAll": "Bỏ chọn tất cả"
+  "deselectAll": "Bỏ chọn tất cả",
+  "unknownMember": "Thành viên không xác định",
+  "totalSpent": "Tổng chi tiêu",
+  "sharedWithMembers": "Đã chia sẻ với {count} thành viên",
+  "noTransactionsForPeriod": "Không có giao dịch nào trong khoảng thời gian này."
 }

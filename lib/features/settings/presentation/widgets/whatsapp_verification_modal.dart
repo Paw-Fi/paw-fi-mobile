@@ -261,13 +261,13 @@ class _WhatsAppVerificationModalState extends State<WhatsAppVerificationModal> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const SizedBox(
+                    SizedBox(
                       width: 16,
                       height: 16,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
                         valueColor: AlwaysStoppedAnimation<Color>(
-                          colorScheme.primaryForeground,
+                          colorScheme.onPrimary,
                         ),
                       ),
                     ),

@@ -122,9 +122,9 @@ class _MonekoTabBarViewState extends State<MonekoTabBarView> {
       ),
       child: AdaptiveTabBarView(
         tabs: widget.tabs,
-        children: widget.children,
         onTabChanged: widget.onTabChanged,
         unselectedColor: colorScheme.tabUnselectedForeground,
+        children: widget.children,
       ),
     );
   }

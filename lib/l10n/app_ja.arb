@@ -1684,5 +1684,9 @@
   "homeModeTourDescription": "ここをタップして、あなた個人のデータとグループのデータを切り替えます。",
   "topCategory": "トップカテゴリ",
   "selectAll": "すべて選択",
-  "deselectAll": "すべて選択解除"
+  "deselectAll": "すべて選択解除",
+  "unknownMember": "不明なメンバー",
+  "totalSpent": "合計支出",
+  "sharedWithMembers": "{count} 人と共有",
+  "noTransactionsForPeriod": "この期間の取引はありません。"
 }

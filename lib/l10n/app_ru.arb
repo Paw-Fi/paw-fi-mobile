@@ -1634,5 +1634,9 @@
   "homeModeTourDescription": "Нажмите здесь, чтобы переключаться между личными данными и данными группы.",
   "topCategory": "Топ-категория",
   "selectAll": "Выбрать все",
-  "deselectAll": "Снять выделение"
+  "deselectAll": "Снять выделение",
+  "unknownMember": "Неизвестный участник",
+  "totalSpent": "Всего потрачено",
+  "sharedWithMembers": "Поделено с {count} участниками",
+  "noTransactionsForPeriod": "За этот период транзакции не найдены."
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../providers/goals_providers.dart';
 import '../../../../core/l10n/l10n.dart';
+import '../../../../core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 
 void showCreateGoalSheet(BuildContext context) {

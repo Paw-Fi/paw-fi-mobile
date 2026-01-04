@@ -107,7 +107,7 @@ void main() {
 
   testWidgets('Clear All deselects transactions', (tester) async {
     final prefs = await SharedPreferences.getInstance();
-    final user = const AppUser(uid: 'u1', email: 'u1@example.com');
+    const user = AppUser(uid: 'u1', email: 'u1@example.com');
 
     await _pumpWithOverrides(
       tester,
@@ -132,7 +132,7 @@ void main() {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('selected_household_id:u1', 'h1');
 
-    final user = const AppUser(uid: 'u1', email: 'u1@example.com');
+    const user = AppUser(uid: 'u1', email: 'u1@example.com');
     final tomorrow = DateTime.now().add(const Duration(days: 1));
 
     await _pumpWithOverrides(
@@ -156,7 +156,7 @@ void main() {
 
   testWidgets('Edit amount parses comma decimals', (tester) async {
     final prefs = await SharedPreferences.getInstance();
-    final user = const AppUser(uid: 'u1', email: 'u1@example.com');
+    const user = AppUser(uid: 'u1', email: 'u1@example.com');
 
     await _pumpWithOverrides(
       tester,

@@ -257,10 +257,11 @@ class _MultiTransactionReviewSheetState
         _membersError = '${context.l10n.errorLoadingMembers}: $error';
       });
     } finally {
-      if (!mounted) return;
-      setState(() {
-        _isLoadingMembers = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoadingMembers = false;
+        });
+      }
     }
   }
 
@@ -743,7 +744,7 @@ class _MultiTransactionReviewSheetState
                   if (shouldAutoSelect && _selectedHouseholdId != preferredId) {
                     WidgetsBinding.instance.addPostFrameCallback((_) {
                       if (!mounted) return;
-                      _setHouseholdSelection(preferredId ?? households.first.id);
+                      _setHouseholdSelection(preferredId);
                     });
                   }
                 }
@@ -1357,7 +1358,7 @@ class _EditTransactionSheetState extends State<_EditTransactionSheet> {
     String? effectivePayerUserId;
     if (splitConfigProvided) {
       effectiveSplits = _splits;
-      if (effectiveSplits == null || effectiveSplits!.isEmpty) {
+      if (effectiveSplits == null || effectiveSplits.isEmpty) {
         effectiveSplits = buildDefaultMemberSplits(
           members: widget.members!,
           totalAmount: _amountValue,

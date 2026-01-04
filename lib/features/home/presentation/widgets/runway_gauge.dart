@@ -19,7 +19,7 @@ class RunwayGauge extends ConsumerWidget {
         ref.watch(homeFilterProvider).selectedCurrency ?? 'USD';
     appLog('widget_viewed: runway_gauge');
 
-    String _formatCurrencyValue(double amount) {
+    String formatCurrencyValue(double amount) {
       final normalized = double.parse(formatAmount(amount));
       final symbol = resolveCurrencySymbol(currencyCode);
       final localized = formatLocalizedNumber(context, normalized);
@@ -67,11 +67,11 @@ class RunwayGauge extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                  '${context.l10n.avgDaily} ${_formatCurrencyValue(info.avgDailySpend)}',
+                  '${context.l10n.avgDaily} ${formatCurrencyValue(info.avgDailySpend)}',
                   style: TextStyle(
                       fontSize: 12, color: colorScheme.mutedForeground)),
               Text(
-                  '${context.l10n.left} ${_formatCurrencyValue(info.budgetRemaining)}',
+                  '${context.l10n.left} ${formatCurrencyValue(info.budgetRemaining)}',
                   style: TextStyle(
                       fontSize: 12, color: colorScheme.mutedForeground)),
             ],

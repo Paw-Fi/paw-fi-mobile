@@ -1630,5 +1630,9 @@
   "homeModeTourDescription": "اپنے ذاتی ڈیٹا اور گروپ کے ڈیٹا کے درمیان سوئچ کرنے کے لیے یہاں ٹیپ کریں۔",
   "topCategory": "اعلیٰ درجے کی کیٹیگری",
   "selectAll": "سبھی منتخب کریں",
-  "deselectAll": "تمام انتخاب ختم کریں"
+  "deselectAll": "تمام انتخاب ختم کریں",
+  "unknownMember": "نامعلوم رکن",
+  "totalSpent": "کل خرچ",
+  "sharedWithMembers": "{count} اراکین کے ساتھ شیئر کیا گیا",
+  "noTransactionsForPeriod": "اس مدت کے لیے کوئی لین دین نہیں ملا۔"
 }

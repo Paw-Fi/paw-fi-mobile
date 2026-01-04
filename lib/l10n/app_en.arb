@@ -1688,5 +1688,9 @@
   "homeModeTourDescription": "Tap here to switch between your personal data and your group’s data.",
   "topCategory": "Top category",
   "selectAll": "Select All",
-  "deselectAll": "Deselect All"
+  "deselectAll": "Deselect All",
+  "unknownMember": "Unknown Member",
+  "totalSpent": "Total Spent",
+  "sharedWithMembers": "Shared with {count} members",
+  "noTransactionsForPeriod": "No transactions found for this period."
 }

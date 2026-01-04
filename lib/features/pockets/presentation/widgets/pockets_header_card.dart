@@ -119,7 +119,7 @@ class PocketsHeaderCard extends StatelessWidget {
     final textColor = colorScheme.foreground;
     final subTextColor = colorScheme.mutedForeground;
 
-    String _formatLocalizedCurrency(double amount) {
+    String formatLocalizedCurrency(double amount) {
       final normalized = double.parse(formatAmount(amount));
       final symbol = resolveCurrencySymbol(currency);
       final localized = formatLocalizedNumber(context, normalized);
@@ -194,7 +194,7 @@ class PocketsHeaderCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _formatLocalizedCurrency(effectiveBudget),
+                    formatLocalizedCurrency(effectiveBudget),
                     style: TextStyle(
                       fontSize: 42,
                       fontWeight: FontWeight.w700,
@@ -247,7 +247,7 @@ class PocketsHeaderCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      _formatLocalizedCurrency(sliderMax),
+                      formatLocalizedCurrency(sliderMax),
                       style: TextStyle(
                         fontSize: 12,
                         color: subTextColor,

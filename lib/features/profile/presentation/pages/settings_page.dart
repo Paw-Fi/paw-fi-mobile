@@ -750,12 +750,16 @@ Future<void> _showAvatarSourceSheet(
     return;
   }
 
+  if (!context.mounted) return;
+
   final file = await _pickAndCropAvatarImage(context, source);
-  if (file == null) {
+  if (file == null || !context.mounted) {
     return;
   }
 
-  await _uploadAndSaveAvatar(context, ref, file, onUpdated);
+  if (context.mounted) {
+    await _uploadAndSaveAvatar(context, ref, file, onUpdated);
+  }
 }
 
 Future<File?> _pickAndCropAvatarImage(
@@ -1110,6 +1114,8 @@ Future<void> _showEditNameSheet({
   if (result == null || !result.confirmed || result.text == null) {
     return;
   }
+
+  if (!context.mounted) return;
 
   final controller = TextEditingController(text: result.text!);
   await _saveName(

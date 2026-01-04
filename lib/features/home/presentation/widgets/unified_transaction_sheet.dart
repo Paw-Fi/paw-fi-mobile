@@ -722,7 +722,7 @@ class _UnifiedTransactionSheetState
     // Auto-select household only if no valid selection exists.
     final hasValidSelection = selectedHousehold != null &&
         households.any((h) => h.id == selectedHousehold);
-    String _resolveDefaultHouseholdId() {
+    String resolveDefaultHouseholdId() {
       final headerId = selectedHouseholdState.householdId ??
           selectedHouseholdState.household?.id;
       if (headerId != null && households.any((h) => h.id == headerId)) {
@@ -741,7 +741,7 @@ class _UnifiedTransactionSheetState
             currentSelection.isNotEmpty &&
             households.any((h) => h.id == currentSelection);
         if (isCurrentValid) return;
-        final preferredId = _resolveDefaultHouseholdId();
+        final preferredId = resolveDefaultHouseholdId();
         ref.read(selectedHouseholdForSharingProvider.notifier).state =
             preferredId;
         _loadMembers(preferredId);
@@ -811,7 +811,7 @@ class _UnifiedTransactionSheetState
                             return existingId;
                           }
                         }
-                        return _resolveDefaultHouseholdId();
+                        return resolveDefaultHouseholdId();
                       }();
 
                       debugPrint(
@@ -849,7 +849,7 @@ class _UnifiedTransactionSheetState
                 child: DropdownButton<String>(
                   value: hasValidSelection
                       ? selectedHousehold
-                      : _resolveDefaultHouseholdId(),
+                      : resolveDefaultHouseholdId(),
                   isExpanded: true,
                   icon: Icon(Icons.arrow_drop_down,
                       color: colorScheme.foreground),
@@ -2533,6 +2533,9 @@ class _UnifiedTransactionSheetState
 
       debugPrint(' Deleting expense: ${widget.existingExpense!.id}');
 
+      // Capture l10n before async call
+      final failedToDeleteExpenseMsg = context.l10n.failedToDeleteExpense;
+
       // Call delete API
       final response = await supabase.functions.invoke(
         'delete-expense',
@@ -2544,7 +2547,7 @@ class _UnifiedTransactionSheetState
 
       if (response.data == null || response.data['success'] != true) {
         throw Exception(
-            response.data?['error'] ?? context.l10n.failedToDeleteExpense);
+            response.data?['error'] ?? failedToDeleteExpenseMsg);
       }
 
       debugPrint(' Expense deleted successfully');

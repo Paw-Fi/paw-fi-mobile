@@ -1631,5 +1631,9 @@
   "homeModeTourDescription": "Tik hier om te wisselen tussen je persoonlijke gegevens en groepsgegevens.",
   "topCategory": "Topcategorie",
   "selectAll": "Alles selecteren",
-  "deselectAll": "Selectie opheffen"
+  "deselectAll": "Selectie opheffen",
+  "unknownMember": "Onbekend lid",
+  "totalSpent": "Totaal uitgegeven",
+  "sharedWithMembers": "Gedeeld met {count} leden",
+  "noTransactionsForPeriod": "Geen transacties gevonden voor deze periode."
 }

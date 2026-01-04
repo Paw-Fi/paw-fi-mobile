@@ -59,10 +59,13 @@ class WalletLoginButton extends HookConsumerWidget {
 
         debugPrint('🔐 [Web3] Starting authentication for $chain');
 
+        // Capture l10n before async call
+        final walletSignInStatement = context.l10n.walletSignInStatement;
+
         // Step 2: Call web3SignIn from JS interop  
         final sessionData = await web3SignIn(
           chain: chain,
-          statement: context.l10n.walletSignInStatement,
+          statement: walletSignInStatement,
           projectUrl: Constants.supabaseUrl,
           anonKey: Constants.supabaseAnon,
         );

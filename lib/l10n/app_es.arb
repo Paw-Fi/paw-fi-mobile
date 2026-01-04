@@ -1686,5 +1686,9 @@
   "homeModeTourDescription": "Toca aquí para cambiar entre tus datos personales y los datos del grupo.",
   "topCategory": "Categoría principal",
   "selectAll": "Seleccionar todo",
-  "deselectAll": "Deseleccionar todo"
+  "deselectAll": "Deseleccionar todo",
+  "unknownMember": "Miembro desconocido",
+  "totalSpent": "Total gastado",
+  "sharedWithMembers": "Compartido con {count} miembros",
+  "noTransactionsForPeriod": "No se encontraron transacciones en este período."
 }

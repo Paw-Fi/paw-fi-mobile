@@ -443,7 +443,9 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
     );
 
     if (result?.confirmed == true) {
-      await _deleteHousehold(pageContext);
+      if (pageContext.mounted) {
+        await _deleteHousehold(pageContext);
+      }
     }
   }
 
@@ -464,13 +466,13 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
       await ref.read(userHouseholdsProvider(userId).notifier).load();
       await ref.read(selectedHouseholdProvider.notifier).initialize();
 
-      if (!mounted) return;
+      if (!pageContext.mounted) return;
 
       if (Navigator.of(pageContext).canPop()) {
         Navigator.of(pageContext).pop();
       }
     } catch (e) {
-      if (mounted) {
+      if (pageContext.mounted) {
         AppToast.error(
           pageContext,
           'Failed to delete household: $e',
@@ -518,7 +520,7 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
       // Refresh selected household if this is the selected one
       final selectedState = ref.read(selectedHouseholdProvider);
       if (selectedState.householdId == widget.householdId) {
-        final user = ref.read(authProvider);
+        // final user = ref.read(authProvider); // Available if needed
         await ref.read(selectedHouseholdProvider.notifier).refresh();
       }
 
@@ -1295,13 +1297,13 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
         await _loadInvites();
 
         final navCtx = rootNavigatorKey.currentContext;
-        if (navCtx != null && navCtx.mounted) {
+        if (navCtx != null && navCtx.mounted && context.mounted) {
           _hideBlockingLoader(navCtx);
           AppToast.success(context, context.l10n.invitationRevoked);
         }
       } catch (e) {
         final navCtx = rootNavigatorKey.currentContext;
-        if (navCtx != null && navCtx.mounted) {
+        if (navCtx != null && navCtx.mounted && context.mounted) {
           _hideBlockingLoader(navCtx);
           AppToast.error(context, '${context.l10n.errorRevokingInvite}: $e');
         }
