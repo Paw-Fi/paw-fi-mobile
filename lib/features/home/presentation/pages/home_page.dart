@@ -37,6 +37,7 @@ import 'package:moneko/features/home/presentation/widgets/customizable_dashboard
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_widgets.dart';
 import 'package:moneko/features/insights/presentation/widgets/category_guide_dialog.dart';
 import 'package:skeletonizer/skeletonizer.dart';
+import 'package:go_router/go_router.dart';
 
 // ============================================================================
 // HOME PAGE
@@ -438,6 +439,15 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   Future<void> _startFabTourIfNeeded() async {
+    final user = ref.read(authProvider);
+    if (user.isEmpty) return;
+
+    final location = GoRouter.of(context).location;
+    if (location != '/dashboard') return;
+
+    final route = ModalRoute.of(context);
+    if (route == null || !route.isCurrent) return;
+
     await _fabTourController.start(context);
   }
 
@@ -493,7 +503,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
     final shouldShowFab = _shouldShowFAB(viewMode, householdsAsync);
 
-    if (shouldShowFab) {
+    if (shouldShowFab && !user.isEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         _startFabTourIfNeeded();

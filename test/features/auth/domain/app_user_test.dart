@@ -51,15 +51,11 @@ void main() {
   group('AppUser - JSON Serialization', () {
     test('fromJson parses user correctly', () {
       final json = {
-        'id': 'user_123',
+        'uid': 'user_123',
         'email': 'test@example.com',
-        'raw_user_meta_data': {
-          'full_name': 'Test User',
-          'avatar_url': 'https://example.com/photo.jpg',
-        },
-        'user_metadata': {
-          'is_creator': true,
-        },
+        'displayName': 'Test User',
+        'photoUrl': 'https://example.com/photo.jpg',
+        'isCreator': true,
       };
 
       final user = AppUser.fromJson(json);
@@ -73,7 +69,7 @@ void main() {
 
     test('fromJson handles missing optional fields', () {
       final json = {
-        'id': 'user_123',
+        'uid': 'user_123',
         'email': 'test@example.com',
       };
 
@@ -86,12 +82,12 @@ void main() {
       expect(user.isCreator, false);
     });
 
-    test('fromJson handles null metadata', () {
+    test('fromJson handles null optional fields', () {
       final json = {
-        'id': 'user_123',
+        'uid': 'user_123',
         'email': 'test@example.com',
-        'raw_user_meta_data': null,
-        'user_metadata': null,
+        'displayName': null,
+        'photoUrl': null,
       };
 
       final user = AppUser.fromJson(json);
@@ -101,12 +97,13 @@ void main() {
       expect(user.isCreator, false);
     });
 
-    test('fromJson handles empty metadata', () {
+    test('fromJson handles explicit null values', () {
       final json = {
-        'id': 'user_123',
+        'uid': 'user_123',
         'email': 'test@example.com',
-        'raw_user_meta_data': <String, dynamic>{},
-        'user_metadata': <String, dynamic>{},
+        'displayName': null,
+        'photoUrl': null,
+        'isCreator': false,
       };
 
       final user = AppUser.fromJson(json);
@@ -118,11 +115,9 @@ void main() {
 
     test('fromJson handles isCreator as false', () {
       final json = {
-        'id': 'user_123',
+        'uid': 'user_123',
         'email': 'test@example.com',
-        'user_metadata': {
-          'is_creator': false,
-        },
+        'isCreator': false,
       };
 
       final user = AppUser.fromJson(json);

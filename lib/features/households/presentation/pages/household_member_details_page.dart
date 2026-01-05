@@ -1,4 +1,3 @@
-import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -12,6 +11,7 @@ import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
+import 'package:moneko/shared/widgets/moneko_tab_bar_view.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:collection/collection.dart';
 import 'package:intl/intl.dart';
@@ -339,7 +339,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
           SizedBox(
             height: 40,
             width: double.infinity,
-            child: AdaptiveSegmentedControl(
+            child: MonekoSegmentedControl(
               labels: [
                 DateRangeFilter.thisMonth.getLabel(context),
                 DateRangeFilter.last30Days.getLabel(context),

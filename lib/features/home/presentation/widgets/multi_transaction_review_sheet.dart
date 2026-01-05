@@ -641,11 +641,13 @@ class _MultiTransactionReviewSheetState
         color: colorScheme.card,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+      child: PopScope(
+        canPop: !_isSaving,
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
             Container(
               margin: const EdgeInsets.only(top: 10, bottom: 6),
               width: 36,
@@ -986,34 +988,35 @@ class _MultiTransactionReviewSheetState
                 },
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: SizedBox(
-                width: double.infinity,
-                child: PrimaryAdaptiveButton(
-                  onPressed: _isSaving ? null : _handleSave,
-                  child: _isSaving
-                      ? SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Theme.of(context)
-                                  .colorScheme
-                                  .primaryForeground,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: PrimaryAdaptiveButton(
+                    onPressed: _isSaving ? null : _handleSave,
+                    child: _isSaving
+                        ? SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Theme.of(context)
+                                    .colorScheme
+                                    .primaryForeground,
+                              ),
                             ),
+                          )
+                        : Text(
+                            _isIncomeMode
+                                ? '${context.l10n.save} $_selectedCount ${context.l10n.items}'
+                                : '${context.l10n.save} $_selectedCount ${context.l10n.items}',
                           ),
-                        )
-                      : Text(
-                          _isIncomeMode
-                              ? '${context.l10n.save} $_selectedCount ${context.l10n.items}'
-                              : '${context.l10n.save} $_selectedCount ${context.l10n.items}',
-                        ),
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

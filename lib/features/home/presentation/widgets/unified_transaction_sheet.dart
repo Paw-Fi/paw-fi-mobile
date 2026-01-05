@@ -2109,7 +2109,20 @@ class _UnifiedTransactionSheetState
                     _isSharedWithHousehold ? selectedHousehold : null, //
               );
 
-          // Reset state
+          if (saved == null) {
+            final incomeState = ref.read(incomeSaveProvider);
+            final error = incomeState.whenOrNull(error: (e, _) => e);
+            if (!mounted) return;
+            AppToast.error(
+              context,
+              context.l10n.failedToSave(
+                error?.toString() ?? context.l10n.income,
+              ),
+            );
+            return;
+          }
+
+          // Reset state after successful save
           ref.read(pendingExpenseProvider.notifier).state = null;
           ref.read(selectedHouseholdForSharingProvider.notifier).state = null;
           // Upload receipt image if available

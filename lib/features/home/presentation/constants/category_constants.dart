@@ -772,6 +772,11 @@ String normalizeCategory(String rawCategory) {
     return categoryMappings[normalized]!;
   }
   
+  // Skip fuzzy matching for empty strings
+  if (normalized.isEmpty) {
+    return normalized;
+  }
+  
   // Fuzzy matching for partial matches
   for (final entry in categoryMappings.entries) {
     if (normalized.contains(entry.key) || entry.key.contains(normalized)) {

@@ -715,12 +715,14 @@ class AddRecurringSheet extends HookConsumerWidget {
         color: colorScheme.sheetBackground,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+      child: PopScope(
+        canPop: !isLoading.value,
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
             // Header
             Padding(
               padding: const EdgeInsets.all(20),
@@ -1554,7 +1556,8 @@ class AddRecurringSheet extends HookConsumerWidget {
               color: colorScheme.mutedForeground,
               size: 20,
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );

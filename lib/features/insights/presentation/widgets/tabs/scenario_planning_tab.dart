@@ -412,14 +412,18 @@ class _ScenarioPlanningTabContentState
 
                       final dateButton = SubtleAdaptiveButton(
                         onPressed: () => _pickTargetDate(context),
-                        child: Text(_scenarioDate == null
-                            ? context.l10n.pickDate
-                            : _formatLocalizedDate(_scenarioDate!)),
+                        child: Text(
+                          _scenarioDate == null
+                              ? context.l10n.pickDate
+                              : _formatLocalizedDate(_scenarioDate!),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       );
 
                       Widget buildPrimaryButton({bool expand = true}) {
-                        final btn = SizedBox(
-                          height: 40,
+                        final btn = ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: 44),
                           child: PrimaryAdaptiveButton(
                             onPressed: _scenarioLoading
                                 ? null
@@ -718,6 +722,8 @@ class _ScenarioPlanningTabContentState
                                   },
                             child: Text(
                               context.l10n.check,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                   color: colorScheme.buttonText,
                                   fontWeight: FontWeight.bold),

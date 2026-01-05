@@ -17,9 +17,19 @@ class SubtleAdaptiveButton extends StatelessWidget {
     return AdaptiveButton.child(
       color: scheme.surfaceContainerHighest,
       onPressed: onPressed,
-      child: DefaultTextStyle.merge(
-        style: TextStyle(color: scheme.onSurface),
-        child: child,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 44),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: DefaultTextStyle.merge(
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: scheme.onSurface),
+              child: child,
+            ),
+          ),
+        ),
       ),
     );
   }
