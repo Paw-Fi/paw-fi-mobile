@@ -24,132 +24,171 @@ class MonekoSegmentedControl extends StatelessWidget {
   const MonekoSegmentedControl({
     super.key,
     required this.labels,
+    this.icons,
     required this.selectedIndex,
     required this.onValueChanged,
     this.height = 40,
+    this.iconSize,
   });
 
   final List<String> labels;
+  final List<IconData>? icons;
   final int selectedIndex;
   final ValueChanged<int> onValueChanged;
   final double height;
+  final double? iconSize;
+
+  bool get _usesIcons => icons != null && icons!.isNotEmpty;
+
+  int get _segmentCount => _usesIcons ? icons!.length : labels.length;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final colorScheme = _resolveColorScheme(context);
 
-    if (PlatformInfo.isIOS && !PlatformInfo.isIOS26OrHigher()) {
-      return SizedBox(
-        height: height,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final segmentWidth =
-                labels.isEmpty ? 0.0 : constraints.maxWidth / labels.length;
-
-            return CupertinoSlidingSegmentedControl<int>(
-              groupValue: selectedIndex,
-              backgroundColor: colorScheme.muted,
-              thumbColor: colorScheme.tabThumb,
-              children: {
-                for (int i = 0; i < labels.length; i++)
-                  i: SizedBox(
-                    width: segmentWidth,
-                    child: Center(
-                      child: Text(
-                        labels[i],
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: i == selectedIndex
-                              ? colorScheme.tabSelectedForeground
-                              : colorScheme.tabUnselectedForeground,
-                        ),
-                      ),
-                    ),
-                  ),
-              },
-              onValueChanged: (value) {
-                if (value == null) return;
-                onValueChanged(value);
-              },
-            );
-          },
-        ),
-      );
+    if (PlatformInfo.isIOS) {
+      return _buildCupertinoSegmentedControl(colorScheme);
     }
 
-    if (PlatformInfo.isAndroid) {
-      return SizedBox(
-        height: height,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            if (labels.isEmpty) {
-              return const SizedBox.shrink();
-            }
+    return _buildAndroidSegmentedControl(colorScheme);
+  }
 
-            final segmentWidth = constraints.maxWidth / labels.length;
-            final thumbLeft = segmentWidth *
-                selectedIndex.clamp(0, labels.length - 1);
+  ColorScheme _resolveColorScheme(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final platformBrightness =
+        MediaQuery.maybeOf(context)?.platformBrightness ??
+            WidgetsBinding.instance.platformDispatcher.platformBrightness;
 
-            return ClipRRect(
-              borderRadius: BorderRadius.circular(height / 2),
-              child: Stack(
-                children: [
-                  Container(
-                    color: colorScheme.muted,
-                  ),
-                  AnimatedPositioned(
-                    duration: const Duration(milliseconds: 180),
-                    curve: Curves.easeOut,
-                    left: thumbLeft,
-                    top: 0,
-                    bottom: 0,
-                    child: Container(
-                      width: segmentWidth,
-                      decoration: BoxDecoration(
-                        color: colorScheme.tabThumb,
-                        borderRadius: BorderRadius.circular(height / 2),
-                      ),
+    if (scheme.brightness != platformBrightness) {
+      return platformBrightness == Brightness.dark
+          ? AppTheme.darkTheme().colorScheme
+          : AppTheme.lightTheme().colorScheme;
+    }
+
+    return scheme;
+  }
+
+  Widget _buildCupertinoSegmentedControl(ColorScheme colorScheme) {
+    return SizedBox(
+      height: height,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (_segmentCount == 0) {
+            return const SizedBox.shrink();
+          }
+
+          final segmentWidth = constraints.maxWidth / _segmentCount;
+
+          return CupertinoSlidingSegmentedControl<int>(
+            groupValue: selectedIndex,
+            backgroundColor: colorScheme.muted,
+            thumbColor: colorScheme.tabThumb,
+            children: {
+              for (int i = 0; i < _segmentCount; i++)
+                i: SizedBox(
+                  width: segmentWidth,
+                  child: Center(
+                    child: _buildSegmentContent(
+                      colorScheme,
+                      i,
+                      isSelected: i == selectedIndex,
                     ),
                   ),
-                  Row(
-                    children: [
-                      for (int i = 0; i < labels.length; i++)
-                        Expanded(
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(height / 2),
-                            onTap: () => onValueChanged(i),
-                            child: Center(
-                              child: Text(
-                                labels[i],
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: i == selectedIndex
-                                      ? colorScheme.tabSelectedForeground
-                                      : colorScheme.tabUnselectedForeground,
-                                ),
-                              ),
+                ),
+            },
+            onValueChanged: (value) {
+              if (value == null) return;
+              onValueChanged(value);
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildAndroidSegmentedControl(ColorScheme colorScheme) {
+    return SizedBox(
+      height: height,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (_segmentCount == 0) {
+            return const SizedBox.shrink();
+          }
+
+          final segmentWidth = constraints.maxWidth / _segmentCount;
+          final thumbLeft =
+              segmentWidth * selectedIndex.clamp(0, _segmentCount - 1);
+
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(height / 2),
+            child: Stack(
+              children: [
+                Container(
+                  color: colorScheme.muted,
+                ),
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOut,
+                  left: thumbLeft,
+                  top: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: segmentWidth,
+                    decoration: BoxDecoration(
+                      color: colorScheme.tabThumb,
+                      borderRadius: BorderRadius.circular(height / 2),
+                    ),
+                  ),
+                ),
+                Row(
+                  children: [
+                    for (int i = 0; i < _segmentCount; i++)
+                      Expanded(
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(height / 2),
+                          onTap: () => onValueChanged(i),
+                          child: Center(
+                            child: _buildSegmentContent(
+                              colorScheme,
+                              i,
+                              isSelected: i == selectedIndex,
                             ),
                           ),
                         ),
-                    ],
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildSegmentContent(
+    ColorScheme colorScheme,
+    int index, {
+    required bool isSelected,
+  }) {
+    final color = isSelected
+        ? colorScheme.tabSelectedForeground
+        : colorScheme.tabUnselectedForeground;
+
+    if (_usesIcons) {
+      return Icon(
+        icons![index],
+        size: iconSize ?? 18,
+        color: color,
       );
     }
 
-    return SizedBox(
-      height: height,
-      child: AdaptiveSegmentedControl(
-        labels: labels,
-        selectedIndex: selectedIndex,
-        onValueChanged: onValueChanged,
-        height: height,
+    return Text(
+      labels[index],
+      style: TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        color: color,
       ),
     );
   }

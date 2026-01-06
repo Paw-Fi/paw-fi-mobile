@@ -26,6 +26,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_controller.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_step.dart';
 import 'package:moneko/core/navigation/navigation_providers.dart';
+import 'package:moneko/shared/widgets/moneko_tab_bar_view.dart';
 
 class PocketsGridSection extends HookConsumerWidget {
   const PocketsGridSection({
@@ -287,20 +288,15 @@ class PocketsGridSection extends HookConsumerWidget {
                   SizedBox(
                     width: PlatformInfo.isIOS ? 90 : 150,
                     height: 40,
-                    child: AdaptiveSegmentedControl(
+                    child: MonekoSegmentedControl(
                       labels: const [],
-                      // Platform-specific icons for grid view
-                      sfSymbols: [
-                        PlatformInfo.isIOS26OrHigher()
-                            ? 'square.grid.2x2.fill'
-                            : PlatformInfo.isIOS
-                                ? CupertinoIcons.square_grid_2x2_fill
-                                : Icons.dashboard,
-                        PlatformInfo.isIOS26OrHigher()
-                            ? 'list.bullet'
-                            : PlatformInfo.isIOS
-                                ? CupertinoIcons.list_bullet
-                                : Icons.list,
+                      icons: [
+                        PlatformInfo.isIOS
+                            ? CupertinoIcons.square_grid_2x2_fill
+                            : Icons.dashboard,
+                        PlatformInfo.isIOS
+                            ? CupertinoIcons.list_bullet
+                            : Icons.list,
                       ],
                       selectedIndex: viewMode.value == 'grid' ? 0 : 1,
                       onValueChanged: (index) {

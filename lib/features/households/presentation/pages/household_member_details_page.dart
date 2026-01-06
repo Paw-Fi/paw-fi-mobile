@@ -1,133 +1,27 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
+import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
-import 'package:moneko/shared/widgets/moneko_tab_bar_view.dart';
+import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:collection/collection.dart';
 import 'package:intl/intl.dart';
-
-DateTime _dateOnly(DateTime date) => DateTime(date.year, date.month, date.day);
-
-bool _sameDay(DateTime a, DateTime b) =>
-    a.year == b.year && a.month == b.month && a.day == b.day;
-
-@immutable
-class HouseholdMemberDateRangeSeed {
-  final DateTime from;
-  final DateTime to;
-
-  const HouseholdMemberDateRangeSeed({
-    required this.from,
-    required this.to,
-  });
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is HouseholdMemberDateRangeSeed &&
-          _sameDay(from, other.from) &&
-          _sameDay(to, other.to);
-
-  @override
-  int get hashCode => Object.hash(from.year, from.month, from.day, to.year, to.month, to.day);
-}
-
-@immutable
-class HouseholdMemberDateRangeState {
-  final DateRangeFilter filter;
-  final DateTime? customStartDate;
-  final DateTime? customEndDate;
-
-  const HouseholdMemberDateRangeState({
-    required this.filter,
-    this.customStartDate,
-    this.customEndDate,
-  });
-
-  HouseholdMemberDateRangeState copyWith({
-    DateRangeFilter? filter,
-    DateTime? customStartDate,
-    DateTime? customEndDate,
-    bool clearCustom = false,
-  }) {
-    return HouseholdMemberDateRangeState(
-      filter: filter ?? this.filter,
-      customStartDate: clearCustom ? null : (customStartDate ?? this.customStartDate),
-      customEndDate: clearCustom ? null : (customEndDate ?? this.customEndDate),
-    );
-  }
-}
-
-class HouseholdMemberDateRangeNotifier
-    extends StateNotifier<HouseholdMemberDateRangeState> {
-  HouseholdMemberDateRangeNotifier(HouseholdMemberDateRangeSeed seed)
-      : super(_initialState(seed));
-
-  static HouseholdMemberDateRangeState _initialState(
-      HouseholdMemberDateRangeSeed seed) {
-    final from = _dateOnly(seed.from);
-    final to = _dateOnly(seed.to);
-    final candidates = [
-      DateRangeFilter.thisMonth,
-      DateRangeFilter.last30Days,
-      DateRangeFilter.allTime,
-    ];
-
-    for (final filter in candidates) {
-      final range = getDateRangeFromFilter(filter, null, null);
-      if (_sameDay(range['from']!, from) && _sameDay(range['to']!, to)) {
-        return HouseholdMemberDateRangeState(filter: filter);
-      }
-    }
-
-    return HouseholdMemberDateRangeState(
-      filter: DateRangeFilter.custom,
-      customStartDate: from,
-      customEndDate: to,
-    );
-  }
-
-  void setFilter(DateRangeFilter filter) {
-    state = state.copyWith(
-      filter: filter,
-      clearCustom: filter != DateRangeFilter.custom,
-    );
-  }
-
-  void setCustomRange(DateTime start, DateTime end) {
-    state = state.copyWith(
-      filter: DateRangeFilter.custom,
-      customStartDate: _dateOnly(start),
-      customEndDate: _dateOnly(end),
-    );
-  }
-}
-
-final householdMemberDateRangeProvider = StateNotifierProvider.autoDispose.family<
-    HouseholdMemberDateRangeNotifier,
-    HouseholdMemberDateRangeState,
-    HouseholdMemberDateRangeSeed>(
-  (ref, seed) => HouseholdMemberDateRangeNotifier(seed),
-);
 
 class HouseholdMemberDetailsPage extends HookConsumerWidget {
   final HouseholdMember member;
   final List<ExpenseEntry> transactions;
   final List<ExpenseSplitGroup>? splits;
-  final DateTime from;
-  final DateTime to;
   final String currency;
-  final int totalSpentCents;
   final String? householdId;
 
   const HouseholdMemberDetailsPage({
@@ -135,24 +29,18 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
     required this.member,
     required this.transactions,
     this.splits,
-    required this.from,
-    required this.to,
     required this.currency,
-    required this.totalSpentCents,
     this.householdId,
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // final themeMode = ref.watch(themeModeProvider); // Available if needed
+  Widget build(BuildContext context, WidgetRef _) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    final seed = HouseholdMemberDateRangeSeed(from: from, to: to);
-    final rangeState = ref.watch(householdMemberDateRangeProvider(seed));
     final range = getDateRangeFromFilter(
-      rangeState.filter,
-      rangeState.customStartDate,
-      rangeState.customEndDate,
+      DateRangeFilter.thisMonth,
+      null,
+      null,
     );
     final rangeFrom = range['from']!;
     final rangeTo = range['to']!;
@@ -164,6 +52,15 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
       0,
       (sum, entry) => sum + entry.amountCents.abs(),
     );
+    final transactionCount = memberTransactions.length;
+    final daysInRange = rangeTo.difference(rangeFrom).inDays + 1;
+    final avgDailySpendCents = daysInRange > 0
+        ? (totalSpentCentsForRange / daysInRange).round()
+        : 0;
+    final categoryTransactions = _groupTransactionsByCategory(
+      memberTransactions,
+    );
+    final categorySummaries = _buildCategorySummaries(categoryTransactions);
 
     return Scaffold(
       backgroundColor: colorScheme.appBackground,
@@ -174,13 +71,19 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
           SliverToBoxAdapter(
             child: _buildHeader(
               context,
-              ref,
               colorScheme,
-              seed,
-              rangeState,
-              rangeFrom,
-              rangeTo,
               totalSpentCentsForRange,
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: _buildInsightsSection(
+              context,
+              colorScheme,
+              transactionCount: transactionCount,
+              avgDailySpendCents: avgDailySpendCents,
+              totalSpentCents: totalSpentCentsForRange,
+              categorySummaries: categorySummaries,
+              categoryTransactions: categoryTransactions,
             ),
           ),
           if (memberTransactions.isEmpty)
@@ -247,12 +150,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
 
   Widget _buildHeader(
     BuildContext context,
-    WidgetRef ref,
     ColorScheme colorScheme,
-    HouseholdMemberDateRangeSeed seed,
-    HouseholdMemberDateRangeState rangeState,
-    DateTime rangeFrom,
-    DateTime rangeTo,
     int rangeTotalSpentCents,
   ) {
     final formattedTotal = formatLocalizedNumber(
@@ -260,10 +158,6 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
       rangeTotalSpentCents / 100.0,
     );
     final symbol = resolveCurrencySymbol(currency);
-    final dateRangeLabel =
-        DateFormat('MMM d').format(rangeFrom) +
-        ' - ' +
-        DateFormat('MMM d').format(rangeTo);
     
     return Padding(
       padding: const EdgeInsets.all(24.0),
@@ -328,72 +222,11 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '${context.l10n.totalSpent} · $dateRangeLabel',
+            context.l10n.spentThisMonth,
             style: TextStyle(
               fontSize: 14,
               color: colorScheme.mutedForeground,
               fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            height: 40,
-            width: double.infinity,
-            child: MonekoSegmentedControl(
-              labels: [
-                DateRangeFilter.thisMonth.getLabel(context),
-                DateRangeFilter.last30Days.getLabel(context),
-                DateRangeFilter.allTime.getLabel(context),
-                DateRangeFilter.custom.getLabel(context),
-              ],
-              selectedIndex: () {
-                switch (rangeState.filter) {
-                  case DateRangeFilter.thisMonth:
-                    return 0;
-                  case DateRangeFilter.last30Days:
-                    return 1;
-                  case DateRangeFilter.allTime:
-                    return 2;
-                  case DateRangeFilter.custom:
-                    return 3;
-                  default:
-                    return 0;
-                }
-              }(),
-              onValueChanged: (index) async {
-                final notifier =
-                    ref.read(householdMemberDateRangeProvider(seed).notifier);
-                if (index == 3) {
-                  final firstDate = DateTime(2020);
-                  final lastDate = DateTime.now();
-                  final initialStart =
-                      rangeFrom.isBefore(firstDate) ? firstDate : rangeFrom;
-                  final initialEnd =
-                      rangeTo.isAfter(lastDate) ? lastDate : rangeTo;
-                  final initialRange = DateTimeRange(
-                    start: initialStart,
-                    end: initialEnd.isBefore(initialStart)
-                        ? initialStart
-                        : initialEnd,
-                  );
-                  final picked = await showDateRangePicker(
-                    context: context,
-                    firstDate: firstDate,
-                    lastDate: lastDate,
-                    initialDateRange: initialRange,
-                  );
-                  if (picked != null) {
-                    notifier.setCustomRange(picked.start, picked.end);
-                  }
-                  return;
-                }
-                final nextFilter = index == 0
-                    ? DateRangeFilter.thisMonth
-                    : index == 1
-                        ? DateRangeFilter.last30Days
-                        : DateRangeFilter.allTime;
-                notifier.setFilter(nextFilter);
-              },
             ),
           ),
           
@@ -431,6 +264,393 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildInsightsSection(
+    BuildContext context,
+    ColorScheme colorScheme, {
+    required int transactionCount,
+    required int avgDailySpendCents,
+    required int totalSpentCents,
+    required List<_CategorySummary> categorySummaries,
+    required Map<String, List<ExpenseEntry>> categoryTransactions,
+  }) {
+    if (transactionCount == 0) {
+      return const SizedBox.shrink();
+    }
+
+    final topCategory =
+        categorySummaries.isNotEmpty ? categorySummaries.first : null;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final tileWidth = (constraints.maxWidth - 12) / 2;
+              return Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  SizedBox(
+                    width: tileWidth,
+                    child: _buildMetricTile(
+                      context,
+                      colorScheme,
+                      label: context.l10n.transactions,
+                      value: transactionCount.toString(),
+                      subtitle: context.l10n.thisMonth,
+                    ),
+                  ),
+                  SizedBox(
+                    width: tileWidth,
+                    child: _buildMetricTile(
+                      context,
+                      colorScheme,
+                      label: context.l10n.avgDailySpendLabel,
+                      value: _formatCurrency(context, avgDailySpendCents),
+                      subtitle: context.l10n.thisMonth,
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+          if (topCategory != null) ...[
+            const SizedBox(height: 16),
+            _buildTopCategoryCard(
+              context,
+              colorScheme,
+              topCategory,
+              totalSpentCents,
+              categoryTransactions,
+            ),
+          ],
+          if (categorySummaries.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            Text(
+              context.l10n.category,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: colorScheme.foreground,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              context.l10n.categoryTotalsForSelectedRange,
+              style: TextStyle(
+                fontSize: 13,
+                color: colorScheme.mutedForeground,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _buildCategoryBreakdown(
+              context,
+              colorScheme,
+              categorySummaries,
+              totalSpentCents,
+              categoryTransactions,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMetricTile(
+    BuildContext context,
+    ColorScheme colorScheme, {
+    required String label,
+    required String value,
+    String? subtitle,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.cardSurface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: colorScheme.homeCardBorder,
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.homeCardShadow,
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+            spreadRadius: -2,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: colorScheme.mutedForeground,
+              letterSpacing: 0.2,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: colorScheme.foreground,
+            ),
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11,
+                color: colorScheme.mutedForeground.withValues(alpha: 0.8),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTopCategoryCard(
+    BuildContext context,
+    ColorScheme colorScheme,
+    _CategorySummary summary,
+    int totalSpentCents,
+    Map<String, List<ExpenseEntry>> categoryTransactions,
+  ) {
+    final categoryLabel = getCategoryTranslation(context, summary.category);
+    final categoryColor = getCategoryColor(summary.category);
+    final percent = totalSpentCents > 0
+        ? summary.amountCents / totalSpentCents
+        : 0.0;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: () => _openCategoryDetails(
+        context,
+        summary.category,
+        categoryTransactions[summary.category] ?? const [],
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: colorScheme.cardSurface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: colorScheme.homeCardBorder,
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: colorScheme.homeCardShadow,
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+              spreadRadius: -2,
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: categoryColor.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(
+                getCategoryIcon(summary.category),
+                color: categoryColor,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    context.l10n.topCategory,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.mutedForeground,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    categoryLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: colorScheme.foreground,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _formatCurrency(context, summary.amountCents),
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.mutedForeground,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              '${(percent * 100).round()}%',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.foreground,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryBreakdown(
+    BuildContext context,
+    ColorScheme colorScheme,
+    List<_CategorySummary> summaries,
+    int totalSpentCents,
+    Map<String, List<ExpenseEntry>> categoryTransactions,
+  ) {
+    final items = summaries.take(5).toList();
+    return Column(
+      children: items.map((summary) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: _buildCategoryRow(
+            context,
+            colorScheme,
+            summary,
+            totalSpentCents,
+            categoryTransactions,
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildCategoryRow(
+    BuildContext context,
+    ColorScheme colorScheme,
+    _CategorySummary summary,
+    int totalSpentCents,
+    Map<String, List<ExpenseEntry>> categoryTransactions,
+  ) {
+    final categoryLabel = getCategoryTranslation(context, summary.category);
+    final categoryColor = getCategoryColor(summary.category);
+    final percent = totalSpentCents > 0
+        ? summary.amountCents / totalSpentCents
+        : 0.0;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () => _openCategoryDetails(
+        context,
+        summary.category,
+        categoryTransactions[summary.category] ?? const [],
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: colorScheme.cardSurface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: colorScheme.homeCardBorder,
+            width: 1,
+          ),
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: categoryColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    getCategoryIcon(summary.category),
+                    color: categoryColor,
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        categoryLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.foreground,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${summary.transactionCount} ${context.l10n.transactions}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: colorScheme.mutedForeground,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  _formatCurrency(context, summary.amountCents),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.foreground,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: LinearProgressIndicator(
+                minHeight: 6,
+                value: percent.clamp(0.0, 1.0),
+                backgroundColor: colorScheme.muted,
+                valueColor: AlwaysStoppedAnimation<Color>(categoryColor),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -476,97 +696,52 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
               ),
             ],
           ),
-          child: Column(
-            children: expenses.mapIndexed((index, expense) {
-              final isLast = index == expenses.length - 1;
-              return Column(
-                children: [
-                  _buildTransactionRow(context, colorScheme, expense),
-                  if (!isLast)
-                    Divider(
-                      height: 1,
-                      thickness: 1,
-                      indent: 56,
-                      color: colorScheme.border.withValues(alpha: 0.1),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: Column(
+              children: expenses.mapIndexed((index, expense) {
+                final isLast = index == expenses.length - 1;
+                final isIncome =
+                    (expense.type ?? 'expense').toLowerCase() == 'income';
+                final displayDateTime = DateTime(
+                  expense.date.year,
+                  expense.date.month,
+                  expense.date.day,
+                  expense.createdAt.hour,
+                  expense.createdAt.minute,
+                  expense.createdAt.second,
+                  expense.createdAt.millisecond,
+                  expense.createdAt.microsecond,
+                );
+                return Column(
+                  children: [
+                    buildExpenseTransactionTile(
+                      context: context,
+                      category: expense.category,
+                      rawText: expense.rawText,
+                      date: displayDateTime,
+                      amount: expense.amount,
+                      currency: expense.currency ?? currency,
+                      isIncome: isIncome,
+                      onTap: () => showUnifiedTransactionSheet(
+                        context,
+                        existingExpense: expense,
+                      ),
                     ),
-                ],
-              );
-            }).toList(),
+                    if (!isLast)
+                      Divider(
+                        height: 1,
+                        thickness: 1,
+                        indent: 56,
+                        color: colorScheme.border.withValues(alpha: 0.1),
+                      ),
+                  ],
+                );
+              }).toList(),
+            ),
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildTransactionRow(BuildContext context, ColorScheme colorScheme, ExpenseEntry expense) {
-    final amount = expense.amountCents / 100.0;
-    final symbol = resolveCurrencySymbol(expense.currency ?? currency);
-    final formatted = formatLocalizedNumber(context, amount);
-    
-    // Determine category icon
-    final category = expense.category ?? 'general';
-    // Simplified category icon logic - in a real app this would map categories to icons
-    final IconData icon = _getCategoryIcon(category);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: colorScheme.muted.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              icon,
-              size: 20,
-              color: colorScheme.primary.withValues(alpha: 0.8),
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  expense.rawText ?? (expense.category ?? context.l10n.uncategorized),
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.foreground,
-                    letterSpacing: -0.2,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (expense.sharedMemberIds != null && expense.sharedMemberIds!.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(
-                      context.l10n.sharedWithMembers(expense.sharedMemberIds!.length),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: colorScheme.mutedForeground,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            '$symbol$formatted',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: colorScheme.foreground,
-              letterSpacing: -0.3,
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -618,36 +793,59 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
 
   // Helper Methods
 
-  IconData _getCategoryIcon(String category) {
-    // Basic mapping, could be expanded
-    switch (category.toLowerCase()) {
-      case 'food':
-      case 'groceries':
-      case 'restaurant':
-      case 'dining':
-        return Icons.restaurant_rounded;
-      case 'transport':
-      case 'transportation':
-      case 'uber':
-      case 'taxi':
-        return Icons.directions_car_rounded;
-      case 'housing':
-      case 'rent':
-      case 'utilities':
-        return Icons.home_rounded;
-      case 'entertainment':
-      case 'movies':
-      case 'fun':
-        return Icons.movie_rounded;
-      case 'shopping':
-      case 'clothing':
-        return Icons.shopping_bag_rounded;
-      case 'health':
-      case 'medical':
-        return Icons.medical_services_rounded;
-      default:
-        return Icons.category_rounded;
+  String _formatCurrency(BuildContext context, int amountCents) {
+    final symbol = resolveCurrencySymbol(currency);
+    final formatted =
+        formatLocalizedNumber(context, amountCents.abs() / 100.0);
+    return '$symbol$formatted';
+  }
+
+  Map<String, List<ExpenseEntry>> _groupTransactionsByCategory(
+    List<ExpenseEntry> transactions,
+  ) {
+    final grouped = <String, List<ExpenseEntry>>{};
+    for (final transaction in transactions) {
+      final key = normalizeCategory(transaction.category ?? 'uncategorized');
+      grouped.putIfAbsent(key, () => []).add(transaction);
     }
+    return grouped;
+  }
+
+  List<_CategorySummary> _buildCategorySummaries(
+    Map<String, List<ExpenseEntry>> grouped,
+  ) {
+    final summaries = grouped.entries.map((entry) {
+      final total = entry.value.fold<int>(
+        0,
+        (sum, item) => sum + item.amountCents.abs(),
+      );
+      return _CategorySummary(
+        category: entry.key,
+        amountCents: total,
+        transactionCount: entry.value.length,
+      );
+    }).toList();
+
+    summaries.sort((a, b) => b.amountCents.compareTo(a.amountCents));
+    return summaries;
+  }
+
+  void _openCategoryDetails(
+    BuildContext context,
+    String category,
+    List<ExpenseEntry> transactions,
+  ) {
+    if (transactions.isEmpty) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => HouseholdMemberCategoryDetailsPage(
+          member: member,
+          currency: currency,
+          category: category,
+          transactions: transactions,
+        ),
+      ),
+    );
   }
 
   List<ExpenseEntry> _getMemberTransactions(DateTime rangeFrom, DateTime rangeTo) {
@@ -789,6 +987,177 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
           parentContext: context,
         );
       },
+    );
+  }
+}
+
+class _CategorySummary {
+  final String category;
+  final int amountCents;
+  final int transactionCount;
+
+  const _CategorySummary({
+    required this.category,
+    required this.amountCents,
+    required this.transactionCount,
+  });
+}
+
+class HouseholdMemberCategoryDetailsPage extends StatelessWidget {
+  final HouseholdMember member;
+  final String currency;
+  final String category;
+  final List<ExpenseEntry> transactions;
+
+  const HouseholdMemberCategoryDetailsPage({
+    super.key,
+    required this.member,
+    required this.currency,
+    required this.category,
+    required this.transactions,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final categoryLabel = getCategoryTranslation(context, category);
+    final sortedTransactions = List<ExpenseEntry>.from(transactions)
+      ..sort((a, b) => b.date.compareTo(a.date));
+    final totalSpentCents = sortedTransactions.fold<int>(
+      0,
+      (sum, item) => sum + item.amountCents.abs(),
+    );
+    final symbol = resolveCurrencySymbol(currency);
+    final formattedTotal =
+        formatLocalizedNumber(context, totalSpentCents / 100.0);
+
+    return Scaffold(
+      backgroundColor: colorScheme.appBackground,
+      appBar: AppBar(
+        backgroundColor: colorScheme.appBackground,
+        elevation: 0,
+        centerTitle: true,
+        title: Text(
+          categoryLabel,
+          style: TextStyle(
+            color: colorScheme.foreground,
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        iconTheme: IconThemeData(color: colorScheme.foreground),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: colorScheme.cardSurface,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: colorScheme.homeCardBorder,
+                width: 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: colorScheme.homeCardShadow,
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                  spreadRadius: -2,
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: getCategoryColor(category).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(
+                    getCategoryIcon(category),
+                    color: getCategoryColor(category),
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.l10n.totalSpent,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.mutedForeground,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '$symbol$formattedTotal',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.foreground,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${sortedTransactions.length} ${context.l10n.transactions}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: colorScheme.mutedForeground,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            context.l10n.recentTransactions,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: colorScheme.foreground,
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (sortedTransactions.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Text(
+                context.l10n.noTransactionsYet,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: colorScheme.mutedForeground,
+                ),
+              ),
+            )
+          else
+            ...sortedTransactions.map((expense) {
+              return TransactionListTile(
+                category: expense.category ?? category,
+                title: categoryLabel,
+                description: expense.rawText,
+                date: expense.date,
+                amount: expense.amountCents / 100.0,
+                currency: expense.currency ?? currency,
+                isIncome: false,
+                onTap: () => showUnifiedTransactionSheet(
+                  context,
+                  existingExpense: expense,
+                ),
+              );
+            }),
+        ],
+      ),
     );
   }
 }

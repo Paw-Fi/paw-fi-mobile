@@ -206,8 +206,6 @@ Widget buildHouseholdMemberSpendingCard(
                         isLast,
                         transactions ?? [],
                         splits,
-                        from ?? DateTime.now(),
-                        to ?? DateTime.now(),
                       );
                     }).toList(),
                   ),
@@ -284,8 +282,6 @@ Widget _buildMemberRow(
   bool isLast,
   List<ExpenseEntry> transactions,
   List<ExpenseSplitGroup>? splits,
-  DateTime from,
-  DateTime to,
 ) {
   final percentage = totalMemberSpent > 0
       ? (member.totalSpentCents / totalMemberSpent) * 100
@@ -328,10 +324,7 @@ Widget _buildMemberRow(
               member: memberData,
               transactions: transactions,
               splits: splits,
-              from: from,
-              to: to,
               currency: currency,
-              totalSpentCents: member.totalSpentCents,
               householdId: householdId,
             ),
           ),

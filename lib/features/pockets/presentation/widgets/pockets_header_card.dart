@@ -54,6 +54,8 @@ const Map<String, double> _currencyBaselines = {
   'CLP': 900000,
   'DOP': 150000,
   'LKR': 300000,
+  'JMD': 1500000,
+  'MWK': 20000000,
 };
 
 class PocketsHeaderCard extends StatelessWidget {
@@ -118,6 +120,7 @@ class PocketsHeaderCard extends StatelessWidget {
         isSkeleton ? colorScheme.surfaceContainerHighest : baseCardColor;
     final textColor = colorScheme.foreground;
     final subTextColor = colorScheme.mutedForeground;
+    final sliderRailColor = colorScheme.mutedForeground.withValues(alpha: 0.35);
 
     String formatLocalizedCurrency(double amount) {
       final normalized = double.parse(formatAmount(amount));
@@ -212,21 +215,47 @@ class PocketsHeaderCard extends StatelessWidget {
               // Slider Section
               SizedBox(
                 width: double.infinity,
-                child: AdaptiveSlider(
-                  activeColor: colorScheme.primary,
-                  value: sliderValue,
-                  min: sliderMin,
-                  max: sliderMax,
-                  onChanged: (value) {
-                    final roundedValue =
-                        ((value - sliderMin) / sliderStep).round() *
-                                sliderStep +
-                            sliderMin;
-                    onTotalChanged(
-                      roundedValue.clamp(sliderMin, sliderMax).toDouble(),
-                    );
-                  },
-                  divisions: sliderDivisions,
+                child: SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    activeTrackColor: colorScheme.primary,
+                    inactiveTrackColor: sliderRailColor,
+                    trackHeight: 4,
+                    thumbColor: colorScheme.primaryForeground,
+                  ),
+                  child: SizedBox(
+                    height: 32,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Container(
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: sliderRailColor,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
+                        AdaptiveSlider(
+                          activeColor: colorScheme.primary,
+                          thumbColor: colorScheme.primaryForeground,
+                          value: sliderValue,
+                          min: sliderMin,
+                          max: sliderMax,
+                          onChanged: (value) {
+                            final roundedValue =
+                                ((value - sliderMin) / sliderStep).round() *
+                                        sliderStep +
+                                    sliderMin;
+                            onTotalChanged(
+                              roundedValue
+                                  .clamp(sliderMin, sliderMax)
+                                  .toDouble(),
+                            );
+                          },
+                          divisions: sliderDivisions,
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
 

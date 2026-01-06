@@ -1491,6 +1491,7 @@ class AddRecurringSheet extends HookConsumerWidget {
         ],
       ),
       ),
+      ),
     );
   }
 
@@ -1559,7 +1560,6 @@ class AddRecurringSheet extends HookConsumerWidget {
             ],
           ),
         ),
-      ),
     );
   }
 

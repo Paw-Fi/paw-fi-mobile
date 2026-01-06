@@ -442,7 +442,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     final user = ref.read(authProvider);
     if (user.isEmpty) return;
 
-    final location = GoRouter.of(context).location;
+    final location = GoRouterState.of(context).uri.path;
     if (location != '/dashboard') return;
 
     final route = ModalRoute.of(context);

@@ -23,11 +23,13 @@ const Map<String, String> currencyOptions = {
   'IDR': 'Rp',
   'INR': '₹',
   'JPY': '¥',
+  'JMD': 'J\$',
   'KES': 'KSh',
   'KRW': '₩',
   'LKR': 'Rs',
   'MXN': 'MX\$',
   'MYR': 'RM',
+  'MWK': 'MK',
   'NGN': '₦',
   'NOK': 'kr',
   'NZD': 'NZ\$',
@@ -79,6 +81,10 @@ String? canonicalizeCurrencyCode(String? code) {
     'R': 'ZAR',
     // Kenyan Shilling
     'KSH': 'KES',
+    // Jamaican Dollar
+    'J\$': 'JMD',
+    // Malawi Kwacha
+    'MK': 'MWK',
   };
 
   if (aliases.containsKey(raw)) {
