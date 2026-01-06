@@ -62,8 +62,14 @@ class PersonalDashboardController
         final defaultTypes = [
           DashboardWidgetType.spendingSummary,
           DashboardWidgetType.netCashflow,
+          DashboardWidgetType.budgetRemaining,
+          DashboardWidgetType.pocketHealthScorecard,
           DashboardWidgetType.financialCalendar,
+          DashboardWidgetType.recurringExpensesSummary,
+          DashboardWidgetType.topExpenses,
+          DashboardWidgetType.incomeVsExpenses,
           DashboardWidgetType.recentTransactions,
+          DashboardWidgetType.spendingRate,
           DashboardWidgetType.spendingBreakdownChart,
           DashboardWidgetType.whereTheMoneyWent,
         ];
@@ -82,7 +88,7 @@ class PersonalDashboardController
               id: type.name, // Use type name as ID for new widgets
               type: type,
               order: nextOrder++,
-              isVisible: true, // Default to visible so user sees it
+              isVisible: false, // Hidden by default so we don't overwhelm users
             ));
           }
           state = AsyncValue.data(newConfigs);
@@ -104,21 +110,51 @@ class PersonalDashboardController
               type: DashboardWidgetType.netCashflow,
               order: 1),
           DashboardWidgetConfig(
+              id: 'budget_remaining',
+              type: DashboardWidgetType.budgetRemaining,
+              order: 2,
+              isVisible: false),
+          DashboardWidgetConfig(
+              id: 'pocket_health',
+              type: DashboardWidgetType.pocketHealthScorecard,
+              order: 3,
+              isVisible: false),
+          DashboardWidgetConfig(
               id: 'calendar',
               type: DashboardWidgetType.financialCalendar,
-              order: 2),
+              order: 4),
+          DashboardWidgetConfig(
+              id: 'recurring_summary',
+              type: DashboardWidgetType.recurringExpensesSummary,
+              order: 5,
+              isVisible: false),
+          DashboardWidgetConfig(
+              id: 'top_expenses',
+              type: DashboardWidgetType.topExpenses,
+              order: 6,
+              isVisible: false),
+          DashboardWidgetConfig(
+              id: 'income_vs_expenses',
+              type: DashboardWidgetType.incomeVsExpenses,
+              order: 7,
+              isVisible: false),
           DashboardWidgetConfig(
               id: 'categories',
               type: DashboardWidgetType.recentTransactions,
-              order: 3),
+              order: 8),
+          DashboardWidgetConfig(
+              id: 'spending_rate',
+              type: DashboardWidgetType.spendingRate,
+              order: 9,
+              isVisible: false),
           DashboardWidgetConfig(
               id: 'spending_chart',
               type: DashboardWidgetType.spendingBreakdownChart,
-              order: 4),
+              order: 10),
           DashboardWidgetConfig(
               id: 'where_the_money_went',
               type: DashboardWidgetType.whereTheMoneyWent,
-              order: 5),
+              order: 11),
         ]);
       }
     } catch (e, st) {
@@ -166,14 +202,17 @@ class PersonalDashboardController
 
   void reorder(int oldIndex, int newIndex) {
     state.whenData((configs) {
+      // Create a mutable copy of the list
+      final mutableConfigs = List<DashboardWidgetConfig>.from(configs);
+      
       if (oldIndex < newIndex) {
         newIndex -= 1;
       }
-      final item = configs.removeAt(oldIndex);
-      configs.insert(newIndex, item);
+      final item = mutableConfigs.removeAt(oldIndex);
+      mutableConfigs.insert(newIndex, item);
 
       // Update order index in objects
-      final reordered = configs.asMap().entries.map((e) {
+      final reordered = mutableConfigs.asMap().entries.map((e) {
         return e.value.copyWith(order: e.key);
       }).toList();
 
@@ -333,13 +372,16 @@ class HouseholdDashboardController
 
   void reorder(int oldIndex, int newIndex) {
     state.whenData((configs) {
+      // Create a mutable copy of the list
+      final mutableConfigs = List<DashboardWidgetConfig>.from(configs);
+      
       if (oldIndex < newIndex) {
         newIndex -= 1;
       }
-      final item = configs.removeAt(oldIndex);
-      configs.insert(newIndex, item);
+      final item = mutableConfigs.removeAt(oldIndex);
+      mutableConfigs.insert(newIndex, item);
 
-      final reordered = configs.asMap().entries.map((e) {
+      final reordered = mutableConfigs.asMap().entries.map((e) {
         return e.value.copyWith(order: e.key);
       }).toList();
 

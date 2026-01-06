@@ -39,6 +39,14 @@ import 'package:moneko/features/insights/presentation/widgets/category_guide_dia
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:go_router/go_router.dart';
 
+// New dashboard widgets
+import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/widgets/budget_remaining_widget.dart';
+import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/widgets/pocket_health_scorecard_widget.dart';
+import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/widgets/recurring_expenses_summary_widget.dart';
+import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/widgets/top_expenses_widget.dart';
+import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/widgets/income_vs_expenses_widget.dart';
+import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/widgets/spending_rate_widget.dart';
+
 // ============================================================================
 // HOME PAGE
 // ============================================================================
@@ -707,6 +715,188 @@ class _HomePageState extends ConsumerState<HomePage> {
                                 onHelpTap: () =>
                                     showCategoryGuide(context, colorScheme),
                                 dateRange: config.dateRange,
+                              ),
+                            );
+                          },
+                          // New widgets
+                          DashboardWidgetType.budgetRemaining: (context, config) {
+                            return Consumer(
+                              builder: (context, ref, _) {
+                                final pocketsState = ref.watch(pocketsProvider(PocketsScopeParams(
+                                  scope: PocketsScopeType.personal,
+                                  householdId: null,
+                                )));
+                                final recurringState = ref.watch(recurringTransactionsProvider(null));
+                                
+                                if (pocketsState.isLoading || recurringState.data.isLoading) {
+                                  return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
+                                }
+                                
+                                if (pocketsState.error != null || recurringState.data.hasError) {
+                                  return const SizedBox.shrink();
+                                }
+                                
+                                final pocketsList = pocketsState.saved;
+                                final recurringList = recurringState.data.value ?? [];
+                                
+                                final range = getDateRangeFromFilter(config.dateRange, config.customStartDate, config.customEndDate);
+                                final from = range['from']!;
+                                final to = range['to']!;
+                                
+                                final dateFilteredExpenses = personalExpensesAll.where((e) {
+                                  final d = DateTime(e.date.year, e.date.month, e.date.day);
+                                  return !d.isBefore(from) && !d.isAfter(to);
+                                }).toList();
+                                
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                                  child: BudgetRemainingWidget(
+                                    expenses: dateFilteredExpenses,
+                                    pockets: pocketsList,
+                                    recurringTransactions: recurringList,
+                                    currency: filterState.selectedCurrency ?? 'USD',
+                                    config: config,
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                          DashboardWidgetType.pocketHealthScorecard: (context, config) {
+                            return Consumer(
+                              builder: (context, ref, _) {
+                                final pocketsState = ref.watch(pocketsProvider(PocketsScopeParams(
+                                  scope: PocketsScopeType.personal,
+                                  householdId: null,
+                                )));
+                                
+                                if (pocketsState.isLoading) {
+                                  return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
+                                }
+                                
+                                if (pocketsState.error != null) {
+                                  return const SizedBox.shrink();
+                                }
+                                
+                                final pocketsList = pocketsState.saved;
+                                double totalBudget = pocketsState.totalBudget;
+                                if (totalBudget == 0 && pocketsList.isNotEmpty) {
+                                  // Estimate from pocket allocations if needed
+                                  final totalPercentage = pocketsList.fold<double>(0, (sum, p) => sum + p.percentage);
+                                  if (totalPercentage > 0) {
+                                    for (final pocket in pocketsList) {
+                                      if (pocket.percentage > 0) {
+                                        final estimated = (pocket.spent / pocket.percentage) * 100;
+                                        if (estimated > totalBudget) totalBudget = estimated;
+                                      }
+                                    }
+                                  }
+                                }
+                                
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                                  child: PocketHealthScorecardWidget(
+                                    pockets: pocketsList,
+                                    totalBudget: totalBudget,
+                                    currency: filterState.selectedCurrency ?? 'USD',
+                                    config: config,
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                          DashboardWidgetType.recurringExpensesSummary: (context, config) {
+                            return Consumer(
+                              builder: (context, ref, _) {
+                                final recurringState = ref.watch(recurringTransactionsProvider(null));
+                                
+                                if (recurringState.data.isLoading) {
+                                  return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
+                                }
+                                
+                                if (recurringState.data.hasError) {
+                                  return const SizedBox.shrink();
+                                }
+                                
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                                  child: RecurringExpensesSummaryWidget(
+                                    recurringTransactions: recurringState.data.value ?? [],
+                                    currency: filterState.selectedCurrency ?? 'USD',
+                                    config: config,
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                          DashboardWidgetType.topExpenses: (context, config) {
+                            final range = getDateRangeFromFilter(config.dateRange, config.customStartDate, config.customEndDate);
+                            final from = range['from']!;
+                            final to = range['to']!;
+                            
+                            final dateFilteredExpenses = personalExpensesAll.where((e) {
+                              final d = DateTime(e.date.year, e.date.month, e.date.day);
+                              return !d.isBefore(from) && !d.isAfter(to);
+                            }).toList();
+                            
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                              child: TopExpensesWidget(
+                                expenses: dateFilteredExpenses,
+                                currency: filterState.selectedCurrency ?? 'USD',
+                                config: config,
+                              ),
+                            );
+                          },
+                          DashboardWidgetType.incomeVsExpenses: (context, config) {
+                            return Consumer(
+                              builder: (context, ref, _) {
+                                final recurringState = ref.watch(recurringTransactionsProvider(null));
+                                
+                                if (recurringState.data.isLoading) {
+                                  return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
+                                }
+                                
+                                if (recurringState.data.hasError) {
+                                  return const SizedBox.shrink();
+                                }
+                                
+                                final range = getDateRangeFromFilter(config.dateRange, config.customStartDate, config.customEndDate);
+                                final from = range['from']!;
+                                final to = range['to']!;
+                                
+                                final dateFilteredExpenses = personalExpensesAll.where((e) {
+                                  final d = DateTime(e.date.year, e.date.month, e.date.day);
+                                  return !d.isBefore(from) && !d.isAfter(to);
+                                }).toList();
+                                
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                                  child: IncomeVsExpensesWidget(
+                                    expenses: dateFilteredExpenses,
+                                    recurringTransactions: recurringState.data.value ?? [],
+                                    currency: filterState.selectedCurrency ?? 'USD',
+                                    config: config,
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                          DashboardWidgetType.spendingRate: (context, config) {
+                            final range = getDateRangeFromFilter(config.dateRange, config.customStartDate, config.customEndDate);
+                            final from = range['from']!;
+                            final to = range['to']!;
+                            
+                            final dateFilteredExpenses = personalExpensesAll.where((e) {
+                              final d = DateTime(e.date.year, e.date.month, e.date.day);
+                              return !d.isBefore(from) && !d.isAfter(to);
+                            }).toList();
+                            
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                              child: SpendingRateWidget(
+                                expenses: dateFilteredExpenses,
+                                currency: filterState.selectedCurrency ?? 'USD',
+                                config: config,
                               ),
                             );
                           },

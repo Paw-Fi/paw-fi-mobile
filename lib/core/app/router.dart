@@ -16,6 +16,7 @@ import 'package:moneko/features/households/presentation/pages/household_members_
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_flow_page.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/presentation/pages/household_settings_page.dart';
+import 'package:moneko/features/home/presentation/pages/widget_details_page.dart';
 
 import '../ui/pages/error_page.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -73,6 +74,19 @@ GoRouter router(RouterRef ref) {
       GoRoute(
         path: '/dashboard',
         builder: (context, state) => const MainShell(),
+      ),
+
+      // Widget Details Route
+      GoRoute(
+        path: '/widget-details',
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return WidgetDetailsPage(
+            widgetType: extra?['widgetType'] as String? ?? 'unknown',
+            config: extra?['config'],
+            currency: extra?['currency'] as String? ?? 'USD',
+          );
+        },
       ),
 
       // Auth Routes

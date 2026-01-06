@@ -9,6 +9,14 @@ enum DashboardWidgetType {
   recentTransactions,
   spendingBreakdownChart,
   whereTheMoneyWent,
+  
+  // New insight widgets
+  budgetRemaining,
+  pocketHealthScorecard,
+  recurringExpensesSummary,
+  topExpenses,
+  incomeVsExpenses,
+  spendingRate,
 
   // Household Home Widgets
   householdSpentByYou,
@@ -42,6 +50,9 @@ enum DashboardWidgetType {
       case DashboardWidgetType.householdSpendingBreakdownChart:
       case DashboardWidgetType.whereTheMoneyWent:
       case DashboardWidgetType.householdWhereTheMoneyWent:
+      case DashboardWidgetType.topExpenses:
+      case DashboardWidgetType.incomeVsExpenses:
+      case DashboardWidgetType.spendingRate:
         return true;
       default:
         return false;
