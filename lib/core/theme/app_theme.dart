@@ -67,7 +67,7 @@ extension AppColorScheme on ColorScheme {
   /// Background for cards/surfaces
   Color get card => brightness == Brightness.dark
       ? AppTheme.darkCardBg
-      : AppTheme.lightBackground;
+      : AppTheme.lightCardBg;
 
   Color get appBackground => brightness == Brightness.dark
       ? AppTheme.darkBackground
@@ -84,10 +84,17 @@ extension AppColorScheme on ColorScheme {
   /// Stronger border for sheets and drag handles
   Color get sheetBorder => outline;
 
-  /// Border for inputs and selection tiles (keeps light mode unchanged)
+  /// NEW: Distinct border for Dark Mode cards (Apple Style/Modern Mobile)
+  /// Use this on Container(decoration: BoxDecoration(border: Border.all(color: scheme.surfaceBorder)))
+  Color get surfaceBorder => brightness == Brightness.dark
+      ? Colors.white.withValues(alpha: 0.12)
+      : Colors.transparent;
+
+  /// REVISED: Border for inputs and selection tiles.
+  /// Increased opacity in light mode to ensure inputs are seen if they share bg color with card.
   Color get controlBorder => brightness == Brightness.dark
-      ? outline.withValues(alpha: 0.6)
-      : outlineVariant.withValues(alpha: 0.2);
+      ? outline.withValues(alpha: 0.5)
+      : outlineVariant.withValues(alpha: 0.5);
 
   /// Background for input fields
   Color get inputBackground => brightness == Brightness.dark
@@ -385,10 +392,13 @@ class AppTheme {
   static const Color monekoPrimary = Color(0xFF7458FF); // --moneko-primary
   static const Color monekoSecondary = Color(0xFF836DFF); // --moneko-secondary
   static const Color iconColor = Color(0xFFAA76FF); // --icon
-  static const Color success = Color(0xFF16CDA2); // --success
-  static const Color warning = Color(0xFFFFC219); // --warning
-  static const Color danger = Color(0xFFFF6060); // --danger
-  static const Color info = monekoPrimary; // brand primary for neutral/info
+
+  // BRANDED SEMANTIC COLORS (Light Mode)
+  static const Color success = Color(0xFF16CDA2); // --success (Moneko Mint)
+  static const Color warning = Color(0xFFFFC219); // --warning (Moneko Amber)
+  static const Color danger = Color(0xFFFF6060); // --danger (Moneko Red)
+  static const Color info = monekoPrimary;
+
   static const Color darkPrimary =
       Color(0xFF8B70FF); // Slightly lighter purple for dark mode
 
@@ -397,19 +407,23 @@ class AppTheme {
   static const Color householdAdmin = Color(0xFF4C8DFF);
   static const Color householdMember = Color(0xFF34C759);
 
-// Light theme colors
+  // Light theme colors
   static const Color lightBackground = Color(0xFFF9FAFB); // --moneko-background
   static const Color lightForeground = Color(0xFF1F2937); // --moneko-foreground
   static const Color lightCardBg = Color(0xFFFFFFFF); // --card-bg
-  static const Color lightInputBg = Color(0xFFFFFFFF); // --input-bg
+
+  // REVISED: Light input background is now distinct from card background (Affordance)
+  static const Color lightInputBg = Color(0xFFF9FAFB); // Gray-50
+
   static const Color lightBorder = Color(0xFFE5E7EB); // --subtle-border
-  static const Color lightMuted = Color(0xFF6B7280); // --muted-foreground-color
-  static const Color lightButtonText =
-      Color(0xFFFFFFFF); // Button text color (white)
+
+  // REVISED: Darker muted text for WCAG compliance (Gray-600)
+  static const Color lightMuted = Color(0xFF4B5563);
+
+  static const Color lightButtonText = Color(0xFFFFFFFF);
   static const Color lightSelectedStateBackground =
       Color(0xFFF8F6FE); // --selected-state-background
 
-// Dark theme colors
   // Dark theme colors - refined for depth and legibility
   static const Color darkBackground = Color(0xFF0B0B0E); // Deep black base
   static const Color darkForeground = Color(0xFFF2F3F7); // High-contrast text
@@ -419,9 +433,8 @@ class AppTheme {
   static const Color darkBorder = Color(0xFF40424A); // Primary outline
   static const Color darkBorderSubtle = Color(0xFF2B2D34); // Subtle outline
   static const Color darkMuted = Color(0xFF1B1C22); // Muted surface
-  static const Color darkMutedForeground =
-      Color(0xFFA2A4AE); // Muted text
-  static const Color darkButtonText = Color(0xFFFFFFFF); // White
+  static const Color darkMutedForeground = Color(0xFFA2A4AE); // Muted text
+  static const Color darkButtonText = Color(0xFFFFFFFF);
   static const Color darkTabInactiveForeground =
       Color(0xFFFFFFFF); // High-contrast tab text
 
@@ -436,25 +449,25 @@ class AppTheme {
   ];
   static const Color pocketDefaultBlue = Color(0xFF007AFF);
   static const List<Color> pocketPresetColors = [
-    Color(0xFFF87171), // Red
-    Color(0xFFF472B6), // Pink
-    Color(0xFFA855F7), // Purple
-    Color(0xFF7C3AED), // Deep Purple
-    Color(0xFF6366F1), // Indigo
-    Color(0xFF3B82F6), // Blue
-    Color(0xFF38BDF8), // Light Blue
-    Color(0xFF22D3EE), // Cyan
-    Color(0xFF14B8A6), // Teal
-    Color(0xFF22C55E), // Green
-    Color(0xFF4ADE80), // Light Green
-    Color(0xFFA3E635), // Lime
-    Color(0xFFFACC15), // Yellow
-    Color(0xFFF59E0B), // Amber
-    Color(0xFFFB923C), // Orange
-    Color(0xFFF97316), // Deep Orange
-    Color(0xFF8B5E34), // Brown
-    Color(0xFF9CA3AF), // Grey
-    Color(0xFF64748B), // Blue Grey
+    Color(0xFFF87171),
+    Color(0xFFF472B6),
+    Color(0xFFA855F7),
+    Color(0xFF7C3AED),
+    Color(0xFF6366F1),
+    Color(0xFF3B82F6),
+    Color(0xFF38BDF8),
+    Color(0xFF22D3EE),
+    Color(0xFF14B8A6),
+    Color(0xFF22C55E),
+    Color(0xFF4ADE80),
+    Color(0xFFA3E635),
+    Color(0xFFFACC15),
+    Color(0xFFF59E0B),
+    Color(0xFFFB923C),
+    Color(0xFFF97316),
+    Color(0xFF8B5E34),
+    Color(0xFF9CA3AF),
+    Color(0xFF64748B),
   ];
   static const List<Color> pocketColorSweep = [
     Color(0xFFF87171),
@@ -477,12 +490,14 @@ class AppTheme {
   static const Color darkUncategorizedAmount = Color(0xFFFFCC80);
   static const Color lightSplitSheetBg = Color(0xFFF4F4F4);
 
-// Dark mode semantic colors (suggested)
-  // Dark mode semantic colors (accessible/vibrant)
-  static const Color darkSuccess = Color(0xFF30D158); // iOS Green
-  static const Color darkWarning = Color(0xFFFFD60A); // iOS Yellow
-  static const Color darkDanger = Color(0xFFFF453A); // iOS Red
-  static const Color darkInfo = Color(0xFF0A84FF); // iOS Blue
+  // REVISED: Dark mode semantic colors (True Moneko Brand)
+  // Replaced stock iOS colors with branded dark mode equivalents
+  static const Color darkSuccess =
+      Color(0xFF00E0B0); // Vibrant Mint for Dark Mode
+  static const Color darkWarning =
+      Color(0xFFFFD147); // Lighter Amber for Dark Mode
+  static const Color darkDanger = Color(0xFFFF6B6B); // Soft Red for Dark Mode
+  static const Color darkInfo = Color(0xFF8B70FF); // Matches Dark Primary
 
   static const Color lightChartBackground = Color(0xFFFFFFFF);
   static const Color darkChartBackground = Color(0xFF17181D);
@@ -497,7 +512,6 @@ class AppTheme {
   static const Color whatsappGreen = Color(0xFF25D366);
   static const Color whatsappDarkGreen = Color(0xFF128C7E);
 
-  // Skeleton (shimmer) colors tuned for light/dark themes
   // Skeleton (shimmer) colors tuned for light/dark themes
   static const Color lightSkeletonBase = Color(0xFFE5E7EB);
   static const Color lightSkeletonHighlight = Color(0xFFF3F4F6);
@@ -517,8 +531,9 @@ class AppTheme {
       return baseColor;
     }
     final hsl = HSLColor.fromColor(baseColor);
+    // Increased lightness preservation for better visibility in dark mode
     return hsl
-        .withLightness((hsl.lightness - 0.15).clamp(0.0, 1.0))
+        .withLightness((hsl.lightness - 0.10).clamp(0.0, 1.0))
         .toColor();
   }
 

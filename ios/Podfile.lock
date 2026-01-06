@@ -1,6 +1,8 @@
 PODS:
   - adaptive_platform_ui (0.1.0):
     - Flutter
+  - app_badge_plus (1.2.6):
+    - Flutter
   - app_links (6.4.1):
     - Flutter
   - app_settings (5.1.1):
@@ -102,8 +104,6 @@ PODS:
     - nanopb (~> 3.30910.0)
     - PromisesSwift (~> 2.1)
   - Flutter (1.0.0)
-  - flutter_app_badger (1.3.0):
-    - Flutter
   - flutter_local_notifications (0.0.1):
     - Flutter
   - GoogleDataTransport (10.1.0):
@@ -178,6 +178,7 @@ PODS:
 
 DEPENDENCIES:
   - adaptive_platform_ui (from `.symlinks/plugins/adaptive_platform_ui/ios`)
+  - app_badge_plus (from `.symlinks/plugins/app_badge_plus/ios`)
   - app_links (from `.symlinks/plugins/app_links/ios`)
   - app_settings (from `.symlinks/plugins/app_settings/ios`)
   - camera_avfoundation (from `.symlinks/plugins/camera_avfoundation/ios`)
@@ -186,7 +187,6 @@ DEPENDENCIES:
   - firebase_crashlytics (from `.symlinks/plugins/firebase_crashlytics/ios`)
   - firebase_messaging (from `.symlinks/plugins/firebase_messaging/ios`)
   - Flutter (from `Flutter`)
-  - flutter_app_badger (from `.symlinks/plugins/flutter_app_badger/ios`)
   - flutter_local_notifications (from `.symlinks/plugins/flutter_local_notifications/ios`)
   - home_widget (from `.symlinks/plugins/home_widget/ios`)
   - image_cropper (from `.symlinks/plugins/image_cropper/ios`)
@@ -227,6 +227,8 @@ SPEC REPOS:
 EXTERNAL SOURCES:
   adaptive_platform_ui:
     :path: ".symlinks/plugins/adaptive_platform_ui/ios"
+  app_badge_plus:
+    :path: ".symlinks/plugins/app_badge_plus/ios"
   app_links:
     :path: ".symlinks/plugins/app_links/ios"
   app_settings:
@@ -243,8 +245,6 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/firebase_messaging/ios"
   Flutter:
     :path: Flutter
-  flutter_app_badger:
-    :path: ".symlinks/plugins/flutter_app_badger/ios"
   flutter_local_notifications:
     :path: ".symlinks/plugins/flutter_local_notifications/ios"
   home_widget:
@@ -274,6 +274,7 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   adaptive_platform_ui: dcd588cb59eb4c5bd1a430158b00b98b0493b3f0
+  app_badge_plus: d13997a69d78ae6cafd6353b17d4033897b54f4c
   app_links: 585674be3c6661708e6cd794ab4f39fb9d8356f9
   app_settings: 58017cd26b604ae98c3e65acbdd8ba173703cc82
   camera_avfoundation: adb0207d868b2d873e895371d88448399ab78d87
@@ -293,7 +294,6 @@ SPEC CHECKSUMS:
   FirebaseRemoteConfigInterop: 1e31ec72b89c9924367c59bfb5ec9ab60d1d6766
   FirebaseSessions: ba7c7a7ca8696a8d540eb3fe3800fbe98c79786d
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
-  flutter_app_badger: b87fc231847b03b92ce1412aa351842e7e97932f
   flutter_local_notifications: ff50f8405aaa0ccdc7dcfb9022ca192e8ad9688f
   GoogleDataTransport: aae35b7ea0c09004c3797d53c8c41f66f219d6a7
   GoogleUtilities: 00c88b9a86066ef77f0da2fab05f65d7768ed8e1

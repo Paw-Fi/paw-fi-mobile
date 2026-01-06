@@ -34,7 +34,7 @@ import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:moneko/core/config/storage_config.dart';
-import 'package:flutter_app_badger/flutter_app_badger.dart';
+import 'package:app_badge_plus/app_badge_plus.dart';
 
 class SettingsPage extends HookConsumerWidget {
   const SettingsPage({super.key});
@@ -125,7 +125,7 @@ class SettingsPage extends HookConsumerWidget {
 
     Future<void> handleClearAppBadge() async {
       try {
-        final isSupported = await FlutterAppBadger.isAppBadgeSupported();
+        final isSupported = await AppBadgePlus.isSupported();
         if (!isSupported) {
           if (context.mounted) {
             AppToast.info(
@@ -136,7 +136,7 @@ class SettingsPage extends HookConsumerWidget {
           return;
         }
 
-        FlutterAppBadger.removeBadge();
+        AppBadgePlus.updateBadge(0);
         if (context.mounted) {
           AppToast.success(context, context.l10n.appIconBadgeCleared);
         }
@@ -457,6 +457,26 @@ class SettingsPage extends HookConsumerWidget {
                       ),
                     );
                   },
+                ),
+                const SizedBox(height: 24),
+
+                // Email Section
+                _SectionHeader(title: context.l10n.email),
+                const SizedBox(height: 12),
+                AdaptiveListTile(
+                  leading: Icon(
+                    Icons.email_outlined,
+                    size: 20,
+                    color: colorScheme.mutedForeground,
+                  ),
+                  title: Text(
+                    authState.email,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: colorScheme.mutedForeground,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 24),
 
