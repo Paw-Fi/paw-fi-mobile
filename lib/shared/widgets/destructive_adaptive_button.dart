@@ -26,7 +26,7 @@ class DestructiveAdaptiveButton extends StatelessWidget {
           color: scheme.destructive,
           style: AdaptiveButtonStyle.filled,
           child: DefaultTextStyle.merge(
-            style: TextStyle(color: scheme.onError),
+            style: TextStyle(color: scheme.primaryForeground),
             child: child,
           ),
         );
@@ -36,7 +36,7 @@ class DestructiveAdaptiveButton extends StatelessWidget {
           onPressed: onPressed,
           color: scheme.destructive,
           child: DefaultTextStyle.merge(
-            style: TextStyle(color: scheme.onError),
+            style: TextStyle(color: scheme.primaryForeground),
             child: child,
           ),
         );
@@ -47,7 +47,7 @@ class DestructiveAdaptiveButton extends StatelessWidget {
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: scheme.destructive,
-          foregroundColor: scheme.onError,
+          foregroundColor:  scheme.primaryForeground,
         ),
         child: child,
       );
@@ -57,7 +57,7 @@ class DestructiveAdaptiveButton extends StatelessWidget {
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: scheme.destructive,
-          foregroundColor: scheme.onError,
+          foregroundColor:  scheme.primaryForeground,
         ),
         child: child,
       );

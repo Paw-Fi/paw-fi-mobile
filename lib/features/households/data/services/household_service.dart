@@ -196,15 +196,23 @@ class HouseholdService {
         'expiresInDays': expiresInDays,
       });
 
-      final response = await _supabase.functions.invoke(
-        'households-create-invite',
-        body: {
-          'household_id': householdId,
-          'invited_email': invitedEmail,
-          'personal_message': personalMessage,
-          'expires_in_days': expiresInDays,
-        },
-      );
+      // Build body with only non-null optional values
+      final body = <String, dynamic>{
+        'household_id': householdId,
+        'expires_in_days': expiresInDays,
+      };
+      if (invitedEmail != null && invitedEmail.isNotEmpty) {
+        body['invited_email'] = invitedEmail;
+      }
+      if (personalMessage != null && personalMessage.isNotEmpty) {
+        body['personal_message'] = personalMessage;
+      }
+
+      // Add a timeout so the UI doesn't hang forever if the function stalls
+      final response = await _supabase
+          .functions
+          .invoke('households-create-invite', body: body)
+          .timeout(const Duration(seconds: 20));
 
       _log('Edge function response', error: {
         'status': response.status,

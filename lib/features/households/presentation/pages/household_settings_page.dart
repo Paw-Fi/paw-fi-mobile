@@ -965,7 +965,7 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
                   _EmptyState(
                     icon: Icons.mark_email_read_rounded,
                     message: context.l10n.noPendingInvitations,
-                    subMessage: 'All caught up! No pending invites.',
+                    subMessage: context.l10n.allCaughtUpNoPendingInvites,
                   )
                 else
                   ...pendingInvites.map((invite) => Padding(
@@ -990,7 +990,7 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
                   _EmptyState(
                     icon: Icons.history_toggle_off_rounded,
                     message: context.l10n.noInvitationHistory,
-                    subMessage: 'Past invitations will appear here.',
+                    subMessage: context.l10n.pastInvitationsWillAppearHere,
                   )
                 else
                   ...historyInvites.map((invite) => Padding(
@@ -1382,7 +1382,7 @@ class _CreateInviteCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Invite New Member',
+                        context.l10n.inviteNewMember,
                         style: TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.bold,
@@ -1391,7 +1391,7 @@ class _CreateInviteCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Send a link to join your household',
+                        context.l10n.sendLinkToJoinHousehold,
                         style: TextStyle(
                           fontSize: 13,
                           color: colorScheme.primaryForeground
@@ -1442,7 +1442,7 @@ class _PermissionNotice extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              message ?? 'Only admins and owners can create invitations.',
+              message ?? context.l10n.onlyAdminsAndOwnersCanCreateInvitations,
               style: TextStyle(
                 fontSize: 13,
                 color: colorScheme.mutedForeground,
@@ -1640,7 +1640,22 @@ class _InviteCard extends StatelessWidget {
                                   ? context.l10n.noExpiry
                                   : (isExpired
                                       ? context.l10n.expired
-                                      : '${context.l10n.expires} ${_formatDate(invite.expiresAt!)}'),
+                                      : context.l10n.expires),
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: colorScheme.mutedForeground,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              invite.expiresAt == null
+                                  ? ''
+                                  : (isExpired
+                                      ? ''
+                                      : '${_formatDate(invite.expiresAt!, context)}'),
                               style: TextStyle(
                                 fontSize: 13,
                                 color: colorScheme.mutedForeground,
@@ -1778,7 +1793,7 @@ class _InviteCard extends StatelessWidget {
     };
   }
 
-  String _formatDate(DateTime date) {
+  String _formatDate(DateTime date, BuildContext context) {
     final now = DateTime.now();
     final difference = date.difference(now);
 

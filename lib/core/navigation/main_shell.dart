@@ -18,6 +18,7 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/core/services/widget_service.dart';
 import 'package:moneko/core/navigation/navigation_providers.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 
 /// Main navigation shell with bottom navigation bar
 class MainShell extends HookConsumerWidget {
@@ -27,6 +28,31 @@ class MainShell extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final currentIndex = ref.watch(mainShellTabIndexProvider);
     final colorScheme = Theme.of(context).colorScheme;
+
+    // One-time native notification prompt logic
+    useEffect(() {
+      () async {
+        final user = ref.read(authProvider);
+        if (user.uid.isEmpty) return;
+        try {
+          final prefs = ref.read(sharedPreferencesProvider);
+          final promptedKey = 'notifications_prompted:${user.uid}';
+          final prompted = prefs.getBool(promptedKey) ?? false;
+          final deviceSvc = ref.read(deviceRegistrationServiceProvider);
+          final isRegistered = await deviceSvc.isRegistered();
+
+          // If user hasn't enabled notifications AND was never prompted (likely skipped onboarding),
+          // set prompted and trigger native permission flow.
+          if (!isRegistered && !prompted) {
+            await prefs.setBool(promptedKey, true);
+            try {
+              await deviceSvc.initialize();
+            } catch (_) {}
+          }
+        } catch (_) {}
+      }();
+      return null;
+    }, const []);
 
     final pages = [
       const HomePage(),

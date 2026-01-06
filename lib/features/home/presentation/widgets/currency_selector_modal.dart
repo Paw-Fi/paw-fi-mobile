@@ -12,18 +12,24 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 /// Shows a full-screen currency selector modal and returns the selected currency code
-Future<String?> showCurrencySelectorModal(BuildContext context, WidgetRef ref) async {
+Future<String?> showCurrencySelectorModal(
+  BuildContext context,
+  WidgetRef ref, {
+  bool showAllByDefault = false,
+}) async {
   return Navigator.of(context).push<String>(
     MaterialPageRoute(
       fullscreenDialog: true,
-      builder: (_) => const CurrencySelectorScreen(),
+      builder: (_) => CurrencySelectorScreen(showAllByDefault: showAllByDefault),
     ),
   );
 }
 
 /// Full-screen currency selector screen
 class CurrencySelectorScreen extends ConsumerStatefulWidget {
-  const CurrencySelectorScreen({super.key});
+  final bool showAllByDefault;
+
+  const CurrencySelectorScreen({super.key, this.showAllByDefault = false});
 
   @override
   ConsumerState<CurrencySelectorScreen> createState() => _CurrencySelectorScreenState();
@@ -38,6 +44,8 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
   @override
   void initState() {
     super.initState();
+    // When requested (e.g., onboarding), start with all currencies expanded
+    _showAllCurrencies = widget.showAllByDefault;
     _loadCustomOrder();
   }
 

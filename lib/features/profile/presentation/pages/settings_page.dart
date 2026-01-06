@@ -34,6 +34,7 @@ import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:moneko/core/config/storage_config.dart';
+import 'package:flutter_app_badger/flutter_app_badger.dart';
 
 class SettingsPage extends HookConsumerWidget {
   const SettingsPage({super.key});
@@ -122,6 +123,30 @@ class SettingsPage extends HookConsumerWidget {
       }
     }
 
+    Future<void> handleClearAppBadge() async {
+      try {
+        final isSupported = await FlutterAppBadger.isAppBadgeSupported();
+        if (!isSupported) {
+          if (context.mounted) {
+            AppToast.info(
+              context,
+              context.l10n.appIconBadgeNotSupported,
+            );
+          }
+          return;
+        }
+
+        FlutterAppBadger.removeBadge();
+        if (context.mounted) {
+          AppToast.success(context, context.l10n.appIconBadgeCleared);
+        }
+      } catch (e) {
+        if (context.mounted) {
+          AppToast.error(context, context.l10n.appIconBadgeClearFailed);
+        }
+      }
+    }
+
     final selectedLocale = ref.watch(localeProvider);
     const supportedLocales = AppLocalizations.supportedLocales;
     final dropdownValue = _coerceToSupported(selectedLocale, supportedLocales);
@@ -159,12 +184,15 @@ class SettingsPage extends HookConsumerWidget {
         );
         ref.invalidate(analyticsProvider);
         if (context.mounted) {
-          AppToast.success(context, 'Timezone updated');
+          AppToast.success(context, context.l10n.timezoneUpdated);
         }
       } catch (e) {
         selectedTimezone.value = previous;
         if (context.mounted) {
-          AppToast.error(context, 'Failed to update timezone: $e');
+          AppToast.error(
+            context,
+            context.l10n.timezoneUpdateFailed(e.toString()),
+          );
         }
       }
     }
@@ -604,12 +632,12 @@ class SettingsPage extends HookConsumerWidget {
                 const SizedBox(height: 12),
                 AdaptiveListTile(
                   leading: Icon(
-                    Icons.refresh_outlined,
+                    Icons.build_outlined,
                     size: 20,
                     color: colorScheme.mutedForeground,
                   ),
                   title: Text(
-                    'Fix notification issues',
+                    context.l10n.fixNotificationIssuesTitle,
                     style: TextStyle(
                       fontSize: 15,
                       color: colorScheme.foreground,
@@ -617,18 +645,37 @@ class SettingsPage extends HookConsumerWidget {
                     ),
                   ),
                   subtitle: Text(
-                    'Re-register this device if notifications are not working.',
+                    context.l10n.fixNotificationIssuesSubtitle,
                     style: TextStyle(
                       fontSize: 12,
                       color: colorScheme.mutedForeground,
                     ),
                   ),
-                  trailing: Icon(
-                    Icons.refresh,
-                    size: 16,
+                  onTap: () => handleManualNotificationFix(),
+                ),
+                const SizedBox(height: 12),
+                AdaptiveListTile(
+                  leading: Icon(
+                    Icons.clear_all_outlined,
+                    size: 20,
                     color: colorScheme.mutedForeground,
                   ),
-                  onTap: () => handleManualNotificationFix(),
+                  title: Text(
+                    context.l10n.clearAppIconBadgeTitle,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: colorScheme.foreground,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  subtitle: Text(
+                    context.l10n.clearAppIconBadgeSubtitle,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: colorScheme.mutedForeground,
+                    ),
+                  ),
+                  onTap: () => handleClearAppBadge(),
                 ),
                 const SizedBox(height: 24),
 
@@ -722,7 +769,7 @@ Future<void> _showAvatarSourceSheet(
 ) async {
   final result = await MonekoActionSheet.show<String>(
     context: context,
-    title: 'Change avatar',
+    title: context.l10n.changeAvatar,
     actions: [
       MonekoActionSheetAction<String>(
         label: context.l10n.takePhoto,
@@ -895,7 +942,7 @@ Future<void> _uploadAndSaveAvatar(
     ref.invalidate(userProfileProvider(user.id));
 
     if (context.mounted) {
-      AppToast.success(context, 'Avatar updated');
+      AppToast.success(context, context.l10n.avatarUpdated);
     }
   } catch (e) {
     if (context.mounted) {

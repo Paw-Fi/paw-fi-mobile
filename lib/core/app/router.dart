@@ -13,6 +13,8 @@ import 'package:moneko/core/ui/pages/splash_screen.dart';
 import 'package:moneko/features/households/presentation/pages/household_invites_page.dart';
 import 'package:moneko/features/households/presentation/pages/household_join_page.dart';
 import 'package:moneko/features/households/presentation/pages/household_members_page.dart';
+import 'package:moneko/features/onboarding/presentation/pages/onboarding_flow_page.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/presentation/pages/household_settings_page.dart';
 
 import '../ui/pages/error_page.dart';
@@ -28,6 +30,7 @@ GoRouter router(RouterRef ref) {
   final auth = ref.watch(authProvider);
   final hasSubscription = ref.watch(hasActiveSubscriptionProvider);
   final isSubscriptionLoaded = ref.watch(isSubscriptionLoadedProvider);
+  final prefs = ref.watch(sharedPreferencesProvider);
   
   // Use V2 initialization provider (cache-first, faster)
   final appInitStateV2 = ref.watch(appInitializationV2Provider);
@@ -155,6 +158,10 @@ GoRouter router(RouterRef ref) {
         path: '/avatar',
         builder: (context, state) => const AvatarCustomizerScreen(),
       ),
+      GoRoute(
+        path: '/onboarding',
+        builder: (context, state) => const OnboardingFlowPage(),
+      ),
 
       // Catch-all route for deep links with UUID patterns (expense, budget, split IDs)
       // This handles paths like /{uuid} that come from moneko://expense/{uuid}
@@ -180,6 +187,9 @@ GoRouter router(RouterRef ref) {
         }
 
         final isAuthenticated = !auth.isEmpty;
+        final hasOnboarded = !isAuthenticated
+            ? true
+            : (prefs.getBool('onboarding_completed:${auth.uid}') ?? false);
         final isOnSplashPage = state.matchedLocation == '/splash';
         final isOnAuthPage = state.matchedLocation == '/login' ||
             state.matchedLocation == '/register' ||
@@ -209,6 +219,9 @@ GoRouter router(RouterRef ref) {
           debugPrint('🚀 [RouterV2] On splash, redirecting immediately based on auth');
           // Redirect from splash to appropriate page
           if (isAuthenticated) {
+            if (!hasOnboarded) {
+              return '/onboarding';
+            }
             // On web: skip paywall and go straight to dashboard
             if (kIsWeb) {
               return '/dashboard';

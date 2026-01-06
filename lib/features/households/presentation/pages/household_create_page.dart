@@ -18,10 +18,18 @@ import '../../../utils/currency.dart';
 import '../../../../core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
+import 'package:go_router/go_router.dart';
+import 'package:moneko/core/navigation/navigation_providers.dart';
+import 'package:moneko/features/auth/auth.dart';
 
 /// Modern page for creating a new household with image upload
 class HouseholdCreatePage extends ConsumerStatefulWidget {
-  const HouseholdCreatePage({super.key});
+  const HouseholdCreatePage({super.key, this.initialName, this.fromOnboarding = false});
+
+  final String? initialName;
+  final bool fromOnboarding;
 
   @override
   ConsumerState<HouseholdCreatePage> createState() =>
@@ -44,6 +52,10 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
   @override
   void initState() {
     super.initState();
+    final initial = widget.initialName?.trim();
+    if (initial != null && initial.isNotEmpty) {
+      _nameController.text = initial;
+    }
     // Load the first cover image from the provider
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final coverImagesAsync = ref.read(coverImagesProvider);
@@ -786,9 +798,26 @@ class _HouseholdCreatePageState extends ConsumerState<HouseholdCreatePage> {
         context: context,
         inviteUrl: inviteUrl,
         householdName: householdName,
-        onClose: () {
+        onClose: () async {
+          await ref
+              .read(selectedHouseholdProvider.notifier)
+              .selectHousehold(householdId);
+          ref.read(viewModeProvider.notifier).setMode(ViewMode.household);
           if (!mounted) return;
-          Navigator.of(context).popUntil((route) => route.isFirst);
+          if (widget.fromOnboarding) {
+            // Mark onboarding as completed for this user
+            final uid = ref.read(authProvider).uid;
+            try {
+              final prefs = ref.read(sharedPreferencesProvider);
+              await prefs.setBool('onboarding_completed:$uid', true);
+            } catch (_) {}
+            // Ensure we land on Overview tab and reset navigation via GoRouter
+            ref.read(mainShellTabIndexProvider.notifier).state = 0;
+            if (!mounted) return;
+            context.go('/dashboard');
+          } else {
+            Navigator.pop(context);
+          }
         },
       );
     } catch (e, stackTrace) {

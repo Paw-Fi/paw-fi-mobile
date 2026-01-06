@@ -46,6 +46,22 @@ class DeviceRegistrationService {
     debugPrint('🔔 Initializing device registration service...');
 
     try {
+      // Avoid prompting users multiple times: Only allow permission prompts
+      // after the onboarding flow explicitly sets a per-user flag.
+      try {
+        final userId = _supabase.auth.currentUser?.id;
+        if (userId != null && userId.isNotEmpty) {
+          final prefs = await SharedPreferences.getInstance();
+          final prompted = prefs.getBool('notifications_prompted:$userId') ?? false;
+          if (!prompted) {
+            debugPrint('⏭️ Skipping notification permission prompt until onboarding page triggers it');
+            return;
+          }
+        }
+      } catch (e) {
+        debugPrint('⚠️ Failed to check notifications_prompted flag: $e');
+      }
+
       // Wrap entire initialization in a timeout to prevent hanging
       await _performInitialization().timeout(
         const Duration(seconds: 10),

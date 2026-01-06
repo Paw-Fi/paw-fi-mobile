@@ -68,8 +68,11 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
       overrides: const [
         // Override any providers if needed
       ],
-      child: buildScenarioPlanningTab(context, colorScheme, analyticsData,
-          selectedCurrency: selectedCurrency),
+      child: buildScenarioPlanningTab(
+        context,
+        analyticsData,
+        selectedCurrency: selectedCurrency,
+      ),
     );
   }
 }

@@ -23,25 +23,22 @@ import 'package:moneko/shared/widgets/subtle_adaptive_button.dart';
 enum _WordOrder { svo, sov, vso, v2 }
 
 Widget buildScenarioPlanningTab(
-    BuildContext context, ColorScheme colorScheme, AnalyticsData analyticsData,
-    {String? selectedCurrency}) {
+  BuildContext context,
+  AnalyticsData analyticsData, {
+  String? selectedCurrency,
+}) {
   return ScenarioPlanningTabContent(
-      context: context,
-      colorScheme: colorScheme,
-      analyticsData: analyticsData,
-      selectedCurrency: selectedCurrency);
+    analyticsData: analyticsData,
+    selectedCurrency: selectedCurrency,
+  );
 }
 
 class ScenarioPlanningTabContent extends ConsumerStatefulWidget {
-  final BuildContext context;
-  final ColorScheme colorScheme;
   final AnalyticsData analyticsData;
   final String? selectedCurrency;
 
   const ScenarioPlanningTabContent({
     super.key,
-    required this.context,
-    required this.colorScheme,
     required this.analyticsData,
     this.selectedCurrency,
   });
@@ -116,6 +113,7 @@ class _ScenarioPlanningTabContentState
   Future<void> _pickTargetDate(BuildContext context) async {
     final now = DateTime.now();
     final initial = _scenarioDate ?? now;
+    final colorScheme = Theme.of(context).colorScheme;
 
     final platform = Theme.of(context).platform;
     final useCupertino = platform == TargetPlatform.iOS;
@@ -126,9 +124,9 @@ class _ScenarioPlanningTabContentState
         context: context,
         barrierDismissible: true,
         builder: (ctx) {
-          final bg = widget.colorScheme.appBackground;
+          final bg = colorScheme.appBackground;
           return Material(
-            color: widget.colorScheme.surface.withValues(alpha: 0.0),
+            color: colorScheme.surface.withValues(alpha: 0.0),
             child: Container(
               height: 320,
               color: bg,
@@ -146,7 +144,7 @@ class _ScenarioPlanningTabContentState
                             onPressed: () => Navigator.of(ctx).pop(),
                             child: Text(context.l10n.close,
                                 style: TextStyle(
-                                    color: widget.colorScheme.mutedForeground)),
+                                    color: colorScheme.mutedForeground)),
                           ),
                           const Spacer(),
                           CupertinoButton(
@@ -160,7 +158,7 @@ class _ScenarioPlanningTabContentState
                             },
                             child: Text(context.l10n.done,
                                 style: TextStyle(
-                                    color: widget.colorScheme.primary,
+                                    color: colorScheme.primary,
                                     fontWeight: FontWeight.w600)),
                           ),
                         ],
@@ -316,7 +314,7 @@ class _ScenarioPlanningTabContentState
         children: [
           // Scenario Planning Input
           InsightsSectionCard(
-            colorScheme: widget.colorScheme,
+            colorScheme: colorScheme,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -325,7 +323,7 @@ class _ScenarioPlanningTabContentState
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: widget.colorScheme.foreground,
+                    color: colorScheme.foreground,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -333,7 +331,7 @@ class _ScenarioPlanningTabContentState
                   context.l10n.askAiFinancialAdvisor,
                   style: TextStyle(
                     fontSize: 12,
-                    color: widget.colorScheme.mutedForeground,
+                    color: colorScheme.mutedForeground,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -349,7 +347,7 @@ class _ScenarioPlanningTabContentState
                         child: Text(
                           context.l10n.canI,
                           style: TextStyle(
-                              color: widget.colorScheme.foreground,
+                              color: colorScheme.foreground,
                               fontWeight: FontWeight.w600),
                         ),
                       );
@@ -360,24 +358,24 @@ class _ScenarioPlanningTabContentState
                           decoration: InputDecoration(
                             hintText: context.l10n.buyALaptop,
                             hintStyle: TextStyle(
-                                color: widget.colorScheme.mutedForeground),
+                                color: colorScheme.mutedForeground),
                             filled: true,
-                            fillColor: widget.colorScheme.inputBackground,
+                            fillColor: colorScheme.inputBackground,
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                               borderSide:
-                                  BorderSide(color: widget.colorScheme.border),
+                                  BorderSide(color: colorScheme.border),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                               borderSide:
-                                  BorderSide(color: widget.colorScheme.primary),
+                                  BorderSide(color: colorScheme.primary),
                             ),
                             contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 10),
                           ),
                           style:
-                              TextStyle(color: widget.colorScheme.foreground),
+                              TextStyle(color: colorScheme.foreground),
                           keyboardType: TextInputType.text,
                         ),
                       );
@@ -390,7 +388,7 @@ class _ScenarioPlanningTabContentState
                           child: Text(
                             t,
                             style: TextStyle(
-                                color: widget.colorScheme.foreground,
+                                color: colorScheme.foreground,
                                 fontWeight: FontWeight.w600),
                           ),
                         );
@@ -404,7 +402,7 @@ class _ScenarioPlanningTabContentState
                           child: Text(
                             t,
                             style: TextStyle(
-                                color: widget.colorScheme.foreground,
+                                color: colorScheme.foreground,
                                 fontWeight: FontWeight.w600),
                           ),
                         );
@@ -412,13 +410,9 @@ class _ScenarioPlanningTabContentState
 
                       final dateButton = SubtleAdaptiveButton(
                         onPressed: () => _pickTargetDate(context),
-                        child: Text(
-                          _scenarioDate == null
-                              ? context.l10n.pickDate
-                              : _formatLocalizedDate(_scenarioDate!),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        label: _scenarioDate == null
+                            ? context.l10n.pickDate
+                            : _formatLocalizedDate(_scenarioDate!),
                       );
 
                       Widget buildPrimaryButton({bool expand = true}) {
@@ -797,7 +791,7 @@ class _ScenarioPlanningTabContentState
           ),
           const SizedBox(height: 16),
           InsightsSectionCard(
-            colorScheme: widget.colorScheme,
+            colorScheme: colorScheme,
             child: FutureBuilder<List<Map<String, dynamic>>>(
               future: _loadScenarioHistory(
                 user.uid,
@@ -815,11 +809,15 @@ class _ScenarioPlanningTabContentState
                 if (items.isEmpty) {
                   return Padding(
                     padding: const EdgeInsets.all(16.0),
-                    child: Text(
-                      'No saved scenarios yet',
-                      style: TextStyle(
-                        color: widget.colorScheme.mutedForeground,
-                        fontSize: 13,
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: Text(
+                        context.l10n.noSavedScenariosYet,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: colorScheme.mutedForeground,
+                          fontSize: 13,
+                        ),
                       ),
                     ),
                   );
@@ -887,7 +885,7 @@ class _ScenarioPlanningTabContentState
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 10, vertical: 6),
                                         decoration: BoxDecoration(
-                                          color: widget.colorScheme.primary
+                                          color: colorScheme.primary
                                               .withValues(alpha: 0.06),
                                           borderRadius:
                                               BorderRadius.circular(100),
@@ -897,7 +895,7 @@ class _ScenarioPlanningTabContentState
                                           style: TextStyle(
                                             fontSize: 12,
                                             fontWeight: FontWeight.w600,
-                                            color: widget.colorScheme.primary,
+                                            color: colorScheme.primary,
                                             letterSpacing: -0.3,
                                           ),
                                         ),
@@ -905,7 +903,7 @@ class _ScenarioPlanningTabContentState
                                     Icon(
                                       CupertinoIcons.arrow_up_right,
                                       size: 16,
-                                      color: widget.colorScheme.mutedForeground,
+                                      color: colorScheme.mutedForeground,
                                     ),
                                   ],
                                 ),
@@ -919,7 +917,7 @@ class _ScenarioPlanningTabContentState
                                     fontWeight: FontWeight.w600,
                                     letterSpacing: -0.6,
                                     height: 1.3,
-                                    color: widget.colorScheme.foreground,
+                                    color: colorScheme.foreground,
                                   ),
                                 ),
                               ],
