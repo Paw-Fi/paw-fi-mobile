@@ -185,7 +185,7 @@ class PocketHealthScorecardWidget extends ConsumerWidget {
                                 ),
                               ),
                               Text(
-                                '${context.l10n} ${formatCurrency(allocated, currency)}',
+                                formatCurrency(allocated, currency),
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: colorScheme.mutedForeground,
