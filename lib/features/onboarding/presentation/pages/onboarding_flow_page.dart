@@ -39,11 +39,26 @@ class OnboardingFlowPage extends HookConsumerWidget {
     final groupName = useState<String>('');
 
     void next() {
+      if (!context.mounted) return;
       if (currentPage.value < 3) {
-        pageController.nextPage(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-        );
+        final targetPage = currentPage.value + 1;
+        void go() {
+          pageController.animateToPage(
+            targetPage,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+          );
+        }
+
+        if (pageController.hasClients) {
+          go();
+        } else {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!context.mounted) return;
+            if (!pageController.hasClients) return;
+            go();
+          });
+        }
       } else {
         _completeOnboarding(context, ref);
       }

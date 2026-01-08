@@ -26,7 +26,17 @@ import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 
 class TransactionsPage extends ConsumerStatefulWidget {
   final String? householdId;
-  const TransactionsPage({super.key, this.householdId});
+  final bool enableDateFilter;
+  final DateTime? initialStartDate;
+  final DateTime? initialEndDate;
+
+  const TransactionsPage({
+    super.key,
+    this.householdId,
+    this.enableDateFilter = false,
+    this.initialStartDate,
+    this.initialEndDate,
+  });
 
   @override
   ConsumerState<TransactionsPage> createState() => _TransactionsPageState();
@@ -44,7 +54,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   DateTime? _customEndDate;
 
   // When true, ignore date range filtering and always show all-time data.
-  final bool _ignoreDateFilter = true;
+  late bool _ignoreDateFilter;
 
   final TextEditingController _searchController = TextEditingController();
   final PageController _chartPageController = PageController();
@@ -52,7 +62,17 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   @override
   void initState() {
     super.initState();
-    selectedPeriod = widget.householdId != null ? 'All' : '1M';
+    _ignoreDateFilter = !widget.enableDateFilter;
+    _customStartDate = widget.initialStartDate;
+    _customEndDate = widget.initialEndDate;
+
+    if (widget.enableDateFilter &&
+        widget.initialStartDate != null &&
+        widget.initialEndDate != null) {
+      selectedPeriod = 'Custom';
+    } else {
+      selectedPeriod = widget.householdId != null ? 'All' : '1M';
+    }
   }
 
   @override
@@ -197,6 +217,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         return context.l10n.thisYear;
       case 'All':
         return context.l10n.allTime;
+      case 'Custom':
+        return context.l10n.customRange;
       default:
         return period;
     }
@@ -343,7 +365,14 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
-                        children: ['1W', '1M', '6M', '1Y', 'All'].map((period) {
+                        children: [
+                          '1W',
+                          '1M',
+                          '6M',
+                          '1Y',
+                          'All',
+                          if (selectedPeriod == 'Custom') 'Custom',
+                        ].map((period) {
                           final isSelected = selectedPeriod == period;
                           return Padding(
                             padding: const EdgeInsets.only(right: 8.0),

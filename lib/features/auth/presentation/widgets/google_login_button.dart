@@ -65,28 +65,19 @@ class GoogleLoginButton extends HookConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SizedBox(
-          width: double.infinity,
-          child:PrimaryAdaptiveButton(
-            onPressed: (isLoading.value || disabled) ? null : handleGoogleLogin,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (!isLoading.value)
-                  Icon(
-                    Icons.g_mobiledata,
-                    size: 26,
-                    color: theme.colorScheme.primaryForeground,
-                  ),
-                if (!isLoading.value) const SizedBox(width: 8),
-                Text(
-                  isLoading.value
-                      ? context.l10n.signingInWithGoogle
-                      : context.l10n.continueWithGoogle,
+        PrimaryAdaptiveButton(
+          onPressed: (isLoading.value || disabled) ? null : handleGoogleLogin,
+          prefixIcon: isLoading.value
+              ? null
+              : Icon(
+                  Icons.g_mobiledata,
+                  size: 26,
+                  color: theme.colorScheme.primaryForeground,
                 ),
-              ],
-            ),
+          child: Text(
+            isLoading.value
+                ? context.l10n.signingInWithGoogle
+                : context.l10n.continueWithGoogle,
           ),
         ),
         if (error.value != null) ...[

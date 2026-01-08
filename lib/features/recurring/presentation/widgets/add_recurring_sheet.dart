@@ -14,6 +14,7 @@ import 'package:moneko/core/ui/widgets/transaction_currency_picker.dart';
 import 'package:moneko/core/ui/widgets/transaction_frequency_picker.dart';
 import 'package:moneko/core/ui/widgets/transaction_date_picker.dart';
 import 'package:moneko/core/ui/widgets/transaction_selection_sheet.dart';
+import 'package:moneko/shared/widgets/moneko_list_picker.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/utils/date_formatter.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
@@ -1261,56 +1262,52 @@ class AddRecurringSheet extends HookConsumerWidget {
                         }.contains(lang);
 
                         // Build UI components
-                        final valueInput = SizedBox(
-                          width: 80,
-                          child: TextField(
-                            controller: TextEditingController(
-                              text: reminderValue.value.toString(),
-                            ),
-                            keyboardType: TextInputType.number,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: colorScheme.foreground,
-                            ),
-                            decoration: InputDecoration(
-                              hintText: '1',
-                              hintStyle: TextStyle(
-                                color: colorScheme.mutedForeground,
-                              ),
-                              filled: true,
-                              fillColor:
+                        final valueInput = GestureDetector(
+                          onTap: () async {
+                            final numbers = List.generate(31, (index) => index + 1);
+                            final result = await MonekoListPicker.show<int>(
+                              context: context,
+                              items: numbers,
+                              labelBuilder: (number) => number.toString(),
+                              initial: reminderValue.value,
+                            );
+                            if (result != null) {
+                              reminderValue.value = result;
+                            }
+                          },
+                          child: Container(
+                            width: 80,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 14),
+                            decoration: BoxDecoration(
+                              color:
                                   colorScheme.muted.withValues(alpha: 0.08),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: BorderSide(
-                                  color:
-                                      colorScheme.controlBorder,
-                                ),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color:
+                                    colorScheme.controlBorder,
+                                width: 1,
                               ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: BorderSide(
-                                  color:
-                                      colorScheme.controlBorder,
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: BorderSide(
-                                  color: colorScheme.primary,
-                                ),
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 14),
                             ),
-                            onChanged: (value) {
-                              final parsed = int.tryParse(value);
-                              if (parsed != null && parsed > 0) {
-                                reminderValue.value = parsed;
-                              }
-                            },
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  reminderValue.value.toString(),
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: colorScheme.foreground,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(
+                                  Icons.arrow_drop_down,
+                                  color: colorScheme.mutedForeground,
+                                  size: 20,
+                                ),
+                              ],
+                            ),
                           ),
                         );
 

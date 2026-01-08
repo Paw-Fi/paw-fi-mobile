@@ -10,6 +10,7 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
+import 'package:moneko/shared/widgets/beta_pill.dart';
 
 Widget buildRunningBalanceTab(
     BuildContext context, ColorScheme colorScheme, AnalyticsData analyticsData,
@@ -46,6 +47,8 @@ Widget buildRunningBalanceTab(
                       color: colorScheme.foreground,
                     ),
                   ),
+                  const SizedBox(width: 8),
+                  const BetaPill(),
                   const SizedBox(width: 8),
                   Builder(
                     builder: (context) {
@@ -131,7 +134,7 @@ void _showRunningBalanceInfoModal(
                   borderRadius: BorderRadius.circular(16)),
               child: ConstrainedBox(
                 constraints:
-                    const BoxConstraints(maxWidth: 420, maxHeight: 520),
+                    const BoxConstraints(maxWidth: 420, maxHeight: 580),
                 child: Padding(
                   padding: const EdgeInsets.all(24),
                   child: Column(

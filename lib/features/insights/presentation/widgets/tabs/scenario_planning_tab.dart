@@ -18,6 +18,7 @@ import 'package:moneko/features/insights/presentation/widgets/insights_ui.dart';
 import 'package:moneko/features/insights/presentation/widgets/scenario_result_sheet.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/subtle_adaptive_button.dart';
+import 'package:moneko/shared/widgets/beta_pill.dart';
 
 /// Supported sentence word orders for arranging the scenario inputs
 enum _WordOrder { svo, sov, vso, v2 }
@@ -318,13 +319,19 @@ class _ScenarioPlanningTabContentState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  context.l10n.aiScenarioPlanning,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: colorScheme.foreground,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      context.l10n.aiScenarioPlanning,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.foreground,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const BetaPill(),
+                  ],
                 ),
                 const SizedBox(height: 4),
                 Text(

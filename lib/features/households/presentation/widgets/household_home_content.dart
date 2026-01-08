@@ -27,6 +27,7 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/households/presentation/widgets/financial_calendar_widget.dart';
 import 'package:moneko/features/insights/presentation/widgets/category_guide_dialog.dart';
+import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
 
 /// Household home content that handles loading, empty, and data states
 /// Returns Sliver widgets for use in CustomScrollView
@@ -541,6 +542,18 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                                   colorScheme,
                                   summary,
                                   config.dateRange,
+                                  onTap: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => TransactionsPage(
+                                          householdId: household.id,
+                                          enableDateFilter: true,
+                                          initialStartDate: fromDate,
+                                          initialEndDate: toDate,
+                                        ),
+                                      ),
+                                    );
+                                  },
                                 );
                               },
                             ),
