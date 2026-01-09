@@ -14,6 +14,101 @@ import 'package:moneko/features/pockets/presentation/state/pockets_providers.dar
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:moneko/core/utils/error_handler.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
+import 'package:moneko/core/navigation/navigation_providers.dart';
+import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/number_format_utils.dart';
+
+String _buildUpcomingDueLabel(BuildContext context, int daysUntil) {
+  if (daysUntil <= 0) return context.l10n.today;
+  if (daysUntil == 1) return context.l10n.tomorrow;
+  return context.l10n.inDays(daysUntil);
+}
+
+Widget _buildUpcomingRecurringTile({
+  required BuildContext context,
+  required ColorScheme colorScheme,
+  required UpcomingRecurringTransaction upcoming,
+  required VoidCallback onTap,
+}) {
+  final transaction = upcoming.transaction;
+  final isIncome = transaction.type == 'income';
+  final title =
+      isIncome ? context.l10n.upcomingPaychecks : context.l10n.upcomingBills;
+  final dueLabel = _buildUpcomingDueLabel(context, upcoming.daysUntil);
+  final normalized = double.parse(formatAmount(transaction.amount.abs()));
+  final localized = formatLocalizedNumber(context, normalized);
+  final symbol = resolveCurrencySymbol(transaction.currency);
+  final sign = isIncome ? '+' : '-';
+  final amountText = '$sign$symbol$localized';
+
+  return Material(
+    color: colorScheme.surface.withValues(alpha: 0.0),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+        decoration: BoxDecoration(
+          color: colorScheme.muted,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: colorScheme.mutedForeground.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.repeat,
+                color: colorScheme.mutedForeground,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.foreground,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    dueLabel,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: colorScheme.mutedForeground,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              amountText,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.mutedForeground,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
 
 Widget buildRecentTransactionsCard(
   BuildContext context,
@@ -53,10 +148,18 @@ Widget buildRecentTransactionsCard(
           ),
         ],
       ),
-      padding: const EdgeInsets.all(24.0),
       child: Consumer(
         builder: (context, ref, _) {
-          if (latest.isEmpty) {
+          final upcoming = ref.watch(
+            upcomingRecurringTransactionProvider(
+              UpcomingRecurringScope(
+                householdId: householdId,
+                currency: selectedCurrency,
+              ),
+            ),
+          );
+
+          if (latest.isEmpty && upcoming == null) {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 24.0),
@@ -71,134 +174,155 @@ Widget buildRecentTransactionsCard(
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                context.l10n.recentTransactions.toUpperCase(),
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1.0,
-                  color: colorScheme.mutedForeground,
+              if (upcoming != null) ...[
+                _buildUpcomingRecurringTile(
+                  context: context,
+                  colorScheme: colorScheme,
+                  upcoming: upcoming,
+                  onTap: () {
+                    ref.read(mainShellTabIndexProvider.notifier).state = 1;
+                  },
                 ),
-              ),
-              const SizedBox(height: 16),
-              ...latest.map((e) {
-                final isIncome =
-                    (e.type ?? 'expense').toLowerCase() == 'income';
+                const SizedBox(height: 12),
+              ],
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  24,
+                  upcoming != null ? 0 : 24,
+                  24,
+                  24,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ...latest.map((e) {
+                      final isIncome =
+                          (e.type ?? 'expense').toLowerCase() == 'income';
 
-                // Use the same semantics as the unified transaction sheet:
-                // date comes from the transaction's logical date field, while
-                // the time component comes from createdAt. This avoids
-                // showing 00:00 when the original transaction time was later
-                // in the day (e.g. 14:25).
-                final displayDateTime = DateTime(
-                  e.date.year,
-                  e.date.month,
-                  e.date.day,
-                  e.createdAt.hour,
-                  e.createdAt.minute,
-                  e.createdAt.second,
-                  e.createdAt.millisecond,
-                  e.createdAt.microsecond,
-                );
+                      // Use the same semantics as the unified transaction sheet:
+                      // date comes from the transaction's logical date field, while
+                      // the time component comes from createdAt. This avoids
+                      // showing 00:00 when the original transaction time was later
+                      // in the day (e.g. 14:25).
+                      final displayDateTime = DateTime(
+                        e.date.year,
+                        e.date.month,
+                        e.date.day,
+                        e.createdAt.hour,
+                        e.createdAt.minute,
+                        e.createdAt.second,
+                        e.createdAt.millisecond,
+                        e.createdAt.microsecond,
+                      );
 
-                return Slidable(
-                  key: ValueKey(e.id),
-                  endActionPane: ActionPane(
-                    motion: const ScrollMotion(),
-                    extentRatio: 0.22,
-                    children: [
-                      SlidableAction(
-                        onPressed: (_) async {
-                          final l10n = context.l10n;
-                          final uid =
-                              Supabase.instance.client.auth.currentUser?.id;
-                          if (uid == null) return;
-                          try {
-                            final res = await Supabase.instance.client.functions
-                                .invoke('delete-expense', body: {
-                              'userId': uid,
-                              'expenseId': e.id,
-                            });
+                      return Slidable(
+                        key: ValueKey(e.id),
+                        endActionPane: ActionPane(
+                          motion: const ScrollMotion(),
+                          extentRatio: 0.22,
+                          children: [
+                            SlidableAction(
+                              onPressed: (_) async {
+                                final l10n = context.l10n;
+                                final uid =
+                                    Supabase.instance.client.auth.currentUser?.id;
+                                if (uid == null) return;
+                                try {
+                                  final res = await Supabase
+                                      .instance.client.functions
+                                      .invoke('delete-expense', body: {
+                                    'userId': uid,
+                                    'expenseId': e.id,
+                                  });
 
-                            if (!context.mounted) return;
+                                  if (!context.mounted) return;
 
-                            if (res.data != null &&
-                                (res.data['success'] == true)) {
-                              // Always refresh analytics (personal tab) since the
-                              // deleted row may be present in the user's dataset.
-                              ref.read(analyticsProvider.notifier).refresh(uid);
+                                  if (res.data != null &&
+                                      (res.data['success'] == true)) {
+                                    // Always refresh analytics (personal tab) since the
+                                    // deleted row may be present in the user's dataset.
+                                    ref
+                                        .read(analyticsProvider.notifier)
+                                        .refresh(uid);
 
-                              if (householdId != null) {
-                                ref
-                                    .read(cacheInvalidatorProvider)
-                                    .invalidateHouseholdData(householdId);
-                                ref.invalidate(userHouseholdsProvider(uid));
-                                ref.invalidate(householdExpensesProvider);
-                                ref.invalidate(cachedHouseholdExpensesProvider);
-                                ref.invalidate(householdSplitsProvider);
-                                ref.invalidate(cachedHouseholdSplitsProvider);
-                                ref.invalidate(householdSummaryProvider);
-                                ref.invalidate(householdBudgetsProvider);
-                                ref.invalidate(householdMembersProvider);
-                              }
+                                    if (householdId != null) {
+                                      ref
+                                          .read(cacheInvalidatorProvider)
+                                          .invalidateHouseholdData(householdId);
+                                      ref.invalidate(userHouseholdsProvider(uid));
+                                      ref.invalidate(householdExpensesProvider);
+                                      ref.invalidate(
+                                          cachedHouseholdExpensesProvider);
+                                      ref.invalidate(householdSplitsProvider);
+                                      ref.invalidate(
+                                          cachedHouseholdSplitsProvider);
+                                      ref.invalidate(householdSummaryProvider);
+                                      ref.invalidate(householdBudgetsProvider);
+                                      ref.invalidate(householdMembersProvider);
+                                    }
 
-                              // Keep other tabs and the currency selector in sync.
-                              ref.invalidate(pocketsProvider);
-                              ref.invalidate(currencyTransactionCountsProvider);
-                              AppToast.success(
-                                  context, l10n.transactionDeleted);
-                            } else {
-                              final payload = res.data is Map<String, dynamic>
-                                  ? (res.data as Map<String, dynamic>)
-                                  : null;
-                              final message =
-                                  (payload?['error'] as String?)?.trim();
-                              AppToast.error(
-                                context,
-                                (message != null && message.isNotEmpty)
-                                    ? message
-                                    : l10n.anErrorOccurred,
-                              );
-                            }
-                          } catch (err) {
-                            if (context.mounted) {
-                              AppToast.error(
-                                context,
-                                ErrorHandler.getUserFriendlyMessage(err),
-                              );
-                            }
-                          }
-                        },
-                        backgroundColor: colorScheme.destructive,
-                        foregroundColor: colorScheme.onError,
-                        icon: Icons.delete,
-                        label: context.l10n.delete,
-                        borderRadius: BorderRadius.circular(12),
+                                    // Keep other tabs and the currency selector in sync.
+                                    ref.invalidate(pocketsProvider);
+                                    ref.invalidate(
+                                        currencyTransactionCountsProvider);
+                                    AppToast.success(
+                                        context, l10n.transactionDeleted);
+                                  } else {
+                                    final payload =
+                                        res.data is Map<String, dynamic>
+                                            ? (res.data as Map<String, dynamic>)
+                                            : null;
+                                    final message =
+                                        (payload?['error'] as String?)?.trim();
+                                    AppToast.error(
+                                      context,
+                                      (message != null && message.isNotEmpty)
+                                          ? message
+                                          : l10n.anErrorOccurred,
+                                    );
+                                  }
+                                } catch (err) {
+                                  if (context.mounted) {
+                                    AppToast.error(
+                                      context,
+                                      ErrorHandler.getUserFriendlyMessage(err),
+                                    );
+                                  }
+                                }
+                              },
+                              backgroundColor: colorScheme.destructive,
+                              foregroundColor: colorScheme.onError,
+                              icon: Icons.delete,
+                              label: context.l10n.delete,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ],
+                        ),
+                        child: buildExpenseTransactionTile(
+                          context: context,
+                          category: e.category,
+                          rawText: e.rawText,
+                          date: displayDateTime,
+                          amount: e.amount,
+                          currency: selectedCurrency ?? 'USD',
+                          isIncome: isIncome,
+                          onTap: () => showUnifiedTransactionSheet(
+                            context,
+                            existingExpense: e,
+                            contact: contact,
+                          ),
+                        ),
+                      );
+                    }),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.center,
+                      child: TextButton(
+                        onPressed: onViewAll,
+                        child: Text(context.l10n.viewAll),
                       ),
-                    ],
-                  ),
-                  child: buildExpenseTransactionTile(
-                    context: context,
-                    category: e.category,
-                    rawText: e.rawText,
-                    date: displayDateTime,
-                    amount: e.amount,
-                    currency: selectedCurrency ?? 'USD',
-                    isIncome: isIncome,
-                    onTap: () => showUnifiedTransactionSheet(
-                      context,
-                      existingExpense: e,
-                      contact: contact,
                     ),
-                  ),
-                );
-              }),
-              const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.center,
-                child: TextButton(
-                  onPressed: onViewAll,
-                  child: Text(context.l10n.viewAll),
+                  ],
                 ),
               ),
             ],

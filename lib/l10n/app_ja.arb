@@ -1717,5 +1717,16 @@
   "timezoneUpdateFailed": "タイムゾーンの更新に失敗しました：{error}",
   "fixNotificationIssuesTitle": "通知の問題を修正",
   "fixNotificationIssuesSubtitle": "通知が機能しない場合は、このデバイスを再登録してください。",
-  "changeAvatar": "アバターを変更"
+  "changeAvatar": "アバターを変更",
+  "exportAsExcel": "Excelにエクスポート",
+  "moreOptions": "その他のオプション",
+  "exportTransactions": "取引をエクスポート",
+  "recurringTourFabTitle": "定期支払いを追加",
+  "recurringTourFabDescription": "請求書、給与、サブスクなどの定期的な支出・収入を作成できます。",
+  "recurringTourTabsTitle": "定期の表示を切り替え",
+  "recurringTourTabsDescription": "タブで定期的な支出・収入を表示できます。",
+  "insightsTourExampleRentGroceries": "家賃や食費を払う",
+  "insightsTourExampleEmergencyFund": "緊急用の貯金に500ドル貯める",
+  "insightsTourIntro": "AIファイナンシャルアドバイザーに、今後の出費が払えるか相談しましょう",
+  "insightsTourDataLine": "過去の平均に基づいて算出され、データに合わせて自動更新されます。"
 }

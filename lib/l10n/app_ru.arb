@@ -1667,5 +1667,16 @@
   "timezoneUpdateFailed": "Не удалось обновить часовой пояс: {error}",
   "fixNotificationIssuesTitle": "Исправить проблемы с уведомлениями",
   "fixNotificationIssuesSubtitle": "Повторно зарегистрируйте это устройство, если уведомления не работают.",
-  "changeAvatar": "Изменить аватар"
+  "changeAvatar": "Изменить аватар",
+  "exportAsExcel": "Экспорт в Excel",
+  "moreOptions": "Ещё",
+  "exportTransactions": "Экспортировать транзакции",
+  "recurringTourFabTitle": "Добавить регулярные платежи",
+  "recurringTourFabDescription": "Создавайте регулярные расходы или доходы — например, счета, зарплату или подписки.",
+  "recurringTourTabsTitle": "Переключить виды регулярных платежей",
+  "recurringTourTabsDescription": "Используйте вкладки, чтобы просматривать регулярные расходы или доходы.",
+  "insightsTourExampleRentGroceries": "оплатить аренду и продукты",
+  "insightsTourExampleEmergencyFund": "накопить $500 на резервный фонд",
+  "insightsTourIntro": "Спросите у ИИ-финансового консультанта, потянете ли вы предстоящую трату",
+  "insightsTourDataLine": "На основе исторических средних значений; автоматически обновляется на основе ваших данных."
 }

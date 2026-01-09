@@ -1719,5 +1719,16 @@
   "timezoneUpdateFailed": "No se pudo actualizar la zona horaria: {error}",
   "fixNotificationIssuesTitle": "Solucionar problemas de notificaciones",
   "fixNotificationIssuesSubtitle": "Vuelve a registrar este dispositivo si las notificaciones no funcionan.",
-  "changeAvatar": "Cambiar avatar"
+  "changeAvatar": "Cambiar avatar",
+  "exportAsExcel": "Exportar a Excel",
+  "moreOptions": "Más opciones",
+  "exportTransactions": "Exportar transacciones",
+  "recurringTourFabTitle": "Añadir pagos recurrentes",
+  "recurringTourFabDescription": "Crea gastos o ingresos recurrentes, como facturas, salario o suscripciones.",
+  "recurringTourTabsTitle": "Cambiar la vista de pagos recurrentes",
+  "recurringTourTabsDescription": "Usa las pestañas para ver tus gastos o ingresos recurrentes.",
+  "insightsTourExampleRentGroceries": "pagar el alquiler y la compra",
+  "insightsTourExampleEmergencyFund": "ahorrar 500 $ para un fondo de emergencia",
+  "insightsTourIntro": "Pregunta a tu asesor financiero de IA si puedes permitirte un gasto próximo",
+  "insightsTourDataLine": "Basado en promedios históricos; se actualiza automáticamente con tus datos."
 }

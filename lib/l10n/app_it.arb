@@ -1664,5 +1664,16 @@
   "timezoneUpdateFailed": "Impossibile aggiornare il fuso orario: {error}",
   "fixNotificationIssuesTitle": "Risolvi problemi di notifiche",
   "fixNotificationIssuesSubtitle": "Registra nuovamente questo dispositivo se le notifiche non funzionano.",
-  "changeAvatar": "Cambia avatar"
+  "changeAvatar": "Cambia avatar",
+  "exportAsExcel": "Esporta in Excel",
+  "moreOptions": "Altre opzioni",
+  "exportTransactions": "Esporta transazioni",
+  "recurringTourFabTitle": "Aggiungi pagamenti ricorrenti",
+  "recurringTourFabDescription": "Crea spese o entrate ricorrenti, come bollette, stipendio o abbonamenti.",
+  "recurringTourTabsTitle": "Cambia visualizzazione dei ricorrenti",
+  "recurringTourTabsDescription": "Usa le schede per visualizzare spese o entrate ricorrenti.",
+  "insightsTourExampleRentGroceries": "pagare l’affitto e la spesa",
+  "insightsTourExampleEmergencyFund": "mettere da parte 500 $ per un fondo di emergenza",
+  "insightsTourIntro": "Chiedi al tuo consulente finanziario con IA se puoi permetterti una spesa prevista",
+  "insightsTourDataLine": "Basato sulle medie storiche; si aggiorna automaticamente con i tuoi dati."
 }

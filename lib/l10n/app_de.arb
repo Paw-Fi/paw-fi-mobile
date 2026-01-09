@@ -1717,5 +1717,16 @@
   "timezoneUpdateFailed": "Zeitzone konnte nicht aktualisiert werden: {error}",
   "fixNotificationIssuesTitle": "Benachrichtigungsprobleme beheben",
   "fixNotificationIssuesSubtitle": "Registriere dieses Gerät erneut, wenn Benachrichtigungen nicht funktionieren.",
-  "changeAvatar": "Avatar ändern"
+  "changeAvatar": "Avatar ändern",
+  "exportAsExcel": "Als Excel exportieren",
+  "moreOptions": "Weitere Optionen",
+  "exportTransactions": "Transaktionen exportieren",
+  "recurringTourFabTitle": "Wiederkehrende Zahlungen hinzufügen",
+  "recurringTourFabDescription": "Lege wiederkehrende Ausgaben oder Einnahmen an – z. B. Rechnungen, Gehalt oder Abos.",
+  "recurringTourTabsTitle": "Ansicht für wiederkehrende Zahlungen wechseln",
+  "recurringTourTabsDescription": "Nutze die Tabs, um deine wiederkehrenden Ausgaben oder Einnahmen anzusehen.",
+  "insightsTourExampleRentGroceries": "Miete und Lebensmittel bezahlen",
+  "insightsTourExampleEmergencyFund": "500 $ für einen Notfallfonds sparen",
+  "insightsTourIntro": "Frag deinen KI-Finanzberater, ob du dir eine geplante Ausgabe leisten kannst",
+  "insightsTourDataLine": "Basierend auf historischen Durchschnittswerten; wird automatisch mit deinen Daten aktualisiert."
 }

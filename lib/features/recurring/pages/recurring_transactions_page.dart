@@ -10,11 +10,14 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
+import 'package:moneko/core/navigation/navigation_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
+import 'package:moneko/shared/widgets/spotlight/spotlight_controller.dart';
+import 'package:moneko/shared/widgets/spotlight/spotlight_step.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:moneko/shared/widgets/moneko_tab_bar_view.dart';
 
@@ -30,6 +33,12 @@ class RecurringTransactionsPage extends ConsumerStatefulWidget {
 
 class _RecurringTransactionsPageState
     extends ConsumerState<RecurringTransactionsPage> {
+  final GlobalKey _recurringFabSpotlightKey = GlobalKey();
+  final GlobalKey _recurringTabBarSpotlightKey = GlobalKey();
+  late SpotlightTourController _recurringTourController;
+  Locale? _recurringTourLocale;
+  bool _didInitRecurringTour = false;
+
   /// Force refresh (used by pull-to-refresh)
   Future<void> _refresh(String? householdId) async {
     final user = supabase.auth.currentUser;
@@ -43,9 +52,50 @@ class _RecurringTransactionsPageState
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final locale = Localizations.localeOf(context);
+    if (_didInitRecurringTour && _recurringTourLocale == locale) return;
+
+    _recurringTourController = SpotlightTourController(
+      tourId: 'recurring_transactions_v1',
+      steps: [
+        SpotlightStep(
+          id: 'recurring_fab',
+          targetKey: _recurringFabSpotlightKey,
+          title: context.l10n.recurringTourFabTitle,
+          description: context.l10n.recurringTourFabDescription,
+          placement: SpotlightPlacement.top,
+          padding: 6,
+          borderRadius: 34,
+        ),
+        SpotlightStep(
+          id: 'recurring_tab_bar',
+          targetKey: _recurringTabBarSpotlightKey,
+          title: context.l10n.recurringTourTabsTitle,
+          description: context.l10n.recurringTourTabsDescription,
+          placement: SpotlightPlacement.bottom,
+          padding: 6,
+          borderRadius: 24,
+        ),
+      ],
+    );
+    _recurringTourLocale = locale;
+    _didInitRecurringTour = true;
+  }
+
+  Future<void> _startRecurringTourIfNeeded(int currentTabIndex) async {
+    if (!_didInitRecurringTour || currentTabIndex != 1) return;
+    if (supabase.auth.currentUser == null) return;
+
+    await _recurringTourController.start(context);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final user = supabase.auth.currentUser;
+    final currentTabIndex = ref.watch(mainShellTabIndexProvider);
 
     // Determine current scope
     final viewMode = ref.watch(viewModeProvider);
@@ -115,6 +165,13 @@ class _RecurringTransactionsPageState
     final selectedCurrency =
         ref.watch(homeFilterProvider).selectedCurrency?.toUpperCase();
 
+    if (currentTabIndex == 1) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _startRecurringTourIfNeeded(currentTabIndex);
+      });
+    }
+
     return AdaptiveScaffold(
       body: Column(
         children: [
@@ -124,6 +181,7 @@ class _RecurringTransactionsPageState
                 context.l10n.expenses,
                 context.l10n.income,
               ],
+              tabBarKey: _recurringTabBarSpotlightKey,
               children: [
                 _buildRecurringTabView(
                   colorScheme,
@@ -158,6 +216,7 @@ class _RecurringTransactionsPageState
 
       // Floating action button
       floatingActionButton: Padding(
+        key: _recurringFabSpotlightKey,
         padding: const EdgeInsets.all(0),
         child: _buildFAB(colorScheme),
       ),

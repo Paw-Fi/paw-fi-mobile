@@ -1717,5 +1717,16 @@
   "timezoneUpdateFailed": "Échec de la mise à jour du fuseau horaire : {error}",
   "fixNotificationIssuesTitle": "Corriger les problèmes de notifications",
   "fixNotificationIssuesSubtitle": "Réenregistrez cet appareil si les notifications ne fonctionnent pas.",
-  "changeAvatar": "Changer d’avatar"
+  "changeAvatar": "Changer d’avatar",
+  "exportAsExcel": "Exporter en Excel",
+  "moreOptions": "Plus d’options",
+  "exportTransactions": "Exporter les transactions",
+  "recurringTourFabTitle": "Ajouter des paiements récurrents",
+  "recurringTourFabDescription": "Créez des dépenses ou des revenus récurrents, comme des factures, un salaire ou des abonnements.",
+  "recurringTourTabsTitle": "Basculer entre les vues récurrentes",
+  "recurringTourTabsDescription": "Utilisez les onglets pour voir vos dépenses ou revenus récurrents.",
+  "insightsTourExampleRentGroceries": "payer le loyer et les courses",
+  "insightsTourExampleEmergencyFund": "épargner 500 $ pour un fonds d’urgence",
+  "insightsTourIntro": "Demandez à votre conseiller financier IA si vous pouvez vous permettre une dépense à venir",
+  "insightsTourDataLine": "Basé sur des moyennes historiques ; se met automatiquement à jour en fonction de vos données."
 }

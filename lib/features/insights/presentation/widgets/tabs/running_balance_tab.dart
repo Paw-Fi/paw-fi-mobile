@@ -126,163 +126,206 @@ void _showRunningBalanceInfoModal(
 
       return StatefulBuilder(
         builder: (context, setState) {
-          return Theme(
-            data: Theme.of(context),
-            child: Dialog(
-              backgroundColor: colorScheme.card,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16)),
-              child: ConstrainedBox(
-                constraints:
-                    const BoxConstraints(maxWidth: 420, maxHeight: 580),
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              context.l10n.runningBalanceGuide,
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w600,
-                                color: colorScheme.foreground,
+          final isLastPage = currentPage == slides.length - 1;
+
+          return Dialog(
+            backgroundColor: colorScheme.surface,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(32),
+              side: BorderSide(
+                color: colorScheme.outline.withValues(alpha: 0.08),
+                width: 1,
+              ),
+            ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(32, 32, 32, 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                context.l10n.runningBalanceGuide,
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: colorScheme.onSurface,
+                                  letterSpacing: -0.5,
+                                ),
                               ),
-                            ),
-                          ),
-                          IconButton(
-                            icon: Icon(Icons.close,
-                                color: colorScheme.mutedForeground),
-                            onPressed: () => Navigator.of(dialogContext).pop(),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        context.l10n.runningBalanceIntro,
-                        style: TextStyle(
-                            color: colorScheme.mutedForeground, fontSize: 14),
-                      ),
-                      const SizedBox(height: 20),
-                      Expanded(
-                        child: PageView.builder(
-                            controller: controller,
-                            onPageChanged: (index) {
-                              setState(() => currentPage = index);
-                            },
-                            itemCount: slides.length,
-                            itemBuilder: (context, index) {
-                              final slide = slides[index];
-                              return Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color:
-                                      colorScheme.muted.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(8),
+                              const SizedBox(height: 8),
+                              Text(
+                                context.l10n.runningBalanceIntro,
+                                style: TextStyle(
+                                  color: colorScheme.onSurfaceVariant,
+                                  fontSize: 15,
+                                  height: 1.4,
                                 ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      slide.title,
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                        color: colorScheme.foreground,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Text(
-                                      slide.summary,
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: colorScheme.mutedForeground,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    ...slide.points.map((point) {
-                                      return Padding(
-                                        padding:
-                                            const EdgeInsets.only(bottom: 8),
-                                        child: Row(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Icon(Icons.check_circle,
-                                                size: 16,
-                                                color: colorScheme.primary),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: Text(
-                                                point,
-                                                style: TextStyle(
-                                                  fontSize: 13,
-                                                  color: colorScheme.foreground,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 24),
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          icon: Icon(
+                            Icons.close_rounded,
+                            color: colorScheme.onSurfaceVariant,
+                            size: 26,
+                          ),
+                          onPressed: () => Navigator.of(dialogContext).pop(),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 32),
+
+                    // Slides Area
+                    SizedBox(
+                      height: 240, // Reduced height as content is simpler
+                      child: PageView.builder(
+                        controller: controller,
+                        onPageChanged: (index) {
+                          setState(() => currentPage = index);
+                        },
+                        itemCount: slides.length,
+                        itemBuilder: (context, index) {
+                          final slide = slides[index];
+                          return SingleChildScrollView(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  slide.title,
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
+                                    color: colorScheme.onSurface,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  slide.summary,
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    color: colorScheme.mutedForeground,
+                                    height: 1.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+                                ...slide.points.map((point) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Padding(
+                                          padding:
+                                              const EdgeInsets.only(top: 2),
+                                          child: Icon(
+                                            Icons.check_circle_rounded,
+                                            size: 18,
+                                            color: colorScheme.primary,
+                                          ),
                                         ),
-                                      );
-                                    }),
-                                  ],
-                                ),
-                              );
-                            }),
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: List.generate(slides.length, (index) {
-                          return Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 4),
-                            width: currentPage == index ? 24 : 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              color: currentPage == index
-                                  ? colorScheme.primary
-                                  : colorScheme.muted,
-                              borderRadius: BorderRadius.circular(8),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            point,
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              color: colorScheme.onSurface,
+                                              height: 1.4,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }),
+                              ],
                             ),
                           );
-                        }),
+                        },
                       ),
-                      const SizedBox(height: 20),
-                      Row(
-                        children: [
-                          Flexible(
-                            child: TextButton(
-                              onPressed: () =>
-                                  Navigator.of(dialogContext).pop(),
-                              child: Text(context.l10n.close),
-                            ),
-                          ),
-                          const Spacer(),
-                          Flexible(
-                            child: PrimaryAdaptiveButton(
+                    ),
+
+                    const SizedBox(height: 32),
+
+                    // Footer Actions
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Page Indicators
+                        Row(
+                          children: List.generate(slides.length, (index) {
+                            final isActive = currentPage == index;
+                            return AnimatedContainer(
+                              duration: const Duration(milliseconds: 300),
+                              margin: const EdgeInsets.only(right: 8),
+                              width: isActive ? 32 : 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: isActive
+                                    ? colorScheme.primary
+                                    : colorScheme.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(100),
+                              ),
+                            );
+                          }),
+                        ),
+
+                        // Action Buttons
+                        Row(
+                          children: [
+                            if (!isLastPage)
+                              TextButton(
+                                onPressed: () {
+                                  Navigator.of(dialogContext).pop();
+                                },
+                                style: TextButton.styleFrom(
+                                  foregroundColor: colorScheme.mutedForeground,
+                                  textStyle: const TextStyle(
+                                      fontWeight: FontWeight.w600),
+                                ),
+                                child: Text(context.l10n.skip),
+                              ),
+                            const SizedBox(width: 12),
+                            PrimaryAdaptiveButton(
                               onPressed: () {
-                                if (currentPage < slides.length - 1) {
+                                if (!isLastPage) {
                                   controller.nextPage(
-                                    duration: const Duration(milliseconds: 250),
-                                    curve: Curves.easeOut,
+                                    duration: const Duration(milliseconds: 400),
+                                    curve: Curves.easeOutQuart,
                                   );
                                   setState(() => currentPage += 1);
                                 } else {
                                   Navigator.of(dialogContext).pop();
                                 }
                               },
-                              child: Text(currentPage < slides.length - 1
-                                  ? context.l10n.next
-                                  : context.l10n.done),
+                              child: Text(
+                                isLastPage
+                                    ? context.l10n.gotIt
+                                    : context.l10n.next,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ),

@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 /// Platform-adaptive switch that uses CupertinoSwitch on iOS and Material Switch on other platforms
 class MonekoSwitch extends StatelessWidget {
@@ -31,11 +32,20 @@ class MonekoSwitch extends StatelessWidget {
       );
     }
 
+    final colorScheme = Theme.of(context).colorScheme;
+    final resolvedActiveThumb = activeColor ?? colorScheme.primary;
+    final resolvedActiveTrack =
+        resolvedActiveThumb.withValues(alpha: 0.35);
+    final resolvedInactiveThumb = thumbColor ?? colorScheme.card;
+    final resolvedInactiveTrack = trackColor ?? colorScheme.border;
+
     return Switch(
       value: value,
       onChanged: onChanged,
-      activeThumbColor: activeColor,
-      activeTrackColor: trackColor,
+      activeThumbColor: resolvedActiveThumb,
+      activeTrackColor: resolvedActiveTrack,
+      inactiveThumbColor: resolvedInactiveThumb,
+      inactiveTrackColor: resolvedInactiveTrack,
       thumbColor:
           thumbColor != null ? WidgetStateProperty.all(thumbColor) : null,
     );

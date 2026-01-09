@@ -131,39 +131,25 @@ class _SpendingCardState extends State<SpendingCard> {
 
     final maxY = allCumulativeData.isEmpty ? 100.0 : allCumulativeData.last.y;
 
-    return GestureDetector(
-      onHorizontalDragEnd: (details) {
-        if (details.primaryVelocity != null) {
-          setState(() {
-            if (details.primaryVelocity! < 0) {
-              _currentWindowStart =
-                  (_currentWindowStart + 1).clamp(0, maxWindowStart);
-            } else if (details.primaryVelocity! > 0) {
-              _currentWindowStart =
-                  (_currentWindowStart - 1).clamp(0, maxWindowStart);
-            }
-          });
-        }
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: widget.colorScheme.homeCardSurface,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: widget.colorScheme.homeCardBorder,
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: widget.colorScheme.homeCardShadow,
-              blurRadius: 32,
-              offset: const Offset(0, 8),
-              spreadRadius: -4,
-            ),
-          ],
+    return Container(
+      decoration: BoxDecoration(
+        color: widget.colorScheme.homeCardSurface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: widget.colorScheme.homeCardBorder,
+          width: 1,
         ),
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
+        boxShadow: [
+          BoxShadow(
+            color: widget.colorScheme.homeCardShadow,
+            blurRadius: 32,
+            offset: const Offset(0, 8),
+            spreadRadius: -4,
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header Section
@@ -279,6 +265,7 @@ class _SpendingCardState extends State<SpendingCard> {
                   borderData: FlBorderData(show: false),
                   lineTouchData: LineTouchData(
                     enabled: true,
+                    touchSpotThreshold: 24,
                     touchTooltipData: LineTouchTooltipData(
                       getTooltipColor: (touchedSpot) =>
                           widget.colorScheme.surface,
@@ -333,6 +320,14 @@ class _SpendingCardState extends State<SpendingCard> {
                     touchCallback:
                         (FlTouchEvent event, LineTouchResponse? touchResponse) {
                       setState(() {
+                        if (event is FlPanEndEvent ||
+                            event is FlPanCancelEvent ||
+                            event is FlTapUpEvent ||
+                            event is FlTapCancelEvent ||
+                            event is FlLongPressEnd) {
+                          _touchedIndex = null;
+                          return;
+                        }
                         if (touchResponse == null ||
                             touchResponse.lineBarSpots == null) {
                           _touchedIndex = null;
@@ -404,7 +399,6 @@ class _SpendingCardState extends State<SpendingCard> {
             ),
           ],
         ),
-      ),
     );
   }
 

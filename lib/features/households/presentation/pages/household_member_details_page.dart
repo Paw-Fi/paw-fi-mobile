@@ -7,6 +7,7 @@ import 'package:moneko/features/home/presentation/constants/category_constants.d
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
+import 'package:moneko/features/home/presentation/utils/transaction_exporter.dart';
 import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
@@ -67,7 +68,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
-          _buildAppBar(context, colorScheme),
+          _buildAppBar(context, colorScheme, memberTransactions),
           SliverToBoxAdapter(
             child: _buildHeader(
               context,
@@ -125,7 +126,11 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
     );
   }
 
-  Widget _buildAppBar(BuildContext context, ColorScheme colorScheme) {
+  Widget _buildAppBar(
+    BuildContext context,
+    ColorScheme colorScheme,
+    List<ExpenseEntry> exportTransactions,
+  ) {
     return SliverAppBar(
       backgroundColor: colorScheme.appBackground,
       surfaceTintColor: colorScheme.surface.withValues(alpha: 0.0),
@@ -137,6 +142,16 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
         icon: Icon(Icons.arrow_back_ios_new_rounded, color: colorScheme.foreground),
         onPressed: () => Navigator.of(context).pop(),
       ),
+      actions: [
+        IconButton(
+          icon: Icon(Icons.file_download_rounded, color: colorScheme.foreground),
+          onPressed: () => exportTransactionsAsCsvSheet(
+            context,
+            exportTransactions,
+            fileNamePrefix: 'member_transactions',
+          ),
+        ),
+      ],
       title: Text(
         member.userName ?? member.userEmail ?? context.l10n.unknownMember,
         style: TextStyle(

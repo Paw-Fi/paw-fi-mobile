@@ -1663,5 +1663,16 @@
   "timezoneUpdateFailed": "ٹائم زون اپ ڈیٹ نہیں ہو سکا: {error}",
   "fixNotificationIssuesTitle": "نوٹیفکیشن کے مسائل حل کریں",
   "fixNotificationIssuesSubtitle": "اگر نوٹیفکیشن کام نہ کریں تو اس ڈیوائس کو دوبارہ رجسٹر کریں۔",
-  "changeAvatar": "اوتار تبدیل کریں"
+  "changeAvatar": "اوتار تبدیل کریں",
+  "exportAsExcel": "ایکسِل میں ایکسپورٹ کریں",
+  "moreOptions": "مزید اختیارات",
+  "exportTransactions": "لین دین ایکسپورٹ کریں",
+  "recurringTourFabTitle": "بار بار ہونے والی ادائیگیاں شامل کریں",
+  "recurringTourFabDescription": "بل، تنخواہ یا سبسکرپشن جیسی بار بار ہونے والی آمدنی یا اخراجات بنائیں۔",
+  "recurringTourTabsTitle": "بار بار ہونے والے اندراجات کا ویو تبدیل کریں",
+  "recurringTourTabsDescription": "اپنے بار بار ہونے والے اخراجات یا آمدنی دیکھنے کے لیے ٹیبز استعمال کریں۔",
+  "insightsTourExampleRentGroceries": "کرایہ اور راشن ادا کریں",
+  "insightsTourExampleEmergencyFund": "ایمرجنسی فنڈ کے لیے $500 بچائیں",
+  "insightsTourIntro": "اپنے AI مالی مشیر سے پوچھیں کہ کیا آپ آئندہ ہونے والا خرچ برداشت کر سکتے ہیں",
+  "insightsTourDataLine": "تاریخی اوسط کی بنیاد پر؛ آپ کے ڈیٹا کے مطابق خودکار طور پر اپ ڈیٹ ہوتا ہے۔"
 }

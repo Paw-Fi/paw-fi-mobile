@@ -1709,5 +1709,16 @@
   "timezoneUpdateFailed": "Не вдалося оновити часовий пояс: {error}",
   "fixNotificationIssuesTitle": "Виправити проблеми зі сповіщеннями",
   "fixNotificationIssuesSubtitle": "Повторно зареєструйте цей пристрій, якщо сповіщення не працюють.",
-  "changeAvatar": "Змінити аватар"
+  "changeAvatar": "Змінити аватар",
+  "exportAsExcel": "Експортувати в Excel",
+  "moreOptions": "Додатково",
+  "exportTransactions": "Експортувати транзакції",
+  "recurringTourFabTitle": "Додати регулярні платежі",
+  "recurringTourFabDescription": "Створюйте регулярні витрати або доходи — наприклад, рахунки, зарплату чи підписки.",
+  "recurringTourTabsTitle": "Перемкнути подання регулярних платежів",
+  "recurringTourTabsDescription": "Використовуйте вкладки, щоб переглядати регулярні витрати або доходи.",
+  "insightsTourExampleRentGroceries": "сплатити оренду й купити продукти",
+  "insightsTourExampleEmergencyFund": "накопичити $500 на резервний фонд",
+  "insightsTourIntro": "Запитайте у свого ШІ-фінансового консультанта, чи можете ви дозволити собі майбутню витрату",
+  "insightsTourDataLine": "На основі історичних середніх значень; автоматично оновлюється на основі ваших даних."
 }

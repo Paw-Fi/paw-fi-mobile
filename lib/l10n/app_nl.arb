@@ -1664,5 +1664,16 @@
   "timezoneUpdateFailed": "Tijdzone bijwerken mislukt: {error}",
   "fixNotificationIssuesTitle": "Meldingsproblemen oplossen",
   "fixNotificationIssuesSubtitle": "Registreer dit apparaat opnieuw als meldingen niet werken.",
-  "changeAvatar": "Avatar wijzigen"
+  "changeAvatar": "Avatar wijzigen",
+  "exportAsExcel": "Exporteren naar Excel",
+  "moreOptions": "Meer opties",
+  "exportTransactions": "Transacties exporteren",
+  "recurringTourFabTitle": "Terugkerende betalingen toevoegen",
+  "recurringTourFabDescription": "Maak terugkerende uitgaven of inkomsten aan, zoals rekeningen, salaris of abonnementen.",
+  "recurringTourTabsTitle": "Wissel tussen terugkerende weergaven",
+  "recurringTourTabsDescription": "Gebruik de tabbladen om je terugkerende uitgaven of inkomsten te bekijken.",
+  "insightsTourExampleRentGroceries": "huur en boodschappen betalen",
+  "insightsTourExampleEmergencyFund": "$500 sparen voor een noodfonds",
+  "insightsTourIntro": "Vraag je AI-financieel adviseur of je een geplande uitgave kunt betalen",
+  "insightsTourDataLine": "Gebaseerd op historische gemiddelden; wordt automatisch bijgewerkt op basis van je gegevens."
 }

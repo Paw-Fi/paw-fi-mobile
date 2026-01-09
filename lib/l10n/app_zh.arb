@@ -1713,5 +1713,16 @@
   "timezoneUpdateFailed": "更新时区失败：{error}",
   "fixNotificationIssuesTitle": "修复通知问题",
   "fixNotificationIssuesSubtitle": "如果通知无法正常工作，请重新注册此设备。",
-  "changeAvatar": "更换头像"
+  "changeAvatar": "更换头像",
+  "exportAsExcel": "导出为 Excel",
+  "moreOptions": "更多选项",
+  "exportTransactions": "导出交易记录",
+  "recurringTourFabTitle": "添加定期付款",
+  "recurringTourFabDescription": "创建定期支出或收入，如账单、工资或订阅。",
+  "recurringTourTabsTitle": "切换定期视图",
+  "recurringTourTabsDescription": "使用标签页查看你的定期支出或收入。",
+  "insightsTourExampleRentGroceries": "付房租和买菜",
+  "insightsTourExampleEmergencyFund": "为应急基金存下 $500",
+  "insightsTourIntro": "问问你的 AI 理财助手：未来这笔支出你能负担吗？",
+  "insightsTourDataLine": "基于历史平均值；会根据你的数据自动更新。"
 }

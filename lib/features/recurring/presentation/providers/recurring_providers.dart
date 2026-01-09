@@ -323,6 +323,86 @@ final recurringIncomesProvider = Provider.family<
   );
 });
 
+class UpcomingRecurringScope {
+  final String? householdId;
+  final String? currency;
+
+  const UpcomingRecurringScope({this.householdId, this.currency});
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is UpcomingRecurringScope &&
+          runtimeType == other.runtimeType &&
+          householdId == other.householdId &&
+          currency == other.currency;
+
+  @override
+  int get hashCode =>
+      householdId.hashCode ^ (currency?.hashCode ?? 0);
+}
+
+class UpcomingRecurringTransaction {
+  final RecurringTransaction transaction;
+  final DateTime nextOccurrence;
+  final int daysUntil;
+
+  const UpcomingRecurringTransaction({
+    required this.transaction,
+    required this.nextOccurrence,
+    required this.daysUntil,
+  });
+}
+
+/// Next recurring transaction due within 3 days for the current scope.
+final upcomingRecurringTransactionProvider = Provider.family<
+    UpcomingRecurringTransaction?, UpcomingRecurringScope>((ref, scope) {
+  final allTransactions =
+      ref.watch(recurringTransactionsProvider(scope.householdId));
+  final currency = scope.currency?.trim().toUpperCase();
+
+  return allTransactions.data.when(
+    data: (transactions) {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      UpcomingRecurringTransaction? best;
+
+      for (final transaction in transactions) {
+        if (!transaction.isActive) continue;
+        if (currency != null &&
+            currency.isNotEmpty &&
+            transaction.currency.toUpperCase() != currency) {
+          continue;
+        }
+
+        final nextOccurrence = transaction.getNextOccurrence(today);
+        final nextDate = DateTime(
+          nextOccurrence.year,
+          nextOccurrence.month,
+          nextOccurrence.day,
+        );
+        final daysUntil = nextDate.difference(today).inDays;
+
+        if (daysUntil < 0 || daysUntil > 3) continue;
+
+        final candidate = UpcomingRecurringTransaction(
+          transaction: transaction,
+          nextOccurrence: nextDate,
+          daysUntil: daysUntil,
+        );
+
+        if (best == null || nextDate.isBefore(best.nextOccurrence)) {
+          best = candidate;
+        }
+      }
+
+      return best;
+    },
+    loading: () => null,
+    error: (_, __) => null,
+  );
+});
+
 // ============================================================================
 // SAVE PROVIDER
 // ============================================================================

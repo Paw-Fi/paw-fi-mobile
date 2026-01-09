@@ -1716,5 +1716,16 @@
   "timezoneUpdateFailed": "Không thể cập nhật múi giờ: {error}",
   "fixNotificationIssuesTitle": "Khắc phục sự cố thông báo",
   "fixNotificationIssuesSubtitle": "Đăng ký lại thiết bị này nếu thông báo không hoạt động.",
-  "changeAvatar": "Thay đổi ảnh đại diện"
+  "changeAvatar": "Thay đổi ảnh đại diện",
+  "exportAsExcel": "Xuất sang Excel",
+  "moreOptions": "Tùy chọn khác",
+  "exportTransactions": "Xuất các giao dịch",
+  "recurringTourFabTitle": "Thêm khoản thanh toán định kỳ",
+  "recurringTourFabDescription": "Tạo các khoản chi hoặc thu định kỳ như hóa đơn, lương hoặc đăng ký.",
+  "recurringTourTabsTitle": "Chuyển chế độ xem định kỳ",
+  "recurringTourTabsDescription": "Dùng các tab để xem khoản chi hoặc thu định kỳ của bạn.",
+  "insightsTourExampleRentGroceries": "trả tiền thuê nhà và mua nhu yếu phẩm",
+  "insightsTourExampleEmergencyFund": "tiết kiệm $500 cho quỹ khẩn cấp",
+  "insightsTourIntro": "Hỏi cố vấn tài chính AI xem bạn có thể chi trả cho khoản chi sắp tới không",
+  "insightsTourDataLine": "Dựa trên mức trung bình trong quá khứ; tự động cập nhật theo dữ liệu của bạn."
 }

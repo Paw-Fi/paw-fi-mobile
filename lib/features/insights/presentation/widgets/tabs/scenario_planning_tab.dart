@@ -19,6 +19,9 @@ import 'package:moneko/features/insights/presentation/widgets/scenario_result_sh
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/subtle_adaptive_button.dart';
 import 'package:moneko/shared/widgets/beta_pill.dart';
+import 'package:moneko/shared/widgets/spotlight/spotlight_controller.dart';
+import 'package:moneko/shared/widgets/spotlight/spotlight_step.dart';
+import 'package:moneko/shared/widgets/spotlight/spotlight_target.dart';
 
 /// Supported sentence word orders for arranging the scenario inputs
 enum _WordOrder { svo, sov, vso, v2 }
@@ -27,21 +30,25 @@ Widget buildScenarioPlanningTab(
   BuildContext context,
   AnalyticsData analyticsData, {
   String? selectedCurrency,
+  required SpotlightTourController spotlightController,
 }) {
   return ScenarioPlanningTabContent(
     analyticsData: analyticsData,
     selectedCurrency: selectedCurrency,
+    spotlightController: spotlightController,
   );
 }
 
 class ScenarioPlanningTabContent extends ConsumerStatefulWidget {
   final AnalyticsData analyticsData;
   final String? selectedCurrency;
+  final SpotlightTourController spotlightController;
 
   const ScenarioPlanningTabContent({
     super.key,
     required this.analyticsData,
     this.selectedCurrency,
+    required this.spotlightController,
   });
 
   @override
@@ -61,6 +68,36 @@ class _ScenarioPlanningTabContentState
       TextEditingController();
   DateTime? _scenarioDate;
   bool _scenarioLoading = false;
+
+  String _buildScenarioTourDescription() {
+    final now = DateTime.now();
+    final exampleDates = [
+      _formatLocalizedDate(now.add(const Duration(days: 45))),
+      _formatLocalizedDate(now.add(const Duration(days: 90))),
+      _formatLocalizedDate(now.add(const Duration(days: 150))),
+    ];
+    final examples = [
+      context.l10n.scenarioQuestionTemplate(
+        context.l10n.buyALaptop,
+        exampleDates[0],
+      ),
+      context.l10n.scenarioQuestionTemplate(
+        context.l10n.insightsTourExampleRentGroceries,
+        exampleDates[1],
+      ),
+      context.l10n.scenarioQuestionTemplate(
+        context.l10n.insightsTourExampleEmergencyFund,
+        exampleDates[2],
+      ),
+    ];
+
+    return [
+      context.l10n.insightsTourIntro,
+      context.l10n.insightsTourDataLine,
+      '',
+      for (final example in examples) '- $example',
+    ].join('\n');
+  }
 
   /// Format date according to locale-specific pattern with comprehensive fallback support
   String _formatLocalizedDate(DateTime date) {
@@ -364,14 +401,13 @@ class _ScenarioPlanningTabContentState
                           controller: _scenarioQuestionController,
                           decoration: InputDecoration(
                             hintText: context.l10n.buyALaptop,
-                            hintStyle: TextStyle(
-                                color: colorScheme.mutedForeground),
+                            hintStyle:
+                                TextStyle(color: colorScheme.mutedForeground),
                             filled: true,
                             fillColor: colorScheme.inputBackground,
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide:
-                                  BorderSide(color: colorScheme.border),
+                              borderSide: BorderSide(color: colorScheme.border),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
@@ -381,8 +417,7 @@ class _ScenarioPlanningTabContentState
                             contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 10),
                           ),
-                          style:
-                              TextStyle(color: colorScheme.foreground),
+                          style: TextStyle(color: colorScheme.foreground),
                           keyboardType: TextInputType.text,
                         ),
                       );
@@ -433,7 +468,9 @@ class _ScenarioPlanningTabContentState
                                         _scenarioQuestionController.text.trim();
                                     final d = _scenarioDate == null
                                         ? ''
-                                        : _formatLocalizedDate(_scenarioDate!);
+                                        : _formatLocalizedDate(
+                                            _scenarioDate!,
+                                          );
                                     if (q.isEmpty || d.isEmpty) {
                                       AppToast.info(
                                           context,
@@ -780,12 +817,28 @@ class _ScenarioPlanningTabContentState
                           ];
                       }
 
+                      final inputRows = SpotlightTarget(
+                        controller: widget.spotlightController,
+                        id: 'insights_ai_scenario_inputs',
+                        title: context.l10n.aiScenarioPlanning,
+                        description: _buildScenarioTourDescription(),
+                        placement: SpotlightPlacement.bottom,
+                        padding: 12,
+                        borderRadius: 16,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(children: row1),
+                            const SizedBox(height: 8),
+                            if (row2.isNotEmpty) Row(children: row2),
+                          ],
+                        ),
+                      );
+
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Row(children: row1),
-                          const SizedBox(height: 8),
-                          if (row2.isNotEmpty) Row(children: row2),
+                          inputRows,
                           const SizedBox(height: 8),
                           Row(children: row3),
                         ],

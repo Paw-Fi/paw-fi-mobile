@@ -28,8 +28,7 @@ Household? _resolveHouseholdSelection(
   if (households.isEmpty) return null;
 
   final selected = selectedState.household;
-  if (selected != null &&
-      households.any((h) => h.id == selected.id)) {
+  if (selected != null && households.any((h) => h.id == selected.id)) {
     return households.firstWhere(
       (h) => h.id == selected.id,
       orElse: () => households.first,
@@ -87,7 +86,8 @@ class PocketsPage extends HookConsumerWidget {
 
       final currentId = selectedHouseholdState.householdId;
       final currentObjId = selectedHouseholdState.household?.id;
-      if (currentId == resolvedHouseholdId && currentObjId == resolvedHouseholdId) {
+      if (currentId == resolvedHouseholdId &&
+          currentObjId == resolvedHouseholdId) {
         return null;
       }
 
@@ -269,58 +269,82 @@ class PocketsPage extends HookConsumerWidget {
             },
           ),
           AnimatedPositioned(
-            duration: const Duration(milliseconds: 400),
-            curve: Curves.easeOutCubic,
-            left: 24,
-            right: 24,
+            duration: const Duration(milliseconds: 500),
+            curve: Curves.easeOutQuart,
+            left: 32,
+            right: 32,
             bottom:
                 hasChanges ? (PlatformInfo.isIOS26OrHigher() ? 100 : 32) : -100,
             child: IgnorePointer(
               ignoring: !hasChanges,
               child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 300),
+                duration: const Duration(milliseconds: 400),
                 opacity: hasChanges ? 1.0 : 0.0,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(32),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                    child: Container(
-                      padding: const EdgeInsets.only(
-                          top: 8, left: 16, right: 16, bottom: 8),
-                      decoration: BoxDecoration(
-                        color: colorScheme.sheetBackground.withValues(alpha: 0.92),
-                        borderRadius: BorderRadius.circular(32),
-                        border: Border.all(
-                          color: colorScheme.sheetBorder.withValues(alpha: 0.6),
-                          width: 1,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: colorScheme.shadow.withValues(alpha: 0.15),
-                            blurRadius: 24,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(100),
+                    boxShadow: [
+                      BoxShadow(
+                        color: colorScheme.shadow.withValues(alpha: 0.12),
+                        blurRadius: 32,
+                        offset: const Offset(0, 12),
+                        spreadRadius: -4,
                       ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: PlainAdaptiveButton(
-                              onPressed: currentPocketsNotifier.revertChanges,
-                              child: Text(
-                                context.l10n.reset,
-                                style: TextStyle(color: colorScheme.error),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(100),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: colorScheme.surface.withValues(alpha: 0.8),
+                          borderRadius: BorderRadius.circular(100),
+                          border: Border.all(
+                            color: colorScheme.outline.withValues(alpha: 0.08),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: AdaptiveButton.child(
+                                onPressed: currentPocketsNotifier.revertChanges,
+                                style: AdaptiveButtonStyle.plain,
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.refresh_rounded,
+                                      size: 18,
+                                      color: colorScheme.error,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      context.l10n.reset,
+                                      style: TextStyle(
+                                        color: colorScheme.error,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: PrimaryAdaptiveButton(
-                              onPressed: currentPocketsNotifier.saveChanges,
-                              child: Text(context.l10n.save),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: PrimaryAdaptiveButton(
+                                onPressed: currentPocketsNotifier.saveChanges,
+                                prefixIcon: const Icon(
+                                  Icons.check_rounded,
+                                  size: 18,
+                                ),
+                                child: Text(context.l10n.save),
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),

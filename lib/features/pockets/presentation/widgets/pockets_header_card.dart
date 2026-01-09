@@ -224,36 +224,22 @@ class PocketsHeaderCard extends StatelessWidget {
                   ),
                   child: SizedBox(
                     height: 32,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Container(
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: sliderRailColor,
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                        ),
-                        AdaptiveSlider(
-                          activeColor: colorScheme.primary,
-                          thumbColor: colorScheme.primaryForeground,
-                          value: sliderValue,
-                          min: sliderMin,
-                          max: sliderMax,
-                          onChanged: (value) {
-                            final roundedValue =
-                                ((value - sliderMin) / sliderStep).round() *
-                                        sliderStep +
-                                    sliderMin;
-                            onTotalChanged(
-                              roundedValue
-                                  .clamp(sliderMin, sliderMax)
-                                  .toDouble(),
-                            );
-                          },
-                          divisions: sliderDivisions,
-                        ),
-                      ],
+                    child: AdaptiveSlider(
+                      activeColor: colorScheme.primary,
+                      thumbColor: colorScheme.primaryForeground,
+                      value: sliderValue,
+                      min: sliderMin,
+                      max: sliderMax,
+                      onChanged: (value) {
+                        final roundedValue =
+                            ((value - sliderMin) / sliderStep).round() *
+                                    sliderStep +
+                                sliderMin;
+                        onTotalChanged(
+                          roundedValue.clamp(sliderMin, sliderMax).toDouble(),
+                        );
+                      },
+                      divisions: sliderDivisions,
                     ),
                   ),
                 ),

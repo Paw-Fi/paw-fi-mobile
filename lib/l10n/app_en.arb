@@ -1721,5 +1721,16 @@
   "timezoneUpdateFailed": "Failed to update timezone: {error}",
   "fixNotificationIssuesTitle": "Fix notification issues",
   "fixNotificationIssuesSubtitle": "Re-register this device if notifications are not working.",
-  "changeAvatar": "Change avatar"
+  "changeAvatar": "Change avatar",
+  "exportAsExcel": "Export as Excel",
+  "moreOptions": "More Options",
+  "exportTransactions": "Export transactions",
+  "recurringTourFabTitle": "Add recurring payments",
+  "recurringTourFabDescription": "Create recurring expenses or income like bills, salary, or subscriptions.",
+  "recurringTourTabsTitle": "Switch recurring views",
+  "recurringTourTabsDescription": "Use the tabs to view your recurring expenses or income.",
+  "insightsTourExampleRentGroceries": "pay rent and groceries",
+  "insightsTourExampleEmergencyFund": "save $500 for an emergency fund",
+  "insightsTourIntro": "Ask your AI financial advisor if you can afford a future expense",
+  "insightsTourDataLine": "Based on historical averages; updates automatically with your data."
 }

@@ -4,9 +4,11 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/core/navigation/navigation_providers.dart';
 import '../widgets/tabs/tabs.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/moneko_tab_bar_view.dart';
+import 'package:moneko/shared/widgets/spotlight/spotlight_controller.dart';
 
 // ============================================================================
 // ADVANCED ANALYTICS PAGE
@@ -19,12 +21,40 @@ class AnalyticsPage extends ConsumerStatefulWidget {
   ConsumerState<AnalyticsPage> createState() => _AnalyticsPageState();
 }
 
+final insightsTabIndexProvider = StateProvider<int>((ref) => 0);
+
 class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
+  late final SpotlightTourController _insightsTourController;
+
+  @override
+  void initState() {
+    super.initState();
+    _insightsTourController =
+        SpotlightTourController(tourId: 'insights_ai_scenario_v1');
+  }
+
+  Future<void> _startInsightsTourIfNeeded(int currentTabIndex) async {
+    if (currentTabIndex != 3) return;
+    if (ref.read(insightsTabIndexProvider) != 0) return;
+    if (ref.read(authProvider).uid.isEmpty) return;
+
+    await _insightsTourController.start(context);
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final analyticsData = ref.watch(analyticsProvider);
     final filterState = ref.watch(homeFilterProvider);
+    final currentTabIndex = ref.watch(mainShellTabIndexProvider);
+    final currentInsightsTabIndex = ref.watch(insightsTabIndexProvider);
+
+    if (currentTabIndex == 3 && currentInsightsTabIndex == 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _startInsightsTourIfNeeded(currentTabIndex);
+      });
+    }
 
     return Scaffold(
       backgroundColor: colorScheme.appBackground,
@@ -47,6 +77,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
                 colorScheme,
                 analyticsData,
                 filterState.selectedCurrency,
+                _insightsTourController,
               ),
               buildRunningBalanceTab(
                 context,
@@ -55,15 +86,22 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
                 selectedCurrency: filterState.selectedCurrency,
               ),
             ],
-            onTabChanged: (_) {},
+            onTabChanged: (index) {
+              if (ref.read(insightsTabIndexProvider) == index) return;
+              ref.read(insightsTabIndexProvider.notifier).state = index;
+            },
           ),
         ),
       ),
     );
   }
 
-  Widget _buildScenarioPlanningTabWithProvider(ColorScheme colorScheme,
-      AnalyticsData analyticsData, String? selectedCurrency) {
+  Widget _buildScenarioPlanningTabWithProvider(
+    ColorScheme colorScheme,
+    AnalyticsData analyticsData,
+    String? selectedCurrency,
+    SpotlightTourController spotlightController,
+  ) {
     return ProviderScope(
       overrides: const [
         // Override any providers if needed
@@ -72,6 +110,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
         context,
         analyticsData,
         selectedCurrency: selectedCurrency,
+        spotlightController: spotlightController,
       ),
     );
   }

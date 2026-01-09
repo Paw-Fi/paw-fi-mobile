@@ -12,6 +12,7 @@ import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dart';
+import 'package:moneko/features/home/presentation/utils/transaction_exporter.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import '../widgets/unified_transaction_sheet.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
@@ -286,10 +287,24 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
   AdaptiveScaffold _buildMainScaffold(
       ColorScheme colorScheme, UserContact? contact) {
+    final expensesToExport = filteredExpenses;
     return AdaptiveScaffold(
       appBar: AdaptiveAppBar(
         useNativeToolbar: false,
         title: (context.l10n.transactions),
+        actions: [
+          AdaptiveAppBarAction(
+            icon: Icons.file_download_rounded,
+            iosSymbol: 'square.and.arrow.up',
+            onPressed: () => exportTransactionsAsCsvSheet(
+              context,
+              expensesToExport,
+              fileNamePrefix: widget.householdId != null
+                  ? 'household_transactions'
+                  : 'transactions',
+            ),
+          ),
+        ],
       ),
       body: SafeArea(
         child: Material(

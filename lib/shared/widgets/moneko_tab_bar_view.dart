@@ -10,11 +10,13 @@ class MonekoTabBarView extends StatefulWidget {
     required this.tabs,
     required this.children,
     this.onTabChanged,
+    this.tabBarKey,
   });
 
   final List<String> tabs;
   final List<Widget> children;
   final ValueChanged<int>? onTabChanged;
+  final Key? tabBarKey;
 
   @override
   State<MonekoTabBarView> createState() => _MonekoTabBarViewState();
@@ -54,18 +56,7 @@ class MonekoSegmentedControl extends StatelessWidget {
   }
 
   ColorScheme _resolveColorScheme(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final platformBrightness =
-        MediaQuery.maybeOf(context)?.platformBrightness ??
-            WidgetsBinding.instance.platformDispatcher.platformBrightness;
-
-    if (scheme.brightness != platformBrightness) {
-      return platformBrightness == Brightness.dark
-          ? AppTheme.darkTheme().colorScheme
-          : AppTheme.lightTheme().colorScheme;
-    }
-
-    return scheme;
+    return Theme.of(context).colorScheme;
   }
 
   Widget _buildCupertinoSegmentedControl(ColorScheme colorScheme) {
@@ -238,6 +229,7 @@ class _MonekoTabBarViewState extends State<MonekoTabBarView> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
+          key: widget.tabBarKey,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: MonekoSegmentedControl(
             labels: widget.tabs,
