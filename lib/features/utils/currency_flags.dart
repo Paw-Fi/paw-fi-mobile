@@ -30,6 +30,7 @@ String? getCurrencyFlagPath(String currencyCode) {
     'NOK': 'norway',
     'DKK': 'denmark',
     'PLN': 'poland',
+    'RON': 'romania',
     'THB': 'thailand',
     'TWD': 'taiwan',
     'IDR': 'indonesia',

@@ -39,6 +39,7 @@ const Map<String, String> currencyOptions = {
   'PKR': '₨',
   'PYG': '₲',
   'RSD': 'Дин.',
+  'RON': 'RON',
   'RUB': '₽',
   'SAR': 'ر.س',
   'SEK': 'kr',
