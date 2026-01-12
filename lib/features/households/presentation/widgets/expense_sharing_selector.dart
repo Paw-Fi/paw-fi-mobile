@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/shared/widgets/outlined_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
@@ -114,11 +115,9 @@ class _ExpenseSharingSelectorState extends ConsumerState<ExpenseSharingSelector>
         // Household selector (for household and custom scopes)
         if (_scope != ShareScope.private) ...[
           const SizedBox(height: 16),
-          userId.when(
-            data: (uid) {
-              if (uid == null) return const SizedBox.shrink();
-
-              final householdsAsync = ref.watch(userHouseholdsProvider(uid));
+          if (userId != null)
+            Builder(builder: (context) {
+              final householdsAsync = ref.watch(userHouseholdsProvider(userId));
               return householdsAsync.when(
                 data: (households) {
                   if (households.isEmpty) {
@@ -160,12 +159,14 @@ class _ExpenseSharingSelectorState extends ConsumerState<ExpenseSharingSelector>
                   );
                 },
                 loading: () => const LinearProgressIndicator(),
-                error: (error, _) => Text(context.l10n.errorLoadingHouseholds, style: TextStyle(color: colorScheme.destructive)),
+                error: (error, _) => Text(
+                  context.l10n.errorLoadingHouseholds,
+                  style: TextStyle(color: colorScheme.destructive),
+                ),
               );
-            },
-            loading: () => const CircularProgressIndicator(),
-            error: (_, __) => const SizedBox.shrink(),
-          ),
+            })
+          else
+            const SizedBox.shrink(),
         ],
 
         // Member selector (for custom scope only)
@@ -424,8 +425,3 @@ class _MemberPickerSheetState extends ConsumerState<_MemberPickerSheet> {
     );
   }
 }
-
-// Provider for current user ID
-final currentUserIdProvider = StreamProvider<String?>((ref) {
-  return Stream.value(null); // Replace with actual Supabase auth stream
-});

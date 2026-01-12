@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -292,6 +293,12 @@ class Auth extends _$Auth {
     _authStateSubscription.cancel();
   }
 }
+
+final currentUserIdProvider = Provider<String?>((ref) {
+  final user = ref.watch(authProvider);
+  final uid = user.uid.trim();
+  return uid.isEmpty ? null : uid;
+});
 
 /// Format Supabase auth errors into concise, user-facing messages.
 ///

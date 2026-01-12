@@ -1,9 +1,9 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:moneko/shared/widgets/outlined_adaptive_button.dart';
-import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../../core/l10n/l10n.dart';
 import '../../../../../core/theme/app_theme.dart';
@@ -14,8 +14,9 @@ import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/utils/currency.dart';
-import 'package:moneko/shared/widgets/transaction_list_tile.dart';
+import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
+import 'package:moneko/shared/widgets/user_avatar.dart';
 
 class SettleUpSheet extends ConsumerStatefulWidget {
   final String householdId;
@@ -48,14 +49,19 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
   bool _isProcessing = false;
   int _youOweCents = 0;
   int _youAreOwedCents = 0;
-  List<_LineItem> _lineItems = const [];
-  List<_LineItem> _theyOweItems = const [];
+  int _paidToCents = 0;
+  int _paidFromCents = 0;
   final TextEditingController _noteController = TextEditingController();
+  int _maxSettleCents = 0;
+  String _settlementCurrencyCode = 'USD';
 
   @override
   void initState() {
     super.initState();
     _selectedMemberId = widget.specificMemberId;
+    if (widget.settlementNote != null && widget.settlementNote!.isNotEmpty) {
+      _noteController.text = widget.settlementNote!;
+    }
     if (_selectedMemberId != null) {
       WidgetsBinding.instance
           .addPostFrameCallback((_) => _recomputeFromSplits());
@@ -66,95 +72,107 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
     final memberId = _selectedMemberId;
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
     if (memberId == null || currentUserId == null) return;
+
+    final homeFilter = ref.read(homeFilterProvider);
+    final currencyCode =
+        (widget.currency ?? (homeFilter.selectedCurrency ?? 'USD'))
+            .trim()
+            .toUpperCase();
     final groups = widget.splits ?? const <ExpenseSplitGroup>[];
 
     int youOwe = 0;
     int youAreOwed = 0;
-    final items = <_LineItem>[];
-    final theyOwe = <_LineItem>[];
+    int groupsMatched = 0;
+    int linesConsidered = 0;
+    int linesSkippedSettled = 0;
 
     for (final g in groups) {
-      if (widget.currency != null && widget.currency!.isNotEmpty) {
-        final groupCode = (g.currency).trim().toUpperCase();
-        final selectedCode = widget.currency!.trim().toUpperCase();
-        if (groupCode != selectedCode) continue;
-      }
+      final groupCode = (g.currency).trim().toUpperCase();
+      if (groupCode != currencyCode) continue;
+      groupsMatched += 1;
 
       final lines = g.splitLines ?? const <ExpenseSplitLine>[];
       for (final l in lines) {
-        if (l.isSettled) continue;
         final amount = (l.amountCents ?? 0).abs();
         if (amount <= 0) continue;
+        linesConsidered += 1;
+        if (l.isSettled) {
+          linesSkippedSettled += 1;
+          continue;
+        }
 
         if (g.payerUserId == memberId && l.userId == currentUserId) {
           youOwe += amount;
-          items.add(_LineItem(
-            groupId: g.id,
-            expenseId: g.expenseId,
-            description: g.description,
-            createdAt: g.createdAt,
-            amountCents: amount,
-          ));
         }
         if (g.payerUserId == currentUserId && l.userId == memberId) {
           youAreOwed += amount;
-          theyOwe.add(_LineItem(
-            groupId: g.id,
-            expenseId: g.expenseId,
-            description: g.description,
-            createdAt: g.createdAt,
-            amountCents: amount,
-          ));
         }
       }
     }
 
-    // Enrich line items with expense categories so icons/colors match the
-    // main transaction list. We only fetch metadata for the small set of
-    // expense IDs involved in this sheet.
-    final expenseIds = <String>{
-      ...items.map((i) => i.expenseId),
-      ...theyOwe.map((i) => i.expenseId),
-    }..removeWhere((id) => id.isEmpty);
-
-    final Map<String, String?> expenseCategories = {};
-    if (expenseIds.isNotEmpty) {
-      try {
-        final supabase = Supabase.instance.client;
-        final expensesData = await supabase
-            .from('expenses')
-            .select('id, category')
-            .inFilter('id', expenseIds.toList());
-        for (final row in (expensesData as List).cast<Map<String, dynamic>>()) {
-          final id = row['id'] as String?;
-          if (id != null && id.isNotEmpty) {
-            expenseCategories[id] = row['category'] as String?;
-          }
-        }
-      } catch (e) {
-        debugPrint('Error loading expense categories for SettleUpSheet: $e');
-      }
+    if (kDebugMode) {
+      debugPrint(
+        '[SettleUpSheet] recompute start household=${widget.householdId} member=$memberId current=$currentUserId currency=$currencyCode isExpress=${widget.isExpressNetting} settleTheyOweYou=${widget.settleTheyOweYou}',
+      );
+      debugPrint(
+        '[SettleUpSheet] splits: groups=${groups.length} groupsMatched=$groupsMatched linesConsidered=$linesConsidered linesSkippedSettled=$linesSkippedSettled rawYouOwe=$youOwe rawYouAreOwed=$youAreOwed',
+      );
     }
 
-    final enrichedItems = items
-        .map((item) => item.copyWith(
-              category: expenseCategories[item.expenseId],
-            ))
-        .toList();
-    final enrichedTheyOwe = theyOwe
-        .map((item) => item.copyWith(
-              category: expenseCategories[item.expenseId],
-            ))
-        .toList();
+    int paidTo = 0;
+    int paidFrom = 0;
+    try {
+      final supabase = Supabase.instance.client;
+      final responsePaidTo = await supabase
+          .from('household_settlement_events')
+          .select('amount_cents')
+          .eq('household_id', widget.householdId)
+          .eq('currency', currencyCode)
+          .eq('payer_user_id', memberId)
+          .eq('participant_user_id', currentUserId);
+      for (final row in (responsePaidTo as List).cast<Map<String, dynamic>>()) {
+        paidTo += (row['amount_cents'] as int? ?? 0).abs();
+      }
 
-    enrichedItems.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    enrichedTheyOwe.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      final responsePaidFrom = await supabase
+          .from('household_settlement_events')
+          .select('amount_cents')
+          .eq('household_id', widget.householdId)
+          .eq('currency', currencyCode)
+          .eq('payer_user_id', currentUserId)
+          .eq('participant_user_id', memberId);
+      for (final row
+          in (responsePaidFrom as List).cast<Map<String, dynamic>>()) {
+        paidFrom += (row['amount_cents'] as int? ?? 0).abs();
+      }
+    } catch (e) {
+      debugPrint('Error loading settlement events for SettleUpSheet: $e');
+    }
 
+    final netBefore = (youOwe - youAreOwed) - (paidTo - paidFrom);
+    final netYouOwe = netBefore > 0 ? netBefore : 0;
+    final netYouAreOwed = netBefore < 0 ? -netBefore : 0;
+
+    final maxSettleCents = widget.isExpressNetting
+        ? (netYouOwe - netYouAreOwed).abs()
+        : widget.settleTheyOweYou
+            ? netYouAreOwed
+            : netYouOwe;
+
+    if (kDebugMode) {
+      debugPrint(
+        '[SettleUpSheet] paidTo=$paidTo paidFrom=$paidFrom netBefore=$netBefore netYouOwe=$netYouOwe netYouAreOwed=$netYouAreOwed maxSettle=$maxSettleCents',
+      );
+    }
+
+    if (!mounted) return;
     setState(() {
-      _youOweCents = youOwe;
-      _youAreOwedCents = youAreOwed;
-      _lineItems = enrichedItems;
-      _theyOweItems = enrichedTheyOwe;
+      _youOweCents = netYouOwe;
+      _youAreOwedCents = netYouAreOwed;
+      _paidToCents = paidTo;
+      _paidFromCents = paidFrom;
+      _maxSettleCents = maxSettleCents;
+      _settlementCurrencyCode = currencyCode;
     });
   }
 
@@ -166,7 +184,9 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
 
     final homeFilter = ref.watch(homeFilterProvider);
     final currency =
@@ -212,328 +232,221 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
       mediaQuery.size.height - mediaQuery.viewPadding.vertical,
     );
 
+    // Helpers for the visual connection
+    final effectiveMemberId = widget.specificMemberId ?? _selectedMemberId;
+
     return ConstrainedBox(
       constraints: BoxConstraints(maxHeight: maxSheetHeight),
       child: Container(
         decoration: BoxDecoration(
-          color: colorScheme.cardSurface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          color: colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -5),
+            ),
+          ],
         ),
-        padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
-        child: SafeArea(
-          top: true,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Drag Handle
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: colorScheme.outline.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 16),
+            // Drag Handle
+            Center(
+              child: Container(
+                width: 36,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(2.5),
                 ),
               ),
-              const SizedBox(height: 24),
+            ),
 
-              // Header
-              Text(
-                context.l10n.settleUp,
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: colorScheme.foreground,
-                  letterSpacing: -0.5,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
+            // Content Scrollable Area
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+                child: Column(
+                  children: [
+                    // Title
+                    Text(
+                      context.l10n.settleUp,
+                      style: textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.5,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 32),
 
-              // Member Selection
-              if (widget.specificMemberId == null)
-                membersAsync.when(
-                  data: (members) {
-                    final filtered =
-                        members.where((m) => m.userId != userId).toList();
+                    // Visualization: Connection Row (You <--> Them)
+                    membersAsync.when(
+                      data: (members) {
+                        final me = members.firstWhere(
+                          (m) => m.userId == userId,
+                          orElse: () => HouseholdMember(
+                              id: 'me',
+                              householdId: '',
+                              userId: userId ?? '',
+                              role: HouseholdRole.member,
+                              joinedAt: DateTime.now(),
+                              createdAt: DateTime.now(),
+                              updatedAt: DateTime.now()),
+                        );
 
-                    // Auto-select if there's only one other member
-                    if (filtered.length == 1 && _selectedMemberId == null) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (mounted) {
-                          setState(() {
-                            _selectedMemberId = filtered.first.userId;
-                          });
-                          _recomputeFromSplits();
-                        }
-                      });
-                    }
+                        final them = effectiveMemberId != null
+                            ? members.firstWhere(
+                                (m) => m.userId == effectiveMemberId,
+                                orElse: () => HouseholdMember(
+                                    id: 'them',
+                                    householdId: '',
+                                    userId: '',
+                                    role: HouseholdRole.member,
+                                    joinedAt: DateTime.now(),
+                                    createdAt: DateTime.now(),
+                                    updatedAt: DateTime.now()),
+                              )
+                            : null;
 
-                    return _MemberSelector(
-                      members: filtered,
-                      selectedId: _selectedMemberId,
-                      onSelect: (id) {
-                        setState(() {
-                          _selectedMemberId = id;
-                          _youOweCents = 0;
-                          _youAreOwedCents = 0;
-                          _lineItems = const [];
-                          _theyOweItems = const [];
-                        });
-                        _recomputeFromSplits();
+                        return _SettlementConnectionVisual(
+                          me: me,
+                          them: them,
+                          isExpressNetting: widget.isExpressNetting,
+                          isNetPayer: isNetPayer,
+                          amountToShow: amountToShow,
+                          nothingToSettle: nothingToSettle,
+                          scheme: colorScheme,
+                        );
                       },
+                      loading: () => const SizedBox(height: 80),
+                      error: (_, __) => const SizedBox.shrink(),
+                    ),
+
+                    const SizedBox(height: 32),
+
+                    // Member Selector (Only if not pre-selected)
+                    if (widget.specificMemberId == null)
+                      membersAsync.when(
+                        data: (members) {
+                          final filtered =
+                              members.where((m) => m.userId != userId).toList();
+
+                          // Auto-select logic logic remains separate in the build block above or init
+                          // but visually we assume logic is handled
+                          if (filtered.length == 1 &&
+                              _selectedMemberId == null) {
+                            // This side-effect in build is tricky but modifying state during build is bad.
+                            // The original code had it in a post frame callback.
+                            // We preserve the logic location, just rendering here.
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              if (mounted && _selectedMemberId == null) {
+                                setState(() {
+                                  _selectedMemberId = filtered.first.userId;
+                                });
+                                _recomputeFromSplits();
+                              }
+                            });
+                          }
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                context.l10n.selectMember,
+                                style: textTheme.labelLarge?.copyWith(
+                                  color: colorScheme.mutedForeground,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              _ModernMemberSelector(
+                                members: filtered,
+                                selectedId: _selectedMemberId,
+                                onSelect: (id) {
+                                  setState(() {
+                                    _selectedMemberId = id;
+                                    _youOweCents = 0;
+                                    _youAreOwedCents = 0;
+                                    _paidToCents = 0;
+                                    _paidFromCents = 0;
+                                    _maxSettleCents = 0;
+                                    _pendingAmountText = null;
+                                  });
+                                  _recomputeFromSplits();
+                                },
+                                scheme: colorScheme,
+                              ),
+                            ],
+                          );
+                        },
+                        loading: () =>
+                            const Center(child: CircularProgressIndicator()),
+                        error: (_, __) => const SizedBox.shrink(),
+                      ),
+
+                    const SizedBox(height: 24),
+
+                    // Amount Card
+                    _AmountDisplayCard(
+                      nothingToSettle: nothingToSettle,
+                      hasSelectedMember: hasSelectedMember,
+                      amountToShow: amountToShow,
+                      maxSettleCents: _maxSettleCents,
+                      settlementCurrencyCode: _settlementCurrencyCode,
+                      currency: currency,
+                      isExpressNetting: widget.isExpressNetting,
+                      isNetPayer: isNetPayer,
+                      settleTheyOweYou: widget.settleTheyOweYou,
                       scheme: colorScheme,
-                    );
-                  },
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (_, __) => const SizedBox.shrink(),
-                )
-              else
-                membersAsync.when(
-                  data: (members) {
-                    final m = members.firstWhere(
-                        (m) => m.userId == widget.specificMemberId,
-                        orElse: () => HouseholdMember(
-                            id: '',
-                            householdId: '',
-                            userId: '',
-                            role: HouseholdRole.member,
-                            joinedAt: DateTime.now(),
-                            createdAt: DateTime.now(),
-                            updatedAt: DateTime.now()));
-                    final name = m.userName ?? m.userEmail ?? 'Member';
-                    return Center(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: colorScheme.surfaceContainerHighest
-                              .withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text("${context.l10n.settlingWith} ",
-                                style: TextStyle(
-                                    color: colorScheme.mutedForeground)),
-                            Text(name,
-                                style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    color: colorScheme.foreground)),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                  loading: () => const SizedBox.shrink(),
-                  error: (_, __) => const SizedBox.shrink(),
+                      l10n: context.l10n,
+                    ),
+                  ],
                 ),
-
-              const SizedBox(height: 32),
-
-              // Amount Display
-              Column(
-                children: [
-                  Text(
-                    context.l10n.amountToSettle,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: colorScheme.mutedForeground,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    !hasSelectedMember
-                        ? context.l10n.pleaseSelectMember
-                        : nothingToSettle
-                            ? context.l10n.nothingToSettle
-                            : formatCurrency(amountToShow ?? 0, currency),
-                    style: TextStyle(
-                      fontSize: !hasSelectedMember || !hasOutstanding ? 24 : 48,
-                      fontWeight: FontWeight.w700,
-                      color: colorScheme.foreground,
-                      letterSpacing: -1,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  if (hasSelectedMember && !nothingToSettle)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        widget.isExpressNetting
-                            ? (isNetPayer
-                                ? context.l10n.youOwe
-                                : context.l10n.theyOweYou)
-                            : (widget.settleTheyOweYou
-                                ? context.l10n.theyOweYou
-                                : context.l10n.youOwe),
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: colorScheme.mutedForeground,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  if (widget.isExpressNetting &&
-                      hasSelectedMember &&
-                      !nothingToSettle)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Column(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: colorScheme.primary.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              context.l10n.expressNetting,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: colorScheme.primary,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            context.l10n.expressNettingHint,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: colorScheme.mutedForeground,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
               ),
+            ),
 
-              const SizedBox(height: 32),
-
-              // Breakdown (Simplified)
-              if (_lineItems.isNotEmpty || _theyOweItems.isNotEmpty)
-                Flexible(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          context.l10n.breakdown,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: colorScheme.foreground,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        // In express netting mode we show both sides:
-                        // - items you owe them
-                        // - items they owe you (with an offset label).
-                        // In detailed mode, we only show the direction being settled.
-                        if (widget.isExpressNetting || !widget.settleTheyOweYou)
-                          ..._lineItems.map(
-                            (item) => buildExpenseTransactionTile(
-                              context: context,
-                              category: item.category,
-                              rawText: item.description,
-                              date: item.createdAt,
-                              amount: item.amountCents / 100.0,
-                              currency: currency,
-                              isIncome: false,
-                              trailingWidget: Text(
-                                context.l10n.youOweOthers,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: colorScheme.destructive,
-                                ),
-                              ),
-                            ),
-                          ),
-                        if (widget.isExpressNetting &&
-                            _theyOweItems.isNotEmpty) ...[
-                          const SizedBox(height: 12),
-                          Text(
-                            context.l10n.offsetByWhatTheyOweYou,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: colorScheme.mutedForeground,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          ..._theyOweItems.map(
-                            (item) => buildExpenseTransactionTile(
-                              context: context,
-                              category: item.category,
-                              rawText: item.description,
-                              date: item.createdAt,
-                              amount: item.amountCents / 100.0,
-                              currency: currency,
-                              isIncome: true,
-                              trailingWidget: Text(
-                                context.l10n.owesYou,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: colorScheme.success,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                        if (!widget.isExpressNetting && widget.settleTheyOweYou)
-                          ..._theyOweItems.map(
-                            (item) => buildExpenseTransactionTile(
-                              context: context,
-                              category: item.category,
-                              rawText: item.description,
-                              date: item.createdAt,
-                              amount: item.amountCents / 100.0,
-                              currency: currency,
-                              isIncome: true,
-                              trailingWidget: Text(
-                                context.l10n.owesYou,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: colorScheme.success,
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                )
-              else
-                const SizedBox(height: 24),
-
-              const SizedBox(height: 24),
-
-              // Actions
-              Row(
+            // Actions Footer
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+              child: Row(
                 children: [
                   Expanded(
-                    child: OutlinedAdaptiveButton(
+                    child: OutlinedButton(
                       onPressed: () => Navigator.pop(context),
-                      child: Text(context.l10n.cancel),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        side: BorderSide(color: colorScheme.outlineVariant),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: Text(
+                        context.l10n.cancel,
+                        style: TextStyle(
+                          color: colorScheme.onSurface,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
-                    child: PrimaryAdaptiveButton(
+                    flex: 2,
+                    child: FilledButton(
                       onPressed: _isProcessing ? null : _confirmAndSettle,
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor: colorScheme.primary,
+                        foregroundColor: colorScheme.onPrimary,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        elevation: 0,
+                      ),
                       child: _isProcessing
                           ? SizedBox(
                               width: 20,
@@ -543,43 +456,59 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                                 color: colorScheme.onPrimary,
                               ),
                             )
-                          : Text(context.l10n.settle),
+                          : Text(
+                              context.l10n.settle,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 16,
+                              ),
+                            ),
                     ),
                   ),
                 ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
+  // ... (keep existing methods: _showConfirm, _confirmAndSettle, _parseAmountCents, _clampAmountCents)
   Future<bool> _showConfirm() async {
-    final title = context.l10n.confirmSettlement;
-    final msg = context.l10n.confirmSettlementMessage;
-    const noteLabel = 'Note (optional)';
+    final maxCents = _maxSettleCents;
+    if (maxCents <= 0) {
+      if (mounted) {
+        AppToast.info(context, context.l10n.nothingToSettle);
+      }
+      return false;
+    }
 
     final result = await MonekoAlertDialog.show(
       context: context,
-      title: title,
-      description: msg,
+      title: context.l10n.confirmSettlement,
+      description: context.l10n.confirmSettlementMessage,
       confirmLabel: context.l10n.settle,
       cancelLabel: context.l10n.cancel,
+      barrierDismissible: true,
       inputConfig: MonekoAlertDialogInputConfig(
+        initialValue: formatAmount(maxCents / 100.0),
+        placeholder: 'Amount',
+        isRequired: false,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      ),
+      secondaryInputConfig: MonekoAlertDialogInputConfig(
         initialValue: _noteController.text,
-        placeholder: noteLabel,
+        placeholder: 'Note (optional)',
         isRequired: false,
         keyboardType: TextInputType.text,
       ),
     );
 
-    if (result != null && result.confirmed) {
-      final text = result.text?.trim() ?? '';
-      _noteController.text = text;
-      return true;
-    }
-    return false;
+    if (result == null || !result.confirmed) return false;
+    _pendingAmountText = result.text;
+    _noteController.text = (result.secondaryText ?? '').trim();
+    return true;
   }
 
   Future<void> _confirmAndSettle() async {
@@ -601,30 +530,47 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
       final note = _noteController.text.trim().isEmpty
           ? null
           : _noteController.text.trim();
-      final count = widget.isExpressNetting
-          ? await service.settleAllDebtsBetweenUsersAndNotify(
-              householdId: widget.householdId,
-              memberUserId: memberId,
-              youOweCentsBefore: _youOweCents,
-              youAreOwedCentsBefore: _youAreOwedCents,
-              currency: widget.currency,
-              settlementNote: note,
-            )
+
+      final maxCents = _maxSettleCents;
+      if (maxCents <= 0) {
+        if (mounted) {
+          AppToast.info(context, context.l10n.nothingToSettle);
+        }
+        return;
+      }
+
+      final requestedCents = _parseAmountCents(_pendingAmountText);
+      final amountCents = _clampAmountCents(
+        requestedCents: requestedCents,
+        maxCents: maxCents,
+      );
+      if (requestedCents != null && requestedCents > maxCents && mounted) {
+        AppToast.info(
+          context,
+          'Max ${formatCurrency(maxCents / 100.0, _settlementCurrencyCode)}',
+        );
+      }
+      if (amountCents == null || amountCents <= 0) {
+        if (mounted) {
+          AppToast.info(context, context.l10n.nothingToSettle);
+        }
+        return;
+      }
+
+      final mode = widget.isExpressNetting
+          ? 'both'
           : widget.settleTheyOweYou
-              ? await service.settleAllDebtsFromMemberAndNotify(
-                  householdId: widget.householdId,
-                  memberUserId: memberId,
-                  theyOweYouCentsBefore: _youAreOwedCents,
-                  currency: widget.currency,
-                  settlementNote: note,
-                )
-              : await service.settleAllDebtsToMemberAndNotify(
-                  householdId: widget.householdId,
-                  memberUserId: memberId,
-                  youOweCentsBefore: _youOweCents,
-                  currency: widget.currency,
-                  settlementNote: note,
-                );
+              ? 'from_member'
+              : 'to_member';
+
+      final count = await service.settleAmountAndNotify(
+        householdId: widget.householdId,
+        memberUserId: memberId,
+        mode: mode,
+        amountCents: amountCents,
+        currency: _settlementCurrencyCode,
+        settlementNote: note,
+      );
 
       // Force-refresh cached data so settlement changes show immediately
       ref
@@ -690,15 +636,49 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
       }
     }
   }
+
+  int? _parseAmountCents(String? raw) {
+    final input = (raw ?? '').trim();
+    if (input.isEmpty) return null;
+
+    final cleaned = input.replaceAll(RegExp(r'[^0-9,\.]'), '');
+    if (cleaned.isEmpty) return null;
+
+    final String normalized;
+    if (!cleaned.contains('.') && cleaned.contains(',')) {
+      normalized = cleaned.replaceAll(',', '.');
+    } else {
+      normalized = cleaned.replaceAll(',', '');
+    }
+
+    final value = double.tryParse(normalized);
+    if (value == null || value.isNaN || value.isInfinite) return null;
+    final cents = (value * 100).round();
+    if (cents <= 0) return null;
+    return cents;
+  }
+
+  int? _clampAmountCents({
+    required int? requestedCents,
+    required int maxCents,
+  }) {
+    if (maxCents <= 0) return null;
+    final requested = requestedCents ?? maxCents;
+    if (requested <= 0) return null;
+    return math.min(requested, maxCents);
+  }
+
+  String? _pendingAmountText;
 }
 
-class _MemberSelector extends StatelessWidget {
+/// A modern, scrollable selector using rounded "chips" with avatars.
+class _ModernMemberSelector extends StatelessWidget {
   final List<HouseholdMember> members;
   final String? selectedId;
   final ValueChanged<String> onSelect;
   final ColorScheme scheme;
 
-  const _MemberSelector({
+  const _ModernMemberSelector({
     required this.members,
     required this.selectedId,
     required this.onSelect,
@@ -708,7 +688,7 @@ class _MemberSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 80,
+      height: 90,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: members.length,
@@ -717,52 +697,65 @@ class _MemberSelector extends StatelessWidget {
           final m = members[index];
           final isSelected = m.userId == selectedId;
           final name = m.userName ?? m.userEmail ?? 'Member';
+          final initial = name.trim().characters.first.toUpperCase();
+
           return GestureDetector(
             onTap: () => onSelect(m.userId),
-            child: Column(
-              children: [
-                FutureBuilder<String?>(
-                  future: _getUserAvatarUrl(m.userId),
-                  builder: (context, snapshot) {
-                    final avatarUrl = snapshot.data;
-                    return Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
+              width: 72,
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? scheme.primaryContainer
+                    : scheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isSelected ? scheme.primary : Colors.transparent,
+                  width: 2,
+                ),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    height: 40,
+                    width: 40,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isSelected
+                          ? scheme.primary
+                          : scheme.surfaceContainerHighest,
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      initial,
+                      style: TextStyle(
                         color: isSelected
-                            ? scheme.primary
-                            : scheme.surfaceContainerHighest,
-                        shape: BoxShape.circle,
+                            ? scheme.onPrimary
+                            : scheme.onSurfaceVariant,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
                       ),
-                      clipBehavior: Clip.antiAlias,
-                      alignment: Alignment.center,
-                      child: avatarUrl != null && avatarUrl.isNotEmpty
-                          ? Image.network(
-                              avatarUrl,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => _InitialAvatar(
-                                  name: name,
-                                  scheme: scheme,
-                                  isSelected: isSelected),
-                            )
-                          : _InitialAvatar(
-                              name: name,
-                              scheme: scheme,
-                              isSelected: isSelected),
-                    );
-                  },
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  name,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight:
-                        isSelected ? FontWeight.w600 : FontWeight.normal,
-                    color: isSelected ? scheme.primary : scheme.mutedForeground,
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  Text(
+                    name,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isSelected
+                          ? scheme.onPrimaryContainer
+                          : scheme.onSurface,
+                      fontWeight:
+                          isSelected ? FontWeight.w700 : FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                ],
+              ),
             ),
           );
         },
@@ -771,66 +764,268 @@ class _MemberSelector extends StatelessWidget {
   }
 }
 
-class _LineItem {
-  final String groupId;
-  final String expenseId;
-  final String? description;
-  final String? category;
-  final DateTime createdAt;
-  final int amountCents;
+/// Visualization of the money flow
+class _SettlementConnectionVisual extends StatelessWidget {
+  final HouseholdMember me;
+  final HouseholdMember? them;
+  final bool isExpressNetting;
+  final bool isNetPayer;
+  final double? amountToShow;
+  final bool nothingToSettle;
+  final ColorScheme scheme;
 
-  const _LineItem({
-    required this.groupId,
-    required this.expenseId,
-    required this.description,
-    required this.createdAt,
-    required this.amountCents,
-    this.category,
+  const _SettlementConnectionVisual({
+    required this.me,
+    required this.them,
+    required this.isExpressNetting,
+    required this.isNetPayer,
+    required this.amountToShow,
+    required this.nothingToSettle,
+    required this.scheme,
   });
 
-  _LineItem copyWith({String? category}) {
-    return _LineItem(
-      groupId: groupId,
-      expenseId: expenseId,
-      description: description,
-      createdAt: createdAt,
-      amountCents: amountCents,
-      category: category ?? this.category,
+  @override
+  Widget build(BuildContext context) {
+    // If no specific person selected yet, just show Me waiting
+    if (them == null) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _AvatarNode(member: me, scheme: scheme, isMe: true),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Container(
+              height: 2,
+              color: scheme.outlineVariant.withValues(alpha: 0.5),
+            ),
+          ),
+          const SizedBox(width: 16),
+          _AvatarNodePlaceholder(scheme: scheme),
+        ],
+      );
+    }
+
+    // Logic:
+    // If isNetPayer (Me -> Them)
+    // If !isNetPayer (Them -> Me)
+    // If Nothing to settle, just a line.
+
+    final flowRight = isNetPayer; // Me is left, Them is right.
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _AvatarNode(member: me, scheme: scheme, isMe: true),
+
+        // Arrow / Connection
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: nothingToSettle
+                ? Container(height: 2, color: scheme.outlineVariant)
+                : Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Container(
+                          height: 2,
+                          color: scheme.primary.withValues(alpha: 0.3)),
+                      if (amountToShow != null && amountToShow! > 0)
+                        Icon(
+                          flowRight ? Icons.arrow_forward : Icons.arrow_back,
+                          color: scheme.primary,
+                          size: 20,
+                        ),
+                    ],
+                  ),
+          ),
+        ),
+
+        _AvatarNode(member: them!, scheme: scheme, isMe: false),
+      ],
     );
   }
 }
 
-/// Fetch user avatar URL from Supabase users table.
-Future<String?> _getUserAvatarUrl(String userId) async {
-  try {
-    final supabase = Supabase.instance.client;
-    final response = await supabase
-        .from('users')
-        .select('avatar_url')
-        .eq('id', userId)
-        .maybeSingle();
-    return response?['avatar_url'] as String?;
-  } catch (e) {
-    debugPrint('Error fetching user avatar: $e');
-    return null;
-  }
-}
-
-class _InitialAvatar extends StatelessWidget {
-  final String name;
+class _AvatarNode extends StatelessWidget {
+  final HouseholdMember member;
   final ColorScheme scheme;
-  final bool isSelected;
-  const _InitialAvatar(
-      {required this.name, required this.scheme, required this.isSelected});
+  final bool isMe;
+
+  const _AvatarNode(
+      {required this.member, required this.scheme, required this.isMe});
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      name.isNotEmpty ? name[0].toUpperCase() : '?',
-      style: TextStyle(
-        fontSize: 20,
-        fontWeight: FontWeight.w600,
-        color: isSelected ? scheme.onPrimary : scheme.onSurfaceVariant,
+    final label = isMe ? 'You' : (member.userName ?? member.userEmail ?? '?');
+    final fallbackName =
+        member.userName ?? member.userEmail ?? (isMe ? 'You' : '?');
+
+    return Column(
+      children: [
+        UserAvatar(
+          avatarUrl: member.avatarUrl,
+          name: fallbackName,
+          userId: member.userId,
+          size: 56,
+          borderWidth: 2,
+          borderColor:
+              isMe ? scheme.tertiaryContainer : scheme.secondaryContainer,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: scheme.onSurface,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AvatarNodePlaceholder extends StatelessWidget {
+  final ColorScheme scheme;
+  const _AvatarNodePlaceholder({required this.scheme});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        CircleAvatar(
+          radius: 28,
+          backgroundColor:
+              scheme.surfaceContainerHighest.withValues(alpha: 0.3),
+          child: Icon(Icons.person_outline, color: scheme.onSurfaceVariant),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Select...',
+          style: TextStyle(
+            fontSize: 12,
+            color: scheme.outline,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AmountDisplayCard extends StatelessWidget {
+  final bool nothingToSettle;
+  final bool hasSelectedMember;
+  final double? amountToShow;
+  final int maxSettleCents;
+  final String settlementCurrencyCode;
+  final String currency;
+  final bool isExpressNetting;
+  final bool isNetPayer;
+  final bool settleTheyOweYou;
+  final ColorScheme scheme;
+  final AppLocalizations l10n;
+
+  const _AmountDisplayCard({
+    required this.nothingToSettle,
+    required this.hasSelectedMember,
+    required this.amountToShow,
+    required this.maxSettleCents,
+    required this.settlementCurrencyCode,
+    required this.currency,
+    required this.isExpressNetting,
+    required this.isNetPayer,
+    required this.settleTheyOweYou,
+    required this.scheme,
+    required this.l10n,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainer, // M3 distinctive surface
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        children: [
+          Text(
+            l10n.amountToSettle.toUpperCase(),
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.2,
+              color: scheme.mutedForeground,
+            ),
+          ),
+          const SizedBox(height: 16),
+          if (!hasSelectedMember)
+            Text(
+              l10n.pleaseSelectMember,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: scheme.outline,
+              ),
+              textAlign: TextAlign.center,
+            )
+          else if (nothingToSettle)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.check_circle_outline, color: scheme.primary),
+                const SizedBox(width: 8),
+                Text(
+                  l10n.nothingToSettle,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: scheme.primary,
+                  ),
+                ),
+              ],
+            )
+          else
+            Column(
+              children: [
+                Text(
+                  formatCurrency(
+                    maxSettleCents / 100.0,
+                    settlementCurrencyCode,
+                  ),
+                  style: TextStyle(
+                    fontSize: 42,
+                    fontWeight: FontWeight.w800,
+                    color: scheme.foreground,
+                    height: 1.0,
+                    letterSpacing: -1.5,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: scheme.onSurface.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    isExpressNetting
+                        ? (isNetPayer ? l10n.youOwe : l10n.theyOweYou)
+                        : (settleTheyOweYou ? l10n.theyOweYou : l10n.youOwe),
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
+            )
+        ],
       ),
     );
   }

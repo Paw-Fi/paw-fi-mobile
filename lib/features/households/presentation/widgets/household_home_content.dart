@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import '../providers/household_providers.dart';
 import '../providers/cached_providers.dart';
@@ -9,6 +8,7 @@ import '../providers/selected_household_provider.dart';
 import '../pages/household_onboarding_page.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
 
+import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_config.dart';
@@ -133,7 +133,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
   Widget build(BuildContext context) {
     final ref = this.ref;
     final colorScheme = Theme.of(context).colorScheme;
-    final userId = Supabase.instance.client.auth.currentUser?.id;
+    final userId = ref.watch(currentUserIdProvider);
 
     if (userId == null) {
       return SliverFillRemaining(
@@ -691,6 +691,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               splits: splits,
                               currency: selectedCurrency,
                               members: members,
+                              currentUserId: userId,
                             ),
                           );
                         });
@@ -753,6 +754,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                                   to: null,
                                   selectedCurrency: selectedCurrency,
                                   dateRangeFilter: config.dateRange,
+                                  currentUserId: userId,
                                   onTap: null,
                                 ),
                               ),
@@ -770,6 +772,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                                 to: to,
                                 selectedCurrency: selectedCurrency,
                                 dateRangeFilter: config.dateRange,
+                                currentUserId: userId,
                                 onTap: () {
                                   Navigator.of(context).push(
                                     MaterialPageRoute(

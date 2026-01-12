@@ -64,9 +64,10 @@ class CategoryPicker extends HookWidget {
     final searchBackground = colorScheme.homeSearchFieldBackground;
     final searchController = useTextEditingController();
     final searchQuery = useState<String>('');
+    final canonicalCategories = _canonicalizeCategories(allCategories);
     final initialSelected = isSingleSelect && selectedCategories.isNotEmpty
-        ? <String>{selectedCategories.first}
-        : selectedCategories.toSet();
+        ? <String>{normalizeCategory(selectedCategories.first)}
+        : _canonicalizeCategories(selectedCategories).toSet();
     final selected = useState<Set<String>>(initialSelected);
 
     useEffect(() {
@@ -80,7 +81,7 @@ class CategoryPicker extends HookWidget {
       };
     }, [searchController]);
 
-    final grouped = _buildGroups(context, allCategories);
+    final grouped = _buildGroups(context, canonicalCategories);
     final filtered = _filterGroups(context, grouped, searchQuery.value);
 
     void handleToggle(String key) {
@@ -137,7 +138,8 @@ class CategoryPicker extends HookWidget {
                       children: [
                         for (final entry in filtered.entries)
                           _CategoryGroupSection(
-                            groupTitle: entry.key,
+                            groupTitle:
+                                getCategoryGroupTranslation(context, entry.key),
                             categories: entry.value,
                             selected: selected.value,
                             onToggle: handleToggle,
@@ -225,19 +227,30 @@ Map<String, List<String>> _buildGroups(
     final items = groupCategories.where(allowed.contains).toList();
     if (items.isEmpty) return;
 
-    final title = getCategoryGroupTranslation(context, groupKey);
-    groups[title] = items;
+    groups[groupKey] = items;
   });
 
   // Add any categories not covered by the known groups to Other
   final groupedItems = groups.values.expand((e) => e).toSet();
   final remaining = allowed.difference(groupedItems).toList()..sort();
   if (remaining.isNotEmpty) {
-    final miscTitle = getCategoryGroupTranslation(context, 'misc');
-    groups[miscTitle] = [...?groups[miscTitle], ...remaining];
+    groups['misc'] = [...?groups['misc'], ...remaining];
   }
 
   return groups;
+}
+
+List<String> _canonicalizeCategories(List<String> categories) {
+  final seen = <String>{};
+  final result = <String>[];
+  for (final category in categories) {
+    final normalized = normalizeCategory(category);
+    if (normalized.isEmpty || !seen.add(normalized)) {
+      continue;
+    }
+    result.add(normalized);
+  }
+  return result;
 }
 
 Map<String, List<String>> _filterGroups(

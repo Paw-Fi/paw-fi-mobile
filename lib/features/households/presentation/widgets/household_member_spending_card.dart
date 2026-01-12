@@ -9,8 +9,8 @@ import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/core/l10n/l10n.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/shared/widgets/user_avatar.dart';
 
 /// Member spending breakdown card with modern, Apple-inspired design
 Widget buildHouseholdMemberSpendingCard(
@@ -25,11 +25,11 @@ Widget buildHouseholdMemberSpendingCard(
   DateTime? to,
   String? selectedCurrency,
   DateRangeFilter? dateRangeFilter,
+  String? currentUserId,
   VoidCallback? onTap,
 }) {
   final currency =
       ((selectedCurrency ?? summary?.currency) ?? 'USD').toUpperCase();
-  final currentUserId = Supabase.instance.client.auth.currentUser?.id;
   final rangeLabel =
       (dateRangeFilter ?? DateRangeFilter.thisMonth).getLabel(context);
 
@@ -104,6 +104,15 @@ Widget buildHouseholdMemberSpendingCard(
   }
 
   // Member data - prefer computed totals; otherwise fall back to backend summary
+  final balanceByUserId = <String, int>{
+    ...?summary?.balances,
+  };
+  if (summary != null) {
+    for (final c in summary.memberContributions) {
+      balanceByUserId[c.userId] = c.balanceCents;
+    }
+  }
+
   final memberContributions = (totalsByUser.isNotEmpty && members != null)
       ? members.map((member) {
           final cents = totalsByUser[member.userId] ?? 0;
@@ -113,7 +122,7 @@ Widget buildHouseholdMemberSpendingCard(
             totalSpentCents: cents,
             transactionCount: count,
             splitCount: 0,
-            balanceCents: 0,
+            balanceCents: balanceByUserId[member.userId] ?? 0,
             userEmail: member.userEmail,
             userName: member.userName,
           );
@@ -134,7 +143,7 @@ Widget buildHouseholdMemberSpendingCard(
         totalSpentCents: 0,
         transactionCount: 0,
         splitCount: 0,
-        balanceCents: 0,
+        balanceCents: balanceByUserId[member.userId] ?? 0,
       ),
     );
     return contribution;
@@ -341,53 +350,25 @@ Widget _buildMemberRow(
           Row(
             children: [
               // Avatar with online indicator style
-              Stack(
-                children: [
-                  FutureBuilder<String?>(
-                    future: _getUserAvatarUrl(member.userId),
-                    builder: (context, snapshot) {
-                      final avatarUrl = snapshot.data;
-                      return Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: colorScheme.muted.withValues(alpha: 0.5),
-                          border: Border.all(
-                            color: colorScheme.border.withValues(alpha: 0.15),
-                            width: 1,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: colorScheme.shadow.withValues(alpha: 0.06),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: ClipOval(
-                          child: avatarUrl != null
-                              ? Image.network(
-                                  avatarUrl,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stack) => Icon(
-                                    Icons.person_rounded,
-                                    size: 22,
-                                    color: colorScheme.mutedForeground
-                                        .withValues(alpha: 0.6),
-                                  ),
-                                )
-                              : Icon(
-                                  Icons.person_rounded,
-                                  size: 22,
-                                  color: colorScheme.mutedForeground
-                                      .withValues(alpha: 0.6),
-                                ),
-                        ),
-                      );
-                    },
-                  ),
-                ],
+              Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: colorScheme.shadow.withValues(alpha: 0.06),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: UserAvatar(
+                  avatarUrl: memberData?.avatarUrl,
+                  name: displayName,
+                  userId: member.userId,
+                  size: 44,
+                  borderWidth: 1,
+                  borderColor: colorScheme.border.withValues(alpha: 0.15),
+                ),
               ),
               const SizedBox(width: 14),
 
@@ -525,21 +506,4 @@ Widget _buildMemberRow(
       ),
     ),
   );
-}
-
-/// Helper function to get user avatar URL from Supabase
-Future<String?> _getUserAvatarUrl(String userId) async {
-  try {
-    final supabase = Supabase.instance.client;
-    final response = await supabase
-        .from('users')
-        .select('avatar_url')
-        .eq('id', userId)
-        .maybeSingle();
-
-    return response?['avatar_url'] as String?;
-  } catch (e) {
-    debugPrint('Error fetching user avatar: $e');
-    return null;
-  }
 }

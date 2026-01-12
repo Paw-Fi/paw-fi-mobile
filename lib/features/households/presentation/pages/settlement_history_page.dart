@@ -504,6 +504,9 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
         ? sumDirection(event.lines, event.participantUserId, event.payerUserId)
         : event.participantToPayerCents;
 
+    final shouldShowOffsets =
+        isExpress && totalPayerToParticipant > 0 && totalParticipantToPayer > 0;
+
     return Material(
       child: InkWell(
         onTap: () => _showSettlementDetails(context, event, nameFor),
@@ -658,7 +661,7 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
                   ),
                 ],
               ),
-              if (isExpress) ...[
+              if (shouldShowOffsets) ...[
                 const SizedBox(height: 8),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -758,91 +761,12 @@ class SettlementDetailsSheet extends StatefulWidget {
 
 class _SettlementDetailsSheetState extends State<SettlementDetailsSheet> {
   List<SettlementLine> _lines = const [];
-  bool _loadingLines = false;
 
   @override
   void initState() {
     super.initState();
-    _initLines();
-  }
-
-  void _initLines() {
-    // Prefer already-fetched lines; otherwise fetch on demand.
-    if (widget.event.lines.isNotEmpty &&
-        widget.event.lines.length >= widget.event.lineCount) {
-      _lines = [...widget.event.lines]
-        ..sort((a, b) => b.settledAt.compareTo(a.settledAt));
-    } else {
-      _fetchLines();
-    }
-  }
-
-  Future<void> _fetchLines() async {
-    setState(() {
-      _loadingLines = true;
-    });
-    try {
-      final supabase = Supabase.instance.client;
-      // Use the same minute bucket used during aggregation.
-      final bucketStart = DateTime(
-          widget.event.settledAt.year,
-          widget.event.settledAt.month,
-          widget.event.settledAt.day,
-          widget.event.settledAt.hour,
-          widget.event.settledAt.minute);
-      final bucketEnd = bucketStart.add(const Duration(minutes: 1));
-
-      final response = await supabase
-          .from('expense_split_lines')
-          .select(
-              'settled_at, amount_cents, split_group_id, user_id, settlement_note, expense_split_groups!inner(payer_user_id, currency, household_id, expense_id)')
-          .eq('is_settled', true)
-          .gte('settled_at', bucketStart.toIso8601String())
-          .lt('settled_at', bucketEnd.toIso8601String())
-          .eq('user_id', widget.event.participantUserId)
-          .eq('expense_split_groups.payer_user_id', widget.event.payerUserId)
-          .eq('expense_split_groups.household_id', widget.householdId)
-          .eq('expense_split_groups.currency', widget.event.currency)
-          .order('settled_at', ascending: false);
-
-      final rows = (response as List).cast<Map<String, dynamic>>();
-      final loaded = rows.map<SettlementLine>((row) {
-        final settledAtStr = row['settled_at'] as String?;
-        final settledAt = settledAtStr != null
-            ? DateTime.parse(settledAtStr)
-            : widget.event.settledAt;
-        final amount = (row['amount_cents'] as int? ?? 0).abs();
-        final group =
-            row['expense_split_groups'] as Map<String, dynamic>? ?? {};
-        final payerId = group['payer_user_id'] as String? ?? '';
-        final participantId =
-            row['user_id'] as String? ?? widget.event.participantUserId;
-        return SettlementLine(
-          splitGroupId: (row['split_group_id'] as String?) ?? '',
-          amountCents: amount,
-          settledAt: settledAt,
-          payerUserId: payerId,
-          participantUserId: participantId,
-          expenseId: group['expense_id'] as String?,
-          settlementNote: row['settlement_note'] as String?,
-        );
-      }).toList()
-        ..sort((a, b) => b.settledAt.compareTo(a.settledAt));
-
-      if (mounted) {
-        setState(() {
-          _lines = loaded;
-        });
-      }
-    } catch (_) {
-      // Best-effort fetch; fall back to existing lines.
-    } finally {
-      if (mounted) {
-        setState(() {
-          _loadingLines = false;
-        });
-      }
-    }
+    _lines = [...widget.event.lines]
+      ..sort((a, b) => b.settledAt.compareTo(a.settledAt));
   }
 
   @override
@@ -874,6 +798,8 @@ class _SettlementDetailsSheetState extends State<SettlementDetailsSheet> {
             .fold<int>(0, (s, l) => s + l.amountCents)
         : widget.event.participantToPayerCents;
     final isExpress = widget.event.isExpressNetting == true;
+    final shouldShowOffsets =
+        isExpress && forwardTotal > 0 && reverseTotal > 0;
 
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
     final actorId = widget.event.settledByUserId;
@@ -1001,7 +927,7 @@ class _SettlementDetailsSheetState extends State<SettlementDetailsSheet> {
                           widget.nameFor(widget.event.payerUserId),
                           icon: Icons.arrow_downward_rounded,
                         ),
-                        if (isExpress) ...[
+                        if (shouldShowOffsets) ...[
                           const Padding(
                             padding: EdgeInsets.symmetric(vertical: 12),
                             child: Divider(height: 1),
@@ -1041,12 +967,7 @@ class _SettlementDetailsSheetState extends State<SettlementDetailsSheet> {
                       ],
                     ),
                   ),
-                  if (_loadingLines && lineItems.isEmpty) ...[
-                    const SizedBox(height: 20),
-                    const Center(
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  ] else if (lineItems.isNotEmpty) ...[
+                  if (lineItems.isNotEmpty) ...[
                     const SizedBox(height: 24),
                     Align(
                       alignment: Alignment.centerLeft,

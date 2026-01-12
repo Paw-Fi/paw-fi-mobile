@@ -342,19 +342,6 @@ class HouseholdService {
     return response.data as Map<String, dynamic>;
   }
 
-  Future<void> settleSplit(String splitLineId) async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) {
-      throw Exception('User not authenticated');
-    }
-
-    await _supabase.from('expense_split_lines').update({
-      'is_settled': true,
-      'settled_at': DateTime.now().toIso8601String(),
-      'settled_by_user_id': userId,
-    }).eq('id', splitLineId);
-  }
-
   // ============================================================================
   // BUDGETS
   // ============================================================================
@@ -685,6 +672,36 @@ class HouseholdService {
         'p_you_owe_cents_before': 0,
         'p_you_are_owed_cents_before': amountCents,
         if (normalizedCurrency != null) 'p_currency': normalizedCurrency,
+        if (settlementNote != null && settlementNote.isNotEmpty)
+          'p_settlement_note': settlementNote,
+      },
+    );
+
+    return (result as int?) ?? 0;
+  }
+
+  Future<int> settleAmountAndNotify({
+    required String householdId,
+    required String memberUserId,
+    required String mode,
+    required int amountCents,
+    String? currency,
+    String? settlementNote,
+  }) async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) throw Exception('User not authenticated');
+
+    final normalizedCurrency = currency?.trim().toUpperCase();
+
+    final result = await _supabase.rpc(
+      'households_settle_amount_and_notify',
+      params: {
+        'p_household_id': householdId,
+        'p_member_user_id': memberUserId,
+        'p_mode': mode,
+        'p_amount_cents': amountCents,
+        if (normalizedCurrency != null && normalizedCurrency.isNotEmpty)
+          'p_currency': normalizedCurrency,
         if (settlementNote != null && settlementNote.isNotEmpty)
           'p_settlement_note': settlementNote,
       },

@@ -5,10 +5,15 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
+import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
+import 'package:moneko/features/households/domain/entities/expense_split.dart'
+    as split_entities;
+import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
+import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 
@@ -139,6 +144,18 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       }
 
       debugPrint('✅ Expense saved successfully');
+      final responseMap =
+          response.data is Map<String, dynamic> ? response.data as Map<String, dynamic> : null;
+      _addOptimisticHouseholdData(
+        expense: expense,
+        householdId: householdId,
+        payerUserId: payerUserId ?? user.uid,
+        receiptImageUrl: receiptImageUrl,
+        customSplitType: customSplitType,
+        customSplits: customSplits,
+        responseData: responseMap,
+        userId: user.uid,
+      );
 
       if (invalidateProviders) {
         // Invalidate providers to trigger UI refresh
@@ -151,6 +168,259 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       state = AsyncValue.error(error, stackTrace);
       rethrow;
     }
+  }
+
+  void _addOptimisticHouseholdData({
+    required ParsedExpense expense,
+    required String? householdId,
+    required String payerUserId,
+    required String? receiptImageUrl,
+    required SplitType? customSplitType,
+    required List<MemberSplit>? customSplits,
+    required Map<String, dynamic>? responseData,
+    required String userId,
+  }) {
+    if (householdId == null || householdId.isEmpty) return;
+    final sharedFlag = responseData?['shared'];
+    if (sharedFlag is bool && sharedFlag == false) return;
+    if (sharedFlag == null && responseData?['warning'] != null) return;
+
+    final saved = responseData?['data'];
+    final savedMap =
+        saved is Map<String, dynamic> ? saved : <String, dynamic>{};
+    final savedId = savedMap['id']?.toString();
+    final hasServerId = savedId != null && savedId.isNotEmpty;
+    final expenseId = hasServerId
+        ? savedId!
+        : 'optimistic_${DateTime.now().millisecondsSinceEpoch}';
+
+    final createdAtRaw = savedMap['created_at']?.toString();
+    final createdAt =
+        createdAtRaw != null ? DateTime.tryParse(createdAtRaw) : null;
+
+    final members =
+        ref.read(householdMembersProvider(householdId)).valueOrNull;
+
+    final splitGroup = hasServerId
+        ? _buildOptimisticSplitGroup(
+            householdId: householdId,
+            expenseId: expenseId,
+            payerUserId: payerUserId,
+            expense: expense,
+            customSplitType: customSplitType,
+            customSplits: customSplits,
+            members: members,
+          )
+        : null;
+
+    final entry = _buildOptimisticExpenseEntry(
+      expense: expense,
+      expenseId: expenseId,
+      householdId: householdId,
+      userId: userId,
+      receiptImageUrl: receiptImageUrl,
+      createdAt: createdAt ?? expense.date,
+      splitGroupId: splitGroup?.id,
+    );
+
+    ref
+        .read(householdOptimisticExpensesProvider.notifier)
+        .addExpense(householdId, entry);
+
+    if (splitGroup != null) {
+      ref
+          .read(householdOptimisticSplitsProvider.notifier)
+          .addSplitGroup(householdId, splitGroup);
+    }
+  }
+
+  ExpenseEntry _buildOptimisticExpenseEntry({
+    required ParsedExpense expense,
+    required String expenseId,
+    required String householdId,
+    required String userId,
+    required String? receiptImageUrl,
+    required DateTime createdAt,
+    String? splitGroupId,
+  }) {
+    return ExpenseEntry(
+      id: expenseId,
+      userId: userId,
+      householdId: householdId,
+      date: expense.date,
+      amountCents: expense.amountCents.abs(),
+      currency: expense.currency,
+      category: expense.category,
+      createdAt: createdAt,
+      rawText: expense.description,
+      receiptImageUrl: receiptImageUrl,
+      splitGroupId: splitGroupId,
+      type: 'expense',
+    );
+  }
+
+  split_entities.ExpenseSplitGroup? _buildOptimisticSplitGroup({
+    required String householdId,
+    required String expenseId,
+    required String payerUserId,
+    required ParsedExpense expense,
+    required SplitType? customSplitType,
+    required List<MemberSplit>? customSplits,
+    required List<HouseholdMember>? members,
+  }) {
+    final totalCents = expense.amountCents.abs();
+    if (totalCents <= 0) return null;
+
+    final splitType = customSplitType ?? SplitType.equal;
+    final resolvedSplits = (customSplits != null && customSplits.isNotEmpty)
+        ? customSplits
+        : (members != null && members.isNotEmpty)
+            ? buildDefaultMemberSplits(
+                members: members,
+                totalAmount: expense.amount,
+              )
+            : const <MemberSplit>[];
+
+    if (resolvedSplits.isEmpty) return null;
+
+    final included = _includedSplits(splitType, resolvedSplits);
+    if (included.isEmpty) return null;
+
+    final cents = switch (splitType) {
+      SplitType.equal => _allocateEqualCents(totalCents, included.length),
+      SplitType.amount => _allocateAmountCents(totalCents, included),
+      SplitType.percentage => _allocateWeightedCents(
+          totalCents,
+          included.map((s) => s.percentage ?? 0).toList(),
+        ),
+      SplitType.shares => _allocateWeightedCents(
+          totalCents,
+          included.map((s) => s.shares ?? 0).toList(),
+        ),
+    };
+
+    final now = DateTime.now();
+    final groupId = 'optimistic_$expenseId';
+    final lines = <split_entities.ExpenseSplitLine>[];
+
+    for (var i = 0; i < included.length; i++) {
+      final split = included[i];
+      final member = split.member;
+      lines.add(
+        split_entities.ExpenseSplitLine(
+          id: 'optimistic_line_${expenseId}_${member.userId}',
+          splitGroupId: groupId,
+          userId: member.userId,
+          amountCents: cents[i],
+          percentage:
+              splitType == SplitType.percentage ? split.percentage : null,
+          shares: splitType == SplitType.shares ? split.shares : null,
+          isSettled: false,
+          createdAt: now,
+          updatedAt: now,
+          userEmail: member.userEmail,
+          userName: member.userName,
+        ),
+      );
+    }
+
+    return split_entities.ExpenseSplitGroup(
+      id: groupId,
+      householdId: householdId,
+      expenseId: expenseId,
+      payerUserId: payerUserId,
+      splitType: _mapSplitType(splitType),
+      currency: expense.currency,
+      totalAmountCents: totalCents,
+      description: expense.description,
+      createdAt: now,
+      updatedAt: now,
+      splitLines: lines,
+    );
+  }
+
+  List<MemberSplit> _includedSplits(
+    SplitType splitType,
+    List<MemberSplit> splits,
+  ) {
+    return switch (splitType) {
+      SplitType.amount =>
+        splits.where((s) => s.includedInAmount).toList(),
+      SplitType.percentage =>
+        splits.where((s) => s.includedInPercentage).toList(),
+      SplitType.shares => splits.where((s) => (s.shares ?? 0) > 0).toList(),
+      SplitType.equal => splits,
+    };
+  }
+
+  split_entities.SplitType _mapSplitType(SplitType splitType) {
+    return switch (splitType) {
+      SplitType.equal => split_entities.SplitType.equal,
+      SplitType.amount => split_entities.SplitType.amount,
+      SplitType.percentage => split_entities.SplitType.percentage,
+      SplitType.shares => split_entities.SplitType.shares,
+    };
+  }
+
+  List<int> _allocateEqualCents(int totalCents, int count) {
+    if (count <= 0) return const <int>[];
+    final perMember = totalCents ~/ count;
+    final remainder = totalCents - (perMember * count);
+    return List<int>.generate(
+      count,
+      (index) => perMember + (index == 0 ? remainder : 0),
+    );
+  }
+
+  List<int> _allocateAmountCents(int totalCents, List<MemberSplit> splits) {
+    if (splits.isEmpty) return const <int>[];
+    final cents = splits
+        .map((split) => (split.amount ?? 0) * 100)
+        .map((value) => value.round())
+        .map((value) => value < 0 ? 0 : value)
+        .toList();
+
+    final sum = cents.fold<int>(0, (sum, value) => sum + value);
+    final diff = totalCents - sum;
+    if (diff != 0 && cents.isNotEmpty) {
+      final index = cents.length - 1;
+      cents[index] = (cents[index] + diff).clamp(0, totalCents);
+    }
+    return cents;
+  }
+
+  List<int> _allocateWeightedCents(int totalCents, List<num> weights) {
+    if (weights.isEmpty) return const <int>[];
+    final normalized = weights
+        .map((value) => value.isNegative ? 0.0 : value.toDouble())
+        .toList();
+    final totalWeight =
+        normalized.fold<double>(0, (sum, value) => sum + value);
+    if (totalWeight <= 0) {
+      return List<int>.filled(weights.length, 0);
+    }
+
+    final raw = normalized
+        .map((value) => (totalCents * value) / totalWeight)
+        .toList();
+    final floorValues = raw.map((value) => value.floor()).toList();
+    var remainder =
+        totalCents - floorValues.fold<int>(0, (sum, v) => sum + v);
+
+    if (remainder > 0) {
+      final order = List<int>.generate(raw.length, (i) => i);
+      order.sort((a, b) {
+        final fracA = raw[a] - raw[a].floor();
+        final fracB = raw[b] - raw[b].floor();
+        return fracB.compareTo(fracA);
+      });
+      for (var i = 0; i < remainder; i++) {
+        final index = order[i % order.length];
+        floorValues[index] += 1;
+      }
+    }
+
+    return floorValues;
   }
 
   /// Invalidate appropriate providers based on sharing preference

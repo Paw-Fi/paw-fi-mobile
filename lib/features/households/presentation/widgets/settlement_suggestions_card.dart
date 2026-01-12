@@ -1,27 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
-import 'package:moneko/features/home/presentation/models/expense_entry.dart';
-
 import 'package:moneko/features/households/presentation/pages/settlement_history_page.dart';
 import 'package:moneko/features/households/presentation/widgets/settle_up_sheet.dart';
-import 'package:moneko/shared/widgets/moneko_switch.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../../core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
-/// Settlement suggestions card with toggle for net vs detailed transfers
+/// Settlement suggestions card with toggle for express netting mode
 class SettlementSuggestionsCard extends StatefulWidget {
   final HouseholdSummary summary;
   final List<ExpenseEntry>? transactions;
   final List<ExpenseSplitGroup>? splits;
   final String? currency;
   final List<HouseholdMember>? members;
+  final String? currentUserId;
 
   const SettlementSuggestionsCard({
     super.key,
@@ -30,6 +28,7 @@ class SettlementSuggestionsCard extends StatefulWidget {
     this.splits,
     this.currency,
     this.members,
+    this.currentUserId,
   });
 
   @override
@@ -37,310 +36,345 @@ class SettlementSuggestionsCard extends StatefulWidget {
       _SettlementSuggestionsCardState();
 }
 
+class _SettlementPayment {
+  final String payerUserId;
+  final String participantUserId;
+  final int amountCents;
+  const _SettlementPayment({
+    required this.payerUserId,
+    required this.participantUserId,
+    required this.amountCents,
+  });
+}
+
 class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
-  static const String _prefsKey = 'moneko_settlement_express_netting';
-  bool _netTransfers = true;
+  Future<List<_SettlementPayment>>? _settlementPaymentsFuture;
+  String? _settlementPaymentsFutureKey;
 
   @override
-  void initState() {
-    super.initState();
-    _loadNettingPreference();
-  }
-
-  Future<void> _loadNettingPreference() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final stored = prefs.getBool(_prefsKey);
-      if (stored != null && stored != _netTransfers && mounted) {
-        setState(() => _netTransfers = stored);
-      }
-    } catch (_) {}
-  }
-
-  Future<void> _saveNettingPreference(bool value) async {
-    setState(() => _netTransfers = value);
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_prefsKey, value);
-    } catch (_) {}
+  void didUpdateWidget(covariant SettlementSuggestionsCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.summary.householdId != widget.summary.householdId ||
+        oldWidget.currency != widget.currency ||
+        oldWidget.currentUserId != widget.currentUserId) {
+      _settlementPaymentsFuture = null;
+      _settlementPaymentsFutureKey = null;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+    final currentUserId = widget.currentUserId;
 
-    if (currentUserId == null) return const SizedBox.shrink();
-
-    // 1. Calculate Data
-    String nameFor(String userId) {
-      final fromMembers = widget.members?.firstWhere(
-        (m) => m.userId == userId,
-        orElse: () => HouseholdMember(
-          id: '',
-          householdId: '',
-          userId: userId,
-          role: HouseholdRole.member,
-          joinedAt: DateTime.now(),
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-          userEmail: null,
-          userName: null,
-        ),
-      );
-      if (fromMembers?.userName != null && fromMembers!.userName!.isNotEmpty) {
-        return fromMembers.userName!;
-      }
-      final fromSummary = widget.summary.memberContributions.firstWhere(
-        (mc) => mc.userId == userId,
-        orElse: () => const MemberContribution(
-            userId: '',
-            totalSpentCents: 0,
-            transactionCount: 0,
-            splitCount: 0,
-            balanceCents: 0),
-      );
-      return fromSummary.userName ??
-          fromMembers?.userEmail ??
-          context.l10n.member;
+    if (currentUserId == null || currentUserId.isEmpty) {
+      return const SizedBox.shrink();
     }
 
-    List<_Suggestion> mySuggestions;
-
-    if (_netTransfers) {
-      // Express Netting: Strictly Bilateral (User <-> Other)
-      mySuggestions = _buildBilateralSuggestions(
-        widget.splits,
-        widget.currency,
-        currentUserId,
-        nameFor,
+    final currencyCode = (widget.currency ?? '').trim().toUpperCase();
+    final settlementKey =
+        '${widget.summary.householdId}|$currentUserId|$currencyCode';
+    if (_settlementPaymentsFuture == null ||
+        _settlementPaymentsFutureKey != settlementKey) {
+      _settlementPaymentsFutureKey = settlementKey;
+      _settlementPaymentsFuture = _fetchSettlementPayments(
+        householdId: widget.summary.householdId,
+        currentUserId: currentUserId,
+        currencyCode: currencyCode,
       );
-    } else {
-      // Detailed: Raw debts (User -> Other, Other -> User)
-      final allDetailed = _buildDetailedPairs(
-        widget.splits,
-        widget.currency,
-        nameFor,
-      );
-      // Filter for current user
-      mySuggestions = allDetailed
-          .where((s) =>
-              s.fromUserId == currentUserId || s.toUserId == currentUserId)
-          .toList();
     }
 
-    // 4. Calculate Stats for Current User
-    int youOweTotal = 0;
-    int owedToYouTotal = 0;
-    for (final s in mySuggestions) {
-      if (s.fromUserId == currentUserId) {
-        youOweTotal += s.amountCents;
-      } else if (s.toUserId == currentUserId) {
-        owedToYouTotal += s.amountCents;
-      }
-    }
+    return FutureBuilder<List<_SettlementPayment>>(
+      future: _settlementPaymentsFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData) {
+          return _buildLoadingCard(context, colorScheme);
+        }
 
-    final isAllSettled =
-        mySuggestions.isEmpty && youOweTotal == 0 && owedToYouTotal == 0;
+        final settlementPayments = snapshot.data ?? const <_SettlementPayment>[];
 
-    return Material(
-      color: colorScheme.surface.withValues(alpha: 0.0),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(24),
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => SettlementHistoryPage(
-                householdId: widget.summary.householdId,
-              ),
+        // 1. Calculate Data
+        String nameFor(String userId) {
+          final fromMembers = widget.members?.firstWhere(
+            (m) => m.userId == userId,
+            orElse: () => HouseholdMember(
+              id: '',
+              householdId: '',
+              userId: userId,
+              role: HouseholdRole.member,
+              joinedAt: DateTime.now(),
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+              userEmail: null,
+              userName: null,
             ),
           );
-        },
-        child: Container(
-          margin: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: colorScheme.homeCardSurface,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: colorScheme.homeCardShadow,
-                blurRadius: 20,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      context.l10n.settlement,
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.5,
-                        color: colorScheme.foreground,
-                      ),
-                    ),
-                    Row(
-                      children: [
-                        if (!isAllSettled) ...[
-                          Text(
-                            context.l10n.expressNetting,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: colorScheme.mutedForeground,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Transform.scale(
-                            scale: 0.8,
-                            child: MonekoSwitch(
-                              value: _netTransfers,
-                              onChanged: _saveNettingPreference,
-                            ),
-                          ),
-                          if (isAllSettled) const SizedBox(width: 12),
-                        ],
-                        if (isAllSettled)
-                          _HistoryButton(
-                            onTap: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => SettlementHistoryPage(
-                                    householdId: widget.summary.householdId,
-                                  ),
-                                ),
-                              );
-                            },
-                            colorScheme: colorScheme,
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+          if (fromMembers?.userName != null &&
+              fromMembers!.userName!.isNotEmpty) {
+            return fromMembers.userName!;
+          }
+          final fromSummary = widget.summary.memberContributions.firstWhere(
+            (mc) => mc.userId == userId,
+            orElse: () => const MemberContribution(
+                userId: '',
+                totalSpentCents: 0,
+                transactionCount: 0,
+                splitCount: 0,
+                balanceCents: 0),
+          );
+          return fromSummary.userName ??
+              fromMembers?.userEmail ??
+              context.l10n.member;
+        }
 
-              if (isAllSettled)
-                _buildAllSettledState(context, colorScheme)
-              else ...[
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _StatCard(
-                          label: context.l10n.youOwe,
-                          amountCents: youOweTotal,
-                          color: colorScheme.destructive, // Apple Red
-                          currency: widget.currency,
-                          onTap: youOweTotal > 0
-                              ? () => _openSettleUpSheet(
-                                    context,
-                                    householdId: widget.summary.householdId,
-                                    isExpress: _netTransfers,
-                                    amountHintCents: youOweTotal,
-                                    splits: widget.splits,
-                                    targetUserId: null,
-                                    currency: widget.currency,
-                                  )
-                              : null,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _StatCard(
-                          label: context.l10n.youAreOwed,
-                          amountCents: owedToYouTotal,
-                          color: colorScheme.success, // Apple Green
-                          currency: widget.currency,
-                          onTap: null,
-                        ),
-                      ),
-                    ],
+        final mySuggestions = _buildNetSuggestions(
+          widget.splits,
+          widget.currency,
+          currentUserId,
+          nameFor,
+          settlementPayments: settlementPayments,
+        );
+
+        // 4. Calculate Stats for Current User
+        int youOweTotal = 0;
+        int owedToYouTotal = 0;
+        for (final s in mySuggestions) {
+          if (s.fromUserId == currentUserId) {
+            youOweTotal += s.amountCents;
+          } else if (s.toUserId == currentUserId) {
+            owedToYouTotal += s.amountCents;
+          }
+        }
+
+        final isAllSettled =
+            mySuggestions.isEmpty && youOweTotal == 0 && owedToYouTotal == 0;
+
+        return Material(
+          color: colorScheme.surface.withValues(alpha: 0.0),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(24),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => SettlementHistoryPage(
+                    householdId: widget.summary.householdId,
                   ),
                 ),
-                if (mySuggestions.isNotEmpty) ...[
-                  const SizedBox(height: 20),
+              );
+            },
+            child: Container(
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: colorScheme.homeCardSurface,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: colorScheme.homeCardShadow,
+                    blurRadius: 20,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Expanded(
-                          child: Text(
-                            _netTransfers
-                                ? context.l10n.suggestedNetTransfers
-                                : context.l10n.detailedPairwiseDues,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: colorScheme.mutedForeground,
-                              letterSpacing: 0.5,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                        Text(
+                          context.l10n.settlement,
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.5,
+                            color: colorScheme.foreground,
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        _HistoryButton(
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => SettlementHistoryPage(
-                                  householdId: widget.summary.householdId,
-                                ),
-                              ),
-                            );
-                          },
-                          colorScheme: colorScheme,
+                        Row(
+                          children: [
+                            _HistoryButton(
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => SettlementHistoryPage(
+                                      householdId: widget.summary.householdId,
+                                    ),
+                                  ),
+                                );
+                              },
+                              colorScheme: colorScheme,
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                    itemCount: mySuggestions.length,
-                    separatorBuilder: (context, index) =>
-                        const SizedBox(height: 12),
-                    itemBuilder: (context, index) {
-                      final s = mySuggestions[index];
-                      final isPayer = s.fromUserId == currentUserId;
-                      return _SuggestionRow(
-                        suggestion: s,
-                        isPayer: isPayer,
-                        scheme: colorScheme,
-                        currency: widget.currency,
-                        onTap: () => _openSettleUpSheet(
-                          context,
-                          householdId: widget.summary.householdId,
-                          isExpress: _netTransfers,
-                          amountHintCents: s.amountCents,
-                          splits: widget.splits,
-                          targetUserId: isPayer ? s.toUserId : s.fromUserId,
-                          currency: widget.currency,
-                          settleTheyOweYou: !_netTransfers && !isPayer,
+
+                  if (isAllSettled)
+                    _buildAllSettledState(context, colorScheme)
+                  else ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _StatCard(
+                              label: context.l10n.youOwe,
+                              amountCents: youOweTotal,
+                              color: colorScheme.destructive, // Apple Red
+                              currency: widget.currency,
+                              onTap: youOweTotal > 0
+                                  ? () => _openSettleUpSheet(
+                                        context,
+                                        householdId: widget.summary.householdId,
+                                        isExpress: true,
+                                        amountHintCents: youOweTotal,
+                                        splits: widget.splits,
+                                        targetUserId: null,
+                                        currency: widget.currency,
+                                      )
+                                  : null,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _StatCard(
+                              label: context.l10n.youAreOwed,
+                              amountCents: owedToYouTotal,
+                              color: colorScheme.success, // Apple Green
+                              currency: widget.currency,
+                              onTap: null,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (mySuggestions.isNotEmpty) ...[
+                      const SizedBox(height: 20),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                context.l10n.suggestedNetTransfers,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: colorScheme.mutedForeground,
+                                  letterSpacing: 0.5,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          
+                          ],
                         ),
-                      );
-                    },
-                  ),
-                ] else
-                  const SizedBox(height: 20),
-              ],
-            ],
+                      ),
+                      const SizedBox(height: 8),
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                        itemCount: mySuggestions.length,
+                        separatorBuilder: (context, index) =>
+                            const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          final s = mySuggestions[index];
+                          final isPayer = s.fromUserId == currentUserId;
+                          return _SuggestionRow(
+                            suggestion: s,
+                            isPayer: isPayer,
+                            scheme: colorScheme,
+                            currency: widget.currency,
+                            onTap: () => _openSettleUpSheet(
+                              context,
+                              householdId: widget.summary.householdId,
+                              isExpress: true,
+                              amountHintCents: s.amountCents,
+                              splits: widget.splits,
+                              targetUserId: isPayer ? s.toUserId : s.fromUserId,
+                              currency: widget.currency,
+                            ),
+                          );
+                        },
+                      ),
+                    ] else
+                      const SizedBox(height: 20),
+                  ],
+                ],
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
+  }
+
+  Widget _buildLoadingCard(BuildContext context, ColorScheme colorScheme) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(
+        color: colorScheme.homeCardSurface,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.homeCardShadow,
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 32),
+      child: const Center(child: CircularProgressIndicator()),
+    );
+  }
+
+  Future<List<_SettlementPayment>> _fetchSettlementPayments({
+    required String householdId,
+    required String currentUserId,
+    required String currencyCode,
+  }) async {
+    try {
+      final supabase = Supabase.instance.client;
+      var query = supabase
+          .from('household_settlement_events')
+          .select('payer_user_id, participant_user_id, amount_cents, currency')
+          .eq('household_id', householdId)
+          .or('payer_user_id.eq.$currentUserId,participant_user_id.eq.$currentUserId');
+
+      if (currencyCode.isNotEmpty) {
+        query = query.eq('currency', currencyCode);
+      }
+
+      final response = await query;
+      final rows = (response as List).cast<Map<String, dynamic>>();
+      final out = <_SettlementPayment>[];
+      for (final row in rows) {
+        final payer = row['payer_user_id'] as String?;
+        final participant = row['participant_user_id'] as String?;
+        if (payer == null || payer.isEmpty) continue;
+        if (participant == null || participant.isEmpty) continue;
+        if (payer == participant) continue;
+        final amount = (row['amount_cents'] as int? ?? 0).abs();
+        if (amount <= 0) continue;
+        out.add(_SettlementPayment(
+          payerUserId: payer,
+          participantUserId: participant,
+          amountCents: amount,
+        ));
+      }
+      return out;
+    } catch (e) {
+      debugPrint('Error loading settlement events for suggestions: $e');
+      return const <_SettlementPayment>[];
+    }
   }
 
   Widget _buildAllSettledState(BuildContext context, ColorScheme colorScheme) {
@@ -385,61 +419,19 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
     );
   }
 
-  List<_Suggestion> _buildDetailedPairs(
-    List<ExpenseSplitGroup>? splits,
-    String? currency,
-    String Function(String) nameFor,
-  ) {
-    if (splits == null || splits.isEmpty) return const <_Suggestion>[];
-    final pairMap = <String, int>{};
-
-    for (final g in splits) {
-      if (currency != null && currency.isNotEmpty) {
-        final groupCode = (g.currency).trim().toUpperCase();
-        final selectedCode = currency.trim().toUpperCase();
-        if (groupCode != selectedCode) continue;
-      }
-      final payer = g.payerUserId;
-      final lines = g.splitLines ?? const <ExpenseSplitLine>[];
-      for (final line in lines) {
-        if (line.isSettled) continue;
-        if (line.userId == payer) continue;
-        final amount = (line.amountCents ?? 0).abs();
-        if (amount <= 0) continue;
-        final key = '${line.userId}->$payer';
-        pairMap[key] = (pairMap[key] ?? 0) + amount;
-      }
-    }
-
-    final out = <_Suggestion>[];
-    pairMap.forEach((key, cents) {
-      final parts = key.split('->');
-      if (parts.length != 2) return;
-      final fromUser = parts[0];
-      final toUser = parts[1];
-      out.add(_Suggestion(
-        fromUserId: fromUser,
-        toUserId: toUser,
-        fromName: nameFor(fromUser),
-        toName: nameFor(toUser),
-        amountCents: cents,
-      ));
-    });
-
-    out.sort((a, b) => b.amountCents.compareTo(a.amountCents));
-    return out;
-  }
-
-  List<_Suggestion> _buildBilateralSuggestions(
+  List<_Suggestion> _buildNetSuggestions(
     List<ExpenseSplitGroup>? splits,
     String? currency,
     String currentUserId,
     String Function(String) nameFor,
+    {
+    List<_SettlementPayment> settlementPayments = const <_SettlementPayment>[],
+  }
   ) {
     if (splits == null || splits.isEmpty) return const <_Suggestion>[];
 
-    // Map: OtherUserId -> NetAmount (Positive = You Owe Them, Negative = They Owe You)
-    final netMap = <String, int>{};
+    final splitTo = <String, int>{};
+    final splitFrom = <String, int>{};
 
     for (final g in splits) {
       if (currency != null && currency.isNotEmpty) {
@@ -456,18 +448,39 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
         final amount = (line.amountCents ?? 0).abs();
         if (amount <= 0) continue;
 
-        if (payer == currentUserId && line.userId != currentUserId) {
-          // You paid, they owe you -> They Owe You (Negative in our map)
-          netMap[line.userId] = (netMap[line.userId] ?? 0) - amount;
-        } else if (line.userId == currentUserId && payer != currentUserId) {
-          // They paid, you owe them -> You Owe Them (Positive in our map)
-          netMap[payer] = (netMap[payer] ?? 0) + amount;
+        if (line.userId == currentUserId && payer != currentUserId) {
+          // You owe the payer.
+          splitTo[payer] = (splitTo[payer] ?? 0) + amount;
+        } else if (payer == currentUserId && line.userId != currentUserId) {
+          // The participant owes you.
+          splitFrom[line.userId] = (splitFrom[line.userId] ?? 0) + amount;
         }
       }
     }
 
+    final paidTo = <String, int>{};
+    final paidFrom = <String, int>{};
+    for (final p in settlementPayments) {
+      if (p.participantUserId == currentUserId) {
+        paidTo[p.payerUserId] = (paidTo[p.payerUserId] ?? 0) + p.amountCents;
+      } else if (p.payerUserId == currentUserId) {
+        paidFrom[p.participantUserId] =
+            (paidFrom[p.participantUserId] ?? 0) + p.amountCents;
+      }
+    }
+
     final out = <_Suggestion>[];
-    netMap.forEach((otherUserId, netAmount) {
+    final otherUsers = <String>{
+      ...splitTo.keys,
+      ...splitFrom.keys,
+      ...paidTo.keys,
+      ...paidFrom.keys,
+    };
+    for (final otherUserId in otherUsers) {
+      if (otherUserId.isEmpty || otherUserId == currentUserId) continue;
+      final netAmount = (splitTo[otherUserId] ?? 0) -
+          (splitFrom[otherUserId] ?? 0) -
+          ((paidTo[otherUserId] ?? 0) - (paidFrom[otherUserId] ?? 0));
       if (netAmount > 0) {
         // You Owe Them
         out.add(_Suggestion(
@@ -487,7 +500,7 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
           amountCents: netAmount.abs(),
         ));
       }
-    });
+    }
 
     out.sort((a, b) => b.amountCents.compareTo(a.amountCents));
     return out;

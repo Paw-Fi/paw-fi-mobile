@@ -47,8 +47,6 @@ abstract class HouseholdRepository {
     String? endDate,
   });
   Future<Map<String, dynamic>> computeSplit(SplitRequest request);
-  Future<void> settleSplit(String splitLineId);
-
   // Budgets
   Future<List<SharedBudget>> getHouseholdBudgets(String householdId);
   Future<SharedBudget> createBudget({

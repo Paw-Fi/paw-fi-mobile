@@ -137,11 +137,6 @@ class HouseholdRepositoryImpl implements HouseholdRepository {
   }
 
   @override
-  Future<void> settleSplit(String splitLineId) async {
-    await _service.settleSplit(splitLineId);
-  }
-
-  @override
   Future<List<SharedBudget>> getHouseholdBudgets(String householdId) async {
     final data = await _service.getHouseholdBudgets(householdId);
     return data.map((json) => SharedBudget.fromJson(json)).toList();
