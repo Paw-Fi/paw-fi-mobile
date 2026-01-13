@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -16,8 +17,11 @@ import 'package:image_picker/image_picker.dart';
 import 'package:moneko/features/households/presentation/widgets/household_home_content.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
+import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
+import 'package:moneko/features/home/presentation/state/ai_quick_log.dart';
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -140,6 +144,69 @@ class _HomePageState extends ConsumerState<HomePage> {
     super.dispose();
   }
 
+  String _resolveLogTargetLabelForAi() {
+    final householdId = _resolveHouseholdIdForAi();
+    if (householdId == null) return context.l10n.personalScope;
+
+    final selected = ref.read(selectedHouseholdProvider);
+    return selected.household?.name ?? context.l10n.forUs;
+  }
+
+  String _truncateForToast(String? value, {int maxLen = 28}) {
+    final s = (value ?? '').trim();
+    if (s.isEmpty) return '';
+    if (s.length <= maxLen) return s;
+    return '${s.substring(0, maxLen - 1)}…';
+  }
+
+  String _formatAiLoggedToastMessage(
+    List<({ParsedExpense transaction, String optimisticId, Map<String, dynamic> raw})>
+        parsed,
+  ) {
+    if (parsed.isEmpty) return context.l10n.failedToAnalyzeNoData;
+
+    final target = _resolveLogTargetLabelForAi();
+    final count = parsed.length;
+
+    final allIncome = parsed.every((e) => e.transaction.isIncome);
+    final allExpense = parsed.every((e) => !e.transaction.isIncome);
+
+    if (count == 1) {
+      final tx = parsed.first.transaction;
+      final savedLabel =
+          tx.isIncome ? context.l10n.incomeSaved : context.l10n.expenseSaved;
+      final desc = _truncateForToast(tx.description);
+      final detail = desc.isEmpty ? '' : ' • $desc';
+      return '$savedLabel ${tx.formattedAmount}$detail → $target';
+    }
+
+    if (allIncome) {
+      return '${context.l10n.incomeSaved} ($count) → $target';
+    }
+    if (allExpense) {
+      return '${context.l10n.expenseSaved} ($count) → $target';
+    }
+    return '${context.l10n.transactions} ($count) → $target';
+  }
+
+  List<Map<String, dynamic>> _buildHouseholdMemberContext(String householdId) {
+    final membersAsync = ref.read(householdMembersProvider(householdId));
+    final members = membersAsync.valueOrNull;
+    if (members == null || members.isEmpty) return const [];
+
+    return members
+        .map(
+          (m) => {
+            'userId': m.userId,
+            if (m.userName != null && m.userName!.trim().isNotEmpty)
+              'userName': m.userName,
+            if (m.userEmail != null && m.userEmail!.trim().isNotEmpty)
+              'userEmail': m.userEmail,
+          },
+        )
+        .toList(growable: false);
+  }
+
   // ignore: unused_element
   Future<void> _handleCameraCapture() async {
     debugPrint('🎥 Starting camera capture...');
@@ -175,6 +242,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   }) async {
     final user = ref.read(authProvider);
     final contact = ref.read(analyticsProvider).contact;
+    final householdId = _resolveHouseholdIdForAi();
 
     // Show processing modal
     if (!mounted) return;
@@ -198,6 +266,14 @@ class _HomePageState extends ConsumerState<HomePage> {
         'date': DateTime.now().toIso8601String().split('T')[0],
         'language': languageTag,
       };
+
+      if (householdId != null && householdId.isNotEmpty) {
+        body['householdId'] = householdId;
+        final memberContext = _buildHouseholdMemberContext(householdId);
+        if (memberContext.isNotEmpty) {
+          body['householdMembers'] = memberContext;
+        }
+      }
 
       // Always use selected currency as default (same as personal expense)
       // Backend will use this as a fallback if no currency is detected in the text/image.
@@ -244,7 +320,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         };
       }
 
-      // Call analyze-expense endpoint (NEW: doesn't save yet). Backend now classifies income vs expense.
+      // Call analyze-expense endpoint to extract structured transactions (then log immediately).
       final response = await supabase.functions.invoke(
         'analyze-expense',
         body: body,
@@ -293,11 +369,16 @@ class _HomePageState extends ConsumerState<HomePage> {
           }
 
           if (items.isNotEmpty) {
-            // Parse ALL items from the response
-            final parsed = items.map((item) {
+            final analyticsContactId = ref.read(analyticsProvider).contact?.id;
+
+            // Parse ALL items and optimistic-log them immediately.
+            final parsed = items.map((rawItem) {
+              final item = rawItem is Map
+                  ? Map<String, dynamic>.from(rawItem)
+                  : <String, dynamic>{};
               final isIncome =
                   (item['type']?.toString().toLowerCase() == 'income');
-              return ParsedExpense(
+              final transaction = ParsedExpense(
                 isIncome: isIncome,
                 amount: (item['amount'] as num).toDouble(),
                 // Normalize income categories to at least 'income' umbrella if model returns a granular one
@@ -312,70 +393,39 @@ class _HomePageState extends ConsumerState<HomePage> {
                 description: item['description'] as String?,
                 localImagePath: imagePath,
               );
+
+              final optimisticId = makeOptimisticTransactionId();
+              final entry = buildOptimisticEntry(
+                transaction: transaction,
+                optimisticId: optimisticId,
+                userId: user.uid,
+                contactId: analyticsContactId,
+                householdId: householdId,
+                type: isIncome ? 'income' : 'expense',
+              );
+
+              addOptimisticTransaction(
+                ref: ref,
+                entry: entry,
+                householdId: householdId,
+              );
+
+              return (transaction: transaction, optimisticId: optimisticId, raw: item);
             }).toList();
 
-            // Partition by type to handle mixed cases robustly
-            final incomes = parsed.where((p) => p.isIncome).toList();
-            final expenses = parsed.where((p) => !p.isIncome).toList();
+            AppToast.success(
+              context,
+              _formatAiLoggedToastMessage(parsed),
+            );
 
-            if (parsed.length == 1) {
-              ref.read(pendingExpenseProvider.notifier).state = parsed.first;
-              showUnifiedTransactionSheet(
-                context,
-                newExpense: parsed.first,
+            unawaited(
+              _persistAiTransactions(
+                userId: user.uid,
+                householdId: householdId,
+                transactions: parsed,
                 localImagePath: imagePath,
-              );
-            } else if (incomes.isNotEmpty && expenses.isNotEmpty) {
-              await AdaptiveAlertDialog.show(
-                context: context,
-                title: context.l10n.appTitle,
-                message:
-                    'Mixed income and expenses detected. What would you like to review?',
-                actions: [
-                  if (expenses.isNotEmpty)
-                    AlertAction(
-                      title: 'Expenses (${expenses.length})',
-                      style: AlertActionStyle.primary,
-                      onPressed: () async {
-                        await showMultiTransactionReviewSheet(
-                          context,
-                          transactions: expenses,
-                          localImagePath: imagePath,
-                        );
-                      },
-                    ),
-                  if (incomes.isNotEmpty)
-                    AlertAction(
-                      title: 'Income (${incomes.length})',
-                      style: AlertActionStyle.primary,
-                      onPressed: () async {
-                        await showMultiTransactionReviewSheet(
-                          context,
-                          transactions: incomes,
-                          localImagePath: imagePath,
-                        );
-                      },
-                    ),
-                  AlertAction(
-                    title: context.l10n.cancel,
-                    style: AlertActionStyle.cancel,
-                    onPressed: () {},
-                  ),
-                ],
-              );
-            } else if (incomes.isNotEmpty) {
-              await showMultiTransactionReviewSheet(
-                context,
-                transactions: incomes,
-                localImagePath: imagePath,
-              );
-            } else {
-              await showMultiTransactionReviewSheet(
-                context,
-                transactions: expenses,
-                localImagePath: imagePath,
-              );
-            }
+              ),
+            );
           } else {
             AppToast.info(context, context.l10n.noExpenseInformationExtracted);
           }
@@ -418,6 +468,140 @@ class _HomePageState extends ConsumerState<HomePage> {
       }
 
       AppToast.error(context, '${context.l10n.failedToAnalyze}: $errorMessage');
+    }
+  }
+
+  String? _resolveHouseholdIdForAi() {
+    final viewMode = ref.read(viewModeProvider);
+    if (viewMode.mode != ViewMode.household) return null;
+    final selected = ref.read(selectedHouseholdProvider);
+    return selected.householdId ?? selected.household?.id;
+  }
+
+  Future<void> _persistAiTransactions({
+    required String userId,
+    required String? householdId,
+    required List<({ParsedExpense transaction, String optimisticId, Map<String, dynamic> raw})>
+        transactions,
+    String? localImagePath,
+  }) async {
+    var didPersistAny = false;
+    String? receiptUrl;
+    if (localImagePath != null && localImagePath.isNotEmpty) {
+      receiptUrl = await ref
+          .read(expenseSaveNotifierProvider.notifier)
+          .uploadReceiptImage(File(localImagePath), userId);
+    }
+
+    for (final item in transactions) {
+      try {
+        if (item.transaction.isIncome) {
+          final response = await supabase.functions.invoke(
+            'save-income',
+            body: {
+              'userId': userId,
+              'amount': item.transaction.amount,
+              'category': item.transaction.category,
+              'currency': item.transaction.currency,
+              'date': item.transaction.date.toIso8601String(),
+              'clientCreatedAt': DateTime.now().toUtc().toIso8601String(),
+              if (item.transaction.description?.isNotEmpty == true)
+                'description': item.transaction.description,
+              if (householdId != null && householdId.isNotEmpty)
+                'householdId': householdId,
+            },
+          );
+
+          if (response.data == null || response.data['success'] != true) {
+            throw Exception(response.data?['error'] ?? 'Failed to save income');
+          }
+
+          final saved =
+              Map<String, dynamic>.from(response.data['data'] as Map);
+          final savedEntry = ExpenseEntry.fromJson(saved);
+          replaceOptimisticTransaction(
+            ref: ref,
+            optimisticId: item.optimisticId,
+            savedEntry: savedEntry,
+            householdId: householdId,
+          );
+          didPersistAny = true;
+          continue;
+        }
+
+        final rawPayerUserId = item.raw['payerUserId'];
+        final payerUserId =
+            rawPayerUserId is String && rawPayerUserId.trim().isNotEmpty
+                ? rawPayerUserId.trim()
+                : null;
+
+        final rawCustomSplits = item.raw['customSplits'];
+        final customSplits = rawCustomSplits is Map
+            ? Map<String, dynamic>.from(rawCustomSplits)
+            : null;
+        final splitType = customSplits?['splitType']?.toString().trim();
+        final safeCustomSplits =
+            (splitType == null || splitType == 'equal') ? null : customSplits;
+
+        final response = await supabase.functions.invoke(
+          'save-expense',
+          body: {
+            'userId': userId,
+            'amount': item.transaction.amount,
+            'category': item.transaction.category,
+            'currency': item.transaction.currency,
+            'date': item.transaction.date.toIso8601String(),
+            'clientCreatedAt': DateTime.now().toUtc().toIso8601String(),
+            if (item.transaction.description?.isNotEmpty == true)
+              'description': item.transaction.description,
+            if (receiptUrl != null) 'receiptImageUrl': receiptUrl,
+            if (householdId != null && householdId.isNotEmpty)
+              'householdId': householdId,
+            if (householdId != null &&
+                householdId.isNotEmpty &&
+                payerUserId != null)
+              'payerUserId': payerUserId,
+            if (householdId != null &&
+                householdId.isNotEmpty &&
+                safeCustomSplits != null)
+              'customSplits': safeCustomSplits,
+          },
+        );
+
+        if (response.data == null || response.data['success'] != true) {
+          throw Exception(response.data?['error'] ?? 'Failed to save expense');
+        }
+
+        final saved = Map<String, dynamic>.from(response.data['data'] as Map);
+        final savedEntry = ExpenseEntry.fromJson(saved).copyWith(
+          householdId: householdId,
+          type: 'expense',
+        );
+        replaceOptimisticTransaction(
+          ref: ref,
+          optimisticId: item.optimisticId,
+          savedEntry: savedEntry,
+          householdId: householdId,
+        );
+        didPersistAny = true;
+      } catch (error) {
+        removeOptimisticTransaction(
+          ref: ref,
+          optimisticId: item.optimisticId,
+          householdId: householdId,
+        );
+        debugPrint('❌ Failed to persist AI transaction: $error');
+        if (mounted) {
+          AppToast.error(context, context.l10n.failedToSave(error.toString()));
+        }
+      }
+    }
+
+    if (didPersistAny) {
+      await ref.read(expenseSaveNotifierProvider.notifier).invalidateAfterBatch(
+            userId: userId,
+            householdId: householdId,
+          );
     }
   }
 
@@ -755,10 +939,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                 ref.invalidate(householdSplitsProvider);
                 ref.invalidate(cachedHouseholdSplitsProvider);
                 ref.invalidate(householdBudgetsProvider);
-                ref.invalidate(householdSummaryProvider);
                 ref.invalidate(householdMembersProvider);
                 debugPrint(
-                    '✅ Invalidated: households, expenses, splits, cached splits/expenses, budgets, summary, members');
+                    '✅ Invalidated: households, expenses, splits, cached splits/expenses, budgets, members');
               } else {
                 // In personal mode: refresh analytics with current date filters
                 // TODO: Once global date filter is fully removed, refresh should

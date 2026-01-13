@@ -19,6 +19,7 @@ import 'package:moneko/features/subscription/presentation/providers/subscription
 import 'package:moneko/features/subscription/data/models/subscription_details.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/core/plaid/pages/plaid_sync_walkthrough_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/app/locale_provider.dart';
@@ -618,6 +619,62 @@ class SettingsPage extends HookConsumerWidget {
                 ),
                 const SizedBox(height: 24),
 
+                                // Bank Sync Section
+                _SectionHeader(
+                  title: context.l10n.syncBankSectionTitle,
+                  child: Tooltip(
+                    message: context.l10n.syncBankAccountsTooltip,
+                    waitDuration: const Duration(milliseconds: 300),
+                    child: IconButton(
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      splashRadius: 18,
+                      icon: Icon(
+                        Icons.help_outline,
+                        size: 16,
+                        color: colorScheme.mutedForeground,
+                      ),
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (context) =>
+                                const PlaidSyncWalkthroughPage(),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                AdaptiveListTile(
+                  leading: Icon(
+                    Icons.account_balance_outlined,
+                    size: 20,
+                    color: colorScheme.mutedForeground,
+                  ),
+                  title: Text(
+                    context.l10n.syncBankAccountsTitle,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: colorScheme.foreground,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  subtitle: Text(
+                    context.l10n.syncBankAccountsSubtitle,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: colorScheme.mutedForeground,
+                    ),
+                  ),               
+                  onTap: () {
+                    AppToast.info(
+                      context,
+                      context.l10n.syncBankAccountsComingSoon,
+                    );
+                  },
+                ),
+                const SizedBox(height: 24),
+
                 // Notifications Section
                 _SectionHeader(title: context.l10n.notifications),
                 const SizedBox(height: 12),
@@ -652,7 +709,7 @@ class SettingsPage extends HookConsumerWidget {
                 const SizedBox(height: 12),
                 AdaptiveListTile(
                   leading: Icon(
-                    Icons.build_outlined,
+                    Icons.schedule_outlined,
                     size: 20,
                     color: colorScheme.mutedForeground,
                   ),
@@ -702,6 +759,8 @@ class SettingsPage extends HookConsumerWidget {
                 // WhatsApp Binding
                 buildWhatsAppBindingCard(context, ref),
                 const SizedBox(height: 24),
+
+
 
                 // Membership Section
                 _SectionHeader(title: context.l10n.membership),
@@ -979,21 +1038,30 @@ Future<void> _uploadAndSaveAvatar(
 }
 
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title});
+  const _SectionHeader({required this.title, this.child});
 
   final String title;
+  final Widget? child;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Text(
-      title,
-      style: TextStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.w600,
-        color: colorScheme.mutedForeground,
-        letterSpacing: 0.5,
-      ),
+    return Row(
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: colorScheme.mutedForeground,
+            letterSpacing: 0.5,
+          ),
+        ),
+        if (child != null) ...[
+          const SizedBox(width: 8),
+          child!,
+        ],
+      ],
     );
   }
 }

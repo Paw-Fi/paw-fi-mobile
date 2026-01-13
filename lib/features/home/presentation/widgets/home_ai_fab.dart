@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -12,16 +13,236 @@ import 'package:moneko/core/core.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
+import 'package:moneko/features/home/presentation/state/ai_quick_log.dart';
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
+import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 
 /// Shared helpers and widgets for the unified transaction FAB / AI expense capture.
 
 final ImagePicker _imagePicker = ImagePicker();
+
+class _AiParsedItem {
+  final ParsedExpense transaction;
+  final String optimisticId;
+  final Map<String, dynamic> raw;
+
+  const _AiParsedItem({
+    required this.transaction,
+    required this.optimisticId,
+    required this.raw,
+  });
+}
+
+String? _resolveHouseholdIdForAi(WidgetRef ref) {
+  final viewMode = ref.read(viewModeProvider);
+  if (viewMode.mode != ViewMode.household) return null;
+
+  final selected = ref.read(selectedHouseholdProvider);
+  return selected.householdId ?? selected.household?.id;
+}
+
+String _resolveLogTargetLabel(BuildContext context, WidgetRef ref) {
+  final householdId = _resolveHouseholdIdForAi(ref);
+  if (householdId == null) return context.l10n.personalScope;
+
+  final selected = ref.read(selectedHouseholdProvider);
+  return selected.household?.name ?? context.l10n.forUs;
+}
+
+String _truncateForToast(String? value, {int maxLen = 28}) {
+  final s = (value ?? '').trim();
+  if (s.isEmpty) return '';
+  if (s.length <= maxLen) return s;
+  return '${s.substring(0, maxLen - 1)}…';
+}
+
+String _formatAiLoggedToastMessage(
+  BuildContext context,
+  WidgetRef ref, {
+  required List<_AiParsedItem> items,
+}) {
+  final target = _resolveLogTargetLabel(context, ref);
+  if (items.isEmpty) return context.l10n.failedToAnalyzeNoData;
+
+  final count = items.length;
+  final allIncome = items.every((e) => e.transaction.isIncome);
+  final allExpense = items.every((e) => !e.transaction.isIncome);
+
+  if (count == 1) {
+    final tx = items.first.transaction;
+    final savedLabel =
+        tx.isIncome ? context.l10n.incomeSaved : context.l10n.expenseSaved;
+    final desc = _truncateForToast(tx.description);
+    final detail = desc.isEmpty ? '' : ' • $desc';
+    return '$savedLabel ${tx.formattedAmount}$detail → $target';
+  }
+
+  if (allIncome) {
+    return '${context.l10n.incomeSaved} ($count) → $target';
+  }
+  if (allExpense) {
+    return '${context.l10n.expenseSaved} ($count) → $target';
+  }
+  return '${context.l10n.transactions} ($count) → $target';
+}
+
+List<Map<String, dynamic>> _buildHouseholdMemberContext(
+  WidgetRef ref,
+  String householdId,
+) {
+  final membersAsync = ref.read(householdMembersProvider(householdId));
+  final members = membersAsync.valueOrNull;
+  if (members == null || members.isEmpty) return const [];
+
+  return members
+      .map(
+        (m) => {
+          'userId': m.userId,
+          if (m.userName != null && m.userName!.trim().isNotEmpty)
+            'userName': m.userName,
+          if (m.userEmail != null && m.userEmail!.trim().isNotEmpty)
+            'userEmail': m.userEmail,
+        },
+      )
+      .toList(growable: false);
+}
+
+Future<void> _persistAiTransactions(
+  WidgetRef ref, {
+  required String userId,
+  required String? householdId,
+  required List<_AiParsedItem> transactions,
+  String? localImagePath,
+}) async {
+  var didPersistAny = false;
+  String? receiptUrl;
+  if (localImagePath != null && localImagePath.isNotEmpty) {
+    receiptUrl = await ref
+        .read(expenseSaveNotifierProvider.notifier)
+        .uploadReceiptImage(File(localImagePath), userId);
+  }
+
+  for (final item in transactions) {
+    try {
+      if (item.transaction.isIncome) {
+        final response = await supabase.functions.invoke(
+          'save-income',
+          body: {
+            'userId': userId,
+            'amount': item.transaction.amount,
+            'category': item.transaction.category,
+            'currency': item.transaction.currency,
+            'date': item.transaction.date.toIso8601String(),
+            'clientCreatedAt': DateTime.now().toUtc().toIso8601String(),
+            if (item.transaction.description?.isNotEmpty == true)
+              'description': item.transaction.description,
+            if (householdId != null && householdId.isNotEmpty)
+              'householdId': householdId,
+          },
+        );
+
+        if (response.data == null || response.data['success'] != true) {
+          throw Exception(response.data?['error'] ?? 'Failed to save income');
+        }
+
+        final saved = Map<String, dynamic>.from(
+          response.data['data'] as Map,
+        );
+        final savedEntry = ExpenseEntry.fromJson(saved);
+
+        replaceOptimisticTransaction(
+          ref: ref,
+          optimisticId: item.optimisticId,
+          savedEntry: savedEntry,
+          householdId: householdId,
+        );
+        didPersistAny = true;
+        continue;
+      }
+
+      final rawPayerUserId = item.raw['payerUserId'];
+      final payerUserId =
+          rawPayerUserId is String && rawPayerUserId.trim().isNotEmpty
+              ? rawPayerUserId.trim()
+              : null;
+
+      final rawCustomSplits = item.raw['customSplits'];
+      final customSplits = rawCustomSplits is Map
+          ? Map<String, dynamic>.from(rawCustomSplits)
+          : null;
+
+      final splitType = customSplits?['splitType']?.toString().trim();
+      final safeCustomSplits =
+          (splitType == null || splitType == 'equal') ? null : customSplits;
+
+      final response = await supabase.functions.invoke(
+        'save-expense',
+        body: {
+          'userId': userId,
+          'amount': item.transaction.amount,
+          'category': item.transaction.category,
+          'currency': item.transaction.currency,
+          'date': item.transaction.date.toIso8601String(),
+          'clientCreatedAt': DateTime.now().toUtc().toIso8601String(),
+          if (item.transaction.description?.isNotEmpty == true)
+            'description': item.transaction.description,
+          if (receiptUrl != null) 'receiptImageUrl': receiptUrl,
+          if (householdId != null && householdId.isNotEmpty)
+            'householdId': householdId,
+          if (householdId != null &&
+              householdId.isNotEmpty &&
+              payerUserId != null)
+            'payerUserId': payerUserId,
+          if (householdId != null &&
+              householdId.isNotEmpty &&
+              safeCustomSplits != null)
+            'customSplits': safeCustomSplits,
+        },
+      );
+
+      if (response.data == null || response.data['success'] != true) {
+        throw Exception(response.data?['error'] ?? 'Failed to save expense');
+      }
+
+      final saved = Map<String, dynamic>.from(
+        response.data['data'] as Map,
+      );
+      final savedEntry = ExpenseEntry.fromJson(saved).copyWith(
+        householdId: householdId,
+        type: 'expense',
+      );
+
+      replaceOptimisticTransaction(
+        ref: ref,
+        optimisticId: item.optimisticId,
+        savedEntry: savedEntry,
+        householdId: householdId,
+      );
+      didPersistAny = true;
+    } catch (error) {
+      removeOptimisticTransaction(
+        ref: ref,
+        optimisticId: item.optimisticId,
+        householdId: householdId,
+      );
+      debugPrint('❌ Failed to persist AI transaction: $error');
+    }
+  }
+
+  if (didPersistAny) {
+    await ref.read(expenseSaveNotifierProvider.notifier).invalidateAfterBatch(
+          userId: userId,
+          householdId: householdId,
+        );
+  }
+}
 
 Future<void> handleAiCameraCapture(BuildContext context, WidgetRef ref) async {
   debugPrint('🎥 Starting camera capture...');
@@ -198,6 +419,7 @@ Future<void> _processExpense(
 }) async {
   final user = ref.read(authProvider);
   final contact = ref.read(analyticsProvider).contact;
+  final householdId = _resolveHouseholdIdForAi(ref);
 
   // Show processing modal
   showBlockingProcessingDialog(
@@ -219,6 +441,14 @@ Future<void> _processExpense(
       'date': DateTime.now().toIso8601String().split('T')[0],
       'language': languageTag,
     };
+
+    if (householdId != null && householdId.isNotEmpty) {
+      body['householdId'] = householdId;
+      final memberContext = _buildHouseholdMemberContext(ref, householdId);
+      if (memberContext.isNotEmpty) {
+        body['householdMembers'] = memberContext;
+      }
+    }
 
     // Always use selected currency as default (same as personal expense)
     // Backend will use this as a fallback if no currency is detected in the text/image.
@@ -269,7 +499,7 @@ Future<void> _processExpense(
       };
     }
 
-    // Call analyze-expense endpoint (NEW: doesn't save yet). Backend now classifies income vs expense.
+    // Call analyze-expense endpoint to extract structured transactions (then log immediately).
     final response = await supabase.functions.invoke(
       'analyze-expense',
       body: body,
@@ -318,11 +548,16 @@ Future<void> _processExpense(
         }
 
         if (items.isNotEmpty) {
-          // Parse ALL items from the response
-          final parsed = items.map((item) {
+          final analyticsContactId = ref.read(analyticsProvider).contact?.id;
+
+          // Parse ALL items and immediately optimistic-log them.
+          final parsed = items.map((rawItem) {
+            final item = rawItem is Map
+                ? Map<String, dynamic>.from(rawItem)
+                : <String, dynamic>{};
             final isIncome =
                 (item['type']?.toString().toLowerCase() == 'income');
-            return ParsedExpense(
+            final transaction = ParsedExpense(
               isIncome: isIncome,
               amount: (item['amount'] as num).toDouble(),
               // Normalize income categories to at least 'income' umbrella if model returns a granular one
@@ -337,78 +572,49 @@ Future<void> _processExpense(
               description: item['description'] as String?,
               localImagePath: imagePath,
             );
+
+            final optimisticId = makeOptimisticTransactionId();
+            final entry = buildOptimisticEntry(
+              transaction: transaction,
+              optimisticId: optimisticId,
+              userId: user.uid,
+              contactId: analyticsContactId,
+              householdId: householdId,
+              type: isIncome ? 'income' : 'expense',
+            );
+            addOptimisticTransaction(
+              ref: ref,
+              entry: entry,
+              householdId: householdId,
+            );
+
+            return _AiParsedItem(
+              transaction: transaction,
+              optimisticId: optimisticId,
+              raw: item,
+            );
           }).toList();
 
-          // Partition by type to handle mixed cases robustly
-          final incomes = parsed.where((p) => p.isIncome).toList();
-          final expenses = parsed.where((p) => !p.isIncome).toList();
-
-          if (parsed.length == 1) {
-            ref.read(pendingExpenseProvider.notifier).state = parsed.first;
-            if (context.mounted) {
-              showUnifiedTransactionSheet(
+          if (context.mounted) {
+            AppToast.success(
+              context,
+              _formatAiLoggedToastMessage(
                 context,
-                newExpense: parsed.first,
-                localImagePath: imagePath,
-              );
-            }
-          } else if (incomes.isNotEmpty && expenses.isNotEmpty) {
-            if (!context.mounted) return;
-
-            await AdaptiveAlertDialog.show(
-              context: context,
-              title: context.l10n.appTitle,
-              message:
-                  'Mixed income and expenses detected. What would you like to review?',
-              actions: [
-                if (expenses.isNotEmpty)
-                  AlertAction(
-                    title: 'Expenses (${expenses.length})',
-                    style: AlertActionStyle.primary,
-                    onPressed: () async {
-                      await showMultiTransactionReviewSheet(
-                        context,
-                        transactions: expenses,
-                        localImagePath: imagePath,
-                      );
-                    },
-                  ),
-                if (incomes.isNotEmpty)
-                  AlertAction(
-                    title: 'Income (${incomes.length})',
-                    style: AlertActionStyle.primary,
-                    onPressed: () async {
-                      await showMultiTransactionReviewSheet(
-                        context,
-                        transactions: incomes,
-                        localImagePath: imagePath,
-                      );
-                    },
-                  ),
-                AlertAction(
-                  title: context.l10n.cancel,
-                  style: AlertActionStyle.cancel,
-                  onPressed: () {},
-                ),
-              ],
+                ref,
+                items: parsed,
+              ),
             );
-          } else if (incomes.isNotEmpty) {
-            if (context.mounted) {
-              await showMultiTransactionReviewSheet(
-                context,
-                transactions: incomes,
-                localImagePath: imagePath,
-              );
-            }
-          } else {
-            if (context.mounted) {
-              await showMultiTransactionReviewSheet(
-                context,
-                transactions: expenses,
-                localImagePath: imagePath,
-              );
-            }
           }
+
+          unawaited(
+            _persistAiTransactions(
+              ref,
+              userId: user.uid,
+              householdId: householdId,
+              transactions: parsed,
+              localImagePath: imagePath,
+            ),
+          );
         } else {
           if (context.mounted) {
             AppToast.info(context, context.l10n.noExpenseInformationExtracted);

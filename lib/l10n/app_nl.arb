@@ -1675,5 +1675,10 @@
   "insightsTourExampleRentGroceries": "huur en boodschappen betalen",
   "insightsTourExampleEmergencyFund": "$500 sparen voor een noodfonds",
   "insightsTourIntro": "Vraag je AI-financieel adviseur of je een geplande uitgave kunt betalen",
-  "insightsTourDataLine": "Gebaseerd op historische gemiddelden; wordt automatisch bijgewerkt op basis van je gegevens."
+  "insightsTourDataLine": "Gebaseerd op historische gemiddelden; wordt automatisch bijgewerkt op basis van je gegevens.",
+  "syncBankSectionTitle": "Bankkoppelingen",
+  "syncBankAccountsTitle": "Bankrekeningen synchroniseren",
+  "syncBankAccountsSubtitle": "Koppel je banken veilig om saldo’s en transacties automatisch te importeren.",
+  "syncBankAccountsTooltip": "Bekijk alvast de Plaid-handleiding die je door het synchroniseren leidt.",
+  "syncBankAccountsComingSoon": "Banksynchronisatie komt binnenkort."
 }

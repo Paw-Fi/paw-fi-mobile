@@ -433,7 +433,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     // Always refresh pockets + currency counts so other tabs reflect changes.
     ref.invalidate(pocketsProvider);
     ref.invalidate(currencyTransactionCountsProvider);
-    
+
     if (householdId != null) {
       // Shared expense: refresh household data
       debugPrint('🔄 Invalidating household providers for household: $householdId');
@@ -441,22 +441,17 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       // Clear RequestDeduplicator cache so cached providers don't serve stale data.
       ref.read(cacheInvalidatorProvider).invalidateHouseholdData(householdId);
 
-      // Invalidate household list (to update counts)
-      ref.invalidate(userHouseholdsProvider(userId));
-
       // Invalidate family providers so all parameterized instances refresh
-      ref.invalidate(householdSummaryProvider);
       ref.invalidate(householdExpensesProvider); // fix: refresh all limits (e.g., 500)
       ref.invalidate(householdSplitsProvider);
       ref.invalidate(householdBudgetsProvider);
-      ref.invalidate(householdMembersProvider);
 
       // Invalidate cached family providers too (they do not depend on the base
       // providers via ref.watch, so they must be invalidated explicitly).
       ref.invalidate(cachedHouseholdExpensesProvider);
       ref.invalidate(cachedHouseholdSplitsProvider);
 
-      debugPrint('✅ Invalidated families: expenses, splits, budgets, summary');
+      debugPrint('✅ Invalidated families: expenses, splits, budgets');
     }
     
     // Small delay to ensure backend has propagated changes

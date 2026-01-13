@@ -1732,5 +1732,10 @@
   "insightsTourExampleRentGroceries": "pay rent and groceries",
   "insightsTourExampleEmergencyFund": "save $500 for an emergency fund",
   "insightsTourIntro": "Ask your AI financial advisor if you can afford a future expense",
-  "insightsTourDataLine": "Based on historical averages; updates automatically with your data."
+  "insightsTourDataLine": "Based on historical averages; updates automatically with your data.",
+  "syncBankSectionTitle": "Bank connections",
+  "syncBankAccountsTitle": "Sync bank accounts",
+  "syncBankAccountsSubtitle": "Securely link banks to auto-import balances and transactions.",
+  "syncBankAccountsTooltip": "Preview the Plaid walkthrough that guides syncing.",
+  "syncBankAccountsComingSoon": "Bank syncing is coming soon."
 }

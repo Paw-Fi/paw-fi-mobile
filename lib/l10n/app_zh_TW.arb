@@ -1672,5 +1672,10 @@
   "insightsTourExampleRentGroceries": "支付房租和買菜",
   "insightsTourExampleEmergencyFund": "為緊急預備金存下 $500",
   "insightsTourIntro": "問問你的 AI 理財助手：未來這筆支出你負擔得起嗎？",
-  "insightsTourDataLine": "基於歷史平均值；會根據你的資料自動更新。"
+  "insightsTourDataLine": "基於歷史平均值；會根據你的資料自動更新。",
+  "syncBankSectionTitle": "銀行連結",
+  "syncBankAccountsTitle": "同步銀行帳戶",
+  "syncBankAccountsSubtitle": "安全連結銀行，自動匯入餘額與交易明細。",
+  "syncBankAccountsTooltip": "預覽 Plaid 的引導流程，了解同步步驟。",
+  "syncBankAccountsComingSoon": "銀行同步功能即將推出。"
 }

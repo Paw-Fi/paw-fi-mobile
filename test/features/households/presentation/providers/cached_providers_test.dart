@@ -67,10 +67,13 @@ void main() {
         container.read(cachedHouseholdExpensesProvider(params).future);
 
     container.read(cacheInvalidatorProvider).invalidateHouseholdData('h1');
+    container.invalidate(householdExpensesProvider);
+    container.invalidate(cachedHouseholdExpensesProvider);
+    await Future<void>.delayed(Duration.zero);
 
-    final future2 =
-        container.read(cachedHouseholdExpensesProvider(params).future);
-    final result2 = await future2.timeout(const Duration(seconds: 1));
+    final result2 = await container
+        .read(cachedHouseholdExpensesProvider(params).future)
+        .timeout(const Duration(seconds: 1));
     expect(result2.map((e) => e.id).toList(), ['new']);
 
     firstCompleter.complete([_expense('old')]);
@@ -106,10 +109,13 @@ void main() {
         container.read(cachedHouseholdSplitsProvider(params).future);
 
     container.read(cacheInvalidatorProvider).invalidateHouseholdData('h1');
+    container.invalidate(householdSplitsProvider);
+    container.invalidate(cachedHouseholdSplitsProvider);
+    await Future<void>.delayed(Duration.zero);
 
-    final future2 =
-        container.read(cachedHouseholdSplitsProvider(params).future);
-    final result2 = await future2.timeout(const Duration(seconds: 1));
+    final result2 = await container
+        .read(cachedHouseholdSplitsProvider(params).future)
+        .timeout(const Duration(seconds: 1));
     expect(result2.map((e) => e.id).toList(), ['new']);
 
     firstCompleter.complete([_splitGroup('old')]);

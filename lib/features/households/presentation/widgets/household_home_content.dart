@@ -4,6 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import '../providers/household_providers.dart';
 import '../providers/cached_providers.dart';
+import '../providers/household_derived_providers.dart';
 import '../providers/selected_household_provider.dart';
 import '../pages/household_onboarding_page.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
@@ -486,7 +487,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                           final toDate = DateTime(to.year, to.month, to.day);
 
                           final summaryAsync =
-                              ref.watch(householdSummaryProvider(
+                              ref.watch(householdDerivedSummaryProvider(
                             HouseholdSummaryParams(
                               householdId: household.id,
                               currency: selectedCurrency,
@@ -494,69 +495,71 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               endDate: toDate.toIso8601String(),
                             ),
                           ));
+                          final summary = summaryAsync.valueOrNull;
 
                           return Padding(
                             padding:
                                 const EdgeInsets.symmetric(horizontal: 16.0),
-                            child: summaryAsync.when(
-                              loading: () => Skeletonizer(
-                                effect: ShimmerEffect(
-                                  baseColor: colorScheme.skeletonBase,
-                                  highlightColor: colorScheme.skeletonHighlight,
-                                ),
-                                child: SizedBox(
-                                  height: 200,
-                                  child: Card(
-                                    color: colorScheme.cardSurface,
-                                    child: const Padding(
-                                      padding: EdgeInsets.all(16),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text('Budget overview'),
-                                          SizedBox(height: 8),
-                                          Text('Primary value placeholder'),
-                                          SizedBox(height: 4),
-                                          Text('Secondary text placeholder'),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              error: (e, st) => SizedBox(
-                                  height: 200,
-                                  child: Center(
-                                      child: Text('Error',
-                                          style: TextStyle(
-                                              color:
-                                                  colorScheme.destructive)))),
-                              data: (summary) {
-                                // We need to reconstruct summary if we want to filter expenses manually?
-                                // But summary is already fetched with date range!
-                                // However, the original code did manual filtering on `expensesAsync` too.
-                                // Let's trust `householdSummaryProvider` returns correct data for the range.
-                                return buildHouseholdBudgetOverviewCard(
-                                  context,
-                                  colorScheme,
-                                  summary,
-                                  config.dateRange,
-                                  onTap: () {
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (_) => TransactionsPage(
-                                          householdId: household.id,
-                                          enableDateFilter: true,
-                                          initialStartDate: fromDate,
-                                          initialEndDate: toDate,
+                            child: summary == null
+                                ? (summaryAsync.isLoading
+                                    ? Skeletonizer(
+                                        effect: ShimmerEffect(
+                                          baseColor: colorScheme.skeletonBase,
+                                          highlightColor:
+                                              colorScheme.skeletonHighlight,
                                         ),
-                                      ),
-                                    );
-                                  },
-                                );
-                              },
-                            ),
+                                        child: SizedBox(
+                                          height: 200,
+                                          child: Card(
+                                            color: colorScheme.cardSurface,
+                                            child: const Padding(
+                                              padding: EdgeInsets.all(16),
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text('Budget overview'),
+                                                  SizedBox(height: 8),
+                                                  Text(
+                                                      'Primary value placeholder'),
+                                                  SizedBox(height: 4),
+                                                  Text(
+                                                      'Secondary text placeholder'),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      )
+                                    : SizedBox(
+                                        height: 200,
+                                        child: Center(
+                                          child: Text(
+                                            'Error',
+                                            style: TextStyle(
+                                              color: colorScheme.destructive,
+                                            ),
+                                          ),
+                                        ),
+                                      ))
+                                : buildHouseholdBudgetOverviewCard(
+                                    context,
+                                    colorScheme,
+                                    summary,
+                                    config.dateRange,
+                                    onTap: () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) => TransactionsPage(
+                                            householdId: household.id,
+                                            enableDateFilter: true,
+                                            initialStartDate: fromDate,
+                                            initialEndDate: toDate,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
                           );
                         });
                       },
@@ -571,7 +574,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                           final toDate = DateTime(to.year, to.month, to.day);
 
                           final summaryAsync =
-                              ref.watch(householdSummaryProvider(
+                              ref.watch(householdDerivedSummaryProvider(
                             HouseholdSummaryParams(
                               householdId: household.id,
                               currency: selectedCurrency,
@@ -580,14 +583,14 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                             ),
                           ));
                           final expensesAsync =
-                              ref.watch(householdExpensesProvider(
+                              ref.watch(cachedHouseholdExpensesProvider(
                             HouseholdExpensesParams(
                               householdId: household.id,
                             ),
                           ));
 
                           // Safely derive data from AsyncValue without throwing on errors/timeouts.
-                          final summary = summaryAsync.asData?.value;
+                          final summary = summaryAsync.valueOrNull;
 
                           if (summary == null) {
                             // If summary failed to load or is still loading, omit the fairness card.
@@ -595,7 +598,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                           }
 
                           final transactions =
-                              expensesAsync.asData?.value ?? [];
+                              expensesAsync.valueOrNull ?? [];
 
                           return Padding(
                             padding:
@@ -636,7 +639,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                           final toDate = DateTime(to.year, to.month, to.day);
 
                           final summaryAsync =
-                              ref.watch(householdSummaryProvider(
+                              ref.watch(householdDerivedSummaryProvider(
                             HouseholdSummaryParams(
                               householdId: household.id,
                               currency: selectedCurrency,
@@ -651,7 +654,8 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                           final transactions = expensesAsync.valueOrNull;
                           final members = membersAsync.valueOrNull;
 
-                          final isSummaryLoading = summaryAsync.isLoading;
+                          final isSummaryLoading =
+                              summaryAsync.isLoading && summary == null;
                           final isSplitsLoading =
                               splitsAsync.isLoading && splits == null;
                           final isExpensesLoading =
@@ -721,7 +725,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                           final toDate = DateTime(to.year, to.month, to.day);
 
                           final summaryAsync =
-                              ref.watch(householdSummaryProvider(
+                              ref.watch(householdDerivedSummaryProvider(
                             HouseholdSummaryParams(
                               householdId: household.id,
                               currency: selectedCurrency,
@@ -729,60 +733,62 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               endDate: toDate.toIso8601String(),
                             ),
                           ));
+                          final summary = summaryAsync.valueOrNull;
 
                           return Padding(
                             padding:
                                 const EdgeInsets.symmetric(horizontal: 16.0),
-                            child: summaryAsync.when(
-                              loading: () => Skeletonizer(
-                                effect: ShimmerEffect(
-                                  baseColor: colorScheme.skeletonBase,
-                                  highlightColor: colorScheme.skeletonHighlight,
-                                ),
-                                // Use the real card layout with empty data so
-                                // the skeleton spans the full widget width
-                                // and matches the final design.
-                                child: buildHouseholdMemberSpendingCard(
-                                  context,
-                                  colorScheme,
-                                  null,
-                                  members: const [],
-                                  householdId: household.id,
-                                  transactions: null,
-                                  splits: null,
-                                  from: null,
-                                  to: null,
-                                  selectedCurrency: selectedCurrency,
-                                  dateRangeFilter: config.dateRange,
-                                  currentUserId: userId,
-                                  onTap: null,
-                                ),
-                              ),
-                              error: (e, st) => const SizedBox.shrink(),
-                              data: (summary) =>
-                                  buildHouseholdMemberSpendingCard(
-                                context,
-                                colorScheme,
-                                summary,
-                                members: membersAsync.value,
-                                householdId: household.id,
-                                transactions: expensesAsync.valueOrNull ?? [],
-                                splits: splitsAsync.valueOrNull,
-                                from: from,
-                                to: to,
-                                selectedCurrency: selectedCurrency,
-                                dateRangeFilter: config.dateRange,
-                                currentUserId: userId,
-                                onTap: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) => HouseholdExpensesPage(
-                                          household: household),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
+                            child: summary == null
+                                ? (summaryAsync.isLoading
+                                    ? Skeletonizer(
+                                        effect: ShimmerEffect(
+                                          baseColor: colorScheme.skeletonBase,
+                                          highlightColor:
+                                              colorScheme.skeletonHighlight,
+                                        ),
+                                        // Use the real card layout with empty data so
+                                        // the skeleton spans the full widget width
+                                        // and matches the final design.
+                                        child: buildHouseholdMemberSpendingCard(
+                                          context,
+                                          colorScheme,
+                                          null,
+                                          members: const [],
+                                          householdId: household.id,
+                                          transactions: null,
+                                          splits: null,
+                                          from: null,
+                                          to: null,
+                                          selectedCurrency: selectedCurrency,
+                                          dateRangeFilter: config.dateRange,
+                                          currentUserId: userId,
+                                          onTap: null,
+                                        ),
+                                      )
+                                    : const SizedBox.shrink())
+                                : buildHouseholdMemberSpendingCard(
+                                    context,
+                                    colorScheme,
+                                    summary,
+                                    members: membersAsync.valueOrNull,
+                                    householdId: household.id,
+                                    transactions:
+                                        expensesAsync.valueOrNull ?? [],
+                                    splits: splitsAsync.valueOrNull,
+                                    from: from,
+                                    to: to,
+                                    selectedCurrency: selectedCurrency,
+                                    dateRangeFilter: config.dateRange,
+                                    currentUserId: userId,
+                                    onTap: () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) => HouseholdExpensesPage(
+                                              household: household),
+                                        ),
+                                      );
+                                    },
+                                  ),
                           );
                         });
                       },
@@ -881,7 +887,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                           final to = range['to']!;
 
                           final expensesAsync =
-                              ref.watch(householdExpensesProvider(
+                              ref.watch(cachedHouseholdExpensesProvider(
                             HouseholdExpensesParams(
                               householdId: household.id,
                             ),
@@ -970,7 +976,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                           final to = range['to']!;
 
                           final expensesAsync =
-                              ref.watch(householdExpensesProvider(
+                              ref.watch(cachedHouseholdExpensesProvider(
                             HouseholdExpensesParams(
                               householdId: household.id,
                             ),

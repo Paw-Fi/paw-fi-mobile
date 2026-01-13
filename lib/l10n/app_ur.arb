@@ -1674,5 +1674,10 @@
   "insightsTourExampleRentGroceries": "کرایہ اور راشن ادا کریں",
   "insightsTourExampleEmergencyFund": "ایمرجنسی فنڈ کے لیے $500 بچائیں",
   "insightsTourIntro": "اپنے AI مالی مشیر سے پوچھیں کہ کیا آپ آئندہ ہونے والا خرچ برداشت کر سکتے ہیں",
-  "insightsTourDataLine": "تاریخی اوسط کی بنیاد پر؛ آپ کے ڈیٹا کے مطابق خودکار طور پر اپ ڈیٹ ہوتا ہے۔"
+  "insightsTourDataLine": "تاریخی اوسط کی بنیاد پر؛ آپ کے ڈیٹا کے مطابق خودکار طور پر اپ ڈیٹ ہوتا ہے۔",
+  "syncBankSectionTitle": "بینک کنیکشنز",
+  "syncBankAccountsTitle": "بینک اکاؤنٹس سنک کریں",
+  "syncBankAccountsSubtitle": "بیلنس اور لین دین خودکار طور پر امپورٹ کرنے کے لیے اپنے بینک محفوظ طریقے سے لنک کریں۔",
+  "syncBankAccountsTooltip": "Plaid کی گائیڈ کا پری ویو دیکھیں جو سنک کرنے میں رہنمائی کرتی ہے۔",
+  "syncBankAccountsComingSoon": "بینک سنکنگ جلد آ رہی ہے۔"
 }

@@ -1727,5 +1727,10 @@
   "insightsTourExampleRentGroceries": "trả tiền thuê nhà và mua nhu yếu phẩm",
   "insightsTourExampleEmergencyFund": "tiết kiệm $500 cho quỹ khẩn cấp",
   "insightsTourIntro": "Hỏi cố vấn tài chính AI xem bạn có thể chi trả cho khoản chi sắp tới không",
-  "insightsTourDataLine": "Dựa trên mức trung bình trong quá khứ; tự động cập nhật theo dữ liệu của bạn."
+  "insightsTourDataLine": "Dựa trên mức trung bình trong quá khứ; tự động cập nhật theo dữ liệu của bạn.",
+  "syncBankSectionTitle": "Kết nối ngân hàng",
+  "syncBankAccountsTitle": "Đồng bộ tài khoản ngân hàng",
+  "syncBankAccountsSubtitle": "Liên kết ngân hàng an toàn để tự động nhập số dư và giao dịch.",
+  "syncBankAccountsTooltip": "Xem trước hướng dẫn Plaid để biết quy trình đồng bộ.",
+  "syncBankAccountsComingSoon": "Tính năng đồng bộ ngân hàng sắp ra mắt."
 }

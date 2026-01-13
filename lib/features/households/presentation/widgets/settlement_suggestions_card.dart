@@ -47,6 +47,43 @@ class _SettlementPayment {
   });
 }
 
+String _settlementDataSignature({
+  required List<ExpenseEntry>? transactions,
+  required List<ExpenseSplitGroup>? splits,
+}) {
+  final txs = transactions ?? const <ExpenseEntry>[];
+  final spl = splits;
+
+  ExpenseEntry? latestTx;
+  if (txs.isNotEmpty) {
+    var latest = txs.first;
+    for (final e in txs.skip(1)) {
+      if (e.createdAt.isAfter(latest.createdAt)) latest = e;
+    }
+    latestTx = latest;
+  }
+
+  ExpenseSplitGroup? latestSplit;
+  if (spl != null && spl.isNotEmpty) {
+    var latest = spl.first;
+    for (final g in spl.skip(1)) {
+      if (g.updatedAt.isAfter(latest.updatedAt)) latest = g;
+    }
+    latestSplit = latest;
+  }
+
+  final txSig = latestTx == null
+      ? 'tx:0'
+      : 'tx:${txs.length}:${latestTx.id}:${latestTx.createdAt.millisecondsSinceEpoch}:${latestTx.amountCents}';
+  final splitSig = spl == null
+      ? 'sp:null'
+      : latestSplit == null
+          ? 'sp:0'
+          : 'sp:${spl.length}:${latestSplit.id}:${latestSplit.updatedAt.millisecondsSinceEpoch}:${latestSplit.totalAmountCents}';
+
+  return '$txSig|$splitSig';
+}
+
 class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
   Future<List<_SettlementPayment>>? _settlementPaymentsFuture;
   String? _settlementPaymentsFutureKey;
@@ -72,8 +109,12 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
     }
 
     final currencyCode = (widget.currency ?? '').trim().toUpperCase();
+    final dataSignature = _settlementDataSignature(
+      transactions: widget.transactions,
+      splits: widget.splits,
+    );
     final settlementKey =
-        '${widget.summary.householdId}|$currentUserId|$currencyCode';
+        '${widget.summary.householdId}|$currentUserId|$currencyCode|$dataSignature';
     if (_settlementPaymentsFuture == null ||
         _settlementPaymentsFutureKey != settlementKey) {
       _settlementPaymentsFutureKey = settlementKey;

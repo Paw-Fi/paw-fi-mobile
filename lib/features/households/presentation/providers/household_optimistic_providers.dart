@@ -55,6 +55,27 @@ class OptimisticHouseholdExpensesNotifier
     state = {...state, householdId: updated};
   }
 
+  void removeExpense(String householdId, String expenseId) {
+    final existing = state[householdId];
+    if (existing == null || existing.isEmpty) return;
+    final filtered = existing.where((e) => e.id != expenseId).toList();
+    if (filtered.length == existing.length) return;
+    final next = {...state};
+    if (filtered.isEmpty) {
+      next.remove(householdId);
+    } else {
+      next[householdId] = filtered;
+    }
+    state = next;
+  }
+
+  void replaceExpense(String householdId, String oldExpenseId, ExpenseEntry entry) {
+    final existing = state[householdId] ?? const <ExpenseEntry>[];
+    final filtered = existing.where((e) => e.id != oldExpenseId).toList();
+    final updated = <ExpenseEntry>[entry, ...filtered];
+    state = {...state, householdId: updated};
+  }
+
   void pruneIfInServer(String householdId, List<ExpenseEntry> server) {
     final existing = state[householdId];
     if (existing == null || existing.isEmpty) return;

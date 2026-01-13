@@ -35,9 +35,9 @@ class _PlaidSyncWalkthroughPageState
   bool _showSyncProgress = false;
   double _fakeProgress = 0.0;
   bool _isSuccess = false;
-  bool _postRefreshScheduled = false;
   bool _postRefreshComplete = false;
-  final int _numPages = 4; // Intro, Security, Benefits, Country selection
+  bool _postRefreshScheduled = false;
+  final int _numPages = 3; // Intro, Security, Benefits (Country selection commented out)
 
   @override
   void dispose() {
@@ -97,7 +97,6 @@ class _PlaidSyncWalkthroughPageState
       ref.invalidate(householdExpensesProvider);
       ref.invalidate(householdSplitsProvider);
       ref.invalidate(householdBudgetsProvider);
-      ref.invalidate(householdSummaryProvider);
       ref.invalidate(householdMembersProvider);
     } else {
       // Refresh analytics - fetches all data, filtering is done locally
@@ -469,7 +468,8 @@ class _PlaidSyncWalkthroughPageState
                       height: 58,
                       child: _currentPage == _numPages - 1
                           ? FilledButton(
-                              onPressed: _isSyncing ? null : _performSync,
+                             // onPressed: _isSyncing ? null : _performSync,
+                               onPressed: () => Navigator.of(context).pop(),
                               style: FilledButton.styleFrom(
                                 backgroundColor: colorScheme.primary,
                                 foregroundColor: colorScheme.onPrimary,
@@ -490,7 +490,8 @@ class _PlaidSyncWalkthroughPageState
                                       ),
                                     )
                                   : const Text(
-                                      'Sync Now',
+                                      // 'Sync Now',
+                                      'Finish',
                                       style: TextStyle(
                                         fontSize: 17,
                                         fontWeight: FontWeight.w700,

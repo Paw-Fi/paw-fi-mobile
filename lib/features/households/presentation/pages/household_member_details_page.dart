@@ -55,9 +55,8 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
     );
     final transactionCount = memberTransactions.length;
     final daysInRange = rangeTo.difference(rangeFrom).inDays + 1;
-    final avgDailySpendCents = daysInRange > 0
-        ? (totalSpentCentsForRange / daysInRange).round()
-        : 0;
+    final avgDailySpendCents =
+        daysInRange > 0 ? (totalSpentCentsForRange / daysInRange).round() : 0;
     final categoryTransactions = _groupTransactionsByCategory(
       memberTransactions,
     );
@@ -88,12 +87,12 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
             ),
           ),
           if (memberTransactions.isEmpty)
-             SliverFillRemaining(
+            SliverFillRemaining(
               hasScrollBody: false,
               child: _buildEmptyState(context, colorScheme),
             )
           else ...[
-             SliverPadding(
+            SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               sliver: SliverToBoxAdapter(
                 child: Text(
@@ -107,14 +106,15 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
                 ),
               ),
             ),
-             SliverPadding(
+            SliverPadding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
                     final date = groupedTransactions.keys.elementAt(index);
                     final expenses = groupedTransactions[date]!;
-                    return _buildDaySection(context, colorScheme, date, expenses);
+                    return _buildDaySection(
+                        context, colorScheme, date, expenses);
                   },
                   childCount: groupedTransactions.length,
                 ),
@@ -139,13 +139,15 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
       elevation: 0,
       centerTitle: true,
       leading: IconButton(
-        icon: Icon(Icons.arrow_back_ios_new_rounded, color: colorScheme.foreground),
+        icon: Icon(Icons.arrow_back_ios_new_rounded,
+            color: colorScheme.foreground),
         onPressed: () => Navigator.of(context).pop(),
       ),
       actions: [
         IconButton(
-          icon: Icon(Icons.file_download_rounded, color: colorScheme.foreground),
-          onPressed: () => exportTransactionsAsCsvSheet(
+          icon:
+              Icon(Icons.file_download_rounded, color: colorScheme.foreground),
+          onPressed: () => exportTransactionsAsExcelSheet(
             context,
             exportTransactions,
             fileNamePrefix: 'member_transactions',
@@ -169,11 +171,11 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
     int rangeTotalSpentCents,
   ) {
     final formattedTotal = formatLocalizedNumber(
-      context, 
+      context,
       rangeTotalSpentCents / 100.0,
     );
     final symbol = resolveCurrencySymbol(currency);
-    
+
     return Padding(
       padding: const EdgeInsets.all(24.0),
       child: Column(
@@ -209,7 +211,8 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
                       errorBuilder: (_, __, ___) => Icon(
                         Icons.person_rounded,
                         size: 40,
-                        color: colorScheme.mutedForeground.withValues(alpha: 0.6),
+                        color:
+                            colorScheme.mutedForeground.withValues(alpha: 0.6),
                       ),
                     );
                   }
@@ -223,7 +226,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
             ),
           ),
           const SizedBox(height: 16),
-          
+
           // Spending Amount
           Text(
             '$symbol$formattedTotal',
@@ -244,8 +247,10 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
               fontWeight: FontWeight.w500,
             ),
           ),
-          
-          if (householdId != null && member.userId != Supabase.instance.client.auth.currentUser?.id) ...[
+
+          if (householdId != null &&
+              member.userId !=
+                  Supabase.instance.client.auth.currentUser?.id) ...[
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
@@ -257,7 +262,8 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
                   member.userName ?? member.userEmail ?? 'Member',
                   householdId!,
                 ),
-                icon: Icon(Icons.touch_app_outlined, size: 20, color: colorScheme.primaryForeground),
+                icon: Icon(Icons.touch_app_outlined,
+                    size: 20, color: colorScheme.primaryForeground),
                 label: Text(
                   context.l10n.nudge,
                   style: TextStyle(
@@ -451,9 +457,8 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
   ) {
     final categoryLabel = getCategoryTranslation(context, summary.category);
     final categoryColor = getCategoryColor(summary.category);
-    final percent = totalSpentCents > 0
-        ? summary.amountCents / totalSpentCents
-        : 0.0;
+    final percent =
+        totalSpentCents > 0 ? summary.amountCents / totalSpentCents : 0.0;
 
     return InkWell(
       borderRadius: BorderRadius.circular(20),
@@ -579,9 +584,8 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
   ) {
     final categoryLabel = getCategoryTranslation(context, summary.category);
     final categoryColor = getCategoryColor(summary.category);
-    final percent = totalSpentCents > 0
-        ? summary.amountCents / totalSpentCents
-        : 0.0;
+    final percent =
+        totalSpentCents > 0 ? summary.amountCents / totalSpentCents : 0.0;
 
     return InkWell(
       borderRadius: BorderRadius.circular(16),
@@ -670,14 +674,12 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
     );
   }
 
-  Widget _buildDaySection(
-    BuildContext context, 
-    ColorScheme colorScheme, 
-    DateTime date, 
-    List<ExpenseEntry> expenses
-  ) {
-    final isToday = DateTime.now().difference(date).inDays == 0 && DateTime.now().day == date.day;
-    final dateStr = isToday ? context.l10n.today : DateFormat.MMMEd().format(date);
+  Widget _buildDaySection(BuildContext context, ColorScheme colorScheme,
+      DateTime date, List<ExpenseEntry> expenses) {
+    final isToday = DateTime.now().difference(date).inDays == 0 &&
+        DateTime.now().day == date.day;
+    final dateStr =
+        isToday ? context.l10n.today : DateFormat.MMMEd().format(date);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -810,8 +812,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
 
   String _formatCurrency(BuildContext context, int amountCents) {
     final symbol = resolveCurrencySymbol(currency);
-    final formatted =
-        formatLocalizedNumber(context, amountCents.abs() / 100.0);
+    final formatted = formatLocalizedNumber(context, amountCents.abs() / 100.0);
     return '$symbol$formatted';
   }
 
@@ -863,10 +864,11 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
     );
   }
 
-  List<ExpenseEntry> _getMemberTransactions(DateTime rangeFrom, DateTime rangeTo) {
+  List<ExpenseEntry> _getMemberTransactions(
+      DateTime rangeFrom, DateTime rangeTo) {
     // Use similar logic to the spending card to attribute expenses
     final memberTransactions = <ExpenseEntry>[];
-    
+
     // Convert date range to include full days
     final startDate = DateTime(rangeFrom.year, rangeFrom.month, rangeFrom.day);
     final endDate = DateTime(rangeTo.year, rangeTo.month, rangeTo.day)
@@ -880,7 +882,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
 
     for (final t in transactions) {
       if (t.date.isBefore(startDate) || t.date.isAfter(endDate)) continue;
-      
+
       final isSpend = (t.type ?? 'expense').toLowerCase() != 'income';
       if (!isSpend) continue;
 
@@ -888,7 +890,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
       if (tCurrency.isNotEmpty && tCurrency != currency) continue;
 
       final splitGroupId = t.splitGroupId;
-      
+
       // CASE 1: No split - attribute full amount to creator
       if (splitGroupId == null) {
         if (t.userId == member.userId) {
@@ -907,10 +909,11 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
       }
 
       // Check if member is part of this split and has amount > 0
-      final memberLine = group.splitLines!.firstWhereOrNull((l) => l.userId == member.userId);
+      final memberLine =
+          group.splitLines!.firstWhereOrNull((l) => l.userId == member.userId);
       if (memberLine != null && (memberLine.amountCents ?? 0).abs() > 0) {
         // We add the original transaction but maybe we should show the split amount?
-        // For the list view, showing the original transaction is cleaner, 
+        // For the list view, showing the original transaction is cleaner,
         // but showing the split amount would be more accurate.
         // Let's create a copy with the adjusted amount for display purposes.
         memberTransactions.add(t.copyWith(
@@ -924,7 +927,8 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
     return memberTransactions;
   }
 
-  Map<DateTime, List<ExpenseEntry>> _groupTransactionsByDate(List<ExpenseEntry> transactions) {
+  Map<DateTime, List<ExpenseEntry>> _groupTransactionsByDate(
+      List<ExpenseEntry> transactions) {
     final grouped = <DateTime, List<ExpenseEntry>>{};
     for (final t in transactions) {
       final date = DateTime(t.date.year, t.date.month, t.date.day);
@@ -1218,7 +1222,8 @@ class _ReminderModalContentState extends State<_ReminderModalContent> {
     try {
       // Check cooldown (re-implemented check here to be safe)
       // Note: In a real app this should be in a service/repository
-      final twentyFourHoursAgo = DateTime.now().subtract(const Duration(hours: 24));
+      final twentyFourHoursAgo =
+          DateTime.now().subtract(const Duration(hours: 24));
       final checkResponse = await supabase
           .from('notification_events')
           .select('created_at')
@@ -1228,17 +1233,17 @@ class _ReminderModalContentState extends State<_ReminderModalContent> {
           .gte('created_at', twentyFourHoursAgo.toIso8601String())
           .limit(1)
           .maybeSingle();
-      
+
       if (checkResponse != null) {
-         if (mounted) Navigator.of(context).pop();
-         if (widget.parentContext.mounted) {
-           AppToast.warning(
-               widget.parentContext,
-               widget.parentContext.l10n
-                   .pleaseWait24HoursBeforeSendingAnotherReminder(
-                       widget.targetUserName));
-         }
-         return;
+        if (mounted) Navigator.of(context).pop();
+        if (widget.parentContext.mounted) {
+          AppToast.warning(
+              widget.parentContext,
+              widget.parentContext.l10n
+                  .pleaseWait24HoursBeforeSendingAnotherReminder(
+                      widget.targetUserName));
+        }
+        return;
       }
 
       // Send reminder
@@ -1252,7 +1257,7 @@ class _ReminderModalContentState extends State<_ReminderModalContent> {
       );
 
       if (mounted) Navigator.of(context).pop();
-      
+
       if (response.status == 200) {
         if (widget.parentContext.mounted) {
           AppToast.success(
@@ -1317,7 +1322,8 @@ class _ReminderModalContentState extends State<_ReminderModalContent> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          widget.parentContext.l10n.remindUser(widget.targetUserName),
+                          widget.parentContext.l10n
+                              .remindUser(widget.targetUserName),
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -1326,7 +1332,8 @@ class _ReminderModalContentState extends State<_ReminderModalContent> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          widget.parentContext.l10n.sendFriendlySpendingReminder,
+                          widget
+                              .parentContext.l10n.sendFriendlySpendingReminder,
                           style: TextStyle(
                             fontSize: 14,
                             color: widget.colorScheme.mutedForeground,

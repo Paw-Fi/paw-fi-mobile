@@ -363,6 +363,40 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
     );
   }
 
+  void addOptimisticTransaction(ExpenseEntry entry) {
+    final updatedExpenses = <ExpenseEntry>[entry, ...state.expenses]
+        .where((e) => e.id.isNotEmpty)
+        .toList();
+    final updatedAllExpenses = <ExpenseEntry>[entry, ...state.allExpenses]
+        .where((e) => e.id.isNotEmpty)
+        .toList();
+
+    state = state.copyWith(
+      expenses: updatedExpenses,
+      allExpenses: updatedAllExpenses,
+    );
+  }
+
+  void removeOptimisticTransactionById(String id) {
+    state = state.copyWith(
+      expenses: state.expenses.where((e) => e.id != id).toList(),
+      allExpenses: state.allExpenses.where((e) => e.id != id).toList(),
+    );
+  }
+
+  void replaceOptimisticTransaction(String optimisticId, ExpenseEntry entry) {
+    state = state.copyWith(
+      expenses: <ExpenseEntry>[
+        entry,
+        ...state.expenses.where((e) => e.id != optimisticId),
+      ],
+      allExpenses: <ExpenseEntry>[
+        entry,
+        ...state.allExpenses.where((e) => e.id != optimisticId),
+      ],
+    );
+  }
+
   // Removed setDateRangeFilter - filtering is now done locally in home page
   // This keeps the provider data unfiltered for insights page
 

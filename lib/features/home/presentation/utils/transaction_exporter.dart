@@ -1,7 +1,6 @@
-import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
+import 'package:excel/excel.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -12,7 +11,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 
-Future<void> exportTransactionsAsCsvSheet(
+Future<void> exportTransactionsAsExcelSheet(
   BuildContext context,
   List<ExpenseEntry> expenses, {
   String fileNamePrefix = 'transactions',
@@ -22,21 +21,35 @@ Future<void> exportTransactionsAsCsvSheet(
     return;
   }
 
+  // Pre-calculate share origin before async gap
+  final shareOrigin = _resolveShareOrigin(context);
+
   debugPrint(
-      '[exportTransactionsAsCsvSheet] count=${expenses.length} web=$kIsWeb');
+      '[exportTransactionsAsExcelSheet] count=${expenses.length} web=$kIsWeb');
 
   try {
-    final csv = _buildCsv(expenses);
+    final excelBytes = await _buildExcel(expenses);
+
+    if (!context.mounted) return;
+
+    if (excelBytes == null) {
+      throw Exception('Failed to generate Excel file');
+    }
+
     final timestamp = DateFormat('yyyyMMdd_HHmm').format(DateTime.now());
-    final fileName = '${fileNamePrefix}_$timestamp.csv';
-    final bytes = Uint8List.fromList(utf8.encode(csv));
-    final shareOrigin = _resolveShareOrigin(context);
+    final fileName = '${fileNamePrefix}_$timestamp.xlsx';
+    final bytes = Uint8List.fromList(excelBytes);
 
     if (kIsWeb) {
-      debugPrint('[exportTransactionsAsCsvSheet] sharing in web: $fileName');
+      debugPrint('[exportTransactionsAsExcelSheet] sharing in web: $fileName');
       await Share.shareXFiles(
         [
-          XFile.fromData(bytes, mimeType: 'text/csv', name: fileName),
+          XFile.fromData(
+            bytes,
+            mimeType:
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            name: fileName,
+          ),
         ],
         subject: fileName,
         sharePositionOrigin: shareOrigin,
@@ -46,22 +59,29 @@ Future<void> exportTransactionsAsCsvSheet(
 
     final directory = await getTemporaryDirectory();
     final file = File('${directory.path}/$fileName');
-    debugPrint('[exportTransactionsAsCsvSheet] temp file: ${file.path}');
+    debugPrint('[exportTransactionsAsExcelSheet] temp file: ${file.path}');
     await file.writeAsBytes(bytes, flush: true);
-    debugPrint('[exportTransactionsAsCsvSheet] share file');
+    debugPrint('[exportTransactionsAsExcelSheet] share file');
+
     await Share.shareXFiles(
-      [XFile(file.path)],
+      [
+        XFile(file.path,
+            mimeType:
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+      ],
       subject: fileName,
       sharePositionOrigin: shareOrigin,
     );
   } catch (e, stack) {
     debugPrint(
-      '[exportTransactionsAsCsvSheet] failed: $e\n$stack',
+      '[exportTransactionsAsExcelSheet] failed: $e\n$stack',
     );
-    AppToast.error(
-      context,
-      '${context.l10n.anUnexpectedErrorOccurred} (${e.toString()})',
-    );
+    if (context.mounted) {
+      AppToast.error(
+        context,
+        '${context.l10n.anUnexpectedErrorOccurred} (${e.toString()})',
+      );
+    }
   }
 }
 
@@ -76,38 +96,77 @@ Rect? _resolveShareOrigin(BuildContext context) {
   return null;
 }
 
-String _buildCsv(List<ExpenseEntry> expenses) {
-  final buffer = StringBuffer();
-  buffer.writeln('Date,Category,Description,Amount,Currency,Type');
+Future<List<int>?> _buildExcel(List<ExpenseEntry> expenses) async {
+  final excel = Excel.createExcel();
+
+  // Renaissance default sheet to 'Transactions'
+  final defaultSheet = excel.getDefaultSheet();
+  if (defaultSheet != null) {
+    excel.rename(defaultSheet, 'Transactions');
+  }
+
+  final Sheet sheet = excel['Transactions'];
+
+  // Add Headers
+  final headers = [
+    'Date',
+    'Account / User',
+    'Description (Payee)',
+    'Category',
+    'Amount',
+    'Currency',
+    'Type',
+    'Notes',
+    'ID',
+  ];
+
+  // Adding header row
+  // cellStyle is optional
+  sheet.appendRow(headers.map((h) => TextCellValue(h)).toList());
+
+  // Make header bold if possible - Excel package support for styles is limited/version dependent
+  // We'll skip complex styling to avoid breaking changes, content is key.
+
   final dateFormat = DateFormat('yyyy-MM-dd');
 
   for (final expense in expenses) {
     final date = dateFormat.format(expense.date);
-    final category = expense.category ?? '';
+
+    // Determine Account/User info
+    String accountInfo = 'Personal';
+    if (expense.householdId != null) {
+      accountInfo = 'Household';
+      if (expense.userName != null) {
+        accountInfo += ' (${expense.userName})';
+      }
+    }
+
     final description = expense.rawText ?? '';
-    final amount = expense.amount.toStringAsFixed(2);
-    final currency = expense.currency ?? '';
+    final category = expense.category ?? 'Uncategorized';
+
+    // Amount formatting - ensure it's a number for Excel
+    final double amountVal = expense.amount;
+
+    final currency = expense.currency ?? 'USD';
     final type = expense.type ?? 'expense';
 
-    buffer.writeln([
-      _escapeCsv(date),
-      _escapeCsv(category),
-      _escapeCsv(description),
-      _escapeCsv(amount),
-      _escapeCsv(currency),
-      _escapeCsv(type),
-    ].join(','));
+    // Notes - we don't have a separate notes field, leaving empty or using extra data
+    const notes = '';
+
+    final row = [
+      TextCellValue(date),
+      TextCellValue(accountInfo),
+      TextCellValue(description),
+      TextCellValue(category),
+      DoubleCellValue(amountVal),
+      TextCellValue(currency),
+      TextCellValue(type),
+      TextCellValue(notes),
+      TextCellValue(expense.id),
+    ];
+
+    sheet.appendRow(row);
   }
 
-  return buffer.toString();
-}
-
-String _escapeCsv(String value) {
-  final needsQuotes = value.contains(',') ||
-      value.contains('"') ||
-      value.contains('\n') ||
-      value.contains('\r');
-  if (!needsQuotes) return value;
-  final escaped = value.replaceAll('"', '""');
-  return '"$escaped"';
+  return excel.encode();
 }

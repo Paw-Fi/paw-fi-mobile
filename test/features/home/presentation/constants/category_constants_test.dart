@@ -125,10 +125,10 @@ void main() {
       expect(normalizeCategory('Fuel'), 'gas & fuel');
     });
 
-    test('maps car and auto to car maintenance', () {
-      expect(normalizeCategory('car'), 'car maintenance');
-      expect(normalizeCategory('auto'), 'car maintenance');
-      expect(normalizeCategory('Car'), 'car maintenance');
+    test('maps car and auto to car repairs', () {
+      expect(normalizeCategory('car'), 'car repairs');
+      expect(normalizeCategory('auto'), 'car repairs');
+      expect(normalizeCategory('Car'), 'car repairs');
     });
 
     test('maps insurance to insurance', () {

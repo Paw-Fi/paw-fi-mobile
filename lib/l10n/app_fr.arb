@@ -1728,5 +1728,10 @@
   "insightsTourExampleRentGroceries": "payer le loyer et les courses",
   "insightsTourExampleEmergencyFund": "épargner 500 $ pour un fonds d’urgence",
   "insightsTourIntro": "Demandez à votre conseiller financier IA si vous pouvez vous permettre une dépense à venir",
-  "insightsTourDataLine": "Basé sur des moyennes historiques ; se met automatiquement à jour en fonction de vos données."
+  "insightsTourDataLine": "Basé sur des moyennes historiques ; se met automatiquement à jour en fonction de vos données.",
+  "syncBankSectionTitle": "Connexions bancaires",
+  "syncBankAccountsTitle": "Synchroniser les comptes bancaires",
+  "syncBankAccountsSubtitle": "Connectez vos banques en toute sécurité pour importer automatiquement les soldes et les transactions.",
+  "syncBankAccountsTooltip": "Aperçu du guide Plaid qui vous accompagne pour la synchronisation.",
+  "syncBankAccountsComingSoon": "La synchronisation bancaire arrive bientôt."
 }

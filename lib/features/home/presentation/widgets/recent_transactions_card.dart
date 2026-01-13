@@ -256,7 +256,6 @@ Widget buildRecentTransactionsCard(
                                       ref.invalidate(householdSplitsProvider);
                                       ref.invalidate(
                                           cachedHouseholdSplitsProvider);
-                                      ref.invalidate(householdSummaryProvider);
                                       ref.invalidate(householdBudgetsProvider);
                                       ref.invalidate(householdMembersProvider);
                                     }

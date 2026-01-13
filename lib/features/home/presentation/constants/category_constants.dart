@@ -659,7 +659,16 @@ List<String> getExpenseCategories() {
 /// Normalizes category names from external sources (AI, backend) to canonical categories
 String normalizeCategory(String rawCategory) {
   final normalized = rawCategory.toLowerCase().trim();
-  
+
+  if (normalized.isEmpty) {
+    return normalized;
+  }
+
+  // Preserve canonical categories before attempting alias lookups
+  if (categoryColors.containsKey(normalized)) {
+    return normalized;
+  }
+
   // Category mappings for common aliases
   const categoryMappings = <String, String>{
     'food': 'food & drinks',
@@ -774,11 +783,6 @@ String normalizeCategory(String rawCategory) {
   // Direct mapping lookup
   if (categoryMappings.containsKey(normalized)) {
     return categoryMappings[normalized]!;
-  }
-  
-  // Skip fuzzy matching for empty strings
-  if (normalized.isEmpty) {
-    return normalized;
   }
   
   // Fuzzy matching for partial matches (prefer word-level matches)

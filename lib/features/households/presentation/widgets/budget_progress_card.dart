@@ -3,6 +3,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import '../../domain/entities/shared_budget.dart';
 import '../../../../../core/l10n/l10n.dart';
+import '../providers/household_derived_providers.dart';
 import '../providers/household_providers.dart';
 
 class BudgetProgressCard extends ConsumerWidget {
@@ -46,7 +47,7 @@ class BudgetProgressCard extends ConsumerWidget {
     }
 
     // Get summary to calculate actual spending
-    final summaryAsync = ref.watch(householdSummaryProvider(
+    final summaryAsync = ref.watch(householdDerivedSummaryProvider(
       HouseholdSummaryParams(
         householdId: householdId,
         currency: budget.currency,

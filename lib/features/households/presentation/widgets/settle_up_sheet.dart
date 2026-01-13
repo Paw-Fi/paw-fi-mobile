@@ -10,6 +10,7 @@ import '../../../../../core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import '../providers/household_providers.dart';
 import '../providers/cached_providers.dart';
+import '../providers/household_derived_providers.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
@@ -601,7 +602,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
           HouseholdSplitsParams(householdId: widget.householdId),
         ));
         final currency = (homeFilter.selectedCurrency ?? 'USD').toUpperCase();
-        ref.invalidate(householdSummaryProvider(
+        ref.invalidate(householdDerivedSummaryProvider(
           HouseholdSummaryParams(
             householdId: widget.householdId,
             currency: currency,

@@ -56,19 +56,14 @@ class GroupFairnessMeter extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     // ═══════════════════════════════════════════════════════════════
-    // CRITICAL: Use backend summary.memberContributions directly
+    // CRITICAL: Use split-aware memberContributions directly
     // ═══════════════════════════════════════════════════════════════
-    // The backend already calculates split-aware totals correctly.
-    // DO NOT recalculate from transactions - that ignores split data!
+    // This summary is derived from expenses + split lines, so each member's
+    // total already reflects their actual share (not who created the entry).
     //
-    // Example of why we trust backend:
+    // Example:
     //   - User A logs €100 expense, splits 50/50 with User B
-    //   - Backend calculates: A owes €50, B owes €50
-    //   - If we sum by userId: A = €100, B = €0 (WRONG!)
-    //
-    // The backend's totalSpentCents already accounts for:
-    //   1. Expenses created by the user
-    //   2. Split portions allocated to the user from others' expenses
+    //   - Totals: A €50, B €50 (correct)
     // ═══════════════════════════════════════════════════════════════
     final members = summary.memberContributions;
 

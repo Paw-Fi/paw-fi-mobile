@@ -142,7 +142,6 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       // weren't being refreshed.
       debugPrint('🔄 Invalidating household providers after expense update');
       ref.invalidate(userHouseholdsProvider(user.uid));
-      ref.invalidate(householdSummaryProvider);
       ref.invalidate(householdExpensesProvider);
       ref.invalidate(householdSplitsProvider);
       ref.invalidate(householdBudgetsProvider);
@@ -250,8 +249,28 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
     try {
       final dynamic err = error;
       final details = err.details;
-      if (details is Map && details['error'] is String) {
-        return details['error'] as String;
+      if (details is Map) {
+        final code = details['code'];
+        if (code is String) {
+          switch (code) {
+            case 'NOT_FOUND':
+              return 'Expense not found';
+            case 'UNAUTHORIZED':
+              return 'You do not have permission to edit this expense';
+            case 'VALIDATION_ERROR':
+              return 'Invalid expense update';
+            case 'SERVER_ERROR':
+              return 'Failed to update expense';
+          }
+        }
+
+        final backendMessage = details['error'];
+        if (backendMessage is String) {
+          if (backendMessage.trim().toLowerCase() == 'failed to fetch expense') {
+            return 'Failed to update expense';
+          }
+          return backendMessage;
+        }
       }
     } catch (_) {
       // Ignore and fall through to default.

@@ -393,7 +393,7 @@ class _CategoryTile extends StatelessWidget {
         ? color
         : colorScheme.surface.withValues(alpha: 0.0);
     final iconColor =
-        isSelected ? colorScheme.primaryForeground : color.withValues(alpha: 0.2);
+        isSelected ? colorScheme.primaryForeground : color.withValues(alpha: 0.4);
 
     return GestureDetector(
       onTap: onTap,

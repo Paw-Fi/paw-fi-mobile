@@ -129,6 +129,8 @@ class _UnifiedTransactionSheetState
   String? _membersError;
   List<HouseholdMember>? _householdMembers;
   String? _selectedPayerUserId;
+  String? _resolvedSplitGroupId;
+  bool _hasCheckedSplitGroup = false;
 
   // Local edits (accumulated until save)
   double? _editedAmount;
@@ -196,17 +198,7 @@ class _UnifiedTransactionSheetState
                 '🏠 [EDIT EXPENSE] Calling _loadMembers for household: $householdId');
             _loadMembers(householdId);
 
-            // Load existing split configuration if expense has a split group
-            if (widget.existingExpense!.splitGroupId != null) {
-              debugPrint(
-                  '🏠 [EDIT EXPENSE] Expense has split group: ${widget.existingExpense!.splitGroupId}');
-              debugPrint(
-                  '🏠 [EDIT EXPENSE] Calling _loadExistingSplitConfiguration');
-              _loadExistingSplitConfiguration(
-                  widget.existingExpense!.splitGroupId!);
-            } else {
-              debugPrint('🏠 [EDIT EXPENSE] Expense has no split group');
-            }
+            _resolveSplitGroupIdForExistingExpense(loadSplitConfig: true);
           } else {
             debugPrint(
                 '⚠️ [EDIT EXPENSE] Widget unmounted before postFrameCallback');
@@ -250,6 +242,13 @@ class _UnifiedTransactionSheetState
 
   bool get isNewExpense => widget.newExpense != null;
   bool get isExistingExpense => widget.existingExpense != null;
+  String? get _effectiveSplitGroupId {
+    final resolved = _resolvedSplitGroupId;
+    if (resolved != null && resolved.isNotEmpty) return resolved;
+    final existing = widget.existingExpense?.splitGroupId;
+    if (existing != null && existing.isNotEmpty) return existing;
+    return null;
+  }
 
   // Unified getters that work for both cases - always check local edits first
   double get amount {
@@ -352,7 +351,11 @@ class _UnifiedTransactionSheetState
     } catch (e) {
       debugPrint('❌ Error capturing photo: $e');
       if (mounted) {
-        AppToast.error(context, '${context.l10n.failedToCapturePhoto}: $e');
+        AppToast.error(
+          context,
+          '${context.l10n.failedToCapturePhoto}: $e',
+          duration: const Duration(seconds: 6),
+        );
       }
     }
   }
@@ -785,12 +788,16 @@ class _UnifiedTransactionSheetState
                       _customSplits = null;
                       _initialSplitSignature = null;
                       _loadedSplitGroupType = null;
+                      _resolvedSplitGroupId = null;
+                      _hasCheckedSplitGroup = false;
                       _householdMembers = null;
                       _membersError = null;
                       _isLoadingMembers = false;
                     } else if (households.isNotEmpty) {
                       _initialSplitSignature = null;
                       _loadedSplitGroupType = null;
+                      _resolvedSplitGroupId = null;
+                      _hasCheckedSplitGroup = false;
 
                       // Prefer the current selection, otherwise restore the
                       // expense's household (edit mode), otherwise fallback
@@ -824,10 +831,9 @@ class _UnifiedTransactionSheetState
 
                       // Restore existing split config when editing.
                       if (isExistingExpense &&
-                          widget.existingExpense?.splitGroupId != null &&
                           widget.existingExpense?.householdId == preferredId) {
-                        _loadExistingSplitConfiguration(
-                            widget.existingExpense!.splitGroupId!);
+                        _resolveSplitGroupIdForExistingExpense(
+                            loadSplitConfig: true);
                       }
                     }
                   });
@@ -926,6 +932,8 @@ class _UnifiedTransactionSheetState
                         _customSplits = null;
                         _initialSplitSignature = null;
                         _loadedSplitGroupType = null;
+                        _resolvedSplitGroupId = null;
+                        _hasCheckedSplitGroup = false;
                         _householdMembers = null;
                         _membersError = null;
                         _isLoadingMembers = false;
@@ -937,10 +945,9 @@ class _UnifiedTransactionSheetState
                       // If user navigated back to the original household while
                       // editing an existing shared expense, restore the split config.
                       if (isExistingExpense &&
-                          widget.existingExpense?.splitGroupId != null &&
                           widget.existingExpense?.householdId == value) {
-                        _loadExistingSplitConfiguration(
-                            widget.existingExpense!.splitGroupId!);
+                        _resolveSplitGroupIdForExistingExpense(
+                            loadSplitConfig: true);
                       }
                     }
                   },
@@ -1020,7 +1027,8 @@ class _UnifiedTransactionSheetState
                 // Check if this is an existing expense with household but no split group
                 final isExistingWithoutSplit = isExistingExpense &&
                     widget.existingExpense!.householdId != null &&
-                    widget.existingExpense!.splitGroupId == null;
+                    _hasCheckedSplitGroup &&
+                    _effectiveSplitGroupId == null;
 
                 // For income mode, we hide the custom split editor entirely
                 if (isIncomeMode) {
@@ -1842,6 +1850,77 @@ class _UnifiedTransactionSheetState
     }
   }
 
+  Future<String?> _resolveSplitGroupIdForExistingExpense({
+    bool loadSplitConfig = false,
+  }) async {
+    final expense = widget.existingExpense;
+    if (expense == null) return null;
+
+    final existingId = expense.splitGroupId?.trim();
+    if (existingId != null && existingId.isNotEmpty) {
+      _markSplitCheck(resolvedId: existingId);
+      if (loadSplitConfig) {
+        await _loadExistingSplitConfiguration(existingId);
+      }
+      return existingId;
+    }
+
+    final householdId = expense.householdId;
+    if (householdId == null || householdId.isEmpty) {
+      _markSplitCheck();
+      return null;
+    }
+
+    try {
+      final splits = await ref.read(householdSplitsProvider(
+        HouseholdSplitsParams(householdId: householdId),
+      ).future);
+
+      household_split.ExpenseSplitGroup? match;
+      for (final group in splits) {
+        if (group.expenseId == expense.id) {
+          match = group;
+          break;
+        }
+      }
+
+      if (match != null) {
+        debugPrint(
+            '🔎 [RESOLVE SPLIT] Found split group ${match.id} for expense ${expense.id}');
+        _markSplitCheck(resolvedId: match.id);
+        if (loadSplitConfig) {
+          await _loadExistingSplitConfiguration(match.id);
+        }
+        return match.id;
+      }
+
+      debugPrint(
+          '🔎 [RESOLVE SPLIT] No split group found for expense ${expense.id}');
+      _markSplitCheck();
+      return null;
+    } catch (error) {
+      debugPrint('❌ [RESOLVE SPLIT] Failed to resolve split group: $error');
+      return null;
+    }
+  }
+
+  void _markSplitCheck({String? resolvedId}) {
+    final sanitized = resolvedId?.trim();
+    if (mounted) {
+      setState(() {
+        _hasCheckedSplitGroup = true;
+        if (sanitized != null && sanitized.isNotEmpty) {
+          _resolvedSplitGroupId = sanitized;
+        }
+      });
+    } else {
+      _hasCheckedSplitGroup = true;
+      if (sanitized != null && sanitized.isNotEmpty) {
+        _resolvedSplitGroupId = sanitized;
+      }
+    }
+  }
+
   /// Map database SplitType to UI SplitType
   SplitType _mapSplitType(dynamic dbSplitType) {
     // dbSplitType is ExpenseSplitGroup.SplitType from expense_split.dart
@@ -2040,7 +2119,6 @@ class _UnifiedTransactionSheetState
     ref.invalidate(cachedHouseholdExpensesProvider);
     ref.invalidate(householdSplitsProvider);
     ref.invalidate(cachedHouseholdSplitsProvider);
-    ref.invalidate(householdSummaryProvider);
     ref.invalidate(householdBudgetsProvider);
     ref.invalidate(householdMembersProvider);
 
@@ -2118,6 +2196,7 @@ class _UnifiedTransactionSheetState
               context.l10n.failedToSave(
                 error?.toString() ?? context.l10n.income,
               ),
+              duration: const Duration(seconds: 5),
             );
             return;
           }
@@ -2219,7 +2298,11 @@ class _UnifiedTransactionSheetState
 
           debugPrint(' Expense saved successfully');
           if (!mounted) return;
-          AppToast.success(context, context.l10n.expenseSaved);
+          AppToast.success(
+            context,
+            context.l10n.expenseSaved,
+            duration: const Duration(seconds: 5),
+          );
 
           //
           // The user might be viewing household mode while adding a personal expense,
@@ -2272,6 +2355,7 @@ class _UnifiedTransactionSheetState
         }
       } else {
         // EXISTING EXPENSE: Build updates map from local edits
+        await _resolveSplitGroupIdForExistingExpense();
         final Map<String, dynamic> updates = {};
 
         if (_editedAmount != null) {
@@ -2317,7 +2401,7 @@ class _UnifiedTransactionSheetState
         // For expenses that already have a split group, we may instead send an
         // update payload to adjust the existing split configuration.
         final existingHouseholdId = widget.existingExpense!.householdId;
-        final existingSplitGroupId = widget.existingExpense!.splitGroupId;
+        final existingSplitGroupId = _effectiveSplitGroupId;
         // Persist payer changes for shared expenses even without split edits
         if (_isSharedWithHousehold && existingHouseholdId != null) {
           final payer = _selectedPayerUserId ?? ref.read(authProvider).uid;
@@ -2328,6 +2412,7 @@ class _UnifiedTransactionSheetState
         final shouldCreateSplitGroupForExisting = _isSharedWithHousehold &&
             existingHouseholdId != null &&
             existingSplitGroupId == null &&
+            _hasCheckedSplitGroup &&
             _customSplitType != null &&
             _customSplits != null &&
             _customSplits!.isNotEmpty;
@@ -2404,7 +2489,11 @@ class _UnifiedTransactionSheetState
           // If we can't load the split config, fail fast instead of corrupting state.
           if (amountCentsChanged && !shouldSendSplitUpdate) {
             if (!mounted) return;
-            AppToast.error(context, context.l10n.errorLoadingSplits);
+            AppToast.error(
+              context,
+              context.l10n.errorLoadingSplits,
+              duration: const Duration(seconds: 5),
+            );
             return;
           }
 
@@ -2501,7 +2590,11 @@ class _UnifiedTransactionSheetState
 
           // Close the sheet so when user reopens it, they see fresh data
           Navigator.of(context).pop();
-          AppToast.success(context, context.l10n.expenseUpdatedSuccessfully);
+          AppToast.success(
+            context,
+            context.l10n.expenseUpdatedSuccessfully,
+            duration: const Duration(seconds: 4),
+          );
         } else {
           // Surface the raw error from the edit provider (which contains the
           // backend/FunctionException message) instead of a generic exception.
@@ -2511,7 +2604,11 @@ class _UnifiedTransactionSheetState
                   ? editState.error!
                   : context.l10n.failedToUpdateExpense;
 
-          AppToast.error(context, message);
+          AppToast.error(
+            context,
+            message,
+            duration: const Duration(seconds: 5),
+          );
           return;
         }
       }
@@ -2519,7 +2616,11 @@ class _UnifiedTransactionSheetState
       debugPrint(' Error saving expense: $error');
       if (!mounted) return;
 
-      AppToast.error(context, ErrorHandler.getUserFriendlyMessage(error));
+      AppToast.error(
+        context,
+        ErrorHandler.getUserFriendlyMessage(error),
+        duration: const Duration(seconds: 5),
+      );
     } finally {
       if (mounted) {
         setState(() => _isSaving = false);
@@ -2587,7 +2688,6 @@ class _UnifiedTransactionSheetState
         ref.invalidate(userHouseholdsProvider(user.uid));
 
         // Invalidate ALL provider families so all parameterized instances refresh
-        ref.invalidate(householdSummaryProvider);
         ref.invalidate(householdExpensesProvider);
         ref.invalidate(cachedHouseholdExpensesProvider);
         ref.invalidate(householdSplitsProvider);
@@ -2602,12 +2702,20 @@ class _UnifiedTransactionSheetState
 
       Navigator.of(context).pop();
 
-      AppToast.success(context, context.l10n.expenseDeletedSuccessfully);
+      AppToast.success(
+        context,
+        context.l10n.expenseDeletedSuccessfully,
+        duration: const Duration(seconds: 4),
+      );
     } catch (error) {
       debugPrint(' Error deleting expense: $error');
       if (!mounted) return;
 
-      AppToast.error(context, ErrorHandler.getUserFriendlyMessage(error));
+      AppToast.error(
+        context,
+        ErrorHandler.getUserFriendlyMessage(error),
+        duration: const Duration(seconds: 5),
+      );
     } finally {
       if (mounted) {
         setState(() => _isDeleting = false);

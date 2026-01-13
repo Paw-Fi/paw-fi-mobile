@@ -1730,5 +1730,10 @@
   "insightsTourExampleRentGroceries": "pagar el alquiler y la compra",
   "insightsTourExampleEmergencyFund": "ahorrar 500 $ para un fondo de emergencia",
   "insightsTourIntro": "Pregunta a tu asesor financiero de IA si puedes permitirte un gasto próximo",
-  "insightsTourDataLine": "Basado en promedios históricos; se actualiza automáticamente con tus datos."
+  "insightsTourDataLine": "Basado en promedios históricos; se actualiza automáticamente con tus datos.",
+  "syncBankSectionTitle": "Conexiones bancarias",
+  "syncBankAccountsTitle": "Sincronizar cuentas bancarias",
+  "syncBankAccountsSubtitle": "Vincula tus bancos de forma segura para importar automáticamente saldos y transacciones.",
+  "syncBankAccountsTooltip": "Previsualiza la guía de Plaid que te acompaña durante la sincronización.",
+  "syncBankAccountsComingSoon": "La sincronización bancaria llegará pronto."
 }

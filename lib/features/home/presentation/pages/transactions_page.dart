@@ -296,7 +296,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
           AdaptiveAppBarAction(
             icon: Icons.file_download_rounded,
             iosSymbol: 'square.and.arrow.up',
-            onPressed: () => exportTransactionsAsCsvSheet(
+            onPressed: () => exportTransactionsAsExcelSheet(
               context,
               expensesToExport,
               fileNamePrefix: widget.householdId != null
