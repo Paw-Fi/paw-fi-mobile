@@ -318,14 +318,14 @@ void main() {
     });
 
     test('handles universal link with complex token', () {
-      final complexToken = 'abc-123_XYZ.456';
+      const complexToken = 'abc-123_XYZ.456';
       final uri = Uri.parse('https://moneko.io/invites/$complexToken');
       expect(DeepLinks.isHouseholdInvitation(uri), true);
       expect(uri.pathSegments[1], complexToken);
     });
 
     test('handles payment callback with URL-encoded error', () {
-      final error = 'Payment failed: Insufficient funds';
+      const error = 'Payment failed: Insufficient funds';
       final url = DeepLinks.paymentFailed(error);
       final uri = Uri.parse(url);
       

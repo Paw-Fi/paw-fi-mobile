@@ -43,6 +43,7 @@ class HouseholdService {
     required String currency,
     String? coverImageUrl,
     String? themeColor,
+    bool isPortfolio = false,
   }) async {
     try {
       final userId = _supabase.auth.currentUser?.id;
@@ -51,6 +52,7 @@ class HouseholdService {
         'currency': currency.toUpperCase(),
         'coverImageUrl': coverImageUrl,
         'themeColor': themeColor,
+        'isPortfolio': isPortfolio,
         'ownerId': userId,
       });
 
@@ -61,6 +63,7 @@ class HouseholdService {
             'currency': currency.toUpperCase(),
             'cover_image_url': coverImageUrl,
             'theme_color': themeColor,
+            'is_portfolio': isPortfolio,
             'owner_id': userId,
           })
           .select()
@@ -188,6 +191,7 @@ class HouseholdService {
     String? invitedEmail,
     String? personalMessage,
     int expiresInDays = 7,
+    Duration timeout = const Duration(seconds: 20),
   }) async {
     try {
       _log('Calling households-create-invite edge function', error: {
@@ -209,10 +213,9 @@ class HouseholdService {
       }
 
       // Add a timeout so the UI doesn't hang forever if the function stalls
-      final response = await _supabase
-          .functions
+      final response = await _supabase.functions
           .invoke('households-create-invite', body: body)
-          .timeout(const Duration(seconds: 20));
+          .timeout(timeout);
 
       _log('Edge function response', error: {
         'status': response.status,

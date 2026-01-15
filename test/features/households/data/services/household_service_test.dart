@@ -76,10 +76,11 @@ void main() {
           .thenAnswer((_) => completer.future);
 
       final sw = Stopwatch()..start();
-      expect(
-        () => service.createInvite(
+      await expectLater(
+        service.createInvite(
           householdId: 'hh_123',
           expiresInDays: 7,
+          timeout: const Duration(milliseconds: 50),
         ),
         throwsA(isA<TimeoutException>()),
       );

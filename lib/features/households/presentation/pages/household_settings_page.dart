@@ -1655,7 +1655,7 @@ class _InviteCard extends StatelessWidget {
                                   ? ''
                                   : (isExpired
                                       ? ''
-                                      : '${_formatDate(invite.expiresAt!, context)}'),
+                                      : _formatDate(invite.expiresAt!, context)),
                               style: TextStyle(
                                 fontSize: 13,
                                 color: colorScheme.mutedForeground,

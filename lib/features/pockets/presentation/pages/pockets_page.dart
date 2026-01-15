@@ -15,36 +15,12 @@ import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/pages/household_onboarding_page.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/pockets/presentation/widgets/pockets_grid_section.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-
-Household? _resolveHouseholdSelection(
-  SelectedHouseholdState selectedState,
-  List<Household> households,
-) {
-  if (households.isEmpty) return null;
-
-  final selected = selectedState.household;
-  if (selected != null && households.any((h) => h.id == selected.id)) {
-    return households.firstWhere(
-      (h) => h.id == selected.id,
-      orElse: () => households.first,
-    );
-  }
-
-  final selectedId = selectedState.householdId;
-  if (selectedId != null) {
-    return households.firstWhere(
-      (h) => h.id == selectedId,
-      orElse: () => households.first,
-    );
-  }
-
-  return households.first;
-}
 
 class PocketsPage extends HookConsumerWidget {
   const PocketsPage({super.key});
@@ -57,10 +33,14 @@ class PocketsPage extends HookConsumerWidget {
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
     final selectedHouseholdState = ref.watch(selectedHouseholdProvider);
     final households = householdsAsync.valueOrNull ?? const <Household>[];
-    final resolvedHousehold = viewMode.mode == ViewMode.household
-        ? _resolveHouseholdSelection(selectedHouseholdState, households)
+
+    // Use householdScopeProvider to properly handle personal vs portfolio vs household.
+    final householdScope = ref.watch(householdScopeProvider);
+
+    final resolvedHouseholdId = householdScope.activeAccountType == ActiveAccountType.household
+        ? householdScope.selectedHouseholdId
         : null;
-    final resolvedHouseholdId = resolvedHousehold?.id;
+    
     // Always start at the current month
     final now = DateTime.now();
     final initialMonth = DateTime(now.year, now.month, 1);
@@ -81,7 +61,9 @@ class PocketsPage extends HookConsumerWidget {
 
     // Keep selectedHouseholdProvider in sync when we fall back to a household
     useEffect(() {
-      if (viewMode.mode != ViewMode.household) return null;
+      if (householdScope.activeAccountType != ActiveAccountType.household) {
+        return null;
+      }
       if (resolvedHouseholdId == null) return null;
 
       final currentId = selectedHouseholdState.householdId;
@@ -99,14 +81,14 @@ class PocketsPage extends HookConsumerWidget {
 
       return null;
     }, [
-      viewMode.mode,
+      householdScope.activeAccountType,
       resolvedHouseholdId,
       selectedHouseholdState.householdId,
       selectedHouseholdState.household?.id,
       user.uid,
     ]);
 
-    if (viewMode.mode == ViewMode.household) {
+    if (householdScope.activeAccountType == ActiveAccountType.household) {
       if (householdsAsync.isLoading) {
         return AdaptiveScaffold(
           body: Center(
@@ -202,17 +184,28 @@ class PocketsPage extends HookConsumerWidget {
       }
     }
 
-    // Determine parameters for the currently viewed month (for the bottom bar)
-    final currentScopeParams = viewMode.mode == ViewMode.personal
-        ? PocketsScopeParams(
-            scope: PocketsScopeType.personal,
-            periodMonth: currentMonthState.value,
-          )
-        : PocketsScopeParams(
-            scope: PocketsScopeType.household,
-            householdId: resolvedHouseholdId,
-            periodMonth: currentMonthState.value,
-          );
+    // Determine parameters for the currently viewed month (for the bottom bar).
+    final currentScopeParams = switch (householdScope.activeAccountType) {
+      ActiveAccountType.personal => PocketsScopeParams(
+          scope: PocketsScopeType.personal,
+          periodMonth: currentMonthState.value,
+        ),
+      ActiveAccountType.portfolio => householdScope.activeAccountHouseholdId == null
+          ? PocketsScopeParams(
+              scope: PocketsScopeType.personal,
+              periodMonth: currentMonthState.value,
+            )
+          : PocketsScopeParams(
+              scope: PocketsScopeType.portfolio,
+              householdId: householdScope.activeAccountHouseholdId,
+              periodMonth: currentMonthState.value,
+            ),
+      ActiveAccountType.household => PocketsScopeParams(
+          scope: PocketsScopeType.household,
+          householdId: resolvedHouseholdId,
+          periodMonth: currentMonthState.value,
+        ),
+    };
 
     final currentPocketsState = ref.watch(pocketsProvider(currentScopeParams));
     final currentPocketsNotifier =
@@ -237,21 +230,33 @@ class PocketsPage extends HookConsumerWidget {
               final month =
                   DateTime(initialMonth.year, initialMonth.month + offset, 1);
 
-              final scopeParams = viewMode.mode == ViewMode.personal
-                  ? PocketsScopeParams(
-                      scope: PocketsScopeType.personal,
-                      periodMonth: month,
-                    )
-                  : PocketsScopeParams(
-                      scope: PocketsScopeType.household,
-                      householdId: resolvedHouseholdId,
-                      periodMonth: month,
-                    );
+              final scopeParams = switch (householdScope.activeAccountType) {
+                ActiveAccountType.personal => PocketsScopeParams(
+                    scope: PocketsScopeType.personal,
+                    periodMonth: month,
+                  ),
+                ActiveAccountType.portfolio => householdScope.activeAccountHouseholdId == null
+                    ? PocketsScopeParams(
+                        scope: PocketsScopeType.personal,
+                        periodMonth: month,
+                      )
+                    : PocketsScopeParams(
+                        scope: PocketsScopeType.portfolio,
+                        householdId: householdScope.activeAccountHouseholdId,
+                        periodMonth: month,
+                      ),
+                ActiveAccountType.household => PocketsScopeParams(
+                    scope: PocketsScopeType.household,
+                    householdId: resolvedHouseholdId,
+                    periodMonth: month,
+                  ),
+              };
 
               return _PocketsMonthView(
                 scopeParams: scopeParams,
                 colorScheme: colorScheme,
-                isPersonalMode: viewMode.mode == ViewMode.personal,
+                isPersonalMode:
+                    householdScope.activeAccountType != ActiveAccountType.household,
                 isActiveMonth: scopeParams == currentScopeParams,
                 onDateSelected: (date) {
                   final diffYears = date.year - initialMonth.year;

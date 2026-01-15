@@ -20,6 +20,7 @@ import 'package:moneko/core/utils/date_formatter.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart'
@@ -107,28 +108,41 @@ class AddRecurringSheet extends HookConsumerWidget {
 
     // View mode / household selection for default sharing behaviour
     final viewMode = ref.watch(viewModeProvider);
+    final householdScope = ref.watch(householdScopeProvider);
     final selectedHouseholdState = ref.watch(selectedHouseholdProvider);
     final user = supabase.auth.currentUser;
+
+    final existingHouseholdId = existingTransaction?.householdId;
+    final isExistingPortfolio = existingHouseholdId != null &&
+        householdScope.isPortfolioId(existingHouseholdId);
+
+    final isPortfolioContext = () {
+      if (householdScope.activeAccountType == ActiveAccountType.portfolio) {
+        return true;
+      }
+      if (existingTransaction?.householdId != null) {
+        return householdScope.isPortfolioId(existingTransaction!.householdId);
+      }
+      return householdScope.activeAccountHouseholdId != null &&
+          householdScope.isPortfolioId(householdScope.activeAccountHouseholdId);
+    }();
 
     // Sharing + split state (expenses only)
     final isSharedWithHousehold = useState<bool>(
       existingTransaction != null
-          ? (existingTransaction!.householdId != null)
-          : (viewMode.mode == ViewMode.household &&
-              selectedHouseholdState.householdId != null),
+          ? (!isExistingPortfolio && existingTransaction!.householdId != null)
+          : (householdScope.activeAccountType == ActiveAccountType.household &&
+              householdScope.activeAccountHouseholdId != null),
     );
     final selectedHouseholdId = useState<String?>(
-      existingTransaction?.householdId ??
-          (viewMode.mode == ViewMode.household
-              ? selectedHouseholdState.householdId
-              : null),
+      existingTransaction?.householdId ?? householdScope.activeAccountHouseholdId,
     );
     // Initialize payer to current user for ADD mode + household sharing
     final selectedPayerUserId = useState<String?>(
       existingTransaction?.payerUserId ??
           (!isEditing &&
-                  viewMode.mode == ViewMode.household &&
-                  selectedHouseholdState.householdId != null
+                  householdScope.activeAccountType == ActiveAccountType.household &&
+                  householdScope.activeAccountHouseholdId != null
               ? user?.id
               : null),
     );
@@ -328,7 +342,7 @@ class AddRecurringSheet extends HookConsumerWidget {
 
       // Only for ADD mode in household mode
       if (!isEditing && 
-          viewMode.mode == ViewMode.household && 
+          householdScope.activeAccountType == ActiveAccountType.household && 
           isSharedWithHousehold.value &&
           selectedHouseholdId.value != null &&
           selectedPayerUserId.value == null &&
@@ -346,7 +360,8 @@ class AddRecurringSheet extends HookConsumerWidget {
       if (isEditing) return null;
       if (!hasAmountForSplit) return null;
 
-      final shouldBeShared = viewMode.mode == ViewMode.household;
+      final shouldBeShared =
+          householdScope.activeAccountType == ActiveAccountType.household;
 
       // Always update when amount is present to ensure correct state
       // Previous logic only updated if hasAmountEverBeenSet, but this could miss cases
@@ -394,7 +409,12 @@ class AddRecurringSheet extends HookConsumerWidget {
       }
       
       return null;
-    }, [hasAmountForSplit, viewMode.mode, selectedHouseholdState.householdId, householdsAsync.value]);
+    }, [
+      hasAmountForSplit,
+      householdScope.activeAccountType,
+      selectedHouseholdState.householdId,
+      householdsAsync.value,
+    ]);
 
     // Whenever the amount changes for NEW recurring expenses, clear any
     // previously configured custom splits so the split editor can
@@ -441,11 +461,22 @@ class AddRecurringSheet extends HookConsumerWidget {
 
         RecurringTransaction? result;
 
-        // Determine sharing/splitting configuration
+        final forcedPortfolioHouseholdId =
+            (isEditing && isExistingPortfolio) ? existingHouseholdId : null;
+        final effectiveHouseholdId = forcedPortfolioHouseholdId ??
+            switch (householdScope.activeAccountType) {
+              ActiveAccountType.personal => null,
+              ActiveAccountType.portfolio => householdScope.activeAccountHouseholdId,
+              ActiveAccountType.household =>
+                isSharedWithHousehold.value ? selectedHouseholdId.value : null,
+            };
+
+        final isPortfolioScope = effectiveHouseholdId != null &&
+            householdScope.isPortfolioId(effectiveHouseholdId);
+        // Only household-group accounts support shared splits.
         final shareWithHousehold =
-            isSharedWithHousehold.value && selectedHouseholdId.value != null;
-        final activeHouseholdId =
-            shareWithHousehold ? selectedHouseholdId.value : null;
+            !isPortfolioScope && isSharedWithHousehold.value && selectedHouseholdId.value != null;
+        final activeHouseholdId = effectiveHouseholdId;
         debugPrint('💾 [RECURRING SAVE] share=$shareWithHousehold hh=$activeHouseholdId payer=${selectedPayerUserId.value}');
         debugPrint('   Custom split type: ${customSplitType.value}');
         debugPrint(
@@ -576,16 +607,17 @@ class AddRecurringSheet extends HookConsumerWidget {
           debugPrint('   Frequency: ${result.recurrenceRule?.frequency ?? "one-time"}');
           
           // Get current view mode to determine which scope to refresh
-          final currentViewMode = ref.read(viewModeProvider);
-          final currentHouseholdId = ref.read(selectedHouseholdProvider).householdId;
+          final currentScope = ref.read(householdScopeProvider);
+          final currentHouseholdId = currentScope.activeAccountHouseholdId;
           
-          debugPrint('🔄 [REFRESH] Current view mode: ${currentViewMode.mode}');
+          debugPrint('🔄 [REFRESH] Current view mode: ${currentScope.activeAccountType}');
           debugPrint('🔄 [REFRESH] Current household ID: $currentHouseholdId');
           debugPrint('🔄 [REFRESH] Transaction household ID (activeHouseholdId): $activeHouseholdId');
           
           // CRITICAL: Force refresh based on CURRENT VIEW MODE
           // This ensures the page the user is viewing refreshes immediately
-          if (currentViewMode.mode == ViewMode.household && currentHouseholdId != null) {
+          if (currentScope.activeAccountType != ActiveAccountType.personal &&
+              currentHouseholdId != null) {
             debugPrint('🏠 [REFRESH] Refreshing HOUSEHOLD view for: $currentHouseholdId');
             
             // Invalidate RequestDeduplicator cache for household data
@@ -632,7 +664,8 @@ class AddRecurringSheet extends HookConsumerWidget {
             
             debugPrint('   ♻️  Invalidating pocketsProvider family (transaction household scope)');
             ref.invalidate(pocketsProvider);
-          } else if (activeHouseholdId == null && currentViewMode.mode == ViewMode.household) {
+          } else if (activeHouseholdId == null &&
+              currentScope.activeAccountType != ActiveAccountType.personal) {
             // Transaction is personal but we're in household view - also refresh personal scope
             debugPrint('🔄 [REFRESH] Also refreshing personal scope (transaction is personal)');
             
@@ -951,8 +984,8 @@ class AddRecurringSheet extends HookConsumerWidget {
 
                   const SizedBox(height: 20),
 
-                  // Household sharing + split (expenses only)
-                  if (user != null) ...[
+                  // Household sharing + split (expenses only, non-portfolio contexts)
+                  if (user != null && !isPortfolioContext) ...[
                     householdsAsync.when(
                       data: (households) {
                         if (!hasAmountForSplit) {
@@ -972,6 +1005,25 @@ class AddRecurringSheet extends HookConsumerWidget {
 
                         if (!isExpense) {
                           // For income: only allow sharing toggle, no split editor
+                          return _buildSharingToggleOnly(
+                            context,
+                            colorScheme,
+                            households,
+                            isSharedWithHousehold,
+                            selectedHouseholdId,
+                          );
+                        }
+
+                        final householdId = selectedHouseholdId.value;
+                        final isHouseholdModeEnabled =
+                            isSharedWithHousehold.value &&
+                                householdId != null &&
+                                householdId.isNotEmpty;
+                        final isPortfolio =
+                            householdId != null &&
+                                householdScope.isPortfolioId(householdId);
+
+                        if (!isHouseholdModeEnabled || isPortfolio) {
                           return _buildSharingToggleOnly(
                             context,
                             colorScheme,

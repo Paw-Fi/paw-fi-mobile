@@ -14,6 +14,7 @@ import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
+import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 
@@ -82,9 +83,17 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
         // Explicitly set type for new expenses
         'type': 'expense',
       };
+      final isPortfolio = householdId != null &&
+          ref.read(householdScopeProvider).isPortfolioId(householdId);
+      if (householdId != null) {
+        requestBody['isPortfolio'] = isPortfolio;
+      }
 
       // Add custom splits if provided
-      if (householdId != null && customSplitType != null && customSplits != null) {
+      if (!isPortfolio &&
+          householdId != null &&
+          customSplitType != null &&
+          customSplits != null) {
         final splitTypeStr = customSplitType.toString().split('.').last;
         
         debugPrint('🔍 [SAVE EXPENSE] Preparing custom splits:');
@@ -129,7 +138,10 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
         debugPrint('  - customSplits: ${customSplits?.length ?? 0} members');
       }
 
-      if (householdId != null && payerUserId != null && payerUserId.isNotEmpty) {
+      if (!isPortfolio &&
+          householdId != null &&
+          payerUserId != null &&
+          payerUserId.isNotEmpty) {
         requestBody['payerUserId'] = payerUserId;
       }
 
@@ -191,7 +203,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     final savedId = savedMap['id']?.toString();
     final hasServerId = savedId != null && savedId.isNotEmpty;
     final expenseId = hasServerId
-        ? savedId!
+        ? savedId
         : 'optimistic_${DateTime.now().millisecondsSinceEpoch}';
 
     final createdAtRaw = savedMap['created_at']?.toString();

@@ -3,20 +3,26 @@ import 'package:flutter/material.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
+import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/insights/presentation/widgets/charts/charts.dart';
 import 'package:moneko/features/insights/presentation/widgets/chart_legend.dart';
 import 'package:moneko/features/insights/presentation/widgets/insights_ui.dart';
+import 'package:moneko/features/insights/presentation/utils/insights_filters.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
 Widget buildLongTermProjectionTab(
-    BuildContext context, ColorScheme colorScheme, AnalyticsData analyticsData,
-    {String? selectedCurrency}) {
-  // Filter data by currency if selected
-  var expenses = analyticsData.allExpenses;
-  var budgets = analyticsData.allBudgets;
+  BuildContext context,
+  ColorScheme colorScheme,
+  AnalyticsData analyticsData, {
+  required HouseholdScope householdScope,
+  String? selectedCurrency,
+}) {
+  final scoped = buildInsightsScopedData(analyticsData, householdScope);
+  var expenses = scoped.expenses;
+  var budgets = scoped.budgets;
 
   if (selectedCurrency != null) {
     final currency = selectedCurrency.toUpperCase();

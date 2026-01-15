@@ -6,6 +6,7 @@ import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:collection/collection.dart';
@@ -77,6 +78,10 @@ class WidgetSyncManager extends HookConsumerWidget {
         final session = Supabase.instance.client.auth.currentSession;
         if (session == null || user.uid.isEmpty) return;
 
+        // Get portfolio household IDs to include in personal scope
+        final householdScope = ref.read(householdScopeProvider);
+        final portfolioIds = householdScope.portfolioHouseholdIds.toList();
+
         final now = DateTime.now();
         final currentMonth = DateTime(now.year, now.month, 1);
 
@@ -98,12 +103,21 @@ class WidgetSyncManager extends HookConsumerWidget {
         final personalBudgetsByCurrency = <String, double>{};
         final personalBudgetIdsByCurrency = <String, String>{};
         try {
-          final budgetsRes = await Supabase.instance.client
+          var budgetsQuery = Supabase.instance.client
               .from('budgets')
               .select('id,currency,total_budget_cents,period_month,household_id')
               .eq('user_id', user.uid)
-              .isFilter('household_id', null)
               .eq('period_month', monthStr);
+          
+          // Include personal (household_id null) and portfolio households
+          if (portfolioIds.isEmpty) {
+            budgetsQuery = budgetsQuery.isFilter('household_id', null);
+          } else {
+            budgetsQuery = budgetsQuery
+                .or('household_id.is.null,household_id.in.(${portfolioIds.join(',')})');
+          }
+          
+          final budgetsRes = await budgetsQuery;
 
           final rows = (budgetsRes as List?)?.cast<Map<String, dynamic>>() ?? [];
           for (final row in rows) {
@@ -409,8 +423,15 @@ class WidgetSyncManager extends HookConsumerWidget {
                     .eq('user_id', user.uid)
                     .eq('currency', currency)
                     .gte('date', monthStr)
-                    .lte('date', endDateStr)
-                    .isFilter('household_id', null);
+                    .lte('date', endDateStr);
+                
+                // Include personal (household_id null) and portfolio households
+                if (portfolioIds.isEmpty) {
+                  expenseQuery = expenseQuery.isFilter('household_id', null);
+                } else {
+                  expenseQuery = expenseQuery
+                      .or('household_id.is.null,household_id.in.(${portfolioIds.join(',')})');
+                }
 
                 final expensesRes = await expenseQuery;
                 scopeExpenses = (expensesRes as List?)

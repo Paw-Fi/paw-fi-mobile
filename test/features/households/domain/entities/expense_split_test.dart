@@ -368,7 +368,7 @@ void main() {
 
   group('SplitRequest - Model Creation', () {
     test('creates split request with required fields', () {
-      final request = SplitRequest(
+      const request = SplitRequest(
         expenseId: 'exp_1',
         householdId: 'hh_1',
         payerUserId: 'user_1',
@@ -389,7 +389,7 @@ void main() {
     });
 
     test('creates split request with description', () {
-      final request = SplitRequest(
+      const request = SplitRequest(
         expenseId: 'exp_1',
         householdId: 'hh_1',
         payerUserId: 'user_1',
@@ -435,7 +435,7 @@ void main() {
     });
 
     test('toJson serializes split request correctly', () {
-      final request = SplitRequest(
+      const request = SplitRequest(
         expenseId: 'exp_1',
         householdId: 'hh_1',
         payerUserId: 'user_1',
@@ -461,7 +461,7 @@ void main() {
 
   group('SplitLineRequest - Model Creation', () {
     test('creates split line request with amount', () {
-      final request = SplitLineRequest(
+      const request = SplitLineRequest(
         userId: 'user_1',
         amountCents: 5000,
       );
@@ -473,7 +473,7 @@ void main() {
     });
 
     test('creates split line request with percentage', () {
-      final request = SplitLineRequest(
+      const request = SplitLineRequest(
         userId: 'user_1',
         percentage: 50.0,
       );
@@ -483,7 +483,7 @@ void main() {
     });
 
     test('creates split line request with shares', () {
-      final request = SplitLineRequest(
+      const request = SplitLineRequest(
         userId: 'user_1',
         shares: 3,
       );
@@ -523,7 +523,7 @@ void main() {
     });
 
     test('toJson serializes split line request correctly', () {
-      final request = SplitLineRequest(
+      const request = SplitLineRequest(
         userId: 'user_1',
         amountCents: 5000,
         percentage: 50.0,
@@ -539,7 +539,7 @@ void main() {
     });
 
     test('toJson includes null values', () {
-      final request = SplitLineRequest(
+      const request = SplitLineRequest(
         userId: 'user_1',
         amountCents: 5000,
       );
@@ -573,7 +573,7 @@ void main() {
     });
 
     test('handles percentage split totaling 100%', () {
-      final request = SplitRequest(
+      const request = SplitRequest(
         expenseId: 'exp_1',
         householdId: 'hh_1',
         payerUserId: 'user_1',
@@ -594,7 +594,7 @@ void main() {
     });
 
     test('handles shares split with varying shares', () {
-      final request = SplitRequest(
+      const request = SplitRequest(
         expenseId: 'exp_1',
         householdId: 'hh_1',
         payerUserId: 'user_1',

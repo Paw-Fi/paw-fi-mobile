@@ -18,6 +18,7 @@ import 'package:moneko/features/households/presentation/widgets/household_home_c
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
@@ -59,6 +60,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   final TextEditingController _textController = TextEditingController();
 
   late final SpotlightTourController _fabTourController;
+  String? _lastHomeDebugSignature;
 
   @override
   void initState() {
@@ -75,10 +77,81 @@ class _HomePageState extends ConsumerState<HomePage> {
       if (currentCurrency == null) {
         await _initializeCurrencyFilter();
       }
-
       // Initialize date range filter from local storage
       await _initializeDateRangeFilter();
     });
+  }
+
+  void _maybeLogHomeDebugSnapshot({
+    required AnalyticsData analyticsData,
+    required HouseholdScope householdScope,
+    required Set<String> portfolioHouseholdIds,
+    required String? selectedCurrency,
+    required List<ExpenseEntry> personalExpensesAll,
+  }) {
+    final selected = ref.read(selectedHouseholdProvider);
+    final selectedHouseholdId =
+        selected.householdId ?? selected.household?.id ?? 'null';
+    final selectedHouseholdName = selected.household?.name ?? 'null';
+
+    final all = analyticsData.allExpenses;
+    int portfolioCount = 0;
+    int nonPortfolioHouseholdCount = 0;
+    int nullHouseholdCount = 0;
+    for (final e in all) {
+      final hid = e.householdId;
+      if (hid == null) {
+        nullHouseholdCount += 1;
+      } else if (portfolioHouseholdIds.contains(hid)) {
+        portfolioCount += 1;
+      } else {
+        nonPortfolioHouseholdCount += 1;
+      }
+    }
+
+    final signature = [
+      'vm=${householdScope.viewMode}',
+      'selected=$selectedHouseholdId',
+      'portfolios=${portfolioHouseholdIds.length}',
+      'cur=${selectedCurrency ?? "null"}',
+      'allExpenses=${all.length}',
+      'personalExpensesAll=${personalExpensesAll.length}',
+      'budgets=${analyticsData.allBudgets.length}',
+      'loading=${analyticsData.isLoading}',
+      'err=${analyticsData.error ?? "null"}',
+    ].join('|');
+
+    if (_lastHomeDebugSignature == signature) return;
+    _lastHomeDebugSignature = signature;
+
+    debugPrint('🧭 [HomePageDebug] ===== Snapshot =====');
+    debugPrint('🧭 [HomePageDebug] viewMode=${householdScope.viewMode}');
+    debugPrint(
+        '🧭 [HomePageDebug] selectedHouseholdId=$selectedHouseholdId name=$selectedHouseholdName');
+    debugPrint(
+        '🧭 [HomePageDebug] isPortfolioSelected=${householdScope.isPortfolioSelected}');
+    debugPrint(
+        '🧭 [HomePageDebug] isHouseholdView=${householdScope.isHouseholdView}');
+    debugPrint(
+        '🧭 [HomePageDebug] portfolioHouseholdIds(${portfolioHouseholdIds.length})=$portfolioHouseholdIds');
+    debugPrint(
+        '🧭 [HomePageDebug] selectedCurrency=${selectedCurrency ?? "null"}');
+    debugPrint(
+        '🧭 [HomePageDebug] analytics: isLoading=${analyticsData.isLoading} hasLoadedOnce=${analyticsData.hasLoadedOnce} error=${analyticsData.error ?? "null"}');
+    debugPrint(
+        '🧭 [HomePageDebug] analytics counts: allExpenses=${all.length} allBudgets=${analyticsData.allBudgets.length}');
+    debugPrint(
+        '🧭 [HomePageDebug] expense breakdown: householdId=null=$nullHouseholdCount portfolio=$portfolioCount nonPortfolioHousehold=$nonPortfolioHouseholdCount');
+    debugPrint(
+        '🧭 [HomePageDebug] derived personalExpensesAll=${personalExpensesAll.length}');
+
+    final sample = all.take(3).toList(growable: false);
+    for (var i = 0; i < sample.length; i++) {
+      final e = sample[i];
+      debugPrint(
+          '🧭 [HomePageDebug] sample[$i] id=${e.id} date=${e.date.toIso8601String()} cents=${e.amountCents} cur=${e.currency} type=${e.type} hid=${e.householdId} cat=${e.category}');
+    }
+    debugPrint('🧭 [HomePageDebug] ====================');
   }
 
   Future<void> _initializeCurrencyFilter() async {
@@ -243,6 +316,8 @@ class _HomePageState extends ConsumerState<HomePage> {
     final user = ref.read(authProvider);
     final contact = ref.read(analyticsProvider).contact;
     final householdId = _resolveHouseholdIdForAi();
+    final scope = ref.read(householdScopeProvider);
+    final isPortfolio = scope.isPortfolioSelected;
 
     // Show processing modal
     if (!mounted) return;
@@ -269,9 +344,12 @@ class _HomePageState extends ConsumerState<HomePage> {
 
       if (householdId != null && householdId.isNotEmpty) {
         body['householdId'] = householdId;
-        final memberContext = _buildHouseholdMemberContext(householdId);
-        if (memberContext.isNotEmpty) {
-          body['householdMembers'] = memberContext;
+        body['isPortfolio'] = isPortfolio;
+        if (!isPortfolio) {
+          final memberContext = _buildHouseholdMemberContext(householdId);
+          if (memberContext.isNotEmpty) {
+            body['householdMembers'] = memberContext;
+          }
         }
       }
 
@@ -422,6 +500,7 @@ class _HomePageState extends ConsumerState<HomePage> {
               _persistAiTransactions(
                 userId: user.uid,
                 householdId: householdId,
+                isPortfolio: isPortfolio,
                 transactions: parsed,
                 localImagePath: imagePath,
               ),
@@ -474,13 +553,14 @@ class _HomePageState extends ConsumerState<HomePage> {
   String? _resolveHouseholdIdForAi() {
     final viewMode = ref.read(viewModeProvider);
     if (viewMode.mode != ViewMode.household) return null;
-    final selected = ref.read(selectedHouseholdProvider);
-    return selected.householdId ?? selected.household?.id;
+    final scope = ref.read(householdScopeProvider);
+    return scope.selectedHouseholdId;
   }
 
   Future<void> _persistAiTransactions({
     required String userId,
     required String? householdId,
+    required bool isPortfolio,
     required List<({ParsedExpense transaction, String optimisticId, Map<String, dynamic> raw})>
         transactions,
     String? localImagePath,
@@ -557,6 +637,8 @@ class _HomePageState extends ConsumerState<HomePage> {
             if (receiptUrl != null) 'receiptImageUrl': receiptUrl,
             if (householdId != null && householdId.isNotEmpty)
               'householdId': householdId,
+            if (householdId != null && householdId.isNotEmpty)
+              'isPortfolio': isPortfolio,
             if (householdId != null &&
                 householdId.isNotEmpty &&
                 payerUserId != null)
@@ -641,17 +723,31 @@ class _HomePageState extends ConsumerState<HomePage> {
     final analyticsData = ref.watch(analyticsProvider);
     final filterState = ref.watch(homeFilterProvider);
     final user = ref.watch(authProvider);
-    final viewMode = ref.watch(viewModeProvider);
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
+    final householdScope = ref.watch(householdScopeProvider);
+    final portfolioHouseholdIds = householdScope.portfolioHouseholdIds;
 
     // Global currency remains shared; date ranges move to per-card filters
     final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
 
-    // Base personal transactions filtered by currency globally
-    // This ensures ALL widgets receive currency-filtered data
+    // Base transactions filtered by currency and ACTIVE account selection.
+    // Active account is chosen via HomeHeaderSliver:
+    // - Personal account: household_id == null
+    // - Portfolio account: household_id == selected portfolio household id
+    // Household-group mode uses a separate UI path (HouseholdHomeContent).
     final personalExpensesAll = analyticsData.allExpenses.where((e) {
-      // Filter by personal (non-household) transactions
-      if (e.householdId != null) return false;
+      final hid = e.householdId;
+      final activeOk = switch (householdScope.activeAccountType) {
+        ActiveAccountType.personal => hid == null || hid.isEmpty,
+        ActiveAccountType.portfolio =>
+          householdScope.activeAccountHouseholdId != null &&
+              hid == householdScope.activeAccountHouseholdId,
+        ActiveAccountType.household =>
+          householdScope.selectedHouseholdId != null &&
+              hid == householdScope.selectedHouseholdId,
+      };
+      if (!activeOk) return false;
+
       // Filter by selected currency (if set)
       if (selectedCurrency != null && selectedCurrency.isNotEmpty) {
         final expenseCurrency = (e.currency ?? '').toUpperCase();
@@ -661,6 +757,14 @@ class _HomePageState extends ConsumerState<HomePage> {
       }
       return true;
     }).toList();
+
+    _maybeLogHomeDebugSnapshot(
+      analyticsData: analyticsData,
+      householdScope: householdScope,
+      portfolioHouseholdIds: portfolioHouseholdIds,
+      selectedCurrency: selectedCurrency,
+      personalExpensesAll: personalExpensesAll,
+    );
 
     // Net cashflow card: its own per-card filter (still uses allExpenses for previous-period math)
     final netFilterState =
@@ -685,7 +789,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     final isInitialAnalyticsLoading =
         analyticsData.isLoading && !(analyticsData.hasLoadedOnce ?? false);
 
-    final shouldShowFab = _shouldShowFAB(viewMode, householdsAsync);
+    final shouldShowFab = _shouldShowFAB(householdScope, householdsAsync);
 
     if (shouldShowFab && !user.isEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -697,7 +801,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     final scrollView = CustomScrollView(
       slivers: [
         const SliverToBoxAdapter(child: SizedBox(height: 16)),
-        if (viewMode.mode == ViewMode.household) ...[
+        if (householdScope.isHouseholdView) ...[
           const HouseholdHomeContent(),
           const SliverToBoxAdapter(child: EditDashboardButton()),
           const SliverToBoxAdapter(child: SizedBox(height: 24)),
@@ -909,7 +1013,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       ],
     );
 
-    final scrollContent = viewMode.mode == ViewMode.personal
+    final scrollContent = householdScope.isPersonalView
         ? Skeletonizer(
             enabled: isInitialAnalyticsLoading,
             effect: ShimmerEffect(
@@ -929,7 +1033,7 @@ class _HomePageState extends ConsumerState<HomePage> {
               if (user.uid.isEmpty) return;
 
               // Refresh based on current view mode
-              if (viewMode.mode == ViewMode.household) {
+              if (householdScope.isHouseholdView) {
                 // In household mode: invalidate ALL household-related providers
                 debugPrint('🔄 Pull-to-refresh: Refreshing household data');
                 ref.read(cacheInvalidatorProvider).invalidateAll();
@@ -958,7 +1062,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           ),
         ],
       ),
-      floatingActionButton: _shouldShowFAB(viewMode, householdsAsync)
+      floatingActionButton: _shouldShowFAB(householdScope, householdsAsync)
           ? SpotlightTarget(
               controller: _fabTourController,
               id: 'home_unified_fab',
@@ -979,13 +1083,15 @@ class _HomePageState extends ConsumerState<HomePage> {
   /// Determine if FAB should be shown
   /// Hide FAB when in household mode with no households (showing onboarding)
   bool _shouldShowFAB(
-      ViewModeState viewMode, AsyncValue<List<Household>> householdsAsync) {
-    // Always show FAB in personal mode
-    if (viewMode.mode == ViewMode.personal) {
+    HouseholdScope scope,
+    AsyncValue<List<Household>> householdsAsync,
+  ) {
+    // Always show FAB in personal mode (includes portfolios).
+    if (scope.isPersonalView) {
       return true;
     }
 
-    // In household mode, hide FAB if households are empty (showing onboarding)
+    // In household mode, hide FAB if households are empty (showing onboarding).
     return householdsAsync.maybeWhen(
       data: (households) => households.isNotEmpty,
       orElse: () => true, // Show FAB during loading or error states

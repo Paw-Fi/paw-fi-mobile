@@ -62,7 +62,7 @@ void main() {
     );
     addTearDown(container.dispose);
 
-    final params = HouseholdExpensesParams(householdId: 'h1');
+    const params = HouseholdExpensesParams(householdId: 'h1');
     final future1 =
         container.read(cachedHouseholdExpensesProvider(params).future);
 
@@ -104,7 +104,7 @@ void main() {
     );
     addTearDown(container.dispose);
 
-    final params = HouseholdSplitsParams(householdId: 'h1');
+    const params = HouseholdSplitsParams(householdId: 'h1');
     final future1 =
         container.read(cachedHouseholdSplitsProvider(params).future);
 

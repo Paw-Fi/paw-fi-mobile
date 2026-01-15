@@ -21,6 +21,7 @@ import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 
@@ -41,11 +42,8 @@ class _AiParsedItem {
 }
 
 String? _resolveHouseholdIdForAi(WidgetRef ref) {
-  final viewMode = ref.read(viewModeProvider);
-  if (viewMode.mode != ViewMode.household) return null;
-
-  final selected = ref.read(selectedHouseholdProvider);
-  return selected.householdId ?? selected.household?.id;
+  final scope = ref.read(householdScopeProvider);
+  return scope.activeAccountHouseholdId;
 }
 
 String _resolveLogTargetLabel(BuildContext context, WidgetRef ref) {
@@ -118,6 +116,7 @@ Future<void> _persistAiTransactions(
   WidgetRef ref, {
   required String userId,
   required String? householdId,
+  required bool isPortfolio,
   required List<_AiParsedItem> transactions,
   String? localImagePath,
 }) async {
@@ -196,6 +195,8 @@ Future<void> _persistAiTransactions(
           if (receiptUrl != null) 'receiptImageUrl': receiptUrl,
           if (householdId != null && householdId.isNotEmpty)
             'householdId': householdId,
+          if (householdId != null && householdId.isNotEmpty)
+            'isPortfolio': isPortfolio,
           if (householdId != null &&
               householdId.isNotEmpty &&
               payerUserId != null)
@@ -420,6 +421,8 @@ Future<void> _processExpense(
   final user = ref.read(authProvider);
   final contact = ref.read(analyticsProvider).contact;
   final householdId = _resolveHouseholdIdForAi(ref);
+  final scope = ref.read(householdScopeProvider);
+  final isPortfolio = scope.activeAccountType == ActiveAccountType.portfolio;
 
   // Show processing modal
   showBlockingProcessingDialog(
@@ -444,9 +447,12 @@ Future<void> _processExpense(
 
     if (householdId != null && householdId.isNotEmpty) {
       body['householdId'] = householdId;
-      final memberContext = _buildHouseholdMemberContext(ref, householdId);
-      if (memberContext.isNotEmpty) {
-        body['householdMembers'] = memberContext;
+      body['isPortfolio'] = isPortfolio;
+      if (!isPortfolio) {
+        final memberContext = _buildHouseholdMemberContext(ref, householdId);
+        if (memberContext.isNotEmpty) {
+          body['householdMembers'] = memberContext;
+        }
       }
     }
 
@@ -611,6 +617,7 @@ Future<void> _processExpense(
               ref,
               userId: user.uid,
               householdId: householdId,
+              isPortfolio: isPortfolio,
               transactions: parsed,
               localImagePath: imagePath,
             ),

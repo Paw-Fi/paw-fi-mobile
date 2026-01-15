@@ -13,7 +13,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
-import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/insights/presentation/widgets/insights_ui.dart';
 import 'package:moneko/features/insights/presentation/widgets/scenario_result_sheet.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
@@ -339,11 +339,13 @@ class _ScenarioPlanningTabContentState
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider);
     final colorScheme = Theme.of(context).colorScheme;
-    final viewMode = ref.watch(viewModeProvider);
-    final selectedHousehold = ref.watch(selectedHouseholdProvider);
-    final bool isHousehold = viewMode.mode == ViewMode.household;
-    final String? householdId =
-        isHousehold ? selectedHousehold.householdId : null;
+    // Use householdScopeProvider to properly handle portfolio households
+    final householdScope = ref.watch(householdScopeProvider);
+    final activeHouseholdId = householdScope.activeAccountHouseholdId;
+    final bool isHousehold =
+        householdScope.activeAccountType != ActiveAccountType.personal &&
+            activeHouseholdId != null;
+    final String? householdId = isHousehold ? activeHouseholdId : null;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -586,6 +588,11 @@ class _ScenarioPlanningTabContentState
                                         ..headers.addAll(headers)
                                         ..body = jsonEncode(payload);
 
+                                      final navigator =
+                                          Navigator.of(context, rootNavigator: true);
+                                      final noAnalysisAvailableMsg =
+                                          context.l10n.noAnalysisAvailable;
+
                                       final streamedResponse =
                                           await http.Client().send(request);
 
@@ -610,9 +617,6 @@ class _ScenarioPlanningTabContentState
                                       bool done = false;
                                       bool gotMeta = false;
 
-                                      // Capture l10n before async operation
-                                      final noAnalysisAvailableMsg = context.l10n.noAnalysisAvailable;
-
                                       await for (final line in lineStream) {
                                         if (line.trim().isEmpty) continue;
                                         final obj = jsonDecode(line)
@@ -633,15 +637,12 @@ class _ScenarioPlanningTabContentState
                                             adviceNotifier.value =
                                                 '${adviceNotifier.value}$chunkText';
 
-                                            if (gotMeta &&
-                                                !sheetOpened &&
-                                                context.mounted) {
+                                            if (gotMeta && !sheetOpened) {
+                                              if (!context.mounted) return;
                                               // Close loading modal and show
                                               // the result sheet that listens
                                               // to live updates.
-                                              Navigator.of(context,
-                                                      rootNavigator: true)
-                                                  .pop();
+                                              navigator.pop();
 
                                               setState(() {
                                                 _scenarioLoading = false;

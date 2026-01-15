@@ -13,11 +13,11 @@ import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
-import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/home/presentation/widgets/category_picker_bottom_sheet.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/income/presentation/providers/income_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
@@ -158,8 +158,8 @@ class _MultiTransactionReviewSheetState
 
     _drafts = widget.transactions.map((t) => _TransactionDraft(value: t)).toList();
 
-    final viewMode = ref.read(viewModeProvider);
-    _shareWithHousehold = viewMode.mode == ViewMode.household;
+    final scope = ref.read(householdScopeProvider);
+    _shareWithHousehold = scope.isHouseholdView;
 
     final selectedState = ref.read(selectedHouseholdProvider);
     _selectedHouseholdId =

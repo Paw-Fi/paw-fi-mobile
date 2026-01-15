@@ -23,7 +23,7 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:moneko/features/households/presentation/pages/household_create_page.dart';
+import 'package:moneko/features/households/presentation/pages/create_space_page.dart';
 import 'package:moneko/features/households/presentation/pages/household_settings_page.dart';
 import 'package:moneko/features/profile/presentation/pages/settings_page.dart';
 
@@ -158,7 +158,9 @@ class HomeHeaderSliver extends ConsumerWidget {
     final personalLabel = _truncateMenuLabel(
       (user.displayName?.trim().isNotEmpty == true)
           ? user.displayName!
-          : (user.email.contains('@') ? user.email.split('@').first : user.email),
+          : (user.email.contains('@')
+              ? user.email.split('@').first
+              : user.email),
     );
 
     final profilePillLabel = _truncateMenuLabel(
@@ -237,8 +239,13 @@ class HomeHeaderSliver extends ConsumerWidget {
               .map(
                 (household) => AdaptivePopupMenuItem(
                   label: _truncateMenuLabel(household.name),
-                  icon:
-                      PlatformInfo.isIOS26OrHigher() ? 'person.2.fill' : Icons.group,
+                  icon: household.isPortfolio
+                      ? (PlatformInfo.isIOS26OrHigher()
+                          ? 'person.crop.circle.fill'
+                          : Icons.person)
+                      : (PlatformInfo.isIOS26OrHigher()
+                          ? 'person.2.fill'
+                          : Icons.group),
                   value: 'household:${household.id}',
                 ),
               )
@@ -247,9 +254,9 @@ class HomeHeaderSliver extends ConsumerWidget {
           error: (_, __) => <AdaptivePopupMenuItem>[],
         ),
         AdaptivePopupMenuItem(
-          label: context.l10n.createHousehold,
+          label: "Create Space", // TODO: Localize
           icon: PlatformInfo.isIOS26OrHigher() ? 'plus' : Icons.add,
-          value: 'create_household',
+          value: 'create_space',
         ),
       ],
       onSelected: (index, item) async {
@@ -263,16 +270,17 @@ class HomeHeaderSliver extends ConsumerWidget {
           return;
         }
 
-        if (item.value == 'create_household') {
+        if (item.value == 'create_space') {
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) => const HouseholdCreatePage(),
+              builder: (_) => const CreateSpacePage(),
             ),
           );
           return;
         }
 
-        if (item.value is String && (item.value as String).startsWith('household:')) {
+        if (item.value is String &&
+            (item.value as String).startsWith('household:')) {
           final householdId = (item.value as String).split(':').last;
           await ref
               .read(selectedHouseholdProvider.notifier)

@@ -5,6 +5,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/core/navigation/navigation_providers.dart';
+import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import '../widgets/tabs/tabs.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/moneko_tab_bar_view.dart';
@@ -46,6 +47,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
     final colorScheme = Theme.of(context).colorScheme;
     final analyticsData = ref.watch(analyticsProvider);
     final filterState = ref.watch(homeFilterProvider);
+    final householdScope = ref.watch(householdScopeProvider);
     final currentTabIndex = ref.watch(mainShellTabIndexProvider);
     final currentInsightsTabIndex = ref.watch(insightsTabIndexProvider);
 
@@ -68,9 +70,10 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
           width: double.infinity,
           child: MonekoTabBarView(
             tabs: [
-              // Scenario first, then Running
               context.l10n.scenarioTab,
               context.l10n.runningTab,
+              context.l10n.day30Tab,
+              context.l10n.longTermTab,
             ],
             children: [
               _buildScenarioPlanningTabWithProvider(
@@ -83,6 +86,21 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
                 context,
                 colorScheme,
                 analyticsData,
+                householdScope: householdScope,
+                selectedCurrency: filterState.selectedCurrency,
+              ),
+              build30DayLookAheadTab(
+                context,
+                colorScheme,
+                analyticsData,
+                householdScope: householdScope,
+                selectedCurrency: filterState.selectedCurrency,
+              ),
+              buildLongTermProjectionTab(
+                context,
+                colorScheme,
+                analyticsData,
+                householdScope: householdScope,
                 selectedCurrency: filterState.selectedCurrency,
               ),
             ],

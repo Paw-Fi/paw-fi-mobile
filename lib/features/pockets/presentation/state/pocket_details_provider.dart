@@ -104,12 +104,24 @@ final pocketDetailsProvider =
       .lt('date', monthEnd.toIso8601String())
       .inFilter('category', categories);
 
-  if (params.scopeParams.scope == PocketsScopeType.household &&
-      params.scopeParams.householdId != null) {
-    query = query.eq('household_id', params.scopeParams.householdId!);
-  } else {
-    query = query.eq('user_id', authUser.uid).isFilter('household_id', null);
+  final scopeType = params.scopeParams.scope;
+  final householdId = params.scopeParams.householdId;
+  if (scopeType != PocketsScopeType.personal && householdId == null) {
+    return PocketDetailsData(
+      transactions: [],
+      categorySpending: [],
+      dailySpending: [],
+      totalSpentLastMonth: 0,
+      projectedSpend: 0,
+      dailyAverage: 0,
+    );
   }
+
+  query = switch (scopeType) {
+    PocketsScopeType.personal => query.eq('user_id', authUser.uid).isFilter('household_id', null),
+    PocketsScopeType.portfolio => query.eq('user_id', authUser.uid).eq('household_id', householdId!),
+    PocketsScopeType.household => query.eq('household_id', householdId!),
+  };
 
   final res = await query.order('date', ascending: false);
   final transactions = (res as List?)?.cast<Map<String, dynamic>>() ?? [];
@@ -123,12 +135,11 @@ final pocketDetailsProvider =
       .lt('date', prevMonthEnd.toIso8601String())
       .inFilter('category', categories);
 
-  if (params.scopeParams.scope == PocketsScopeType.household &&
-      params.scopeParams.householdId != null) {
-    prevQuery = prevQuery.eq('household_id', params.scopeParams.householdId!);
-  } else {
-    prevQuery = prevQuery.eq('user_id', authUser.uid).isFilter('household_id', null);
-  }
+  prevQuery = switch (scopeType) {
+    PocketsScopeType.personal => prevQuery.eq('user_id', authUser.uid).isFilter('household_id', null),
+    PocketsScopeType.portfolio => prevQuery.eq('user_id', authUser.uid).eq('household_id', householdId!),
+    PocketsScopeType.household => prevQuery.eq('household_id', householdId!),
+  };
 
   final prevRes = await prevQuery;
   final prevTransactions =

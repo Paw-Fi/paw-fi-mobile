@@ -291,13 +291,7 @@ class AppInitializationV2 extends _$AppInitializationV2 {
       
       // Record metrics
       _recordSuccessMetrics(stopwatch.elapsed, initData);
-      
-      debugPrint('📊 [InitV2] Loading analytics data...');
-      final analyticsStopwatch = Stopwatch()..start();
-      await ref.read(analyticsProvider.notifier).loadData(userId);
-      analyticsStopwatch.stop();
-      debugPrint('✅ [InitV2] Analytics loaded in ${analyticsStopwatch.elapsedMilliseconds}ms');
-      
+
       debugPrint('🏠 [InitV2] Loading households and initializing selected household...');
       await ref.read(userHouseholdsProvider(userId).notifier).load();
       final householdsState = ref.read(userHouseholdsProvider(userId));
@@ -311,6 +305,12 @@ class AppInitializationV2 extends _$AppInitializationV2 {
           .read(selectedHouseholdProvider.notifier)
           .initialize(preloadedHouseholds: households);
       debugPrint('✅ [InitV2] Selected household initialized during app init');
+
+      debugPrint('📊 [InitV2] Loading analytics data...');
+      final analyticsStopwatch = Stopwatch()..start();
+      await ref.read(analyticsProvider.notifier).loadData(userId);
+      analyticsStopwatch.stop();
+      debugPrint('✅ [InitV2] Analytics loaded in ${analyticsStopwatch.elapsedMilliseconds}ms');
       
     } on TimeoutException {
       stopwatch.stop();

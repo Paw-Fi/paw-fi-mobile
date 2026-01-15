@@ -2,8 +2,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
-import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
-import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 
 /// Local filter state for home page only
 /// This doesn't affect the analytics provider data
@@ -133,8 +132,8 @@ Map<String, DateTime> getDateRangeFromFilter(
 final homeFilteredExpensesProvider = Provider<List<ExpenseEntry>>((ref) {
   final analyticsData = ref.watch(analyticsProvider);
   final filterState = ref.watch(homeFilterProvider);
-  final viewMode = ref.watch(viewModeProvider);
-  final selectedHouseholdId = ref.watch(selectedHouseholdProvider).householdId;
+  final scope = ref.watch(householdScopeProvider);
+  final selectedHouseholdId = scope.selectedHouseholdId;
 
   // Get all expenses from provider
   final allExpenses = analyticsData.allExpenses;
@@ -163,15 +162,17 @@ final homeFilteredExpensesProvider = Provider<List<ExpenseEntry>>((ref) {
         final currencyOk = selectedCurrency == null ||
             (expense.currency?.toUpperCase() == selectedCurrency);
 
-        // View mode check - filter by household
-        final viewModeOk = viewMode.mode == ViewMode.personal
-            ? expense.householdId ==
-                null // Personal mode: only expenses without household_id
-            : (selectedHouseholdId != null &&
-                expense.householdId ==
-                    selectedHouseholdId); // Household mode: only expenses for selected household
+        final activeOk = switch (scope.activeAccountType) {
+          ActiveAccountType.personal =>
+            expense.householdId == null || (expense.householdId?.isEmpty ?? false),
+          ActiveAccountType.portfolio =>
+            scope.activeAccountHouseholdId != null &&
+                expense.householdId == scope.activeAccountHouseholdId,
+          ActiveAccountType.household =>
+            selectedHouseholdId != null && expense.householdId == selectedHouseholdId,
+        };
 
-        return dateOk && currencyOk && viewModeOk;
+        return dateOk && currencyOk && activeOk;
       })
       // Treat incomes separately; filteredExpenses represents spending only for UI cards
       .where((e) => (e.type ?? 'expense').toLowerCase() != 'income')
@@ -183,8 +184,8 @@ final homeFilteredExpensesProvider = Provider<List<ExpenseEntry>>((ref) {
 final homeFilteredTransactionsProvider = Provider<List<ExpenseEntry>>((ref) {
   final analyticsData = ref.watch(analyticsProvider);
   final filterState = ref.watch(homeFilterProvider);
-  final viewMode = ref.watch(viewModeProvider);
-  final selectedHouseholdId = ref.watch(selectedHouseholdProvider).householdId;
+  final scope = ref.watch(householdScopeProvider);
+  final selectedHouseholdId = scope.selectedHouseholdId;
 
   final all = analyticsData.allExpenses;
 
@@ -202,11 +203,16 @@ final homeFilteredTransactionsProvider = Provider<List<ExpenseEntry>>((ref) {
     final dateOk = !d.isBefore(from) && !d.isAfter(to);
     final currencyOk = selectedCurrency == null ||
         (tx.currency?.toUpperCase() == selectedCurrency);
-    final viewModeOk = viewMode.mode == ViewMode.personal
-        ? tx.householdId == null
-        : (selectedHouseholdId != null &&
-            tx.householdId == selectedHouseholdId);
-    return dateOk && currencyOk && viewModeOk;
+    final activeOk = switch (scope.activeAccountType) {
+      ActiveAccountType.personal =>
+        tx.householdId == null || (tx.householdId?.isEmpty ?? false),
+      ActiveAccountType.portfolio =>
+        scope.activeAccountHouseholdId != null &&
+            tx.householdId == scope.activeAccountHouseholdId,
+      ActiveAccountType.household =>
+        selectedHouseholdId != null && tx.householdId == selectedHouseholdId,
+    };
+    return dateOk && currencyOk && activeOk;
   }).toList();
 });
 
@@ -304,6 +310,7 @@ final availableCurrenciesProvider = Provider<List<String>>((ref) {
 final currencySummariesProvider = Provider<List<CurrencySummary>>((ref) {
   final data = ref.watch(analyticsProvider);
   final filter = ref.watch(homeFilterProvider);
+  final scope = ref.watch(householdScopeProvider);
   final range = getDateRangeFromFilter(
     filter.dateRangeFilter,
     filter.customStartDate,
@@ -312,49 +319,80 @@ final currencySummariesProvider = Provider<List<CurrencySummary>>((ref) {
   final from = range['from']!;
   final to = range['to']!;
 
+  String? _normalizeHouseholdId(String? raw) {
+    if (raw == null) return null;
+    final trimmed = raw.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+
+  bool matchesScope(String? householdId) {
+    final normalizedId = _normalizeHouseholdId(householdId);
+    switch (scope.activeAccountType) {
+      case ActiveAccountType.personal:
+        // Personal view should only include personal (non-household) entries.
+        return normalizedId == null;
+      case ActiveAccountType.household:
+      case ActiveAccountType.portfolio:
+        final targetId = scope.activeAccountHouseholdId;
+        if (targetId == null || targetId.isEmpty) return false;
+        return normalizedId == targetId;
+    }
+  }
+
   final byCurExpenses = <String, double>{};
   final byCurIncome = <String, double>{};
   final byCurBudgets = <String, double>{};
   final byCurCount = <String, int>{};
 
-  // Group transactions by currency (split expenses vs income)
   for (final e in data.allExpenses) {
-    final c = (e.currency ?? '').toUpperCase();
-    if (c.isEmpty) continue;
-    final d = DateTime(e.date.year, e.date.month, e.date.day);
-    if (d.isBefore(from) || d.isAfter(to)) continue;
-    final t = (e.type ?? 'expense').toLowerCase();
-    if (t == 'income') {
-      byCurIncome[c] = (byCurIncome[c] ?? 0) + e.amount.abs();
+    if (!matchesScope(e.householdId)) continue;
+    final currencyCode = (e.currency ?? '').toUpperCase();
+    if (currencyCode.isEmpty) continue;
+
+    final transactionDay = DateTime(e.date.year, e.date.month, e.date.day);
+    if (transactionDay.isBefore(from) || transactionDay.isAfter(to)) continue;
+
+    final type = (e.type ?? 'expense').toLowerCase();
+    if (type == 'income') {
+      byCurIncome[currencyCode] =
+          (byCurIncome[currencyCode] ?? 0) + e.amount.abs();
     } else {
-      byCurExpenses[c] = (byCurExpenses[c] ?? 0) + e.amount.abs();
+      byCurExpenses[currencyCode] =
+          (byCurExpenses[currencyCode] ?? 0) + e.amount.abs();
     }
-    byCurCount[c] = (byCurCount[c] ?? 0) + 1;
+    byCurCount[currencyCode] = (byCurCount[currencyCode] ?? 0) + 1;
   }
 
-  // Group budgets by currency
-  for (final b in data.allBudgets) {
-    final c = (b.currency ?? '').toUpperCase();
-    if (c.isEmpty) continue;
-    final d = DateTime(b.date.year, b.date.month, b.date.day);
-    if (d.isBefore(from) || d.isAfter(to)) continue;
-    byCurBudgets[c] = (byCurBudgets[c] ?? 0) + b.amount;
+  final shouldIncludeBudgets =
+      scope.activeAccountType == ActiveAccountType.personal;
+  if (shouldIncludeBudgets) {
+    for (final b in data.allBudgets) {
+      final currencyCode = (b.currency ?? '').toUpperCase();
+      if (currencyCode.isEmpty) continue;
+
+      final budgetDay = DateTime(b.date.year, b.date.month, b.date.day);
+      if (budgetDay.isBefore(from) || budgetDay.isAfter(to)) continue;
+      byCurBudgets[currencyCode] =
+          (byCurBudgets[currencyCode] ?? 0) + b.amount;
+    }
   }
 
-  // Create summaries
   final codes = {
     ...byCurExpenses.keys,
     ...byCurBudgets.keys,
-    ...byCurIncome.keys
+    ...byCurIncome.keys,
   }.toList()
     ..sort();
+
   return codes
-      .map((code) => CurrencySummary(
-            currencyCode: code,
-            totalExpenses: byCurExpenses[code] ?? 0,
-            totalIncome: byCurIncome[code] ?? 0,
-            totalBudget: byCurBudgets[code] ?? 0,
-            transactionCount: byCurCount[code] ?? 0,
-          ))
+      .map(
+        (code) => CurrencySummary(
+          currencyCode: code,
+          totalExpenses: byCurExpenses[code] ?? 0,
+          totalIncome: byCurIncome[code] ?? 0,
+          totalBudget: byCurBudgets[code] ?? 0,
+          transactionCount: byCurCount[code] ?? 0,
+        ),
+      )
       .toList();
 });

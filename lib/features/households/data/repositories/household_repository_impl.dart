@@ -29,12 +29,14 @@ class HouseholdRepositoryImpl implements HouseholdRepository {
     required String currency,
     String? coverImageUrl,
     String? themeColor,
+    bool isPortfolio = false,
   }) async {
     final data = await _service.createHousehold(
       name: name,
       currency: currency,
       coverImageUrl: coverImageUrl,
       themeColor: themeColor,
+      isPortfolio: isPortfolio,
     );
     return Household.fromJson(data);
   }
@@ -247,22 +249,19 @@ class HouseholdRepositoryImpl implements HouseholdRepository {
 
   @override
   Stream<List<HouseholdMember>>? watchHouseholdMembers(String householdId) {
-    return _service
-        .watchHouseholdMembers(householdId)
-        .map((data) => data.map((json) => HouseholdMember.fromJson(json)).toList());
+    return _service.watchHouseholdMembers(householdId).map(
+        (data) => data.map((json) => HouseholdMember.fromJson(json)).toList());
   }
 
   @override
   Stream<List<HouseholdInvite>>? watchHouseholdInvites(String householdId) {
-    return _service
-        .watchHouseholdInvites(householdId)
-        .map((data) => data.map((json) => HouseholdInvite.fromJson(json)).toList());
+    return _service.watchHouseholdInvites(householdId).map(
+        (data) => data.map((json) => HouseholdInvite.fromJson(json)).toList());
   }
 
   @override
   Stream<List<SharedBudget>>? watchHouseholdBudgets(String householdId) {
-    return _service
-        .watchHouseholdBudgets(householdId)
-        .map((data) => data.map((json) => SharedBudget.fromJson(json)).toList());
+    return _service.watchHouseholdBudgets(householdId).map(
+        (data) => data.map((json) => SharedBudget.fromJson(json)).toList());
   }
 }

@@ -6,6 +6,7 @@ import 'package:moneko/features/home/presentation/state/currency_transaction_cou
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart'
     show SplitType, MemberSplit;
+import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:intl/intl.dart';
 
@@ -125,13 +126,25 @@ class RecurringTransactionsNotifier
           .eq('is_recurring', true);
 
       // Scope by household when in household mode; otherwise restrict to
-      // the current user's personal recurring items. The non-null assertion
-      // is safe because we only enter the first branch when householdId != null.
-      final scopedQuery = householdId != null
-          ? baseQuery.eq('household_id', householdId!)
-          : baseQuery
+      // the current user's personal recurring items (including portfolio households).
+      // Portfolio households have is_portfolio=true and should be treated as personal.
+      // The non-null assertion is safe because we only enter the first branch when householdId != null.
+      dynamic scopedQuery;
+      if (householdId != null) {
+        final householdScope = ref.read(householdScopeProvider);
+        if (householdScope.isPortfolioId(householdId)) {
+          // Portfolio account: scoped to the selected portfolio household + current user.
+          scopedQuery = baseQuery
               .eq('user_id', userId)
-              .isFilter('household_id', null);
+              .eq('household_id', householdId!);
+        } else {
+          // Household-group account: scoped to the selected household.
+          scopedQuery = baseQuery.eq('household_id', householdId!);
+        }
+      } else {
+        // Personal account: household_id is null.
+        scopedQuery = baseQuery.eq('user_id', userId).isFilter('household_id', null);
+      }
 
       final rows = await scopedQuery
           .order('date', ascending: false)
@@ -478,9 +491,15 @@ class RecurringTransactionSaveNotifier
       };
 
       if (householdId != null) {
+        final isPortfolio =
+            ref.read(householdScopeProvider).isPortfolioId(householdId);
         requestBody['householdId'] = householdId;
+        requestBody['isPortfolio'] = isPortfolio;
 
-        if (customSplitType != null && customSplits != null && customSplits.isNotEmpty) {
+        if (!isPortfolio &&
+            customSplitType != null &&
+            customSplits != null &&
+            customSplits.isNotEmpty) {
           final splitTypeStr = customSplitType.toString().split('.').last;
 
           requestBody['customSplits'] = {
@@ -508,7 +527,7 @@ class RecurringTransactionSaveNotifier
           };
         }
 
-        if (payerUserId != null && payerUserId.isNotEmpty) {
+        if (!isPortfolio && payerUserId != null && payerUserId.isNotEmpty) {
           requestBody['payerUserId'] = payerUserId;
         }
       }

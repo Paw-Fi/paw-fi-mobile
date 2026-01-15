@@ -99,7 +99,7 @@ Rect? _resolveShareOrigin(BuildContext context) {
 Future<List<int>?> _buildExcel(List<ExpenseEntry> expenses) async {
   final excel = Excel.createExcel();
 
-  // Renaissance default sheet to 'Transactions'
+  // Rename default sheet to 'Transactions'
   final defaultSheet = excel.getDefaultSheet();
   if (defaultSheet != null) {
     excel.rename(defaultSheet, 'Transactions');
@@ -107,30 +107,37 @@ Future<List<int>?> _buildExcel(List<ExpenseEntry> expenses) async {
 
   final Sheet sheet = excel['Transactions'];
 
-  // Add Headers
+  // Add Headers (Removed ID and Currency)
   final headers = [
     'Date',
     'Account / User',
     'Description (Payee)',
     'Category',
     'Amount',
-    'Currency',
     'Type',
     'Notes',
-    'ID',
   ];
 
-  // Adding header row
-  // cellStyle is optional
   sheet.appendRow(headers.map((h) => TextCellValue(h)).toList());
 
-  // Make header bold if possible - Excel package support for styles is limited/version dependent
-  // We'll skip complex styling to avoid breaking changes, content is key.
-
   final dateFormat = DateFormat('yyyy-MM-dd');
+  final categoryMap = <String, double>{};
+
+  double totalIncome = 0.0;
+  double totalExpense = 0.0;
+  DateTime? minDate;
+  DateTime? maxDate;
 
   for (final expense in expenses) {
     final date = dateFormat.format(expense.date);
+
+    // Track date range
+    if (minDate == null || expense.date.isBefore(minDate)) {
+      minDate = expense.date;
+    }
+    if (maxDate == null || expense.date.isAfter(maxDate)) {
+      maxDate = expense.date;
+    }
 
     // Determine Account/User info
     String accountInfo = 'Personal';
@@ -143,14 +150,24 @@ Future<List<int>?> _buildExcel(List<ExpenseEntry> expenses) async {
 
     final description = expense.rawText ?? '';
     final category = expense.category ?? 'Uncategorized';
+    final amountVal =
+        expense.amount; // Should we strictly use absolute for math?
+    // Usually expense amount is positive in DB but typed as 'expense'.
+    // We'll trust the Type field for classification.
 
-    // Amount formatting - ensure it's a number for Excel
-    final double amountVal = expense.amount;
-
-    final currency = expense.currency ?? 'USD';
     final type = expense.type ?? 'expense';
 
-    // Notes - we don't have a separate notes field, leaving empty or using extra data
+    // Calculation Logic
+    final isIncome = type.toLowerCase() == 'income';
+    if (isIncome) {
+      totalIncome += amountVal;
+    } else {
+      totalExpense += amountVal;
+      // Track category for expenses only
+      final currentCatTotal = categoryMap[category] ?? 0.0;
+      categoryMap[category] = currentCatTotal + amountVal;
+    }
+
     const notes = '';
 
     final row = [
@@ -159,14 +176,83 @@ Future<List<int>?> _buildExcel(List<ExpenseEntry> expenses) async {
       TextCellValue(description),
       TextCellValue(category),
       DoubleCellValue(amountVal),
-      TextCellValue(currency),
       TextCellValue(type),
       TextCellValue(notes),
-      TextCellValue(expense.id),
     ];
 
     sheet.appendRow(row);
   }
+
+  // --- Summary Calculation ---
+
+  // Top Category
+  String topCategory = '-';
+  double topCategoryAmount = 0.0;
+  if (categoryMap.isNotEmpty) {
+    final sortedEntries = categoryMap.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    if (sortedEntries.isNotEmpty) {
+      topCategory = sortedEntries.first.key;
+      topCategoryAmount = sortedEntries.first.value;
+    }
+  }
+
+  // Net Cash Flow
+  final netCashFlow = totalIncome - totalExpense;
+
+  // Savings Rate
+  double savingsRate = 0.0;
+  if (totalIncome > 0) {
+    savingsRate = ((totalIncome - totalExpense) / totalIncome) * 100;
+  }
+
+  // Days and Daily Avg
+  int daysCount = 0;
+  double dailyAvgSpend = 0.0;
+  if (minDate != null && maxDate != null) {
+    daysCount = maxDate.difference(minDate).inDays + 1;
+    if (daysCount > 0) {
+      dailyAvgSpend = totalExpense / daysCount;
+    }
+  }
+
+  // Date Range formatted
+  String rangeStr = '-';
+  if (minDate != null && maxDate != null) {
+    rangeStr = '${dateFormat.format(minDate)} to ${dateFormat.format(maxDate)}';
+  }
+
+  // --- Append Summary Section ---
+
+  // Add some spacing
+  sheet.appendRow([TextCellValue('')]);
+  sheet.appendRow([TextCellValue('')]);
+
+  // Section Header
+  sheet.appendRow([TextCellValue('Summary Report')]);
+  sheet.appendRow([TextCellValue('')]);
+
+  // Summary Rows
+  void addSummaryRow(String label, dynamic value) {
+    CellValue val;
+    if (value is double) {
+      val = DoubleCellValue(value);
+    } else {
+      val = TextCellValue(value.toString());
+    }
+    sheet.appendRow([TextCellValue(label), val]);
+  }
+
+  addSummaryRow('Period', rangeStr);
+  addSummaryRow('Total Days', daysCount);
+  addSummaryRow('Total Income', totalIncome);
+  addSummaryRow('Total Expenses', totalExpense);
+  addSummaryRow('Net Cash Flow', netCashFlow);
+  addSummaryRow('Savings Rate (%)',
+      double.parse(savingsRate.toStringAsFixed(2))); // formatted
+  addSummaryRow('Daily Average Spend', dailyAvgSpend);
+  addSummaryRow('Top Expense Category', topCategory);
+  addSummaryRow('Top Category Amount', topCategoryAmount);
 
   return excel.encode();
 }

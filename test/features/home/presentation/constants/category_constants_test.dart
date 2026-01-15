@@ -99,30 +99,30 @@ void main() {
       expect(normalizeCategory('Moving'), 'moving costs');
     });
 
-    test('maps transport to transportation', () {
-      expect(normalizeCategory('transport'), 'transportation');
-      expect(normalizeCategory('Transport'), 'transportation');
+    test('maps transport to public transport', () {
+      expect(normalizeCategory('transport'), 'public transport');
+      expect(normalizeCategory('Transport'), 'public transport');
     });
 
-    test('maps uber and taxi to rideshare', () {
-      expect(normalizeCategory('uber'), 'rideshare');
-      expect(normalizeCategory('taxi'), 'rideshare');
-      expect(normalizeCategory('Uber'), 'rideshare');
-      expect(normalizeCategory('Taxi'), 'rideshare');
+    test('maps uber and taxi to taxi & ride apps', () {
+      expect(normalizeCategory('uber'), 'taxi & ride apps');
+      expect(normalizeCategory('taxi'), 'taxi & ride apps');
+      expect(normalizeCategory('Uber'), 'taxi & ride apps');
+      expect(normalizeCategory('Taxi'), 'taxi & ride apps');
     });
 
     test('maps public transit aliases', () {
-      expect(normalizeCategory('bus'), 'public transit');
-      expect(normalizeCategory('train'), 'public transit');
-      expect(normalizeCategory('subway'), 'public transit');
-      expect(normalizeCategory('metro'), 'public transit');
-      expect(normalizeCategory('Bus'), 'public transit');
+      expect(normalizeCategory('bus'), 'public transport');
+      expect(normalizeCategory('train'), 'public transport');
+      expect(normalizeCategory('subway'), 'public transport');
+      expect(normalizeCategory('metro'), 'public transport');
+      expect(normalizeCategory('Bus'), 'public transport');
     });
 
-    test('maps gasoline and fuel to gas & fuel', () {
-      expect(normalizeCategory('gasoline'), 'gas & fuel');
-      expect(normalizeCategory('fuel'), 'gas & fuel');
-      expect(normalizeCategory('Fuel'), 'gas & fuel');
+    test('maps gasoline and fuel to fuel / gas', () {
+      expect(normalizeCategory('gasoline'), 'fuel / gas');
+      expect(normalizeCategory('fuel'), 'fuel / gas');
+      expect(normalizeCategory('Fuel'), 'fuel / gas');
     });
 
     test('maps car and auto to car repairs', () {
@@ -131,69 +131,69 @@ void main() {
       expect(normalizeCategory('Car'), 'car repairs');
     });
 
-    test('maps insurance to insurance', () {
-      expect(normalizeCategory('insurance'), 'insurance');
-      expect(normalizeCategory('Insurance'), 'insurance');
+    test('maps insurance to car insurance', () {
+      expect(normalizeCategory('insurance'), 'car insurance');
+      expect(normalizeCategory('Insurance'), 'car insurance');
     });
 
-    test('maps health aliases to healthcare', () {
-      expect(normalizeCategory('health'), 'healthcare');
-      expect(normalizeCategory('dental'), 'healthcare');
-      expect(normalizeCategory('vision'), 'healthcare');
-      expect(normalizeCategory('pharmacy'), 'healthcare');
-      expect(normalizeCategory('doctor'), 'healthcare');
-      expect(normalizeCategory('hospital'), 'healthcare');
+    test('maps health aliases to medical care', () {
+      expect(normalizeCategory('health'), 'medical care');
+      expect(normalizeCategory('dental'), 'dental care');
+      expect(normalizeCategory('vision'), 'eye care');
+      expect(normalizeCategory('pharmacy'), 'pharmacy');
+      expect(normalizeCategory('doctor'), 'medical care');
+      expect(normalizeCategory('hospital'), 'medical care');
     });
 
     test('maps gym and fitness aliases', () {
-      expect(normalizeCategory('gym'), 'fitness');
-      expect(normalizeCategory('fitness'), 'fitness');
-      expect(normalizeCategory('sports'), 'fitness');
-      expect(normalizeCategory('Gym'), 'fitness');
+      expect(normalizeCategory('gym'), 'fitness & gym');
+      expect(normalizeCategory('fitness'), 'fitness & gym');
+      expect(normalizeCategory('sports'), 'sports & exercise');
+      expect(normalizeCategory('Gym'), 'fitness & gym');
     });
 
     test('maps education aliases', () {
-      expect(normalizeCategory('education'), 'education');
-      expect(normalizeCategory('school'), 'education');
-      expect(normalizeCategory('university'), 'education');
-      expect(normalizeCategory('college'), 'education');
-      expect(normalizeCategory('course'), 'education');
+      expect(normalizeCategory('education'), 'courses & classes');
+      expect(normalizeCategory('school'), 'courses & classes');
+      expect(normalizeCategory('university'), 'courses & classes');
+      expect(normalizeCategory('college'), 'courses & classes');
+      expect(normalizeCategory('course'), 'courses & classes');
     });
 
-    test('maps book aliases to books & supplies', () {
-      expect(normalizeCategory('book'), 'books & supplies');
-      expect(normalizeCategory('books'), 'books & supplies');
-      expect(normalizeCategory('supplies'), 'books & supplies');
+    test('maps book aliases', () {
+      expect(normalizeCategory('book'), 'books & study materials');
+      expect(normalizeCategory('books'), 'books & study materials');
+      expect(normalizeCategory('supplies'), 'household supplies');
     });
 
     test('maps clothing aliases', () {
-      expect(normalizeCategory('clothing'), 'clothing');
-      expect(normalizeCategory('shoes'), 'clothing');
-      expect(normalizeCategory('accessories'), 'clothing');
-      expect(normalizeCategory('Clothing'), 'clothing');
+      expect(normalizeCategory('clothing'), 'clothing & shoes');
+      expect(normalizeCategory('shoes'), 'clothing & shoes');
+      expect(normalizeCategory('accessories'), 'clothing & shoes');
+      expect(normalizeCategory('Clothing'), 'clothing & shoes');
     });
 
     test('maps entertainment aliases', () {
-      expect(normalizeCategory('entertainment'), 'entertainment');
-      expect(normalizeCategory('movie'), 'entertainment');
-      expect(normalizeCategory('cinema'), 'entertainment');
-      expect(normalizeCategory('theater'), 'entertainment');
-      expect(normalizeCategory('concert'), 'entertainment');
-      expect(normalizeCategory('music'), 'entertainment');
-      expect(normalizeCategory('game'), 'entertainment');
-      expect(normalizeCategory('gaming'), 'entertainment');
-      expect(normalizeCategory('streaming'), 'entertainment');
-      expect(normalizeCategory('netflix'), 'entertainment');
-      expect(normalizeCategory('disney'), 'entertainment');
+      expect(normalizeCategory('entertainment'), 'movies & shows');
+      expect(normalizeCategory('movie'), 'movies & shows');
+      expect(normalizeCategory('cinema'), 'movies & shows');
+      expect(normalizeCategory('theater'), 'movies & shows');
+      expect(normalizeCategory('concert'), 'concerts & events');
+      expect(normalizeCategory('music'), 'music & streaming');
+      expect(normalizeCategory('game'), 'games & apps');
+      expect(normalizeCategory('gaming'), 'games & apps');
+      expect(normalizeCategory('streaming'), 'music & streaming');
+      expect(normalizeCategory('netflix'), 'music & streaming');
+      expect(normalizeCategory('disney'), 'music & streaming');
     });
 
     test('maps travel aliases', () {
       expect(normalizeCategory('travel'), 'travel');
       expect(normalizeCategory('vacation'), 'travel');
-      expect(normalizeCategory('hotel'), 'travel');
-      expect(normalizeCategory('airbnb'), 'travel');
-      expect(normalizeCategory('flight'), 'travel');
-      expect(normalizeCategory('airline'), 'travel');
+      expect(normalizeCategory('hotel'), 'hotels');
+      expect(normalizeCategory('airbnb'), 'hotels');
+      expect(normalizeCategory('flight'), 'flights');
+      expect(normalizeCategory('airline'), 'flights');
     });
 
     test('maps donation and charity', () {
@@ -203,10 +203,10 @@ void main() {
     });
 
     test('maps pet aliases', () {
-      expect(normalizeCategory('pet'), 'pets');
-      expect(normalizeCategory('pet food'), 'pets');
-      expect(normalizeCategory('pet supplies'), 'pets');
-      expect(normalizeCategory('vet'), 'pets');
+      expect(normalizeCategory('pet'), 'pet supplies');
+      expect(normalizeCategory('pet food'), 'pet food');
+      expect(normalizeCategory('pet supplies'), 'pet supplies');
+      expect(normalizeCategory('vet'), 'vet visits');
     });
 
     test('maps personal care aliases', () {
@@ -220,22 +220,22 @@ void main() {
     });
 
     test('maps banking aliases', () {
-      expect(normalizeCategory('bank'), 'banking');
-      expect(normalizeCategory('atm'), 'banking');
-      expect(normalizeCategory('fee'), 'banking');
-      expect(normalizeCategory('interest'), 'banking');
+      expect(normalizeCategory('bank'), 'bank fees');
+      expect(normalizeCategory('atm'), 'bank fees');
+      expect(normalizeCategory('fee'), 'bank fees');
+      expect(normalizeCategory('interest'), 'interest income');
     });
 
     test('maps tax aliases', () {
       expect(normalizeCategory('tax'), 'taxes');
       expect(normalizeCategory('government'), 'taxes');
-      expect(normalizeCategory('fine'), 'taxes');
+      expect(normalizeCategory('fine'), 'fines');
     });
 
     test('maps legal aliases', () {
-      expect(normalizeCategory('legal'), 'legal');
-      expect(normalizeCategory('lawyer'), 'legal');
-      expect(normalizeCategory('court'), 'legal');
+      expect(normalizeCategory('legal'), 'professional services');
+      expect(normalizeCategory('lawyer'), 'professional services');
+      expect(normalizeCategory('court'), 'professional services');
     });
 
     test('maps business aliases', () {
@@ -248,7 +248,7 @@ void main() {
     test('performs fuzzy matching for partial matches', () {
       expect(normalizeCategory('grocery store'), 'groceries');
       expect(normalizeCategory('restaurant bill'), 'restaurants');
-      expect(normalizeCategory('car payment'), 'car maintenance');
+      expect(normalizeCategory('car payment'), 'car repairs');
     });
 
     test('returns normalized input when no mapping found', () {

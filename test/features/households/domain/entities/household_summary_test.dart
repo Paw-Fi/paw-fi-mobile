@@ -283,21 +283,21 @@ void main() {
 
   group('HouseholdSummary - Model Creation', () {
     test('creates household summary with all fields', () {
-      final summary = HouseholdSummary(
+      const summary = HouseholdSummary(
         householdId: 'household_123',
         currency: 'USD',
-        period: const DatePeriod(
+        period: DatePeriod(
           startDate: '2024-01-01',
           endDate: '2024-01-31',
         ),
-        totals: const Totals(
+        totals: Totals(
           totalExpensesCents: 100000,
           totalIncomeCents: 150000,
           netCents: 50000,
           transactionCount: 25,
           splitCount: 10,
         ),
-        memberContributions: const [
+        memberContributions: [
           MemberContribution(
             userId: 'user_1',
             totalSpentCents: 60000,
@@ -306,7 +306,7 @@ void main() {
             balanceCents: 10000,
           ),
         ],
-        categoryBreakdown: const [
+        categoryBreakdown: [
           CategoryBreakdown(
             category: 'Food',
             amountCents: 50000,
@@ -314,7 +314,7 @@ void main() {
             transactionCount: 10,
           ),
         ],
-        budgets: const [
+        budgets: [
           BudgetStatus(
             budgetId: 'budget_1',
             name: 'Monthly',
@@ -402,21 +402,21 @@ void main() {
     });
 
     test('toJson serializes complete household summary', () {
-      final summary = HouseholdSummary(
+      const summary = HouseholdSummary(
         householdId: 'household_123',
         currency: 'USD',
-        period: const DatePeriod(
+        period: DatePeriod(
           startDate: '2024-01-01',
           endDate: '2024-01-31',
         ),
-        totals: const Totals(
+        totals: Totals(
           totalExpensesCents: 100000,
           totalIncomeCents: 150000,
           netCents: 50000,
           transactionCount: 25,
           splitCount: 10,
         ),
-        memberContributions: const [
+        memberContributions: [
           MemberContribution(
             userId: 'user_1',
             totalSpentCents: 60000,
@@ -425,7 +425,7 @@ void main() {
             balanceCents: 10000,
           ),
         ],
-        categoryBreakdown: const [
+        categoryBreakdown: [
           CategoryBreakdown(
             category: 'Food',
             amountCents: 50000,
@@ -433,7 +433,7 @@ void main() {
             transactionCount: 10,
           ),
         ],
-        budgets: const [],
+        budgets: [],
         balances: {'user_1': 10000},
       );
 
@@ -447,23 +447,23 @@ void main() {
 
   group('HouseholdSummary - Edge Cases', () {
     test('handles empty lists', () {
-      final summary = HouseholdSummary(
+      const summary = HouseholdSummary(
         householdId: 'household_123',
         currency: 'USD',
-        period: const DatePeriod(
+        period: DatePeriod(
           startDate: '2024-01-01',
           endDate: '2024-01-31',
         ),
-        totals: const Totals(
+        totals: Totals(
           totalExpensesCents: 0,
           totalIncomeCents: 0,
           netCents: 0,
           transactionCount: 0,
           splitCount: 0,
         ),
-        memberContributions: const [],
-        categoryBreakdown: const [],
-        budgets: const [],
+        memberContributions: [],
+        categoryBreakdown: [],
+        budgets: [],
         balances: {},
       );
 
@@ -474,21 +474,21 @@ void main() {
     });
 
     test('handles multiple members', () {
-      final summary = HouseholdSummary(
+      const summary = HouseholdSummary(
         householdId: 'household_123',
         currency: 'USD',
-        period: const DatePeriod(
+        period: DatePeriod(
           startDate: '2024-01-01',
           endDate: '2024-01-31',
         ),
-        totals: const Totals(
+        totals: Totals(
           totalExpensesCents: 300000,
           totalIncomeCents: 300000,
           netCents: 0,
           transactionCount: 30,
           splitCount: 15,
         ),
-        memberContributions: const [
+        memberContributions: [
           MemberContribution(
             userId: 'user_1',
             totalSpentCents: 100000,
@@ -511,8 +511,8 @@ void main() {
             balanceCents: 0,
           ),
         ],
-        categoryBreakdown: const [],
-        budgets: const [],
+        categoryBreakdown: [],
+        budgets: [],
         balances: {'user_1': 0, 'user_2': 0, 'user_3': 0},
       );
 
@@ -521,21 +521,21 @@ void main() {
     });
 
     test('handles negative balances', () {
-      final summary = HouseholdSummary(
+      const summary = HouseholdSummary(
         householdId: 'household_123',
         currency: 'USD',
-        period: const DatePeriod(
+        period: DatePeriod(
           startDate: '2024-01-01',
           endDate: '2024-01-31',
         ),
-        totals: const Totals(
+        totals: Totals(
           totalExpensesCents: 100000,
           totalIncomeCents: 100000,
           netCents: 0,
           transactionCount: 10,
           splitCount: 5,
         ),
-        memberContributions: const [
+        memberContributions: [
           MemberContribution(
             userId: 'user_1',
             totalSpentCents: 80000,
@@ -551,8 +551,8 @@ void main() {
             balanceCents: -30000,
           ),
         ],
-        categoryBreakdown: const [],
-        budgets: const [],
+        categoryBreakdown: [],
+        budgets: [],
         balances: {'user_1': 30000, 'user_2': -30000},
       );
 
@@ -561,22 +561,22 @@ void main() {
     });
 
     test('handles multiple categories', () {
-      final summary = HouseholdSummary(
+      const summary = HouseholdSummary(
         householdId: 'household_123',
         currency: 'USD',
-        period: const DatePeriod(
+        period: DatePeriod(
           startDate: '2024-01-01',
           endDate: '2024-01-31',
         ),
-        totals: const Totals(
+        totals: Totals(
           totalExpensesCents: 100000,
           totalIncomeCents: 150000,
           netCents: 50000,
           transactionCount: 20,
           splitCount: 0,
         ),
-        memberContributions: const [],
-        categoryBreakdown: const [
+        memberContributions: [],
+        categoryBreakdown: [
           CategoryBreakdown(
             category: 'Food',
             amountCents: 40000,
@@ -596,7 +596,7 @@ void main() {
             transactionCount: 6,
           ),
         ],
-        budgets: const [],
+        budgets: [],
         balances: {},
       );
 
@@ -605,23 +605,23 @@ void main() {
     });
 
     test('handles multiple budgets', () {
-      final summary = HouseholdSummary(
+      const summary = HouseholdSummary(
         householdId: 'household_123',
         currency: 'USD',
-        period: const DatePeriod(
+        period: DatePeriod(
           startDate: '2024-01-01',
           endDate: '2024-01-31',
         ),
-        totals: const Totals(
+        totals: Totals(
           totalExpensesCents: 100000,
           totalIncomeCents: 150000,
           netCents: 50000,
           transactionCount: 20,
           splitCount: 0,
         ),
-        memberContributions: const [],
-        categoryBreakdown: const [],
-        budgets: const [
+        memberContributions: [],
+        categoryBreakdown: [],
+        budgets: [
           BudgetStatus(
             budgetId: 'budget_1',
             name: 'Food Budget',
@@ -685,23 +685,23 @@ void main() {
     });
 
     test('handles large transaction counts', () {
-      final summary = HouseholdSummary(
+      const summary = HouseholdSummary(
         householdId: 'household_123',
         currency: 'USD',
-        period: const DatePeriod(
+        period: DatePeriod(
           startDate: '2024-01-01',
           endDate: '2024-12-31',
         ),
-        totals: const Totals(
+        totals: Totals(
           totalExpensesCents: 10000000,
           totalIncomeCents: 15000000,
           netCents: 5000000,
           transactionCount: 10000,
           splitCount: 5000,
         ),
-        memberContributions: const [],
-        categoryBreakdown: const [],
-        budgets: const [],
+        memberContributions: [],
+        categoryBreakdown: [],
+        budgets: [],
         balances: {},
       );
 

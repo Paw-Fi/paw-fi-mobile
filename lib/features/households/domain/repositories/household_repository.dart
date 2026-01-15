@@ -13,6 +13,7 @@ abstract class HouseholdRepository {
     required String currency,
     String? coverImageUrl,
     String? themeColor,
+    bool isPortfolio = false,
   });
   Future<Household> updateHousehold({
     required String householdId,

@@ -11,7 +11,7 @@ import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 
 /// Scope for pockets: personal or household.
-enum PocketsScopeType { personal, household }
+enum PocketsScopeType { personal, portfolio, household }
 
 class PocketsScopeParams {
   const PocketsScopeParams({
@@ -168,6 +168,19 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
   
   bool _hasLoadedOnce = false;
   
+  dynamic _applyAccountScopeFilter(
+    dynamic query,
+    String userId, {
+    required PocketsScopeType scope,
+    required String? householdId,
+  }) {
+    return switch (scope) {
+      PocketsScopeType.personal => query.eq('user_id', userId).isFilter('household_id', null),
+      PocketsScopeType.portfolio => query.eq('user_id', userId).eq('household_id', householdId!),
+      PocketsScopeType.household => query.eq('household_id', householdId!),
+    };
+  }
+  
   /// Public method to trigger data loading. Should be called by the UI
   /// when the pockets page is displayed (not on provider creation).
   /// 
@@ -217,7 +230,9 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       final periodMonth = _formatDate(monthStart);
       final monthEnd = DateTime(monthStart.year, monthStart.month + 1, 1);
 
-      final isHousehold = params.scope == PocketsScopeType.household;
+      final scopeType = params.scope;
+      final isHousehold = scopeType == PocketsScopeType.household;
+      final isPortfolio = scopeType == PocketsScopeType.portfolio;
       final householdId = params.householdId;
 
       if (isHousehold && householdId == null) {
@@ -225,6 +240,25 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         state = PocketsState(
           isLoading: false,
           error: null,
+          saved: const [],
+          editing: const [],
+          budgetId: null,
+          periodMonth: monthStart,
+          previousBudget: 0,
+          totalBudget: 0,
+          savedTotalBudget: 0,
+          unallocatedSpend: 0,
+          uncategorized: const [],
+          uncategorizedExpenses: const {},
+        );
+        return;
+      }
+
+      if (isPortfolio && householdId == null) {
+        if (!mounted) return;
+        state = PocketsState(
+          isLoading: false,
+          error: 'No portfolio selected for portfolio budget view',
           saved: const [],
           editing: const [],
           budgetId: null,
@@ -261,11 +295,12 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           .select('id,total_budget_cents,household_id,user_id,currency')
           .eq('currency', selectedCurrency);
 
-      final scopedBudgetQuery = isHousehold
-          ? budgetQueryBase.eq('household_id', householdId!)
-          : budgetQueryBase
-              .eq('user_id', authUser.uid)
-              .isFilter('household_id', null);
+      final scopedBudgetQuery = _applyAccountScopeFilter(
+        budgetQueryBase,
+        authUser.uid,
+        scope: scopeType,
+        householdId: householdId,
+      );
 
       final budgetRowQuery = scopedBudgetQuery.eq('period_month', periodMonth);
 
@@ -279,16 +314,17 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
             .select('id,total_budget_cents,household_id,user_id,currency')
             .eq('period_month', periodMonth);
 
-        fallbackBudgetQuery = isHousehold
-            ? fallbackBudgetQuery.eq('household_id', householdId!)
-            : fallbackBudgetQuery
-                .eq('user_id', authUser.uid)
-                .isFilter('household_id', null);
+        fallbackBudgetQuery = _applyAccountScopeFilter(
+          fallbackBudgetQuery,
+          authUser.uid,
+          scope: scopeType,
+          householdId: householdId,
+        );
 
         budgetRow = await fallbackBudgetQuery.limit(1).maybeSingle();
 
         // As a last resort (legacy rows missing user_id), try any personal row for the period.
-        if (budgetRow == null && !isHousehold) {
+        if (budgetRow == null && scopeType == PocketsScopeType.personal) {
           budgetRow = await _findBudgetRowForPeriod(
             periodMonth: periodMonth,
             isHousehold: false,
@@ -336,7 +372,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       if (budgetRow == null) {
         final insertPayload = <String, dynamic>{
           'user_id': authUser.uid,
-          'household_id': isHousehold ? householdId : null,
+          'household_id': (scopeType == PocketsScopeType.personal) ? null : householdId,
           'currency': selectedCurrency,
           'period_month': periodMonth,
           'total_budget_cents': 0,
@@ -360,17 +396,37 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
               'id,name,budget_percentage,household_id,currency,icon,color,budget_id')
           .eq('currency', selectedCurrency);
 
-      baseQuery = isHousehold
-          ? baseQuery.eq('household_id', householdId!)
-          : baseQuery
-              .eq('user_id', authUser.uid)
-              .isFilter('household_id', null);
+      baseQuery = _applyAccountScopeFilter(
+        baseQuery,
+        authUser.uid,
+        scope: scopeType,
+        householdId: householdId,
+      );
 
       final envelopesRes = (budgetId != null
               ? baseQuery.eq('budget_id', budgetId)
               : (isHousehold
                   ? baseQuery.eq('household_id', householdId!)
-                  : baseQuery.isFilter('household_id', null)))
+                  : (isPortfolio
+                      ? _applyAccountScopeFilter(
+                          supabase
+                              .from('budget_envelopes')
+                              .select(
+                                  'id,name,budget_percentage,household_id,currency,icon,color,budget_id')
+                              .eq('currency', selectedCurrency),
+                          authUser.uid,
+                          scope: scopeType,
+                          householdId: householdId,
+                        )
+                      : _applyAccountScopeFilter(
+                      supabase
+                          .from('budget_envelopes')
+                          .select(
+                              'id,name,budget_percentage,household_id,currency,icon,color,budget_id')
+                          .eq('currency', selectedCurrency),
+                      authUser.uid,
+                      scope: scopeType,
+                      householdId: householdId))))
           .order('name');
 
       final envelopes = await envelopesRes;
@@ -378,9 +434,9 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       var envRows = (envelopes as List?)?.cast<Map<String, dynamic>>() ?? [];
       if (envRows.isEmpty && budgetId != null) {
         // Legacy rows without budget_id: attach them to the current budget
-        final legacyRes = await (isHousehold
-                ? baseQuery.eq('household_id', householdId!)
-                : baseQuery.isFilter('household_id', null))
+        final legacyRes = await (scopeType == PocketsScopeType.personal
+                ? baseQuery.isFilter('household_id', null)
+                : baseQuery.eq('household_id', householdId!))
             .isFilter('budget_id', null)
             .order('name');
 
@@ -443,10 +499,12 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         // In household mode, fetch ALL expenses for the household regardless of user
         expenseQuery = expenseQuery.eq('household_id', householdId!);
       } else {
-        // In personal mode, fetch only current user's expenses that are NOT in a household
-        expenseQuery = expenseQuery
-            .eq('user_id', authUser.uid)
-            .isFilter('household_id', null);
+        expenseQuery = _applyAccountScopeFilter(
+          expenseQuery,
+          authUser.uid,
+          scope: scopeType,
+          householdId: householdId,
+        );
       }
 
       final expensesRes = await expenseQuery;
@@ -790,10 +848,12 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     if (isHousehold) {
       query = query.eq('household_id', householdId!);
     } else {
-      query = query.isFilter('household_id', null);
-      if (!allowAnyUser) {
-        query = query.eq('user_id', userId);
-      }
+      query = _applyAccountScopeFilter(
+        query,
+        userId,
+        scope: params.scope,
+        householdId: params.householdId,
+      );
     }
 
     return query.limit(1).maybeSingle();
@@ -826,18 +886,20 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       final viewedMonth = params.periodMonth ?? DateTime.now();
       final monthStart = DateTime(viewedMonth.year, viewedMonth.month, 1);
       final periodMonth = _formatDate(monthStart);
-      final isHousehold = params.scope == PocketsScopeType.household;
+      final scopeType = params.scope;
+      final isHousehold = scopeType == PocketsScopeType.household;
+      final isScopedToHousehold = scopeType != PocketsScopeType.personal;
       final householdId = params.householdId;
 
-      if (isHousehold && householdId == null) {
-        throw Exception('No household selected for shared budget save');
+      if (isScopedToHousehold && householdId == null) {
+        throw Exception('No household selected for scoped budget save');
       }
 
       // Persist/update the parent budget first
       final nowIso = DateTime.now().toIso8601String();
       final budgetPayload = <String, dynamic>{
         'user_id': authUser.uid,
-        'household_id': isHousehold ? householdId : null,
+        'household_id': isScopedToHousehold ? householdId : null,
         'currency': selectedCurrency,
         'period_month': periodMonth,
         'total_budget_cents': (state.totalBudget * 100).round(),
@@ -863,7 +925,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       }
 
       // If still null, try legacy personal rows without user filter
-      if (budgetId == null && !isHousehold) {
+      if (budgetId == null && scopeType == PocketsScopeType.personal) {
         final legacyRow = await _findBudgetRowForPeriod(
           periodMonth: periodMonth,
           isHousehold: false,
@@ -908,7 +970,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
               isHousehold: isHousehold,
               householdId: householdId,
               userId: authUser.uid,
-              allowAnyUser: !isHousehold,
+              allowAnyUser: scopeType == PocketsScopeType.personal,
             );
             final fallbackId = fallbackRow?['id'] as String?;
             if (fallbackId != null) {
@@ -936,7 +998,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         await supabase.from('budget_envelopes').update(<String, dynamic>{
           'budget_percentage': p.percentage,
           'budget_id': budgetId,
-          'household_id': isHousehold ? householdId : null,
+          'household_id': isScopedToHousehold ? householdId : null,
           'currency': selectedCurrency,
           'updated_at': nowIso,
         }).eq('id', p.id);

@@ -22,8 +22,7 @@ class SubtleAdaptiveButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         color: scheme.inputBackground,
         borderRadius: BorderRadius.circular(8),
-        minSize: 0,
-        onPressed: onPressed,
+        onPressed: onPressed, minimumSize: const Size(0, 0),
         child: SizedBox(
           width: double.infinity,
           child: Center(

@@ -194,7 +194,7 @@ void main() {
         Colors.yellow,
         Colors.purple,
         Colors.orange,
-        Color(0xFF123456),
+        const Color(0xFF123456),
       ];
 
       for (final color in colors) {

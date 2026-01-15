@@ -13,7 +13,7 @@ import 'package:moneko/features/home/presentation/state/view_mode_provider.dart'
 import 'package:moneko/core/navigation/navigation_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
-import 'package:moneko/features/households/domain/entities/household.dart';
+import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_controller.dart';
@@ -97,41 +97,20 @@ class _RecurringTransactionsPageState
     final user = supabase.auth.currentUser;
     final currentTabIndex = ref.watch(mainShellTabIndexProvider);
 
-    // Determine current scope
-    final viewMode = ref.watch(viewModeProvider);
-
-    // Resolve household ID correctly - same logic as household_home_content.dart
-    String? householdId;
-    if (viewMode.mode == ViewMode.household) {
-      final selectedHousehold = ref.watch(selectedHouseholdProvider);
-      final householdsAsync = user != null
-          ? ref.watch(userHouseholdsProvider(user.id))
-          : const AsyncValue<List<Household>>.data([]);
-
-      final households = householdsAsync.valueOrNull ?? [];
-
-      if (households.isNotEmpty) {
-        final selectedId =
-            selectedHousehold.householdId ?? selectedHousehold.household?.id;
-        final household = selectedId != null
-            ? households.firstWhere(
-                (h) => h.id == selectedId,
-                orElse: () => households.first,
-              )
-            : households.first;
-        householdId = household.id;
-
-        debugPrint(
-            '🏠 [RecurringPage] Resolved household: ${household.name} (${household.id})');
-      } else {
-        debugPrint(
-            '⚠️ [RecurringPage] No households available in household mode');
-      }
-    }
+    // Use householdScopeProvider to properly handle portfolio households
+    // Portfolio households (is_portfolio=true) are treated as personal, not household
+    final householdScope = ref.watch(householdScopeProvider);
+    final String? householdId = switch (householdScope.activeAccountType) {
+      ActiveAccountType.personal => null,
+      ActiveAccountType.portfolio => householdScope.activeAccountHouseholdId,
+      ActiveAccountType.household => householdScope.selectedHouseholdId,
+    };
 
     debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     debugPrint('🏠 [RecurringPage] BUILD');
-    debugPrint('   ViewMode: ${viewMode.mode}');
+    debugPrint('   IsHouseholdView: ${householdScope.isHouseholdView}');
+    debugPrint('   IsPersonalView: ${householdScope.isPersonalView}');
+    debugPrint('   IsPortfolioSelected: ${householdScope.isPortfolioSelected}');
     debugPrint('   HouseholdId: $householdId');
     debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 

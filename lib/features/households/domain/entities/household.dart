@@ -3,9 +3,11 @@ class Household {
   final String id;
   final String name;
   final String ownerId;
-  final String? coverImageUrl; // Changed from emoji - stores full URL to uploaded image
+  final String?
+      coverImageUrl; // Changed from emoji - stores full URL to uploaded image
   final String? themeColor;
   final String currency; // ISO 4217 (e.g., USD)
+  final bool isPortfolio;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -16,6 +18,7 @@ class Household {
     this.coverImageUrl,
     this.themeColor,
     required this.currency,
+    this.isPortfolio = false,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -28,6 +31,7 @@ class Household {
       coverImageUrl: json['cover_image_url'] as String?,
       themeColor: json['theme_color'] as String?,
       currency: (json['currency'] as String).toUpperCase(),
+      isPortfolio: json['is_portfolio'] as bool? ?? false,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );
@@ -41,6 +45,7 @@ class Household {
       'cover_image_url': coverImageUrl,
       'theme_color': themeColor,
       'currency': currency,
+      'is_portfolio': isPortfolio,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -53,6 +58,7 @@ class Household {
     String? coverImageUrl,
     String? themeColor,
     String? currency,
+    bool? isPortfolio,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -63,6 +69,7 @@ class Household {
       coverImageUrl: coverImageUrl ?? this.coverImageUrl,
       themeColor: themeColor ?? this.themeColor,
       currency: currency ?? this.currency,
+      isPortfolio: isPortfolio ?? this.isPortfolio,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -79,6 +86,7 @@ class Household {
           coverImageUrl == other.coverImageUrl &&
           themeColor == other.themeColor &&
           currency == other.currency &&
+          isPortfolio == other.isPortfolio &&
           createdAt == other.createdAt &&
           updatedAt == other.updatedAt;
 
@@ -90,6 +98,7 @@ class Household {
       coverImageUrl.hashCode ^
       themeColor.hashCode ^
       currency.hashCode ^
+      isPortfolio.hashCode ^
       createdAt.hashCode ^
       updatedAt.hashCode;
 }
@@ -154,7 +163,7 @@ class HouseholdMember {
   factory HouseholdMember.fromJson(Map<String, dynamic> json) {
     // Extract user data from nested users object if available
     final userData = json['users'] as Map<String, dynamic>?;
-    
+
     return HouseholdMember(
       id: json['id'] as String,
       householdId: json['household_id'] as String,
@@ -164,7 +173,8 @@ class HouseholdMember {
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
       userEmail: userData?['email'] as String? ?? json['user_email'] as String?,
-      userName: userData?['full_name'] as String? ?? json['user_name'] as String?,
+      userName:
+          userData?['full_name'] as String? ?? json['user_name'] as String?,
       avatarUrl: userData?['avatar_url'] as String?,
     );
   }

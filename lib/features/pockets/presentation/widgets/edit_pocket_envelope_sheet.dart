@@ -214,10 +214,10 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
         return;
       }
 
-      final isHousehold = scopeParams.scope == PocketsScopeType.household;
+      final isScopedToHousehold = scopeParams.scope != PocketsScopeType.personal;
       final householdId = scopeParams.householdId;
 
-      if (isHousehold && householdId == null) {
+      if (isScopedToHousehold && householdId == null) {
         AppToast.info(context, l10n.pleaseSelectHouseholdFirst);
         return;
       }
@@ -280,7 +280,9 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
             'updated_at': DateTime.now().toIso8601String(),
             'color': selectedColor.value,
             'icon': selectedIcon.value,
-            'household_id': isHousehold ? householdId : null,
+            'household_id': scopeParams.scope == PocketsScopeType.personal
+                ? null
+                : householdId,
             'currency': selectedCurrency,
           }).eq('id', envelopeId);
 
@@ -296,7 +298,9 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                 'budget_id': budgetId,
                 'name': name,
                 'budget_percentage': desiredPct,
-                'household_id': isHousehold ? householdId : null,
+                'household_id': scopeParams.scope == PocketsScopeType.personal
+                    ? null
+                    : householdId,
                 'currency': selectedCurrency,
                 'color': selectedColor.value,
                 'icon': selectedIcon.value,
@@ -317,7 +321,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           await supabase.from('budget_envelopes').update(<String, dynamic>{
             'budget_percentage': entry.value,
             'budget_id': budgetId,
-            'household_id': isHousehold ? householdId : null,
+            'household_id': isScopedToHousehold ? householdId : null,
             'currency': selectedCurrency,
             'updated_at': nowIso,
           }).eq('id', entry.key);
@@ -335,7 +339,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
         }
 
         // CRITICAL: Invalidate RequestDeduplicator cache for household data
-        if (isHousehold && householdId != null) {
+        if (isScopedToHousehold && householdId != null) {
           debugPrint('🗑️ [POCKET SAVE] Invalidating household cache for: $householdId');
           ref.read(cacheInvalidatorProvider).invalidateHouseholdData(householdId);
         }
@@ -378,9 +382,9 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
         await supabase.from('budget_envelopes').delete().eq('id', existingEnvelope!.id);
 
         // CRITICAL: Invalidate RequestDeduplicator cache for household data
-        final isHousehold = scopeParams.scope == PocketsScopeType.household;
+        final isScopedToHousehold = scopeParams.scope != PocketsScopeType.personal;
         final householdId = scopeParams.householdId;
-        if (isHousehold && householdId != null) {
+        if (isScopedToHousehold && householdId != null) {
           debugPrint('🗑️ [POCKET DELETE] Invalidating household cache for: $householdId');
           ref.read(cacheInvalidatorProvider).invalidateHouseholdData(householdId);
         }

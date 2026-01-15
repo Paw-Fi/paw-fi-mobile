@@ -11,7 +11,9 @@ import 'package:moneko/features/home/presentation/state/analytics_data.dart';
 /// Uses a server-side RPC function for optimal performance (single round-trip),
 /// with fallback to client-side batched queries if RPC is unavailable.
 class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
-  AnalyticsNotifier() : super(AnalyticsData());
+  AnalyticsNotifier(this.ref) : super(AnalyticsData());
+  
+  final Ref ref;
 
   static const int _maxRetries = 3;
   static const Duration _baseRetryDelay = Duration(seconds: 2);
@@ -71,6 +73,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
       bool rpcSucceeded = false;
       UserContact? fetchedContact;
       List<ExpenseEntry> allExpenses = [];
+      List<ExpenseEntry> rpcExpenses = [];
       List<DailyBudgetEntry> allBudgets = [];
 
       try {
@@ -96,7 +99,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
           // Parse expenses
           final expensesData = data['expenses'] as List<dynamic>?;
           if (expensesData != null) {
-            allExpenses = expensesData
+            rpcExpenses = expensesData
                 .map((e) => ExpenseEntry.fromJson(e as Map<String, dynamic>))
                 .toList();
           }
@@ -110,15 +113,37 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
           }
           
           rpcSucceeded = true;
-          debugPrint('[Analytics] RPC succeeded: ${allExpenses.length} expenses, ${allBudgets.length} budgets');
+          debugPrint(
+            '[Analytics] RPC succeeded: ${rpcExpenses.length} expenses, ${allBudgets.length} budgets',
+          );
         }
       } catch (rpcError) {
         debugPrint('[Analytics] RPC failed (will fallback to batched queries): $rpcError');
         // RPC might not be deployed yet - fall back to batched queries
       }
 
+      try {
+        debugPrint('[Analytics] 📊 Fetching expenses from DB (source of truth)...');
+        final dbExpenses = await _loadExpensesFromDb(
+          userId: userId,
+          currentOperationId: currentOperationId,
+        );
+        allExpenses = dbExpenses;
+        debugPrint(
+          '[Analytics] ✅ DB expenses loaded: ${allExpenses.length} expenses (rpc=${rpcExpenses.length})',
+        );
+      } catch (e) {
+        debugPrint('[Analytics] ❌ DB expenses load failed: $e');
+        if (rpcSucceeded && rpcExpenses.isNotEmpty) {
+          allExpenses = rpcExpenses;
+          debugPrint(
+            '[Analytics] ⚠️ Falling back to RPC expenses: ${allExpenses.length}',
+          );
+        }
+      }
+
       // Fallback to batched queries if RPC failed
-      if (!rpcSucceeded) {
+      if (!rpcSucceeded && allExpenses.isEmpty) {
         debugPrint('[Analytics] Using fallback batched queries...');
         final fallbackStopwatch = Stopwatch()..start();
         
@@ -136,7 +161,9 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
           debugPrint('[Analytics] Fallback completed in ${fallbackStopwatch.elapsedMilliseconds}ms');
           
           fetchedContact = fallbackResult.contact;
-          allExpenses = fallbackResult.expenses;
+          if (allExpenses.isEmpty) {
+            allExpenses = fallbackResult.expenses;
+          }
           allBudgets = fallbackResult.budgets;
         } on TimeoutException {
           fallbackStopwatch.stop();
@@ -259,16 +286,29 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
     // Fetch expenses
     List<ExpenseEntry> allExpenses = [];
     try {
-      debugPrint('[Analytics] Fetching expenses via batched DB query...');
+      debugPrint('[Analytics] 📊 Fetching expenses via batched DB query...');
       final rawExpenses = await _fetchExpensesInBatches(
         userId: userId,
         contactIds: contactIds,
-        applyPersonalFiltersInQuery: true,
+        applyPersonalFiltersInQuery: false,
         batchSize: _primaryExpenseBatchSize,
         perBatchTimeout: _primaryQueryTimeout,
       );
       allExpenses = rawExpenses.map(ExpenseEntry.fromJson).toList();
-      debugPrint('[Analytics] Batched DB query succeeded: ${allExpenses.length} expenses');
+      debugPrint('[Analytics] ✅ Batched DB query succeeded: ${allExpenses.length} expenses');
+      
+      // Log portfolio expenses specifically
+      final portfolioExpenses = allExpenses.where((e) => 
+        e.householdId == 'a044d6af-d96a-4a6b-9c73-564dbe338d93'
+      ).toList();
+      if (portfolioExpenses.isNotEmpty) {
+        debugPrint('[Analytics] 🎯 Portfolio expenses in results: ${portfolioExpenses.length}');
+        for (final exp in portfolioExpenses) {
+          debugPrint('[Analytics]   - ${exp.category}: ${exp.amount} ${exp.currency}');
+        }
+      } else {
+        debugPrint('[Analytics] ⚠️ No portfolio expenses found in final results');
+      }
     } catch (primaryError) {
       debugPrint('[Analytics] Primary DB query failed: $primaryError');
       try {
@@ -281,9 +321,8 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
           perBatchTimeout: _fallbackQueryTimeout,
         );
         final filteredData = fallbackRaw.where((json) {
-          final splitGroupId = json['split_group_id'];
           final isRecurring = json['is_recurring'];
-          return splitGroupId == null && (isRecurring == null || isRecurring == false);
+          return (isRecurring == null || isRecurring == false);
         }).toList();
         allExpenses = filteredData.map(ExpenseEntry.fromJson).toList();
         debugPrint('[Analytics] Fallback batched query succeeded: ${allExpenses.length} expenses');
@@ -635,27 +674,115 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
     required int to,
     required Duration timeout,
   }) async {
+    debugPrint('[Analytics] 📊 _fetchExpenseBatch START');
+    debugPrint('[Analytics]   - userId: $userId');
+    debugPrint('[Analytics]   - contactIds: $contactIds');
+    debugPrint('[Analytics]   - applyPersonalFiltersInQuery: $applyPersonalFiltersInQuery');
+    debugPrint('[Analytics]   - range: $from-$to');
+    
     var query = supabase
         .from('expenses')
         .select(
             'id,contact_id,user_id,date,amount_cents,currency,category,created_at,raw_text,receipt_image_url,household_id,split_group_id,type,is_recurring');
 
     if (contactIds.isNotEmpty) {
-      query = query.inFilter('contact_id', contactIds);
+      debugPrint('[Analytics]   - Filtering by contactIds OR userId (to include app + WhatsApp data)');
+      final orFilter =
+          'contact_id.in.(${contactIds.join(',')}),user_id.eq.$userId';
+      query = query.or(orFilter);
     } else {
+      debugPrint('[Analytics]   - Filtering by userId: $userId');
       query = query.eq('user_id', userId);
     }
 
     if (applyPersonalFiltersInQuery) {
-      query = query
-          .isFilter('split_group_id', null)
-          .or('is_recurring.is.false,is_recurring.is.null');
+      debugPrint('[Analytics]   - Personal filters requested, but will filter client-side');
+    } else {
+      debugPrint('[Analytics]   - NO personal filters applied (will filter client-side)');
     }
 
     final orderedQuery = query.order('date', ascending: false);
 
+    debugPrint('[Analytics] 🔍 Executing query...');
     final response = await orderedQuery.range(from, to).timeout(timeout);
-    return (response as List).cast<Map<String, dynamic>>();
+    final results = (response as List).cast<Map<String, dynamic>>();
+
+    final withoutRecurring = results.where((e) {
+      final isRecurring = e['is_recurring'];
+      return isRecurring == null || isRecurring == false;
+    }).toList();
+    if (withoutRecurring.length != results.length) {
+      debugPrint(
+        '[Analytics] 🧹 Filtered out recurring: ${results.length - withoutRecurring.length}',
+      );
+    }
+    
+    debugPrint('[Analytics] ✅ Query completed: ${withoutRecurring.length} expenses returned');
+    
+    // Log first few expenses for debugging
+    if (withoutRecurring.isNotEmpty) {
+      debugPrint('[Analytics] 📋 First ${withoutRecurring.length > 3 ? 3 : withoutRecurring.length} expenses:');
+      for (int i = 0; i < (withoutRecurring.length > 3 ? 3 : withoutRecurring.length); i++) {
+        final exp = withoutRecurring[i];
+        debugPrint('[Analytics]   [$i] id=${exp['id']}, category=${exp['category']}, '
+            'household_id=${exp['household_id']}, split_group_id=${exp['split_group_id']}, '
+            'amount=${exp['amount_cents']}');
+      }
+      
+      // Specifically check for the portfolio expense
+      final portfolioExpense = withoutRecurring.where((e) => 
+        e['household_id'] == 'a044d6af-d96a-4a6b-9c73-564dbe338d93'
+      ).toList();
+      if (portfolioExpense.isNotEmpty) {
+        debugPrint('[Analytics] 🎯 FOUND portfolio expense (trading portfolio): ${portfolioExpense.length}');
+      } else {
+        debugPrint('[Analytics] ⚠️ Portfolio expense NOT found in results');
+      }
+    } else {
+      debugPrint('[Analytics] ⚠️ No expenses returned from query');
+    }
+    
+    return withoutRecurring;
+  }
+
+  Future<List<ExpenseEntry>> _loadExpensesFromDb({
+    required String userId,
+    required int currentOperationId,
+  }) async {
+    final contactsResponse = await supabase
+        .from('user_contacts')
+        .select('id,user_id')
+        .eq('user_id', userId)
+        .order('updated_at', ascending: false)
+        .order('created_at', ascending: false)
+        .timeout(const Duration(seconds: 5));
+
+    if (_loadOperationId != currentOperationId) {
+      throw Exception('Operation superseded');
+    }
+
+    final contactsList = (contactsResponse as List).cast<Map<String, dynamic>>();
+    final contactIds = contactsList
+        .map((c) => c['id'] as String?)
+        .where((id) => id != null && id.isNotEmpty)
+        .cast<String>()
+        .toList();
+
+    debugPrint('[Analytics]   - DB contactIds: $contactIds');
+
+    final rawExpenses = await _fetchExpensesInBatches(
+      userId: userId,
+      contactIds: contactIds,
+      applyPersonalFiltersInQuery: false,
+      batchSize: _primaryExpenseBatchSize,
+      perBatchTimeout: _primaryQueryTimeout,
+    );
+
+    if (_loadOperationId != currentOperationId) {
+      throw Exception('Operation superseded');
+    }
+
+    return rawExpenses.map(ExpenseEntry.fromJson).toList();
   }
 }
 

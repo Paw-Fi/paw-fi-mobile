@@ -123,7 +123,7 @@ void main() {
       final subscription = Subscription.fromJson(json);
 
       expect(subscription.createdAt, isNotNull);
-      expect(subscription.createdAt.isBefore(DateTime.now().add(Duration(seconds: 1))), true);
+      expect(subscription.createdAt.isBefore(DateTime.now().add(const Duration(seconds: 1))), true);
     });
 
     test('toJson serializes subscription correctly', () {
@@ -361,7 +361,7 @@ void main() {
 
     test('handles subscription with future period', () {
       final now = DateTime.now();
-      final futureDate = now.add(Duration(days: 365));
+      final futureDate = now.add(const Duration(days: 365));
       final subscription = Subscription(
         id: 'sub_1',
         userId: 'user_1',

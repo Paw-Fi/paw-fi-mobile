@@ -147,7 +147,7 @@ void main() {
         lastUpdated: DateTime.now(),
       );
 
-      final totalBudget = 2000.0;
+      const totalBudget = 2000.0;
       final limit = pocket.getLimit(totalBudget);
 
       expect(limit, 500.0); // 25% of 2000
@@ -163,7 +163,7 @@ void main() {
         lastUpdated: DateTime.now(),
       );
 
-      final totalBudget = 1000.0;
+      const totalBudget = 1000.0;
       final limit = pocket.getLimit(totalBudget);
 
       // 33.33% of 1000 = 333.3, rounded to cents = 333.30
@@ -195,7 +195,7 @@ void main() {
         lastUpdated: DateTime.now(),
       );
 
-      final totalBudget = 2000.0;
+      const totalBudget = 2000.0;
       final progress = pocket.getProgress(totalBudget);
 
       expect(progress, 0.5); // 250 / 500 = 0.5
@@ -211,7 +211,7 @@ void main() {
         lastUpdated: DateTime.now(),
       );
 
-      final totalBudget = 2000.0;
+      const totalBudget = 2000.0;
       final progress = pocket.getProgress(totalBudget);
 
       expect(progress, 1.0); // Clamped to 1.0
@@ -259,7 +259,7 @@ void main() {
         lastUpdated: DateTime.now(),
       );
 
-      final totalBudget = 2000.0;
+      const totalBudget = 2000.0;
       expect(pocket.isOverBudget(totalBudget), true);
     });
 
@@ -273,7 +273,7 @@ void main() {
         lastUpdated: DateTime.now(),
       );
 
-      final totalBudget = 2000.0;
+      const totalBudget = 2000.0;
       expect(pocket.isOverBudget(totalBudget), false);
     });
 
@@ -287,7 +287,7 @@ void main() {
         lastUpdated: DateTime.now(),
       );
 
-      final totalBudget = 2000.0;
+      const totalBudget = 2000.0;
       expect(pocket.isNearLimit(totalBudget), true);
     });
 
@@ -301,7 +301,7 @@ void main() {
         lastUpdated: DateTime.now(),
       );
 
-      final totalBudget = 2000.0;
+      const totalBudget = 2000.0;
       expect(pocket.isNearLimit(totalBudget), false);
     });
 
@@ -315,7 +315,7 @@ void main() {
         lastUpdated: DateTime.now(),
       );
 
-      final totalBudget = 2000.0;
+      const totalBudget = 2000.0;
       expect(pocket.isNearLimit(totalBudget), false);
     });
 
@@ -329,8 +329,8 @@ void main() {
         lastUpdated: DateTime.now(),
       );
 
-      final safeColor = Colors.green;
-      final totalBudget = 2000.0;
+      const safeColor = Colors.green;
+      const totalBudget = 2000.0;
       final color = pocket.statusColor(safeColor, totalBudget);
 
       expect(color, AppTheme.danger);
@@ -346,8 +346,8 @@ void main() {
         lastUpdated: DateTime.now(),
       );
 
-      final safeColor = Colors.green;
-      final totalBudget = 2000.0;
+      const safeColor = Colors.green;
+      const totalBudget = 2000.0;
       final color = pocket.statusColor(safeColor, totalBudget);
 
       expect(color, AppTheme.warning);
@@ -363,8 +363,8 @@ void main() {
         lastUpdated: DateTime.now(),
       );
 
-      final safeColor = Colors.green;
-      final totalBudget = 2000.0;
+      const safeColor = Colors.green;
+      const totalBudget = 2000.0;
       final color = pocket.statusColor(safeColor, totalBudget);
 
       expect(color, safeColor);
@@ -458,7 +458,7 @@ void main() {
         lastUpdated: DateTime.now(),
       );
 
-      final totalBudget = 1000000.0;
+      const totalBudget = 1000000.0;
       final limit = pocket.getLimit(totalBudget);
 
       expect(limit, 250000.0);
@@ -474,7 +474,7 @@ void main() {
         lastUpdated: DateTime.now(),
       );
 
-      final totalBudget = 10000.0;
+      const totalBudget = 10000.0;
       final limit = pocket.getLimit(totalBudget);
 
       expect(limit, 1.0);
@@ -490,7 +490,7 @@ void main() {
         lastUpdated: DateTime.now(),
       );
 
-      final totalBudget = 1000.0;
+      const totalBudget = 1000.0;
       final limit = pocket.getLimit(totalBudget);
 
       expect(limit, 1000.0);
@@ -506,7 +506,7 @@ void main() {
         lastUpdated: DateTime.now(),
       );
 
-      final totalBudget = 999.99;
+      const totalBudget = 999.99;
       final limit = pocket.getLimit(totalBudget);
 
       // Should round to nearest cent

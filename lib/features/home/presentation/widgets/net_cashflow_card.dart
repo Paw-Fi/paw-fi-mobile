@@ -11,8 +11,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/core/core.dart';
-
-import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
+import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 
 Widget buildNetCashflowCard(
   BuildContext context,
@@ -28,17 +27,33 @@ Widget buildNetCashflowCard(
   final now = DateTime.now();
 
   return Consumer(builder: (context, ref, _) {
-    final viewMode = ref.watch(viewModeProvider);
-    // Guard: this card is only used in personal mode
-    if (viewMode.mode != ViewMode.personal) {
+    final householdScope = ref.watch(householdScopeProvider);
+    // Guard: this card is only used in personal/portfolio mode.
+    // Portfolio households (is_portfolio=true) are treated as personal.
+    if (householdScope.isHouseholdView) {
       return const SizedBox.shrink();
     }
-    const String? householdId = null;
 
-    // Only consider personal transactions for this card (exclude household data).
-    final personalTransactions = allTransactions
-        .where((t) => t.householdId == null)
+    final activeAccountHouseholdId = householdScope.activeAccountHouseholdId;
+
+    // Scope strictly to the selected account in HomeHeaderSliver:
+    // - Personal account: household_id == null
+    // - Portfolio account: household_id == selected portfolio household id
+    final scopedTransactions = allTransactions
+        .where((t) {
+          final hid = t.householdId;
+          return switch (householdScope.activeAccountType) {
+            ActiveAccountType.personal => hid == null || hid.isEmpty,
+            ActiveAccountType.portfolio =>
+              activeAccountHouseholdId != null && hid == activeAccountHouseholdId,
+            ActiveAccountType.household => false,
+          };
+        })
         .toList(growable: false);
+
+    final recurringHouseholdId = householdScope.activeAccountType == ActiveAccountType.personal
+        ? null
+        : activeAccountHouseholdId;
 
     // NOTE: Recurring transactions are loaded by app_initialization_provider
     // The derived providers below (recurringExpensesProvider, recurringIncomesProvider)
@@ -51,9 +66,9 @@ Widget buildNetCashflowCard(
         filter, now, customStartDate, customEndDate);
 
     // 2. Filter Transactions & Calculate Actuals
-    final currentTransactions = _filterTransactions(personalTransactions,
+    final currentTransactions = _filterTransactions(scopedTransactions,
         currentRange.$1, currentRange.$2, selectedCurrency);
-    final previousTransactions = _filterTransactions(personalTransactions,
+    final previousTransactions = _filterTransactions(scopedTransactions,
         previousRange.$1, previousRange.$2, selectedCurrency);
 
     final currentActuals = _getIncomeAndExpenses(currentTransactions);
@@ -61,8 +76,9 @@ Widget buildNetCashflowCard(
 
     // 3. Calculate Recurring (Projected for the ranges)
     final recurringExpensesAV =
-        ref.watch(recurringExpensesProvider(householdId));
-    final recurringIncomesAV = ref.watch(recurringIncomesProvider(householdId));
+        ref.watch(recurringExpensesProvider(recurringHouseholdId));
+    final recurringIncomesAV =
+        ref.watch(recurringIncomesProvider(recurringHouseholdId));
 
     final recurringExpenses = recurringExpensesAV.valueOrNull ?? [];
     final recurringIncomes = recurringIncomesAV.valueOrNull ?? [];
