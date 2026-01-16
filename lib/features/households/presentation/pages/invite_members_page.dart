@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/utils/sub_page_top_padding.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
@@ -8,6 +9,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
+import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
@@ -29,6 +31,7 @@ class InviteMembersPage extends ConsumerStatefulWidget {
 
 class _InviteMembersPageState extends ConsumerState<InviteMembersPage> {
   final _emailController = TextEditingController();
+  final _messageController = TextEditingController();
   int _selectedExpirationDays = 7;
   bool _isLoading = false;
 
@@ -41,18 +44,24 @@ class _InviteMembersPageState extends ConsumerState<InviteMembersPage> {
   @override
   void dispose() {
     _emailController.dispose();
+    _messageController.dispose();
     super.dispose();
   }
 
   Future<void> _createInvite() async {
     final email = _emailController.text.trim();
+    final personalMessage = _messageController.text.trim();
+    final user = ref.read(authProvider);
+    final inviterName =
+        (user.displayName?.trim().isNotEmpty == true ? user.displayName : user.email)
+            ?.trim();
     /*
       Validation: 
       - If email is provided, validate format? 
         The backend likely validates, but simple regex is good UX.
     */
     if (email.isNotEmpty && !email.contains('@')) {
-      AppToast.error(context, "Please enter a valid email address");
+      AppToast.error(context, context.l10n.pleaseEnterValidEmailAddress);
       return;
     }
 
@@ -64,6 +73,11 @@ class _InviteMembersPageState extends ConsumerState<InviteMembersPage> {
       final inviteUrl = await repository.createInvite(
         householdId: widget.householdId,
         invitedEmail: email.isEmpty ? null : email,
+        personalMessage: personalMessage.isEmpty ? null : personalMessage,
+        inviterName: inviterName?.isNotEmpty == true ? inviterName : null,
+        householdName: widget.householdName.trim().isNotEmpty
+            ? widget.householdName.trim()
+            : null,
         expiresInDays: _selectedExpirationDays,
       );
 
@@ -85,7 +99,7 @@ class _InviteMembersPageState extends ConsumerState<InviteMembersPage> {
     if (_generatedInviteUrl == null) return;
     Clipboard.setData(ClipboardData(text: _generatedInviteUrl!));
     HapticFeedback.selectionClick();
-    AppToast.success(context, "Link copied to clipboard");
+    AppToast.success(context, context.l10n.linkCopiedToClipboard);
   }
 
   void _shareLink() {
@@ -103,7 +117,7 @@ class _InviteMembersPageState extends ConsumerState<InviteMembersPage> {
     return AdaptiveScaffold(
       appBar: AdaptiveAppBar(
         title:
-            _generatedInviteUrl == null ? "Invite Members" : "Invitation Ready",
+            _generatedInviteUrl == null ? context.l10n.inviteMembers : context.l10n.invitationReady,
       ),
       body: SafeArea(
         child: Padding(
@@ -129,7 +143,7 @@ class _InviteMembersPageState extends ConsumerState<InviteMembersPage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            "Who do you want to invite?",
+            context.l10n.whoDoYouWantToInvite,
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w700,
@@ -139,7 +153,7 @@ class _InviteMembersPageState extends ConsumerState<InviteMembersPage> {
           ),
           const SizedBox(height: 8),
           Text(
-            "Enter an email to send a personal invitation, or just generate a link to share directly.",
+            context.l10n.emailInviteDescription,
             style: TextStyle(
               fontSize: 16,
               color: colorScheme.mutedForeground,
@@ -161,7 +175,7 @@ class _InviteMembersPageState extends ConsumerState<InviteMembersPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "Email Address (Optional)",
+                  context.l10n.emailAddressOptional,
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -171,7 +185,7 @@ class _InviteMembersPageState extends ConsumerState<InviteMembersPage> {
                 const SizedBox(height: 12),
                 AdaptiveTextField(
                   controller: _emailController,
-                  placeholder: "name@example.com",
+                  placeholder: context.l10n.emailPlaceholder,
                   keyboardType: TextInputType.emailAddress,
                   onSubmitted: (_) => _createInvite(),
                 ),
@@ -179,7 +193,24 @@ class _InviteMembersPageState extends ConsumerState<InviteMembersPage> {
                 const SizedBox(height: 24),
 
                 Text(
-                  "Link Expiration",
+                  context.l10n.personalMessageOptional,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.foreground,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                AdaptiveTextField(
+                  controller: _messageController,
+                  placeholder: context.l10n.personalMessageOptional,
+                  keyboardType: TextInputType.text,
+                ),
+
+                const SizedBox(height: 24),
+
+                Text(
+                  context.l10n.linkExpiration,
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -213,7 +244,7 @@ class _InviteMembersPageState extends ConsumerState<InviteMembersPage> {
                             ),
                           ),
                           child: Text(
-                            "$days Days",
+                            "$days ${context.l10n.days}",
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -238,9 +269,9 @@ class _InviteMembersPageState extends ConsumerState<InviteMembersPage> {
             child: _isLoading
                 ? const CircularProgressIndicator.adaptive(
                     backgroundColor: Colors.white)
-                : const Text(
-                    "Create Invite Link",
-                    style: TextStyle(
+                : Text(
+                    context.l10n.createInviteLink,
+                    style: const TextStyle(
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -251,7 +282,7 @@ class _InviteMembersPageState extends ConsumerState<InviteMembersPage> {
               child: TextButton(
                 onPressed: widget.onDone,
                 child: Text(
-                  "Skip for now",
+                  context.l10n.skipForNow,
                   style: TextStyle(
                     color: colorScheme.mutedForeground,
                     fontWeight: FontWeight.w600,
@@ -288,7 +319,7 @@ class _InviteMembersPageState extends ConsumerState<InviteMembersPage> {
           const SizedBox(height: 24),
 
           Text(
-            _emailSent ? "Invite Sent!" : "Link Ready!",
+            _emailSent ? context.l10n.inviteSent : context.l10n.linkReady,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 24,
@@ -300,8 +331,8 @@ class _InviteMembersPageState extends ConsumerState<InviteMembersPage> {
           const SizedBox(height: 8),
           Text(
             _emailSent
-                ? "We've sent an invitation email. You can also share the link below manually."
-                : "Share this link with the people you want to join your space.",
+                ? context.l10n.invitationEmailSent
+                : context.l10n.shareLinkDescription,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 16,
@@ -359,7 +390,7 @@ class _InviteMembersPageState extends ConsumerState<InviteMembersPage> {
                   children: [
                     Expanded(
                       child: _ActionButtons(
-                        label: "Copy Link",
+                        label: context.l10n.copyLink,
                         icon: Icons.copy_rounded,
                         onPressed: _copyLink,
                         colorScheme: colorScheme,
@@ -368,7 +399,7 @@ class _InviteMembersPageState extends ConsumerState<InviteMembersPage> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: _ActionButtons(
-                        label: "Share",
+                        label: context.l10n.share,
                         icon: Icons.ios_share_rounded,
                         onPressed: _shareLink,
                         colorScheme: colorScheme,
@@ -388,9 +419,9 @@ class _InviteMembersPageState extends ConsumerState<InviteMembersPage> {
               padding: const EdgeInsets.symmetric(vertical: 16),
               foregroundColor: colorScheme.foreground,
             ),
-            child: const Text(
-              "Done",
-              style: TextStyle(
+            child: Text(
+              context.l10n.done,
+              style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
               ),

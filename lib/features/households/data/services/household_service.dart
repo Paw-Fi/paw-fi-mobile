@@ -190,6 +190,8 @@ class HouseholdService {
     required String householdId,
     String? invitedEmail,
     String? personalMessage,
+    String? inviterName,
+    String? householdName,
     int expiresInDays = 7,
     Duration timeout = const Duration(seconds: 20),
   }) async {
@@ -198,6 +200,8 @@ class HouseholdService {
         'householdId': householdId,
         'invitedEmail': invitedEmail,
         'expiresInDays': expiresInDays,
+        'inviterName': inviterName,
+        'householdName': householdName,
       });
 
       // Build body with only non-null optional values
@@ -210,6 +214,12 @@ class HouseholdService {
       }
       if (personalMessage != null && personalMessage.isNotEmpty) {
         body['personal_message'] = personalMessage;
+      }
+      if (inviterName != null && inviterName.isNotEmpty) {
+        body['inviter_name'] = inviterName;
+      }
+      if (householdName != null && householdName.isNotEmpty) {
+        body['household_name'] = householdName;
       }
 
       // Add a timeout so the UI doesn't hang forever if the function stalls

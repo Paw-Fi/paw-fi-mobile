@@ -53,6 +53,8 @@ class MonekoAlertDialog {
     bool barrierDismissible = true,
     MonekoAlertDialogInputConfig? inputConfig,
     MonekoAlertDialogInputConfig? secondaryInputConfig,
+    Widget? content,
+    bool isDestructive = false,
   }) {
     return showGeneralDialog<MonekoAlertDialogResult>(
       context: context,
@@ -81,6 +83,8 @@ class MonekoAlertDialog {
               cancelLabel: cancelLabel ?? context.l10n.cancel,
               inputConfig: inputConfig,
               secondaryInputConfig: secondaryInputConfig,
+              content: content,
+              isDestructive: isDestructive,
             ),
           ),
         );
@@ -97,6 +101,8 @@ class _MonekoAlertDialogWidget extends StatefulWidget {
     this.cancelLabel,
     this.inputConfig,
     this.secondaryInputConfig,
+    this.content,
+    this.isDestructive = false,
   });
 
   final String title;
@@ -105,6 +111,8 @@ class _MonekoAlertDialogWidget extends StatefulWidget {
   final String? cancelLabel;
   final MonekoAlertDialogInputConfig? inputConfig;
   final MonekoAlertDialogInputConfig? secondaryInputConfig;
+  final Widget? content;
+  final bool isDestructive;
 
   @override
   State<_MonekoAlertDialogWidget> createState() =>
@@ -308,14 +316,23 @@ class _MonekoAlertDialogWidgetState extends State<_MonekoAlertDialogWidget> {
                 if (widget.cancelLabel != null) ...[
                   TextButton(
                     onPressed: _handleCancel,
-                    child: Text(widget.cancelLabel!),
+                    child: Text(
+                      widget.cancelLabel!,
+                      style: TextStyle(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 8),
                 ],
                 FilledButton.tonal(
                   style: FilledButton.styleFrom(
-                    backgroundColor: scheme.primary,
-                    foregroundColor: scheme.onPrimary,
+                    backgroundColor: widget.isDestructive
+                        ? scheme.error
+                        : scheme.primary,
+                    foregroundColor: widget.isDestructive
+                        ? scheme.onError
+                        : scheme.onPrimary,
                   ),
                   onPressed: _canConfirm ? _handleConfirm : null,
                   child: Text(widget.confirmLabel),
@@ -395,6 +412,10 @@ class _MonekoAlertDialogWidgetState extends State<_MonekoAlertDialogWidget> {
                         const SizedBox(height: 12),
                         _buildSecondaryInput(context),
                       ],
+                      if (widget.content != null) ...[
+                        const SizedBox(height: 16),
+                        widget.content!,
+                      ],
                     ],
                   ),
                 ),
@@ -444,7 +465,9 @@ class _MonekoAlertDialogWidgetState extends State<_MonekoAlertDialogWidget> {
                               child: Text(
                                 widget.confirmLabel,
                                 style: theme.textTheme.bodyLarge?.copyWith(
-                                  color: scheme.primary,
+                                  color: widget.isDestructive
+                                      ? scheme.error
+                                      : scheme.primary,
                                   fontWeight: FontWeight.w600,
                                   fontSize: 17,
                                   // Opacity if disabled

@@ -462,7 +462,7 @@ class _MultiTransactionReviewSheetState
     }
     if (_shareWithHousehold && !_isIncomeMode) {
       if (_isLoadingMembers) {
-        AppToast.info(context, 'Loading group members...');
+        AppToast.info(context, context.l10n.loadingGroupMembers);
         return;
       }
       if (_householdMembers == null || _householdMembers!.isEmpty) {

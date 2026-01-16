@@ -6,8 +6,10 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/shared/widgets/destructive_adaptive_button.dart';
 import 'package:moneko/shared/widgets/outlined_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
+import 'package:moneko/features/auth/auth.dart';
 import '../../domain/entities/household.dart';
 import '../providers/household_providers.dart';
+import '../providers/selected_household_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
@@ -234,11 +236,23 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
     required int expiresInDays,
   }) async {
     try {
+      final user = ref.read(authProvider);
+      final inviterName =
+          (user.displayName?.trim().isNotEmpty == true ? user.displayName : user.email)
+              ?.trim();
+      final selectedHousehold = ref.read(selectedHouseholdObjectProvider);
+      final householdName = selectedHousehold?.id == widget.householdId
+          ? selectedHousehold?.name
+          : ref.read(householdProvider(widget.householdId)).value?.name;
       final repository = ref.read(householdRepositoryProvider);
       final token = await repository.createInvite(
         householdId: widget.householdId,
         invitedEmail: email,
         personalMessage: message,
+        inviterName: inviterName?.isNotEmpty == true ? inviterName : null,
+        householdName: householdName?.trim().isNotEmpty == true
+            ? householdName?.trim()
+            : null,
         expiresInDays: expiresInDays,
       );
 

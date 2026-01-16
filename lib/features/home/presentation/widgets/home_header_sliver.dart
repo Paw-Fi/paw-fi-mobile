@@ -254,7 +254,7 @@ class HomeHeaderSliver extends ConsumerWidget {
           error: (_, __) => <AdaptivePopupMenuItem>[],
         ),
         AdaptivePopupMenuItem(
-          label: "Create Space", // TODO: Localize
+          label: context.l10n.createSpace, // TODO: Localize
           icon: PlatformInfo.isIOS26OrHigher() ? 'plus' : Icons.add,
           value: 'create_space',
         ),
@@ -349,6 +349,48 @@ class HomeHeaderSliver extends ConsumerWidget {
       ),
     );
 
+    // Build menu items dynamically
+    final menuItems = <AdaptivePopupMenuItem>[
+      AdaptivePopupMenuItem(
+        label: context.l10n.settings,
+        icon: PlatformInfo.isIOS26OrHigher()
+            ? 'gearshape'
+            : Icons.settings_outlined,
+        value: 'settings',
+      ),
+    ];
+
+    if (selectedHouseholdIdForSettings != null) {
+      final currentHousehold = householdsAsync.when(
+        data: (households) => households.firstWhere(
+          (h) => h.id == selectedHouseholdIdForSettings,
+          orElse: () => households.first,
+        ),
+        loading: () => null,
+        error: (_, __) => null,
+      );
+      
+      if (currentHousehold != null) {
+        menuItems.add(AdaptivePopupMenuItem(
+          label: currentHousehold.isPortfolio
+              ? context.l10n.managePrivateSpace
+              : context.l10n.manageSharedSpace,
+          icon: PlatformInfo.isIOS26OrHigher()
+              ? 'person.2.badge.gearshape'
+              : Icons.manage_accounts_outlined,
+          value: 'manage_household',
+        ));
+      } else {
+        menuItems.add(AdaptivePopupMenuItem(
+          label: '${context.l10n.manage} ${context.l10n.household}',
+          icon: PlatformInfo.isIOS26OrHigher()
+              ? 'person.2.badge.gearshape'
+              : Icons.manage_accounts_outlined,
+          value: 'manage_household',
+        ));
+      }
+    }
+
     // Menu Button (Right)
     final menuButton = AdaptivePopupMenuButton.widget(
       child: Container(
@@ -361,23 +403,7 @@ class HomeHeaderSliver extends ConsumerWidget {
           size: 24,
         ),
       ),
-      items: [
-        AdaptivePopupMenuItem(
-          label: context.l10n.settings,
-          icon: PlatformInfo.isIOS26OrHigher()
-              ? 'gearshape'
-              : Icons.settings_outlined,
-          value: 'settings',
-        ),
-        if (selectedHouseholdIdForSettings != null)
-          AdaptivePopupMenuItem(
-            label: '${context.l10n.manage} ${context.l10n.household}',
-            icon: PlatformInfo.isIOS26OrHigher()
-                ? 'person.2.badge.gearshape'
-                : Icons.manage_accounts_outlined,
-            value: 'manage_household',
-          ),
-      ],
+      items: menuItems,
       onSelected: (index, item) {
         if (item.value == 'settings') {
           Navigator.of(context).push(

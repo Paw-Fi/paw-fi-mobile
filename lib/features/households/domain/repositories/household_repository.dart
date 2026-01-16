@@ -35,6 +35,8 @@ abstract class HouseholdRepository {
     required String householdId,
     String? invitedEmail,
     String? personalMessage,
+    String? inviterName,
+    String? householdName,
     int expiresInDays,
   });
   Future<Map<String, dynamic>> validateInvite(String token);

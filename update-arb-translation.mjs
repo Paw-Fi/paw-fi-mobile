@@ -5,6 +5,9 @@ import path from 'node:path';
 const rootDir = new URL('.', import.meta.url).pathname;
 const l10nDir = path.join(rootDir, 'lib', 'l10n');
 
+// Configuration: Set to true to replace existing keys, false to skip them
+const REPLACE_EXISTING_KEYS = true;
+
 const localeToFile = {
   de: 'app_de.arb',
   en: 'app_en.arb',
@@ -46,23 +49,34 @@ function updateLocale(locale) {
   }
 
   let addedCount = 0;
+  let replacedCount = 0;
 
   for (const key of Object.keys(translations)) {
     const perLocale = translations[key];
     if (!perLocale || !(locale in perLocale)) continue;
 
-    // skip if the key already exists
-    if (key in arbJson) continue;
-
-    arbJson[key] = perLocale[locale];
-    addedCount++;
+    // Handle existing keys based on configuration
+    if (key in arbJson) {
+      if (REPLACE_EXISTING_KEYS) {
+        arbJson[key] = perLocale[locale];
+        replacedCount++;
+      } else {
+        continue; // Skip existing keys
+      }
+    } else {
+      arbJson[key] = perLocale[locale];
+      addedCount++;
+    }
   }
 
-  if (addedCount > 0) {
+  if (addedCount > 0 || replacedCount > 0) {
     fs.writeFileSync(arbPath, JSON.stringify(arbJson, null, 2) + '\n', 'utf8');
-    console.log(`Updated ${fileName}: added ${addedCount} key(s).`);
+    let message = `Updated ${fileName}:`;
+    if (addedCount > 0) message += ` added ${addedCount} key(s).`;
+    if (replacedCount > 0) message += ` replaced ${replacedCount} key(s).`;
+    console.log(message);
   } else {
-    console.log(`No new keys for ${locale}.`);
+    console.log(`No changes for ${fileName}.`);
   }
 }
 

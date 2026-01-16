@@ -1153,10 +1153,10 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
             // Simulated header card
             Card(
               color: colorScheme.cardSurface,
-              child: const ListTile(
-                leading: CircleAvatar(),
-                title: Text('Household name placeholder'),
-                subtitle: Text('Summary placeholder'),
+              child: ListTile(
+                leading: const CircleAvatar(),
+                title: Text(context.l10n.householdNamePlaceholder),
+                subtitle: const Text('Summary placeholder'),
               ),
             ),
             const SizedBox(height: 16),

@@ -1,4 +1,4 @@
-import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
@@ -30,19 +30,26 @@ class PrimaryAdaptiveButton extends StatelessWidget {
             ],
           );
 
-    return AdaptiveButton.child(
-      color: scheme.primary,
-      onPressed: onPressed,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: DefaultTextStyle.merge(
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: scheme.primaryForeground),
-            child: content,
+    return SizedBox(
+      width: double.infinity,
+      child: CupertinoButton(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+        color: scheme.primary,
+        disabledColor: scheme.primary.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(16),
+        pressedOpacity: 0.7,
+        onPressed: onPressed,
+        child: DefaultTextStyle.merge(
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: scheme.primaryForeground,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.3,
           ),
+          child: content,
         ),
       ),
     );

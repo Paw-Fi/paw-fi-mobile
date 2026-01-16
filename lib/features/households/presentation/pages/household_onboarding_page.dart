@@ -99,7 +99,7 @@ class _HouseholdOnboardingPageState extends State<HouseholdOnboardingPage> {
                           const Icon(Icons.add_circle_outline, size: 24),
                           const SizedBox(width: 12),
                           Text(
-                            context.l10n.createHousehold,
+                            context.l10n.createSpace,
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w600,

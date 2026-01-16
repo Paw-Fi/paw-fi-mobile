@@ -36,15 +36,26 @@ class HouseholdImagePicker {
 
           return Container(
             height: MediaQuery.of(context).size.height * 0.75,
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
             decoration: BoxDecoration(
               color: colorScheme.appBackground,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Header
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: colorScheme.muted.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(2.5),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
                 Row(
                   children: [
                     Expanded(
@@ -52,18 +63,26 @@ class HouseholdImagePicker {
                         context.l10n.selectCoverImage,
                         style: TextStyle(
                           fontSize: 20,
-                          fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.w700,
                           color: colorScheme.foreground,
+                          letterSpacing: -0.5,
                         ),
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close, size: 24),
+                      icon: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: colorScheme.muted.withValues(alpha: 0.5),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.close, size: 18, color: colorScheme.mutedForeground),
+                      ),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
 
                 // Grid with camera, gallery, and presets
                 Expanded(
@@ -182,49 +201,61 @@ class HouseholdImagePicker {
     required VoidCallback onTap,
   }) {
     return Material(
-      color: colorScheme.surface.withValues(alpha: 0.0),
-      borderRadius: BorderRadius.circular(16),
+      color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         child: Container(
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: gradientColors,
-            ),
-            borderRadius: BorderRadius.circular(16),
+            color: colorScheme.card,
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: colorScheme.primary.withValues(alpha: 0.3),
-              width: 1,
+              color: colorScheme.surfaceBorder,
             ),
+            boxShadow: [
+              BoxShadow(
+                color: colorScheme.shadow.withValues(alpha: 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                width: 56,
-                height: 56,
+                width: 52,
+                height: 52,
                 decoration: BoxDecoration(
-                  color: colorScheme.primaryForeground.withValues(alpha: 0.2),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: gradientColors,
+                  ),
                   shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: gradientColors.last.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: Icon(
                   icon,
-                  color: colorScheme.primaryForeground,
-                  size: 28,
+                  color: Colors.white,
+                  size: 24,
                 ),
               ),
               const SizedBox(height: 12),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: Text(
                   label,
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: colorScheme.primaryForeground,
+                    color: colorScheme.foreground,
                   ),
                   textAlign: TextAlign.center,
                   maxLines: 2,
@@ -248,19 +279,27 @@ class HouseholdImagePicker {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected
                 ? colorScheme.primary
-                : colorScheme.border.withValues(alpha: 0.12),
+                : colorScheme.surfaceBorder,
             width: isSelected ? 3 : 1,
           ),
+          boxShadow: [
+            if (isSelected)
+              BoxShadow(
+                color: colorScheme.primary.withValues(alpha: 0.25),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+          ],
         ),
         child: Stack(
           fit: StackFit.expand,
           children: [
             ClipRRect(
-              borderRadius: BorderRadius.circular(15),
+              borderRadius: BorderRadius.circular(17),
               child: Image.network(
                 imageUrl,
                 fit: BoxFit.cover,
@@ -269,41 +308,30 @@ class HouseholdImagePicker {
                     return child;
                   }
                   return Container(
-                    color: colorScheme.muted,
-                    child: const Center(
+                    color: colorScheme.muted.withValues(alpha: 0.3),
+                    child: Center(
                       child: SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                              colorScheme.primary),
+                        ),
                       ),
                     ),
                   );
                 },
                 errorBuilder: (context, error, stackTrace) {
-                  appLog(
-                    'Failed to load household preset image',
-                    name: 'HouseholdImagePicker',
-                    error: error,
-                    stackTrace: stackTrace,
-                  );
                   return Container(
-                    color: colorScheme.muted,
+                    color: colorScheme.muted.withValues(alpha: 0.3),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
                           Icons.broken_image_rounded,
-                          color: colorScheme.mutedForeground,
-                          size: 32,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          context.l10n.failedToLoad,
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: colorScheme.mutedForeground,
-                          ),
-                          textAlign: TextAlign.center,
+                          color: colorScheme.mutedForeground.withValues(alpha: 0.5),
+                          size: 24,
                         ),
                       ],
                     ),
@@ -311,21 +339,35 @@ class HouseholdImagePicker {
                 },
               ),
             ),
-            if (isSelected)
+            if (isSelected) ...[
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(17),
+                  color: colorScheme.primary.withValues(alpha: 0.1),
+                ),
+              ),
               Positioned(
                 top: 8,
                 right: 8,
                 child: Container(
-                  width: 28,
-                  height: 28,
+                  width: 24,
+                  height: 24,
                   decoration: BoxDecoration(
                     color: colorScheme.primary,
                     shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.2),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
                   child: Icon(Icons.check_rounded,
-                      color: colorScheme.primaryForeground, size: 18),
+                      color: Colors.white, size: 16),
                 ),
               ),
+            ],
           ],
         ),
       ),

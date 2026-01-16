@@ -228,12 +228,16 @@ class HouseholdInvitesNotifier
   Future<String> createInvite({
     String? invitedEmail,
     String? personalMessage,
+    String? inviterName,
+    String? householdName,
     int expiresInDays = 7,
   }) async {
     final token = await _repository.createInvite(
       householdId: _householdId,
       invitedEmail: invitedEmail,
       personalMessage: personalMessage,
+      inviterName: inviterName,
+      householdName: householdName,
       expiresInDays: expiresInDays,
     );
     if (!mounted) return token;

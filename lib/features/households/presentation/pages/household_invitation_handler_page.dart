@@ -7,6 +7,7 @@ import '../providers/household_providers.dart';
 import '../providers/selected_household_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 class HouseholdInvitationHandlerPage extends ConsumerStatefulWidget {
   final String token;
@@ -143,7 +144,7 @@ class _HouseholdInvitationHandlerPageState extends ConsumerState<HouseholdInvita
           children: [
             const CircularProgressIndicator(),
             const SizedBox(height: 12),
-            Text('Joining household...', style: TextStyle(color: colors.mutedForeground)),
+            Text(context.l10n.joiningHousehold, style: TextStyle(color: colors.mutedForeground)),
           ],
         ),
       ),

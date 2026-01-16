@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:flutter/gestures.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
@@ -8,7 +8,6 @@ import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/utils/error_handler.dart';
-import 'package:moneko/core/navigation/navigation_providers.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/utils/sub_page_top_padding.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -123,6 +122,41 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
     );
   }
 
+  Widget _buildSpaceDescription(ColorScheme colorScheme) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: RichText(
+        textAlign: TextAlign.center,
+        text: TextSpan(
+          style: TextStyle(
+            fontSize: 13,
+            color: colorScheme.mutedForeground,
+            height: 1.4,
+          ),
+          children: [
+            TextSpan(
+              text: _isSharedSpace
+                  ? context.l10n.sharedSpacesDescription
+                  : context.l10n.privateSpacesDescription,
+            ),
+            TextSpan(
+              text: context.l10n.howDoSpacesWork,
+              style: TextStyle(
+                fontSize: 13,
+                color: colorScheme.primary,
+                fontWeight: FontWeight.w600,
+                decoration: TextDecoration.underline,
+                decorationColor: colorScheme.primary,
+              ),
+              recognizer: TapGestureRecognizer()
+                ..onTap = _showSpacesInfo,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -130,8 +164,8 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
     final currentUser = ref.watch(authProvider);
 
     return AdaptiveScaffold(
-      appBar: const AdaptiveAppBar(
-        title: "Create Space", // TODO: Localize
+      appBar: AdaptiveAppBar(
+        title: context.l10n.createSpace, // TODO: Localize
       ),
       body: SafeArea(
         child: Material(
@@ -152,64 +186,16 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        _buildSpaceDescription(colorScheme),
+                        
+                        const SizedBox(height: 20),
+                        
                         _buildFormCard(colorScheme, isLoading),
 
                         const SizedBox(height: 20),
 
                         _buildMembersSection(colorScheme, currentUser),
 
-                        // Helper text for better UX/Clarity
-                        Padding(
-                          padding: const EdgeInsets.only(
-                              top: 12, left: 16, right: 16),
-                          child: Column(
-                            children: [
-                              Text(
-                                _isSharedSpace
-                                    ? "Shared spaces allow you to track expenses, manage budgets, and achieve goals with others."
-                                    : "Private spaces are encrypted and visible only to you. Perfect for personal portfolios.",
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: colorScheme.mutedForeground,
-                                  height: 1.4,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 12),
-                              GestureDetector(
-                                onTap: _showSpacesInfo,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: colorScheme.primary
-                                        .withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.help_outline_rounded,
-                                        size: 14,
-                                        color: colorScheme.primary,
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        "How do spaces work?", // TODO: Localize
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
-                                          color: colorScheme.primary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
                       ],
                     ),
                   ),
@@ -302,7 +288,7 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _isSharedSpace ? "Shared Space" : "Private Space",
+                        _isSharedSpace ? context.l10n.sharedSpace : context.l10n.privateSpace,
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -313,8 +299,8 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
                       const SizedBox(height: 2),
                       Text(
                         _isSharedSpace
-                            ? "Invite members"
-                            : "Only you", // Keep it short/clean
+                            ? context.l10n.inviteMembers
+                            : context.l10n.onlyYou, // Keep it short/clean
                         style: TextStyle(
                           fontSize: 13,
                           color: colorScheme.mutedForeground,
@@ -364,8 +350,8 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
       children: [
         _buildMemberRow(
           colorScheme,
-          currentUser.displayName ?? "You", // TODO: Localize
-          "Owner", // TODO: Localize
+          currentUser.displayName ?? context.l10n.you, // TODO: Localize
+          context.l10n.owner, // TODO: Localize
           currentUser.photoUrl,
           userId: currentUser.uid,
           isMe: true,
@@ -384,8 +370,8 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
       children: [
         _buildMemberRow(
           colorScheme,
-          currentUser.displayName ?? "You", // TODO: Localize
-          "Owner (Private)", // TODO: Localize
+          currentUser.displayName ?? context.l10n.you, // TODO: Localize
+          context.l10n.ownerPrivate, // TODO: Localize
           currentUser.photoUrl,
           userId: currentUser.uid,
           isMe: true,
@@ -527,7 +513,7 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "Invite Link", // TODO: Localize
+                  context.l10n.inviteLink, // TODO: Localize
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -536,7 +522,7 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
                   ),
                 ),
                 Text(
-                  "Generated in next step", // TODO: Localize
+                  context.l10n.generatedInNextStep, // TODO: Localize
                   style: TextStyle(
                     fontSize: 12,
                     color: colorScheme.mutedForeground,
@@ -579,8 +565,8 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
                     children: [
                       Text(
                         _isSharedSpace
-                            ? "Continue" // Cleaner "Continue" vs "Next"
-                            : "Create Private Space", // TODO: Localize
+                            ? context.l10n.continueAction // Cleaner "Continue" vs "Next"
+                            : context.l10n.createPrivateSpace, // TODO: Localize
                         style: const TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 16,
@@ -602,7 +588,7 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
 
   Future<void> _handleCreation() async {
     if (!_formKey.currentState!.validate()) {
-      AppToast.error(context, "Please enter a valid space name");
+      AppToast.error(context, context.l10n.pleaseEnterValidSpaceName);
       return;
     }
     if (_selectedCurrency == null ||
@@ -646,7 +632,11 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
         // --- Private Space Flow ---
         if (!mounted) return;
         setState(() => _isCreating = false);
-        Navigator.of(context).pop(); // Close create page
+        if (widget.fromOnboarding) {
+          Navigator.of(context).pop(true); // Return to onboarding finish step
+        } else {
+          Navigator.of(context).pop(); // Close create page
+        }
         await ref
             .read(selectedHouseholdProvider.notifier)
             .selectHousehold(createdHousehold.id);
@@ -683,28 +673,23 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
     if (!mounted) return;
     setState(() => _isCreating = false);
 
-    Navigator.of(context).pushReplacement(
+    final done = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (context) => InviteMembersPage(
           householdId: householdId, // Pass ID instead of pre-generated URL
           householdName: householdName,
-          onDone: () {
-            if (widget.fromOnboarding) {
-              final uid = ref.read(authProvider).uid;
-              try {
-                final prefs = ref.read(sharedPreferencesProvider);
-                // Not waiting for this
-                prefs.setBool('onboarding_completed:$uid', true);
-              } catch (_) {}
-              ref.read(mainShellTabIndexProvider.notifier).state = 0;
-              context.go('/dashboard');
-            } else {
-              Navigator.of(context)
-                  .pop(); // Invite page replaces create page, so pop goes back to list
-            }
-          },
+          onDone: () => Navigator.of(context).pop(true),
         ),
       ),
     );
+
+    if (!mounted) return;
+    if (done == true) {
+      if (widget.fromOnboarding) {
+        Navigator.of(context).pop(true);
+      } else {
+        Navigator.of(context).pop();
+      }
+    }
   }
 }

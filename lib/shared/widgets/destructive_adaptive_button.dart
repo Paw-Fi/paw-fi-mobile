@@ -1,4 +1,3 @@
-import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
@@ -17,50 +16,28 @@ class DestructiveAdaptiveButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    // Return different widgets based on platform
-    if (PlatformInfo.isIOS) {
-      if (PlatformInfo.isIOS26OrHigher()) {
-        // iOS 26+ - Use native iOS 26 button with red destructive styling
-        return AdaptiveButton.child(
-          onPressed: onPressed,
-          color: scheme.destructive,
-          style: AdaptiveButtonStyle.filled,
-          child: DefaultTextStyle.merge(
-            style: TextStyle(color: scheme.primaryForeground),
-            child: child,
-          ),
-        );
-      } else {
-        // iOS <26 - Use Cupertino button with explicit red styling
-        return CupertinoButton.filled(
-          onPressed: onPressed,
-          color: scheme.destructive,
-          child: DefaultTextStyle.merge(
-            style: TextStyle(color: scheme.primaryForeground),
-            child: child,
-          ),
-        );
-      }
-    } else if (PlatformInfo.isAndroid) {
-      // Android - Use Material ElevatedButton with red styling
-      return ElevatedButton(
+    return SizedBox(
+      width: double.infinity,
+      child: CupertinoButton(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+        color: scheme.destructive.withValues(alpha: 0.1),
+        disabledColor: scheme.destructive.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(16),
+        pressedOpacity: 0.7,
         onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: scheme.destructive,
-          foregroundColor:  scheme.primaryForeground,
+        child: DefaultTextStyle.merge(
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: scheme.destructive,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.3,
+          ),
+          child: child,
         ),
-        child: child,
-      );
-    } else {
-      // Other platforms (web, desktop) - Use Material as fallback
-      return ElevatedButton(
-        onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: scheme.destructive,
-          foregroundColor:  scheme.primaryForeground,
-        ),
-        child: child,
-      );
-    }
+      ),
+    );
   }
 }

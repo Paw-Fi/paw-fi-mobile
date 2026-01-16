@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
@@ -50,7 +51,7 @@ class SpacesExplanationModal extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          "Choose Your Space", // Friendly title
+                          context.l10n.chooseYourSpace, // Friendly title
                           style: TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.w800,
@@ -84,7 +85,7 @@ class SpacesExplanationModal extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Text(
-                            "Spaces help you organize your money in meaningful ways. Here's how they differ:",
+                            context.l10n.spacesHelpOrganize,
                             style: TextStyle(
                               fontSize: 16,
                               color: colorScheme.mutedForeground,
@@ -97,10 +98,10 @@ class SpacesExplanationModal extends StatelessWidget {
                           // Private Space Card
                           _buildSpaceCard(
                             context,
-                            title: "Private Space",
-                            subtitle: "Your Personal Vault",
+                            title: context.l10n.privateSpace,
+                            subtitle: context.l10n.yourPersonalVault,
                             description:
-                                "A secure space just for you. Track your personal spending, savings, and secret goals in total privacy.",
+                                context.l10n.privateSpaceDescription,
                             imagePath:
                                 "lib/assets/images/household/private_space_illustration.png",
                             accentColor: const Color(0xFF6366F1), // Indigo
@@ -112,10 +113,10 @@ class SpacesExplanationModal extends StatelessWidget {
                           // Shared Space Card
                           _buildSpaceCard(
                             context,
-                            title: "Shared Space",
-                            subtitle: "Better Together",
+                            title: context.l10n.sharedSpace,
+                            subtitle: context.l10n.betterTogether,
                             description:
-                                "Team up with family or friends! Create shared budgets, split bills seamlessly, and reach goals as a squad.",
+                                context.l10n.sharedSpaceDescription2,
                             imagePath:
                                 "lib/assets/images/household/shared_space_illustration.png",
                             accentColor: const Color(0xFFEC4899), // Pink
@@ -141,9 +142,9 @@ class SpacesExplanationModal extends StatelessWidget {
                       width: double.infinity,
                       child: PrimaryAdaptiveButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        child: const Text(
-                          "Got it!",
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                        child: Text(
+                          context.l10n.gotIt,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ),
                     ),

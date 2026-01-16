@@ -40,25 +40,34 @@ class HouseholdSettingsPage extends ConsumerStatefulWidget {
 
 class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage>
     with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+  TabController? _tabController;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-    _tabController.addListener(() {
-      if (mounted) setState(() {});
-    });
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
+    _tabController?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final householdAsync = ref.watch(householdProvider(widget.householdId));
+    final shouldShowAllTabs =
+        householdAsync.asData?.value?.isPortfolio != true;
+    final desiredTabCount = shouldShowAllTabs ? 3 : 1;
+
+    if (_tabController == null || _tabController!.length != desiredTabCount) {
+      _tabController?.dispose();
+      _tabController = TabController(length: desiredTabCount, vsync: this);
+      _tabController!.addListener(() {
+        if (mounted) setState(() {});
+      });
+    }
+
     return AdaptiveScaffold(
       appBar: AdaptiveAppBar(
         title: context.l10n.householdSettings,
@@ -71,31 +80,39 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage>
               color: Theme.of(context).colorScheme.appBackground,
               child: Column(
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: SizedBox(
-                      height: 48,
-                      width: double.infinity,
-                      child: AdaptiveSegmentedControl(
-                        labels: [
-                          context.l10n.settings,
-                          context.l10n.members,
-                          context.l10n.invitations,
-                        ],
-                        selectedIndex: _tabController.index,
-                        onValueChanged: (index) =>
-                            _tabController.animateTo(index),
+                  if (shouldShowAllTabs)
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: SizedBox(
+                        height: 48,
+                        width: double.infinity,
+                        child: AdaptiveSegmentedControl(
+                          labels: [
+                            context.l10n.settings,
+                            context.l10n.members,
+                            context.l10n.invitations,
+                          ],
+                          selectedIndex: _tabController!.index,
+                          onValueChanged: (index) =>
+                              _tabController!.animateTo(index),
+                        ),
                       ),
                     ),
-                  ),
                   Expanded(
                     child: TabBarView(
                       controller: _tabController,
-                      children: [
-                        _GeneralTab(householdId: widget.householdId),
-                        _MembersTab(householdId: widget.householdId),
-                        _InvitesTab(householdId: widget.householdId),
-                      ],
+                      physics: shouldShowAllTabs
+                          ? null
+                          : const NeverScrollableScrollPhysics(),
+                      children: shouldShowAllTabs
+                          ? [
+                              _GeneralTab(householdId: widget.householdId),
+                              _MembersTab(householdId: widget.householdId),
+                              _InvitesTab(householdId: widget.householdId),
+                            ]
+                          : [
+                              _GeneralTab(householdId: widget.householdId),
+                            ],
                     ),
                   ),
                 ],
@@ -194,21 +211,14 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
                     _SectionHeader(
                       title: context.l10n.householdName,
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     Container(
                       decoration: BoxDecoration(
                         color: colorScheme.card,
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: colorScheme.border.withValues(alpha: 0.5),
+                          color: colorScheme.surfaceBorder,
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: colorScheme.shadow.withValues(alpha: 0.04),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
                       ),
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 4),
@@ -219,12 +229,14 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
                           hintText: context.l10n.pleaseEnterHouseholdName,
                           border: InputBorder.none,
                           hintStyle: TextStyle(
-                            color: colorScheme.mutedForeground,
+                            color: colorScheme.mutedForeground.withValues(alpha: 0.6),
+                            fontWeight: FontWeight.w400,
                           ),
                         ),
                         style: TextStyle(
                           fontSize: 16,
                           color: colorScheme.foreground,
+                          fontWeight: FontWeight.w400,
                         ),
                         maxLength: 50,
                         buildCounter: (context,
@@ -240,32 +252,26 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
                     _SectionHeader(
                       title: context.l10n.coverPhoto,
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     GestureDetector(
                       onTap: canEdit
                           ? () => _showImagePicker(context, household)
                           : null,
                       child: Container(
-                        height: 200,
+                        height: 220,
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
+                          color: colorScheme.card,
+                          borderRadius: BorderRadius.circular(24),
                           border: Border.all(
-                            color: colorScheme.border.withValues(alpha: 0.5),
+                            color: colorScheme.surfaceBorder,
                           ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: colorScheme.shadow.withValues(alpha: 0.04),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
                         ),
                         child: Stack(
                           fit: StackFit.expand,
                           children: [
                             // Image preview
                             ClipRRect(
-                              borderRadius: BorderRadius.circular(15),
+                              borderRadius: BorderRadius.circular(24),
                               child: _selectedImageFile != null
                                   ? Image.file(
                                       _selectedImageFile!,
@@ -278,23 +284,21 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
                                           errorBuilder:
                                               (context, error, stack) =>
                                                   Container(
-                                            color: colorScheme.muted
-                                                .withValues(alpha: 1.0),
+                                            color: colorScheme.muted,
                                             child: Icon(
-                                              Icons.home_rounded,
-                                              size: 48,
+                                              Icons.home_filled,
+                                              size: 64,
                                               color:
-                                                  colorScheme.mutedForeground,
+                                                  colorScheme.mutedForeground.withValues(alpha: 0.5),
                                             ),
                                           ),
                                         )
                                       : Container(
-                                          color: colorScheme.muted
-                                              .withValues(alpha: 1.0),
+                                          color: colorScheme.muted,
                                           child: Icon(
-                                            Icons.home_rounded,
-                                            size: 48,
-                                            color: colorScheme.mutedForeground,
+                                            Icons.home_filled,
+                                            size: 64,
+                                            color: colorScheme.mutedForeground.withValues(alpha: 0.5),
                                           ),
                                         ),
                             ),
@@ -302,51 +306,37 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
                             if (canEdit) ...[
                               Container(
                                 decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(15),
+                                  borderRadius: BorderRadius.circular(24),
                                   gradient: LinearGradient(
                                     begin: Alignment.topCenter,
                                     end: Alignment.bottomCenter,
                                     colors: [
-                                      colorScheme.surface.withValues(alpha: 0.0),
-                                      colorScheme.shadow.withValues(alpha: 0.5),
+                                      Colors.transparent,
+                                      Colors.black.withValues(alpha: 0.4),
                                     ],
                                   ),
                                 ),
                               ),
                               Positioned(
                                 bottom: 16,
-                                left: 0,
-                                right: 0,
-                                child: Center(
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 8,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color:
-                                          colorScheme.surface.withValues(alpha: 0.9),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Icons.camera_alt,
-                                          size: 18,
-                                          color: colorScheme.primary,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          context.l10n.changeCoverPhoto,
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w600,
-                                            color: colorScheme.primary,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                                right: 16,
+                                child: Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.9),
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.1),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Icon(
+                                    Icons.camera_alt_outlined,
+                                    size: 20,
+                                    color: Colors.black87,
                                   ),
                                 ),
                               ),
@@ -440,6 +430,7 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
       confirmLabel: l10n.delete,
       cancelLabel: l10n.cancel,
       barrierDismissible: false,
+      isDestructive: true,
     );
 
     if (result?.confirmed == true) {
@@ -709,25 +700,18 @@ class _MemberCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: colorScheme.card,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: colorScheme.border.withValues(alpha: 0.5),
+          color: colorScheme.surfaceBorder,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.shadow.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
       child: Material(
-        color: colorScheme.surface.withValues(alpha: 0.0),
+        color: Colors.transparent,
         child: InkWell(
           onTap: canManageThisMember ? () => _showOptions(context) : null,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(12),
             child: Row(
               children: [
                 MemberAvatar(
@@ -735,6 +719,7 @@ class _MemberCard extends StatelessWidget {
                   avatarUrl: member.avatarUrl,
                   name: member.userName,
                   email: member.userEmail,
+                  radius: 20,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -748,28 +733,28 @@ class _MemberCard extends StatelessWidget {
                           return member.userEmail ?? context.l10n.unknown;
                         })(),
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: 15,
                           fontWeight: FontWeight.w600,
                           color: colorScheme.foreground,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                       Row(
                         children: [
                           RoleBadge(role: member.role),
                           if (member.userEmail != null &&
                               member.userName != null) ...[
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 6),
                             Text(
                               '•',
                               style: TextStyle(
-                                color: colorScheme.mutedForeground,
+                                color: colorScheme.mutedForeground.withValues(alpha: 0.5),
                                 fontSize: 12,
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 6),
                             Expanded(
                               child: Text(
                                 member.userEmail!,
@@ -789,8 +774,8 @@ class _MemberCard extends StatelessWidget {
                 ),
                 if (canManageThisMember)
                   Icon(
-                    Icons.more_vert_rounded,
-                    color: colorScheme.mutedForeground,
+                    Icons.more_horiz_rounded,
+                    color: colorScheme.mutedForeground.withValues(alpha: 0.7),
                     size: 20,
                   ),
               ],
@@ -842,9 +827,23 @@ class _MemberCard extends StatelessWidget {
     } else {
       showModalBottomSheet(
         context: context,
+        useSafeArea: true,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
         builder: (context) => Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: colorScheme.muted.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 8),
             if (member.role != HouseholdRole.admin)
               ListTile(
                 title: Text(context.l10n.makeAdmin),
@@ -1010,193 +1009,45 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
     );
   }
 
-  void _showCreateInviteDialog(BuildContext context) {
-    final emailController = TextEditingController();
-    final messageController = TextEditingController();
+  void _showCreateInviteDialog(BuildContext context) async {
     int expiresInDays = 7;
+    // Use a ValueNotifier to track expiry state within the dialog content
+    final expiryNotifier = ValueNotifier<int>(expiresInDays);
 
-    String expiryLabel(int days) {
-      if (days == 1) return context.l10n.oneDay;
-      if (days == 3) return context.l10n.threeDays;
-      if (days == 7) return context.l10n.sevenDays;
-      if (days == 14) return context.l10n.fourteenDays;
-      if (days == 30) return context.l10n.thirtyDays;
-      return context.l10n.unlimited;
-    }
+    final result = await MonekoAlertDialog.show(
+      context: context,
+      title: context.l10n.createInvitation,
+      confirmLabel: context.l10n.create,
+      cancelLabel: context.l10n.cancel,
+      inputConfig: MonekoAlertDialogInputConfig(
+        placeholder: context.l10n.emailOptional,
+        keyboardType: TextInputType.emailAddress,
+      ),
+      secondaryInputConfig: MonekoAlertDialogInputConfig(
+        placeholder: context.l10n.personalMessageOptional,
+      ),
+      content: ValueListenableBuilder<int>(
+        valueListenable: expiryNotifier,
+        builder: (context, value, _) {
+          return _ExpirySelector(
+            selectedDays: value,
+            onChanged: (newValue) {
+              expiresInDays = newValue;
+              expiryNotifier.value = newValue;
+            },
+          );
+        },
+      ),
+    );
 
-    if (Platform.isIOS) {
-      showCupertinoDialog(
-        context: context,
-        builder: (context) => StatefulBuilder(
-          builder: (context, setState) => CupertinoAlertDialog(
-            title: Text(context.l10n.createInvitation),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(height: 8),
-                CupertinoTextField(
-                  controller: emailController,
-                  placeholder: context.l10n.emailOptional,
-                  keyboardType: TextInputType.emailAddress,
-                ),
-                const SizedBox(height: 8),
-                CupertinoTextField(
-                  controller: messageController,
-                  placeholder: context.l10n.personalMessageOptional,
-                  maxLines: 3,
-                ),
-                const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: CupertinoButton(
-                    padding: EdgeInsets.zero,
-                    onPressed: () async {
-                      final selected = await showCupertinoModalPopup<int>(
-                        context: context,
-                        builder: (ctx) => CupertinoActionSheet(
-                          title: Text(context.l10n.expiresIn),
-                          actions: [
-                            CupertinoActionSheetAction(
-                              onPressed: () => Navigator.pop(ctx, 1),
-                              child: Text(context.l10n.oneDay),
-                            ),
-                            CupertinoActionSheetAction(
-                              onPressed: () => Navigator.pop(ctx, 3),
-                              child: Text(context.l10n.threeDays),
-                            ),
-                            CupertinoActionSheetAction(
-                              onPressed: () => Navigator.pop(ctx, 7),
-                              child: Text(context.l10n.sevenDays),
-                            ),
-                            CupertinoActionSheetAction(
-                              onPressed: () => Navigator.pop(ctx, 14),
-                              child: Text(context.l10n.fourteenDays),
-                            ),
-                            CupertinoActionSheetAction(
-                              onPressed: () => Navigator.pop(ctx, 30),
-                              child: Text(context.l10n.thirtyDays),
-                            ),
-                            CupertinoActionSheetAction(
-                              onPressed: () => Navigator.pop(ctx, 0),
-                              child: Text(context.l10n.unlimited),
-                            ),
-                          ],
-                          cancelButton: CupertinoActionSheetAction(
-                            onPressed: () => Navigator.pop(ctx),
-                            child: Text(context.l10n.cancel),
-                          ),
-                        ),
-                      );
-                      if (selected != null) {
-                        setState(() => expiresInDays = selected);
-                      }
-                    },
-                    child: Text(
-                        '${context.l10n.expiresIn}: ${expiryLabel(expiresInDays)}'),
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              CupertinoDialogAction(
-                onPressed: () => Navigator.pop(context),
-                child: Text(context.l10n.cancel),
-              ),
-              CupertinoDialogAction(
-                onPressed: () async {
-                  await _createInvite(
-                    email: emailController.text.isNotEmpty
-                        ? emailController.text
-                        : null,
-                    message: messageController.text.isNotEmpty
-                        ? messageController.text
-                        : null,
-                    expiresInDays: expiresInDays,
-                  );
-                  if (context.mounted) Navigator.pop(context);
-                },
-                child: Text(context.l10n.create),
-              ),
-            ],
-          ),
-        ),
-      );
-    } else {
-      showDialog(
-        context: context,
-        builder: (context) => StatefulBuilder(
-          builder: (context, setState) => AlertDialog(
-            title: Text(context.l10n.createInvitation),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: emailController,
-                  decoration: InputDecoration(
-                    labelText: context.l10n.emailOptional,
-                    hintText: context.l10n.friendEmailExample,
-                  ),
-                  keyboardType: TextInputType.emailAddress,
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: messageController,
-                  decoration: InputDecoration(
-                    labelText: context.l10n.personalMessageOptional,
-                    hintText: context.l10n.joinHouseholdBudget,
-                  ),
-                  maxLines: 3,
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<int>(
-                  initialValue: expiresInDays,
-                  decoration:
-                      InputDecoration(labelText: context.l10n.expiresIn),
-                  items: [
-                    DropdownMenuItem(
-                        value: 1, child: Text(context.l10n.oneDay)),
-                    DropdownMenuItem(
-                        value: 3, child: Text(context.l10n.threeDays)),
-                    DropdownMenuItem(
-                        value: 7, child: Text(context.l10n.sevenDays)),
-                    DropdownMenuItem(
-                        value: 14, child: Text(context.l10n.fourteenDays)),
-                    DropdownMenuItem(
-                        value: 30, child: Text(context.l10n.thirtyDays)),
-                    DropdownMenuItem(
-                        value: 0, child: Text(context.l10n.unlimited)),
-                  ],
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() => expiresInDays = value);
-                    }
-                  },
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(context.l10n.cancel),
-              ),
-              FilledButton(
-                onPressed: () async {
-                  await _createInvite(
-                    email: emailController.text.isNotEmpty
-                        ? emailController.text
-                        : null,
-                    message: messageController.text.isNotEmpty
-                        ? messageController.text
-                        : null,
-                    expiresInDays: expiresInDays,
-                  );
-                  if (context.mounted) Navigator.pop(context);
-                },
-                child: Text(context.l10n.create),
-              ),
-            ],
-          ),
-        ),
+    if (result?.confirmed == true) {
+      final email = result!.text?.trim();
+      final message = result.secondaryText?.trim();
+
+      await _createInvite(
+        email: (email != null && email.isNotEmpty) ? email : null,
+        message: (message != null && message.isNotEmpty) ? message : null,
+        expiresInDays: expiresInDays,
       );
     }
   }
@@ -1207,11 +1058,21 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
     required int expiresInDays,
   }) async {
     try {
+      final user = ref.read(authProvider);
+      final inviterName =
+          (user.displayName?.trim().isNotEmpty == true ? user.displayName : user.email)
+              ?.trim();
+      final household = ref.read(householdProvider(widget.householdId)).value;
+      final householdName = household?.name;
       final repository = ref.read(householdRepositoryProvider);
       final token = await repository.createInvite(
         householdId: widget.householdId,
         invitedEmail: email,
         personalMessage: message,
+        inviterName: inviterName?.isNotEmpty == true ? inviterName : null,
+        householdName: householdName?.trim().isNotEmpty == true
+            ? householdName?.trim()
+            : null,
         expiresInDays: expiresInDays,
       );
 
@@ -1242,50 +1103,17 @@ class _InvitesTabState extends ConsumerState<_InvitesTab> {
 
   Future<void> _revokeInvite(HouseholdInvite invite) async {
     final l10n = context.l10n;
-    bool? confirmed;
-    if (Platform.isIOS) {
-      confirmed = await showCupertinoDialog<bool>(
-        context: context,
-        builder: (context) => CupertinoAlertDialog(
-          title: Text(context.l10n.revokeInvitation),
-          content: Text(context.l10n.confirmRevokeInvitation),
-          actions: [
-            CupertinoDialogAction(
-              onPressed: () => Navigator.pop(context, false),
-              child: Text(context.l10n.cancel),
-            ),
-            CupertinoDialogAction(
-              isDestructiveAction: true,
-              onPressed: () => Navigator.pop(context, true),
-              child: Text(context.l10n.revoke),
-            ),
-          ],
-        ),
-      );
-    } else {
-      confirmed = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text(context.l10n.revokeInvitation),
-          content: Text(context.l10n.confirmRevokeInvitation),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: Text(context.l10n.cancel),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              style: FilledButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.destructive,
-              ),
-              child: Text(context.l10n.revoke),
-            ),
-          ],
-        ),
-      );
-    }
+    
+    final result = await MonekoAlertDialog.show(
+      context: context,
+      title: context.l10n.revokeInvitation,
+      description: context.l10n.confirmRevokeInvitation,
+      confirmLabel: context.l10n.revoke,
+      cancelLabel: context.l10n.cancel,
+      isDestructive: true,
+    );
 
-    if (confirmed == true) {
+    if (result?.confirmed == true) {
       try {
         // Show blocking loader using a fresh, global context
         final navStartCtx = rootNavigatorKey.currentContext;
@@ -1351,32 +1179,41 @@ class _CreateInviteCard extends StatelessWidget {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            colorScheme.primary,
-            colorScheme.primary.withValues(alpha: 0.8),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: colorScheme.card,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colorScheme.surfaceBorder,
+        ),
         boxShadow: [
           BoxShadow(
-            color: colorScheme.primary.withValues(alpha: 0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: colorScheme.shadow.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Material(
-        color: colorScheme.surface.withValues(alpha: 0.0),
+        color: Colors.transparent,
         child: InkWell(
           onTap: onPressed,
           borderRadius: BorderRadius.circular(16),
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
+            padding: const EdgeInsets.all(16),
             child: Row(
               children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primary.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.person_add_rounded,
+                    color: colorScheme.primary,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1384,18 +1221,18 @@ class _CreateInviteCard extends StatelessWidget {
                       Text(
                         context.l10n.inviteNewMember,
                         style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.primaryForeground,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.foreground,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                       Text(
                         context.l10n.sendLinkToJoinHousehold,
                         style: TextStyle(
                           fontSize: 13,
-                          color: colorScheme.primaryForeground
-                              .withValues(alpha: 0.9),
+                          color: colorScheme.mutedForeground,
+                          fontWeight: FontWeight.w400,
                         ),
                       ),
                     ],
@@ -1403,7 +1240,7 @@ class _CreateInviteCard extends StatelessWidget {
                 ),
                 Icon(
                   Icons.arrow_forward_rounded,
-                  color: colorScheme.primaryForeground,
+                  color: colorScheme.mutedForeground.withValues(alpha: 0.5),
                   size: 20,
                 ),
               ],
@@ -1426,18 +1263,26 @@ class _PermissionNotice extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: colorScheme.muted.withValues(alpha: 0.3),
+        color: colorScheme.card,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: colorScheme.border.withValues(alpha: 0.3),
+          color: colorScheme.surfaceBorder,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.shadow.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
             Icons.info_outline_rounded,
             size: 20,
-            color: colorScheme.mutedForeground,
+            color: colorScheme.mutedForeground.withValues(alpha: 0.7),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1447,6 +1292,7 @@ class _PermissionNotice extends StatelessWidget {
                 fontSize: 13,
                 color: colorScheme.mutedForeground,
                 fontWeight: FontWeight.w500,
+                height: 1.4,
               ),
             ),
           ),
@@ -1468,36 +1314,39 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Row(
-      children: [
-        Text(
-          title.toUpperCase(),
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: colorScheme.primary,
-            letterSpacing: 1.0,
-          ),
-        ),
-        if (count != null) ...[
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-              color: colorScheme.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 8, top: 4),
+      child: Row(
+        children: [
+          Text(
+            title.toUpperCase(),
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: colorScheme.mutedForeground,
+              letterSpacing: 1.0,
             ),
-            child: Text(
-              count.toString(),
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: colorScheme.primary,
+          ),
+          if (count != null) ...[
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: colorScheme.muted,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                count.toString(),
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.mutedForeground,
+                ),
               ),
             ),
-          ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }
@@ -1517,20 +1366,20 @@ class _EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
         color: colorScheme.card.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: colorScheme.border.withValues(alpha: 0.2),
+          color: colorScheme.surfaceBorder,
         ),
       ),
       child: Column(
         children: [
           Icon(
             icon,
-            size: 32,
-            color: colorScheme.mutedForeground.withValues(alpha: 0.5),
+            size: 40,
+            color: colorScheme.mutedForeground.withValues(alpha: 0.3),
           ),
           const SizedBox(height: 12),
           Text(
@@ -1579,17 +1428,10 @@ class _InviteCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: colorScheme.card,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: colorScheme.border.withValues(alpha: 0.5),
+          color: colorScheme.surfaceBorder,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.shadow.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1600,18 +1442,18 @@ class _InviteCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: colorScheme.primary.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    Icons.link,
+                    Icons.link_rounded,
                     size: 20,
                     color: colorScheme.primary,
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1619,7 +1461,7 @@ class _InviteCard extends StatelessWidget {
                       Text(
                         invite.invitedEmail ?? context.l10n.anyoneWithLink,
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: 15,
                           fontWeight: FontWeight.w600,
                           color: colorScheme.foreground,
                         ),
@@ -1629,11 +1471,12 @@ class _InviteCard extends StatelessWidget {
                         children: [
                           _StatusBadge(
                               status: invite.status, isExpired: isExpired),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 6),
                           Text('•',
                               style: TextStyle(
-                                  color: colorScheme.mutedForeground)),
-                          const SizedBox(width: 8),
+                                  color: colorScheme.mutedForeground
+                                      .withValues(alpha: 0.5))),
+                          const SizedBox(width: 6),
                           Expanded(
                             child: Text(
                               invite.expiresAt == null
@@ -1667,11 +1510,11 @@ class _InviteCard extends StatelessWidget {
                         ],
                       ),
                       if (invite.personalMessage != null) ...[
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 12),
                         Container(
-                          padding: const EdgeInsets.all(8),
+                          padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: colorScheme.muted.withValues(alpha: 0.3),
+                            color: colorScheme.muted.withValues(alpha: 0.5),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
@@ -1693,7 +1536,10 @@ class _InviteCard extends StatelessWidget {
           if (isPending &&
               !isExpired &&
               (onCopy != null || onRevoke != null)) ...[
-            Divider(height: 1, thickness: 0.5, color: colorScheme.border),
+            Divider(
+                height: 1,
+                thickness: 1,
+                color: colorScheme.border.withValues(alpha: 0.3)),
             Row(
               children: [
                 if (onCopy != null)
@@ -1701,7 +1547,7 @@ class _InviteCard extends StatelessWidget {
                     child: InkWell(
                       onTap: onCopy,
                       borderRadius: const BorderRadius.only(
-                        bottomLeft: Radius.circular(16),
+                        bottomLeft: Radius.circular(12),
                       ),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 12),
@@ -1727,17 +1573,17 @@ class _InviteCard extends StatelessWidget {
                 if (onCopy != null && onRevoke != null)
                   Container(
                     width: 1,
-                    height: 44,
-                    color: colorScheme.border,
+                    height: 24,
+                    color: colorScheme.border.withValues(alpha: 0.5),
                   ),
                 if (onRevoke != null)
                   Expanded(
                     child: InkWell(
                       onTap: onRevoke,
                       borderRadius: BorderRadius.only(
-                        bottomRight: const Radius.circular(16),
+                        bottomRight: const Radius.circular(12),
                         bottomLeft: onCopy == null
-                            ? const Radius.circular(16)
+                            ? const Radius.circular(12)
                             : Radius.zero,
                       ),
                       child: Padding(
@@ -1808,7 +1654,7 @@ class _InviteCard extends StatelessWidget {
   }
 }
 
-/// Status Badge Widget - Clean, minimal text
+/// Status Badge Widget - Modern pill design
 class _StatusBadge extends StatelessWidget {
   final InviteStatus status;
   final bool isExpired;
@@ -1824,12 +1670,24 @@ class _StatusBadge extends StatelessWidget {
     final color = _getStatusColor(colorScheme);
     final text = _getLocalizedStatus(context, isExpired, status);
 
-    return Text(
-      text,
-      style: TextStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.w500,
-        color: color,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: color.withValues(alpha: 0.2),
+          width: 1,
+        ),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: color,
+          letterSpacing: 0.3,
+        ),
       ),
     );
   }
@@ -1859,5 +1717,143 @@ class _StatusBadge extends StatelessWidget {
       case InviteStatus.expired:
         return context.l10n.expired;
     }
+  }
+}
+
+class _ExpirySelector extends StatelessWidget {
+  final int selectedDays;
+  final ValueChanged<int> onChanged;
+
+  const _ExpirySelector({
+    required this.selectedDays,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final label = _getLabel(context, selectedDays);
+
+    if (Platform.isIOS) {
+      return GestureDetector(
+        onTap: () => _showIOSPicker(context),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          decoration: BoxDecoration(
+            color: colorScheme.inputBackground,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: colorScheme.controlBorder,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                context.l10n.expiresIn,
+                style: TextStyle(
+                  color: colorScheme.mutedForeground,
+                  fontSize: 15,
+                ),
+              ),
+              Row(
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: colorScheme.foreground,
+                      fontWeight: FontWeight.w500,
+                      fontSize: 15,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    CupertinoIcons.chevron_up_chevron_down,
+                    size: 14,
+                    color: colorScheme.mutedForeground,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: colorScheme.inputBackground,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: colorScheme.controlBorder,
+        ),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<int>(
+          value: selectedDays,
+          isExpanded: true,
+          icon: Icon(Icons.keyboard_arrow_down_rounded,
+              color: colorScheme.mutedForeground),
+          style: TextStyle(
+            fontSize: 15,
+            color: colorScheme.foreground,
+            fontWeight: FontWeight.w500,
+          ),
+          dropdownColor: colorScheme.card,
+          items: [1, 3, 7, 14, 30, 0].map((days) {
+            return DropdownMenuItem<int>(
+              value: days,
+              child: Text(_getLabel(context, days)),
+            );
+          }).toList(),
+          onChanged: (value) {
+            if (value != null) onChanged(value);
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showIOSPicker(BuildContext context) async {
+    final result = await showCupertinoModalPopup<int>(
+      context: context,
+      builder: (ctx) => CupertinoActionSheet(
+        title: Text(context.l10n.expiresIn),
+        actions: [
+          _buildAction(ctx, 1),
+          _buildAction(ctx, 3),
+          _buildAction(ctx, 7),
+          _buildAction(ctx, 14),
+          _buildAction(ctx, 30),
+          _buildAction(ctx, 0),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(ctx),
+          child: Text(context.l10n.cancel),
+        ),
+      ),
+    );
+
+    if (result != null) {
+      onChanged(result);
+    }
+  }
+
+  CupertinoActionSheetAction _buildAction(BuildContext context, int days) {
+    return CupertinoActionSheetAction(
+      onPressed: () => Navigator.pop(context, days),
+      child: Text(_getLabel(context, days)),
+    );
+  }
+
+  String _getLabel(BuildContext context, int days) {
+    if (days == 0) return context.l10n.unlimited;
+    if (days == 1) return context.l10n.oneDay;
+    if (days == 3) return context.l10n.threeDays;
+    if (days == 7) return context.l10n.sevenDays;
+    if (days == 14) return context.l10n.fourteenDays;
+    if (days == 30) return context.l10n.thirtyDays;
+    return '$days ${context.l10n.days}';
   }
 }

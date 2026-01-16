@@ -94,12 +94,16 @@ class HouseholdRepositoryImpl implements HouseholdRepository {
     required String householdId,
     String? invitedEmail,
     String? personalMessage,
+    String? inviterName,
+    String? householdName,
     int expiresInDays = 7,
   }) async {
     return await _service.createInvite(
       householdId: householdId,
       invitedEmail: invitedEmail,
       personalMessage: personalMessage,
+      inviterName: inviterName,
+      householdName: householdName,
       expiresInDays: expiresInDays,
     );
   }

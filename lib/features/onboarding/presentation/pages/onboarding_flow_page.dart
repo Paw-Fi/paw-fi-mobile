@@ -18,6 +18,7 @@ import 'package:moneko/features/utils/currency_flags.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/features/onboarding/presentation/pages/onboarding_finish_page.dart';
 import '../../../../core/l10n/l10n.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 
@@ -32,36 +33,80 @@ class OnboardingFlowPage extends HookConsumerWidget {
     final pageController = usePageController();
     final currentPage = useState(0);
     final colorScheme = Theme.of(context).colorScheme;
+    final notificationFlowStarted = useState(false);
+    final notificationFlowCompleted = useState(false);
     // Step 4: editable group name captured here so footer CTA can pass it
     final groupName = useState<String>('');
+    const totalSteps = 4;
 
-    void next() {
+    void goToPage(int targetPage) {
       if (!context.mounted) return;
-      if (currentPage.value < 3) {
-        final targetPage = currentPage.value + 1;
-        void go() {
-          pageController.animateToPage(
-            targetPage,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-          );
-        }
+      void go() {
+        pageController.animateToPage(
+          targetPage,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      }
 
-        if (pageController.hasClients) {
-          go();
-        } else {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!context.mounted) return;
-            if (!pageController.hasClients) return;
-            go();
-          });
-        }
+      if (pageController.hasClients) {
+        go();
       } else {
-        _completeOnboarding(context, ref);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!context.mounted) return;
+          if (!pageController.hasClients) return;
+          go();
+        });
       }
     }
 
-    void skip() => _completeOnboarding(context, ref);
+    Future<void> showFinishPage() async {
+      if (!context.mounted) return;
+      final done = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(
+          builder: (_) => const OnboardingFinishPage(),
+          fullscreenDialog: true,
+        ),
+      );
+      if (done == true && context.mounted) {
+        await _completeOnboarding(context, ref);
+      }
+    }
+
+    void next() {
+      if (!context.mounted) return;
+      if (currentPage.value < totalSteps - 1) {
+        final targetPage = currentPage.value + 1;
+        goToPage(targetPage);
+      } else {
+        showFinishPage();
+      }
+    }
+
+    void skip() => showFinishPage();
+
+    Future<void> handleNotificationsFlow() async {
+      if (notificationFlowStarted.value || notificationFlowCompleted.value) {
+        if (notificationFlowCompleted.value) {
+          next();
+        }
+        return;
+      }
+      notificationFlowStarted.value = true;
+      final uid = ref.read(authProvider).uid;
+      final prefs = ref.read(sharedPreferencesProvider);
+      final promptedKey = '$_kNotificationsPromptedPrefix$uid';
+      final prompted = prefs.getBool(promptedKey) ?? false;
+      if (!prompted) {
+        await prefs.setBool(promptedKey, true);
+      }
+      try {
+        await ref.read(deviceRegistrationServiceProvider).initialize();
+      } catch (_) {}
+      notificationFlowCompleted.value = true;
+      notificationFlowStarted.value = false;
+      next();
+    }
 
     Future<void> primary() async {
       if (currentPage.value == 0) {
@@ -117,22 +162,12 @@ class OnboardingFlowPage extends HookConsumerWidget {
 
       if (currentPage.value == 2) {
         // Step 3: prompt notifications then advance to Step 4
-        final uid = ref.read(authProvider).uid;
-        final prefs = ref.read(sharedPreferencesProvider);
-        final promptedKey = '$_kNotificationsPromptedPrefix$uid';
-        final prompted = prefs.getBool(promptedKey) ?? false;
-        if (!prompted) {
-          await prefs.setBool(promptedKey, true);
-        }
-        try {
-          await ref.read(deviceRegistrationServiceProvider).initialize();
-        } catch (_) {}
-        next();
+        await handleNotificationsFlow();
         return;
       }
 
       if (currentPage.value == 3) {
-        await Navigator.of(context).push(
+        final result = await Navigator.of(context).push<bool>(
           MaterialPageRoute(
             builder: (_) => CreateSpacePage(
               key: UniqueKey(),
@@ -142,12 +177,22 @@ class OnboardingFlowPage extends HookConsumerWidget {
             fullscreenDialog: true,
           ),
         );
+        if (result == true) {
+          await showFinishPage();
+        }
         return;
       }
 
       // Default: advance to next step
       next();
     }
+
+    useEffect(() {
+      if (currentPage.value == 2) {
+        handleNotificationsFlow();
+      }
+      return null;
+    }, [currentPage.value]);
 
     return AdaptiveScaffold(
       appBar: null,
@@ -179,7 +224,7 @@ class OnboardingFlowPage extends HookConsumerWidget {
                     // Page indicators
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(4, (i) {
+                      children: List.generate(totalSteps, (i) {
                         final bool active = currentPage.value == i;
                         return Container(
                           margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -212,7 +257,7 @@ class OnboardingFlowPage extends HookConsumerWidget {
                                   ? context.l10n.setBudget
                                   : currentPage.value == 2
                                       ? context.l10n.turnOnNotifications
-                                      : context.l10n.inviteWithLinks,
+                                      : context.l10n.createSpace,
                         ),
                       ),
                     ),
@@ -596,7 +641,7 @@ class _HouseholdStep extends HookConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  context.l10n.createHousehold,
+                  context.l10n.createSpace,
                   textAlign: TextAlign.center,
                   style: TextStyle(color: colorScheme.mutedForeground),
                 ),

@@ -117,7 +117,7 @@ void showHouseholdOnboardingModal(BuildContext context, WidgetRef ref, String us
                   _showCreateHouseholdDialog(context, ref, userId);
                 },
                 child: Text(
-                  context.l10n.createHousehold,
+                  context.l10n.createSpace,
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -173,7 +173,7 @@ void _showCreateHouseholdDialog(BuildContext context, WidgetRef ref, String user
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              context.l10n.createHousehold,
+              context.l10n.createSpace,
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
