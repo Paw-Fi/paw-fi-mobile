@@ -2,19 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
 import '../widgets/onboarding_card.dart';
-import 'household_create_page.dart';
+import 'create_space_page.dart';
 import 'household_join_page.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-
 
 /// Full-page household onboarding with flashcard carousel
 class HouseholdOnboardingPage extends StatefulWidget {
   const HouseholdOnboardingPage({super.key});
 
   @override
-  State<HouseholdOnboardingPage> createState() => _HouseholdOnboardingPageState();
+  State<HouseholdOnboardingPage> createState() =>
+      _HouseholdOnboardingPageState();
 }
 
 class _HouseholdOnboardingPageState extends State<HouseholdOnboardingPage> {
@@ -152,7 +152,7 @@ class _HouseholdOnboardingPageState extends State<HouseholdOnboardingPage> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => const HouseholdCreatePage(),
+        builder: (context) => const CreateSpacePage(),
       ),
     );
   }

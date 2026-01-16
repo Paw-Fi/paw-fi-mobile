@@ -1729,5 +1729,10 @@
   "syncBankAccountsTitle": "同步银行账户",
   "syncBankAccountsSubtitle": "安全连接银行，自动导入余额和交易记录。",
   "syncBankAccountsTooltip": "预览 Plaid 的引导流程，了解如何完成同步。",
-  "syncBankAccountsComingSoon": "银行同步功能即将推出。"
+  "syncBankAccountsComingSoon": "银行同步功能即将推出。",
+  "integrations": "集成",
+  "account": "账户",
+  "preferences": "偏好设置",
+  "tapToSet": "点按以设置",
+  "comingSoon": "即将上线"
 }

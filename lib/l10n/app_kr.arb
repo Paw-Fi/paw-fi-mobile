@@ -1546,5 +1546,10 @@
   "syncBankAccountsTitle": "은행 계좌 동기화",
   "syncBankAccountsSubtitle": "은행을 안전하게 연결해 잔액과 거래 내역을 자동으로 가져오세요.",
   "syncBankAccountsTooltip": "동기화 과정을 안내하는 Plaid 안내 화면을 미리 확인하세요.",
-  "syncBankAccountsComingSoon": "은행 동기화 기능이 곧 제공됩니다."
+  "syncBankAccountsComingSoon": "은행 동기화 기능이 곧 제공됩니다.",
+  "integrations": "연동",
+  "account": "계정",
+  "preferences": "환경설정",
+  "tapToSet": "탭하여 설정",
+  "comingSoon": "곧 제공"
 }

@@ -1683,5 +1683,10 @@
   "syncBankAccountsTitle": "Синхронизировать банковские счета",
   "syncBankAccountsSubtitle": "Безопасно подключите банки, чтобы автоматически импортировать балансы и операции.",
   "syncBankAccountsTooltip": "Посмотрите предварительно пошаговое руководство Plaid по синхронизации.",
-  "syncBankAccountsComingSoon": "Синхронизация банков скоро появится."
+  "syncBankAccountsComingSoon": "Синхронизация банков скоро появится.",
+  "integrations": "Интеграции",
+  "account": "Аккаунт",
+  "preferences": "Настройки",
+  "tapToSet": "Нажмите, чтобы настроить",
+  "comingSoon": "Скоро"
 }

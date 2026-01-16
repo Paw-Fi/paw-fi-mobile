@@ -77,12 +77,23 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
         'date': expense.date.toIso8601String(),
         // Preserve client timezone by sending an explicit UTC timestamp for created_at
         'clientCreatedAt': expense.date.toUtc().toIso8601String(),
-        'description': expense.description,
-        'receiptImageUrl': receiptImageUrl,
-        'householdId': householdId, // null = personal, id = shared
         // Explicitly set type for new expenses
         'type': 'expense',
       };
+
+      final description = expense.description;
+      if (description != null && description.trim().isNotEmpty) {
+        requestBody['description'] = description;
+      }
+
+      if (receiptImageUrl != null && receiptImageUrl.trim().isNotEmpty) {
+        requestBody['receiptImageUrl'] = receiptImageUrl;
+      }
+
+      if (householdId != null && householdId.trim().isNotEmpty) {
+        requestBody['householdId'] = householdId;
+      }
+
       final isPortfolio = householdId != null &&
           ref.read(householdScopeProvider).isPortfolioId(householdId);
       if (householdId != null) {

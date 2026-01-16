@@ -9,10 +9,7 @@ import 'package:moneko/features/recurring/presentation/widgets/add_recurring_she
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
-import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/core/navigation/navigation_providers.dart';
-import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
-import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
@@ -365,27 +362,12 @@ class _RecurringTransactionsPageState
   Widget _buildErrorSliver(String error, String type) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    // Get householdId for retry logic
-    final user = supabase.auth.currentUser;
-    final viewMode = ref.watch(viewModeProvider);
-
-    String? householdId;
-    if (viewMode.mode == ViewMode.household && user != null) {
-      final selectedHousehold = ref.watch(selectedHouseholdProvider);
-      final householdsAsync = ref.watch(userHouseholdsProvider(user.id));
-      final households = householdsAsync.valueOrNull ?? [];
-      if (households.isNotEmpty) {
-        final selectedId =
-            selectedHousehold.householdId ?? selectedHousehold.household?.id;
-        final household = selectedId != null
-            ? households.firstWhere(
-                (h) => h.id == selectedId,
-                orElse: () => households.first,
-              )
-            : households.first;
-        householdId = household.id;
-      }
-    }
+    final householdScope = ref.watch(householdScopeProvider);
+    final String? householdId = switch (householdScope.activeAccountType) {
+      ActiveAccountType.personal => null,
+      ActiveAccountType.portfolio => householdScope.activeAccountHouseholdId,
+      ActiveAccountType.household => householdScope.selectedHouseholdId,
+    };
 
     return SliverFillRemaining(
       hasScrollBody: false,

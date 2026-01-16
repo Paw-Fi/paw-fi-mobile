@@ -10,10 +10,11 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../domain/entities/household.dart';
 import '../providers/household_providers.dart';
 import '../providers/selected_household_provider.dart';
-import '../pages/household_create_page.dart';
+import '../pages/create_space_page.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+
 /// Household selector component
 /// Horizontal scrollable list displaying all households
 class HouseholdSelector extends ConsumerWidget {
@@ -82,8 +83,10 @@ class _HouseholdSelectorContent extends ConsumerWidget {
             colorScheme: colorScheme,
             onTap: () async {
               HapticFeedback.lightImpact();
-              debugPrint('🏠 [DEEP LINK TEST] Household selected: ${household.id}');
-              debugPrint('🔗 [DEEP LINK TEST] Test with: moneko://household/${household.id}');
+              debugPrint(
+                  '🏠 [DEEP LINK TEST] Household selected: ${household.id}');
+              debugPrint(
+                  '🔗 [DEEP LINK TEST] Test with: moneko://household/${household.id}');
               await ref
                   .read(selectedHouseholdProvider.notifier)
                   .selectHousehold(household.id);
@@ -111,7 +114,9 @@ class _HouseholdTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final size = isSelected ? MediaQuery.sizeOf(context).width * 0.27 : MediaQuery.sizeOf(context).width * 0.2;
+    final size = isSelected
+        ? MediaQuery.sizeOf(context).width * 0.27
+        : MediaQuery.sizeOf(context).width * 0.2;
     final radius = isSelected ? 24.0 : 20.0;
     final iconSize = isSelected ? 42.0 : 36.0;
 
@@ -138,7 +143,6 @@ class _HouseholdTile extends StatelessWidget {
                         : colorScheme.border.withValues(alpha: 0.4),
                     width: isSelected ? 2.5 : 1.5,
                   ),
-                
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: household.coverImageUrl != null
@@ -150,7 +154,8 @@ class _HouseholdTile extends StatelessWidget {
                           child: Icon(
                             Icons.home_rounded,
                             size: iconSize,
-                            color: colorScheme.mutedForeground.withValues(alpha: 0.7),
+                            color: colorScheme.mutedForeground
+                                .withValues(alpha: 0.7),
                           ),
                         ),
                       )
@@ -159,7 +164,8 @@ class _HouseholdTile extends StatelessWidget {
                         child: Icon(
                           Icons.home_rounded,
                           size: iconSize,
-                          color: colorScheme.mutedForeground.withValues(alpha: 0.7),
+                          color: colorScheme.mutedForeground
+                              .withValues(alpha: 0.7),
                         ),
                       ),
               ),
@@ -202,7 +208,7 @@ class _AddHouseholdTile extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => const HouseholdCreatePage(),
+              builder: (context) => const CreateSpacePage(),
             ),
           );
         },
@@ -292,8 +298,7 @@ class _ErrorState extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.error_outline,
-              color: colorScheme.destructive, size: 24),
+          Icon(Icons.error_outline, color: colorScheme.destructive, size: 24),
           const SizedBox(width: 12),
           Flexible(
             child: Text(

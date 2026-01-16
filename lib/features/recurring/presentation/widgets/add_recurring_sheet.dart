@@ -127,6 +127,13 @@ class AddRecurringSheet extends HookConsumerWidget {
           householdScope.isPortfolioId(householdScope.activeAccountHouseholdId);
     }();
 
+    final canShowSharingSection = user != null &&
+        !isPortfolioContext &&
+        (householdScope.activeAccountType == ActiveAccountType.household ||
+            (isEditing &&
+                existingTransaction?.householdId != null &&
+                !isExistingPortfolio));
+
     // Sharing + split state (expenses only)
     final isSharedWithHousehold = useState<bool>(
       existingTransaction != null
@@ -377,9 +384,15 @@ class AddRecurringSheet extends HookConsumerWidget {
       // If in household mode but no household selected yet, pick one from available households
       if (shouldBeShared && selectedHouseholdId.value == null) {
         final households = householdsAsync.valueOrNull;
-        if (households != null && households.isNotEmpty) {
-          selectedHouseholdId.value =
-              selectedHouseholdState.householdId ?? households.first.id;
+        final shareableHouseholds = households
+            ?.where((h) => !h.isPortfolio)
+            .toList(growable: false);
+        if (shareableHouseholds != null && shareableHouseholds.isNotEmpty) {
+          final preferredId = selectedHouseholdState.householdId;
+          selectedHouseholdId.value = (preferredId != null &&
+                  shareableHouseholds.any((h) => h.id == preferredId))
+              ? preferredId
+              : shareableHouseholds.first.id;
           debugPrint('   ✅ [ADD RECURRING] Auto-selected householdId: ${selectedHouseholdId.value}');
         } else {
           debugPrint('   ⚠️ [ADD RECURRING] No households available to auto-select');
@@ -985,9 +998,21 @@ class AddRecurringSheet extends HookConsumerWidget {
                   const SizedBox(height: 20),
 
                   // Household sharing + split (expenses only, non-portfolio contexts)
-                  if (user != null && !isPortfolioContext) ...[
+                  if (canShowSharingSection) ...[
                     householdsAsync.when(
                       data: (households) {
+                        final shareableHouseholds =
+                            households.where((h) => !h.isPortfolio).toList(growable: false);
+
+                        final selectedId = selectedHouseholdId.value;
+                        final hasValidShareSelection = selectedId != null &&
+                            shareableHouseholds.any((h) => h.id == selectedId);
+                        if (isSharedWithHousehold.value && !hasValidShareSelection) {
+                          isSharedWithHousehold.value = false;
+                          selectedHouseholdId.value = null;
+                          customSplitType.value = null;
+                          customSplits.value = null;
+                        }
                         if (!hasAmountForSplit) {
                           // Require an amount before configuring splits
                           return Text(
@@ -999,7 +1024,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                           );
                         }
 
-                        if (households.isEmpty) {
+                        if (shareableHouseholds.isEmpty) {
                           return const SizedBox.shrink();
                         }
 
@@ -1008,7 +1033,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                           return _buildSharingToggleOnly(
                             context,
                             colorScheme,
-                            households,
+                            shareableHouseholds,
                             isSharedWithHousehold,
                             selectedHouseholdId,
                           );
@@ -1027,7 +1052,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                           return _buildSharingToggleOnly(
                             context,
                             colorScheme,
-                            households,
+                            shareableHouseholds,
                             isSharedWithHousehold,
                             selectedHouseholdId,
                           );
@@ -1036,7 +1061,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                         return _buildSharingAndSplitSection(
                           context: context,
                           colorScheme: colorScheme,
-                          households: households,
+                          households: shareableHouseholds,
                           isSharedWithHousehold: isSharedWithHousehold,
                           selectedHouseholdId: selectedHouseholdId,
                           membersAsync: membersAsync,
@@ -1620,6 +1645,15 @@ class AddRecurringSheet extends HookConsumerWidget {
     ValueNotifier<bool> isSharedWithHousehold,
     ValueNotifier<String?> selectedHouseholdId,
   ) {
+    if (households.isEmpty) {
+      if (isSharedWithHousehold.value) {
+        isSharedWithHousehold.value = false;
+      }
+      if (selectedHouseholdId.value != null) {
+        selectedHouseholdId.value = null;
+      }
+      return const SizedBox.shrink();
+    }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -1649,9 +1683,12 @@ class AddRecurringSheet extends HookConsumerWidget {
                 isSharedWithHousehold.value = false;
                 return;
               }
-              if (households.isEmpty) return;
               isSharedWithHousehold.value = true;
-              selectedHouseholdId.value ??= households.first.id;
+              final currentId = selectedHouseholdId.value;
+              if (currentId == null ||
+                  !households.any((h) => h.id == currentId)) {
+                selectedHouseholdId.value = households.first.id;
+              }
             },
           ),
         ],
@@ -1675,6 +1712,15 @@ class AddRecurringSheet extends HookConsumerWidget {
     required bool isEditing,
     required String? currentUserId,
   }) {
+    if (households.isEmpty) {
+      if (isSharedWithHousehold.value) {
+        isSharedWithHousehold.value = false;
+      }
+      selectedHouseholdId.value = null;
+      customSplitType.value = null;
+      customSplits.value = null;
+      return const SizedBox.shrink();
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1713,8 +1759,14 @@ class AddRecurringSheet extends HookConsumerWidget {
                                   200, // Maximum width to prevent overflow
                             ),
                             child: DropdownButton<String>(
-                              value: selectedHouseholdId.value ??
-                                  households.first.id,
+                              value: () {
+                                final currentId = selectedHouseholdId.value;
+                                if (currentId != null &&
+                                    households.any((h) => h.id == currentId)) {
+                                  return currentId;
+                                }
+                                return households.first.id;
+                              }(),
                               isExpanded: true,
                               icon: Icon(
                                 Icons.arrow_drop_down,
@@ -1757,7 +1809,11 @@ class AddRecurringSheet extends HookConsumerWidget {
                   }
                   if (households.isEmpty) return;
                   isSharedWithHousehold.value = true;
-                  selectedHouseholdId.value ??= households.first.id;
+                  final currentId = selectedHouseholdId.value;
+                  if (currentId == null ||
+                      !households.any((h) => h.id == currentId)) {
+                    selectedHouseholdId.value = households.first.id;
+                  }
                 },
               ),
             ],

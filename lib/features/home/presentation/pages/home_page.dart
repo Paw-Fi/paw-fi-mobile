@@ -892,7 +892,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                           context,
                                           colorScheme,
                                           netBudgets,
-                                          analyticsData.allExpenses,
+                                          personalExpensesAll,
                                           analyticsData.contact,
                                           config.dateRange,
                                           selectedCurrency:
@@ -915,8 +915,13 @@ class _HomePageState extends ConsumerState<HomePage> {
                                   builder: (context, ref, _) {
                                     // NOTE: Recurring transactions are loaded by app_initialization_provider
                                     // Just watch the data here - no need to trigger load
+                                    final recurringHouseholdId = householdScope
+                                        .activeAccountHouseholdId;
                                     final recurringAsync = ref.watch(
-                                        recurringTransactionsProvider(null));
+                                      recurringTransactionsProvider(
+                                        recurringHouseholdId,
+                                      ),
+                                    );
                                     return FinancialCalendarWidget(
                                       transactions: personalExpensesAll,
                                       recurringTransactions:

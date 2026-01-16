@@ -1680,5 +1680,10 @@
   "syncBankAccountsTitle": "Bankrekeningen synchroniseren",
   "syncBankAccountsSubtitle": "Koppel je banken veilig om saldo’s en transacties automatisch te importeren.",
   "syncBankAccountsTooltip": "Bekijk alvast de Plaid-handleiding die je door het synchroniseren leidt.",
-  "syncBankAccountsComingSoon": "Banksynchronisatie komt binnenkort."
+  "syncBankAccountsComingSoon": "Banksynchronisatie komt binnenkort.",
+  "integrations": "Integraties",
+  "account": "Account",
+  "preferences": "Voorkeuren",
+  "tapToSet": "Tik om in te stellen",
+  "comingSoon": "Binnenkort beschikbaar"
 }

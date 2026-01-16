@@ -1679,5 +1679,10 @@
   "syncBankAccountsTitle": "بینک اکاؤنٹس سنک کریں",
   "syncBankAccountsSubtitle": "بیلنس اور لین دین خودکار طور پر امپورٹ کرنے کے لیے اپنے بینک محفوظ طریقے سے لنک کریں۔",
   "syncBankAccountsTooltip": "Plaid کی گائیڈ کا پری ویو دیکھیں جو سنک کرنے میں رہنمائی کرتی ہے۔",
-  "syncBankAccountsComingSoon": "بینک سنکنگ جلد آ رہی ہے۔"
+  "syncBankAccountsComingSoon": "بینک سنکنگ جلد آ رہی ہے۔",
+  "integrations": "انضمامات",
+  "account": "اکاؤنٹ",
+  "preferences": "ترجیحات",
+  "tapToSet": "سیٹ کرنے کے لیے ٹیپ کریں",
+  "comingSoon": "جلد دستیاب"
 }

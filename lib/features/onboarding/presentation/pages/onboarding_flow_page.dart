@@ -13,14 +13,13 @@ import 'package:moneko/features/pockets/presentation/state/pockets_providers.dar
 import 'package:moneko/features/pockets/presentation/widgets/pockets_header_card.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
-import 'package:moneko/features/households/presentation/pages/household_create_page.dart';
+import 'package:moneko/features/households/presentation/pages/create_space_page.dart';
 import 'package:moneko/features/utils/currency_flags.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import '../../../../core/l10n/l10n.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
-
 
 const _kOnboardingCompletedPrefix = 'onboarding_completed:'; // per-user
 const _kNotificationsPromptedPrefix = 'notifications_prompted:'; // per-user
@@ -73,8 +72,12 @@ class OnboardingFlowPage extends HookConsumerWidget {
             (filter.selectedCurrency ?? 'USD').toUpperCase();
 
         // Update UI state first
-        ref.read(homeFilterProvider.notifier).setSelectedCurrency(selectedCurrency);
-        ref.read(analyticsProvider.notifier).updatePreferredCurrency(selectedCurrency);
+        ref
+            .read(homeFilterProvider.notifier)
+            .setSelectedCurrency(selectedCurrency);
+        ref
+            .read(analyticsProvider.notifier)
+            .updatePreferredCurrency(selectedCurrency);
 
         // Navigate to next step immediately (do not block on IO)
         next();
@@ -105,8 +108,8 @@ class OnboardingFlowPage extends HookConsumerWidget {
         // Step 2: persist budget then continue
         final now = DateTime.now();
         final monthStart = DateTime(now.year, now.month, 1);
-        final scopeParams =
-            PocketsScopeParams(scope: PocketsScopeType.personal, periodMonth: monthStart);
+        final scopeParams = PocketsScopeParams(
+            scope: PocketsScopeType.personal, periodMonth: monthStart);
         await ref.read(pocketsProvider(scopeParams).notifier).saveChanges();
         next();
         return;
@@ -131,9 +134,8 @@ class OnboardingFlowPage extends HookConsumerWidget {
       if (currentPage.value == 3) {
         await Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => HouseholdCreatePage(
+            builder: (_) => CreateSpacePage(
               key: UniqueKey(),
-              // prefill name from onboarding
               initialName: groupName.value,
               fromOnboarding: true,
             ),
@@ -186,7 +188,8 @@ class OnboardingFlowPage extends HookConsumerWidget {
                           decoration: BoxDecoration(
                             color: active
                                 ? colorScheme.primary
-                                : colorScheme.mutedForeground.withValues(alpha: 0.3),
+                                : colorScheme.mutedForeground
+                                    .withValues(alpha: 0.3),
                             borderRadius: BorderRadius.circular(4),
                           ),
                         );
@@ -312,12 +315,15 @@ class _CurrencyStep extends HookConsumerWidget {
                         ref.read(analyticsProvider.notifier).refresh(user.uid);
 
                         final currentView = ref.read(viewModeProvider);
-                        final selectedHousehold = ref.read(selectedHouseholdProvider);
-                        final householdId = currentView.mode == ViewMode.household
-                            ? selectedHousehold.householdId
-                            : null;
+                        final selectedHousehold =
+                            ref.read(selectedHouseholdProvider);
+                        final householdId =
+                            currentView.mode == ViewMode.household
+                                ? selectedHousehold.householdId
+                                : null;
                         ref
-                            .read(recurringTransactionsProvider(householdId).notifier)
+                            .read(recurringTransactionsProvider(householdId)
+                                .notifier)
                             .refresh(user.uid);
                         ref.invalidate(pocketsProvider);
                       }
@@ -353,8 +359,7 @@ class _CurrencyStep extends HookConsumerWidget {
                               ),
                             ),
                           ],
-                          if (flagPath != null)
-                            const SizedBox(width: 8),
+                          if (flagPath != null) const SizedBox(width: 8),
                           Text(
                             selected,
                             style: TextStyle(
@@ -392,13 +397,13 @@ class _BudgetStep extends HookConsumerWidget {
     // Personal current month scope
     final now = DateTime.now();
     final monthStart = DateTime(now.year, now.month, 1);
-    final scopeParams =
-        PocketsScopeParams(scope: PocketsScopeType.personal, periodMonth: monthStart);
+    final scopeParams = PocketsScopeParams(
+        scope: PocketsScopeType.personal, periodMonth: monthStart);
     final state = ref.watch(pocketsProvider(scopeParams));
     final notifier = ref.read(pocketsProvider(scopeParams).notifier);
 
-    final currency = (ref.watch(homeFilterProvider).selectedCurrency ?? 'USD')
-        .toUpperCase();
+    final currency =
+        (ref.watch(homeFilterProvider).selectedCurrency ?? 'USD').toUpperCase();
 
     final total = state.totalBudget;
     final prev = state.previousBudget;
@@ -429,11 +434,14 @@ class _BudgetStep extends HookConsumerWidget {
           const SizedBox(height: 24),
           PocketsHeaderCard(
             totalBudget: total,
-            totalAllocated: state.saved.fold(0.0, (s, p) => s + p.percentage) / 100.0 * (total > 0 ? total : 0),
+            totalAllocated: state.saved.fold(0.0, (s, p) => s + p.percentage) /
+                100.0 *
+                (total > 0 ? total : 0),
             totalSpent: state.totalSpent,
             periodMonth: state.periodMonth,
             previousBudget: prev,
-            onReusePrevious: prev > 0 ? () => notifier.reusePreviousBudget(prev) : null,
+            onReusePrevious:
+                prev > 0 ? () => notifier.reusePreviousBudget(prev) : null,
             colorScheme: colorScheme,
             onTotalChanged: notifier.updateTotalBudget,
             onSave: () async => notifier.saveChanges(),
@@ -452,7 +460,6 @@ class _NotificationsStep extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
-    
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
@@ -484,7 +491,8 @@ class _NotificationsStep extends HookConsumerWidget {
             decoration: BoxDecoration(
               color: colorScheme.card,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: colorScheme.border.withValues(alpha: 0.06), width: 1),
+              border: Border.all(
+                  color: colorScheme.border.withValues(alpha: 0.06), width: 1),
               boxShadow: [
                 BoxShadow(
                   color: colorScheme.shadow.withValues(alpha: 0.08),
@@ -502,16 +510,21 @@ class _NotificationsStep extends HookConsumerWidget {
                     color: colorScheme.primary.withValues(alpha: 0.15),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(Icons.notifications_active_rounded, size: 16, color: colorScheme.primary),
+                  child: Icon(Icons.notifications_active_rounded,
+                      size: 16, color: colorScheme.primary),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(context.l10n.newMessage, style: TextStyle(fontWeight: FontWeight.w600, color: colorScheme.foreground)),
+                      Text(context.l10n.newMessage,
+                          style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: colorScheme.foreground)),
                       const SizedBox(height: 2),
-                      Text(context.l10n.closeToSpendingLimit, style: TextStyle(color: colorScheme.mutedForeground)),
+                      Text(context.l10n.closeToSpendingLimit,
+                          style: TextStyle(color: colorScheme.mutedForeground)),
                     ],
                   ),
                 ),
@@ -569,7 +582,8 @@ class _HouseholdStep extends HookConsumerWidget {
             decoration: BoxDecoration(
               color: colorScheme.card,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: colorScheme.border.withValues(alpha: 0.06), width: 1),
+              border: Border.all(
+                  color: colorScheme.border.withValues(alpha: 0.06), width: 1),
               boxShadow: [
                 BoxShadow(
                   color: colorScheme.shadow.withValues(alpha: 0.08),
@@ -590,24 +604,34 @@ class _HouseholdStep extends HookConsumerWidget {
                 TextField(
                   controller: controller,
                   textInputAction: TextInputAction.done,
-                  style: TextStyle(color: colorScheme.foreground, fontWeight: FontWeight.w500),
+                  style: TextStyle(
+                      color: colorScheme.foreground,
+                      fontWeight: FontWeight.w500),
                   decoration: InputDecoration(
                     hintText: context.l10n.householdNameHint,
-                    hintStyle: TextStyle(color: colorScheme.mutedForeground.withValues(alpha: 0.6)),
+                    hintStyle: TextStyle(
+                        color:
+                            colorScheme.mutedForeground.withValues(alpha: 0.6)),
                     filled: true,
                     fillColor: colorScheme.cardSurface,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 12),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: colorScheme.border.withValues(alpha: 0.12), width: 1),
+                      borderSide: BorderSide(
+                          color: colorScheme.border.withValues(alpha: 0.12),
+                          width: 1),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: colorScheme.border.withValues(alpha: 0.12), width: 1),
+                      borderSide: BorderSide(
+                          color: colorScheme.border.withValues(alpha: 0.12),
+                          width: 1),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: colorScheme.primary, width: 2),
+                      borderSide:
+                          BorderSide(color: colorScheme.primary, width: 2),
                     ),
                   ),
                 ),

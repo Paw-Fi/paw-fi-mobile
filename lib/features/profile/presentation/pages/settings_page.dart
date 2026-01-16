@@ -1,9 +1,11 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' as material;
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/core/app/app_initialization_provider_v2.dart';
 import 'package:moneko/l10n/app_localizations.dart';
@@ -13,9 +15,12 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:app_settings/app_settings.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:moneko/features/auth/presentation/states/auth.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
+import 'package:moneko/features/profile/data/providers/whatsapp_binding_provider.dart';
+import 'package:moneko/features/profile/presentation/widgets/whatsapp_tutorial_modal.dart';
 import 'package:moneko/features/subscription/data/models/subscription_details.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
@@ -100,9 +105,7 @@ class SettingsPage extends HookConsumerWidget {
     Future<void> handleManualNotificationFix() async {
       try {
         try {
-          await ref
-              .read(deviceRegistrationServiceProvider)
-              .unregisterDevice();
+          await ref.read(deviceRegistrationServiceProvider).unregisterDevice();
         } catch (e) {
           debugPrint('Error during manual notification unregister: $e');
         }
@@ -159,14 +162,13 @@ class SettingsPage extends HookConsumerWidget {
         preferFallback: timezoneValue == deviceTimezone,
       ),
     );
-    final timezoneSubtitle = selectedTimezone.value == null
-        ? context.l10n.defaultsToYourDeviceTime
-        : context.l10n.usedForDatesAndReminders;
     final timezoneOptions = _buildTimezoneOptionsList(
       deviceTimezone: deviceTimezone,
       currentTimezone: selectedTimezone.value,
       deviceOffsetMinutes: deviceOffsetMinutes,
     );
+    final packageInfo =
+        useFuture(useMemoized(() => PackageInfo.fromPlatform()));
     final currentTimezoneOption = timezoneOptions.firstWhere(
       (option) => option.value == timezoneValue,
       orElse: () => timezoneOptions.first,
@@ -222,28 +224,13 @@ class SettingsPage extends HookConsumerWidget {
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'Test Bottom Sheet',
+                            material.Text(
+                              'Debug Menu',
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w600,
                                 color: scheme.foreground,
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Press to show a global AppToast above this sheet.',
-                              style: TextStyle(color: scheme.mutedForeground),
-                            ),
-                            const SizedBox(height: 16),
-                            AdaptiveButton(
-                              onPressed: () {
-                                AppToast.success(
-                                  context,
-                                  'Hello from bottom sheet!',
-                                );
-                              },
-                              label: 'Show Toast',
                             ),
                           ],
                         ),
@@ -259,521 +246,296 @@ class SettingsPage extends HookConsumerWidget {
         color: colorScheme.appBackground,
         child: SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+            padding: const EdgeInsets.only(bottom: 40),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Avatar Section
-                Center(
-                  child: FutureBuilder<Map<String, dynamic>?>(
-                    key: ValueKey('avatar-${nameReloadKey.value}'),
-                    future: Supabase.instance.client
-                        .from('users')
-                        .select('full_name, avatar_url')
-                        .eq('id', authState.uid)
-                        .maybeSingle(),
-                    builder: (context, snapshot) {
-                      final dbName = snapshot.data != null
-                          ? snapshot.data!['full_name'] as String?
-                          : null;
-                      final dbAvatarUrl = snapshot.data != null
-                          ? snapshot.data!['avatar_url'] as String?
-                          : null;
-
-                      final displayName = (dbName?.trim().isNotEmpty == true)
-                          ? dbName!.trim()
-                          : (authState.displayName?.trim().isNotEmpty == true
-                              ? authState.displayName!.trim()
-                              : 'User');
-                      final initials = displayName.isNotEmpty
-                          ? displayName.substring(0, 1).toUpperCase()
-                          : (authState.email.isNotEmpty
-                              ? authState.email.substring(0, 1).toUpperCase()
-                              : 'U');
-
-                      String? validatedAvatarUrl;
-                      if (dbAvatarUrl != null &&
-                          dbAvatarUrl.isNotEmpty &&
-                          dbAvatarUrl != 'SKIPPED' &&
-                          (dbAvatarUrl.startsWith('http://') ||
-                              dbAvatarUrl.startsWith('https://'))) {
-                        validatedAvatarUrl = dbAvatarUrl;
+                const SizedBox(height: 16),
+                // Premium Profile Header
+                _ProfileHeader(
+                  authState: authState,
+                  nameReloadKey: nameReloadKey.value,
+                  onAvatarTap: () => _showAvatarSourceSheet(
+                    context,
+                    ref,
+                    () {
+                      nameReloadKey.value++;
+                      if (authState.uid.isNotEmpty) {
+                        ref.invalidate(userProfileProvider(authState.uid));
                       }
-
-                      final avatarUrl = validatedAvatarUrl ??
-                          (authState.photoUrl != null &&
-                                  authState.photoUrl!.isNotEmpty
-                              ? authState.photoUrl
-                              : null);
-
-                      return Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          GestureDetector(
-                            onTap: () => _showAvatarSourceSheet(
-                              context,
-                              ref,
-                              () {
-                                nameReloadKey.value++;
-                                if (authState.uid.isNotEmpty) {
-                                  ref.invalidate(
-                                    userProfileProvider(authState.uid),
-                                  );
-                                }
-                              },
-                            ),
-                            child: Container(
-                              width: 104,
-                              height: 104,
-                              padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: avatarUrl != null
-                                    ? null
-                                    : const LinearGradient(
-                                        colors: [
-                                          AppTheme.monekoPrimary,
-                                          AppTheme.monekoSecondary,
-                                        ],
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                      ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: colorScheme.primary
-                                        .withValues(alpha: 0.25),
-                                    blurRadius: 12,
-                                    offset: const Offset(0, 6),
-                                  ),
-                                ],
-                              ),
-                              child: ClipOval(
-                                child: avatarUrl != null
-                                    ? Image.network(
-                                        avatarUrl,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) =>
-                                            _InitialsAvatar(initials: initials),
-                                      )
-                                    : _InitialsAvatar(initials: initials),
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            bottom: -2,
-                            right: -2,
-                            child: Material(
-                              color: colorScheme.primary,
-                              shape: const CircleBorder(),
-                              child: InkWell(
-                                onTap: () =>  _showAvatarSourceSheet(
-                              context,
-                              ref,
-                              () {
-                                nameReloadKey.value++;
-                                if (authState.uid.isNotEmpty) {
-                                  ref.invalidate(
-                                    userProfileProvider(authState.uid),
-                                  );
-                                }
-                              },
-                            ),
-                                customBorder: const CircleBorder(),
-                                child: Container(
-                                  width: 36,
-                                  height: 36,
-                                  alignment: Alignment.center,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: colorScheme.appBackground,
-                                      width: 3,
-                                    ),
-                                  ),
-                                  child: Icon(
-                                    Icons.edit,
-                                    size: 18,
-                                    color: colorScheme.primaryForeground,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      );
                     },
                   ),
                 ),
+
                 const SizedBox(height: 32),
 
-                // Profile Section
-                _SectionHeader(title: context.l10n.fullName),
-                const SizedBox(height: 12),
-                FutureBuilder<Map<String, dynamic>?>(
-                  key: ValueKey('name-${nameReloadKey.value}'),
-                  future: Supabase.instance.client
-                      .from('users')
-                      .select('full_name')
-                      .eq('id', authState.uid)
-                      .maybeSingle(),
-                  builder: (context, snapshot) {
-                    final dbName = snapshot.data != null
-                        ? snapshot.data!['full_name'] as String?
-                        : null;
-                    final currentName = (dbName?.trim().isNotEmpty == true)
-                        ? dbName!.trim()
-                        : (authState.displayName?.trim().isNotEmpty == true
-                            ? authState.displayName!.trim()
-                            : '');
+                // Account Settings Group
+                _SettingsGroup(
+                  title: context.l10n.account,
+                  children: [
+                    FutureBuilder<Map<String, dynamic>?>(
+                      key: ValueKey('name-${nameReloadKey.value}'),
+                      future: Supabase.instance.client
+                          .from('users')
+                          .select('full_name')
+                          .eq('id', authState.uid)
+                          .maybeSingle(),
+                      builder: (context, snapshot) {
+                        final dbName = snapshot.data != null
+                            ? snapshot.data!['full_name'] as String?
+                            : null;
+                        final currentName = (dbName?.trim().isNotEmpty == true)
+                            ? dbName!.trim()
+                            : (authState.displayName?.trim().isNotEmpty == true
+                                ? authState.displayName!.trim()
+                                : '');
 
-                    return AdaptiveListTile(
-                      leading: Icon(
-                        Icons.person_outline,
-                        size: 20,
-                        color: colorScheme.mutedForeground,
-                      ),
-                      title: Text(
-                        currentName.isEmpty
-                            ? context.l10n.fullName
-                            : currentName,
-                        style: TextStyle(
-                          fontSize: 15,
-                          color: colorScheme.foreground,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      trailing: Icon(
-                        Icons.chevron_right,
-                        size: 18,
-                        color: colorScheme.mutedForeground,
-                      ),
-                      onTap: () => _showEditNameSheet(
-                        context: context,
-                        ref: ref,
-                        initialName: currentName,
-                        onUpdated: () {
-                          nameReloadKey.value++;
-                          ref.invalidate(userProfileProvider(authState.uid));
-                        },
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 24),
-
-                // Email Section
-                _SectionHeader(title: context.l10n.email),
-                const SizedBox(height: 12),
-                AdaptiveListTile(
-                  leading: Icon(
-                    Icons.email_outlined,
-                    size: 20,
-                    color: colorScheme.mutedForeground,
-                  ),
-                  title: Text(
-                    authState.email,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: colorScheme.mutedForeground,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Language Section
-                _SectionHeader(title: context.l10n.language),
-                const SizedBox(height: 12),
-                AdaptiveCard(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.language,
-                        size: 20,
-                        color: colorScheme.mutedForeground,
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<Locale?>(
-                            isExpanded: true,
-                            value: dropdownValue,
-                            items: [
-                              DropdownMenuItem<Locale?>(
-                                value: null,
-                                child: Text(
-                                  context.l10n.systemDefault,
-                                  style: TextStyle(
-                                    color: colorScheme.foreground,
-                                  ),
-                                ),
-                              ),
-                              ...supportedLocales.map(
-                                (locale) => DropdownMenuItem<Locale?>(
-                                  value: locale,
-                                  child: Text(
-                                    _displayLocaleName(locale),
-                                    style: TextStyle(
-                                      color: colorScheme.foreground,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                            onChanged: (value) async {
-                              if (value == null) {
-                                await ref
-                                    .read(localeProvider.notifier)
-                                    .setSystem();
-                              } else {
-                                await ref
-                                    .read(localeProvider.notifier)
-                                    .setLocale(value);
-                              }
+                        return _SettingsTile(
+                          icon: Icons.person_rounded,
+                          label: context.l10n.fullName,
+                          value: currentName.isEmpty
+                              ? context.l10n.tapToSet
+                              : currentName,
+                          onTap: () => _showEditNameSheet(
+                            context: context,
+                            ref: ref,
+                            initialName: currentName,
+                            onUpdated: () {
+                              nameReloadKey.value++;
+                              ref.invalidate(
+                                  userProfileProvider(authState.uid));
                             },
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Timezone Section
-                _SectionHeader(title: context.l10n.timezone),
-                const SizedBox(height: 12),
-                AdaptiveListTile(
-                  leading: Icon(
-                    Icons.schedule_outlined,
-                    size: 20,
-                    color: colorScheme.mutedForeground,
-                  ),
-                  title: Text(
-                    timezoneDisplay,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: colorScheme.foreground,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  subtitle: Text(
-                    timezoneSubtitle,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: colorScheme.mutedForeground,
-                    ),
-                  ),
-                  trailing: Icon(
-                    Icons.unfold_more,
-                    size: 18,
-                    color: colorScheme.mutedForeground,
-                  ),
-                  onTap: () async {
-                    final selection = await MonekoListPicker.show<_TimezoneOption>(
-                      context: context,
-                      items: timezoneOptions,
-                      initial: currentTimezoneOption,
-                      title: context.l10n.chooseTimezone,
-                      labelBuilder: (option) => _formatTimezoneLabel(option) +
-                          (option.value == deviceTimezone
-                              ? ' (${context.l10n.deviceLabel})'
-                              : ''),
-                    );
-                    if (selection != null &&
-                        selection.value != selectedTimezone.value) {
-                      await handleTimezoneChange(selection.value);
-                    }
-                  },
-                ),
-                const SizedBox(height: 24),
-
-                // Appearance Section
-                _SectionHeader(title: context.l10n.appearance),
-                const SizedBox(height: 12),
-                AdaptiveListTile(
-                  leading: Icon(
-                    Icons.dark_mode_outlined,
-                    size: 20,
-                    color: colorScheme.mutedForeground,
-                  ),
-                  title: Text(
-                    context.l10n.darkMode,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: colorScheme.foreground,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  trailing: AdaptiveSwitch(
-                    value: isDarkMode,
-                    onChanged: (value) {
-                      ref.read(themeModeProvider.notifier).setThemeMode(
-                            value ? ThemeMode.dark : ThemeMode.light,
-                          );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                                // Bank Sync Section
-                _SectionHeader(
-                  title: context.l10n.syncBankSectionTitle,
-                  child: Tooltip(
-                    message: context.l10n.syncBankAccountsTooltip,
-                    waitDuration: const Duration(milliseconds: 300),
-                    child: IconButton(
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      splashRadius: 18,
-                      icon: Icon(
-                        Icons.help_outline,
-                        size: 16,
-                        color: colorScheme.mutedForeground,
-                      ),
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (context) =>
-                                const PlaidSyncWalkthroughPage(),
                           ),
                         );
                       },
                     ),
-                  ),
+                    _SettingsTile(
+                      icon: Icons.email_rounded,
+                      label: context.l10n.email,
+                      value: authState.email,
+                      showChevron: false,
+                    ),
+                  ],
                 ),
-                AdaptiveListTile(
-                  leading: Icon(
-                    Icons.account_balance_outlined,
-                    size: 20,
-                    color: colorScheme.mutedForeground,
-                  ),
-                  title: Text(
-                    context.l10n.syncBankAccountsTitle,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: colorScheme.foreground,
-                      fontWeight: FontWeight.w500,
+
+                // Preferences Group
+                _SettingsGroup(
+                  title: context.l10n.preferences,
+                  children: [
+                    _SettingsTile(
+                      icon: Icons.language_rounded,
+                      label: context.l10n.language,
+                      valueWidget: DropdownButtonHideUnderline(
+                        child: DropdownButton<Locale?>(
+                          isDense: true,
+                          alignment: Alignment.centerRight,
+                          icon: Row(
+                            children: [
+                              const SizedBox(width: 8),
+                              Icon(
+                                Icons.chevron_right,
+                                size: 16,
+                                color: Colors.grey.withValues(alpha: 0.6),
+                              ),
+                            ],
+                          ),
+                          dropdownColor: isDarkMode
+                              ? const Color(0xFF2C2C2E)
+                              : Colors.white,
+                          value: dropdownValue,
+                          items: [
+                            DropdownMenuItem<Locale?>(
+                              value: null,
+                              child: Text(
+                                context.l10n.systemDefault,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  color: colorScheme.mutedForeground,
+                                ),
+                              ),
+                            ),
+                            ...supportedLocales.map(
+                              (locale) => DropdownMenuItem<Locale?>(
+                                value: locale,
+                                child: Text(
+                                  _displayLocaleName(locale),
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    color: colorScheme.mutedForeground,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                          onChanged: (value) async {
+                            if (value == null) {
+                              await ref
+                                  .read(localeProvider.notifier)
+                                  .setSystem();
+                            } else {
+                              await ref
+                                  .read(localeProvider.notifier)
+                                  .setLocale(value);
+                            }
+                          },
+                        ),
+                      ),
                     ),
-                  ),
-                  subtitle: Text(
-                    context.l10n.syncBankAccountsSubtitle,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: colorScheme.mutedForeground,
+                    _SettingsTile(
+                      icon: Icons.public_rounded,
+                      label: context.l10n.timezone,
+                      value: timezoneDisplay,
+                      onTap: () async {
+                        final selection =
+                            await MonekoListPicker.show<_TimezoneOption>(
+                          context: context,
+                          items: timezoneOptions,
+                          initial: currentTimezoneOption,
+                          title: context.l10n.chooseTimezone,
+                          labelBuilder: (option) =>
+                              _formatTimezoneLabel(option) +
+                              (option.value == deviceTimezone
+                                  ? ' (${context.l10n.deviceLabel})'
+                                  : ''),
+                        );
+                        if (selection != null &&
+                            selection.value != selectedTimezone.value) {
+                          await handleTimezoneChange(selection.value);
+                        }
+                      },
                     ),
-                  ),               
-                  onTap: () {
-                    AppToast.info(
-                      context,
-                      context.l10n.syncBankAccountsComingSoon,
-                    );
-                  },
+                    _SettingsTile(
+                      icon: isDarkMode
+                          ? Icons.dark_mode_rounded
+                          : Icons.light_mode_rounded,
+                      label: context.l10n.darkMode,
+                      trailing: AdaptiveSwitch(
+                        value: isDarkMode,
+                        onChanged: (value) {
+                          ref.read(themeModeProvider.notifier).setThemeMode(
+                                value ? ThemeMode.dark : ThemeMode.light,
+                              );
+                        },
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 24),
 
-                // Notifications Section
-                _SectionHeader(title: context.l10n.notifications),
-                const SizedBox(height: 12),
-                AdaptiveListTile(
-                  leading: Icon(
-                    Icons.notifications_outlined,
-                    size: 20,
-                    color: colorScheme.mutedForeground,
+                // Integrations
+                _SettingsGroup(title: context.l10n.integrations, children: [
+                  _SettingsTile(
+                    icon: Icons.account_balance_rounded,
+                    label: context.l10n.syncBankAccountsTitle,
+                    value: context.l10n.comingSoon,
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (context) =>
+                              const PlaidSyncWalkthroughPage(),
+                        ),
+                      );
+                    },
                   ),
-                  title: Text(
-                    context.l10n.pushNotifications,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: colorScheme.foreground,
-                      fontWeight: FontWeight.w500,
+                  _SettingsTile(
+                    customIcon: SvgPicture.string(
+                      _whatsappRealSvg,
+                      width: 20,
+                      height: 20,
+                      colorFilter: ColorFilter.mode(
+                        colorScheme.onSurface,
+                        BlendMode.srcIn,
+                      ),
                     ),
+                    label: context.l10n.whatsAppConnected,
+                    value:
+                        ref.watch(whatsAppBindingProvider).asData?.value == true
+                            ? context.l10n.activeStatus
+                            : context.l10n.tapToSet,
+                    onTap: () async {
+                      final isBound =
+                          ref.read(whatsAppBindingProvider).valueOrNull ??
+                              false;
+                      if (isBound) {
+                        final url = Uri.parse('https://wa.link/zxwtld');
+                        try {
+                          bool launched = await launchUrl(url,
+                              mode: LaunchMode.externalApplication);
+                          if (!launched)
+                            launched = await launchUrl(url,
+                                mode: LaunchMode.inAppBrowserView);
+                          if (!launched)
+                            await launchUrl(url, mode: LaunchMode.inAppWebView);
+                        } catch (_) {
+                          if (context.mounted)
+                            AppToast.error(
+                                context, 'Could not launch WhatsApp');
+                        }
+                      } else {
+                        final result = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => const WhatsAppTutorialModal(),
+                        );
+                        if (result == true) {
+                          ref.invalidate(whatsAppBindingProvider);
+                        }
+                      }
+                    },
                   ),
-                  subtitle: Text(
-                    context.l10n.receiveAlertsAndUpdates,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: colorScheme.mutedForeground,
+                ]),
+
+                // Notifications Group
+                _SettingsGroup(
+                  title: context.l10n.notifications,
+                  children: [
+                    _SettingsTile(
+                      icon: Icons.notifications_active_rounded,
+                      label: context.l10n.pushNotifications,
+                      onTap: () => handleNotificationToggle(),
                     ),
-                  ),
-                  trailing: Icon(
-                    Icons.open_in_new,
-                    size: 16,
-                    color: colorScheme.mutedForeground,
-                  ),
-                  onTap: () => handleNotificationToggle(),
+                    _SettingsTile(
+                      icon: Icons.build_circle_rounded,
+                      label: context.l10n.fixNotificationIssuesTitle,
+                      onTap: () => handleManualNotificationFix(),
+                    ),
+                    _SettingsTile(
+                      icon: Icons.remove_circle_outline_rounded,
+                      label: context.l10n.clearAppIconBadgeTitle,
+                      onTap: () => handleClearAppBadge(),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
-                AdaptiveListTile(
-                  leading: Icon(
-                    Icons.schedule_outlined,
-                    size: 20,
-                    color: colorScheme.mutedForeground,
-                  ),
-                  title: Text(
-                    context.l10n.fixNotificationIssuesTitle,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: colorScheme.foreground,
-                      fontWeight: FontWeight.w500,
+
+                // Subscription
+                // Manage Membership
+                _SettingsGroup(
+                  title: context.l10n.membership,
+                  children: [
+                    _SettingsTile(
+                      icon: Icons.star_outline_rounded,
+                      label: context.l10n.membership,
+                      value: subscriptionAsync.when(
+                        data: (d) => d?.hasActiveSubscription == true
+                            ? 'Premium'
+                            : 'Free',
+                        loading: () => '...',
+                        error: (_, __) => 'Error',
+                      ),
+                      onTap: () async {
+                        final url = Uri.parse(
+                            'https://moneko.io/dashboard/user-settings/membership');
+                        if (await canLaunchUrl(url)) {
+                          launchUrl(url, mode: LaunchMode.externalApplication);
+                        }
+                      },
                     ),
-                  ),
-                  subtitle: Text(
-                    context.l10n.fixNotificationIssuesSubtitle,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: colorScheme.mutedForeground,
-                    ),
-                  ),
-                  onTap: () => handleManualNotificationFix(),
+                  ],
                 ),
-                const SizedBox(height: 12),
-                AdaptiveListTile(
-                  leading: Icon(
-                    Icons.clear_all_outlined,
-                    size: 20,
-                    color: colorScheme.mutedForeground,
-                  ),
-                  title: Text(
-                    context.l10n.clearAppIconBadgeTitle,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: colorScheme.foreground,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  subtitle: Text(
-                    context.l10n.clearAppIconBadgeSubtitle,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: colorScheme.mutedForeground,
-                    ),
-                  ),
-                  onTap: () => handleClearAppBadge(),
-                ),
-                const SizedBox(height: 24),
 
-                // WhatsApp Binding
-                buildWhatsAppBindingCard(context, ref),
-                const SizedBox(height: 24),
+                const SizedBox(height: 48),
 
-
-
-                // Membership Section
-                _SectionHeader(title: context.l10n.membership),
-                const SizedBox(height: 12),
-                _MembershipCard(
-                  colorScheme: colorScheme,
-                  subscriptionAsync: subscriptionAsync,
-                ),
-                const SizedBox(height: 32),
-
-                // Sign Out Button
-                SizedBox(
-                  width: double.infinity,
+                // Sign Out
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: DestructiveAdaptiveButton(
                     onPressed: () async {
                       showBlockingProcessingDialog(
@@ -805,33 +567,40 @@ class SettingsPage extends HookConsumerWidget {
                             .read(appInitializationV2Provider.notifier)
                             .clearCacheAndReset();
 
-                        // Income
                         ref.invalidate(incomeSummaryProvider);
                         ref.invalidate(incomeListProvider);
-
-                        // Goals
                         ref.invalidate(goalsListProvider);
                         ref.invalidate(goalSummaryProvider);
-
-                        // Subscription
                         ref.invalidate(subscriptionManagementProvider);
-
-                        // User profile
                         ref.invalidate(userProfileProvider);
 
                         debugPrint('✅ All user-specific state cleared');
 
-                        // Sign out from auth last (this will trigger navigation to login)
                         await ref.read(authProvider.notifier).signOut();
                       } finally {
                         if (context.mounted) {
-                      
+                          // Handled by router/auth state change
                         }
                       }
                     },
-                    child: Text(context.l10n.signOut),
+                    child: material.Text(context.l10n.signOut,
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
                   ),
                 ),
+
+                const SizedBox(height: 40),
+                Center(
+                  child: material.Text(
+                    packageInfo.hasData
+                        ? 'Version ${packageInfo.data!.version}'
+                        : '',
+                    style: TextStyle(
+                      color: Colors.grey.shade500,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
               ],
             ),
           ),
@@ -1037,31 +806,293 @@ Future<void> _uploadAndSaveAvatar(
   }
 }
 
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title, this.child});
+class _ProfileHeader extends ConsumerWidget {
+  const _ProfileHeader({
+    required this.authState,
+    required this.nameReloadKey,
+    required this.onAvatarTap,
+  });
+
+  final AppUser authState;
+  final int nameReloadKey;
+  final VoidCallback onAvatarTap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
+    return Column(
+      children: [
+        Center(
+          child: FutureBuilder<Map<String, dynamic>?>(
+            key: ValueKey('avatar-$nameReloadKey'),
+            future: Supabase.instance.client
+                .from('users')
+                .select('full_name, avatar_url')
+                .eq('id', authState.uid)
+                .maybeSingle(),
+            builder: (context, snapshot) {
+              final dbName = snapshot.data?['full_name'] as String?;
+              final dbAvatarUrl = snapshot.data?['avatar_url'] as String?;
+
+              final displayName = (dbName?.trim().isNotEmpty == true)
+                  ? dbName!.trim()
+                  : (authState.displayName?.trim().isNotEmpty == true
+                      ? authState.displayName!.trim()
+                      : 'User');
+              final initials = displayName.isNotEmpty
+                  ? displayName.substring(0, 1).toUpperCase()
+                  : (authState.email.isNotEmpty
+                      ? authState.email.substring(0, 1).toUpperCase()
+                      : 'U');
+
+              String? validatedAvatarUrl;
+              if (dbAvatarUrl != null &&
+                  dbAvatarUrl.isNotEmpty &&
+                  dbAvatarUrl != 'SKIPPED' &&
+                  (dbAvatarUrl.startsWith('http://') ||
+                      dbAvatarUrl.startsWith('https://'))) {
+                validatedAvatarUrl = dbAvatarUrl;
+              }
+
+              final avatarUrl = validatedAvatarUrl ??
+                  (authState.photoUrl?.isNotEmpty == true
+                      ? authState.photoUrl
+                      : null);
+
+              return GestureDetector(
+                onTap: onAvatarTap,
+                child: Stack(
+                  children: [
+                    Container(
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isDarkMode
+                              ? const Color(0xFF1C1C1E)
+                              : Colors.white,
+                          width: 4,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
+                      ),
+                      child: ClipOval(
+                        child: avatarUrl != null
+                            ? Image.network(
+                                avatarUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) =>
+                                    _InitialsAvatar(initials: initials),
+                              )
+                            : _InitialsAvatar(initials: initials),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: colorScheme.primary,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isDarkMode
+                                ? const Color(0xFF1C1C1E)
+                                : Colors.white,
+                            width: 2,
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.camera_alt,
+                          size: 14,
+                          color: colorScheme.onPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          authState.displayName ?? 'User',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+            color: colorScheme.onSurface,
+            letterSpacing: -0.5,
+          ),
+        ),
+        Text(
+          authState.email,
+          style: TextStyle(
+            fontSize: 14,
+            color: colorScheme.onSurface.withOpacity(0.6),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SettingsGroup extends StatelessWidget {
+  const _SettingsGroup({
+    required this.title,
+    required this.children,
+  });
 
   final String title;
-  final Widget? child;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 16, bottom: 8),
+          child: Text(
+            title.toUpperCase(),
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade600,
+              letterSpacing: -0.2,
+            ),
+          ),
+        ),
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.card,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: isDarkMode
+                ? null
+                : [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+          ),
+          child: Column(
+            children: [
+              for (int i = 0; i < children.length; i++) ...[
+                children[i],
+                if (i < children.length - 1)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 56),
+                    child: Divider(
+                      height: 1,
+                      thickness: 0.5,
+                      color: Colors.grey.withOpacity(0.2),
+                    ),
+                  ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+}
+
+class _SettingsTile extends StatelessWidget {
+  const _SettingsTile({
+    this.icon,
+    this.customIcon,
+    required this.label,
+    this.value,
+    this.valueWidget,
+    this.trailing,
+    this.onTap,
+    this.showChevron = true,
+  });
+
+  final IconData? icon;
+  final Widget? customIcon;
+  final String label;
+  final String? value;
+  final Widget? valueWidget;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+  final bool showChevron;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Row(
-      children: [
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: colorScheme.mutedForeground,
-            letterSpacing: 0.5,
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: colorScheme.onSurface.withOpacity(0.04),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: customIcon ??
+                    Icon(
+                      icon,
+                      size: 20,
+                      color: colorScheme.onSurface,
+                    ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w400,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+              ),
+              if (value != null)
+                Text(
+                  value!,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey.shade500,
+                  ),
+                ),
+              if (valueWidget != null) valueWidget!,
+              if (trailing != null) ...[
+                const SizedBox(width: 8),
+                trailing!,
+              ] else if (showChevron && onTap != null) ...[
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.chevron_right,
+                  size: 20,
+                  color: Colors.grey.withOpacity(0.4),
+                ),
+              ],
+            ],
           ),
         ),
-        if (child != null) ...[
-          const SizedBox(width: 8),
-          child!,
-        ],
-      ],
+      ),
     );
   }
 }
@@ -1075,8 +1106,7 @@ String _currentDeviceTimezone() {
     final offset = now.timeZoneOffset;
     final sign = offset.isNegative ? '-' : '+';
     final hours = offset.inHours.abs().toString().padLeft(2, '0');
-    final minutes =
-        (offset.inMinutes.abs() % 60).toString().padLeft(2, '0');
+    final minutes = (offset.inMinutes.abs() % 60).toString().padLeft(2, '0');
     return 'UTC$sign$hours:$minutes';
   } catch (_) {
     return 'UTC';
@@ -1211,8 +1241,7 @@ List<_TimezoneOption> _buildTimezoneOptionsList({
 
   final sorted = options.values.toList()
     ..sort((a, b) {
-      final offsetComparison =
-          a.offsetMinutes.compareTo(b.offsetMinutes);
+      final offsetComparison = a.offsetMinutes.compareTo(b.offsetMinutes);
       if (offsetComparison != 0) return offsetComparison;
       return (a.label ?? a.value).compareTo(b.label ?? b.value);
     });
@@ -1335,359 +1364,12 @@ class _InitialsAvatar extends StatelessWidget {
   }
 }
 
-class _MembershipCard extends ConsumerWidget {
-  const _MembershipCard({
-    required this.colorScheme,
-    required this.subscriptionAsync,
-  });
+// End of _MembershipCard class
+// _MembershipCard class is removed as requested by the user.
 
-  final ColorScheme colorScheme;
-  final AsyncValue<SubscriptionDetails?> subscriptionAsync;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return AdaptiveCard(
-      padding: const EdgeInsets.all(16),
-      child: subscriptionAsync.when(
-        loading: () => Row(
-          children: [
-            Icon(
-              Icons.card_membership_outlined,
-              size: 20,
-              color: colorScheme.mutedForeground,
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                context.l10n.loading,
-                style: TextStyle(
-                  fontSize: 15,
-                  color: colorScheme.foreground,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-            SizedBox(
-              height: 20,
-              width: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation(colorScheme.primary),
-              ),
-            ),
-          ],
-        ),
-        error: (error, _) => Row(
-          children: [
-            Icon(
-              Icons.card_membership_outlined,
-              size: 20,
-              color: colorScheme.destructive,
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                context.l10n.failedToLoadMembership,
-                style: TextStyle(
-                  fontSize: 15,
-                  color: colorScheme.foreground,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-            IconButton(
-              icon: Icon(
-                Icons.refresh,
-                size: 16,
-                color: colorScheme.mutedForeground,
-              ),
-              onPressed: () {
-                ref.read(subscriptionManagementProvider.notifier).refresh();
-              },
-            ),
-          ],
-        ),
-        data: (subscriptionDetails) {
-          final plan = _getLocalizedPlanName(subscriptionDetails, context);
-          final status = _getLocalizedStatusName(subscriptionDetails, context);
-          final renewalInfo =
-              _getLocalizedRenewalInfo(subscriptionDetails, context);
-          final isActive = subscriptionDetails?.hasActiveSubscription ?? false;
-          final isTrialing = subscriptionDetails?.isTrialing ?? false;
-          final isCanceled = subscriptionDetails?.isCanceled ?? false;
-          final isPastDue = subscriptionDetails?.isPastDue ?? false;
-          final isLifetime = subscriptionDetails?.isLifetime ?? false;
-
-          IconData icon;
-          Color iconColor;
-
-          if (isPastDue) {
-            icon = Icons.warning_outlined;
-            iconColor = AppTheme.danger;
-          } else if (isCanceled) {
-            icon = Icons.card_membership_outlined;
-            iconColor = colorScheme.mutedForeground;
-          } else if (isTrialing) {
-            icon = Icons.schedule_outlined;
-            iconColor = AppTheme.warning;
-          } else if (isActive) {
-            icon = isLifetime ? Icons.stars : Icons.card_membership;
-            iconColor = AppTheme.success;
-          } else {
-            icon = Icons.card_membership_outlined;
-            iconColor = colorScheme.mutedForeground;
-          }
-
-          return Column(
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    icon,
-                    size: 20,
-                    color: iconColor,
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          plan,
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: colorScheme.foreground,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          status,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: isPastDue
-                                ? AppTheme.danger
-                                : isTrialing
-                                    ? AppTheme.warning
-                                    : colorScheme.mutedForeground,
-                            fontWeight: isPastDue || isTrialing
-                                ? FontWeight.w500
-                                : FontWeight.normal,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  InkWell(
-                    onTap: () async {
-                      final url = Uri.parse(
-                        'https://moneko.io/dashboard/user-settings/membership',
-                      );
-                      if (await canLaunchUrl(url)) {
-                        await launchUrl(
-                          url,
-                          mode: LaunchMode.externalApplication,
-                        );
-                      } else {
-                        if (context.mounted) {
-                          AppToast.error(
-                            context,
-                            context.l10n.couldNotOpenMembershipPage,
-                          );
-                        }
-                      }
-                    },
-                    child: Icon(
-                      Icons.open_in_new,
-                      size: 16,
-                      color: colorScheme.mutedForeground,
-                    ),
-                  ),
-                ],
-              ),
-              if (renewalInfo != null) ...[
-                const SizedBox(height: 12),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _getRenewalInfoBackgroundColor(
-                      subscriptionDetails,
-                      colorScheme,
-                    ),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        _getRenewalInfoIcon(subscriptionDetails),
-                        size: 14,
-                        color: _getRenewalInfoTextColor(
-                          subscriptionDetails,
-                          colorScheme,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        renewalInfo,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: _getRenewalInfoTextColor(
-                            subscriptionDetails,
-                            colorScheme,
-                          ),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  String _getLocalizedPlanName(
-      SubscriptionDetails? details, BuildContext context) {
-    if (details == null || details.subscription?.plan == null) {
-      return context.l10n.freePlan;
-    }
-
-    switch (details.subscription!.plan!.toLowerCase()) {
-      case 'lifetime':
-        return context.l10n.lifetimePlan;
-      case 'plus':
-        return context.l10n.plusPlan;
-      case 'monthly':
-        return context.l10n.plusMonthlyPlan;
-      case 'yearly':
-        return context.l10n.plusYearlyPlan;
-      default:
-        return details.subscription!.plan!.toUpperCase();
-    }
-  }
-
-  String _getLocalizedStatusName(
-      SubscriptionDetails? details, BuildContext context) {
-    if (details == null || details.subscription?.plan == null) {
-      return context.l10n.freePlanStatus;
-    }
-
-    if (details.subscription!.plan!.toLowerCase() == 'free') {
-      return context.l10n.freePlanStatus;
-    }
-
-    switch (details.subscription!.status?.toLowerCase()) {
-      case 'active':
-        return details.isLifetime
-            ? context.l10n.activeLifetimeStatus
-            : context.l10n.activeStatus;
-      case 'canceled':
-        return context.l10n.canceledStatus;
-      case 'past_due':
-        return context.l10n.pastDueStatus;
-      case 'trialing':
-        return context.l10n.trialStatus;
-      default:
-        return details.subscription!.status ?? context.l10n.freePlanStatus;
-    }
-  }
-
-  String? _getLocalizedRenewalInfo(
-      SubscriptionDetails? details, BuildContext context) {
-    if (details == null || details.subscription == null || details.isLifetime) {
-      return null;
-    }
-
-    final subscription = details.subscription!;
-    final status = subscription.status?.toLowerCase();
-
-    if (status == 'trialing' && subscription.currentPeriodEnd != null) {
-      final trialEnd = subscription.currentPeriodEnd!;
-      final now = DateTime.now();
-      final daysLeft = trialEnd.difference(now).inDays;
-
-      if (daysLeft > 0) {
-        return context.l10n.trialEndsInDays(daysLeft);
-      } else {
-        return context.l10n.trialEnded;
-      }
-    }
-
-    if (status == 'active' &&
-        details.daysUntilNextPayment != null &&
-        details.daysUntilNextPayment! > 0) {
-      return context.l10n.renewsInDays(details.daysUntilNextPayment!);
-    }
-
-    if (status == 'canceled' && subscription.currentPeriodEnd != null) {
-      final endDate = subscription.currentPeriodEnd!;
-      final now = DateTime.now();
-      final daysLeft = endDate.difference(now).inDays;
-
-      if (daysLeft > 0) {
-        return context.l10n.accessEndsInDays(daysLeft);
-      } else {
-        return context.l10n.subscriptionEnded;
-      }
-    }
-
-    return null;
-  }
-
-  Color _getRenewalInfoBackgroundColor(
-      SubscriptionDetails? details, ColorScheme colorScheme) {
-    if (details == null) return colorScheme.muted.withValues(alpha: 0.1);
-
-    if (details.isTrialing) {
-      return AppTheme.warning.withValues(alpha: 0.1);
-    } else if (details.isCanceled || details.isPastDue) {
-      return AppTheme.danger.withValues(alpha: 0.1);
-    } else if (details.isActive) {
-      return AppTheme.success.withValues(alpha: 0.1);
-    }
-
-    return colorScheme.muted.withValues(alpha: 0.1);
-  }
-
-  Color _getRenewalInfoTextColor(
-      SubscriptionDetails? details, ColorScheme colorScheme) {
-    if (details == null) return colorScheme.mutedForeground;
-
-    if (details.isTrialing) {
-      return AppTheme.warning;
-    } else if (details.isCanceled || details.isPastDue) {
-      return AppTheme.danger;
-    } else if (details.isActive) {
-      return AppTheme.success;
-    }
-
-    return colorScheme.mutedForeground;
-  }
-
-  IconData _getRenewalInfoIcon(SubscriptionDetails? details) {
-    if (details == null) return Icons.info_outlined;
-
-    if (details.isTrialing) {
-      return Icons.schedule_outlined;
-    } else if (details.isCanceled) {
-      return Icons.event_busy_outlined;
-    } else if (details.isPastDue) {
-      return Icons.warning_outlined;
-    } else if (details.isActive) {
-      return Icons.event_outlined;
-    }
-
-    return Icons.info_outlined;
-  }
-}
+// Actual WhatsApp Path:
+const String _whatsappRealSvg =
+    '''<svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>WhatsApp</title><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.008-.57-.008-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>''';
 
 String _displayLocaleName(Locale locale) {
   final lc = locale.languageCode.toLowerCase();

@@ -16,6 +16,7 @@ import 'package:moneko/features/home/presentation/utils/transaction_exporter.dar
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import '../widgets/unified_transaction_sheet.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
@@ -87,7 +88,28 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
   List<ExpenseEntry> get filteredExpenses {
     final filterState = ref.watch(homeFilterProvider);
+    final householdScope = ref.watch(householdScopeProvider);
     var expenses = _baseExpenses;
+
+    // Filter by the currently selected account (personal vs private space vs shared space)
+    // unless this page was explicitly opened for a specific householdId.
+    if (widget.householdId == null) {
+      expenses = expenses.where((e) {
+        final hid = e.householdId;
+        switch (householdScope.activeAccountType) {
+          case ActiveAccountType.personal:
+            return hid == null || hid.isEmpty;
+          case ActiveAccountType.portfolio:
+            final selectedId = householdScope.activeAccountHouseholdId;
+            if (selectedId == null || selectedId.isEmpty) return false;
+            return hid == selectedId;
+          case ActiveAccountType.household:
+            final selectedId = householdScope.selectedHouseholdId;
+            if (selectedId == null || selectedId.isEmpty) return false;
+            return hid == selectedId;
+        }
+      }).toList();
+    }
 
     // Filter by currency if selected
     final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
@@ -279,7 +301,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         },
       );
     } else {
-      _baseExpenses = analyticsData.expenses;
+      _baseExpenses = analyticsData.allExpenses;
     }
 
     return _buildMainScaffold(colorScheme, analyticsData.contact);

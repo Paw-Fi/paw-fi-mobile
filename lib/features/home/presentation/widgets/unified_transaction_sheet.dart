@@ -385,9 +385,20 @@ class _UnifiedTransactionSheetState
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final user = ref.watch(authProvider);
+    final householdScope = ref.watch(householdScopeProvider);
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
     final selectedHousehold = ref.watch(selectedHouseholdForSharingProvider);
     final selectedHouseholdState = ref.watch(selectedHouseholdProvider);
+
+    final canShareWithHousehold = () {
+      if (isExistingExpense) {
+        final householdId = widget.existingExpense?.householdId;
+        if (householdId == null || householdId.isEmpty) return false;
+        return !householdScope.isPortfolioId(householdId);
+      }
+      return householdScope.activeAccountType == ActiveAccountType.household &&
+          householdScope.activeAccountHouseholdId != null;
+    }();
 
     // For new expenses, use pending expense provider
     final pendingExpense =
@@ -532,6 +543,7 @@ class _UnifiedTransactionSheetState
                   // Household Sharing Toggle
                   householdsAsync.when(
                     data: (households) {
+                      if (!canShareWithHousehold) return const SizedBox();
                       if (households.isEmpty) return const SizedBox();
 
                       return Column(
@@ -728,7 +740,32 @@ class _UnifiedTransactionSheetState
     SelectedHouseholdState selectedHouseholdState,
     bool isIncomeMode,
   ) {
-    final householdList = households.cast<Household>();
+    final householdList = households
+        .cast<Household>()
+        .where((h) => !h.isPortfolio)
+        .toList(growable: false);
+
+    if (householdList.isEmpty) {
+      if (_isSharedWithHousehold) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          setState(() {
+            _isSharedWithHousehold = false;
+            _customSplitType = null;
+            _customSplits = null;
+            _initialSplitSignature = null;
+            _loadedSplitGroupType = null;
+            _resolvedSplitGroupId = null;
+            _hasCheckedSplitGroup = false;
+            _householdMembers = null;
+            _membersError = null;
+            _isLoadingMembers = false;
+          });
+          ref.read(selectedHouseholdForSharingProvider.notifier).state = null;
+        });
+      }
+      return const SizedBox();
+    }
     // Auto-select household only if no valid selection exists.
     final hasValidSelection = selectedHousehold != null &&
         householdList.any((h) => h.id == selectedHousehold);
@@ -763,7 +800,7 @@ class _UnifiedTransactionSheetState
         final currentSelection = ref.read(selectedHouseholdForSharingProvider);
         final isCurrentValid = currentSelection != null &&
             currentSelection.isNotEmpty &&
-            households.any((h) => h.id == currentSelection);
+            householdList.any((h) => h.id == currentSelection);
         if (isCurrentValid) return;
         final preferredId = resolveDefaultHouseholdId();
         ref.read(selectedHouseholdForSharingProvider.notifier).state =

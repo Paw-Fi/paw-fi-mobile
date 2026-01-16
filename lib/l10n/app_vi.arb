@@ -1732,5 +1732,10 @@
   "syncBankAccountsTitle": "Đồng bộ tài khoản ngân hàng",
   "syncBankAccountsSubtitle": "Liên kết ngân hàng an toàn để tự động nhập số dư và giao dịch.",
   "syncBankAccountsTooltip": "Xem trước hướng dẫn Plaid để biết quy trình đồng bộ.",
-  "syncBankAccountsComingSoon": "Tính năng đồng bộ ngân hàng sắp ra mắt."
+  "syncBankAccountsComingSoon": "Tính năng đồng bộ ngân hàng sắp ra mắt.",
+  "integrations": "Tích hợp",
+  "account": "Tài khoản",
+  "preferences": "Tùy chọn",
+  "tapToSet": "Chạm để cài đặt",
+  "comingSoon": "Sắp khả dụng"
 }

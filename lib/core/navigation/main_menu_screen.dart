@@ -7,7 +7,7 @@ import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/presentation/pages/household_settings_page.dart';
-import 'package:moneko/features/households/presentation/pages/household_create_page.dart';
+import 'package:moneko/features/households/presentation/pages/create_space_page.dart';
 import 'package:moneko/features/profile/presentation/pages/settings_page.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
@@ -145,7 +145,6 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
-
 class _HouseholdSection extends ConsumerWidget {
   const _HouseholdSection({required this.colorScheme});
 
@@ -195,7 +194,7 @@ class _HouseholdSection extends ConsumerWidget {
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) => const HouseholdCreatePage(),
+                        builder: (_) => const CreateSpacePage(),
                       ),
                     );
                   },

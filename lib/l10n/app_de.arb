@@ -1733,5 +1733,10 @@
   "syncBankAccountsTitle": "Bankkonten synchronisieren",
   "syncBankAccountsSubtitle": "Verbinde deine Banken sicher, um Salden und Transaktionen automatisch zu importieren.",
   "syncBankAccountsTooltip": "Sieh dir vorab die Plaid-Anleitung an, die dich durch die Synchronisierung führt.",
-  "syncBankAccountsComingSoon": "Die Banksynchronisierung kommt bald."
+  "syncBankAccountsComingSoon": "Die Banksynchronisierung kommt bald.",
+  "integrations": "Integrationen",
+  "account": "Konto",
+  "preferences": "Einstellungen",
+  "tapToSet": "Zum Festlegen tippen",
+  "comingSoon": "Demnächst verfügbar"
 }

@@ -1677,5 +1677,10 @@
   "syncBankAccountsTitle": "同步銀行帳戶",
   "syncBankAccountsSubtitle": "安全連結銀行，自動匯入餘額與交易明細。",
   "syncBankAccountsTooltip": "預覽 Plaid 的引導流程，了解同步步驟。",
-  "syncBankAccountsComingSoon": "銀行同步功能即將推出。"
+  "syncBankAccountsComingSoon": "銀行同步功能即將推出。",
+  "integrations": "整合",
+  "account": "帳戶",
+  "preferences": "偏好設定",
+  "tapToSet": "點按設定",
+  "comingSoon": "即將推出"
 }
