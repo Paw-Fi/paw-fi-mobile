@@ -10,4 +10,7 @@ abstract class Constants {
       String.fromEnvironment('ENV', defaultValue: 'production');
   static bool get isDevelopment => environment == 'development';
   static bool get isProduction => environment == 'production';
+
+  // Subscription & Referral
+  static const int discordVoucherMonths = 12;
 }

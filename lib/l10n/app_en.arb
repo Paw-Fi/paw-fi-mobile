@@ -1795,5 +1795,36 @@
   "splitGroupNotFound": "Split group not found",
   "coverImageSemanticLabel": "Cover image",
   "managePrivateSpace": "Manage Private Space",
-  "manageSharedSpace": "Manage Shared Space"
+  "manageSharedSpace": "Manage Shared Space",
+  "@onboarding": {},
+  "claimFreeTrial": "Claim Free Trial",
+  "youreAllSet": "You're all set!",
+  "claimYourFreeTrialToUnlockAllFeatures": "Claim your free trial to unlock all features",
+  "startYourJourneyWithMoneko": "Start your journey with Moneko",
+  "oneMonthFreePremiumAccess": "1 Month Free Premium Access",
+  "premiumFeatures": "Premium Features",
+  "syncAcrossDevices": "Sync across devices",
+  "sharedSpacesAndBudgets": "Shared spaces & budgets",
+  "joinDiscordForMonthVoucher": "Join Discord for {months}-month voucher",
+  "@joinDiscordForMonthVoucher": {
+    "placeholders": {
+      "months": {
+        "type": "int"
+      }
+    }
+  },
+  "joinOurDiscordForVoucher": "Join our Discord to get a voucher code for {months} months of free access!",
+  "@joinOurDiscordForVoucher": {
+    "placeholders": {
+      "months": {
+        "type": "int"
+      }
+    }
+  },
+  "@paywall": {},
+  "yourSubscriptionHasExpired": "Your subscription has expired",
+  "resubscribeToContinueEnjoying": "Resubscribe to continue enjoying premium features and insights.",
+  "continuePremiumAccess": "Continue premium access",
+  "allPremiumFeatures": "All premium features",
+  "resubscribe": "Resubscribe"
 }

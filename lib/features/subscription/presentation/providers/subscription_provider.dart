@@ -2,6 +2,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart' show AutoDisposeRef;
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import '../../data/models/subscription.dart';
 
 part 'subscription_provider.g.dart';
@@ -47,6 +48,19 @@ class SubscriptionNotifier extends _$SubscriptionNotifier {
         'Created Subscription object, isSubscribed=${subscription.isSubscribed}',
         name: 'SubscriptionProvider',
       );
+
+      // Track if user ever had a subscription for paywall mode determination
+      if (subscription.isSubscribed) {
+        try {
+          final prefs = ref.read(sharedPreferencesProvider);
+          await prefs.setBool('ever_subscribed:$userId', true);
+          appLog('Set ever_subscribed flag for user: $userId',
+              name: 'SubscriptionProvider');
+        } catch (e) {
+          appLog('Failed to set ever_subscribed flag',
+              name: 'SubscriptionProvider', error: e);
+        }
+      }
 
       return subscription;
     } catch (e, stack) {

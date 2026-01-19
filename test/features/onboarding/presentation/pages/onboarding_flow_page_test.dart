@@ -155,10 +155,20 @@ void main() {
       deviceRegistrationService: deviceService,
     );
 
-    await tester.tap(find.textContaining('Skip'));
+    // Skip now advances to the next step, not exit.
+    // Tap through all onboarding steps via Skip.
+    for (var i = 0; i < 5; i++) {
+      await tester.tap(find.textContaining('Skip'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+    }
+
+    // Last skip opens the finish page; complete it.
+    final startButton = find.byType(PrimaryAdaptiveButton);
+    expect(startButton, findsOneWidget);
+    await tester.tap(startButton);
     await tester.pumpAndSettle();
 
-    expect(find.text('Dashboard'), findsOneWidget);
     expect(prefs.getBool('onboarding_completed:u1'), true);
   });
 

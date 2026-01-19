@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -18,6 +19,7 @@ import 'package:moneko/features/home/presentation/state/widget_launch_provider.d
 import 'package:go_router/go_router.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/resources/lib/supabase.dart';
 
 /// Deep link service that handles app links
 class DeepLinkService {
@@ -33,6 +35,7 @@ class DeepLinkService {
       final initialLink = await _appLinks.getInitialLink();
       if (initialLink != null) {
         debugPrint('🔗 Initial deep link received: $initialLink');
+        // ignore: unawaited_futures
         _handleDeepLink(initialLink, ref);
       }
     } catch (e) {
@@ -43,6 +46,7 @@ class DeepLinkService {
     _linkSubscription = _appLinks.uriLinkStream.listen(
       (uri) {
         debugPrint('🔗 Deep link received: $uri');
+        // ignore: unawaited_futures
         _handleDeepLink(uri, ref);
       },
       onError: (err) {
@@ -53,11 +57,12 @@ class DeepLinkService {
 
   /// Handle deep link navigation (public for FCM integration)
   void handleDeepLinkUri(Uri uri, WidgetRef ref) {
+    // ignore: unawaited_futures
     _handleDeepLink(uri, ref);
   }
 
   /// Handle deep link navigation
-  void _handleDeepLink(Uri uri, WidgetRef ref) {
+  Future<void> _handleDeepLink(Uri uri, WidgetRef ref) async {
     debugPrint('🔗 Handling deep link: ${uri.scheme}://${uri.host}${uri.path}');
     debugPrint('🔗 Query parameters: ${uri.queryParameters}');
 
@@ -144,23 +149,45 @@ class DeepLinkService {
       final status = uri.queryParameters['status'];
       debugPrint('💳 Payment callback received with status: $status');
 
-      // Refresh subscription status from database
-      ref.read(subscriptionNotifierProvider.notifier).refresh();
+      final sessionId = uri.queryParameters['session_id'];
 
       // Show appropriate message based on status
       final navCtx = rootNavigatorKey.currentContext;
       if (navCtx != null && navCtx.mounted) {
         final ctx = navCtx;
+
         if (status == 'success') {
           AppToast.success(ctx, ctx.l10n.paymentSuccessfulCheckingSubscription);
-          // Navigate to dashboard after a short delay to let subscription load
-          Future.delayed(const Duration(seconds: 2), () {
-            final delayed = rootNavigatorKey.currentContext;
-            if (delayed != null && delayed.mounted) {
-              // ignore: use_build_context_synchronously
-              delayed.go('/dashboard');
+
+          // Ensure DB is updated before we rely on subscription table.
+          // (Best-effort; web also verifies via verify-payment route.)
+          if (sessionId != null && sessionId.isNotEmpty) {
+            try {
+              await supabase.functions.invoke(
+                'verify-payment',
+                body: {'sessionId': sessionId},
+              );
+            } catch (_) {}
+          }
+
+          // Poll a few times because webhook + DB write can lag behind the redirect.
+          for (var attempt = 0; attempt < 5; attempt++) {
+            await ref.read(subscriptionNotifierProvider.notifier).refresh();
+
+            final hasSubscription = ref.read(hasActiveSubscriptionProvider);
+            if (hasSubscription) {
+              if (rootNavigatorKey.currentContext?.mounted ?? false) {
+                // ignore: use_build_context_synchronously
+                rootNavigatorKey.currentContext!.go('/dashboard');
+              }
+              return;
             }
-          });
+
+            await Future.delayed(const Duration(seconds: 1));
+          }
+
+          // If still not active, keep user on paywall.
+          // Router will enforce this anyway for non-subscribed users.
         } else if (status == 'failed') {
           final error = uri.queryParameters['error'] ?? ctx.l10n.paymentFailed;
           AppToast.error(ctx, error);

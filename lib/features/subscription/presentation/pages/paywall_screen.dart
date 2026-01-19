@@ -12,38 +12,53 @@ import 'package:moneko/core/constants/links.dart';
 import '../providers/subscription_provider.dart';
 import '../providers/referral_code_provider.dart';
 
+enum PaywallMode {
+  trial,
+  resubscribe,
+}
+
+extension PaywallModeX on PaywallMode {
+  static PaywallMode fromQuery(String? value) {
+    return switch (value) {
+      'resubscribe' => PaywallMode.resubscribe,
+      _ => PaywallMode.trial,
+    };
+  }
+
+  String get queryValue {
+    return switch (this) {
+      PaywallMode.trial => 'trial',
+      PaywallMode.resubscribe => 'resubscribe',
+    };
+  }
+}
+
 class PaywallScreen extends ConsumerWidget {
-  const PaywallScreen({super.key});
+  const PaywallScreen({super.key, this.mode = PaywallMode.trial});
+
+  final PaywallMode mode;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
-    final hasReferralCodeAsync = ref.watch(referralCodeCheckerProvider);
     final user = ref.watch(authProvider);
 
     return Scaffold(
       backgroundColor: colorScheme.appBackground,
-      body: hasReferralCodeAsync.when(
-        data: (hasReferralCode) => _PaywallContent(
-          hasReferralCode: hasReferralCode,
-          user: user,
-        ),
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => _PaywallContent(
-          hasReferralCode: false,
-          user: user,
-        ),
+      body: _PaywallContent(
+        mode: mode,
+        user: user,
       ),
     );
   }
 }
 
 class _PaywallContent extends ConsumerStatefulWidget {
-  final bool hasReferralCode;
+  final PaywallMode mode;
   final AppUser user;
 
   const _PaywallContent({
-    required this.hasReferralCode,
+    required this.mode,
     required this.user,
   });
 
@@ -101,7 +116,7 @@ class _PaywallContentState extends ConsumerState<_PaywallContent> {
     } catch (_) {}
   }
 
-  Future<void> _claimTrialAccess() async {
+  Future<void> _startCheckout({required String flow}) async {
     if (widget.user.isEmpty) {
       AppToast.info(context, 'Please log in to continue');
       return;
@@ -113,22 +128,40 @@ class _PaywallContentState extends ConsumerState<_PaywallContent> {
       final session = supabase.auth.currentSession;
       if (session == null) throw Exception('No active session');
 
+      // IMPORTANT: Do not URI-encode the Stripe placeholder.
+      final successBase = Uri.https('moneko.io', '/checkout', {
+        'status': 'success',
+        'source': 'mobile',
+        'redirectUrl': DeepLinks.paymentCallback,
+        'plan': 'plus',
+        'billing': 'monthly',
+        'flow': flow,
+      }).toString();
+      final cancelBase = Uri.https('moneko.io', '/checkout', {
+        'status': 'canceled',
+        'source': 'mobile',
+        'redirectUrl': DeepLinks.paymentCallback,
+        'plan': 'plus',
+        'billing': 'monthly',
+        'flow': flow,
+      }).toString();
+
       final response = await supabase.functions.invoke(
         'create-checkout-session',
         body: {
           'plan': 'plus',
           'billingInterval': 'monthly',
-          'successUrl':
-              'https://moneko.io/checkout/success?status=success&flow=trial&session_id={CHECKOUT_SESSION_ID}',
-          'cancelUrl':
-              'https://moneko.io/checkout/cancel?status=canceled&flow=trial',
+          'successUrl': '$successBase&session_id={CHECKOUT_SESSION_ID}',
+          'cancelUrl': '$cancelBase&session_id={CHECKOUT_SESSION_ID}',
         },
       );
 
       if (response.data != null && response.data['checkoutUrl'] != null) {
         final checkoutUrl = response.data['checkoutUrl'] as String;
-        await launchUrl(Uri.parse(checkoutUrl),
-            mode: LaunchMode.externalApplication);
+        await launchUrl(
+          Uri.parse(checkoutUrl),
+          mode: LaunchMode.externalApplication,
+        );
       } else {
         throw Exception('No checkout URL received');
       }
@@ -154,6 +187,7 @@ class _PaywallContentState extends ConsumerState<_PaywallContent> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final hasReferralCodeAsync = ref.watch(referralCodeCheckerProvider);
 
     // Extract name logic
     final userName = widget.user.email.split('@').first;
@@ -161,191 +195,224 @@ class _PaywallContentState extends ConsumerState<_PaywallContent> {
         ? widget.user.displayName?.split(' ').first ?? userName
         : userName;
 
-    return RefreshIndicator(
-      onRefresh: _handleRefresh,
-      color: colorScheme.primary,
-      child: CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-              child: SafeArea(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    const SizedBox(height: 40),
-                    // Hero Image with Glow
-                    Stack(
-                      alignment: Alignment.center,
+    final isTrialEligible = widget.mode == PaywallMode.trial;
+
+    return hasReferralCodeAsync.when(
+      data: (hasReferralCode) {
+        final primaryModeHasReferralCode = isTrialEligible && hasReferralCode;
+        final showResubscribe = widget.mode == PaywallMode.resubscribe;
+
+        return RefreshIndicator(
+          onRefresh: _handleRefresh,
+          color: colorScheme.primary,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 24.0, vertical: 16.0),
+                  child: SafeArea(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
+                        const SizedBox(height: 40),
+                        // Hero Image with Glow
+                        Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Container(
+                              width: 160,
+                              height: 160,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: colorScheme.primary
+                                        .withValues(alpha: 0.2),
+                                    blurRadius: 60,
+                                    spreadRadius: 20,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Image.asset(
+                              'lib/assets/mascots/moneko.png',
+                              width: 140,
+                              height: 140,
+                              fit: BoxFit.contain,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 40),
+
+                        // Title
+                        Text(
+                          showResubscribe
+                              ? 'Your subscription has expired'
+                              : (primaryModeHasReferralCode
+                                  ? 'Welcome, $displayName!'
+                                  : 'Unlock Full Access'),
+                          style: textTheme.headlineMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color: colorScheme.onSurface,
+                            letterSpacing: -0.5,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Description
+                        Text(
+                          showResubscribe
+                              ? 'Resubscribe to continue enjoying premium features and insights.'
+                              : (primaryModeHasReferralCode
+                                  ? 'You\'ve been invited to try Moneko Premium. Enjoy exclusive features and insights.'
+                                  : 'Join our referral program to unlock lifetime access and share the love with friends.'),
+                          style: textTheme.bodyLarge?.copyWith(
+                            color: colorScheme.onSurface.withValues(alpha: 0.7),
+                            height: 1.5,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 48),
+
+                        // Feature Card
                         Container(
-                          width: 160,
-                          height: 160,
+                          padding: const EdgeInsets.all(24),
                           decoration: BoxDecoration(
-                            shape: BoxShape.circle,
+                            color: colorScheme.homeCardSurface,
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(
+                              color: colorScheme.homeCardBorder,
+                            ),
                             boxShadow: [
                               BoxShadow(
-                                color:
-                                    colorScheme.primary.withValues(alpha: 0.2),
-                                blurRadius: 60,
-                                spreadRadius: 20,
+                                color: colorScheme.homeCardShadow,
+                                blurRadius: 20,
+                                offset: const Offset(0, 4),
                               ),
                             ],
                           ),
-                        ),
-                        Image.asset(
-                          'lib/assets/mascots/moneko.png',
-                          width: 140,
-                          height: 140,
-                          fit: BoxFit.contain,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 40),
-
-                    // Title
-                    Text(
-                      widget.hasReferralCode
-                          ? 'Welcome, $displayName!'
-                          : 'Unlock Full Access',
-                      style: textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: colorScheme.onSurface,
-                        letterSpacing: -0.5,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Description
-                    Text(
-                      widget.hasReferralCode
-                          ? 'You\'ve been invited to try Moneko Premium. Enjoy exclusive features and insights.'
-                          : 'Join our referral program to unlock lifetime access and share the love with friends.',
-                      style: textTheme.bodyLarge?.copyWith(
-                        color: colorScheme.onSurface.withValues(alpha: 0.7),
-                        height: 1.5,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 48),
-
-                    // Feature Card
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: colorScheme.homeCardSurface,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color: colorScheme.homeCardBorder,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: colorScheme.homeCardShadow,
-                            blurRadius: 20,
-                            offset: const Offset(0, 4),
+                          child: Column(
+                            children: [
+                              _buildFeatureRow(context,
+                                  icon: Icons.star_rounded,
+                                  text: showResubscribe
+                                      ? 'Continue premium access'
+                                      : (primaryModeHasReferralCode
+                                          ? '1 Month Free Premium Access'
+                                          : 'Lifetime Access for You & Friends')),
+                              const SizedBox(height: 16),
+                              _buildFeatureRow(context,
+                                  icon: Icons.check_circle_outline_rounded,
+                                  text: showResubscribe
+                                      ? 'All premium features'
+                                      : (primaryModeHasReferralCode
+                                          ? 'No credit card required'
+                                          : 'Unlimited referrals')),
+                              const SizedBox(height: 16),
+                              _buildFeatureRow(context,
+                                  icon: Icons.flash_on_rounded,
+                                  text: 'Instant upgrade'),
+                            ],
                           ),
-                        ],
-                      ),
-                      child: Column(
-                        children: [
-                          _buildFeatureRow(context,
-                              icon: Icons.star_rounded,
-                              text: widget.hasReferralCode
-                                  ? '1 Month Free Premium Access'
-                                  : 'Lifetime Access for You & Friends'),
-                          const SizedBox(height: 16),
-                          _buildFeatureRow(context,
-                              icon: Icons.check_circle_outline_rounded,
-                              text: widget.hasReferralCode
-                                  ? 'No credit card required'
-                                  : 'Unlimited referrals'),
-                          const SizedBox(height: 16),
-                          _buildFeatureRow(context,
-                              icon: Icons.flash_on_rounded,
-                              text: 'Instant upgrade'),
-                        ],
-                      ),
-                    ),
+                        ),
 
-                    const Spacer(),
-                    const SizedBox(height: 32),
+                        const Spacer(),
+                        const SizedBox(height: 32),
 
-                    // Primary Action
-                    SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: PrimaryAdaptiveButton(
-                        onPressed: _isLoading
-                            ? null
-                            : (widget.hasReferralCode
-                                ? _claimTrialAccess
-                                : _launchReferralPage),
-                        child: _isLoading
-                            ? SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                  color: colorScheme.primaryForeground,
-                                ),
-                              )
-                            : Text(
-                                widget.hasReferralCode
-                                    ? 'Claim Free Month'
-                                    : 'Join Referral Program',
-                                style: const TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w700,
-                                ),
+                        // Primary Action
+                        SizedBox(
+                          width: double.infinity,
+                          height: 56,
+                          child: PrimaryAdaptiveButton(
+                            onPressed: _isLoading
+                                ? null
+                                : (showResubscribe
+                                    ? () => _startCheckout(flow: 'resubscribe')
+                                    : (primaryModeHasReferralCode
+                                        ? () => _startCheckout(flow: 'trial')
+                                        : _launchReferralPage)),
+                            child: _isLoading
+                                ? SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.5,
+                                      color: colorScheme.primaryForeground,
+                                    ),
+                                  )
+                                : Text(
+                                    showResubscribe
+                                        ? 'Resubscribe'
+                                        : (primaryModeHasReferralCode
+                                            ? 'Claim Free Month'
+                                            : 'Join Referral Program'),
+                                    style: const TextStyle(
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Secondary Actions
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            PlainAdaptiveButton(
+                              onPressed: _launchDiscord,
+                              child: Text(
+                                'Support',
+                                style: TextStyle(
+                                    color: colorScheme.primary,
+                                    fontWeight: FontWeight.w600),
                               ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Secondary Actions
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        PlainAdaptiveButton(
-                          onPressed: _launchDiscord,
-                          child: Text(
-                            'Support',
-                            style: TextStyle(
-                                color: colorScheme.primary,
-                                fontWeight: FontWeight.w600),
-                          ),
+                            ),
+                            Container(
+                              height: 4,
+                              width: 4,
+                              margin: const EdgeInsets.symmetric(horizontal: 8),
+                              decoration: BoxDecoration(
+                                color:
+                                    colorScheme.outline.withValues(alpha: 0.5),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            PlainAdaptiveButton(
+                              onPressed: _handleLogout,
+                              child: Text(
+                                'Log out',
+                                style: TextStyle(
+                                    color: colorScheme.mutedForeground),
+                              ),
+                            ),
+                          ],
                         ),
-                        Container(
-                          height: 4,
-                          width: 4,
-                          margin: const EdgeInsets.symmetric(horizontal: 8),
-                          decoration: BoxDecoration(
-                            color: colorScheme.outline.withValues(alpha: 0.5),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        PlainAdaptiveButton(
-                          onPressed: _handleLogout,
-                          child: Text(
-                            'Log out',
-                            style:
-                                TextStyle(color: colorScheme.mutedForeground),
-                          ),
-                        ),
+                        const SizedBox(height: 16),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                  ],
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, stack) {
+        // Fallback to trial mode if referral check fails
+        return RefreshIndicator(
+          onRefresh: _handleRefresh,
+          color: colorScheme.primary,
+          child: const Center(
+            child: Text('Unable to load subscription options'),
+          ),
+        );
+      },
     );
   }
 

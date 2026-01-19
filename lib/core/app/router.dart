@@ -95,7 +95,10 @@ GoRouter router(RouterRef ref) {
       // Subscription Routes
       GoRoute(
         path: '/paywall',
-        builder: (context, state) => const PaywallScreen(),
+        builder: (context, state) {
+          final mode = state.uri.queryParameters['mode'];
+          return PaywallScreen(mode: PaywallModeX.fromQuery(mode));
+        },
       ),
 
       // Deep link routes - show dashboard so sheet appears on a valid page
@@ -222,6 +225,7 @@ GoRouter router(RouterRef ref) {
               '🚀 [RouterV2] On splash, redirecting immediately based on auth');
           // Redirect from splash to appropriate page
           if (isAuthenticated) {
+            // Always check onboarding first
             if (!hasOnboarded) {
               return '/onboarding';
             }
@@ -229,10 +233,17 @@ GoRouter router(RouterRef ref) {
             if (kIsWeb) {
               return '/dashboard';
             }
-            // Check subscription if loaded, otherwise navigate and check later
+            // For completed onboarding: check subscription if loaded
             if (isSubscriptionLoaded) {
               if (!hasSubscription) {
-                return '/paywall';
+                // Check if user ever had a subscription
+                final everSubscribed =
+                    prefs.getBool('ever_subscribed:${auth.uid}') ?? false;
+                if (everSubscribed) {
+                  return '/paywall?mode=resubscribe';
+                } else {
+                  return '/paywall?mode=trial';
+                }
               }
             }
             return '/dashboard'; // Navigate immediately, UI will show skeletons
@@ -261,8 +272,12 @@ GoRouter router(RouterRef ref) {
           return '/login';
         }
 
-        // If authenticated and on auth page, check subscription then redirect
+        // If authenticated and on auth page, check onboarding then subscription then redirect
         if (isAuthenticated && isOnAuthPage) {
+          // Always prioritize onboarding
+          if (!hasOnboarded) {
+            return '/onboarding';
+          }
           // If subscription is still loading, allow navigation (don't redirect yet)
           if (!isSubscriptionLoaded) {
             return null;
@@ -270,19 +285,36 @@ GoRouter router(RouterRef ref) {
           // Check subscription status
           if (!hasSubscription) {
             // On web: skip paywall and go straight to dashboard
-            return kIsWeb ? '/dashboard' : '/paywall';
+            if (kIsWeb) return '/dashboard';
+            // Check if user ever had a subscription to determine paywall mode
+            final everSubscribed =
+                prefs.getBool('ever_subscribed:${auth.uid}') ?? false;
+            if (everSubscribed) {
+              return '/paywall?mode=resubscribe';
+            } else {
+              return '/paywall?mode=trial';
+            }
           }
           return '/dashboard';
         }
 
         // If authenticated but no subscription and trying to access protected pages
-        // Only redirect to paywall if subscription is confirmed loaded
+        // Only redirect to paywall if subscription is confirmed loaded and onboarding completed
         if (!kIsWeb &&
             isAuthenticated &&
+            hasOnboarded &&
             isSubscriptionLoaded &&
             !hasSubscription &&
-            !isOnPaywallPage) {
-          return '/paywall';
+            !isOnPaywallPage &&
+            !isOnboardingPage) {
+          // Check if user ever had a subscription to determine paywall mode
+          final everSubscribed =
+              prefs.getBool('ever_subscribed:${auth.uid}') ?? false;
+          if (everSubscribed) {
+            return '/paywall?mode=resubscribe';
+          } else {
+            return '/paywall?mode=trial';
+          }
         }
 
         // Allow navigation (includes when subscription is loading)

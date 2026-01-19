@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/util/constants.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/widgets/currency_selector_modal.dart';
@@ -21,6 +22,7 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_finish_page.dart';
 import '../../../../core/l10n/l10n.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
+import 'package:moneko/features/subscription/presentation/providers/referral_code_provider.dart';
 
 const _kOnboardingCompletedPrefix = 'onboarding_completed:'; // per-user
 const _kNotificationsPromptedPrefix = 'notifications_prompted:'; // per-user
@@ -37,7 +39,7 @@ class OnboardingFlowPage extends HookConsumerWidget {
     final notificationFlowCompleted = useState(false);
     // Step 4: editable group name captured here so footer CTA can pass it
     final groupName = useState<String>('');
-    const totalSteps = 4;
+    const totalSteps = 5; // Added subscription step
 
     void goToPage(int targetPage) {
       if (!context.mounted) return;
@@ -83,7 +85,7 @@ class OnboardingFlowPage extends HookConsumerWidget {
       }
     }
 
-    void skip() => showFinishPage();
+    void skip() => next(); // Now skip goes to next step instead of exiting
 
     Future<void> handleNotificationsFlow() async {
       if (notificationFlowStarted.value || notificationFlowCompleted.value) {
@@ -177,9 +179,20 @@ class OnboardingFlowPage extends HookConsumerWidget {
             fullscreenDialog: true,
           ),
         );
+        // Always return to onboarding after space creation
         if (result == true) {
-          await showFinishPage();
+          next(); // Go to subscription step
         }
+        return;
+      }
+
+      if (currentPage.value == 4) {
+        // Final subscription step
+        // 1) Mark onboarding completed so router won't bounce user back here after returning.
+        await _markOnboardingCompleted(ref);
+        if (!context.mounted) return;
+        // 2) Start checkout on the paywall (which launches the website flow and returns via deep link).
+        context.go('/paywall?mode=trial');
         return;
       }
 
@@ -213,6 +226,7 @@ class OnboardingFlowPage extends HookConsumerWidget {
                       name: groupName.value,
                       onNameChanged: (v) => groupName.value = v,
                     ),
+                    const _SubscriptionStep(),
                   ],
                 ),
               ),
@@ -257,7 +271,9 @@ class OnboardingFlowPage extends HookConsumerWidget {
                                   ? context.l10n.setBudget
                                   : currentPage.value == 2
                                       ? context.l10n.turnOnNotifications
-                                      : context.l10n.createSpace,
+                                      : currentPage.value == 3
+                                          ? context.l10n.createSpace
+                                          : 'Claim Free Trial', // Step 4 - subscription
                         ),
                       ),
                     ),
@@ -279,10 +295,14 @@ class OnboardingFlowPage extends HookConsumerWidget {
     );
   }
 
-  Future<void> _completeOnboarding(BuildContext context, WidgetRef ref) async {
+  Future<void> _markOnboardingCompleted(WidgetRef ref) async {
     final prefs = ref.read(sharedPreferencesProvider);
     final uid = ref.read(authProvider).uid;
     await prefs.setBool('$_kOnboardingCompletedPrefix$uid', true);
+  }
+
+  Future<void> _completeOnboarding(BuildContext context, WidgetRef ref) async {
+    await _markOnboardingCompleted(ref);
     if (context.mounted) context.go('/dashboard');
   }
 }
@@ -686,6 +706,155 @@ class _HouseholdStep extends HookConsumerWidget {
           const SizedBox(height: 16),
         ],
       ),
+    );
+  }
+}
+
+class _SubscriptionStep extends HookConsumerWidget {
+  const _SubscriptionStep();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final hasReferralCodeAsync = ref.watch(referralCodeCheckerProvider);
+
+    return hasReferralCodeAsync.when(
+      data: (hasReferralCode) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'You\'re all set!',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: colorScheme.foreground,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              hasReferralCode
+                  ? 'Claim your free trial to unlock all features'
+                  : 'Start your journey with Moneko',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 15,
+                color: colorScheme.mutedForeground,
+              ),
+            ),
+            const SizedBox(height: 24),
+            // Feature benefits
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: colorScheme.card,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                    color: colorScheme.border.withValues(alpha: 0.06),
+                    width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: colorScheme.shadow.withValues(alpha: 0.08),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  _buildBenefit(
+                    colorScheme,
+                    Icons.star_rounded,
+                    hasReferralCode
+                        ? '1 Month Free Premium Access'
+                        : 'Premium Features',
+                  ),
+                  const SizedBox(height: 14),
+                  _buildBenefit(
+                    colorScheme,
+                    Icons.sync_rounded,
+                    'Sync across devices',
+                  ),
+                  const SizedBox(height: 14),
+                  _buildBenefit(
+                    colorScheme,
+                    Icons.people_rounded,
+                    'Shared spaces & budgets',
+                  ),
+                  if (!hasReferralCode) ...[
+                    const SizedBox(height: 14),
+                    _buildBenefit(
+                      colorScheme,
+                      Icons.card_giftcard_rounded,
+                      'Join Discord for ${Constants.discordVoucherMonths}-month voucher',
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (!hasReferralCode)
+              Text(
+                'Join our Discord to get a voucher code for ${Constants.discordVoucherMonths} months of free access!',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: colorScheme.mutedForeground,
+                  height: 1.4,
+                ),
+              ),
+          ],
+        ),
+      ),
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, __) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+        child: Column(
+          children: [
+            Text(
+              'Ready to start!',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: colorScheme.foreground,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Continue to explore Moneko',
+              style: TextStyle(color: colorScheme.mutedForeground),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBenefit(ColorScheme colorScheme, IconData icon, String text) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: colorScheme.primary.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: colorScheme.primary, size: 20),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: colorScheme.foreground,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
