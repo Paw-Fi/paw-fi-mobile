@@ -15,6 +15,7 @@ import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_controller.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_step.dart';
+import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:moneko/shared/widgets/moneko_tab_bar_view.dart';
 
@@ -534,24 +535,44 @@ class _RecurringTransactionsPageState
       return;
     }
 
-    final deleteResult = await ref
-        .read(recurringTransactionsProvider(householdId).notifier)
-        .deleteRecurring(user.id, transaction.id);
+    // Show loading dialog
+    showBlockingProcessingDialog(
+      context: context,
+      message: '${context.l10n.delete}...',
+    );
 
-    if (!mounted) return;
+    try {
+      final deleteResult = await ref
+          .read(recurringTransactionsProvider(householdId).notifier)
+          .deleteRecurring(user.id, transaction.id);
 
-    if (deleteResult.success) {
-      AppToast.success(context, context.l10n.recurringTransactionDeleted);
-    } else {
-      final message =
-          (deleteResult.error != null && deleteResult.error!.trim().isNotEmpty)
-              ? deleteResult.error!
-              : context.l10n.failedToDeleteRecurringTransaction;
-      AppToast.error(context, message);
+      if (!mounted) return;
+
+      // Dismiss loading dialog
+      Navigator.of(context).pop();
+
+      if (deleteResult.success) {
+        AppToast.success(context, context.l10n.recurringTransactionDeleted);
+      } else {
+        final message = (deleteResult.error != null &&
+                deleteResult.error!.trim().isNotEmpty)
+            ? deleteResult.error!
+            : context.l10n.failedToDeleteRecurringTransaction;
+        AppToast.error(context, message);
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      // Dismiss loading dialog
+      Navigator.of(context).pop();
+
+      AppToast.error(
+        context,
+        context.l10n.failedToDeleteRecurringTransaction,
+      );
     }
 
-    debugPrint(
-        '✅ [RecurringPage] Delete finished success=${deleteResult.success} error=${deleteResult.error}');
+    debugPrint('✅ [RecurringPage] Delete operation completed');
     debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   }
 }

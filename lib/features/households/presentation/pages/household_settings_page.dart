@@ -473,6 +473,12 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
 
       if (!pageContext.mounted) return;
 
+      // Show success toast before popping
+      AppToast.success(
+        pageContext,
+        'Space deleted successfully',
+      );
+
       if (Navigator.of(pageContext).canPop()) {
         Navigator.of(pageContext).pop();
       }

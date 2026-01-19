@@ -13,6 +13,7 @@ import 'package:moneko/features/households/presentation/providers/cached_provide
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
+import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/core/navigation/navigation_providers.dart';
@@ -227,6 +228,13 @@ Widget buildRecentTransactionsCard(
                                 final uid = Supabase
                                     .instance.client.auth.currentUser?.id;
                                 if (uid == null) return;
+
+                                // Show loading dialog
+                                showBlockingProcessingDialog(
+                                  context: context,
+                                  message: '${l10n.delete}...',
+                                );
+
                                 try {
                                   final res = await Supabase
                                       .instance.client.functions
@@ -236,6 +244,9 @@ Widget buildRecentTransactionsCard(
                                   });
 
                                   if (!context.mounted) return;
+
+                                  // Dismiss loading dialog
+                                  Navigator.of(context).pop();
 
                                   if (res.data != null &&
                                       (res.data['success'] == true)) {
@@ -283,6 +294,8 @@ Widget buildRecentTransactionsCard(
                                   }
                                 } catch (err) {
                                   if (context.mounted) {
+                                    // Dismiss loading dialog
+                                    Navigator.of(context).pop();
                                     AppToast.error(
                                       context,
                                       ErrorHandler.getUserFriendlyMessage(err),

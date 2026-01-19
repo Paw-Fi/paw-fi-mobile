@@ -21,6 +21,8 @@ import 'package:moneko/features/pockets/presentation/widgets/pockets_grid_sectio
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/utils/error_handler.dart';
 
 class PocketsPage extends HookConsumerWidget {
   const PocketsPage({super.key});
@@ -33,6 +35,10 @@ class PocketsPage extends HookConsumerWidget {
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
     final selectedHouseholdState = ref.watch(selectedHouseholdProvider);
     final households = householdsAsync.valueOrNull ?? const <Household>[];
+
+    // Track save/reset operations
+    final isSavingChanges = useState(false);
+    final isResettingChanges = useState(false);
 
     // Use householdScopeProvider to properly handle personal vs portfolio vs household.
     final householdScope = ref.watch(householdScopeProvider);
@@ -318,36 +324,116 @@ class PocketsPage extends HookConsumerWidget {
                           children: [
                             Expanded(
                               child: AdaptiveButton.child(
-                                onPressed: currentPocketsNotifier.revertChanges,
+                                onPressed: isResettingChanges.value ||
+                                        isSavingChanges.value
+                                    ? null
+                                    : () async {
+                                        if (isResettingChanges.value) return;
+                                        isResettingChanges.value = true;
+                                        try {
+                                          currentPocketsNotifier
+                                              .revertChanges();
+                                          if (context.mounted) {
+                                            AppToast.info(
+                                              context,
+                                              context.l10n.budgetUpdated,
+                                            );
+                                          }
+                                        } catch (e) {
+                                          if (context.mounted) {
+                                            AppToast.error(
+                                              context,
+                                              ErrorHandler
+                                                  .getUserFriendlyMessage(e),
+                                            );
+                                          }
+                                        } finally {
+                                          if (context.mounted) {
+                                            isResettingChanges.value = false;
+                                          }
+                                        }
+                                      },
                                 style: AdaptiveButtonStyle.plain,
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.refresh_rounded,
-                                      size: 18,
-                                      color: colorScheme.error,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      context.l10n.reset,
-                                      style: TextStyle(
-                                        color: colorScheme.error,
-                                        fontWeight: FontWeight.w600,
+                                child: isResettingChanges.value
+                                    ? SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor: AlwaysStoppedAnimation(
+                                            colorScheme.error,
+                                          ),
+                                        ),
+                                      )
+                                    : Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.refresh_rounded,
+                                            size: 18,
+                                            color: colorScheme.error,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            context.l10n.reset,
+                                            style: TextStyle(
+                                              color: colorScheme.error,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                    ),
-                                  ],
-                                ),
                               ),
                             ),
                             const SizedBox(width: 4),
                             Expanded(
                               child: PrimaryAdaptiveButton(
-                                onPressed: currentPocketsNotifier.saveChanges,
-                                prefixIcon: const Icon(
-                                  Icons.check_rounded,
-                                  size: 18,
-                                ),
+                                onPressed: isSavingChanges.value ||
+                                        isResettingChanges.value
+                                    ? null
+                                    : () async {
+                                        if (isSavingChanges.value) return;
+                                        isSavingChanges.value = true;
+                                        try {
+                                          await currentPocketsNotifier
+                                              .saveChanges();
+                                          if (context.mounted) {
+                                            AppToast.success(
+                                              context,
+                                              context.l10n
+                                                  .budgetUpdatedSuccessfully,
+                                            );
+                                          }
+                                        } catch (e) {
+                                          if (context.mounted) {
+                                            AppToast.error(
+                                              context,
+                                              ErrorHandler
+                                                  .getUserFriendlyMessage(e),
+                                            );
+                                          }
+                                        } finally {
+                                          if (context.mounted) {
+                                            isSavingChanges.value = false;
+                                          }
+                                        }
+                                      },
+                                prefixIcon: isSavingChanges.value
+                                    ? SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor: AlwaysStoppedAnimation(
+                                            colorScheme.primaryForeground,
+                                          ),
+                                        ),
+                                      )
+                                    : const Icon(
+                                        Icons.check_rounded,
+                                        size: 18,
+                                      ),
                                 child: Text(context.l10n.save),
                               ),
                             ),
@@ -419,8 +505,25 @@ class _PocketsMonthView extends HookConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
                 child: _CopyBudgetBanner(
                   previousBudget: pocketsState.previousBudget,
-                  onCopy: () => pocketsNotifier
-                      .reusePreviousBudget(pocketsState.previousBudget),
+                  onCopy: () async {
+                    try {
+                      pocketsNotifier
+                          .reusePreviousBudget(pocketsState.previousBudget);
+                      if (context.mounted) {
+                        AppToast.success(
+                          context,
+                          context.l10n.budgetUpdated,
+                        );
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        AppToast.error(
+                          context,
+                          ErrorHandler.getUserFriendlyMessage(e),
+                        );
+                      }
+                    }
+                  },
                   onCopyPockets: () async {
                     if (isCopyingPockets.value) return;
 
@@ -456,6 +559,19 @@ class _PocketsMonthView extends HookConsumerWidget {
                       final previousMonth =
                           DateTime(now.year, now.month - 1, 1);
                       await pocketsNotifier.copyPocketsFromMonth(previousMonth);
+                      if (context.mounted) {
+                        AppToast.success(
+                          context,
+                          context.l10n.budgetCreatedSuccessfully,
+                        );
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        AppToast.error(
+                          context,
+                          ErrorHandler.getUserFriendlyMessage(e),
+                        );
+                      }
                     } finally {
                       if (context.mounted) {
                         isCopyingPockets.value = false;

@@ -27,20 +27,20 @@ class AppToast {
       case AppToastType.error:
         return colorScheme.destructive;
       case AppToastType.info:
-        return colorScheme.primary;
+        return colorScheme.info;
     }
   }
 
   static IconData _getIconForType(AppToastType type) {
     switch (type) {
       case AppToastType.success:
-        return Icons.check_circle;
+        return Icons.check_circle_rounded;
       case AppToastType.warning:
-        return Icons.warning;
+        return Icons.warning_rounded;
       case AppToastType.error:
-        return Icons.error;
+        return Icons.error_rounded;
       case AppToastType.info:
-        return Icons.info;
+        return Icons.info_rounded;
     }
   }
 
@@ -70,15 +70,12 @@ class AppToast {
       _showMaterialBannerFallback(effectiveContext, message, type, duration);
       return;
     }
-    final color = _getColorForType(type, effectiveContext);
-    final icon = _getIconForType(type);
 
     // Create overlay entry with animation
     final entry = OverlayEntry(
       builder: (context) => _ToastWidget(
         message: message,
-        color: color,
-        icon: icon,
+        type: type,
       ),
     );
 
@@ -123,15 +120,12 @@ class AppToast {
       _showMaterialBannerFallback(effectiveContext, message, type, duration);
       return;
     }
-    final color = _getColorForType(type, effectiveContext);
-    final icon = _getIconForType(type);
 
     // Create overlay entry with animation and action button
     final entry = OverlayEntry(
       builder: (context) => _ToastWidget(
         message: message,
-        color: color,
-        icon: icon,
+        type: type,
         actionLabel: actionLabel,
         onActionPressed: () {
           onPressed();
@@ -244,15 +238,13 @@ class AppToast {
 /// Internal widget for toast display with animation
 class _ToastWidget extends StatefulWidget {
   final String message;
-  final Color color;
-  final IconData icon;
+  final AppToastType type;
   final String? actionLabel;
   final VoidCallback? onActionPressed;
 
   const _ToastWidget({
     required this.message,
-    required this.color,
-    required this.icon,
+    required this.type,
     this.actionLabel,
     this.onActionPressed,
   });
@@ -280,7 +272,7 @@ class _ToastWidgetState extends State<_ToastWidget>
       end: Offset.zero,
     ).animate(CurvedAnimation(
       parent: _controller,
-      curve: Curves.easeOut,
+      curve: Curves.easeOutCubic,
     ));
 
     _fadeAnimation = Tween<double>(
@@ -304,10 +296,48 @@ class _ToastWidgetState extends State<_ToastWidget>
     AppToast._dismissCurrentToast();
   }
 
+  (Color bg, Color border, Color icon, IconData iconData) _getThemeProps(
+      ColorScheme scheme) {
+    switch (widget.type) {
+      case AppToastType.success:
+        return (
+          scheme.successSurface,
+          scheme.successBorder,
+          scheme.success,
+          Icons.check_circle_rounded
+        );
+      case AppToastType.warning:
+        return (
+          scheme.warningSurface,
+          scheme.warningBorder,
+          scheme.warning,
+          Icons.warning_rounded
+        );
+      case AppToastType.error:
+        return (
+          scheme.errorSurface,
+          scheme.errorBorder,
+          scheme.destructive,
+          Icons.error_rounded
+        );
+      case AppToastType.info:
+        return (
+          scheme.infoSurface,
+          scheme.infoBorder,
+          scheme.info,
+          Icons.info_rounded
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final foreground = colorScheme.primaryForeground;
+    final scheme = Theme.of(context).colorScheme;
+    final (bgColor, borderColor, iconColor, iconData) = _getThemeProps(scheme);
+
+    // Determine shadow opacity based on brightness
+    final shadowOpacity = scheme.brightness == Brightness.dark ? 0.3 : 0.08;
+
     return Positioned(
       top: 0,
       left: 0,
@@ -323,62 +353,79 @@ class _ToastWidgetState extends State<_ToastWidget>
               _handleDismiss();
             },
             child: Material(
-              color: colorScheme.surface.withValues(alpha: 0.0),
+              color: Colors.transparent,
               child: SafeArea(
                 child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: widget.color,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: colorScheme.shadow.withValues(alpha: 0.2),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
-                      child: Row(
-                        children: [
-                          Icon(
-                            widget.icon,
-                            color: foreground,
-                            size: 24,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              widget.message,
-                              style: TextStyle(
-                                color: foreground,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                          if (widget.actionLabel != null &&
-                              widget.onActionPressed != null) ...[
-                            const SizedBox(width: 8),
-                            TextButton(
-                              onPressed: widget.onActionPressed,
-                              style: TextButton.styleFrom(
-                                foregroundColor: foreground,
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 8),
-                              ),
-                              child: Text(
-                                widget.actionLabel!,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16.0, vertical: 8.0),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 600),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: bgColor,
+                          border: Border.all(color: borderColor),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: scheme.shadow
+                                  .withValues(alpha: shadowOpacity),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                              spreadRadius: 0,
                             ),
                           ],
-                        ],
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 14),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                iconData,
+                                color: iconColor,
+                                size: 24,
+                              ),
+                              const SizedBox(width: 12),
+                              Flexible(
+                                child: Text(
+                                  widget.message,
+                                  style: TextStyle(
+                                    color: scheme.foreground,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w500,
+                                    height: 1.2,
+                                  ),
+                                ),
+                              ),
+                              if (widget.actionLabel != null &&
+                                  widget.onActionPressed != null) ...[
+                                const SizedBox(width: 12),
+                                GestureDetector(
+                                  onTap: widget.onActionPressed,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: iconColor.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      widget.actionLabel!,
+                                      style: TextStyle(
+                                        color: iconColor,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ),
