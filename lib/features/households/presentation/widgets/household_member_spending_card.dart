@@ -10,7 +10,7 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:moneko/shared/widgets/user_avatar.dart';
+import 'package:moneko/shared/widgets/moneko_avatar.dart';
 
 /// Member spending breakdown card with modern, Apple-inspired design
 Widget buildHouseholdMemberSpendingCard(
@@ -361,11 +361,10 @@ Widget _buildMemberRow(
                     ),
                   ],
                 ),
-                child: UserAvatar(
-                  avatarUrl: memberData?.avatarUrl,
-                  name: displayName,
-                  userId: member.userId,
+                child: MonekoAvatar.supabaseUser(
                   size: 44,
+                  userId: member.userId,
+                  fallbackImageUrl: memberData?.avatarUrl,
                   borderWidth: 1,
                   borderColor: colorScheme.border.withValues(alpha: 0.15),
                 ),

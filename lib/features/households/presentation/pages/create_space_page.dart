@@ -23,7 +23,7 @@ import 'package:moneko/features/home/presentation/state/home_filter_provider.dar
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/utils/currency.dart';
-import 'package:moneko/shared/widgets/user_avatar.dart';
+import 'package:moneko/shared/widgets/moneko_avatar.dart';
 
 /// Single unified page to create either a Private Space or a Group Space (Household).
 /// Refactored for a premium, Apple-like feel with distinct usage modes.
@@ -354,7 +354,6 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
           context.l10n.owner, // TODO: Localize
           currentUser.photoUrl,
           userId: currentUser.uid,
-          isMe: true,
         ),
         const SizedBox(height: 16),
         _buildInvitePlaceholderRow(colorScheme),
@@ -374,7 +373,6 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
           context.l10n.ownerPrivate, // TODO: Localize
           currentUser.photoUrl,
           userId: currentUser.uid,
-          isMe: true,
         ),
       ],
     );
@@ -386,57 +384,22 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
     String role,
     String? fallbackAvatarUrl, {
     String? userId,
-    bool isMe = false,
   }) {
-    // Resolve avatar Logic consistent with home_header_sliver
-    Widget avatarWidget;
-
-    if (isMe && userId != null) {
-      avatarWidget = FutureBuilder<Map<String, dynamic>?>(
-        future: Supabase.instance.client
-            .from('users')
-            .select('avatar_url')
-            .eq('id', userId)
-            .maybeSingle(),
-        builder: (context, snapshot) {
-          final dbAvatarUrl = snapshot.data != null
-              ? snapshot.data!['avatar_url'] as String?
-              : null;
-
-          String? validatedAvatarUrl;
-          if (dbAvatarUrl != null &&
-              dbAvatarUrl.isNotEmpty &&
-              dbAvatarUrl != 'SKIPPED' &&
-              (dbAvatarUrl.startsWith('http://') ||
-                  dbAvatarUrl.startsWith('https://'))) {
-            validatedAvatarUrl = dbAvatarUrl;
-          }
-
-          final avatarUrl = validatedAvatarUrl ??
-              (fallbackAvatarUrl != null && fallbackAvatarUrl.isNotEmpty
-                  ? fallbackAvatarUrl
-                  : null);
-
-          return UserAvatar(
-            avatarUrl: avatarUrl,
-            name: name,
+    final avatarWidget = userId != null
+        ? MonekoAvatar.supabaseUser(
+            size: 40,
             userId: userId,
-            size: 40, // Slightly smaller for dense premium feel
-            borderWidth: 1.5, // Thicker border for "sticker" look
-            borderColor: colorScheme.surface, // Blend with background or white
+            fallbackImageUrl: fallbackAvatarUrl,
+            borderWidth: 1.5,
+            borderColor: colorScheme.surface,
+          )
+        : MonekoAvatar.network(
+            size: 40,
+            fallbackIcon: Icons.person_rounded,
+            imageUrl: fallbackAvatarUrl,
+            borderWidth: 1.5,
+            borderColor: colorScheme.surface,
           );
-        },
-      );
-    } else {
-      avatarWidget = UserAvatar(
-        avatarUrl: fallbackAvatarUrl,
-        name: name,
-        userId: userId ?? 'unknown',
-        size: 40,
-        borderWidth: 1.5,
-        borderColor: colorScheme.surface,
-      );
-    }
 
     return Row(
       children: [
@@ -513,7 +476,7 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  context.l10n.inviteLink, // TODO: Localize
+                  context.l10n.inviteLink,
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,

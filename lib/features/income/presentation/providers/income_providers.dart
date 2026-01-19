@@ -179,7 +179,7 @@ class IncomeSaveNotifier extends StateNotifier<AsyncValue<IncomeEntry?>> {
           if (idempotencyKey != null) 'idempotencyKey': idempotencyKey,
           if (attachments != null) 'attachments': attachments,
           'isRecurring': isRecurring,
-          if (recurrenceRule != null) 'recurrenceRule': recurrenceRule,
+          if (recurrenceRule != null) 'recurrence_rule': recurrenceRule,
         },
       );
 

@@ -21,15 +21,16 @@ import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
 import 'package:moneko/features/profile/data/providers/whatsapp_binding_provider.dart';
 import 'package:moneko/features/profile/presentation/widgets/whatsapp_tutorial_modal.dart';
-import 'package:moneko/features/subscription/data/models/subscription_details.dart';
+// import 'package:moneko/features/subscription/data/models/subscription_details.dart'; // Removed unused import
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/subscription/presentation/pages/plan_selection_page.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/core/plaid/pages/plaid_sync_walkthrough_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/app/locale_provider.dart';
 import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
-import 'package:moneko/features/profile/presentation/widgets/whatsapp_binding_card.dart';
+// import 'package:moneko/features/profile/presentation/widgets/whatsapp_binding_card.dart'; // Removed unused import
 import 'package:moneko/features/income/presentation/providers/income_providers.dart';
 import 'package:moneko/features/goals/presentation/providers/goals_providers.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
@@ -521,11 +522,11 @@ class SettingsPage extends HookConsumerWidget {
                         error: (_, __) => 'Error',
                       ),
                       onTap: () async {
-                        final url = Uri.parse(
-                            'https://moneko.io/dashboard/user-settings/membership');
-                        if (await canLaunchUrl(url)) {
-                          launchUrl(url, mode: LaunchMode.externalApplication);
-                        }
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (context) => const PlanSelectionPage(),
+                          ),
+                        );
                       },
                     ),
                   ],

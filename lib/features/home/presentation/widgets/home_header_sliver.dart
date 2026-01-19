@@ -4,8 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-import 'package:supabase_flutter/supabase_flutter.dart';
-
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/navigation/custom_drawer.dart';
 import 'package:moneko/core/navigation/zoom_drawer_provider.dart';
@@ -26,6 +24,7 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/households/presentation/pages/create_space_page.dart';
 import 'package:moneko/features/households/presentation/pages/household_settings_page.dart';
 import 'package:moneko/features/profile/presentation/pages/settings_page.dart';
+import 'package:moneko/shared/widgets/moneko_avatar.dart';
 
 Household _resolveSelectedHousehold(
   SelectedHouseholdState selectedState,
@@ -95,7 +94,6 @@ class HomeHeaderLeading extends ConsumerWidget {
             viewMode: viewMode,
             householdsAsync: householdsAsync,
             selectedHouseholdState: selectedHouseholdState,
-            colorScheme: colorScheme,
           ),
           const SizedBox(width: 12),
           Flexible(
@@ -201,7 +199,6 @@ class HomeHeaderSliver extends ConsumerWidget {
               viewMode: viewMode,
               householdsAsync: householdsAsync,
               selectedHouseholdState: selectedHouseholdState,
-              colorScheme: colorScheme,
               size: 32, // Smaller size for the pill
             ),
             const SizedBox(width: 8),
@@ -481,7 +478,6 @@ class _HeaderAvatarButton extends StatelessWidget {
     required this.viewMode,
     required this.householdsAsync,
     required this.selectedHouseholdState,
-    required this.colorScheme,
     this.size = 44,
   });
 
@@ -489,108 +485,33 @@ class _HeaderAvatarButton extends StatelessWidget {
   final ViewModeState viewMode;
   final AsyncValue<List<Household>> householdsAsync;
   final SelectedHouseholdState selectedHouseholdState;
-  final ColorScheme colorScheme;
   final double size;
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      width: size,
-      height: size,
-      child: ClipOval(
-        child: _buildContent(),
-      ),
-    );
-  }
-
-  Widget _buildContent() {
     if (viewMode.mode == ViewMode.personal) {
-      return FutureBuilder<Map<String, dynamic>?>(
-        future: Supabase.instance.client
-            .from('users')
-            .select('avatar_url')
-            .eq('id', user.uid)
-            .maybeSingle(),
-        builder: (context, snapshot) {
-          final dbAvatarUrl = snapshot.data != null
-              ? snapshot.data!['avatar_url'] as String?
-              : null;
-
-          String? validatedAvatarUrl;
-          if (dbAvatarUrl != null &&
-              dbAvatarUrl.isNotEmpty &&
-              dbAvatarUrl != 'SKIPPED' &&
-              (dbAvatarUrl.startsWith('http://') ||
-                  dbAvatarUrl.startsWith('https://'))) {
-            validatedAvatarUrl = dbAvatarUrl;
-          }
-
-          final avatarUrl = validatedAvatarUrl ??
-              (user.photoUrl != null && user.photoUrl!.isNotEmpty
-                  ? user.photoUrl
-                  : null);
-
-          if (avatarUrl != null) {
-            return Image.network(
-              avatarUrl,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) =>
-                  _fallbackPersonalAvatar(),
-            );
-          }
-
-          return _fallbackPersonalAvatar();
-        },
+      return MonekoAvatar.supabaseUser(
+        size: size,
+        userId: user.uid,
+        fallbackImageUrl: user.photoUrl,
       );
     }
 
     return householdsAsync.when(
-      loading: () => _placeholder(),
-      error: (_, __) => _placeholder(),
+      loading: () => MonekoAvatar.placeholder(size: size),
+      error: (_, __) => MonekoAvatar.placeholder(size: size),
       data: (households) {
         if (households.isEmpty) {
-          return _placeholder();
+          return MonekoAvatar.placeholder(size: size);
         }
 
         final household = selectedHouseholdState.household ?? households.first;
-        if (household.coverImageUrl != null) {
-          return Image.network(
-            household.coverImageUrl!,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) =>
-                _fallbackHouseholdAvatar(),
-          );
-        }
-        return _fallbackHouseholdAvatar();
+        return MonekoAvatar.network(
+          size: size,
+          fallbackIcon: Icons.home_rounded,
+          imageUrl: household.coverImageUrl,
+        );
       },
     );
   }
-
-  Widget _fallbackPersonalAvatar() {
-    return Container(
-      color: colorScheme.muted.withValues(alpha: 0.5),
-      child: Icon(
-        Icons.person_rounded,
-        color: colorScheme.mutedForeground.withValues(alpha: 0.7),
-      ),
-    );
-  }
-
-  Widget _fallbackHouseholdAvatar() {
-    return Container(
-      color: colorScheme.muted.withValues(alpha: 0.5),
-      child: Icon(
-        Icons.home_rounded,
-        color: colorScheme.mutedForeground.withValues(alpha: 0.7),
-      ),
-    );
-  }
-
-  Widget _placeholder() {
-    return Container(
-      color: colorScheme.muted.withValues(alpha: 0.3),
-    );
-  }
-}
+ }

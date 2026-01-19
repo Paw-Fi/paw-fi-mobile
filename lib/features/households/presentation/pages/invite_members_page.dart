@@ -1,17 +1,24 @@
+import 'dart:io';
+
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:moneko/core/l10n/l10n.dart';
-import 'package:moneko/features/utils/sub_page_top_padding.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:moneko/core/app/router.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
-import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/utils/sub_page_top_padding.dart';
+import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
+
+import '../../domain/entities/household.dart';
 
 class InviteMembersPage extends ConsumerStatefulWidget {
   const InviteMembersPage({
@@ -30,69 +37,15 @@ class InviteMembersPage extends ConsumerStatefulWidget {
 }
 
 class _InviteMembersPageState extends ConsumerState<InviteMembersPage> {
-  final _emailController = TextEditingController();
-  final _messageController = TextEditingController();
-  int _selectedExpirationDays = 7;
-  bool _isLoading = false;
-
-  // Result state
   String? _generatedInviteUrl;
   bool _emailSent = false;
-
-  final List<int> _expirationOptions = [1, 7, 30];
-
-  @override
-  void dispose() {
-    _emailController.dispose();
-    _messageController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _createInvite() async {
-    final email = _emailController.text.trim();
-    final personalMessage = _messageController.text.trim();
-    final user = ref.read(authProvider);
-    final inviterName =
-        (user.displayName?.trim().isNotEmpty == true ? user.displayName : user.email)
-            ?.trim();
-    /*
-      Validation: 
-      - If email is provided, validate format? 
-        The backend likely validates, but simple regex is good UX.
-    */
-    if (email.isNotEmpty && !email.contains('@')) {
-      AppToast.error(context, context.l10n.pleaseEnterValidEmailAddress);
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    try {
-      final repository = ref.read(householdRepositoryProvider);
-
-      final inviteUrl = await repository.createInvite(
-        householdId: widget.householdId,
-        invitedEmail: email.isEmpty ? null : email,
-        personalMessage: personalMessage.isEmpty ? null : personalMessage,
-        inviterName: inviterName?.isNotEmpty == true ? inviterName : null,
-        householdName: widget.householdName.trim().isNotEmpty
-            ? widget.householdName.trim()
-            : null,
-        expiresInDays: _selectedExpirationDays,
-      );
-
-      if (!mounted) return;
-      setState(() {
-        _generatedInviteUrl = inviteUrl;
-        _emailSent = email.isNotEmpty;
-        _isLoading = false;
-      });
-    } catch (e) {
-      debugPrint('❌ INVITATION ERROR: $e');
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-      AppToast.error(context, ErrorHandler.getUserFriendlyMessage(e));
-    }
+  void _handleInviteCreated(String inviteUrl, bool emailSent) {
+    if (!mounted) return;
+    setState(() {
+      _generatedInviteUrl = inviteUrl;
+      _emailSent = emailSent;
+    });
+    _showInviteResultSheet();
   }
 
   void _copyLink() {
@@ -110,192 +63,63 @@ class _InviteMembersPageState extends ConsumerState<InviteMembersPage> {
     );
   }
 
+  Future<void> _showInviteResultSheet() async {
+    final inviteUrl = _generatedInviteUrl;
+    if (inviteUrl == null || !mounted) return;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.appBackground,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: _buildResultContent(
+            Theme.of(sheetContext).colorScheme,
+            inviteUrl: inviteUrl,
+            onInviteAnother: () => Navigator.of(sheetContext).pop(),
+            onDone: () {
+              Navigator.of(sheetContext).pop();
+              widget.onDone();
+            },
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
     return AdaptiveScaffold(
       appBar: AdaptiveAppBar(
-        title:
-            _generatedInviteUrl == null ? context.l10n.inviteMembers : context.l10n.invitationReady,
+        title: context.l10n.inviteMembers,
       ),
       body: SafeArea(
         child: Padding(
           padding: EdgeInsets.only(top: getSubPageTopPadding(context)),
           child: Material(
             color: colorScheme.appBackground,
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              child: _generatedInviteUrl != null
-                  ? _buildResultContent(colorScheme)
-                  : _buildConfigContent(colorScheme),
+            child: HouseholdInvitesTab(
+              householdId: widget.householdId,
+              householdName: widget.householdName,
+              onDone: widget.onDone,
+              onInviteCreated: _handleInviteCreated,
             ),
           ),
         ),
       ),
     );
   }
-
-  Widget _buildConfigContent(ColorScheme colorScheme) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            context.l10n.whoDoYouWantToInvite,
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: colorScheme.foreground,
-              letterSpacing: -0.5,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            context.l10n.emailInviteDescription,
-            style: TextStyle(
-              fontSize: 16,
-              color: colorScheme.mutedForeground,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 32),
-
-          // Form
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: colorScheme.cardSurface,
-              borderRadius: BorderRadius.circular(24),
-              border:
-                  Border.all(color: colorScheme.border.withValues(alpha: 0.08)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  context.l10n.emailAddressOptional,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.foreground,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                AdaptiveTextField(
-                  controller: _emailController,
-                  placeholder: context.l10n.emailPlaceholder,
-                  keyboardType: TextInputType.emailAddress,
-                  onSubmitted: (_) => _createInvite(),
-                ),
-
-                const SizedBox(height: 24),
-
-                Text(
-                  context.l10n.personalMessageOptional,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.foreground,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                AdaptiveTextField(
-                  controller: _messageController,
-                  placeholder: context.l10n.personalMessageOptional,
-                  keyboardType: TextInputType.text,
-                ),
-
-                const SizedBox(height: 24),
-
-                Text(
-                  context.l10n.linkExpiration,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.foreground,
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Expiry Selector Chips
-                Row(
-                  children: _expirationOptions.map((days) {
-                    final isSelected = days == _selectedExpirationDays;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: GestureDetector(
-                        onTap: () =>
-                            setState(() => _selectedExpirationDays = days),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? colorScheme.primary
-                                : colorScheme.muted.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: isSelected
-                                  ? colorScheme.primary
-                                  : colorScheme.border.withValues(alpha: 0.1),
-                            ),
-                          ),
-                          child: Text(
-                            "$days ${context.l10n.days}",
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: isSelected
-                                  ? Colors.white
-                                  : colorScheme.foreground,
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 32),
-
-          PrimaryAdaptiveButton(
-            onPressed: _isLoading ? null : _createInvite,
-            child: _isLoading
-                ? const CircularProgressIndicator.adaptive(
-                    backgroundColor: Colors.white)
-                : Text(
-                    context.l10n.createInviteLink,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-          ),
-          const SizedBox(height: 16),
-          if (!_isLoading)
-            Center(
-              child: TextButton(
-                onPressed: widget.onDone,
-                child: Text(
-                  context.l10n.skipForNow,
-                  style: TextStyle(
-                    color: colorScheme.mutedForeground,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildResultContent(ColorScheme colorScheme) {
+  Widget _buildResultContent(
+    ColorScheme colorScheme, {
+    required String inviteUrl,
+    required VoidCallback onInviteAnother,
+    required VoidCallback onDone,
+  }) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -372,7 +196,7 @@ class _InviteMembersPageState extends ConsumerState<InviteMembersPage> {
                     children: [
                       Expanded(
                         child: Text(
-                          _generatedInviteUrl ?? '',
+                          inviteUrl,
                           style: TextStyle(
                             fontSize: 14,
                             color: colorScheme.foreground,
@@ -413,8 +237,14 @@ class _InviteMembersPageState extends ConsumerState<InviteMembersPage> {
           ),
 
           const SizedBox(height: 32),
+          PrimaryAdaptiveButton(
+            onPressed: onInviteAnother,
+            prefixIcon: const Icon(Icons.person_add_rounded, size: 18),
+            child: Text(context.l10n.inviteNewMember),
+          ),
+          const SizedBox(height: 12),
           TextButton(
-            onPressed: widget.onDone,
+            onPressed: onDone,
             style: TextButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
               foregroundColor: colorScheme.foreground,
@@ -484,3 +314,989 @@ class _ActionButtons extends StatelessWidget {
     );
   }
 }
+
+class HouseholdInvitesTab extends ConsumerStatefulWidget {
+  const HouseholdInvitesTab({
+    super.key,
+    required this.householdId,
+    this.householdName,
+    this.onInviteCreated,
+    this.onDone,
+  });
+
+  final String householdId;
+  final String? householdName;
+  final void Function(String inviteUrl, bool emailSent)? onInviteCreated;
+  final VoidCallback? onDone;
+
+  @override
+  ConsumerState<HouseholdInvitesTab> createState() =>
+      _HouseholdInvitesTabState();
+}
+
+class _HouseholdInvitesTabState extends ConsumerState<HouseholdInvitesTab> {
+  List<HouseholdInvite> _invites = [];
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadInvites();
+  }
+
+  Future<void> _loadInvites() async {
+    setState(() => _isLoading = true);
+    try {
+      final repository = ref.read(householdRepositoryProvider);
+      final invites = await repository.getHouseholdInvites(widget.householdId);
+      if (mounted) {
+        setState(() {
+          _invites = invites;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        AppToast.error(context, '${context.l10n.errorLoadingInvites}: $e');
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final membersAsync =
+        ref.watch(householdMembersProvider(widget.householdId));
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+
+    final currentUserMember = membersAsync.asData?.value.firstWhere(
+      (m) => m.userId == currentUserId,
+      orElse: () => throw Exception('Current user not found in household'),
+    );
+    final currentUserRole = currentUserMember?.role ?? HouseholdRole.member;
+    final canCreateInvites = currentUserRole == HouseholdRole.owner ||
+        currentUserRole == HouseholdRole.admin;
+
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final pendingInvites =
+        _invites.where((i) => i.status == InviteStatus.pending).toList();
+    final historyInvites =
+        _invites.where((i) => i.status != InviteStatus.pending).toList();
+
+    return RefreshIndicator(
+      onRefresh: _loadInvites,
+      child: CustomScrollView(
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.all(16),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                if (canCreateInvites) ...[
+                  _CreateInviteCard(
+                      onPressed: () => _showCreateInviteDialog(context)),
+                  const SizedBox(height: 32),
+                ] else ...[
+                  const _InvitesPermissionNotice(),
+                  const SizedBox(height: 32),
+                ],
+                _InvitesSectionHeader(
+                  title: context.l10n.pendingInvitations,
+                  count: pendingInvites.length,
+                ),
+                const SizedBox(height: 12),
+                if (pendingInvites.isEmpty)
+                  _InvitesEmptyState(
+                    icon: Icons.mark_email_read_rounded,
+                    message: context.l10n.noPendingInvitations,
+                    subMessage: context.l10n.allCaughtUpNoPendingInvites,
+                  )
+                else
+                  ...pendingInvites.map((invite) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _InviteCard(
+                          invite: invite,
+                          onCopy: canCreateInvites
+                              ? () => _copyInviteLink(invite)
+                              : null,
+                          onRevoke: canCreateInvites
+                              ? () => _revokeInvite(invite)
+                              : null,
+                        ),
+                      )),
+                const SizedBox(height: 32),
+                _InvitesSectionHeader(
+                  title: context.l10n.invitationHistory,
+                  count: historyInvites.length,
+                ),
+                const SizedBox(height: 12),
+                if (historyInvites.isEmpty)
+                  _InvitesEmptyState(
+                    icon: Icons.history_toggle_off_rounded,
+                    message: context.l10n.noInvitationHistory,
+                    subMessage: context.l10n.pastInvitationsWillAppearHere,
+                  )
+                else
+                  ...historyInvites.map((invite) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _InviteCard(
+                          invite: invite,
+                          onCopy: null,
+                          onRevoke: null,
+                        ),
+                      )),
+                if (widget.onDone != null) ...[
+                  const SizedBox(height: 24),
+                  PrimaryAdaptiveButton(
+                    onPressed: widget.onDone,
+                    prefixIcon: const Icon(Icons.check_rounded, size: 18),
+                    child: Text(context.l10n.done),
+                  ),
+                  const SizedBox(height: 8),
+                  Center(
+                    child: TextButton(
+                      onPressed: widget.onDone,
+                      child: Text(
+                        context.l10n.skipForNow,
+                        style: TextStyle(
+                          color:
+                              Theme.of(context).colorScheme.mutedForeground,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 40),
+              ]),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showCreateInviteDialog(BuildContext context) async {
+    int expiresInDays = 7;
+    final expiryNotifier = ValueNotifier<int>(expiresInDays);
+
+    final result = await MonekoAlertDialog.show(
+      context: context,
+      title: context.l10n.createInvitation,
+      confirmLabel: context.l10n.create,
+      cancelLabel: context.l10n.cancel,
+      inputConfig: MonekoAlertDialogInputConfig(
+        placeholder: context.l10n.emailOptional,
+        keyboardType: TextInputType.emailAddress,
+      ),
+      secondaryInputConfig: MonekoAlertDialogInputConfig(
+        placeholder: context.l10n.personalMessageOptional,
+      ),
+      content: ValueListenableBuilder<int>(
+        valueListenable: expiryNotifier,
+        builder: (context, value, _) {
+          return _ExpirySelector(
+            selectedDays: value,
+            onChanged: (newValue) {
+              expiresInDays = newValue;
+              expiryNotifier.value = newValue;
+            },
+          );
+        },
+      ),
+    );
+
+    if (result?.confirmed == true) {
+      final email = result!.text?.trim();
+      final message = result.secondaryText?.trim();
+
+      await _createInvite(
+        email: (email != null && email.isNotEmpty) ? email : null,
+        message: (message != null && message.isNotEmpty) ? message : null,
+        expiresInDays: expiresInDays,
+      );
+    }
+  }
+
+  Future<void> _createInvite({
+    String? email,
+    String? message,
+    required int expiresInDays,
+  }) async {
+    try {
+      final user = ref.read(authProvider);
+      final inviterName =
+          (user.displayName?.trim().isNotEmpty == true ? user.displayName : user.email)
+              ?.trim();
+      final household = ref.read(householdProvider(widget.householdId)).value;
+      final householdName = widget.householdName?.trim().isNotEmpty == true
+          ? widget.householdName?.trim()
+          : household?.name;
+      final repository = ref.read(householdRepositoryProvider);
+      final token = await repository.createInvite(
+        householdId: widget.householdId,
+        invitedEmail: email,
+        personalMessage: message,
+        inviterName: inviterName?.isNotEmpty == true ? inviterName : null,
+        householdName: householdName?.trim().isNotEmpty == true
+            ? householdName?.trim()
+            : null,
+        expiresInDays: expiresInDays,
+      );
+
+      await _loadInvites();
+
+      if (mounted) {
+        AppToast.success(context, context.l10n.invitationCreatedSuccessfully);
+
+        final inviteUrl = 'https://moneko.io/invites/$token';
+        Clipboard.setData(ClipboardData(text: inviteUrl));
+
+        AppToast.success(context, context.l10n.inviteLinkCopiedToClipboard);
+
+        widget.onInviteCreated?.call(inviteUrl, email?.isNotEmpty == true);
+      }
+    } catch (e) {
+      if (mounted) {
+        AppToast.error(context, '${context.l10n.errorCreatingInvite}: $e');
+      }
+    }
+  }
+
+  void _copyInviteLink(HouseholdInvite invite) {
+    final inviteUrl = 'https://moneko.io/invites/${invite.token}';
+    Clipboard.setData(ClipboardData(text: inviteUrl));
+
+    AppToast.success(context, context.l10n.inviteLinkCopiedToClipboard);
+  }
+
+  Future<void> _revokeInvite(HouseholdInvite invite) async {
+    final l10n = context.l10n;
+
+    final result = await MonekoAlertDialog.show(
+      context: context,
+      title: context.l10n.revokeInvitation,
+      description: context.l10n.confirmRevokeInvitation,
+      confirmLabel: context.l10n.revoke,
+      cancelLabel: context.l10n.cancel,
+      isDestructive: true,
+    );
+
+    if (result?.confirmed == true) {
+      try {
+        final navStartCtx = rootNavigatorKey.currentContext;
+        if (navStartCtx != null && navStartCtx.mounted) {
+          _showBlockingLoader(navStartCtx, message: l10n.loading);
+        }
+        final repository = ref.read(householdRepositoryProvider);
+        await repository.revokeInvite(inviteId: invite.id);
+        await _loadInvites();
+
+        final navCtx = rootNavigatorKey.currentContext;
+        if (navCtx != null && navCtx.mounted && context.mounted) {
+          _hideBlockingLoader(navCtx);
+          AppToast.success(context, context.l10n.invitationRevoked);
+        }
+      } catch (e) {
+        final navCtx = rootNavigatorKey.currentContext;
+        if (navCtx != null && navCtx.mounted && context.mounted) {
+          _hideBlockingLoader(navCtx);
+          AppToast.error(context, '${context.l10n.errorRevokingInvite}: $e');
+        }
+      }
+    }
+  }
+
+  void _showBlockingLoader(BuildContext context, {String? message}) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => PopScope(
+        canPop: false,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              if (message != null) ...[
+                const SizedBox(height: 12),
+                Text(message),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _hideBlockingLoader(BuildContext context) {
+    if (Navigator.of(context, rootNavigator: true).canPop()) {
+      Navigator.of(context, rootNavigator: true).pop();
+    }
+  }
+}
+
+class _CreateInviteCard extends StatelessWidget {
+  final VoidCallback onPressed;
+
+  const _CreateInviteCard({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: colorScheme.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colorScheme.surfaceBorder,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.shadow.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primary.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.person_add_rounded,
+                    color: colorScheme.primary,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.l10n.inviteNewMember,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.foreground,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        context.l10n.sendLinkToJoinHousehold,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: colorScheme.mutedForeground,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_rounded,
+                  color: colorScheme.mutedForeground.withValues(alpha: 0.5),
+                  size: 20,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InvitesPermissionNotice extends StatelessWidget {
+  const _InvitesPermissionNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: colorScheme.surfaceBorder,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.shadow.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.info_outline_rounded,
+            size: 20,
+            color: colorScheme.mutedForeground.withValues(alpha: 0.7),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              context.l10n.onlyAdminsAndOwnersCanCreateInvitations,
+              style: TextStyle(
+                fontSize: 13,
+                color: colorScheme.mutedForeground,
+                fontWeight: FontWeight.w500,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InvitesSectionHeader extends StatelessWidget {
+  final String title;
+  final int? count;
+
+  const _InvitesSectionHeader({
+    required this.title,
+    this.count,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 8, top: 4),
+      child: Row(
+        children: [
+          Text(
+            title.toUpperCase(),
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: colorScheme.mutedForeground,
+              letterSpacing: 1.0,
+            ),
+          ),
+          if (count != null) ...[
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: colorScheme.muted,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                count.toString(),
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.mutedForeground,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _InvitesEmptyState extends StatelessWidget {
+  final IconData icon;
+  final String message;
+  final String subMessage;
+
+  const _InvitesEmptyState({
+    required this.icon,
+    required this.message,
+    required this.subMessage,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: colorScheme.card.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colorScheme.surfaceBorder,
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            icon,
+            size: 40,
+            color: colorScheme.mutedForeground.withValues(alpha: 0.3),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            message,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: colorScheme.foreground,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subMessage,
+            style: TextStyle(
+              fontSize: 13,
+              color: colorScheme.mutedForeground,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InviteCard extends StatelessWidget {
+  final HouseholdInvite invite;
+  final VoidCallback? onCopy;
+  final VoidCallback? onRevoke;
+
+  const _InviteCard({
+    required this.invite,
+    this.onCopy,
+    this.onRevoke,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isExpired =
+        invite.expiresAt != null && invite.expiresAt!.isBefore(DateTime.now());
+    final isPending = invite.status == InviteStatus.pending;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: colorScheme.surfaceBorder,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primary.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.link_rounded,
+                    size: 20,
+                    color: colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        invite.invitedEmail ?? context.l10n.anyoneWithLink,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.foreground,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          _InvitesStatusBadge(
+                              status: invite.status, isExpired: isExpired),
+                          const SizedBox(width: 6),
+                          Text('•',
+                              style: TextStyle(
+                                  color: colorScheme.mutedForeground
+                                      .withValues(alpha: 0.5))),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              invite.expiresAt == null
+                                  ? context.l10n.noExpiry
+                                  : (isExpired
+                                      ? context.l10n.expired
+                                      : context.l10n.expires),
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: colorScheme.mutedForeground,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              invite.expiresAt == null
+                                  ? ''
+                                  : (isExpired
+                                      ? ''
+                                      : _formatDate(invite.expiresAt!, context)),
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: colorScheme.mutedForeground,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (invite.personalMessage != null) ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: colorScheme.muted.withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '"${invite.personalMessage}"',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: colorScheme.mutedForeground,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (isPending &&
+              !isExpired &&
+              (onCopy != null || onRevoke != null)) ...[
+            Divider(
+                height: 1,
+                thickness: 1,
+                color: colorScheme.border.withValues(alpha: 0.3)),
+            Row(
+              children: [
+                if (onCopy != null)
+                  Expanded(
+                    child: InkWell(
+                      onTap: onCopy,
+                      borderRadius: const BorderRadius.only(
+                        bottomLeft: Radius.circular(12),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.copy_rounded,
+                                size: 16, color: colorScheme.primary),
+                            const SizedBox(width: 8),
+                            Text(
+                              context.l10n.copyLink,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                if (onCopy != null && onRevoke != null)
+                  Container(
+                    width: 1,
+                    height: 24,
+                    color: colorScheme.border.withValues(alpha: 0.5),
+                  ),
+                if (onRevoke != null)
+                  Expanded(
+                    child: InkWell(
+                      onTap: onRevoke,
+                      borderRadius: BorderRadius.only(
+                        bottomRight: const Radius.circular(12),
+                        bottomLeft: onCopy == null
+                            ? const Radius.circular(12)
+                            : Radius.zero,
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.delete_outline_rounded,
+                                size: 16, color: colorScheme.destructive),
+                            const SizedBox(width: 8),
+                            Text(
+                              context.l10n.revoke,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.destructive,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(DateTime date, BuildContext context) {
+    final now = DateTime.now();
+    final difference = date.difference(now);
+
+    if (difference.inDays > 0) {
+      return 'in ${difference.inDays} day${difference.inDays > 1 ? 's' : ''}';
+    } else if (difference.inHours > 0) {
+      return 'in ${difference.inHours} hour${difference.inHours > 1 ? 's' : ''}';
+    } else if (difference.inDays < 0) {
+      return '${difference.inDays.abs()} day${difference.inDays.abs() > 1 ? 's' : ''} ago';
+    }
+    return 'soon';
+  }
+}
+
+class _InvitesStatusBadge extends StatelessWidget {
+  final InviteStatus status;
+  final bool isExpired;
+
+  const _InvitesStatusBadge({
+    required this.status,
+    required this.isExpired,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final color = _getStatusColor(colorScheme);
+    final text = _getLocalizedStatus(context, isExpired, status);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: color.withValues(alpha: 0.2),
+          width: 1,
+        ),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: color,
+          letterSpacing: 0.3,
+        ),
+      ),
+    );
+  }
+
+  Color _getStatusColor(ColorScheme colorScheme) {
+    if (isExpired) return colorScheme.destructive;
+
+    return switch (status) {
+      InviteStatus.pending => colorScheme.warning,
+      InviteStatus.accepted => colorScheme.success,
+      InviteStatus.revoked => colorScheme.destructive,
+      InviteStatus.expired => colorScheme.mutedForeground,
+    };
+  }
+
+  String _getLocalizedStatus(
+      BuildContext context, bool isExpired, InviteStatus status) {
+    if (isExpired) return context.l10n.expired;
+
+    switch (status) {
+      case InviteStatus.pending:
+        return context.l10n.pending;
+      case InviteStatus.accepted:
+        return context.l10n.accepted;
+      case InviteStatus.revoked:
+        return context.l10n.revoked;
+      case InviteStatus.expired:
+        return context.l10n.expired;
+    }
+  }
+}
+
+class _ExpirySelector extends StatelessWidget {
+  final int selectedDays;
+  final ValueChanged<int> onChanged;
+
+  const _ExpirySelector({
+    required this.selectedDays,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final label = _getLabel(context, selectedDays);
+
+    if (Platform.isIOS) {
+      return GestureDetector(
+        onTap: () => _showIOSPicker(context),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          decoration: BoxDecoration(
+            color: colorScheme.inputBackground,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: colorScheme.controlBorder,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                context.l10n.expiresIn,
+                style: TextStyle(
+                  color: colorScheme.mutedForeground,
+                  fontSize: 15,
+                ),
+              ),
+              Row(
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: colorScheme.foreground,
+                      fontWeight: FontWeight.w500,
+                      fontSize: 15,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    CupertinoIcons.chevron_up_chevron_down,
+                    size: 14,
+                    color: colorScheme.mutedForeground,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: colorScheme.inputBackground,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: colorScheme.controlBorder,
+        ),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<int>(
+          value: selectedDays,
+          isExpanded: true,
+          icon: Icon(Icons.keyboard_arrow_down_rounded,
+              color: colorScheme.mutedForeground),
+          style: TextStyle(
+            fontSize: 15,
+            color: colorScheme.foreground,
+            fontWeight: FontWeight.w500,
+          ),
+          dropdownColor: colorScheme.card,
+          items: [1, 3, 7, 14, 30, 0].map((days) {
+            return DropdownMenuItem<int>(
+              value: days,
+              child: Text(_getLabel(context, days)),
+            );
+          }).toList(),
+          onChanged: (value) {
+            if (value != null) onChanged(value);
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showIOSPicker(BuildContext context) async {
+    final result = await showCupertinoModalPopup<int>(
+      context: context,
+      builder: (ctx) => CupertinoActionSheet(
+        title: Text(context.l10n.expiresIn),
+        actions: [
+          _buildAction(ctx, 1),
+          _buildAction(ctx, 3),
+          _buildAction(ctx, 7),
+          _buildAction(ctx, 14),
+          _buildAction(ctx, 30),
+          _buildAction(ctx, 0),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(ctx),
+          child: Text(context.l10n.cancel),
+        ),
+      ),
+    );
+
+    if (result != null) {
+      onChanged(result);
+    }
+  }
+
+  CupertinoActionSheetAction _buildAction(BuildContext context, int days) {
+    return CupertinoActionSheetAction(
+      onPressed: () => Navigator.pop(context, days),
+      child: Text(_getLabel(context, days)),
+    );
+  }
+
+  String _getLabel(BuildContext context, int days) {
+    if (days == 0) return context.l10n.unlimited;
+    if (days == 1) return context.l10n.oneDay;
+    if (days == 3) return context.l10n.threeDays;
+    if (days == 7) return context.l10n.sevenDays;
+    if (days == 14) return context.l10n.fourteenDays;
+    if (days == 30) return context.l10n.thirtyDays;
+    return '$days ${context.l10n.days}';
+  }
+}
+

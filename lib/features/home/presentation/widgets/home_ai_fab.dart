@@ -443,6 +443,7 @@ Future<void> _processExpense(
       'userId': user.uid,
       'date': DateTime.now().toIso8601String().split('T')[0],
       'language': languageTag,
+      'typeHint': 'mixed',
     };
 
     if (householdId != null && householdId.isNotEmpty) {
