@@ -11,12 +11,16 @@ class HouseholdExpensesPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final params = HouseholdExpensesParams(householdId: household.id, limit: 1000);
+    final params =
+        HouseholdExpensesParams(householdId: household.id, limit: 1000);
     final expensesAsync = ref.watch(householdExpensesProvider(params));
     return expensesAsync.when(
-      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (e, st) => Scaffold(
-        body: Center(child: Text('${context.l10n.failedToLoadHouseholdTransactions}: $e')),
+        body: Center(
+            child:
+                Text('${context.l10n.failedToLoadHouseholdTransactions}: $e')),
       ),
       data: (_) {
         return TransactionsPage(householdId: household.id);

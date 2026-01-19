@@ -142,13 +142,15 @@ class AddRecurringSheet extends HookConsumerWidget {
               householdScope.activeAccountHouseholdId != null),
     );
     final selectedHouseholdId = useState<String?>(
-      existingTransaction?.householdId ?? householdScope.activeAccountHouseholdId,
+      existingTransaction?.householdId ??
+          householdScope.activeAccountHouseholdId,
     );
     // Initialize payer to current user for ADD mode + household sharing
     final selectedPayerUserId = useState<String?>(
       existingTransaction?.payerUserId ??
           (!isEditing &&
-                  householdScope.activeAccountType == ActiveAccountType.household &&
+                  householdScope.activeAccountType ==
+                      ActiveAccountType.household &&
                   householdScope.activeAccountHouseholdId != null
               ? user?.id
               : null),
@@ -218,9 +220,8 @@ class AddRecurringSheet extends HookConsumerWidget {
           debugPrint(
               '🔄 [RECURRING LOAD SPLIT] Retrieved ${effectiveSplits.length} split groups for household=$householdId');
 
-          final matchingGroups = effectiveSplits
-              .where((g) => g.expenseId == expenseId)
-              .toList();
+          final matchingGroups =
+              effectiveSplits.where((g) => g.expenseId == expenseId).toList();
 
           if (matchingGroups.isEmpty) {
             debugPrint(
@@ -331,7 +332,7 @@ class AddRecurringSheet extends HookConsumerWidget {
       debugPrint('   viewMode: ${viewMode.mode}');
       debugPrint('   isSharedWithHousehold: ${isSharedWithHousehold.value}');
       debugPrint('   selectedHouseholdId: ${selectedHouseholdId.value}');
-      
+
       // For EDIT mode, we must NOT blindly override the payer with the
       // current user. The authoritative source for payer on shared
       // recurring expenses is the split group, which is loaded
@@ -343,13 +344,14 @@ class AddRecurringSheet extends HookConsumerWidget {
           selectedHouseholdId.value != null &&
           selectedPayerUserId.value == null &&
           existingTransaction?.payerUserId != null) {
-        debugPrint('   Setting payer from existing transaction: ${existingTransaction!.payerUserId}');
+        debugPrint(
+            '   Setting payer from existing transaction: ${existingTransaction!.payerUserId}');
         selectedPayerUserId.value = existingTransaction!.payerUserId;
       }
 
       // Only for ADD mode in household mode
-      if (!isEditing && 
-          householdScope.activeAccountType == ActiveAccountType.household && 
+      if (!isEditing &&
+          householdScope.activeAccountType == ActiveAccountType.household &&
           isSharedWithHousehold.value &&
           selectedHouseholdId.value != null &&
           selectedPayerUserId.value == null &&
@@ -359,7 +361,7 @@ class AddRecurringSheet extends HookConsumerWidget {
       }
       return null;
     }, []);
-    
+
     // When amount becomes available for the first time in ADD mode, ensure sharing defaults to view mode
     // CRITICAL FIX: Always set sharing state based on view mode, not just the first time
     // This ensures the toggle properly reflects the current mode when it becomes visible
@@ -377,50 +379,56 @@ class AddRecurringSheet extends HookConsumerWidget {
           '🔄 [ADD RECURRING] Amount present; ensuring isSharedWithHousehold matches view mode');
       debugPrint('   Should be shared (view mode only): $shouldBeShared');
       debugPrint('   ViewMode: ${viewMode.mode}');
-      debugPrint('   HouseholdId (selected state): ${selectedHouseholdState.householdId}');
-      debugPrint('   Current isSharedWithHousehold: ${isSharedWithHousehold.value}');
-      debugPrint('   HouseholdId (selected local): ${selectedHouseholdId.value}');
+      debugPrint(
+          '   HouseholdId (selected state): ${selectedHouseholdState.householdId}');
+      debugPrint(
+          '   Current isSharedWithHousehold: ${isSharedWithHousehold.value}');
+      debugPrint(
+          '   HouseholdId (selected local): ${selectedHouseholdId.value}');
 
       // If in household mode but no household selected yet, pick one from available households
       if (shouldBeShared && selectedHouseholdId.value == null) {
         final households = householdsAsync.valueOrNull;
-        final shareableHouseholds = households
-            ?.where((h) => !h.isPortfolio)
-            .toList(growable: false);
+        final shareableHouseholds =
+            households?.where((h) => !h.isPortfolio).toList(growable: false);
         if (shareableHouseholds != null && shareableHouseholds.isNotEmpty) {
           final preferredId = selectedHouseholdState.householdId;
           selectedHouseholdId.value = (preferredId != null &&
                   shareableHouseholds.any((h) => h.id == preferredId))
               ? preferredId
               : shareableHouseholds.first.id;
-          debugPrint('   ✅ [ADD RECURRING] Auto-selected householdId: ${selectedHouseholdId.value}');
+          debugPrint(
+              '   ✅ [ADD RECURRING] Auto-selected householdId: ${selectedHouseholdId.value}');
         } else {
-          debugPrint('   ⚠️ [ADD RECURRING] No households available to auto-select');
+          debugPrint(
+              '   ⚠️ [ADD RECURRING] No households available to auto-select');
         }
       }
 
       final resolvedShouldShare = shouldBeShared &&
           (selectedHouseholdState.householdId != null ||
               selectedHouseholdId.value != null);
-      debugPrint('   Resolved shouldShare (after household pick): $resolvedShouldShare');
-      
+      debugPrint(
+          '   Resolved shouldShare (after household pick): $resolvedShouldShare');
+
       // Only update if it doesn't match the expected state
       // This prevents unnecessary rebuilds but ensures correctness
       if (isSharedWithHousehold.value != resolvedShouldShare) {
         debugPrint('   ⚠️ State mismatch! Correcting to: $resolvedShouldShare');
         isSharedWithHousehold.value = resolvedShouldShare;
         if (resolvedShouldShare) {
-          selectedPayerUserId.value ??= existingTransaction?.payerUserId ?? user?.id;
+          selectedPayerUserId.value ??=
+              existingTransaction?.payerUserId ?? user?.id;
         } else if (viewMode.mode != ViewMode.household) {
           selectedHouseholdId.value = null;
         }
       }
-      
+
       // Mark that we've processed the amount at least once
       if (!hasAmountEverBeenSet.value) {
         hasAmountEverBeenSet.value = true;
       }
-      
+
       return null;
     }, [
       hasAmountForSplit,
@@ -479,7 +487,8 @@ class AddRecurringSheet extends HookConsumerWidget {
         final effectiveHouseholdId = forcedPortfolioHouseholdId ??
             switch (householdScope.activeAccountType) {
               ActiveAccountType.personal => null,
-              ActiveAccountType.portfolio => householdScope.activeAccountHouseholdId,
+              ActiveAccountType.portfolio =>
+                householdScope.activeAccountHouseholdId,
               ActiveAccountType.household =>
                 isSharedWithHousehold.value ? selectedHouseholdId.value : null,
             };
@@ -487,10 +496,12 @@ class AddRecurringSheet extends HookConsumerWidget {
         final isPortfolioScope = effectiveHouseholdId != null &&
             householdScope.isPortfolioId(effectiveHouseholdId);
         // Only household-group accounts support shared splits.
-        final shareWithHousehold =
-            !isPortfolioScope && isSharedWithHousehold.value && selectedHouseholdId.value != null;
+        final shareWithHousehold = !isPortfolioScope &&
+            isSharedWithHousehold.value &&
+            selectedHouseholdId.value != null;
         final activeHouseholdId = effectiveHouseholdId;
-        debugPrint('💾 [RECURRING SAVE] share=$shareWithHousehold hh=$activeHouseholdId payer=${selectedPayerUserId.value}');
+        debugPrint(
+            '💾 [RECURRING SAVE] share=$shareWithHousehold hh=$activeHouseholdId payer=${selectedPayerUserId.value}');
         debugPrint('   Custom split type: ${customSplitType.value}');
         debugPrint(
             '   Custom splits count: ${customSplits.value?.length ?? 0}');
@@ -617,83 +628,108 @@ class AddRecurringSheet extends HookConsumerWidget {
           debugPrint('   Amount: ${result.amount} ${result.currency}');
           debugPrint('   HouseholdId: ${result.householdId}');
           debugPrint('   Has RecurrenceRule: ${result.recurrenceRule != null}');
-          debugPrint('   Frequency: ${result.recurrenceRule?.frequency ?? "one-time"}');
-          
+          debugPrint(
+              '   Frequency: ${result.recurrenceRule?.frequency ?? "one-time"}');
+
           // Get current view mode to determine which scope to refresh
           final currentScope = ref.read(householdScopeProvider);
           final currentHouseholdId = currentScope.activeAccountHouseholdId;
-          
-          debugPrint('🔄 [REFRESH] Current view mode: ${currentScope.activeAccountType}');
+
+          debugPrint(
+              '🔄 [REFRESH] Current view mode: ${currentScope.activeAccountType}');
           debugPrint('🔄 [REFRESH] Current household ID: $currentHouseholdId');
-          debugPrint('🔄 [REFRESH] Transaction household ID (activeHouseholdId): $activeHouseholdId');
-          
+          debugPrint(
+              '🔄 [REFRESH] Transaction household ID (activeHouseholdId): $activeHouseholdId');
+
           // CRITICAL: Force refresh based on CURRENT VIEW MODE
           // This ensures the page the user is viewing refreshes immediately
           if (currentScope.activeAccountType != ActiveAccountType.personal &&
               currentHouseholdId != null) {
-            debugPrint('🏠 [REFRESH] Refreshing HOUSEHOLD view for: $currentHouseholdId');
-            
+            debugPrint(
+                '🏠 [REFRESH] Refreshing HOUSEHOLD view for: $currentHouseholdId');
+
             // Invalidate RequestDeduplicator cache for household data
-            ref.read(cacheInvalidatorProvider).invalidateHouseholdData(currentHouseholdId);
+            ref
+                .read(cacheInvalidatorProvider)
+                .invalidateHouseholdData(currentHouseholdId);
             // Mirror unified_transaction_sheet: invalidate the full
             // household split provider families so ALL consumers
             // (recurring sheet, dashboard, etc.) are forced to
             // reload from the backend.
             ref.invalidate(householdSplitsProvider);
             ref.invalidate(cachedHouseholdSplitsProvider);
-            
+
             // Force refresh (not invalidate) to reload data while keeping state
-            debugPrint('   🔄 Forcing refresh of recurringTransactionsProvider($currentHouseholdId)');
-            await ref.read(recurringTransactionsProvider(currentHouseholdId).notifier)
+            debugPrint(
+                '   🔄 Forcing refresh of recurringTransactionsProvider($currentHouseholdId)');
+            await ref
+                .read(
+                    recurringTransactionsProvider(currentHouseholdId).notifier)
                 .refresh(user.id);
-            
-            debugPrint('   ♻️  Invalidating pocketsProvider family (household view)');
+
+            debugPrint(
+                '   ♻️  Invalidating pocketsProvider family (household view)');
             ref.invalidate(pocketsProvider);
           } else {
             debugPrint('👤 [REFRESH] Refreshing PERSONAL view');
-            
+
             // Force refresh (not invalidate) to reload data while keeping state
-            debugPrint('   🔄 Forcing refresh of recurringTransactionsProvider(null)');
-            await ref.read(recurringTransactionsProvider(null).notifier)
+            debugPrint(
+                '   🔄 Forcing refresh of recurringTransactionsProvider(null)');
+            await ref
+                .read(recurringTransactionsProvider(null).notifier)
                 .refresh(user.id);
-            
-            debugPrint('   ♻️  Invalidating pocketsProvider family (personal view)');
+
+            debugPrint(
+                '   ♻️  Invalidating pocketsProvider family (personal view)');
             ref.invalidate(pocketsProvider);
           }
-          
+
           // ALSO refresh the scope where the transaction is actually stored (if different from current view)
           // This ensures consistency across all scopes
-          if (activeHouseholdId != null && activeHouseholdId != currentHouseholdId) {
-            debugPrint('🔄 [REFRESH] Also refreshing transaction storage scope: $activeHouseholdId');
-            ref.read(cacheInvalidatorProvider).invalidateHouseholdData(activeHouseholdId);
+          if (activeHouseholdId != null &&
+              activeHouseholdId != currentHouseholdId) {
+            debugPrint(
+                '🔄 [REFRESH] Also refreshing transaction storage scope: $activeHouseholdId');
+            ref
+                .read(cacheInvalidatorProvider)
+                .invalidateHouseholdData(activeHouseholdId);
             // Ensure all household split consumers for this scope
             // also reload, not just the cached provider.
             ref.invalidate(householdSplitsProvider);
             ref.invalidate(cachedHouseholdSplitsProvider);
-            
-            debugPrint('   🔄 Forcing refresh of recurringTransactionsProvider($activeHouseholdId)');
-            await ref.read(recurringTransactionsProvider(activeHouseholdId).notifier)
+
+            debugPrint(
+                '   🔄 Forcing refresh of recurringTransactionsProvider($activeHouseholdId)');
+            await ref
+                .read(recurringTransactionsProvider(activeHouseholdId).notifier)
                 .refresh(user.id);
-            
-            debugPrint('   ♻️  Invalidating pocketsProvider family (transaction household scope)');
+
+            debugPrint(
+                '   ♻️  Invalidating pocketsProvider family (transaction household scope)');
             ref.invalidate(pocketsProvider);
           } else if (activeHouseholdId == null &&
               currentScope.activeAccountType != ActiveAccountType.personal) {
             // Transaction is personal but we're in household view - also refresh personal scope
-            debugPrint('🔄 [REFRESH] Also refreshing personal scope (transaction is personal)');
-            
-            debugPrint('   🔄 Forcing refresh of recurringTransactionsProvider(null)');
-            await ref.read(recurringTransactionsProvider(null).notifier)
+            debugPrint(
+                '🔄 [REFRESH] Also refreshing personal scope (transaction is personal)');
+
+            debugPrint(
+                '   🔄 Forcing refresh of recurringTransactionsProvider(null)');
+            await ref
+                .read(recurringTransactionsProvider(null).notifier)
                 .refresh(user.id);
-            
-            debugPrint('   ♻️  Invalidating pocketsProvider family (personal scope)');
+
+            debugPrint(
+                '   ♻️  Invalidating pocketsProvider family (personal scope)');
             ref.invalidate(pocketsProvider);
           }
 
           // Keep currency selector counts up-to-date.
           ref.invalidate(currencyTransactionCountsProvider);
-          
-          debugPrint('✅ [REFRESH] All providers refreshed/invalidated successfully');
+
+          debugPrint(
+              '✅ [REFRESH] All providers refreshed/invalidated successfully');
           debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
           if (context.mounted) {
@@ -720,9 +756,10 @@ class AddRecurringSheet extends HookConsumerWidget {
             },
           );
 
-          final msg = (detailedError != null && detailedError!.trim().isNotEmpty)
-              ? detailedError!
-              : 'Failed to save recurring transaction';
+          final msg =
+              (detailedError != null && detailedError!.trim().isNotEmpty)
+                  ? detailedError!
+                  : 'Failed to save recurring transaction';
 
           if (context.mounted) {
             AppToast.error(context, msg);
@@ -770,801 +807,811 @@ class AddRecurringSheet extends HookConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      isEditing
-                          ? (isExpense
-                              ? context.l10n.editRecurringExpense
-                              : context.l10n.editRecurringIncome)
-                          : (isExpense
-                              ? context.l10n.addRecurringExpense
-                              : context.l10n.addRecurringIncome),
-                      style: TextStyle(
-                        color: colorScheme.foreground,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: isLoading.value ? null : handleSave,
-                    icon: isLoading.value
-                        ? SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                colorScheme.foreground,
-                              ),
-                            ),
-                          )
-                        : Icon(
-                            Icons.check_rounded,
-                            color: colorScheme.foreground,
-                          ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Scrollable content
-            Flexible(
-              child: SingleChildScrollView(
-                keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
+              // Header
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
                   children: [
-                    // Type toggle
-                    Container(
-                      decoration: BoxDecoration(
-                        color: colorScheme.muted.withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: () {
-                                if (selectedType.value != 'expense') {
-                                  selectedType.value = 'expense';
-                                  selectedCategory.value = null;
-                                }
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                decoration: BoxDecoration(
-                                  color: isExpense
-                                      ? colorScheme.primary
-                                      : colorScheme.surface.withValues(alpha: 0.0),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  context.l10n.expenses,
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: isExpense
-                                        ? colorScheme.primaryForeground
-                                        : colorScheme.foreground,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: () {
-                                if (selectedType.value != 'income') {
-                                  selectedType.value = 'income';
-                                  selectedCategory.value = null;
-                                }
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                decoration: BoxDecoration(
-                                  color: !isExpense
-                                      ? colorScheme.primary
-                                      : colorScheme.surface.withValues(alpha: 0.0),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  context.l10n.income,
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: !isExpense
-                                        ? colorScheme.primaryForeground
-                                        : colorScheme.foreground,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // Amount input
-                    _buildLabel(context.l10n.amount, colorScheme),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: amountController,
-                      focusNode: amountFocusNode,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
-                      textAlign: TextAlign.end,
-                      textInputAction: TextInputAction.done,
-                      onEditingComplete: () => amountFocusNode.unfocus(),
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.foreground,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: '0.00',
-                        hintStyle: TextStyle(
-                          color: colorScheme.mutedForeground,
-                        ),
-                        filled: true,
-                        fillColor: colorScheme.muted.withValues(alpha: 0.08),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(
-                            color: colorScheme.controlBorder,
-                          ),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(
-                            color: colorScheme.controlBorder,
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(
-                            color: colorScheme.primary,
-                          ),
-                        ),
-                        suffixIcon: amountFocusNode.hasFocus
-                            ? IconButton(
-                                icon: Icon(
-                                  Icons.check_rounded,
-                                  color: colorScheme.primary,
-                                ),
-                                splashRadius: 18,
-                                onPressed: () => amountFocusNode.unfocus(),
-                              )
-                            : null,
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                  _buildDetailCard(
-                    colorScheme: colorScheme,
-                    label: context.l10n.category,
-                    value: selectedCategory.value != null
-                        ? getCategoryTranslation(
-                            context, selectedCategory.value!)
-                        : context.l10n.selectCategory,
-                    onTap: () async {
-                      final result = await showCategoryPicker(
-                        context: context,
-                        // When no category is selected, pass an empty string so
-                        // the picker shows with no preselection. Existing
-                        // transactions still pass their actual category.
-                        currentCategory: selectedCategory.value ?? '',
-                        isIncome: !isExpense,
-                      );
-                      if (result != null) {
-                        selectedCategory.value = result;
-                      }
-                    },
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Currency selector
-                  _buildDetailCard(
-                    colorScheme: colorScheme,
-                    label: context.l10n.currency,
-                    value: selectedCurrency.value.toUpperCase(),
-                    onTap: () async {
-                      final result = await showCurrencyPicker(
-                        context: context,
-                        currentCurrency: selectedCurrency.value,
-                      );
-                      if (result != null) {
-                        selectedCurrency.value = result;
-                      }
-                    },
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Household sharing + split (expenses only, non-portfolio contexts)
-                  if (canShowSharingSection) ...[
-                    householdsAsync.when(
-                      data: (households) {
-                        final shareableHouseholds =
-                            households.where((h) => !h.isPortfolio).toList(growable: false);
-
-                        final selectedId = selectedHouseholdId.value;
-                        final hasValidShareSelection = selectedId != null &&
-                            shareableHouseholds.any((h) => h.id == selectedId);
-                        if (isSharedWithHousehold.value && !hasValidShareSelection) {
-                          isSharedWithHousehold.value = false;
-                          selectedHouseholdId.value = null;
-                          customSplitType.value = null;
-                          customSplits.value = null;
-                        }
-                        if (!hasAmountForSplit) {
-                          // Require an amount before configuring splits
-                          return Text(
-                            context.l10n.pleaseEnterAmount,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: colorScheme.mutedForeground,
-                            ),
-                          );
-                        }
-
-                        if (shareableHouseholds.isEmpty) {
-                          return const SizedBox.shrink();
-                        }
-
-                        if (!isExpense) {
-                          // For income: only allow sharing toggle, no split editor
-                          return _buildSharingToggleOnly(
-                            context,
-                            colorScheme,
-                            shareableHouseholds,
-                            isSharedWithHousehold,
-                            selectedHouseholdId,
-                          );
-                        }
-
-                        final householdId = selectedHouseholdId.value;
-                        final isHouseholdModeEnabled =
-                            isSharedWithHousehold.value &&
-                                householdId != null &&
-                                householdId.isNotEmpty;
-                        final isPortfolio =
-                            householdId != null &&
-                                householdScope.isPortfolioId(householdId);
-
-                        if (!isHouseholdModeEnabled || isPortfolio) {
-                          return _buildSharingToggleOnly(
-                            context,
-                            colorScheme,
-                            shareableHouseholds,
-                            isSharedWithHousehold,
-                            selectedHouseholdId,
-                          );
-                        }
-
-                        return _buildSharingAndSplitSection(
-                          context: context,
-                          colorScheme: colorScheme,
-                          households: shareableHouseholds,
-                          isSharedWithHousehold: isSharedWithHousehold,
-                          selectedHouseholdId: selectedHouseholdId,
-                          membersAsync: membersAsync,
-                          selectedPayerUserId: selectedPayerUserId,
-                          customSplitType: customSplitType,
-                          customSplits: customSplits,
-                          amountController: amountController,
-                          currencySymbol:
-                              resolveCurrencySymbol(selectedCurrency.value),
-                          isEditing: isEditing,
-                          currentUserId: user.id,
-                        );
-                      },
-                      loading: () => const SizedBox.shrink(),
-                      error: (_, __) => const SizedBox.shrink(),
-                    ),
-                    const SizedBox(height: 20),
-                  ],
-
-                  _buildDetailCard(
-                    colorScheme: colorScheme,
-                    label: context.l10n.frequency,
-                    value: () {
-                      // Get the label for the current frequency
-                      final freq =
-                          getDefaultFrequencyOptions(context).firstWhere(
-                        (f) => f.value == selectedFrequency.value,
-                        orElse: () => getDefaultFrequencyOptions(
-                            context)[3], // Default to 'monthly'
-                      );
-                      return freq.label;
-                    }(),
-                    onTap: () async {
-                      final result = await showFrequencyPicker(
-                        context: context,
-                        currentFrequency: selectedFrequency.value,
-                      );
-                      if (result != null) {
-                        selectedFrequency.value = result;
-                      }
-                    },
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  _buildDetailCard(
-                    colorScheme: colorScheme,
-                    label: context.l10n.startDate,
-                    value: formatLocalizedDate(context, startDate.value,
-                        includeYear: true),
-                    onTap: () async {
-                      final result = await showTransactionDatePicker(
-                        context: context,
-                        currentDate: startDate.value,
-                        firstDate: DateTime(2020),
-                        lastDate: DateTime(2030),
-                      );
-                      if (result != null) {
-                        startDate.value = result;
-                      }
-                    },
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // End date toggle (clickable container)
-                  GestureDetector(
-                    onTap: () {
-                      hasEndDate.value = !hasEndDate.value;
-                      if (!hasEndDate.value) {
-                        endDate.value = null;
-                      }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: colorScheme.muted.withValues(alpha: 0.05),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: colorScheme.controlBorder,
-                          width: 1,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Checkbox(
-                            value: hasEndDate.value,
-                            activeColor: colorScheme.primary,
-                            onChanged: (value) {
-                              final checked = value ?? false;
-                              hasEndDate.value = checked;
-                              if (!checked) {
-                                endDate.value = null;
-                              }
-                            },
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              context.l10n.setEndDate,
-                              style: TextStyle(
-                                color: colorScheme.foreground,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  // End date picker (if enabled)
-                  if (hasEndDate.value) ...[
-                    const SizedBox(height: 12),
-                    _buildDetailCard(
-                      colorScheme: colorScheme,
-                      label: context.l10n.endDate,
-                      value: endDate.value != null
-                          ? formatLocalizedDate(context, endDate.value!,
-                              includeYear: true)
-                          : context.l10n.selectEndDate,
-                      onTap: () async {
-                        final result = await showTransactionDatePicker(
-                          context: context,
-                          currentDate: endDate.value ??
-                              startDate.value.add(const Duration(days: 365)),
-                          firstDate: startDate.value,
-                          lastDate: DateTime(2030),
-                        );
-                        if (result != null) {
-                          endDate.value = result;
-                        }
-                      },
-                    ),
-                  ],
-
-                  const SizedBox(height: 20),
-
-                  // Description
-                  _buildLabel(context.l10n.descriptionOptional, colorScheme),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: descriptionController,
-                    maxLines: 2,
-                    style: TextStyle(
-                      color: colorScheme.foreground,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: context.l10n.addANote,
-                      hintStyle: TextStyle(
-                        color: colorScheme.mutedForeground,
-                      ),
-                      filled: true,
-                      fillColor: colorScheme.muted.withValues(alpha: 0.08),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(
-                          color: colorScheme.controlBorder,
-                        ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(
-                          color: colorScheme.controlBorder,
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(
-                          color: colorScheme.primary,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        isEditing
+                            ? (isExpense
+                                ? context.l10n.editRecurringExpense
+                                : context.l10n.editRecurringIncome)
+                            : (isExpense
+                                ? context.l10n.addRecurringExpense
+                                : context.l10n.addRecurringIncome),
+                        style: TextStyle(
+                          color: colorScheme.foreground,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.5,
                         ),
                       ),
                     ),
-                  ),
-
-                  // Source (for income only)
-                  if (!isExpense) ...[
-                    const SizedBox(height: 20),
-                    _buildLabel(context.l10n.sourceOptional, colorScheme),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: sourceController,
-                      style: TextStyle(
-                        color: colorScheme.foreground,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: context.l10n.companyNameClientNameExample,
-                        hintStyle: TextStyle(
-                          color: colorScheme.mutedForeground,
-                        ),
-                        filled: true,
-                        fillColor: colorScheme.muted.withValues(alpha: 0.08),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(
-                            color: colorScheme.controlBorder,
-                          ),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(
-                            color: colorScheme.controlBorder,
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(
-                            color: colorScheme.primary,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-
-                  const SizedBox(height: 24),
-
-                  // Reminder toggle (clickable container)
-                  GestureDetector(
-                    onTap: () {
-                      hasReminder.value = !hasReminder.value;
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: colorScheme.muted.withValues(alpha: 0.05),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: colorScheme.controlBorder,
-                          width: 1,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Checkbox(
-                            value: hasReminder.value,
-                            activeColor: colorScheme.primary,
-                            onChanged: (value) {
-                              hasReminder.value = value ?? false;
-                            },
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              context.l10n.setReminder,
-                              style: TextStyle(
-                                color: colorScheme.foreground,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  // Reminder configuration (if enabled)
-                  if (hasReminder.value) ...[
-                    const SizedBox(height: 12),
-                    Builder(
-                      builder: (context) {
-                        // Detect word order based on language
-                        final lang = Localizations.localeOf(context)
-                            .languageCode
-                            .toLowerCase();
-                        final useSOV = {
-                          'zh',
-                          'ja',
-                          'ko',
-                          'hi',
-                          'ur',
-                          'tr',
-                          'fa'
-                        }.contains(lang);
-
-                        // Build UI components
-                        final valueInput = GestureDetector(
-                          onTap: () async {
-                            final numbers = List.generate(31, (index) => index + 1);
-                            final result = await MonekoListPicker.show<int>(
-                              context: context,
-                              items: numbers,
-                              labelBuilder: (number) => number.toString(),
-                              initial: reminderValue.value,
-                            );
-                            if (result != null) {
-                              reminderValue.value = result;
-                            }
-                          },
-                          child: Container(
-                            width: 80,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 14),
-                            decoration: BoxDecoration(
-                              color:
-                                  colorScheme.muted.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color:
-                                    colorScheme.controlBorder,
-                                width: 1,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  reminderValue.value.toString(),
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: colorScheme.foreground,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Icon(
-                                  Icons.arrow_drop_down,
-                                  color: colorScheme.mutedForeground,
-                                  size: 20,
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-
-                        final unitPicker = GestureDetector(
-                          onTap: () async {
-                            final result =
-                                await showTransactionSelectionSheet<String>(
-                              context: context,
-                              items: ['days'],
-                              getLabel: (unit) {
-                                if (unit == 'days') return context.l10n.days;
-                                if (unit == 'hours') return context.l10n.hours;
-                                return unit;
-                              },
-                              initial: reminderUnit.value,
-                            );
-                            if (result != null) {
-                              reminderUnit.value = result;
-                            }
-                          },
-                          child: IntrinsicWidth(
-                            child: Container(
-                              constraints: const BoxConstraints(
-                                  minWidth: 80), // Minimum width
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 14),
-                              decoration: BoxDecoration(
-                                color:
-                                    colorScheme.muted.withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color:
-                                      colorScheme.controlBorder,
-                                  width: 1,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    reminderUnit.value == 'days'
-                                        ? context.l10n.days
-                                        : context.l10n.hours,
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      color: colorScheme.foreground,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Icon(
-                                    Icons.arrow_drop_down,
-                                    color: colorScheme.mutedForeground,
-                                    size: 24,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-
-                        // Arrange based on word order
-                        List<Widget> rowChildren;
-                        if (useSOV) {
-                          // SOV languages: beforePrefix [value][unit]beforeSuffix
-                          // Chinese: 在 2天之前
-                          rowChildren = [
-                            Text(
-                              context.l10n.beforePrefix,
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: colorScheme.foreground,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            valueInput,
-                            const SizedBox(width: 12),
-                            unitPicker,
-                            const SizedBox(width: 12),
-                            Text(
-                              context.l10n.beforeSuffix,
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: colorScheme.foreground,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ];
-                        } else {
-                          // Default SVO: [value] [unit] before
-                          // English: 2 days before
-                          rowChildren = [
-                            valueInput,
-                            const SizedBox(width: 12),
-                            unitPicker,
-                            const SizedBox(width: 12),
-                            Text(
-                              context.l10n.before,
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: colorScheme.foreground,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ];
-                        }
-
-                        return Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: rowChildren,
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      context.l10n.youWillBeNotifiedBeforeEachOccurrence(
-                        reminderValue.value,
-                        reminderUnit.value == 'days'
-                            ? context.l10n.days
-                            : context.l10n.hours,
-                      ),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: colorScheme.mutedForeground,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  ],
-
-                  // Save button
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: isLoading.value
-                          ? null
-                          : () {
-                              handleSave();
-                            },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: colorScheme.primary,
-                        foregroundColor: colorScheme.primaryForeground,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: isLoading.value
+                    IconButton(
+                      onPressed: isLoading.value ? null : handleSave,
+                      icon: isLoading.value
                           ? SizedBox(
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
                                 valueColor: AlwaysStoppedAnimation<Color>(
-                                  colorScheme.onPrimary,
+                                  colorScheme.foreground,
                                 ),
                               ),
                             )
-                          : Text(
-                              isEditing
-                                  ? context.l10n.updateRecurringTransaction
-                                  : context.l10n.addRecurringTransaction,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
+                          : Icon(
+                              Icons.check_rounded,
+                              color: colorScheme.foreground,
                             ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
+
+              // Scrollable content
+              Flexible(
+                child: SingleChildScrollView(
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Type toggle
+                      Container(
+                        decoration: BoxDecoration(
+                          color: colorScheme.muted.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () {
+                                  if (selectedType.value != 'expense') {
+                                    selectedType.value = 'expense';
+                                    selectedCategory.value = null;
+                                  }
+                                },
+                                child: Container(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 12),
+                                  decoration: BoxDecoration(
+                                    color: isExpense
+                                        ? colorScheme.primary
+                                        : colorScheme.surface
+                                            .withValues(alpha: 0.0),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    context.l10n.expenses,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: isExpense
+                                          ? colorScheme.primaryForeground
+                                          : colorScheme.foreground,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () {
+                                  if (selectedType.value != 'income') {
+                                    selectedType.value = 'income';
+                                    selectedCategory.value = null;
+                                  }
+                                },
+                                child: Container(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 12),
+                                  decoration: BoxDecoration(
+                                    color: !isExpense
+                                        ? colorScheme.primary
+                                        : colorScheme.surface
+                                            .withValues(alpha: 0.0),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    context.l10n.income,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: !isExpense
+                                          ? colorScheme.primaryForeground
+                                          : colorScheme.foreground,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      // Amount input
+                      _buildLabel(context.l10n.amount, colorScheme),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: amountController,
+                        focusNode: amountFocusNode,
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
+                        textAlign: TextAlign.end,
+                        textInputAction: TextInputAction.done,
+                        onEditingComplete: () => amountFocusNode.unfocus(),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.foreground,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: '0.00',
+                          hintStyle: TextStyle(
+                            color: colorScheme.mutedForeground,
+                          ),
+                          filled: true,
+                          fillColor: colorScheme.muted.withValues(alpha: 0.08),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(
+                              color: colorScheme.controlBorder,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(
+                              color: colorScheme.controlBorder,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(
+                              color: colorScheme.primary,
+                            ),
+                          ),
+                          suffixIcon: amountFocusNode.hasFocus
+                              ? IconButton(
+                                  icon: Icon(
+                                    Icons.check_rounded,
+                                    color: colorScheme.primary,
+                                  ),
+                                  splashRadius: 18,
+                                  onPressed: () => amountFocusNode.unfocus(),
+                                )
+                              : null,
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      _buildDetailCard(
+                        colorScheme: colorScheme,
+                        label: context.l10n.category,
+                        value: selectedCategory.value != null
+                            ? getCategoryTranslation(
+                                context, selectedCategory.value!)
+                            : context.l10n.selectCategory,
+                        onTap: () async {
+                          final result = await showCategoryPicker(
+                            context: context,
+                            // When no category is selected, pass an empty string so
+                            // the picker shows with no preselection. Existing
+                            // transactions still pass their actual category.
+                            currentCategory: selectedCategory.value ?? '',
+                            isIncome: !isExpense,
+                          );
+                          if (result != null) {
+                            selectedCategory.value = result;
+                          }
+                        },
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      // Currency selector
+                      _buildDetailCard(
+                        colorScheme: colorScheme,
+                        label: context.l10n.currency,
+                        value: selectedCurrency.value.toUpperCase(),
+                        onTap: () async {
+                          final result = await showCurrencyPicker(
+                            context: context,
+                            currentCurrency: selectedCurrency.value,
+                          );
+                          if (result != null) {
+                            selectedCurrency.value = result;
+                          }
+                        },
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      // Household sharing + split (expenses only, non-portfolio contexts)
+                      if (canShowSharingSection) ...[
+                        householdsAsync.when(
+                          data: (households) {
+                            final shareableHouseholds = households
+                                .where((h) => !h.isPortfolio)
+                                .toList(growable: false);
+
+                            final selectedId = selectedHouseholdId.value;
+                            final hasValidShareSelection = selectedId != null &&
+                                shareableHouseholds
+                                    .any((h) => h.id == selectedId);
+                            if (isSharedWithHousehold.value &&
+                                !hasValidShareSelection) {
+                              isSharedWithHousehold.value = false;
+                              selectedHouseholdId.value = null;
+                              customSplitType.value = null;
+                              customSplits.value = null;
+                            }
+                            if (!hasAmountForSplit) {
+                              // Require an amount before configuring splits
+                              return Text(
+                                context.l10n.pleaseEnterAmount,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: colorScheme.mutedForeground,
+                                ),
+                              );
+                            }
+
+                            if (shareableHouseholds.isEmpty) {
+                              return const SizedBox.shrink();
+                            }
+
+                            if (!isExpense) {
+                              // For income: only allow sharing toggle, no split editor
+                              return _buildSharingToggleOnly(
+                                context,
+                                colorScheme,
+                                shareableHouseholds,
+                                isSharedWithHousehold,
+                                selectedHouseholdId,
+                              );
+                            }
+
+                            final householdId = selectedHouseholdId.value;
+                            final isHouseholdModeEnabled =
+                                isSharedWithHousehold.value &&
+                                    householdId != null &&
+                                    householdId.isNotEmpty;
+                            final isPortfolio = householdId != null &&
+                                householdScope.isPortfolioId(householdId);
+
+                            if (!isHouseholdModeEnabled || isPortfolio) {
+                              return _buildSharingToggleOnly(
+                                context,
+                                colorScheme,
+                                shareableHouseholds,
+                                isSharedWithHousehold,
+                                selectedHouseholdId,
+                              );
+                            }
+
+                            return _buildSharingAndSplitSection(
+                              context: context,
+                              colorScheme: colorScheme,
+                              households: shareableHouseholds,
+                              isSharedWithHousehold: isSharedWithHousehold,
+                              selectedHouseholdId: selectedHouseholdId,
+                              membersAsync: membersAsync,
+                              selectedPayerUserId: selectedPayerUserId,
+                              customSplitType: customSplitType,
+                              customSplits: customSplits,
+                              amountController: amountController,
+                              currencySymbol:
+                                  resolveCurrencySymbol(selectedCurrency.value),
+                              isEditing: isEditing,
+                              currentUserId: user.id,
+                            );
+                          },
+                          loading: () => const SizedBox.shrink(),
+                          error: (_, __) => const SizedBox.shrink(),
+                        ),
+                        const SizedBox(height: 20),
+                      ],
+
+                      _buildDetailCard(
+                        colorScheme: colorScheme,
+                        label: context.l10n.frequency,
+                        value: () {
+                          // Get the label for the current frequency
+                          final freq =
+                              getDefaultFrequencyOptions(context).firstWhere(
+                            (f) => f.value == selectedFrequency.value,
+                            orElse: () => getDefaultFrequencyOptions(
+                                context)[3], // Default to 'monthly'
+                          );
+                          return freq.label;
+                        }(),
+                        onTap: () async {
+                          final result = await showFrequencyPicker(
+                            context: context,
+                            currentFrequency: selectedFrequency.value,
+                          );
+                          if (result != null) {
+                            selectedFrequency.value = result;
+                          }
+                        },
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      _buildDetailCard(
+                        colorScheme: colorScheme,
+                        label: context.l10n.startDate,
+                        value: formatLocalizedDate(context, startDate.value,
+                            includeYear: true),
+                        onTap: () async {
+                          final result = await showTransactionDatePicker(
+                            context: context,
+                            currentDate: startDate.value,
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime(2030),
+                          );
+                          if (result != null) {
+                            startDate.value = result;
+                          }
+                        },
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      // End date toggle (clickable container)
+                      GestureDetector(
+                        onTap: () {
+                          hasEndDate.value = !hasEndDate.value;
+                          if (!hasEndDate.value) {
+                            endDate.value = null;
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: colorScheme.muted.withValues(alpha: 0.05),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: colorScheme.controlBorder,
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Checkbox(
+                                value: hasEndDate.value,
+                                activeColor: colorScheme.primary,
+                                onChanged: (value) {
+                                  final checked = value ?? false;
+                                  hasEndDate.value = checked;
+                                  if (!checked) {
+                                    endDate.value = null;
+                                  }
+                                },
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  context.l10n.setEndDate,
+                                  style: TextStyle(
+                                    color: colorScheme.foreground,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      // End date picker (if enabled)
+                      if (hasEndDate.value) ...[
+                        const SizedBox(height: 12),
+                        _buildDetailCard(
+                          colorScheme: colorScheme,
+                          label: context.l10n.endDate,
+                          value: endDate.value != null
+                              ? formatLocalizedDate(context, endDate.value!,
+                                  includeYear: true)
+                              : context.l10n.selectEndDate,
+                          onTap: () async {
+                            final result = await showTransactionDatePicker(
+                              context: context,
+                              currentDate: endDate.value ??
+                                  startDate.value
+                                      .add(const Duration(days: 365)),
+                              firstDate: startDate.value,
+                              lastDate: DateTime(2030),
+                            );
+                            if (result != null) {
+                              endDate.value = result;
+                            }
+                          },
+                        ),
+                      ],
+
+                      const SizedBox(height: 20),
+
+                      // Description
+                      _buildLabel(
+                          context.l10n.descriptionOptional, colorScheme),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: descriptionController,
+                        maxLines: 2,
+                        style: TextStyle(
+                          color: colorScheme.foreground,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: context.l10n.addANote,
+                          hintStyle: TextStyle(
+                            color: colorScheme.mutedForeground,
+                          ),
+                          filled: true,
+                          fillColor: colorScheme.muted.withValues(alpha: 0.08),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(
+                              color: colorScheme.controlBorder,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(
+                              color: colorScheme.controlBorder,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(
+                              color: colorScheme.primary,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      // Source (for income only)
+                      if (!isExpense) ...[
+                        const SizedBox(height: 20),
+                        _buildLabel(context.l10n.sourceOptional, colorScheme),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: sourceController,
+                          style: TextStyle(
+                            color: colorScheme.foreground,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: context.l10n.companyNameClientNameExample,
+                            hintStyle: TextStyle(
+                              color: colorScheme.mutedForeground,
+                            ),
+                            filled: true,
+                            fillColor:
+                                colorScheme.muted.withValues(alpha: 0.08),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(
+                                color: colorScheme.controlBorder,
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(
+                                color: colorScheme.controlBorder,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(
+                                color: colorScheme.primary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+
+                      const SizedBox(height: 24),
+
+                      // Reminder toggle (clickable container)
+                      GestureDetector(
+                        onTap: () {
+                          hasReminder.value = !hasReminder.value;
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: colorScheme.muted.withValues(alpha: 0.05),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: colorScheme.controlBorder,
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Checkbox(
+                                value: hasReminder.value,
+                                activeColor: colorScheme.primary,
+                                onChanged: (value) {
+                                  hasReminder.value = value ?? false;
+                                },
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  context.l10n.setReminder,
+                                  style: TextStyle(
+                                    color: colorScheme.foreground,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      // Reminder configuration (if enabled)
+                      if (hasReminder.value) ...[
+                        const SizedBox(height: 12),
+                        Builder(
+                          builder: (context) {
+                            // Detect word order based on language
+                            final lang = Localizations.localeOf(context)
+                                .languageCode
+                                .toLowerCase();
+                            final useSOV = {
+                              'zh',
+                              'ja',
+                              'ko',
+                              'hi',
+                              'ur',
+                              'tr',
+                              'fa'
+                            }.contains(lang);
+
+                            // Build UI components
+                            final valueInput = GestureDetector(
+                              onTap: () async {
+                                final numbers =
+                                    List.generate(31, (index) => index + 1);
+                                final result = await MonekoListPicker.show<int>(
+                                  context: context,
+                                  items: numbers,
+                                  labelBuilder: (number) => number.toString(),
+                                  initial: reminderValue.value,
+                                );
+                                if (result != null) {
+                                  reminderValue.value = result;
+                                }
+                              },
+                              child: Container(
+                                width: 80,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 14),
+                                decoration: BoxDecoration(
+                                  color:
+                                      colorScheme.muted.withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: colorScheme.controlBorder,
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      reminderValue.value.toString(),
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: colorScheme.foreground,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Icon(
+                                      Icons.arrow_drop_down,
+                                      color: colorScheme.mutedForeground,
+                                      size: 20,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+
+                            final unitPicker = GestureDetector(
+                              onTap: () async {
+                                final result =
+                                    await showTransactionSelectionSheet<String>(
+                                  context: context,
+                                  items: ['days'],
+                                  getLabel: (unit) {
+                                    if (unit == 'days')
+                                      return context.l10n.days;
+                                    if (unit == 'hours')
+                                      return context.l10n.hours;
+                                    return unit;
+                                  },
+                                  initial: reminderUnit.value,
+                                );
+                                if (result != null) {
+                                  reminderUnit.value = result;
+                                }
+                              },
+                              child: IntrinsicWidth(
+                                child: Container(
+                                  constraints: const BoxConstraints(
+                                      minWidth: 80), // Minimum width
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 14),
+                                  decoration: BoxDecoration(
+                                    color: colorScheme.muted
+                                        .withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: colorScheme.controlBorder,
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        reminderUnit.value == 'days'
+                                            ? context.l10n.days
+                                            : context.l10n.hours,
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          color: colorScheme.foreground,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Icon(
+                                        Icons.arrow_drop_down,
+                                        color: colorScheme.mutedForeground,
+                                        size: 24,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+
+                            // Arrange based on word order
+                            List<Widget> rowChildren;
+                            if (useSOV) {
+                              // SOV languages: beforePrefix [value][unit]beforeSuffix
+                              // Chinese: 在 2天之前
+                              rowChildren = [
+                                Text(
+                                  context.l10n.beforePrefix,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: colorScheme.foreground,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                valueInput,
+                                const SizedBox(width: 12),
+                                unitPicker,
+                                const SizedBox(width: 12),
+                                Text(
+                                  context.l10n.beforeSuffix,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: colorScheme.foreground,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ];
+                            } else {
+                              // Default SVO: [value] [unit] before
+                              // English: 2 days before
+                              rowChildren = [
+                                valueInput,
+                                const SizedBox(width: 12),
+                                unitPicker,
+                                const SizedBox(width: 12),
+                                Text(
+                                  context.l10n.before,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: colorScheme.foreground,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ];
+                            }
+
+                            return Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: rowChildren,
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          context.l10n.youWillBeNotifiedBeforeEachOccurrence(
+                            reminderValue.value,
+                            reminderUnit.value == 'days'
+                                ? context.l10n.days
+                                : context.l10n.hours,
+                          ),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: colorScheme.mutedForeground,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+
+                      // Save button
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: isLoading.value
+                              ? null
+                              : () {
+                                  handleSave();
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: colorScheme.primary,
+                            foregroundColor: colorScheme.primaryForeground,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: isLoading.value
+                              ? SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      colorScheme.onPrimary,
+                                    ),
+                                  ),
+                                )
+                              : Text(
+                                  isEditing
+                                      ? context.l10n.updateRecurringTransaction
+                                      : context.l10n.addRecurringTransaction,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-      ),
+        ),
       ),
     );
   }
@@ -1631,9 +1678,9 @@ class AddRecurringSheet extends HookConsumerWidget {
               color: colorScheme.mutedForeground,
               size: 20,
             ),
-            ],
-          ),
+          ],
         ),
+      ),
     );
   }
 

@@ -35,7 +35,8 @@ class FeatureFlagService {
 
       if (response.status != 200) {
         // If there's an error, default to disabled for safety
-        debugPrint('Feature flag check failed for $featureKey: ${response.status}');
+        debugPrint(
+            'Feature flag check failed for $featureKey: ${response.status}');
         return false;
       }
 
@@ -132,7 +133,8 @@ final householdsEnabledProvider = FutureProvider<bool>((ref) async {
 /// ```dart
 /// final exportPdfEnabled = ref.watch(featureFlagProvider('export.pdf'));
 /// ```
-final featureFlagProvider = FutureProvider.family<bool, String>((ref, featureKey) async {
+final featureFlagProvider =
+    FutureProvider.family<bool, String>((ref, featureKey) async {
   final service = ref.watch(featureFlagServiceProvider);
   return await service.isEnabled(featureKey);
 });

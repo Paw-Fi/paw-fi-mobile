@@ -554,8 +554,10 @@ class _AvatarCustomizerScreenState
                                 children: [
                                   _buildColorControl(context.l10n.hair, 'hair'),
                                   _buildColorControl(context.l10n.eyes, 'eyes'),
-                                  _buildColorControl(context.l10n.mouth, 'mouth'),
-                                  _buildColorControl(context.l10n.background, 'background'),
+                                  _buildColorControl(
+                                      context.l10n.mouth, 'mouth'),
+                                  _buildColorControl(
+                                      context.l10n.background, 'background'),
                                 ],
                               ),
                             ],
@@ -687,7 +689,6 @@ class _AvatarCustomizerScreenState
     );
   }
 
-  
   // ignore: unused_element
   void _cycleColor(String key) {
     final palettes = <String, List<String>>{
@@ -771,7 +772,8 @@ class _AvatarCustomizerScreenState
               decoration: BoxDecoration(
                 color: _hexToColor(_colors[key]!),
                 shape: BoxShape.circle,
-                border: Border.all(color: scheme.outline.withValues(alpha: 0.6)),
+                border:
+                    Border.all(color: scheme.outline.withValues(alpha: 0.6)),
               ),
             ),
             const SizedBox(width: 8),

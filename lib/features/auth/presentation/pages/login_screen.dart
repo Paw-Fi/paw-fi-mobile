@@ -11,6 +11,7 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/constants/links.dart';
+
 class LoginScreen extends HookConsumerWidget {
   const LoginScreen({super.key});
 
@@ -31,7 +32,8 @@ class LoginScreen extends HookConsumerWidget {
     // Focus listeners for micro-interactions
     useEffect(() {
       void emailListener() => emailHasFocus.value = emailFocusNode.hasFocus;
-      void passwordListener() => passwordHasFocus.value = passwordFocusNode.hasFocus;
+      void passwordListener() =>
+          passwordHasFocus.value = passwordFocusNode.hasFocus;
 
       emailFocusNode.addListener(emailListener);
       passwordFocusNode.addListener(passwordListener);
@@ -85,7 +87,8 @@ class LoginScreen extends HookConsumerWidget {
           context.go('/dashboard');
         }
       } catch (e) {
-        if (!context.mounted) return; // Widget may have been disposed after navigation
+        if (!context.mounted)
+          return; // Widget may have been disposed after navigation
         error.value = formatAuthErrorMessage(e);
         errorShake.value = true;
       } finally {
@@ -132,7 +135,8 @@ class LoginScreen extends HookConsumerWidget {
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
             physics: const BouncingScrollPhysics(),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 440),
@@ -187,12 +191,14 @@ class LoginScreen extends HookConsumerWidget {
                       borderRadius: BorderRadius.circular(24),
                       boxShadow: [
                         BoxShadow(
-                          color: theme.colorScheme.foreground.withValues(alpha: 0.05),
+                          color: theme.colorScheme.foreground
+                              .withValues(alpha: 0.05),
                           blurRadius: 20,
                           offset: const Offset(0, 4),
                         ),
                         BoxShadow(
-                          color: theme.colorScheme.foreground.withValues(alpha: 0.03),
+                          color: theme.colorScheme.foreground
+                              .withValues(alpha: 0.03),
                           blurRadius: 40,
                           offset: const Offset(0, 8),
                         ),
@@ -224,15 +230,18 @@ class LoginScreen extends HookConsumerWidget {
                                   decoration: BoxDecoration(
                                     gradient: LinearGradient(
                                       colors: [
-                                        theme.colorScheme.border.withValues(alpha: 0.0),
-                                        theme.colorScheme.border.withValues(alpha: 0.5),
+                                        theme.colorScheme.border
+                                            .withValues(alpha: 0.0),
+                                        theme.colorScheme.border
+                                            .withValues(alpha: 0.5),
                                       ],
                                     ),
                                   ),
                                 ),
                               ),
                               Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 16),
                                 child: Text(
                                   context.l10n.orContinueWithEmail,
                                   style: TextStyle(
@@ -247,8 +256,10 @@ class LoginScreen extends HookConsumerWidget {
                                   decoration: BoxDecoration(
                                     gradient: LinearGradient(
                                       colors: [
-                                        theme.colorScheme.border.withValues(alpha: 0.5),
-                                        theme.colorScheme.border.withValues(alpha: 0.0),
+                                        theme.colorScheme.border
+                                            .withValues(alpha: 0.5),
+                                        theme.colorScheme.border
+                                            .withValues(alpha: 0.0),
                                       ],
                                     ),
                                   ),
@@ -286,7 +297,8 @@ class LoginScreen extends HookConsumerWidget {
                               decoration: InputDecoration(
                                 hintText: context.l10n.emailAddress,
                                 hintStyle: TextStyle(
-                                  color: theme.colorScheme.mutedForeground.withValues(alpha: 0.6),
+                                  color: theme.colorScheme.mutedForeground
+                                      .withValues(alpha: 0.6),
                                 ),
                                 border: InputBorder.none,
                                 contentPadding: const EdgeInsets.symmetric(
@@ -324,7 +336,8 @@ class LoginScreen extends HookConsumerWidget {
                               decoration: InputDecoration(
                                 hintText: context.l10n.password,
                                 hintStyle: TextStyle(
-                                  color: theme.colorScheme.mutedForeground.withValues(alpha: 0.6),
+                                  color: theme.colorScheme.mutedForeground
+                                      .withValues(alpha: 0.6),
                                 ),
                                 border: InputBorder.none,
                                 contentPadding: const EdgeInsets.symmetric(
@@ -332,7 +345,8 @@ class LoginScreen extends HookConsumerWidget {
                                   vertical: 16,
                                 ),
                                 suffixIcon: IconButton(
-                                  onPressed: () => showPassword.value = !showPassword.value,
+                                  onPressed: () =>
+                                      showPassword.value = !showPassword.value,
                                   icon: Icon(
                                     showPassword.value
                                         ? Icons.visibility_off_outlined
@@ -350,9 +364,11 @@ class LoginScreen extends HookConsumerWidget {
                           Align(
                             alignment: Alignment.centerRight,
                             child: GestureDetector(
-                              onTap: isLoading.value ? null : handleResetPassword,
+                              onTap:
+                                  isLoading.value ? null : handleResetPassword,
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 4, horizontal: 4),
                                 child: Text(
                                   context.l10n.forgotPassword,
                                   style: TextStyle(
@@ -374,19 +390,23 @@ class LoginScreen extends HookConsumerWidget {
                               duration: const Duration(milliseconds: 500),
                               curve: Curves.elasticOut,
                               builder: (context, value, child) {
-                                final shake = errorShake.value ? (1 - value) * 10 : 0.0;
+                                final shake =
+                                    errorShake.value ? (1 - value) * 10 : 0.0;
                                 return Transform.translate(
-                                  offset: Offset(shake * (value % 2 == 0 ? 1 : -1), 0),
+                                  offset: Offset(
+                                      shake * (value % 2 == 0 ? 1 : -1), 0),
                                   child: child,
                                 );
                               },
                               child: Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: theme.colorScheme.destructive.withValues(alpha: 0.1),
+                                  color: theme.colorScheme.destructive
+                                      .withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
-                                    color: theme.colorScheme.destructive.withValues(alpha: 0.3),
+                                    color: theme.colorScheme.destructive
+                                        .withValues(alpha: 0.3),
                                   ),
                                 ),
                                 child: Row(
@@ -422,7 +442,8 @@ class LoginScreen extends HookConsumerWidget {
                                 gradient: LinearGradient(
                                   colors: [
                                     theme.colorScheme.primary,
-                                    theme.colorScheme.primary.withValues(alpha: 0.85),
+                                    theme.colorScheme.primary
+                                        .withValues(alpha: 0.85),
                                   ],
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
@@ -430,14 +451,16 @@ class LoginScreen extends HookConsumerWidget {
                                 borderRadius: BorderRadius.circular(12),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                                    color: theme.colorScheme.primary
+                                        .withValues(alpha: 0.3),
                                     blurRadius: 12,
                                     offset: const Offset(0, 4),
                                   ),
                                 ],
                               ),
                               child: Material(
-                                color: theme.colorScheme.surface.withValues(alpha: 0.0),
+                                color: theme.colorScheme.surface
+                                    .withValues(alpha: 0.0),
                                 child: InkWell(
                                   onTap: isLoading.value ? null : handleSignIn,
                                   borderRadius: BorderRadius.circular(12),
@@ -448,15 +471,18 @@ class LoginScreen extends HookConsumerWidget {
                                             height: 24,
                                             child: CircularProgressIndicator(
                                               strokeWidth: 2.5,
-                                              valueColor: AlwaysStoppedAnimation<Color>(
-                                                theme.colorScheme.primaryForeground,
+                                              valueColor:
+                                                  AlwaysStoppedAnimation<Color>(
+                                                theme.colorScheme
+                                                    .primaryForeground,
                                               ),
                                             ),
                                           )
                                         : Text(
                                             context.l10n.signIn,
                                             style: TextStyle(
-                                              color: theme.colorScheme.primaryForeground,
+                                              color: theme.colorScheme
+                                                  .primaryForeground,
                                               fontSize: 16,
                                               fontWeight: FontWeight.w600,
                                             ),
@@ -484,7 +510,9 @@ class LoginScreen extends HookConsumerWidget {
                         ),
                       ),
                       GestureDetector(
-                        onTap: isLoading.value ? null : () => context.go('/register'),
+                        onTap: isLoading.value
+                            ? null
+                            : () => context.go('/register'),
                         child: Text(
                           context.l10n.createAccount,
                           style: TextStyle(

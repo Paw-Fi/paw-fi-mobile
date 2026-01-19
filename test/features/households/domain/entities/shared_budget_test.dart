@@ -97,7 +97,7 @@ void main() {
       final now = DateTime(2024, 1, 1);
       final periodStart = DateTime(2024, 1, 1);
       final periodEnd = DateTime(2024, 1, 31);
-      
+
       final budget = SharedBudget(
         id: 'budget_1',
         householdId: 'hh_1',
@@ -218,7 +218,7 @@ void main() {
       final now = DateTime(2024, 1, 1);
       final periodStart = DateTime(2024, 1, 1);
       final periodEnd = DateTime(2024, 1, 31);
-      
+
       final budget = SharedBudget(
         id: 'budget_1',
         householdId: 'hh_1',
@@ -373,7 +373,7 @@ void main() {
   group('SharedBudget - Edge Cases', () {
     test('handles all budget periods', () {
       final now = DateTime(2024, 1, 1);
-      
+
       final daily = SharedBudget(
         id: 'b1',
         householdId: 'hh_1',
@@ -402,7 +402,7 @@ void main() {
 
     test('handles threshold edge values', () {
       final now = DateTime(2024, 1, 1);
-      
+
       final budget = SharedBudget(
         id: 'budget_1',
         householdId: 'hh_1',
@@ -425,7 +425,7 @@ void main() {
 
     test('handles inactive budget', () {
       final now = DateTime(2024, 1, 1);
-      
+
       final budget = SharedBudget(
         id: 'budget_1',
         householdId: 'hh_1',
@@ -447,7 +447,7 @@ void main() {
 
     test('handles personal budget with userId', () {
       final now = DateTime(2024, 1, 1);
-      
+
       final budget = SharedBudget(
         id: 'budget_1',
         householdId: 'hh_1',
@@ -471,7 +471,7 @@ void main() {
 
     test('handles split portion only flag', () {
       final now = DateTime(2024, 1, 1);
-      
+
       final budget = SharedBudget(
         id: 'budget_1',
         householdId: 'hh_1',

@@ -18,7 +18,8 @@ List<SyncedTransaction> parseSyncedTransactions(dynamic payload) {
   List<dynamic>? rawList;
   if (payload is Map<String, dynamic>) {
     rawList = payload['addedTransactions'] as List<dynamic>?;
-    rawList ??= (payload['data'] as Map<String, dynamic>?)?['addedTransactions'] as List<dynamic>?;
+    rawList ??= (payload['data'] as Map<String, dynamic>?)?['addedTransactions']
+        as List<dynamic>?;
   }
   if (rawList == null) return [];
 

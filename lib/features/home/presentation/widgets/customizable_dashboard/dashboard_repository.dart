@@ -28,7 +28,7 @@ class DashboardRepository {
       }
 
       // 2. Try Remote (Supabase) if local is empty
-      // Assuming 'home_layout' column exists in 'users' table 
+      // Assuming 'home_layout' column exists in 'users' table
       // TODO: Re-enable this when we have a way to sync layouts between devices
       // final response = await _supabase
       //     .from('users')

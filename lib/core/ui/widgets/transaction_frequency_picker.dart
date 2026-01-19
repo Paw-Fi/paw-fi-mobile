@@ -37,15 +37,15 @@ List<FrequencyOption> getDefaultFrequencyOptions(BuildContext context) {
 }
 
 /// Shows a frequency picker for recurring transactions
-/// 
+///
 /// This is a low-level widget that only handles showing the frequency
 /// selection UI and returning the selected frequency. It has no knowledge
 /// of what will be done with the selected frequency.
-/// 
+///
 /// [context] - BuildContext for showing the modal
 /// [currentFrequency] - Currently selected frequency value (e.g., 'monthly')
 /// [frequencies] - Optional list of frequency options (defaults to localized options)
-/// 
+///
 /// Returns the selected frequency value or null if cancelled
 Future<String?> showFrequencyPicker({
   required BuildContext context,
@@ -54,7 +54,8 @@ Future<String?> showFrequencyPicker({
 }) async {
   final options = frequencies ?? getDefaultFrequencyOptions(context);
   final values = options.map((f) => f.value).toList();
-  final initial = values.contains(currentFrequency) ? currentFrequency : values.first;
+  final initial =
+      values.contains(currentFrequency) ? currentFrequency : values.first;
 
   return await showTransactionSelectionSheet<String>(
     context: context,

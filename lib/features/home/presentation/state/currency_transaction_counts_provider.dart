@@ -51,4 +51,3 @@ final currencyTransactionCountsProvider =
 
   return counts;
 });
-

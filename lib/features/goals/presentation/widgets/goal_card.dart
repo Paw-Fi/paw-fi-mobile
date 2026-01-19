@@ -46,8 +46,9 @@ class GoalCard extends ConsumerWidget {
                     ),
                     child: Icon(
                       goal.isSavings ? Icons.savings : Icons.trending_down,
-                      color:
-                          goal.isSavings ? colorScheme.success : colorScheme.warning,
+                      color: goal.isSavings
+                          ? colorScheme.success
+                          : colorScheme.warning,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -67,13 +68,12 @@ class GoalCard extends ConsumerWidget {
                                 ),
                               ),
                             ),
-                            if (goal.privacyRedacted) _buildPrivacyBadge(context),
+                            if (goal.privacyRedacted)
+                              _buildPrivacyBadge(context),
                           ],
                         ),
                         Text(
-                          goal.isSavings
-                              ? l10n.savings
-                              : l10n.paydown,
+                          goal.isSavings ? l10n.savings : l10n.paydown,
                           style: TextStyle(
                             fontSize: 12,
                             color: colorScheme.mutedForeground,
@@ -85,7 +85,8 @@ class GoalCard extends ConsumerWidget {
                   // Status badge
                   if (goal.isCompleted)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: colorScheme.success.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(4),
@@ -101,7 +102,8 @@ class GoalCard extends ConsumerWidget {
                     )
                   else if (!goal.isOnTrack)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: colorScheme.destructive.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(4),
@@ -186,7 +188,8 @@ class GoalCard extends ConsumerWidget {
                     OutlinedButton(
                       onPressed: () => _acknowledgeGoal(context, ref),
                       style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
                         minimumSize: Size.zero,
                       ),
                       child: Text(
@@ -231,7 +234,8 @@ class GoalCard extends ConsumerWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.visibility_off, size: 10, color: colorScheme.mutedForeground),
+          Icon(Icons.visibility_off,
+              size: 10, color: colorScheme.mutedForeground),
           const SizedBox(width: 4),
           Text(
             l10n.balancesOnly,

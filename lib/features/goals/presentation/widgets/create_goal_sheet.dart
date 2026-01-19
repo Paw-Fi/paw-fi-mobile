@@ -111,7 +111,9 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
                         ),
                         const SizedBox(height: 16),
                         // Category
-                        Text(l10n.category, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        Text(l10n.category,
+                            style:
+                                const TextStyle(fontWeight: FontWeight.bold)),
                         const SizedBox(height: 8),
                         SegmentedButton<String>(
                           segments: [
@@ -200,7 +202,8 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
                               context: context,
                               initialDate: _targetDate,
                               firstDate: DateTime.now(),
-                              lastDate: DateTime.now().add(const Duration(days: 3650)),
+                              lastDate: DateTime.now()
+                                  .add(const Duration(days: 3650)),
                             );
                             if (date != null) {
                               setState(() {
@@ -220,7 +223,9 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
                         ),
                         const SizedBox(height: 16),
                         // Privacy scope
-                        Text(l10n.privacyScope, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        Text(l10n.privacyScope,
+                            style:
+                                const TextStyle(fontWeight: FontWeight.bold)),
                         const SizedBox(height: 8),
                         DropdownButtonFormField<String>(
                           initialValue: _privacyScope,
@@ -292,7 +297,9 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
           goalType: _goalType,
           privacyScope: _privacyScope,
           ownerType: _ownerType,
-          description: _descriptionController.text.isEmpty ? null : _descriptionController.text,
+          description: _descriptionController.text.isEmpty
+              ? null
+              : _descriptionController.text,
           idempotencyKey: '${userId}_${DateTime.now().millisecondsSinceEpoch}',
         );
 

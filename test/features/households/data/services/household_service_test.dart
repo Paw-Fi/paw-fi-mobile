@@ -27,14 +27,16 @@ void main() {
   });
 
   group('HouseholdService.createInvite', () {
-    test('sends only non-null optional fields and returns invite_url on 200', () async {
+    test('sends only non-null optional fields and returns invite_url on 200',
+        () async {
       final response = _MockFunctionResponse();
       when(() => response.status).thenReturn(200);
-      when(() => response.data).thenReturn({'invite_url': 'https://example.com/invite/TOKEN'});
+      when(() => response.data)
+          .thenReturn({'invite_url': 'https://example.com/invite/TOKEN'});
 
       Map<String, dynamic>? capturedBody;
-      when(() => functions.invoke('households-create-invite', body: any(named: 'body')))
-          .thenAnswer((invocation) async {
+      when(() => functions.invoke('households-create-invite',
+          body: any(named: 'body'))).thenAnswer((invocation) async {
         capturedBody = invocation.namedArguments[#body] as Map<String, dynamic>;
         return response;
       });
@@ -48,7 +50,8 @@ void main() {
 
       expect(url, 'https://example.com/invite/TOKEN');
       expect(capturedBody, isNotNull);
-      expect(capturedBody!.keys, containsAll(['household_id', 'expires_in_days']));
+      expect(
+          capturedBody!.keys, containsAll(['household_id', 'expires_in_days']));
       expect(capturedBody!.containsKey('invited_email'), isFalse);
       expect(capturedBody!.containsKey('personal_message'), isFalse);
     });
@@ -57,8 +60,8 @@ void main() {
       final response = _MockFunctionResponse();
       when(() => response.status).thenReturn(500);
       when(() => response.data).thenReturn({'error': 'boom'});
-      when(() => functions.invoke('households-create-invite', body: any(named: 'body')))
-          .thenAnswer((_) async => response);
+      when(() => functions.invoke('households-create-invite',
+          body: any(named: 'body'))).thenAnswer((_) async => response);
 
       expect(
         () => service.createInvite(
@@ -72,8 +75,8 @@ void main() {
     test('times out and throws within ~20s when function stalls', () async {
       // Simulate an invocation that never completes
       final completer = Completer<FunctionResponse>();
-      when(() => functions.invoke('households-create-invite', body: any(named: 'body')))
-          .thenAnswer((_) => completer.future);
+      when(() => functions.invoke('households-create-invite',
+          body: any(named: 'body'))).thenAnswer((_) => completer.future);
 
       final sw = Stopwatch()..start();
       await expectLater(

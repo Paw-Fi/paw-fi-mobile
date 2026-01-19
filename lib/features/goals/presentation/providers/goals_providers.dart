@@ -10,7 +10,8 @@ final supabaseProvider = Provider<SupabaseClient>((ref) {
 });
 
 // Goals list provider
-final goalsListProvider = StateNotifierProvider<GoalsListNotifier, AsyncValue<List<Goal>>>((ref) {
+final goalsListProvider =
+    StateNotifierProvider<GoalsListNotifier, AsyncValue<List<Goal>>>((ref) {
   return GoalsListNotifier(ref);
 });
 
@@ -19,7 +20,8 @@ class GoalsListNotifier extends StateNotifier<AsyncValue<List<Goal>>> {
 
   GoalsListNotifier(this.ref) : super(const AsyncValue.loading());
 
-  Future<void> loadGoals(String userId, {String? householdId, String? category, String? status}) async {
+  Future<void> loadGoals(String userId,
+      {String? householdId, String? category, String? status}) async {
     state = const AsyncValue.loading();
 
     try {
@@ -41,7 +43,9 @@ class GoalsListNotifier extends StateNotifier<AsyncValue<List<Goal>>> {
       if (response.status == 200 && response.data != null) {
         final data = response.data as Map<String, dynamic>;
         final goalsData = data['goals'] as List<dynamic>;
-        final goals = goalsData.map((json) => Goal.fromJson(json as Map<String, dynamic>)).toList();
+        final goals = goalsData
+            .map((json) => Goal.fromJson(json as Map<String, dynamic>))
+            .toList();
         state = AsyncValue.data(goals);
       } else {
         state = AsyncValue.error('Failed to load goals', StackTrace.current);
@@ -57,7 +61,8 @@ class GoalsListNotifier extends StateNotifier<AsyncValue<List<Goal>>> {
 }
 
 // Goal summary provider
-final goalSummaryProvider = StateNotifierProvider<GoalSummaryNotifier, AsyncValue<GoalSummary>>((ref) {
+final goalSummaryProvider =
+    StateNotifierProvider<GoalSummaryNotifier, AsyncValue<GoalSummary>>((ref) {
   return GoalSummaryNotifier(ref);
 });
 
@@ -85,7 +90,8 @@ class GoalSummaryNotifier extends StateNotifier<AsyncValue<GoalSummary>> {
 
       if (response.status == 200 && response.data != null) {
         final data = response.data as Map<String, dynamic>;
-        final summary = GoalSummary.fromJson(data['summary'] as Map<String, dynamic>);
+        final summary =
+            GoalSummary.fromJson(data['summary'] as Map<String, dynamic>);
         state = AsyncValue.data(summary);
       } else {
         state = AsyncValue.error('Failed to load summary', StackTrace.current);
@@ -97,7 +103,8 @@ class GoalSummaryNotifier extends StateNotifier<AsyncValue<GoalSummary>> {
 }
 
 // Create goal provider
-final createGoalProvider = StateNotifierProvider<CreateGoalNotifier, AsyncValue<Goal?>>((ref) {
+final createGoalProvider =
+    StateNotifierProvider<CreateGoalNotifier, AsyncValue<Goal?>>((ref) {
   return CreateGoalNotifier(ref);
 });
 
@@ -153,8 +160,12 @@ class CreateGoalNotifier extends StateNotifier<AsyncValue<Goal?>> {
         state = AsyncValue.data(goal);
 
         // Refresh goals list
-        ref.read(goalsListProvider.notifier).refresh(userId, householdId: householdId);
-        ref.read(goalSummaryProvider.notifier).loadSummary(userId, householdId: householdId);
+        ref
+            .read(goalsListProvider.notifier)
+            .refresh(userId, householdId: householdId);
+        ref
+            .read(goalSummaryProvider.notifier)
+            .loadSummary(userId, householdId: householdId);
       } else {
         state = AsyncValue.error('Failed to create goal', StackTrace.current);
       }
@@ -165,11 +176,13 @@ class CreateGoalNotifier extends StateNotifier<AsyncValue<Goal?>> {
 }
 
 // Add contribution provider
-final addContributionProvider = StateNotifierProvider<AddContributionNotifier, AsyncValue<GoalContribution?>>((ref) {
+final addContributionProvider = StateNotifierProvider<AddContributionNotifier,
+    AsyncValue<GoalContribution?>>((ref) {
   return AddContributionNotifier(ref);
 });
 
-class AddContributionNotifier extends StateNotifier<AsyncValue<GoalContribution?>> {
+class AddContributionNotifier
+    extends StateNotifier<AsyncValue<GoalContribution?>> {
   final Ref ref;
 
   AddContributionNotifier(this.ref) : super(const AsyncValue.data(null));
@@ -214,14 +227,20 @@ class AddContributionNotifier extends StateNotifier<AsyncValue<GoalContribution?
 
       if (response.status == 200 && response.data != null) {
         final data = response.data as Map<String, dynamic>;
-        final contribution = GoalContribution.fromJson(data['contribution'] as Map<String, dynamic>);
+        final contribution = GoalContribution.fromJson(
+            data['contribution'] as Map<String, dynamic>);
         state = AsyncValue.data(contribution);
 
         // Refresh goals list and summary
-        ref.read(goalsListProvider.notifier).refresh(userId, householdId: householdId);
-        ref.read(goalSummaryProvider.notifier).loadSummary(userId, householdId: householdId);
+        ref
+            .read(goalsListProvider.notifier)
+            .refresh(userId, householdId: householdId);
+        ref
+            .read(goalSummaryProvider.notifier)
+            .loadSummary(userId, householdId: householdId);
       } else {
-        state = AsyncValue.error('Failed to add contribution', StackTrace.current);
+        state =
+            AsyncValue.error('Failed to add contribution', StackTrace.current);
       }
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
@@ -230,7 +249,8 @@ class AddContributionNotifier extends StateNotifier<AsyncValue<GoalContribution?
 }
 
 // Acknowledge goal provider
-final acknowledgeGoalProvider = StateNotifierProvider<AcknowledgeGoalNotifier, AsyncValue<bool>>((ref) {
+final acknowledgeGoalProvider =
+    StateNotifierProvider<AcknowledgeGoalNotifier, AsyncValue<bool>>((ref) {
   return AcknowledgeGoalNotifier(ref);
 });
 
@@ -239,7 +259,8 @@ class AcknowledgeGoalNotifier extends StateNotifier<AsyncValue<bool>> {
 
   AcknowledgeGoalNotifier(this.ref) : super(const AsyncValue.data(false));
 
-  Future<void> acknowledgeGoal(String userId, String goalId, {String? householdId}) async {
+  Future<void> acknowledgeGoal(String userId, String goalId,
+      {String? householdId}) async {
     state = const AsyncValue.loading();
 
     try {
@@ -268,10 +289,12 @@ class AcknowledgeGoalNotifier extends StateNotifier<AsyncValue<bool>> {
             }
             return goal;
           }).toList();
-          ref.read(goalsListProvider.notifier).state = AsyncValue.data(updatedGoals);
+          ref.read(goalsListProvider.notifier).state =
+              AsyncValue.data(updatedGoals);
         });
       } else {
-        state = AsyncValue.error('Failed to acknowledge goal', StackTrace.current);
+        state =
+            AsyncValue.error('Failed to acknowledge goal', StackTrace.current);
       }
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);

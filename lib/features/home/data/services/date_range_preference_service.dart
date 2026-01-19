@@ -51,5 +51,6 @@ class DateRangePreferenceService {
     _cachedSelected = null;
   }
 
-  String _formatDate(DateTime d) => DateTime(d.year, d.month, d.day).toIso8601String().split('T').first;
+  String _formatDate(DateTime d) =>
+      DateTime(d.year, d.month, d.day).toIso8601String().split('T').first;
 }

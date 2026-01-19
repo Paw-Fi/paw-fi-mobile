@@ -38,7 +38,8 @@ enum SplitType {
 class ExpenseSplitGroup {
   final String id;
   final String householdId;
-  final String expenseId; // FIXED: Changed from transactionId to match database schema
+  final String
+      expenseId; // FIXED: Changed from transactionId to match database schema
   final String payerUserId;
   final SplitType splitType;
   final String currency;
@@ -67,7 +68,7 @@ class ExpenseSplitGroup {
   factory ExpenseSplitGroup.fromJson(Map<String, dynamic> json) {
     // Handle both 'expense_split_lines' (from Supabase nested query) and 'split_lines' (from direct JSON)
     final linesData = json['expense_split_lines'] ?? json['split_lines'];
-    
+
     return ExpenseSplitGroup(
       id: json['id'] as String,
       householdId: json['household_id'] as String,
@@ -181,7 +182,8 @@ class ExpenseSplitLine {
 
 /// Split creation request
 class SplitRequest {
-  final String expenseId; // FIXED: Changed from transactionId to match database schema
+  final String
+      expenseId; // FIXED: Changed from transactionId to match database schema
   final String householdId;
   final String payerUserId;
   final SplitType splitType;

@@ -133,7 +133,8 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
           return _buildLoadingCard(context, colorScheme);
         }
 
-        final settlementPayments = snapshot.data ?? const <_SettlementPayment>[];
+        final settlementPayments =
+            snapshot.data ?? const <_SettlementPayment>[];
 
         // 1. Calculate Data
         String nameFor(String userId) {
@@ -314,7 +315,6 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                          
                           ],
                         ),
                       ),
@@ -464,11 +464,9 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
     List<ExpenseSplitGroup>? splits,
     String? currency,
     String currentUserId,
-    String Function(String) nameFor,
-    {
+    String Function(String) nameFor, {
     List<_SettlementPayment> settlementPayments = const <_SettlementPayment>[],
-  }
-  ) {
+  }) {
     if (splits == null || splits.isEmpty) return const <_Suggestion>[];
 
     final splitTo = <String, int>{};

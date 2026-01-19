@@ -4,7 +4,9 @@ import 'package:moneko/features/income/domain/models/income_entry.dart';
 import 'package:moneko/features/income/domain/models/income_summary.dart';
 
 /// Income list state provider
-final incomeListProvider = StateNotifierProvider<IncomeListNotifier, AsyncValue<List<IncomeEntry>>>((ref) {
+final incomeListProvider =
+    StateNotifierProvider<IncomeListNotifier, AsyncValue<List<IncomeEntry>>>(
+        (ref) {
   return IncomeListNotifier(ref);
 });
 
@@ -14,7 +16,8 @@ class IncomeListNotifier extends StateNotifier<AsyncValue<List<IncomeEntry>>> {
   IncomeListNotifier(this.ref) : super(const AsyncValue.loading());
 
   /// Load income for a user (with optional filters)
-  Future<void> loadIncome(String userId, {
+  Future<void> loadIncome(
+    String userId, {
     DateTime? startDate,
     DateTime? endDate,
     String? currency,
@@ -29,8 +32,10 @@ class IncomeListNotifier extends StateNotifier<AsyncValue<List<IncomeEntry>>> {
         body: {
           'userId': userId,
           'limit': limit,
-          if (startDate != null) 'startDate': startDate.toIso8601String().split('T')[0],
-          if (endDate != null) 'endDate': endDate.toIso8601String().split('T')[0],
+          if (startDate != null)
+            'startDate': startDate.toIso8601String().split('T')[0],
+          if (endDate != null)
+            'endDate': endDate.toIso8601String().split('T')[0],
           if (currency != null) 'currency': currency,
           if (householdId != null) 'householdId': householdId,
         },
@@ -38,7 +43,9 @@ class IncomeListNotifier extends StateNotifier<AsyncValue<List<IncomeEntry>>> {
 
       if (response.data['success'] == true) {
         final data = response.data['data'] as List<dynamic>;
-        final incomeList = data.map((e) => IncomeEntry.fromJson(e as Map<String, dynamic>)).toList();
+        final incomeList = data
+            .map((e) => IncomeEntry.fromJson(e as Map<String, dynamic>))
+            .toList();
         state = AsyncValue.data(incomeList);
       } else {
         state = AsyncValue.error(
@@ -52,7 +59,8 @@ class IncomeListNotifier extends StateNotifier<AsyncValue<List<IncomeEntry>>> {
   }
 
   /// Refresh income list
-  Future<void> refresh(String userId, {
+  Future<void> refresh(
+    String userId, {
     DateTime? startDate,
     DateTime? endDate,
     String? currency,
@@ -69,7 +77,9 @@ class IncomeListNotifier extends StateNotifier<AsyncValue<List<IncomeEntry>>> {
 }
 
 /// Income summary provider
-final incomeSummaryProvider = StateNotifierProvider<IncomeSummaryNotifier, AsyncValue<IncomeSummary>>((ref) {
+final incomeSummaryProvider =
+    StateNotifierProvider<IncomeSummaryNotifier, AsyncValue<IncomeSummary>>(
+        (ref) {
   return IncomeSummaryNotifier(ref);
 });
 
@@ -79,7 +89,8 @@ class IncomeSummaryNotifier extends StateNotifier<AsyncValue<IncomeSummary>> {
   IncomeSummaryNotifier(this.ref) : super(const AsyncValue.loading());
 
   /// Load income summary for a user
-  Future<void> loadSummary(String userId, {
+  Future<void> loadSummary(
+    String userId, {
     String? householdId,
     DateTime? startDate,
     DateTime? endDate,
@@ -93,14 +104,17 @@ class IncomeSummaryNotifier extends StateNotifier<AsyncValue<IncomeSummary>> {
         body: {
           'userId': userId,
           if (householdId != null) 'householdId': householdId,
-          if (startDate != null) 'startDate': startDate.toIso8601String().split('T')[0],
-          if (endDate != null) 'endDate': endDate.toIso8601String().split('T')[0],
+          if (startDate != null)
+            'startDate': startDate.toIso8601String().split('T')[0],
+          if (endDate != null)
+            'endDate': endDate.toIso8601String().split('T')[0],
           if (currency != null) 'currency': currency,
         },
       );
 
       if (response.data['success'] == true) {
-        final summary = IncomeSummary.fromJson(response.data['data'] as Map<String, dynamic>);
+        final summary = IncomeSummary.fromJson(
+            response.data['data'] as Map<String, dynamic>);
         state = AsyncValue.data(summary);
       } else {
         state = AsyncValue.error(
@@ -114,7 +128,8 @@ class IncomeSummaryNotifier extends StateNotifier<AsyncValue<IncomeSummary>> {
   }
 
   /// Refresh income summary
-  Future<void> refresh(String userId, {
+  Future<void> refresh(
+    String userId, {
     String? householdId,
     DateTime? startDate,
     DateTime? endDate,
@@ -131,7 +146,8 @@ class IncomeSummaryNotifier extends StateNotifier<AsyncValue<IncomeSummary>> {
 }
 
 /// Income save provider
-final incomeSaveProvider = StateNotifierProvider<IncomeSaveNotifier, AsyncValue<IncomeEntry?>>((ref) {
+final incomeSaveProvider =
+    StateNotifierProvider<IncomeSaveNotifier, AsyncValue<IncomeEntry?>>((ref) {
   return IncomeSaveNotifier(ref);
 });
 
@@ -170,7 +186,8 @@ class IncomeSaveNotifier extends StateNotifier<AsyncValue<IncomeEntry?>> {
           'currency': currency,
           'date': date.toIso8601String(),
           'clientCreatedAt': DateTime.now().toIso8601String(),
-          if (description != null && description.isNotEmpty) 'description': description,
+          if (description != null && description.isNotEmpty)
+            'description': description,
           if (source != null && source.isNotEmpty) 'source': source,
           'ownerType': ownerType,
           'privacyScope': privacyScope,
@@ -184,14 +201,19 @@ class IncomeSaveNotifier extends StateNotifier<AsyncValue<IncomeEntry?>> {
       );
 
       if (response.data['success'] == true) {
-        final income = IncomeEntry.fromJson(response.data['data'] as Map<String, dynamic>);
+        final income =
+            IncomeEntry.fromJson(response.data['data'] as Map<String, dynamic>);
         state = AsyncValue.data(income);
 
         // Refresh income list
-        ref.read(incomeListProvider.notifier).refresh(userId, householdId: householdId);
+        ref
+            .read(incomeListProvider.notifier)
+            .refresh(userId, householdId: householdId);
 
         // Refresh income summary
-        ref.read(incomeSummaryProvider.notifier).refresh(userId, householdId: householdId);
+        ref
+            .read(incomeSummaryProvider.notifier)
+            .refresh(userId, householdId: householdId);
 
         return income;
       } else {
@@ -214,7 +236,8 @@ class IncomeSaveNotifier extends StateNotifier<AsyncValue<IncomeEntry?>> {
 }
 
 /// Income acknowledgement provider
-final incomeAcknowledgeProvider = StateNotifierProvider<IncomeAcknowledgeNotifier, AsyncValue<bool>>((ref) {
+final incomeAcknowledgeProvider =
+    StateNotifierProvider<IncomeAcknowledgeNotifier, AsyncValue<bool>>((ref) {
   return IncomeAcknowledgeNotifier(ref);
 });
 
@@ -252,7 +275,8 @@ class IncomeAcknowledgeNotifier extends StateNotifier<AsyncValue<bool>> {
             }
             return income;
           }).toList();
-          ref.read(incomeListProvider.notifier).state = AsyncValue.data(updatedList);
+          ref.read(incomeListProvider.notifier).state =
+              AsyncValue.data(updatedList);
         }
 
         return true;

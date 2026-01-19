@@ -37,10 +37,11 @@ class PocketsPage extends HookConsumerWidget {
     // Use householdScopeProvider to properly handle personal vs portfolio vs household.
     final householdScope = ref.watch(householdScopeProvider);
 
-    final resolvedHouseholdId = householdScope.activeAccountType == ActiveAccountType.household
-        ? householdScope.selectedHouseholdId
-        : null;
-    
+    final resolvedHouseholdId =
+        householdScope.activeAccountType == ActiveAccountType.household
+            ? householdScope.selectedHouseholdId
+            : null;
+
     // Always start at the current month
     final now = DateTime.now();
     final initialMonth = DateTime(now.year, now.month, 1);
@@ -190,16 +191,17 @@ class PocketsPage extends HookConsumerWidget {
           scope: PocketsScopeType.personal,
           periodMonth: currentMonthState.value,
         ),
-      ActiveAccountType.portfolio => householdScope.activeAccountHouseholdId == null
-          ? PocketsScopeParams(
-              scope: PocketsScopeType.personal,
-              periodMonth: currentMonthState.value,
-            )
-          : PocketsScopeParams(
-              scope: PocketsScopeType.portfolio,
-              householdId: householdScope.activeAccountHouseholdId,
-              periodMonth: currentMonthState.value,
-            ),
+      ActiveAccountType.portfolio =>
+        householdScope.activeAccountHouseholdId == null
+            ? PocketsScopeParams(
+                scope: PocketsScopeType.personal,
+                periodMonth: currentMonthState.value,
+              )
+            : PocketsScopeParams(
+                scope: PocketsScopeType.portfolio,
+                householdId: householdScope.activeAccountHouseholdId,
+                periodMonth: currentMonthState.value,
+              ),
       ActiveAccountType.household => PocketsScopeParams(
           scope: PocketsScopeType.household,
           householdId: resolvedHouseholdId,
@@ -235,16 +237,17 @@ class PocketsPage extends HookConsumerWidget {
                     scope: PocketsScopeType.personal,
                     periodMonth: month,
                   ),
-                ActiveAccountType.portfolio => householdScope.activeAccountHouseholdId == null
-                    ? PocketsScopeParams(
-                        scope: PocketsScopeType.personal,
-                        periodMonth: month,
-                      )
-                    : PocketsScopeParams(
-                        scope: PocketsScopeType.portfolio,
-                        householdId: householdScope.activeAccountHouseholdId,
-                        periodMonth: month,
-                      ),
+                ActiveAccountType.portfolio =>
+                  householdScope.activeAccountHouseholdId == null
+                      ? PocketsScopeParams(
+                          scope: PocketsScopeType.personal,
+                          periodMonth: month,
+                        )
+                      : PocketsScopeParams(
+                          scope: PocketsScopeType.portfolio,
+                          householdId: householdScope.activeAccountHouseholdId,
+                          periodMonth: month,
+                        ),
                 ActiveAccountType.household => PocketsScopeParams(
                     scope: PocketsScopeType.household,
                     householdId: resolvedHouseholdId,
@@ -255,8 +258,8 @@ class PocketsPage extends HookConsumerWidget {
               return _PocketsMonthView(
                 scopeParams: scopeParams,
                 colorScheme: colorScheme,
-                isPersonalMode:
-                    householdScope.activeAccountType != ActiveAccountType.household,
+                isPersonalMode: householdScope.activeAccountType !=
+                    ActiveAccountType.household,
                 isActiveMonth: scopeParams == currentScopeParams,
                 onDateSelected: (date) {
                   final diffYears = date.year - initialMonth.year;
@@ -397,8 +400,13 @@ class _PocketsMonthView extends HookConsumerWidget {
       await ref.read(pocketsProvider(scopeParams).notifier).load();
     }
 
-    final showCopyBudget =
-        pocketsState.totalBudget == 0 && pocketsState.previousBudget > 0;
+    // When a new month starts, users often have zero budget and no pockets yet.
+    // If we can detect a previous month budget, offer a quick start action.
+    final showCopyBudget = pocketsState.editing.isEmpty &&
+        pocketsState.totalBudget == 0 &&
+        pocketsState.previousBudget > 0;
+
+    final isCopyingPockets = useState(false);
 
     return RefreshIndicator(
       onRefresh: refresh,
@@ -413,6 +421,48 @@ class _PocketsMonthView extends HookConsumerWidget {
                   previousBudget: pocketsState.previousBudget,
                   onCopy: () => pocketsNotifier
                       .reusePreviousBudget(pocketsState.previousBudget),
+                  onCopyPockets: () async {
+                    if (isCopyingPockets.value) return;
+
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (dialogContext) {
+                        return AlertDialog(
+                          title: const Text('Copy last month\'s pockets?'),
+                          content: const Text(
+                            'This will create pockets for this month using the same names, icons, colors, and percentages as last month. You can edit everything afterwards.',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () =>
+                                  Navigator.of(dialogContext).pop(false),
+                              child: const Text('Cancel'),
+                            ),
+                            TextButton(
+                              onPressed: () =>
+                                  Navigator.of(dialogContext).pop(true),
+                              child: const Text('Copy pockets'),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+
+                    if (confirmed != true || !context.mounted) return;
+
+                    isCopyingPockets.value = true;
+                    try {
+                      final now = scopeParams.periodMonth ?? DateTime.now();
+                      final previousMonth =
+                          DateTime(now.year, now.month - 1, 1);
+                      await pocketsNotifier.copyPocketsFromMonth(previousMonth);
+                    } finally {
+                      if (context.mounted) {
+                        isCopyingPockets.value = false;
+                      }
+                    }
+                  },
+                  isCopying: isCopyingPockets.value,
                   colorScheme: colorScheme,
                 ),
               ),
@@ -440,11 +490,15 @@ class _CopyBudgetBanner extends StatelessWidget {
   const _CopyBudgetBanner({
     required this.previousBudget,
     required this.onCopy,
+    required this.onCopyPockets,
+    required this.isCopying,
     required this.colorScheme,
   });
 
   final double previousBudget;
   final VoidCallback onCopy;
+  final VoidCallback onCopyPockets;
+  final bool isCopying;
   final ColorScheme colorScheme;
 
   @override
@@ -464,16 +518,17 @@ class _CopyBudgetBanner extends StatelessWidget {
       child: Column(
         children: [
           Text(
-            context.l10n.startWithLastMonthsBudget,
+            'New month, fresh budget',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
               color: colorScheme.onSurface,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Text(
-            context.l10n.youHadBudgetLastMonth(formattedAmount),
+            'Looks like you haven\'t set up pockets for this month yet. Want to start from last month?',
+            textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,
               color: colorScheme.onSurfaceVariant,
@@ -483,9 +538,23 @@ class _CopyBudgetBanner extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: PrimaryAdaptiveButton(
+              onPressed: isCopying ? null : onCopyPockets,
+              child: Text(
+                isCopying ? 'Copying…' : 'Copy last month\'s pockets',
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: PlainAdaptiveButton(
               onPressed: onCopy,
               child: Text(
-                context.l10n.copyBudgetWithAmount(formattedAmount),
+                'Just use last month\'s budget ($formattedAmount)',
+                style: TextStyle(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),

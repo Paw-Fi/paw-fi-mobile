@@ -4,16 +4,18 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-Widget build30DayProjectionChart(BuildContext context, ColorScheme colorScheme, List<ExpenseEntry> expenses, List<DailyBudgetEntry> budgets) {
+
+Widget build30DayProjectionChart(BuildContext context, ColorScheme colorScheme,
+    List<ExpenseEntry> expenses, List<DailyBudgetEntry> budgets) {
   // Calculate trailing 30-day average
   final now = DateTime.now();
   final thirtyDaysAgo = now.subtract(const Duration(days: 30));
-  
+
   // Filter to last 30 days only
-  final recentExpenses = expenses.where((e) => 
-    e.date.isAfter(thirtyDaysAgo) && e.date.isBefore(now)
-  ).toList();
-  
+  final recentExpenses = expenses
+      .where((e) => e.date.isAfter(thirtyDaysAgo) && e.date.isBefore(now))
+      .toList();
+
   // Calculate average daily spend from last 30 days
   final totalRecent = recentExpenses.fold(0.0, (sum, e) => sum + e.amount);
   final avgDaily = recentExpenses.isEmpty ? 0.0 : totalRecent / 30;
@@ -28,7 +30,8 @@ Widget build30DayProjectionChart(BuildContext context, ColorScheme colorScheme, 
       gridData: const FlGridData(show: false),
       titlesData: FlTitlesData(
         leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        rightTitles:
+            const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         bottomTitles: AxisTitles(
           sideTitles: SideTitles(
@@ -37,7 +40,8 @@ Widget build30DayProjectionChart(BuildContext context, ColorScheme colorScheme, 
             getTitlesWidget: (value, meta) {
               return Text(
                 '${context.l10n.day} ${value.toInt() + 1}',
-                style: TextStyle(fontSize: 10, color: colorScheme.mutedForeground),
+                style:
+                    TextStyle(fontSize: 10, color: colorScheme.mutedForeground),
               );
             },
           ),

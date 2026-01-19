@@ -336,7 +336,7 @@ void main() {
     test('toJson serializes split line correctly', () {
       final now = DateTime(2024, 1, 1);
       final settledAt = DateTime(2024, 1, 2);
-      
+
       final line = ExpenseSplitLine(
         id: 'line_1',
         splitGroupId: 'split_1',

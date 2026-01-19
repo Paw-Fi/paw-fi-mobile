@@ -4,7 +4,6 @@ import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
-
 /// Platform-adaptive list picker that shows a Cupertino picker on iOS
 /// and a Material bottom sheet list elsewhere.
 class MonekoListPicker {
@@ -34,7 +33,8 @@ class MonekoListPicker {
             child: Column(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     border: Border(
                       bottom: BorderSide(
@@ -49,7 +49,8 @@ class MonekoListPicker {
                       CupertinoButton(
                         padding: EdgeInsets.zero,
                         onPressed: () => Navigator.pop<T>(ctx),
-                        child: Text(CupertinoLocalizations.of(ctx).cancelButtonLabel),
+                        child: Text(
+                            CupertinoLocalizations.of(ctx).cancelButtonLabel),
                       ),
                       if (title != null)
                         Text(
@@ -113,7 +114,8 @@ class MonekoListPicker {
                 ),
                 if (title != null)
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     child: Row(
                       children: [
                         Text(

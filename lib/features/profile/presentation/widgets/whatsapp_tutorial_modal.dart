@@ -47,7 +47,8 @@ class WhatsAppTutorialModal extends HookWidget {
       final Uri url = Uri.parse('https://wa.link/67a9gl');
       try {
         // Prefer external browser/WhatsApp if available
-        bool launched = await launchUrl(url, mode: LaunchMode.externalApplication);
+        bool launched =
+            await launchUrl(url, mode: LaunchMode.externalApplication);
         if (!launched) {
           // Emulator without Chrome or devices with restricted resolvers
           // may fail to resolve https handlers. Use in-app fallbacks.
@@ -59,7 +60,8 @@ class WhatsAppTutorialModal extends HookWidget {
         if (launched && context.mounted) {
           Navigator.of(context).pop(true); // Return true to refresh status
         } else if (!launched && context.mounted) {
-          AppToast.error(context, 'Unable to open WhatsApp link. Please install a browser or WhatsApp.');
+          AppToast.error(context,
+              'Unable to open WhatsApp link. Please install a browser or WhatsApp.');
         }
       } catch (_) {
         if (context.mounted) {

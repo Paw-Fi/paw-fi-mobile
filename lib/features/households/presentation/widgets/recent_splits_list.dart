@@ -5,6 +5,7 @@ import '../providers/household_providers.dart';
 import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
 import '../../../../../core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+
 class RecentSplitsList extends ConsumerWidget {
   final String householdId;
 
@@ -79,7 +80,8 @@ class RecentSplitsList extends ConsumerWidget {
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => TransactionsPage(householdId: householdId),
+                      builder: (_) =>
+                          TransactionsPage(householdId: householdId),
                     ),
                   );
                 },
@@ -92,7 +94,8 @@ class RecentSplitsList extends ConsumerWidget {
       error: (_, __) => Card(
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Text(context.l10n.errorLoadingSplits, style: TextStyle(color: colorScheme.destructive)),
+          child: Text(context.l10n.errorLoadingSplits,
+              style: TextStyle(color: colorScheme.destructive)),
         ),
       ),
     );

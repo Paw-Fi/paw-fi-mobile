@@ -61,7 +61,8 @@ void main() {
     expect(state.household, isNull);
   });
 
-  test('initialize resolves saved legacy selection and migrates to per-user key',
+  test(
+      'initialize resolves saved legacy selection and migrates to per-user key',
       () async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('selected_household_id', 'h2');

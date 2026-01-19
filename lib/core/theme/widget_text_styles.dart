@@ -36,9 +36,9 @@ class WidgetTextStyles {
 
   // Date range label style (non-uppercase)
   static TextStyle dateLabel(Color color) => TextStyle(
-    fontSize: 12,
-    fontWeight: FontWeight.w600,
-    letterSpacing: 1.0,
-    color: color,
-  );
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 1.0,
+        color: color,
+      );
 }

@@ -7,12 +7,12 @@ import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/state/analytics_data.dart';
 
 /// Analytics data provider with robust error handling and retry logic.
-/// 
+///
 /// Uses a server-side RPC function for optimal performance (single round-trip),
 /// with fallback to client-side batched queries if RPC is unavailable.
 class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
   AnalyticsNotifier(this.ref) : super(AnalyticsData());
-  
+
   final Ref ref;
 
   static const int _maxRetries = 3;
@@ -29,7 +29,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
   static const int _fallbackExpenseBatchSize = 400;
   static const int _maxExpenseBatches = 30;
   static const Duration _batchYieldDelay = Duration(milliseconds: 20);
-  
+
   /// Track if connection has been warmed up this session (only for fallback)
   bool _connectionWarmedUp = false;
 
@@ -38,7 +38,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
 
   /// Load all analytics data for a user.
   /// Always fetches ALL transactions (no date filtering) - local filtering is done in UI.
-  /// 
+  ///
   /// Uses RPC function for optimal performance (single round-trip), with automatic
   /// fallback to batched queries if RPC is unavailable.
   Future<void> loadData(
@@ -63,9 +63,11 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
         state = state.copyWith(
           error: 'Please log in to view analytics',
           isLoading: false,
-          hasLoadedOnce: true, // Mark as loaded so other providers don't wait forever
+          hasLoadedOnce:
+              true, // Mark as loaded so other providers don't wait forever
         );
-        debugPrint('[Analytics] Empty userId, setting error state with hasLoadedOnce=true');
+        debugPrint(
+            '[Analytics] Empty userId, setting error state with hasLoadedOnce=true');
         return;
       }
 
@@ -79,23 +81,23 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
       try {
         debugPrint('[Analytics] Fetching via RPC (get_user_analytics)...');
         final stopwatch = Stopwatch()..start();
-        
-        final rpcResponse = await supabase
-            .rpc('get_user_analytics', params: {'p_user_id': userId})
-            .timeout(_rpcTimeout);
-        
+
+        final rpcResponse = await supabase.rpc('get_user_analytics',
+            params: {'p_user_id': userId}).timeout(_rpcTimeout);
+
         stopwatch.stop();
-        debugPrint('[Analytics] RPC completed in ${stopwatch.elapsedMilliseconds}ms');
+        debugPrint(
+            '[Analytics] RPC completed in ${stopwatch.elapsedMilliseconds}ms');
 
         if (rpcResponse != null) {
           final data = rpcResponse as Map<String, dynamic>;
-          
+
           // Parse contact
           final contactData = data['contact'] as Map<String, dynamic>?;
           if (contactData != null) {
             fetchedContact = UserContact.fromJson(contactData);
           }
-          
+
           // Parse expenses
           final expensesData = data['expenses'] as List<dynamic>?;
           if (expensesData != null) {
@@ -103,27 +105,30 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
                 .map((e) => ExpenseEntry.fromJson(e as Map<String, dynamic>))
                 .toList();
           }
-          
+
           // Parse budgets
           final budgetsData = data['budgets'] as List<dynamic>?;
           if (budgetsData != null) {
             allBudgets = budgetsData
-                .map((b) => DailyBudgetEntry.fromJson(b as Map<String, dynamic>))
+                .map(
+                    (b) => DailyBudgetEntry.fromJson(b as Map<String, dynamic>))
                 .toList();
           }
-          
+
           rpcSucceeded = true;
           debugPrint(
             '[Analytics] RPC succeeded: ${rpcExpenses.length} expenses, ${allBudgets.length} budgets',
           );
         }
       } catch (rpcError) {
-        debugPrint('[Analytics] RPC failed (will fallback to batched queries): $rpcError');
+        debugPrint(
+            '[Analytics] RPC failed (will fallback to batched queries): $rpcError');
         // RPC might not be deployed yet - fall back to batched queries
       }
 
       try {
-        debugPrint('[Analytics] 📊 Fetching expenses from DB (source of truth)...');
+        debugPrint(
+            '[Analytics] 📊 Fetching expenses from DB (source of truth)...');
         final dbExpenses = await _loadExpensesFromDb(
           userId: userId,
           currentOperationId: currentOperationId,
@@ -146,20 +151,23 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
       if (!rpcSucceeded && allExpenses.isEmpty) {
         debugPrint('[Analytics] Using fallback batched queries...');
         final fallbackStopwatch = Stopwatch()..start();
-        
+
         try {
-          final fallbackResult = await _loadDataWithBatchedQueries(userId, currentOperationId)
-              .timeout(_fallbackProcessTimeout);
-          
+          final fallbackResult =
+              await _loadDataWithBatchedQueries(userId, currentOperationId)
+                  .timeout(_fallbackProcessTimeout);
+
           if (fallbackResult == null) {
             // Operation was superseded or failed
-            debugPrint('[Analytics] Fallback returned null - operation superseded or failed');
+            debugPrint(
+                '[Analytics] Fallback returned null - operation superseded or failed');
             return;
           }
-          
+
           fallbackStopwatch.stop();
-          debugPrint('[Analytics] Fallback completed in ${fallbackStopwatch.elapsedMilliseconds}ms');
-          
+          debugPrint(
+              '[Analytics] Fallback completed in ${fallbackStopwatch.elapsedMilliseconds}ms');
+
           fetchedContact = fallbackResult.contact;
           if (allExpenses.isEmpty) {
             allExpenses = fallbackResult.expenses;
@@ -167,8 +175,10 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
           allBudgets = fallbackResult.budgets;
         } on TimeoutException {
           fallbackStopwatch.stop();
-          debugPrint('[Analytics] ❌ CRITICAL: Fallback timed out after ${_fallbackProcessTimeout.inSeconds}s!');
-          debugPrint('[Analytics] This suggests serious database or network issues');
+          debugPrint(
+              '[Analytics] ❌ CRITICAL: Fallback timed out after ${_fallbackProcessTimeout.inSeconds}s!');
+          debugPrint(
+              '[Analytics] This suggests serious database or network issues');
           // Continue with empty data rather than hanging forever
           fetchedContact = null;
           allExpenses = [];
@@ -184,7 +194,8 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
 
       // Check if this operation is still current
       if (_loadOperationId != currentOperationId) {
-        debugPrint('[Analytics] Operation $currentOperationId superseded before state update');
+        debugPrint(
+            '[Analytics] Operation $currentOperationId superseded before state update');
         return;
       }
 
@@ -196,8 +207,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
         allExpenses: allExpenses,
         budgets: allBudgets,
         allBudgets: allBudgets,
-        preferredCurrency:
-            fetchedContact?.preferredCurrency?.toUpperCase(),
+        preferredCurrency: fetchedContact?.preferredCurrency?.toUpperCase(),
         isLoading: false,
         hasLoadedOnce: true,
       );
@@ -209,7 +219,8 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
 
       // Check if this operation is still current
       if (_loadOperationId != currentOperationId) {
-        debugPrint('[Analytics] Operation $currentOperationId superseded during error handling');
+        debugPrint(
+            '[Analytics] Operation $currentOperationId superseded during error handling');
         return;
       }
 
@@ -220,7 +231,8 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
             '[Analytics] Scheduling retry ${retryCount + 1}/$_maxRetries after ${backoffDelay.inSeconds}s');
         await Future.delayed(backoffDelay);
         if (_loadOperationId != currentOperationId) {
-          debugPrint('[Analytics] Operation $currentOperationId superseded during error retry delay');
+          debugPrint(
+              '[Analytics] Operation $currentOperationId superseded during error retry delay');
           return;
         }
         return loadData(userId, retryCount: retryCount + 1);
@@ -232,7 +244,8 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
         isLoading: false,
         hasLoadedOnce: true,
       );
-      debugPrint('[Analytics] All retries exhausted, setting error state with hasLoadedOnce=true');
+      debugPrint(
+          '[Analytics] All retries exhausted, setting error state with hasLoadedOnce=true');
     }
   }
 
@@ -242,11 +255,11 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
     int currentOperationId,
   ) async {
     debugPrint('[Analytics] [FALLBACK] Starting batched query process...');
-    
+
     // Fetch contacts with timeout
     debugPrint('[Analytics] [FALLBACK] Fetching user contacts...');
     final contactStopwatch = Stopwatch()..start();
-    
+
     final contactsResponse = await supabase
         .from('user_contacts')
         .select(
@@ -255,14 +268,14 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
         .order('updated_at', ascending: false)
         .order('created_at', ascending: false)
         .timeout(const Duration(seconds: 5));
-    
+
     contactStopwatch.stop();
-    debugPrint('[Analytics] [FALLBACK] Contacts fetched in ${contactStopwatch.elapsedMilliseconds}ms');
+    debugPrint(
+        '[Analytics] [FALLBACK] Contacts fetched in ${contactStopwatch.elapsedMilliseconds}ms');
 
     final contactsList =
         (contactsResponse as List).cast<Map<String, dynamic>>();
-    final contactResponse =
-        contactsList.isNotEmpty ? contactsList.first : null;
+    final contactResponse = contactsList.isNotEmpty ? contactsList.first : null;
 
     // If there is no user_contacts row yet (typical for app-only users
     // who never used WhatsApp), we still want to proceed and load
@@ -295,19 +308,23 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
         perBatchTimeout: _primaryQueryTimeout,
       );
       allExpenses = rawExpenses.map(ExpenseEntry.fromJson).toList();
-      debugPrint('[Analytics] ✅ Batched DB query succeeded: ${allExpenses.length} expenses');
-      
+      debugPrint(
+          '[Analytics] ✅ Batched DB query succeeded: ${allExpenses.length} expenses');
+
       // Log portfolio expenses specifically
-      final portfolioExpenses = allExpenses.where((e) => 
-        e.householdId == 'a044d6af-d96a-4a6b-9c73-564dbe338d93'
-      ).toList();
+      final portfolioExpenses = allExpenses
+          .where((e) => e.householdId == 'a044d6af-d96a-4a6b-9c73-564dbe338d93')
+          .toList();
       if (portfolioExpenses.isNotEmpty) {
-        debugPrint('[Analytics] 🎯 Portfolio expenses in results: ${portfolioExpenses.length}');
+        debugPrint(
+            '[Analytics] 🎯 Portfolio expenses in results: ${portfolioExpenses.length}');
         for (final exp in portfolioExpenses) {
-          debugPrint('[Analytics]   - ${exp.category}: ${exp.amount} ${exp.currency}');
+          debugPrint(
+              '[Analytics]   - ${exp.category}: ${exp.amount} ${exp.currency}');
         }
       } else {
-        debugPrint('[Analytics] ⚠️ No portfolio expenses found in final results');
+        debugPrint(
+            '[Analytics] ⚠️ No portfolio expenses found in final results');
       }
     } catch (primaryError) {
       debugPrint('[Analytics] Primary DB query failed: $primaryError');
@@ -325,7 +342,8 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
           return (isRecurring == null || isRecurring == false);
         }).toList();
         allExpenses = filteredData.map(ExpenseEntry.fromJson).toList();
-        debugPrint('[Analytics] Fallback batched query succeeded: ${allExpenses.length} expenses');
+        debugPrint(
+            '[Analytics] Fallback batched query succeeded: ${allExpenses.length} expenses');
       } catch (fallbackError) {
         debugPrint('[Analytics] Fallback query also failed: $fallbackError');
         allExpenses = [];
@@ -367,9 +385,10 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
             .map((b) => DailyBudgetEntry.fromJson(b as Map<String, dynamic>))
             .toList();
       }
-      
+
       budgetStopwatch.stop();
-      debugPrint('[Analytics] [FALLBACK] Budgets fetched in ${budgetStopwatch.elapsedMilliseconds}ms');
+      debugPrint(
+          '[Analytics] [FALLBACK] Budgets fetched in ${budgetStopwatch.elapsedMilliseconds}ms');
     } catch (budgetError) {
       budgetStopwatch.stop();
       debugPrint('[Analytics] [FALLBACK] Error fetching budgets: $budgetError');
@@ -378,7 +397,8 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
 
     // Check if operation is still current
     if (_loadOperationId != currentOperationId) {
-      debugPrint('[Analytics] Operation $currentOperationId superseded during batched queries');
+      debugPrint(
+          '[Analytics] Operation $currentOperationId superseded during batched queries');
       return null;
     }
 
@@ -576,7 +596,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
 
   /// Warm up the Supabase connection before making expensive queries.
   /// This helps avoid cold-start timeouts by establishing the connection pool.
-  /// 
+  ///
   /// IMPORTANT: We warm up BOTH user_contacts AND expenses tables because
   /// each table may use different connection paths. The main expense query
   /// was timing out on cold start because only user_contacts was warmed up.
@@ -584,7 +604,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
     try {
       debugPrint('[Analytics] Warming up Supabase connection...');
       final stopwatch = Stopwatch()..start();
-      
+
       // Warmup both tables in parallel - this establishes connection paths
       // for both tables and primes the query planner
       await Future.wait([
@@ -604,19 +624,21 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
             .limit(1)
             .timeout(_warmupTimeout),
       ]);
-      
+
       // Small delay to let connection pool fully stabilize
       // This helps prevent race conditions on the first real query
       await Future.delayed(const Duration(milliseconds: 50));
-      
+
       stopwatch.stop();
       _connectionWarmedUp = true;
-      debugPrint('[Analytics] Connection warmed up in ${stopwatch.elapsedMilliseconds}ms');
+      debugPrint(
+          '[Analytics] Connection warmed up in ${stopwatch.elapsedMilliseconds}ms');
     } catch (e) {
       // If warmup fails, we'll still try the main query
       // The increased timeouts should handle it
       debugPrint('[Analytics] Connection warmup failed (non-critical): $e');
-      _connectionWarmedUp = true; // Mark as attempted to avoid repeated warmup failures
+      _connectionWarmedUp =
+          true; // Mark as attempted to avoid repeated warmup failures
     }
   }
 
@@ -677,16 +699,16 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
     debugPrint('[Analytics] 📊 _fetchExpenseBatch START');
     debugPrint('[Analytics]   - userId: $userId');
     debugPrint('[Analytics]   - contactIds: $contactIds');
-    debugPrint('[Analytics]   - applyPersonalFiltersInQuery: $applyPersonalFiltersInQuery');
+    debugPrint(
+        '[Analytics]   - applyPersonalFiltersInQuery: $applyPersonalFiltersInQuery');
     debugPrint('[Analytics]   - range: $from-$to');
-    
-    var query = supabase
-        .from('expenses')
-        .select(
-            'id,contact_id,user_id,date,amount_cents,currency,category,created_at,raw_text,receipt_image_url,household_id,split_group_id,type,is_recurring');
+
+    var query = supabase.from('expenses').select(
+        'id,contact_id,user_id,date,amount_cents,currency,category,created_at,raw_text,receipt_image_url,household_id,split_group_id,type,is_recurring');
 
     if (contactIds.isNotEmpty) {
-      debugPrint('[Analytics]   - Filtering by contactIds OR userId (to include app + WhatsApp data)');
+      debugPrint(
+          '[Analytics]   - Filtering by contactIds OR userId (to include app + WhatsApp data)');
       final orFilter =
           'contact_id.in.(${contactIds.join(',')}),user_id.eq.$userId';
       query = query.or(orFilter);
@@ -696,9 +718,11 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
     }
 
     if (applyPersonalFiltersInQuery) {
-      debugPrint('[Analytics]   - Personal filters requested, but will filter client-side');
+      debugPrint(
+          '[Analytics]   - Personal filters requested, but will filter client-side');
     } else {
-      debugPrint('[Analytics]   - NO personal filters applied (will filter client-side)');
+      debugPrint(
+          '[Analytics]   - NO personal filters applied (will filter client-side)');
     }
 
     final orderedQuery = query.order('date', ascending: false);
@@ -716,32 +740,39 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
         '[Analytics] 🧹 Filtered out recurring: ${results.length - withoutRecurring.length}',
       );
     }
-    
-    debugPrint('[Analytics] ✅ Query completed: ${withoutRecurring.length} expenses returned');
-    
+
+    debugPrint(
+        '[Analytics] ✅ Query completed: ${withoutRecurring.length} expenses returned');
+
     // Log first few expenses for debugging
     if (withoutRecurring.isNotEmpty) {
-      debugPrint('[Analytics] 📋 First ${withoutRecurring.length > 3 ? 3 : withoutRecurring.length} expenses:');
-      for (int i = 0; i < (withoutRecurring.length > 3 ? 3 : withoutRecurring.length); i++) {
+      debugPrint(
+          '[Analytics] 📋 First ${withoutRecurring.length > 3 ? 3 : withoutRecurring.length} expenses:');
+      for (int i = 0;
+          i < (withoutRecurring.length > 3 ? 3 : withoutRecurring.length);
+          i++) {
         final exp = withoutRecurring[i];
-        debugPrint('[Analytics]   [$i] id=${exp['id']}, category=${exp['category']}, '
+        debugPrint(
+            '[Analytics]   [$i] id=${exp['id']}, category=${exp['category']}, '
             'household_id=${exp['household_id']}, split_group_id=${exp['split_group_id']}, '
             'amount=${exp['amount_cents']}');
       }
-      
+
       // Specifically check for the portfolio expense
-      final portfolioExpense = withoutRecurring.where((e) => 
-        e['household_id'] == 'a044d6af-d96a-4a6b-9c73-564dbe338d93'
-      ).toList();
+      final portfolioExpense = withoutRecurring
+          .where((e) =>
+              e['household_id'] == 'a044d6af-d96a-4a6b-9c73-564dbe338d93')
+          .toList();
       if (portfolioExpense.isNotEmpty) {
-        debugPrint('[Analytics] 🎯 FOUND portfolio expense (trading portfolio): ${portfolioExpense.length}');
+        debugPrint(
+            '[Analytics] 🎯 FOUND portfolio expense (trading portfolio): ${portfolioExpense.length}');
       } else {
         debugPrint('[Analytics] ⚠️ Portfolio expense NOT found in results');
       }
     } else {
       debugPrint('[Analytics] ⚠️ No expenses returned from query');
     }
-    
+
     return withoutRecurring;
   }
 
@@ -761,7 +792,8 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
       throw Exception('Operation superseded');
     }
 
-    final contactsList = (contactsResponse as List).cast<Map<String, dynamic>>();
+    final contactsList =
+        (contactsResponse as List).cast<Map<String, dynamic>>();
     final contactIds = contactsList
         .map((c) => c['id'] as String?)
         .where((id) => id != null && id.isNotEmpty)

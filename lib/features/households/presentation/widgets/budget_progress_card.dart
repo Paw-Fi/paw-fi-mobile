@@ -34,7 +34,8 @@ class BudgetProgressCard extends ConsumerWidget {
         final weekDay = now.weekday;
         startDate = now.subtract(Duration(days: weekDay - 1)); // Monday
         startDate = DateTime(startDate.year, startDate.month, startDate.day);
-        endDate = startDate.add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59));
+        endDate = startDate
+            .add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59));
         break;
       case BudgetPeriod.monthly:
         startDate = DateTime(now.year, now.month, 1);
@@ -132,7 +133,8 @@ class BudgetProgressCard extends ConsumerWidget {
                 );
               },
               loading: () => const LinearProgressIndicator(),
-              error: (_, __) => Text(context.l10n.errorLoadingData, style: TextStyle(color: colorScheme.destructive)),
+              error: (_, __) => Text(context.l10n.errorLoadingData,
+                  style: TextStyle(color: colorScheme.destructive)),
             ),
           ],
         ),

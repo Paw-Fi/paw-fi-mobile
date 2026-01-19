@@ -622,7 +622,8 @@ void main() {
       final attachments = [
         Attachment(url: 'url1', type: 'pdf', name: 'doc1.pdf', size: 1024),
         Attachment(url: 'url2', type: 'image', name: 'img1.jpg', size: 2048),
-        Attachment(url: 'url3', type: 'document', name: 'doc2.docx', size: 4096),
+        Attachment(
+            url: 'url3', type: 'document', name: 'doc2.docx', size: 4096),
       ];
 
       final entry = IncomeEntry(

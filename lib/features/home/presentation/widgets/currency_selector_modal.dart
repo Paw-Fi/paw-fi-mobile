@@ -11,6 +11,7 @@ import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+
 /// Shows a full-screen currency selector modal and returns the selected currency code
 Future<String?> showCurrencySelectorModal(
   BuildContext context,
@@ -20,7 +21,8 @@ Future<String?> showCurrencySelectorModal(
   return Navigator.of(context).push<String>(
     MaterialPageRoute(
       fullscreenDialog: true,
-      builder: (_) => CurrencySelectorScreen(showAllByDefault: showAllByDefault),
+      builder: (_) =>
+          CurrencySelectorScreen(showAllByDefault: showAllByDefault),
     ),
   );
 }
@@ -32,10 +34,12 @@ class CurrencySelectorScreen extends ConsumerStatefulWidget {
   const CurrencySelectorScreen({super.key, this.showAllByDefault = false});
 
   @override
-  ConsumerState<CurrencySelectorScreen> createState() => _CurrencySelectorScreenState();
+  ConsumerState<CurrencySelectorScreen> createState() =>
+      _CurrencySelectorScreenState();
 }
 
-class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen> {
+class _CurrencySelectorScreenState
+    extends ConsumerState<CurrencySelectorScreen> {
   bool _showAllCurrencies = false;
   List<String>? _customOrder;
   final TextEditingController _searchController = TextEditingController();
@@ -90,7 +94,7 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
 
     final orderedList = <CurrencySummary>[];
     final currencyMap = {for (var c in currencies) c.currencyCode: c};
-    
+
     // Add currencies in custom order
     for (final code in _customOrder!) {
       if (currencyMap.containsKey(code)) {
@@ -98,10 +102,10 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
         currencyMap.remove(code);
       }
     }
-    
+
     // Add any remaining currencies not in custom order
     orderedList.addAll(currencyMap.values);
-    
+
     return orderedList;
   }
 
@@ -110,44 +114,44 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
     final colorScheme = Theme.of(context).colorScheme;
     final summaries = ref.watch(currencySummariesProvider);
     final filterState = ref.watch(homeFilterProvider);
-    final currencyCounts = ref.watch(currencyTransactionCountsProvider).valueOrNull;
-    
+    final currencyCounts =
+        ref.watch(currencyTransactionCountsProvider).valueOrNull;
+
     // Get all supported currencies from backend
     final currencyOptions = getAvailableCurrencyOptions();
     final allSupportedCurrencies = currencyOptions.keys.toList();
-    
+
     // Create a map of existing summaries for quick lookup
     final summaryMap = {for (var s in summaries) s.currencyCode: s};
-    
+
     // Create full list including all supported currencies
     final allCurrencySummaries = allSupportedCurrencies.map((code) {
-      return summaryMap[code] ?? CurrencySummary(
-        currencyCode: code,
-        totalExpenses: 0,
-        totalIncome: 0,
-        totalBudget: 0,
-        transactionCount: 0,
-      );
+      return summaryMap[code] ??
+          CurrencySummary(
+            currencyCode: code,
+            totalExpenses: 0,
+            totalIncome: 0,
+            totalBudget: 0,
+            transactionCount: 0,
+          );
     }).toList();
-    
+
     // Separate currencies into active (with transactions) and inactive
     var activeCurrencies = allCurrencySummaries.where((s) {
-      final txCount =
-          currencyCounts?[s.currencyCode] ?? s.transactionCount;
+      final txCount = currencyCounts?[s.currencyCode] ?? s.transactionCount;
       return txCount > 0;
     }).toList();
-    
+
     var inactiveCurrencies = allCurrencySummaries.where((s) {
-      final txCount =
-          currencyCounts?[s.currencyCode] ?? s.transactionCount;
+      final txCount = currencyCounts?[s.currencyCode] ?? s.transactionCount;
       return txCount == 0;
     }).toList()
       ..sort((a, b) => a.currencyCode.compareTo(b.currencyCode));
-    
+
     // Apply custom order
     activeCurrencies = _applyCustomOrder(activeCurrencies);
     inactiveCurrencies = _applyCustomOrder(inactiveCurrencies);
-    
+
     // Full ordered list (active + inactive)
     final allOrderedCurrencies = <CurrencySummary>[
       ...activeCurrencies,
@@ -170,14 +174,14 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
           ? List<CurrencySummary>.from(allOrderedCurrencies)
           : List<CurrencySummary>.from(activeCurrencies);
     }
-    
+
     // Always put selected currency at the top and ensure it's visible
     final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
     if (selectedCurrency != null) {
       final selectedIndex = visibleCurrencies.indexWhere(
         (s) => s.currencyCode == selectedCurrency,
       );
-      
+
       if (selectedIndex > 0) {
         // Move selected currency to the front
         final selected = visibleCurrencies.removeAt(selectedIndex);
@@ -272,7 +276,8 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
                       width: 1.5,
                     ),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 ),
               ),
             ),
@@ -286,19 +291,21 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
                 onReorder: (oldIndex, newIndex) {
                   // Provide haptic feedback on successful reorder
                   HapticFeedback.lightImpact();
-                  
+
                   // Adjust index if moving down
                   if (newIndex > oldIndex) {
                     newIndex -= 1;
                   }
-                  
+
                   // Reorder the list
-                  final reorderedList = List<CurrencySummary>.from(visibleCurrencies);
+                  final reorderedList =
+                      List<CurrencySummary>.from(visibleCurrencies);
                   final item = reorderedList.removeAt(oldIndex);
                   reorderedList.insert(newIndex, item);
-                  
+
                   // Save new order
-                  final newOrder = reorderedList.map((s) => s.currencyCode).toList();
+                  final newOrder =
+                      reorderedList.map((s) => s.currencyCode).toList();
                   _saveCustomOrder(newOrder);
                 },
                 children: [
@@ -312,18 +319,26 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
                         transactionCount:
                             (currencyCounts?[summary.currencyCode] ??
                                 summary.transactionCount),
-                        isSelected: filterState.selectedCurrency?.toUpperCase() == summary.currencyCode,
+                        isSelected:
+                            filterState.selectedCurrency?.toUpperCase() ==
+                                summary.currencyCode,
                         onTap: () async {
                           final authState = ref.read(authProvider);
                           final previousCurrency = filterState.selectedCurrency;
-                          final service = ref.read(currencyPreferenceServiceProvider);
-                          final filterNotifier = ref.read(homeFilterProvider.notifier);
-                          final analyticsNotifier = ref.read(analyticsProvider.notifier);
+                          final service =
+                              ref.read(currencyPreferenceServiceProvider);
+                          final filterNotifier =
+                              ref.read(homeFilterProvider.notifier);
+                          final analyticsNotifier =
+                              ref.read(analyticsProvider.notifier);
 
                           // Optimistically update UI immediately
-                          await service.setSelectedCurrency(summary.currencyCode);
-                          filterNotifier.setSelectedCurrency(summary.currencyCode);
-                          analyticsNotifier.updatePreferredCurrency(summary.currencyCode);
+                          await service
+                              .setSelectedCurrency(summary.currencyCode);
+                          filterNotifier
+                              .setSelectedCurrency(summary.currencyCode);
+                          analyticsNotifier
+                              .updatePreferredCurrency(summary.currencyCode);
 
                           // Close modal immediately for better UX and return selected currency
                           if (context.mounted) {
@@ -346,21 +361,27 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
                                 throw Exception('Request failed ($status)');
                               }
 
-                              final payload = response.data as Map<String, dynamic>?;
+                              final payload =
+                                  response.data as Map<String, dynamic>?;
                               if (payload == null || payload['ok'] != true) {
-                                final message = payload?['error'] as String? ?? 'Unable to update currency';
+                                final message = payload?['error'] as String? ??
+                                    'Unable to update currency';
                                 throw Exception(message);
                               }
 
                               // Success - currency is now synced with backend
                             } catch (error) {
                               // Rollback on error
-                              debugPrint('Failed to update preferred currency on backend: $error');
+                              debugPrint(
+                                  'Failed to update preferred currency on backend: $error');
 
                               if (previousCurrency != null) {
-                                await service.setSelectedCurrency(previousCurrency);
-                                filterNotifier.setSelectedCurrency(previousCurrency);
-                                analyticsNotifier.updatePreferredCurrency(previousCurrency);
+                                await service
+                                    .setSelectedCurrency(previousCurrency);
+                                filterNotifier
+                                    .setSelectedCurrency(previousCurrency);
+                                analyticsNotifier
+                                    .updatePreferredCurrency(previousCurrency);
                               }
 
                               // Use AppToast with action so message appears above any bottom sheet
@@ -372,7 +393,8 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
                                   type: AppToastType.warning,
                                   onPressed: () async {
                                     try {
-                                      final retryResponse = await supabase.functions.invoke(
+                                      final retryResponse =
+                                          await supabase.functions.invoke(
                                         'update-preferred-currency',
                                         body: {
                                           'userId': authState.uid,
@@ -382,15 +404,20 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
                                       if (retryResponse.status >= 400) {
                                         throw Exception('Retry failed');
                                       }
-                                      await service.setSelectedCurrency(summary.currencyCode);
-                                      filterNotifier.setSelectedCurrency(summary.currencyCode);
-                                      analyticsNotifier.updatePreferredCurrency(summary.currencyCode);
+                                      await service.setSelectedCurrency(
+                                          summary.currencyCode);
+                                      filterNotifier.setSelectedCurrency(
+                                          summary.currencyCode);
+                                      analyticsNotifier.updatePreferredCurrency(
+                                          summary.currencyCode);
                                       if (context.mounted) {
-                                        AppToast.success(context, 'Currency updated successfully');
+                                        AppToast.success(context,
+                                            'Currency updated successfully');
                                       }
                                     } catch (retryError) {
                                       if (context.mounted) {
-                                        AppToast.error(context, 'Retry failed: $retryError');
+                                        AppToast.error(context,
+                                            'Retry failed: $retryError');
                                       }
                                     }
                                   },
@@ -401,7 +428,7 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
                         },
                       ),
                     ),
-                  
+
                   // Show all currencies toggle button - minimal Apple-style design
                   if (inactiveCurrencies.isNotEmpty)
                     GestureDetector(
@@ -419,9 +446,10 @@ class _CurrencySelectorScreenState extends ConsumerState<CurrencySelectorScreen>
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text(
-                                _showAllCurrencies 
-                                  ? context.l10n.showLessCurrencies
-                                  : context.l10n.showAllCurrencies(inactiveCurrencies.length),
+                                _showAllCurrencies
+                                    ? context.l10n.showLessCurrencies
+                                    : context.l10n.showAllCurrencies(
+                                        inactiveCurrencies.length),
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w400,
@@ -458,14 +486,15 @@ class _CurrencyIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final flagPath = getCurrencyFlagPath(currencyCode);
-    
+
     if (flagPath != null) {
       return Container(
         width: 48,
         height: 48,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          border: Border.all(color: colorScheme.border.withValues(alpha: 0.3), width: 1),
+          border: Border.all(
+              color: colorScheme.border.withValues(alpha: 0.3), width: 1),
         ),
         child: ClipOval(
           child: Image.asset(
@@ -479,7 +508,7 @@ class _CurrencyIcon extends StatelessWidget {
         ),
       );
     }
-    
+
     // No flag available, use symbol
     return _buildSymbolFallback();
   }
@@ -549,7 +578,7 @@ class _CurrencyCard extends StatelessWidget {
                 colorScheme: colorScheme,
               ),
               const SizedBox(width: 12),
-              
+
               // Currency code
               SizedBox(
                 width: 40,
@@ -563,7 +592,7 @@ class _CurrencyCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              
+
               // Right side: transaction count only
               Expanded(
                 child: Align(
@@ -578,8 +607,6 @@ class _CurrencyCard extends StatelessWidget {
                   ),
                 ),
               ),
-              
-          
             ],
           ),
         ),

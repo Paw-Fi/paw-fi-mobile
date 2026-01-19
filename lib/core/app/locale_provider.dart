@@ -22,7 +22,8 @@ class LocaleNotifier extends StateNotifier<Locale?> {
     }
     // value format: language[_COUNTRY]
     final parts = value.split('_');
-    Locale loaded = parts.length == 2 ? Locale(parts[0], parts[1]) : Locale(parts[0]);
+    Locale loaded =
+        parts.length == 2 ? Locale(parts[0], parts[1]) : Locale(parts[0]);
     state = _normalize(loaded);
   }
 
@@ -36,9 +37,10 @@ class LocaleNotifier extends StateNotifier<Locale?> {
     final normalized = _normalize(locale);
     state = normalized;
     final prefs = await SharedPreferences.getInstance();
-    final code = normalized.countryCode != null && normalized.countryCode!.isNotEmpty
-        ? '${normalized.languageCode}_${normalized.countryCode}'
-        : normalized.languageCode;
+    final code =
+        normalized.countryCode != null && normalized.countryCode!.isNotEmpty
+            ? '${normalized.languageCode}_${normalized.countryCode}'
+            : normalized.languageCode;
     await prefs.setString(_key, code);
   }
 

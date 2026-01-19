@@ -448,7 +448,7 @@ class _UncategorizedCategoryTileState extends State<_UncategorizedCategoryTile>
                       ),
                     ],
                   )
-                        : const SizedBox.shrink(),
+                : const SizedBox.shrink(),
           ),
         ],
       ),
@@ -520,8 +520,8 @@ void _showPocketSelectionModal(
                       Icon(
                         Icons.money_off_rounded,
                         size: 48,
-                        color: colorScheme.mutedForeground
-                            .withValues(alpha: 0.5),
+                        color:
+                            colorScheme.mutedForeground.withValues(alpha: 0.5),
                       ),
                       const SizedBox(height: 16),
                       Text(

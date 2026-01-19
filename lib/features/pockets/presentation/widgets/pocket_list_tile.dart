@@ -50,13 +50,11 @@ class PocketListTile extends StatelessWidget {
 
     final currencySymbol = resolveCurrencySymbol(pocket.currency);
     final spentNormalized = double.parse(formatAmount(pocket.spent));
-    final spentLocalized =
-        formatLocalizedNumber(context, spentNormalized);
+    final spentLocalized = formatLocalizedNumber(context, spentNormalized);
     final spentDisplay = '$currencySymbol$spentLocalized';
 
     final limitNormalized = double.parse(formatAmount(limit));
-    final limitLocalized =
-        formatLocalizedNumber(context, limitNormalized);
+    final limitLocalized = formatLocalizedNumber(context, limitNormalized);
     final limitDisplay = '$currencySymbol$limitLocalized';
 
     return GestureDetector(
@@ -190,9 +188,8 @@ class PocketListTile extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
-                              color: isOverBudget
-                                  ? colorScheme.error
-                                  : titleColor,
+                              color:
+                                  isOverBudget ? colorScheme.error : titleColor,
                             ),
                           ),
                           Text(

@@ -128,12 +128,12 @@ void main() {
     test('resolveCurrencySymbol uses validation internally', () {
       // Valid currencies should return correct symbol
       expect(resolveCurrencySymbol('USD'), '\$');
-      
+
       // Invalid currencies should return default symbol
       expect(resolveCurrencySymbol('INVALID'), '\$');
       expect(resolveCurrencySymbol('XXX'), '\$');
       expect(resolveCurrencySymbol('123'), '\$');
-      
+
       // Security: SQL injection attempts should be rejected
       expect(resolveCurrencySymbol("'; DROP TABLE expenses;--"), '\$');
     });

@@ -1,4 +1,3 @@
-
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -104,17 +103,14 @@ class PocketDetailsPage extends HookConsumerWidget {
         ? Color(int.parse(pocket.color!.replaceAll('#', '0xff')))
         : colorScheme.primary;
 
-    final gradientColors =
-        _generateGradientColors(pocketColor, colorScheme);
+    final gradientColors = _generateGradientColors(pocketColor, colorScheme);
 
     // Determine text color based on background luminance
     final isBackgroundLight = gradientColors.first.computeLuminance() > 0.5;
-    final textColor = isBackgroundLight
-        ? AppTheme.lightForeground
-        : AppTheme.darkForeground;
-    final secondaryTextColor = isBackgroundLight
-        ? AppTheme.lightMuted
-        : AppTheme.darkMutedForeground;
+    final textColor =
+        isBackgroundLight ? AppTheme.lightForeground : AppTheme.darkForeground;
+    final secondaryTextColor =
+        isBackgroundLight ? AppTheme.lightMuted : AppTheme.darkMutedForeground;
 
     return Scaffold(
       backgroundColor: gradientColors.first,
@@ -265,8 +261,7 @@ class PocketDetailsPage extends HookConsumerWidget {
                             child: LinearProgressIndicator(
                               value: progress.clamp(0.0, 1.0),
                               minHeight: 8,
-                              backgroundColor:
-                                  textColor.withValues(alpha: 0.1),
+                              backgroundColor: textColor.withValues(alpha: 0.1),
                               valueColor: AlwaysStoppedAnimation<Color>(
                                 textColor.withValues(alpha: 0.8),
                               ),
@@ -484,7 +479,6 @@ class _StatCard extends StatelessWidget {
     );
   }
 }
-
 
 class _SpendingBreakdownCard extends StatelessWidget {
   const _SpendingBreakdownCard({

@@ -39,21 +39,20 @@ Widget buildNetCashflowCard(
     // Scope strictly to the selected account in HomeHeaderSliver:
     // - Personal account: household_id == null
     // - Portfolio account: household_id == selected portfolio household id
-    final scopedTransactions = allTransactions
-        .where((t) {
-          final hid = t.householdId;
-          return switch (householdScope.activeAccountType) {
-            ActiveAccountType.personal => hid == null || hid.isEmpty,
-            ActiveAccountType.portfolio =>
-              activeAccountHouseholdId != null && hid == activeAccountHouseholdId,
-            ActiveAccountType.household => false,
-          };
-        })
-        .toList(growable: false);
+    final scopedTransactions = allTransactions.where((t) {
+      final hid = t.householdId;
+      return switch (householdScope.activeAccountType) {
+        ActiveAccountType.personal => hid == null || hid.isEmpty,
+        ActiveAccountType.portfolio =>
+          activeAccountHouseholdId != null && hid == activeAccountHouseholdId,
+        ActiveAccountType.household => false,
+      };
+    }).toList(growable: false);
 
-    final recurringHouseholdId = householdScope.activeAccountType == ActiveAccountType.personal
-        ? null
-        : activeAccountHouseholdId;
+    final recurringHouseholdId =
+        householdScope.activeAccountType == ActiveAccountType.personal
+            ? null
+            : activeAccountHouseholdId;
 
     // NOTE: Recurring transactions are loaded by app_initialization_provider
     // The derived providers below (recurringExpensesProvider, recurringIncomesProvider)
@@ -66,8 +65,8 @@ Widget buildNetCashflowCard(
         filter, now, customStartDate, customEndDate);
 
     // 2. Filter Transactions & Calculate Actuals
-    final currentTransactions = _filterTransactions(scopedTransactions,
-        currentRange.$1, currentRange.$2, selectedCurrency);
+    final currentTransactions = _filterTransactions(
+        scopedTransactions, currentRange.$1, currentRange.$2, selectedCurrency);
     final previousTransactions = _filterTransactions(scopedTransactions,
         previousRange.$1, previousRange.$2, selectedCurrency);
 

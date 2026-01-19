@@ -29,7 +29,6 @@ import 'package:moneko/features/recurring/domain/models/recurring_transaction.da
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 
-
 class MockAnalyticsNotifier extends AnalyticsNotifier {
   MockAnalyticsNotifier(Ref ref, AnalyticsData data) : super(ref) {
     state = data;
@@ -45,8 +44,7 @@ class MockAuth extends Auth {
 
 class _MockHouseholdRepository extends Mock implements HouseholdRepository {}
 
-class MockUserHouseholdsNotifier
-    extends UserHouseholdsNotifier {
+class MockUserHouseholdsNotifier extends UserHouseholdsNotifier {
   MockUserHouseholdsNotifier(super.repository, super.userId);
 
   Future<List<Household>> build() async {
@@ -63,8 +61,7 @@ class MockUserHouseholdsNotifier
   }
 }
 
-class MockHouseholdMembersNotifier
-    extends HouseholdMembersNotifier {
+class MockHouseholdMembersNotifier extends HouseholdMembersNotifier {
   MockHouseholdMembersNotifier(super.repository, super.householdId);
 
   Future<List<HouseholdMember>> build() async {
@@ -92,8 +89,7 @@ class MockSelectedHouseholdNotifier extends SelectedHouseholdNotifier {
   }
 }
 
-class MockRecurringTransactionsNotifier
-    extends RecurringTransactionsNotifier {
+class MockRecurringTransactionsNotifier extends RecurringTransactionsNotifier {
   MockRecurringTransactionsNotifier(super.ref, super.householdId);
 
   @override
@@ -229,7 +225,8 @@ void main() {
             (ref) async => const <String, int>{},
           ),
           householdRepositoryProvider.overrideWithValue(householdRepository),
-          dashboardRepositoryFutureProvider.overrideWith((ref) async => dashboardRepo),
+          dashboardRepositoryFutureProvider
+              .overrideWith((ref) async => dashboardRepo),
           analyticsProvider.overrideWithProvider(
             StateNotifierProvider<AnalyticsNotifier, AnalyticsData>(
               (ref) => MockAnalyticsNotifier(ref, AnalyticsData()),
@@ -243,12 +240,14 @@ void main() {
             ),
           ),
           selectedHouseholdProvider.overrideWithProvider(
-            StateNotifierProvider<SelectedHouseholdNotifier, SelectedHouseholdState>(
+            StateNotifierProvider<SelectedHouseholdNotifier,
+                SelectedHouseholdState>(
               (ref) => MockSelectedHouseholdNotifier(ref, prefs, 'u1'),
             ),
           ),
           recurringTransactionsProvider('h1').overrideWithProvider(
-            StateNotifierProvider<RecurringTransactionsNotifier, RecurringTransactionsState>(
+            StateNotifierProvider<RecurringTransactionsNotifier,
+                RecurringTransactionsState>(
               (ref) => MockRecurringTransactionsNotifier(ref, 'h1'),
             ),
           ),
@@ -365,7 +364,8 @@ void main() {
         container.invalidate(cachedHouseholdSplitsProvider);
         container.invalidate(householdBudgetsProvider);
         container.invalidate(householdMembersProvider);
-        container.invalidate(pocketsProvider(const PocketsScopeParams(scope: PocketsScopeType.household, householdId: 'h1')));
+        container.invalidate(pocketsProvider(const PocketsScopeParams(
+            scope: PocketsScopeType.household, householdId: 'h1')));
         container.invalidate(currencyTransactionCountsProvider);
 
         await tester.pumpAndSettle();

@@ -6,9 +6,10 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 
 void main() {
   group('Portfolio Household Integration Tests', () {
-    test('Portfolio household is identified correctly by is_portfolio flag', () {
+    test('Portfolio household is identified correctly by is_portfolio flag',
+        () {
       final now = DateTime.now();
-      
+
       // Create a portfolio household
       final portfolioHousehold = Household(
         id: 'portfolio_1',
@@ -37,7 +38,7 @@ void main() {
 
     test('Portfolio households are included in portfolioHouseholdIds set', () {
       final now = DateTime.now();
-      
+
       final households = [
         Household(
           id: 'portfolio_1',
@@ -69,10 +70,8 @@ void main() {
       ];
 
       // Manually construct household scope for testing
-      final portfolioIds = households
-          .where((h) => h.isPortfolio)
-          .map((h) => h.id)
-          .toSet();
+      final portfolioIds =
+          households.where((h) => h.isPortfolio).map((h) => h.id).toSet();
 
       expect(portfolioIds, {'portfolio_1', 'portfolio_2'});
       expect(portfolioIds.contains('household_1'), false);
@@ -80,7 +79,7 @@ void main() {
 
     test('isPortfolioId correctly identifies portfolio households', () {
       final now = DateTime.now();
-      
+
       final households = [
         Household(
           id: 'portfolio_1',
@@ -102,10 +101,8 @@ void main() {
         ),
       ];
 
-      final portfolioIds = households
-          .where((h) => h.isPortfolio)
-          .map((h) => h.id)
-          .toSet();
+      final portfolioIds =
+          households.where((h) => h.isPortfolio).map((h) => h.id).toSet();
 
       // Test isPortfolioId logic
       expect(portfolioIds.contains('portfolio_1'), true);
@@ -116,7 +113,7 @@ void main() {
 
     test('isHouseholdView returns false when portfolio is selected', () {
       final now = DateTime.now();
-      
+
       // Create household scope with portfolio selected
       final portfolioHousehold = Household(
         id: 'portfolio_1',
@@ -147,7 +144,7 @@ void main() {
 
     test('isHouseholdView returns true when true household is selected', () {
       final now = DateTime.now();
-      
+
       final regularHousehold = Household(
         id: 'household_1',
         name: 'Family Budget',
@@ -207,7 +204,9 @@ void main() {
       expect(household.isPortfolio, true);
     });
 
-    test('Portfolio household fromJson defaults is_portfolio to false when missing', () {
+    test(
+        'Portfolio household fromJson defaults is_portfolio to false when missing',
+        () {
       final json = {
         'id': 'household_1',
         'name': 'Family Budget',
@@ -226,7 +225,7 @@ void main() {
 
     test('Portfolio household toJson includes is_portfolio field', () {
       final now = DateTime(2024, 1, 1);
-      
+
       final household = Household(
         id: 'portfolio_1',
         name: 'Investment Portfolio',
@@ -244,7 +243,7 @@ void main() {
 
     test('Portfolio household copyWith preserves is_portfolio flag', () {
       final now = DateTime(2024, 1, 1);
-      
+
       final original = Household(
         id: 'portfolio_1',
         name: 'Investment Portfolio',
@@ -263,7 +262,7 @@ void main() {
 
     test('Portfolio household copyWith can change is_portfolio flag', () {
       final now = DateTime(2024, 1, 1);
-      
+
       final original = Household(
         id: 'portfolio_1',
         name: 'Investment Portfolio',
@@ -282,7 +281,7 @@ void main() {
 
     test('Portfolio household equality includes is_portfolio flag', () {
       final now = DateTime(2024, 1, 1);
-      
+
       final household1 = Household(
         id: 'portfolio_1',
         name: 'Portfolio',

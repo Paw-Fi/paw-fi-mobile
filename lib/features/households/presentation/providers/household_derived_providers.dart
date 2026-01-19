@@ -21,8 +21,10 @@ final householdDerivedSummaryProvider =
         HouseholdSplitsParams(householdId: params.householdId),
       ),
     );
-    final membersAsync = ref.watch(householdMembersProvider(params.householdId));
-    final budgetsAsync = ref.watch(householdBudgetsProvider(params.householdId));
+    final membersAsync =
+        ref.watch(householdMembersProvider(params.householdId));
+    final budgetsAsync =
+        ref.watch(householdBudgetsProvider(params.householdId));
 
     final expenses = expensesAsync.valueOrNull;
     if (expenses == null) {
@@ -104,7 +106,9 @@ HouseholdSummary _buildHouseholdSummary({
     final groupId = e.splitGroupId;
     final group = groupId != null ? splitById[groupId] : null;
 
-    if (group == null || group.splitLines == null || group.splitLines!.isEmpty) {
+    if (group == null ||
+        group.splitLines == null ||
+        group.splitLines!.isEmpty) {
       final owner = e.userId;
       if (owner != null && owner.isNotEmpty) {
         _addContribution(
@@ -302,9 +306,8 @@ List<BudgetStatus> _buildBudgetStatuses({
     );
 
     final remainingCents = budget.amountCents - spentCents;
-    final percentageUsed = budget.amountCents > 0
-        ? (spentCents / budget.amountCents) * 100
-        : 0.0;
+    final percentageUsed =
+        budget.amountCents > 0 ? (spentCents / budget.amountCents) * 100 : 0.0;
 
     statuses.add(
       BudgetStatus(
@@ -317,10 +320,8 @@ List<BudgetStatus> _buildBudgetStatuses({
         remainingCents: remainingCents,
         percentageUsed: percentageUsed,
         isOverBudget: spentCents > budget.amountCents,
-        isAtWarnThreshold:
-            percentageUsed >= (budget.warnThreshold * 100.0),
-        isAtAlertThreshold:
-            percentageUsed >= (budget.alertThreshold * 100.0),
+        isAtWarnThreshold: percentageUsed >= (budget.warnThreshold * 100.0),
+        isAtAlertThreshold: percentageUsed >= (budget.alertThreshold * 100.0),
       ),
     );
   }

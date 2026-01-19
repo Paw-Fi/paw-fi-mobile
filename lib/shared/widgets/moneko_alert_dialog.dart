@@ -327,9 +327,8 @@ class _MonekoAlertDialogWidgetState extends State<_MonekoAlertDialogWidget> {
                 ],
                 FilledButton.tonal(
                   style: FilledButton.styleFrom(
-                    backgroundColor: widget.isDestructive
-                        ? scheme.error
-                        : scheme.primary,
+                    backgroundColor:
+                        widget.isDestructive ? scheme.error : scheme.primary,
                     foregroundColor: widget.isDestructive
                         ? scheme.onError
                         : scheme.onPrimary,

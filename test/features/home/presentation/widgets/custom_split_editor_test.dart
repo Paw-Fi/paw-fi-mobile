@@ -21,7 +21,8 @@ HouseholdMember _member(String userId, String name) {
 }
 
 void main() {
-  testWidgets('Switching to percent initializes percentages when missing', (tester) async {
+  testWidgets('Switching to percent initializes percentages when missing',
+      (tester) async {
     final members = <HouseholdMember>[
       _member('u1', 'Alice'),
       _member('u2', 'Bob'),
@@ -76,7 +77,8 @@ void main() {
     expect(latestSplits!.every((s) => (s.percentage ?? 0) >= 0), isTrue);
   });
 
-  testWidgets('Shares: initializes to 1 and uses null for excluded', (tester) async {
+  testWidgets('Shares: initializes to 1 and uses null for excluded',
+      (tester) async {
     final members = <HouseholdMember>[
       _member('u1', 'Alice'),
       _member('u2', 'Bob'),
@@ -136,4 +138,3 @@ void main() {
     expect(latestSplits!.first.shares, isNull);
   });
 }
-

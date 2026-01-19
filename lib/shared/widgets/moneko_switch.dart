@@ -34,8 +34,7 @@ class MonekoSwitch extends StatelessWidget {
 
     final colorScheme = Theme.of(context).colorScheme;
     final resolvedActiveThumb = activeColor ?? colorScheme.primary;
-    final resolvedActiveTrack =
-        resolvedActiveThumb.withValues(alpha: 0.35);
+    final resolvedActiveTrack = resolvedActiveThumb.withValues(alpha: 0.35);
     final resolvedInactiveThumb = thumbColor ?? colorScheme.card;
     final resolvedInactiveTrack = trackColor ?? colorScheme.border;
 

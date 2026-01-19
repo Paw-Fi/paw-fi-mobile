@@ -57,7 +57,9 @@ class BalanceSummaryWidget extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        netBalance >= 0 ? context.l10n.youAreOwed : context.l10n.youOweOthers,
+                        netBalance >= 0
+                            ? context.l10n.youAreOwed
+                            : context.l10n.youOweOthers,
                         style: TextStyle(
                           fontSize: 14,
                           color: colorScheme.mutedForeground,

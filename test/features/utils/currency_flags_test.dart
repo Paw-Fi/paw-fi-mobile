@@ -7,7 +7,8 @@ void main() {
       expect(getCurrencyFlagPath('USD'), 'lib/assets/images/flags/us.png');
       expect(getCurrencyFlagPath('EUR'), 'lib/assets/images/flags/europe.png');
       expect(getCurrencyFlagPath('GBP'), 'lib/assets/images/flags/uk.png');
-      expect(getCurrencyFlagPath('AED'), 'lib/assets/images/flags/uae.png'); // Fixed typo!
+      expect(getCurrencyFlagPath('AED'),
+          'lib/assets/images/flags/uae.png'); // Fixed typo!
       expect(getCurrencyFlagPath('JPY'), 'lib/assets/images/flags/jp.png');
       expect(getCurrencyFlagPath('CNY'), 'lib/assets/images/flags/cn.png');
       expect(getCurrencyFlagPath('AUD'), 'lib/assets/images/flags/au.png');

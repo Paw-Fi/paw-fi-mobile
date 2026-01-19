@@ -17,7 +17,8 @@ void main() {
     addTearDown(container.dispose);
 
     const householdId = 'household-1';
-    final notifier = container.read(householdOptimisticExpensesProvider.notifier);
+    final notifier =
+        container.read(householdOptimisticExpensesProvider.notifier);
 
     notifier.addExpense(householdId, _entry('a'));
     notifier.addExpense(householdId, _entry('b'));
@@ -34,7 +35,8 @@ void main() {
     addTearDown(container.dispose);
 
     const householdId = 'household-1';
-    final notifier = container.read(householdOptimisticExpensesProvider.notifier);
+    final notifier =
+        container.read(householdOptimisticExpensesProvider.notifier);
 
     notifier.addExpense(householdId, _entry('old'));
 
@@ -45,4 +47,3 @@ void main() {
     expect(state[householdId]?.any((e) => e.id == 'new'), true);
   });
 }
-

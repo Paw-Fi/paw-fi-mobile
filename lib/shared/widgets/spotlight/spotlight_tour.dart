@@ -182,10 +182,8 @@ class _SpotlightTourOverlayState extends State<SpotlightTourOverlay>
               painter: _SpotlightPainter(
                 rect: targetRect,
                 borderRadius: currentStep.borderRadius,
-                color: Theme.of(context)
-                    .colorScheme
-                    .shadow
-                    .withValues(alpha: 0.7),
+                color:
+                    Theme.of(context).colorScheme.shadow.withValues(alpha: 0.7),
               ),
             ),
 

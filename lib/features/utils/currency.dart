@@ -101,7 +101,7 @@ String resolveCurrencySymbol(String? currencyCode) {
   if (code == null || code.isEmpty) {
     return _defaultCurrencySymbol;
   }
-  
+
   // Validate currency code before use
   if (!isSupportedCurrencyCode(code)) {
     if (kDebugMode) {
@@ -124,20 +124,20 @@ Map<String, String> getAvailableCurrencyOptions() {
 bool isSupportedCurrencyCode(String? code) {
   if (code == null || code.isEmpty) return false;
   final upper = code.toUpperCase().trim();
-  
+
   // Only allow 3-letter ISO codes
   if (upper.length != 3) return false;
-  
+
   // Only allow A-Z characters (security: prevents SQL injection and special characters)
   if (!RegExp(r'^[A-Z]{3}$').hasMatch(upper)) return false;
-  
+
   return currencyOptions.containsKey(upper);
 }
 
 /// Formats a monetary amount with smart decimal handling:
 /// - Whole numbers show without decimals (e.g., 50.00 → "50")
 /// - Numbers with cents show 2 decimals (e.g., 50.25 → "50.25")
-/// 
+///
 /// Examples:
 /// - formatAmount(50.0) → "50"
 /// - formatAmount(50.5) → "50.50"
@@ -155,7 +155,7 @@ String formatAmount(double amount) {
 }
 
 /// Formats a monetary amount with currency symbol and smart decimal handling
-/// 
+///
 /// Examples:
 /// - formatCurrency(50.0, 'USD') → "$50"
 /// - formatCurrency(50.25, 'USD') → "$50.25"

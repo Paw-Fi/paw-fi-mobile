@@ -60,7 +60,8 @@ class WhatsAppBinding extends _$WhatsAppBinding {
           .limit(1);
 
       if (response.isNotEmpty) {
-        return Map<String, dynamic>.from(response.first as Map<String, dynamic>);
+        return Map<String, dynamic>.from(
+            response.first as Map<String, dynamic>);
       }
       return null;
     } catch (error) {
@@ -68,7 +69,7 @@ class WhatsAppBinding extends _$WhatsAppBinding {
       return null;
     }
   }
-  
+
   /// Clear cached state (useful on logout)
   void clear() {
     state = const AsyncValue.data(false);

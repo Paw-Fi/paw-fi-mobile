@@ -30,7 +30,8 @@ final pendingExpenseProvider = StateProvider<ParsedExpense?>((ref) => null);
 // ============================================================================
 
 /// Tracks which household to share expense with (null = personal only)
-final selectedHouseholdForSharingProvider = StateProvider<String?>((ref) => null);
+final selectedHouseholdForSharingProvider =
+    StateProvider<String?>((ref) => null);
 
 // ============================================================================
 // EXPENSE SAVE NOTIFIER
@@ -58,12 +59,14 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
 
     try {
       final user = ref.read(authProvider);
-      
-      debugPrint('💾 Saving expense: ${expense.formattedAmount} ${expense.category}');
+
+      debugPrint(
+          '💾 Saving expense: ${expense.formattedAmount} ${expense.category}');
       if (householdId != null) {
         debugPrint('👥 Sharing with household: $householdId');
         if (customSplitType != null && customSplits != null) {
-          debugPrint('📊 Custom split type: $customSplitType with ${customSplits.length} members');
+          debugPrint(
+              '📊 Custom split type: $customSplitType with ${customSplits.length} members');
         }
       }
 
@@ -106,45 +109,50 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
           customSplitType != null &&
           customSplits != null) {
         final splitTypeStr = customSplitType.toString().split('.').last;
-        
+
         debugPrint('🔍 [SAVE EXPENSE] Preparing custom splits:');
         debugPrint('  - Split type: $splitTypeStr');
         debugPrint('  - Number of members: ${customSplits.length}');
-        
+
         requestBody['customSplits'] = {
           'splitType': splitTypeStr,
           'memberSplits': customSplits.map((split) {
             final memberData = <String, dynamic>{
               'userId': split.member.userId,
             };
-            
+
             // Add the appropriate field based on split type
             switch (customSplitType) {
               case SplitType.amount:
                 memberData['amount'] = split.amount;
-                debugPrint('  - Member ${split.member.userName ?? split.member.userEmail}: amount=${split.amount}');
+                debugPrint(
+                    '  - Member ${split.member.userName ?? split.member.userEmail}: amount=${split.amount}');
                 break;
               case SplitType.percentage:
                 memberData['percentage'] = split.percentage;
-                debugPrint('  - Member ${split.member.userName ?? split.member.userEmail}: percentage=${split.percentage}');
+                debugPrint(
+                    '  - Member ${split.member.userName ?? split.member.userEmail}: percentage=${split.percentage}');
                 break;
               case SplitType.shares:
                 memberData['shares'] = split.shares;
-                debugPrint('  - Member ${split.member.userName ?? split.member.userEmail}: shares=${split.shares}');
+                debugPrint(
+                    '  - Member ${split.member.userName ?? split.member.userEmail}: shares=${split.shares}');
                 break;
               case SplitType.equal:
-                debugPrint('  - Member ${split.member.userName ?? split.member.userEmail}: equal (no data)');
+                debugPrint(
+                    '  - Member ${split.member.userName ?? split.member.userEmail}: equal (no data)');
                 // No additional data needed for equal splits
                 break;
             }
-            
+
             return memberData;
           }).toList(),
         };
-        
+
         debugPrint('📊 Custom splits payload: ${requestBody['customSplits']}');
       } else if (householdId != null) {
-        debugPrint('⚠️ [SAVE EXPENSE] No custom splits - backend will default to equal split');
+        debugPrint(
+            '⚠️ [SAVE EXPENSE] No custom splits - backend will default to equal split');
         debugPrint('  - customSplitType: $customSplitType');
         debugPrint('  - customSplits: ${customSplits?.length ?? 0} members');
       }
@@ -167,8 +175,9 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       }
 
       debugPrint('✅ Expense saved successfully');
-      final responseMap =
-          response.data is Map<String, dynamic> ? response.data as Map<String, dynamic> : null;
+      final responseMap = response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : null;
       _addOptimisticHouseholdData(
         expense: expense,
         householdId: householdId,
@@ -221,8 +230,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     final createdAt =
         createdAtRaw != null ? DateTime.tryParse(createdAtRaw) : null;
 
-    final members =
-        ref.read(householdMembersProvider(householdId)).valueOrNull;
+    final members = ref.read(householdMembersProvider(householdId)).valueOrNull;
 
     final splitGroup = hasServerId
         ? _buildOptimisticSplitGroup(
@@ -367,8 +375,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     List<MemberSplit> splits,
   ) {
     return switch (splitType) {
-      SplitType.amount =>
-        splits.where((s) => s.includedInAmount).toList(),
+      SplitType.amount => splits.where((s) => s.includedInAmount).toList(),
       SplitType.percentage =>
         splits.where((s) => s.includedInPercentage).toList(),
       SplitType.shares => splits.where((s) => (s.shares ?? 0) > 0).toList(),
@@ -417,18 +424,15 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     final normalized = weights
         .map((value) => value.isNegative ? 0.0 : value.toDouble())
         .toList();
-    final totalWeight =
-        normalized.fold<double>(0, (sum, value) => sum + value);
+    final totalWeight = normalized.fold<double>(0, (sum, value) => sum + value);
     if (totalWeight <= 0) {
       return List<int>.filled(weights.length, 0);
     }
 
-    final raw = normalized
-        .map((value) => (totalCents * value) / totalWeight)
-        .toList();
+    final raw =
+        normalized.map((value) => (totalCents * value) / totalWeight).toList();
     final floorValues = raw.map((value) => value.floor()).toList();
-    var remainder =
-        totalCents - floorValues.fold<int>(0, (sum, v) => sum + v);
+    var remainder = totalCents - floorValues.fold<int>(0, (sum, v) => sum + v);
 
     if (remainder > 0) {
       final order = List<int>.generate(raw.length, (i) => i);
@@ -459,13 +463,15 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
 
     if (householdId != null) {
       // Shared expense: refresh household data
-      debugPrint('🔄 Invalidating household providers for household: $householdId');
+      debugPrint(
+          '🔄 Invalidating household providers for household: $householdId');
 
       // Clear RequestDeduplicator cache so cached providers don't serve stale data.
       ref.read(cacheInvalidatorProvider).invalidateHouseholdData(householdId);
 
       // Invalidate family providers so all parameterized instances refresh
-      ref.invalidate(householdExpensesProvider); // fix: refresh all limits (e.g., 500)
+      ref.invalidate(
+          householdExpensesProvider); // fix: refresh all limits (e.g., 500)
       ref.invalidate(householdSplitsProvider);
       ref.invalidate(householdBudgetsProvider);
 
@@ -476,10 +482,10 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
 
       debugPrint('✅ Invalidated families: expenses, splits, budgets');
     }
-    
+
     // Small delay to ensure backend has propagated changes
     await Future.delayed(const Duration(milliseconds: 300));
-    
+
     debugPrint('✅ Providers invalidated and ready for refresh');
   }
 
@@ -509,9 +515,8 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
         throw Exception('Upload failed');
       }
 
-      final publicUrl = supabase.storage
-          .from('expense-receipts')
-          .getPublicUrl(path);
+      final publicUrl =
+          supabase.storage.from('expense-receipts').getPublicUrl(path);
 
       debugPrint('✅ Receipt uploaded: $publicUrl');
       return publicUrl;

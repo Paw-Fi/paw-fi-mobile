@@ -7,6 +7,7 @@ import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/auth/auth.dart';
+
 /// Google Sign-In button matching web implementation
 /// Uses Supabase OAuth with Google provider
 class GoogleLoginButton extends HookConsumerWidget {
@@ -32,7 +33,7 @@ class GoogleLoginButton extends HookConsumerWidget {
       try {
         debugPrint('🔐 Starting Google OAuth flow...');
         debugPrint('🔐 Redirect URL: ${DeepLinks.oauthCallback}');
-        
+
         // Use Supabase's recommended mobile deep link pattern
         // Important: Don't add query parameters to redirectTo - handle them in the callback screen
         final result = await supabase.auth.signInWithOAuth(
@@ -42,7 +43,7 @@ class GoogleLoginButton extends HookConsumerWidget {
         );
 
         debugPrint('🔐 OAuth initiated: ${result ? "Success" : "Failed"}');
-        
+
         // Store the intended redirect location for after auth completes
         // The DeepLinkService will handle navigation to this route
         if (redirectUrl != null) {

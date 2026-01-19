@@ -195,7 +195,8 @@ void main() {
     });
 
     test('handles URI with multiple query parameters', () {
-      final uri = Uri.parse('moneko://households/join?token=abc123&source=email');
+      final uri =
+          Uri.parse('moneko://households/join?token=abc123&source=email');
       expect(DeepLinks.isHouseholdInvitation(uri), true);
     });
 
@@ -279,7 +280,7 @@ void main() {
     test('generates valid payment success URL', () {
       final url = DeepLinks.paymentSuccess();
       final uri = Uri.parse(url);
-      
+
       expect(uri.scheme, 'moneko');
       expect(uri.host, 'payment');
       expect(uri.queryParameters['status'], 'success');
@@ -288,7 +289,7 @@ void main() {
     test('generates payment success URL with session ID', () {
       final url = DeepLinks.paymentSuccess(sessionId: 'sess_123');
       final uri = Uri.parse(url);
-      
+
       expect(uri.queryParameters['status'], 'success');
       expect(uri.queryParameters['session_id'], 'sess_123');
     });
@@ -296,7 +297,7 @@ void main() {
     test('generates valid payment failed URL', () {
       final url = DeepLinks.paymentFailed('Card declined');
       final uri = Uri.parse(url);
-      
+
       expect(uri.queryParameters['status'], 'failed');
       expect(uri.queryParameters['error'], 'Card declined');
     });
@@ -304,7 +305,7 @@ void main() {
     test('generates valid payment canceled URL', () {
       final url = DeepLinks.paymentCanceled();
       final uri = Uri.parse(url);
-      
+
       expect(uri.queryParameters['status'], 'canceled');
     });
   });
@@ -328,12 +329,13 @@ void main() {
       const error = 'Payment failed: Insufficient funds';
       final url = DeepLinks.paymentFailed(error);
       final uri = Uri.parse(url);
-      
+
       expect(uri.queryParameters['error'], error);
     });
 
     test('handles OAuth callback with fragment parameters', () {
-      final uri = Uri.parse('io.supabase.moneko://login-callback#access_token=abc123&refresh_token=xyz789');
+      final uri = Uri.parse(
+          'io.supabase.moneko://login-callback#access_token=abc123&refresh_token=xyz789');
       expect(DeepLinks.isOAuthCallback(uri), true);
       expect(uri.fragment, contains('access_token'));
       expect(uri.fragment, contains('refresh_token'));
@@ -343,7 +345,7 @@ void main() {
   group('DeepLinkService - URL Validation', () {
     test('validates household invitation deep link structure', () {
       final uri = Uri.parse('moneko://households/join?token=abc123');
-      
+
       expect(uri.scheme, 'moneko');
       expect(uri.host, 'households');
       expect(uri.path, '/join');
@@ -352,7 +354,7 @@ void main() {
 
     test('validates household invitation universal link structure', () {
       final uri = Uri.parse('https://moneko.io/invites/abc123');
-      
+
       expect(uri.scheme, 'https');
       expect(uri.host, 'moneko.io');
       expect(uri.pathSegments[0], 'invites');
@@ -361,14 +363,14 @@ void main() {
 
     test('validates OAuth callback structure', () {
       final uri = Uri.parse('io.supabase.moneko://login-callback');
-      
+
       expect(uri.scheme, 'io.supabase.moneko');
       expect(uri.host, 'login-callback');
     });
 
     test('validates payment callback structure', () {
       final uri = Uri.parse('moneko://payment?status=success');
-      
+
       expect(uri.scheme, 'moneko');
       expect(uri.host, 'payment');
       expect(uri.queryParameters.containsKey('status'), true);

@@ -5,8 +5,8 @@ class ExpenseEntry {
   final String id;
   final String? contactId;
   final String? userId;
-  final String? userName;  // From users.full_name
-  final String? userAvatarUrl;  // From users.avatar_url
+  final String? userName; // From users.full_name
+  final String? userAvatarUrl; // From users.avatar_url
   final String? householdId;
   final DateTime date;
   final int amountCents;
@@ -66,7 +66,7 @@ class ExpenseEntry {
       }
       return 0;
     }
-    
+
     return ExpenseEntry(
       id: stringOrEmpty(json['id']),
       contactId: json['contact_id'] as String?,

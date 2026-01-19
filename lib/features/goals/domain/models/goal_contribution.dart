@@ -5,7 +5,8 @@ class GoalContribution {
   final String? householdId;
   final double amount;
   final String currency;
-  final String contributionType; // 'contribution', 'withdrawal', 'interest', 'adjustment'
+  final String
+      contributionType; // 'contribution', 'withdrawal', 'interest', 'adjustment'
   final double? normalizedAmount;
   final double? fxRate;
   final String? baseCurrency;
@@ -61,7 +62,8 @@ class GoalContribution {
       normalizedAmount: json['normalized_amount_cents'] != null
           ? (json['normalized_amount_cents'] as num) / 100
           : null,
-      fxRate: json['fx_rate'] != null ? (json['fx_rate'] as num).toDouble() : null,
+      fxRate:
+          json['fx_rate'] != null ? (json['fx_rate'] as num).toDouble() : null,
       baseCurrency: json['base_currency'] as String?,
       privacyScope: json['privacy_scope'] as String? ?? 'full',
       ownerType: json['owner_type'] as String? ?? 'me',
@@ -92,9 +94,8 @@ class GoalContribution {
       'amount_cents': (amount * 100).round(),
       'currency': currency,
       'contribution_type': contributionType,
-      'normalized_amount_cents': normalizedAmount != null
-          ? (normalizedAmount! * 100).round()
-          : null,
+      'normalized_amount_cents':
+          normalizedAmount != null ? (normalizedAmount! * 100).round() : null,
       'fx_rate': fxRate,
       'base_currency': baseCurrency,
       'privacy_scope': privacyScope,

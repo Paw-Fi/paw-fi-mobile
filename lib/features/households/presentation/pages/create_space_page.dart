@@ -148,8 +148,7 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
                 decoration: TextDecoration.underline,
                 decorationColor: colorScheme.primary,
               ),
-              recognizer: TapGestureRecognizer()
-                ..onTap = _showSpacesInfo,
+              recognizer: TapGestureRecognizer()..onTap = _showSpacesInfo,
             ),
           ],
         ),
@@ -187,15 +186,10 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _buildSpaceDescription(colorScheme),
-                        
                         const SizedBox(height: 20),
-                        
                         _buildFormCard(colorScheme, isLoading),
-
                         const SizedBox(height: 20),
-
                         _buildMembersSection(colorScheme, currentUser),
-
                       ],
                     ),
                   ),
@@ -288,7 +282,9 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _isSharedSpace ? context.l10n.sharedSpace : context.l10n.privateSpace,
+                        _isSharedSpace
+                            ? context.l10n.sharedSpace
+                            : context.l10n.privateSpace,
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -528,7 +524,8 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
                     children: [
                       Text(
                         _isSharedSpace
-                            ? context.l10n.continueAction // Cleaner "Continue" vs "Next"
+                            ? context.l10n
+                                .continueAction // Cleaner "Continue" vs "Next"
                             : context.l10n.createPrivateSpace, // TODO: Localize
                         style: const TextStyle(
                           fontWeight: FontWeight.w600,

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
-Widget buildChartLegend(ColorScheme colorScheme, List<Map<String, dynamic>> items) {
+Widget buildChartLegend(
+    ColorScheme colorScheme, List<Map<String, dynamic>> items) {
   return Wrap(
     spacing: 16,
     runSpacing: 8,

@@ -36,7 +36,12 @@ abstract class $AppUserCopyWith<$Res> {
   factory $AppUserCopyWith(AppUser value, $Res Function(AppUser) then) =
       _$AppUserCopyWithImpl<$Res, AppUser>;
   @useResult
-  $Res call({String uid, String email, String? displayName, String? photoUrl, bool isCreator});
+  $Res call(
+      {String uid,
+      String email,
+      String? displayName,
+      String? photoUrl,
+      bool isCreator});
 }
 
 /// @nodoc
@@ -57,21 +62,12 @@ class _$AppUserCopyWithImpl<$Res, $Val extends AppUser>
     Object? isCreator = null,
   }) {
     return _then(_value.copyWith(
-      uid: null == uid
-          ? _value.uid
-          : uid as String,
-      email: null == email
-          ? _value.email
-          : email as String,
-      displayName: freezed == displayName
-          ? _value.displayName
-          : displayName as String?,
-      photoUrl: freezed == photoUrl
-          ? _value.photoUrl
-          : photoUrl as String?,
-      isCreator: null == isCreator
-          ? _value.isCreator
-          : isCreator as bool,
+      uid: null == uid ? _value.uid : uid as String,
+      email: null == email ? _value.email : email as String,
+      displayName:
+          freezed == displayName ? _value.displayName : displayName as String?,
+      photoUrl: freezed == photoUrl ? _value.photoUrl : photoUrl as String?,
+      isCreator: null == isCreator ? _value.isCreator : isCreator as bool,
     ) as $Val);
   }
 }
@@ -83,7 +79,12 @@ abstract class _$$AppUserImplCopyWith<$Res> implements $AppUserCopyWith<$Res> {
       __$$AppUserImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({String uid, String email, String? displayName, String? photoUrl, bool isCreator});
+  $Res call(
+      {String uid,
+      String email,
+      String? displayName,
+      String? photoUrl,
+      bool isCreator});
 }
 
 /// @nodoc
@@ -104,21 +105,12 @@ class __$$AppUserImplCopyWithImpl<$Res>
     Object? isCreator = null,
   }) {
     return _then(_$AppUserImpl(
-      uid: null == uid
-          ? _value.uid
-          : uid as String,
-      email: null == email
-          ? _value.email
-          : email as String,
-      displayName: freezed == displayName
-          ? _value.displayName
-          : displayName as String?,
-      photoUrl: freezed == photoUrl
-          ? _value.photoUrl
-          : photoUrl as String?,
-      isCreator: null == isCreator
-          ? _value.isCreator
-          : isCreator as bool,
+      uid: null == uid ? _value.uid : uid as String,
+      email: null == email ? _value.email : email as String,
+      displayName:
+          freezed == displayName ? _value.displayName : displayName as String?,
+      photoUrl: freezed == photoUrl ? _value.photoUrl : photoUrl as String?,
+      isCreator: null == isCreator ? _value.isCreator : isCreator as bool,
     ));
   }
 }
@@ -207,8 +199,7 @@ abstract class _AppUser implements AppUser {
       final String? photoUrl,
       final bool isCreator}) = _$AppUserImpl;
 
-  factory _AppUser.fromJson(Map<String, dynamic> json) =
-      _$AppUserImpl.fromJson;
+  factory _AppUser.fromJson(Map<String, dynamic> json) = _$AppUserImpl.fromJson;
 
   @override
   String get uid;

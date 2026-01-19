@@ -233,7 +233,12 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   String _formatAiLoggedToastMessage(
-    List<({ParsedExpense transaction, String optimisticId, Map<String, dynamic> raw})>
+    List<
+            ({
+              ParsedExpense transaction,
+              String optimisticId,
+              Map<String, dynamic> raw
+            })>
         parsed,
   ) {
     if (parsed.isEmpty) return context.l10n.failedToAnalyzeNoData;
@@ -488,7 +493,11 @@ class _HomePageState extends ConsumerState<HomePage> {
                 householdId: householdId,
               );
 
-              return (transaction: transaction, optimisticId: optimisticId, raw: item);
+              return (
+                transaction: transaction,
+                optimisticId: optimisticId,
+                raw: item
+              );
             }).toList();
 
             AppToast.success(
@@ -561,7 +570,12 @@ class _HomePageState extends ConsumerState<HomePage> {
     required String userId,
     required String? householdId,
     required bool isPortfolio,
-    required List<({ParsedExpense transaction, String optimisticId, Map<String, dynamic> raw})>
+    required List<
+            ({
+              ParsedExpense transaction,
+              String optimisticId,
+              Map<String, dynamic> raw
+            })>
         transactions,
     String? localImagePath,
   }) async {
@@ -596,8 +610,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             throw Exception(response.data?['error'] ?? 'Failed to save income');
           }
 
-          final saved =
-              Map<String, dynamic>.from(response.data['data'] as Map);
+          final saved = Map<String, dynamic>.from(response.data['data'] as Map);
           final savedEntry = ExpenseEntry.fromJson(saved);
           replaceOptimisticTransaction(
             ref: ref,
@@ -915,8 +928,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                                   builder: (context, ref, _) {
                                     // NOTE: Recurring transactions are loaded by app_initialization_provider
                                     // Just watch the data here - no need to trigger load
-                                    final recurringHouseholdId = householdScope
-                                        .activeAccountHouseholdId;
+                                    final recurringHouseholdId =
+                                        householdScope.activeAccountHouseholdId;
                                     final recurringAsync = ref.watch(
                                       recurringTransactionsProvider(
                                         recurringHouseholdId,

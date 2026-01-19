@@ -115,7 +115,8 @@ class SharedBudget {
           ? DateTime.parse(json['period_end'] as String)
           : null,
       isActive: json['is_active'] as bool,
-      budgetType: BudgetType.fromJson(json['budget_type'] as String? ?? 'household'),
+      budgetType:
+          BudgetType.fromJson(json['budget_type'] as String? ?? 'household'),
       userId: json['user_id'] as String?,
       countSplitPortionOnly: json['count_split_portion_only'] as bool? ?? false,
       createdAt: DateTime.parse(json['created_at'] as String),
@@ -176,7 +177,8 @@ class SharedBudget {
       isActive: isActive ?? this.isActive,
       budgetType: budgetType ?? this.budgetType,
       userId: userId ?? this.userId,
-      countSplitPortionOnly: countSplitPortionOnly ?? this.countSplitPortionOnly,
+      countSplitPortionOnly:
+          countSplitPortionOnly ?? this.countSplitPortionOnly,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -302,8 +304,12 @@ class SharingPreferences {
       enableNudges: (json['enable_nudges'] as bool?) ?? true,
       nudgeQuietHoursStart: json['nudge_quiet_hours_start'] as String?,
       nudgeQuietHoursEnd: json['nudge_quiet_hours_end'] as String?,
-      createdAt: createdAtStr != null ? DateTime.parse(createdAtStr) : DateTime.fromMillisecondsSinceEpoch(0),
-      updatedAt: updatedAtStr != null ? DateTime.parse(updatedAtStr) : DateTime.fromMillisecondsSinceEpoch(0),
+      createdAt: createdAtStr != null
+          ? DateTime.parse(createdAtStr)
+          : DateTime.fromMillisecondsSinceEpoch(0),
+      updatedAt: updatedAtStr != null
+          ? DateTime.parse(updatedAtStr)
+          : DateTime.fromMillisecondsSinceEpoch(0),
     );
   }
 

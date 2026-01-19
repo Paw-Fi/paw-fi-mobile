@@ -366,7 +366,7 @@ class HomeHeaderSliver extends ConsumerWidget {
         loading: () => null,
         error: (_, __) => null,
       );
-      
+
       if (currentHousehold != null) {
         menuItems.add(AdaptivePopupMenuItem(
           label: currentHousehold.isPortfolio
@@ -514,4 +514,4 @@ class _HeaderAvatarButton extends StatelessWidget {
       },
     );
   }
- }
+}

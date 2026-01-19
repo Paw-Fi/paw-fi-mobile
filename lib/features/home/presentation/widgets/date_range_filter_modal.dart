@@ -70,7 +70,8 @@ void showCardDateRangeFilter(
                           .where((f) => f != DateRangeFilter.custom)
                           .map((filter) {
                         return ListTile(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 0.0),
+                          contentPadding:
+                              const EdgeInsets.symmetric(horizontal: 0.0),
                           title: Text(
                             filter.getLabel(ctx),
                             style: TextStyle(color: colorScheme.foreground),

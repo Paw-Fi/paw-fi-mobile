@@ -10,7 +10,6 @@ import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
-
 class SpendingBreakdownChart extends StatefulWidget {
   final ColorScheme colorScheme;
   final List<ExpenseEntry> expenses;
@@ -142,8 +141,8 @@ class _SpendingBreakdownChartState extends State<SpendingBreakdownChart> {
                               setState(() => _touchedIndex = null);
                               return;
                             }
-                            setState(() =>
-                                _touchedIndex = response!.touchedSection!.touchedSectionIndex);
+                            setState(() => _touchedIndex =
+                                response!.touchedSection!.touchedSectionIndex);
                           },
                         ),
                         sectionsSpace: 2,
@@ -159,7 +158,9 @@ class _SpendingBreakdownChartState extends State<SpendingBreakdownChart> {
                                 return PieChartSectionData(
                                   color: category.color,
                                   value: category.amount,
-                                  title: percent > 4 ? '${percent.toStringAsFixed(0)}%' : '',
+                                  title: percent > 4
+                                      ? '${percent.toStringAsFixed(0)}%'
+                                      : '',
                                   radius: isTouched ? 58 : 52,
                                   titleStyle: TextStyle(
                                     fontSize: 12,
@@ -191,7 +192,8 @@ class _SpendingBreakdownChartState extends State<SpendingBreakdownChart> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Text(
-                                    getCategoryTranslation(context, selected.category),
+                                    getCategoryTranslation(
+                                        context, selected.category),
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                       fontSize: 13,
@@ -250,8 +252,8 @@ class _SpendingBreakdownChartState extends State<SpendingBreakdownChart> {
                             children: [
                               Icon(
                                 Icons.pie_chart_outline_rounded,
-                                color:
-                                    widget.colorScheme.mutedForeground.withValues(alpha: 0.8),
+                                color: widget.colorScheme.mutedForeground
+                                    .withValues(alpha: 0.8),
                               ),
                               const SizedBox(height: 6),
                               Text(
@@ -301,7 +303,6 @@ class _SpendingBreakdownChartState extends State<SpendingBreakdownChart> {
                           color: widget.colorScheme.foreground,
                         ),
                       ),
-                      
                     ],
                   ),
                 ],

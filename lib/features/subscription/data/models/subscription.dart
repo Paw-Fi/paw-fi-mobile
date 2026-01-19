@@ -84,45 +84,53 @@ class Subscription {
   /// 6. Row exists + status = "active" + bound_to_user_id is NOT null → SUBSCRIBED (household member with shared access)
   /// 7. Row exists + status = "canceled" → NOT SUBSCRIBED (cancelled subscription)
   bool get isSubscribed {
-    appLog('Checking isSubscribed: plan=$plan, status=$status, boundTo=$boundToUserId', name: 'Subscription');
-    
+    appLog(
+        'Checking isSubscribed: plan=$plan, status=$status, boundTo=$boundToUserId',
+        name: 'Subscription');
+
     // Case 7: Cancelled status - subscription is cancelled, not active
     if (status == 'canceled') {
       appLog('CANCELED status - subscribed=false', name: 'Subscription');
       return false;
     }
-    
+
     // Case 3: Lifetime plan with active status
     if (plan == 'lifetime' && status == 'active') {
-      appLog('LIFETIME plan with active status - subscribed=true', name: 'Subscription');
+      appLog('LIFETIME plan with active status - subscribed=true',
+          name: 'Subscription');
       return true;
     }
-    
+
     // Case 4: Trialing status - user is in trial period
     if (status == 'trialing') {
       appLog('TRIALING status - subscribed=true', name: 'Subscription');
       return true;
     }
-    
+
     // Case 6: Active status with household binding (shared subscription access)
     if (status == 'active' && boundToUserId != null) {
-      appLog('ACTIVE status with household binding - subscribed=true (shared access)', name: 'Subscription');
+      appLog(
+          'ACTIVE status with household binding - subscribed=true (shared access)',
+          name: 'Subscription');
       return true;
     }
-    
+
     // Case 5: Active status with Stripe subscription ID
     if (status == 'active' && stripeSubscriptionId != null) {
       // Additional check: plan should not be explicitly free
       if (plan == 'free') {
-        appLog('Active status but plan is "free" - subscribed=false', name: 'Subscription');
+        appLog('Active status but plan is "free" - subscribed=false',
+            name: 'Subscription');
         return false;
       }
-      appLog('ACTIVE status with stripe_subscription_id - subscribed=true', name: 'Subscription');
+      appLog('ACTIVE status with stripe_subscription_id - subscribed=true',
+          name: 'Subscription');
       return true;
     }
-    
+
     // Case 2: All other cases mean free/inactive
-    appLog('No matching active/trialing subscription - subscribed=false (FREE)', name: 'Subscription');
+    appLog('No matching active/trialing subscription - subscribed=false (FREE)',
+        name: 'Subscription');
     return false;
   }
 

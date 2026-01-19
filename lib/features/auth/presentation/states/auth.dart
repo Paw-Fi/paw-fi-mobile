@@ -35,7 +35,8 @@ class Auth extends _$Auth {
   bool get isAuthenticated => state.uid.isNotEmpty;
 
   initListener() {
-    _authStateSubscription = supabase.auth.onAuthStateChange.listen((data) async {
+    _authStateSubscription =
+        supabase.auth.onAuthStateChange.listen((data) async {
       state = AppUser.fromSession(data.session);
 
       final event = data.event;
@@ -69,7 +70,8 @@ class Auth extends _$Auth {
         try {
           await _syncWeb3Profile(session);
         } catch (e, st) {
-          appLog('Web3 profile sync failed: $e', name: 'Auth', error: e, stackTrace: st);
+          appLog('Web3 profile sync failed: $e',
+              name: 'Auth', error: e, stackTrace: st);
         }
       }
     }, onError: (error) {
@@ -95,9 +97,14 @@ class Auth extends _$Auth {
         for (final id in identities) {
           final idDyn = id as dynamic;
           final provider = (idDyn.provider ?? idDyn['provider'])?.toString();
-          if (provider == 'web3' || provider == 'ethereum' || provider == 'solana') {
+          if (provider == 'web3' ||
+              provider == 'ethereum' ||
+              provider == 'solana') {
             final data = (idDyn.identityData ?? idDyn['identity_data']) as Map?;
-            walletAddress = (data?['wallet_address'] ?? data?['address'] ?? data?['publicKey'])?.toString();
+            walletAddress = (data?['wallet_address'] ??
+                    data?['address'] ??
+                    data?['publicKey'])
+                ?.toString();
             chain = (data?['chain'] ?? data?['network'])?.toString();
             if (walletAddress != null && walletAddress.isNotEmpty) break;
           }
@@ -108,10 +115,15 @@ class Auth extends _$Auth {
       walletAddress ??= user.userMetadata?['wallet_address']?.toString();
       chain ??= user.userMetadata?['chain']?.toString();
 
-      if (walletAddress == null || walletAddress.isEmpty) return; // Not a Web3 login
+      if (walletAddress == null || walletAddress.isEmpty)
+        return; // Not a Web3 login
 
       // If no name set, use wallet address as display name
-      final hasName = (user.userMetadata?['full_name']?.toString().trim().isNotEmpty == true) ||
+      final hasName = (user.userMetadata?['full_name']
+                  ?.toString()
+                  .trim()
+                  .isNotEmpty ==
+              true) ||
           (user.userMetadata?['name']?.toString().trim().isNotEmpty == true);
       if (!hasName) {
         try {
@@ -149,10 +161,12 @@ class Auth extends _$Auth {
       );
       return response;
     } on AuthException catch (error, stackTrace) {
-      appLog('Sign in error: ${error.message}', name: 'Auth', error: error, stackTrace: stackTrace);
+      appLog('Sign in error: ${error.message}',
+          name: 'Auth', error: error, stackTrace: stackTrace);
       rethrow;
     } catch (error, stackTrace) {
-      appLog('Unexpected sign in error', name: 'Auth', error: error, stackTrace: stackTrace);
+      appLog('Unexpected sign in error',
+          name: 'Auth', error: error, stackTrace: stackTrace);
       rethrow;
     } finally {
       _isLoading = false;
@@ -179,10 +193,12 @@ class Auth extends _$Auth {
       );
       return response;
     } on AuthException catch (error, stackTrace) {
-      appLog('Sign up error: ${error.message}', name: 'Auth', error: error, stackTrace: stackTrace);
+      appLog('Sign up error: ${error.message}',
+          name: 'Auth', error: error, stackTrace: stackTrace);
       rethrow;
     } catch (error, stackTrace) {
-      appLog('Unexpected sign up error', name: 'Auth', error: error, stackTrace: stackTrace);
+      appLog('Unexpected sign up error',
+          name: 'Auth', error: error, stackTrace: stackTrace);
       rethrow;
     } finally {
       _isLoading = false;
@@ -204,10 +220,12 @@ class Auth extends _$Auth {
       );
       return response;
     } on AuthException catch (error, stackTrace) {
-      appLog('OTP verification error: ${error.message}', name: 'Auth', error: error, stackTrace: stackTrace);
+      appLog('OTP verification error: ${error.message}',
+          name: 'Auth', error: error, stackTrace: stackTrace);
       rethrow;
     } catch (error, stackTrace) {
-      appLog('Unexpected OTP verification error', name: 'Auth', error: error, stackTrace: stackTrace);
+      appLog('Unexpected OTP verification error',
+          name: 'Auth', error: error, stackTrace: stackTrace);
       rethrow;
     } finally {
       _isLoading = false;
@@ -222,10 +240,12 @@ class Auth extends _$Auth {
         email: email,
       );
     } on AuthException catch (error, stackTrace) {
-      appLog('Resend verification error: ${error.message}', name: 'Auth', error: error, stackTrace: stackTrace);
+      appLog('Resend verification error: ${error.message}',
+          name: 'Auth', error: error, stackTrace: stackTrace);
       rethrow;
     } catch (error, stackTrace) {
-      appLog('Unexpected resend error', name: 'Auth', error: error, stackTrace: stackTrace);
+      appLog('Unexpected resend error',
+          name: 'Auth', error: error, stackTrace: stackTrace);
       rethrow;
     }
   }
@@ -238,10 +258,12 @@ class Auth extends _$Auth {
         redirectTo: redirectUrl,
       );
     } on AuthException catch (error, stackTrace) {
-      appLog('Reset password error: ${error.message}', name: 'Auth', error: error, stackTrace: stackTrace);
+      appLog('Reset password error: ${error.message}',
+          name: 'Auth', error: error, stackTrace: stackTrace);
       rethrow;
     } catch (error, stackTrace) {
-      appLog('Unexpected reset password error', name: 'Auth', error: error, stackTrace: stackTrace);
+      appLog('Unexpected reset password error',
+          name: 'Auth', error: error, stackTrace: stackTrace);
       rethrow;
     }
   }
@@ -258,29 +280,35 @@ class Auth extends _$Auth {
 
       await supabase.auth.signOut();
     } on AuthException catch (error, stackTrace) {
-      appLog('Sign out error: ${error.message}', name: 'Auth', error: error, stackTrace: stackTrace);
-      
+      appLog('Sign out error: ${error.message}',
+          name: 'Auth', error: error, stackTrace: stackTrace);
+
       // Handle specific refresh token errors
-      if (error.message.contains('Refresh Token Not Found') || 
+      if (error.message.contains('Refresh Token Not Found') ||
           error.message.contains('Invalid Refresh Token')) {
         // Token is already invalid, clear local state and proceed with logout
-        appLog('Refresh token already invalid, proceeding with logout', name: 'Auth');
+        appLog('Refresh token already invalid, proceeding with logout',
+            name: 'Auth');
         return; // Don't rethrow, allow logout to complete
       }
-      
+
       rethrow;
     } on SocketException catch (error, stackTrace) {
-      appLog('Network error during sign out: $error', name: 'Auth', error: error, stackTrace: stackTrace);
+      appLog('Network error during sign out: $error',
+          name: 'Auth', error: error, stackTrace: stackTrace);
       // For network errors during logout, still try to clear local state
       try {
-        state = const AppUser(uid: '', email: '', displayName: null, photoUrl: null);
+        state = const AppUser(
+            uid: '', email: '', displayName: null, photoUrl: null);
       } catch (_) {}
       rethrow;
     } catch (error, stackTrace) {
-      appLog('Unexpected sign out error', name: 'Auth', error: error, stackTrace: stackTrace);
+      appLog('Unexpected sign out error',
+          name: 'Auth', error: error, stackTrace: stackTrace);
       // Clear local state even if sign out fails
       try {
-        state = const AppUser(uid: '', email: '', displayName: null, photoUrl: null);
+        state = const AppUser(
+            uid: '', email: '', displayName: null, photoUrl: null);
       } catch (_) {}
       rethrow;
     } finally {

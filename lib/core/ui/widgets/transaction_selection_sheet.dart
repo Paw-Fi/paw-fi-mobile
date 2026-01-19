@@ -7,16 +7,16 @@ import 'package:moneko/core/theme/app_theme.dart';
 
 /// Generic selection sheet for picking from a list of items
 /// Shows platform-specific UI (Cupertino for iOS, Material for Android)
-/// 
+///
 /// This is a low-level widget that only handles displaying options
 /// and returning the selected value. It has no knowledge of what
 /// type of data it's displaying.
-/// 
+///
 /// [T] - Type of items to select from
 /// [items] - List of items to display
 /// [getLabel] - Function to convert item to display string
 /// [initial] - Initially selected item
-/// 
+///
 /// Returns the selected item or null if cancelled
 Future<T?> showTransactionSelectionSheet<T>({
   required BuildContext context,
@@ -27,7 +27,7 @@ Future<T?> showTransactionSelectionSheet<T>({
   if (Platform.isIOS) {
     int selectedIndex = items.indexOf(initial);
     if (selectedIndex < 0) selectedIndex = 0;
-    
+
     return await showCupertinoModalPopup<T>(
       context: context,
       builder: (context) {
@@ -38,7 +38,8 @@ Future<T?> showTransactionSelectionSheet<T>({
           child: Column(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   border: Border(
                     bottom: BorderSide(
@@ -65,12 +66,15 @@ Future<T?> showTransactionSelectionSheet<T>({
               ),
               Expanded(
                 child: CupertinoPicker(
-                  scrollController: FixedExtentScrollController(initialItem: selectedIndex),
+                  scrollController:
+                      FixedExtentScrollController(initialItem: selectedIndex),
                   itemExtent: 40,
                   onSelectedItemChanged: (i) {
                     tempValue = items[i];
                   },
-                  children: items.map((e) => Center(child: Text(getLabel(e)))).toList(),
+                  children: items
+                      .map((e) => Center(child: Text(getLabel(e))))
+                      .toList(),
                 ),
               ),
             ],
@@ -108,14 +112,18 @@ Future<T?> showTransactionSelectionSheet<T>({
                   child: ListView.separated(
                     shrinkWrap: true,
                     itemCount: items.length,
-                    separatorBuilder: (_, __) => Divider(height: 1, color: scheme.border.withValues(alpha: 0.4)),
+                    separatorBuilder: (_, __) => Divider(
+                        height: 1, color: scheme.border.withValues(alpha: 0.4)),
                     itemBuilder: (context, i) {
                       final value = items[i];
                       final label = getLabel(value);
                       final selected = value == initial;
                       return ListTile(
-                        title: Text(label, style: TextStyle(color: scheme.foreground)),
-                        trailing: selected ? Icon(Icons.check, color: scheme.primary) : null,
+                        title: Text(label,
+                            style: TextStyle(color: scheme.foreground)),
+                        trailing: selected
+                            ? Icon(Icons.check, color: scheme.primary)
+                            : null,
                         onTap: () => Navigator.pop<T>(context, value),
                       );
                     },

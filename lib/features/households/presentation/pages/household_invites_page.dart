@@ -24,7 +24,8 @@ class HouseholdInvitesPage extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<HouseholdInvitesPage> createState() => _HouseholdInvitesPageState();
+  ConsumerState<HouseholdInvitesPage> createState() =>
+      _HouseholdInvitesPageState();
 }
 
 class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
@@ -104,7 +105,9 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
                   ),
                   const SizedBox(height: 12),
 
-                  if (_invites.where((i) => i.status == InviteStatus.pending).isEmpty)
+                  if (_invites
+                      .where((i) => i.status == InviteStatus.pending)
+                      .isEmpty)
                     Center(
                       child: Padding(
                         padding: const EdgeInsets.all(32),
@@ -134,7 +137,9 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
                   ),
                   const SizedBox(height: 12),
 
-                  if (_invites.where((i) => i.status != InviteStatus.pending).isEmpty)
+                  if (_invites
+                      .where((i) => i.status != InviteStatus.pending)
+                      .isEmpty)
                     Center(
                       child: Padding(
                         padding: const EdgeInsets.all(32),
@@ -194,11 +199,16 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
                 decoration: InputDecoration(labelText: context.l10n.expiresIn),
                 items: [
                   DropdownMenuItem(value: 1, child: Text(context.l10n.oneDay)),
-                  DropdownMenuItem(value: 3, child: Text(context.l10n.threeDays)),
-                  DropdownMenuItem(value: 7, child: Text(context.l10n.sevenDays)),
-                  DropdownMenuItem(value: 14, child: Text(context.l10n.fourteenDays)),
-                  DropdownMenuItem(value: 30, child: Text(context.l10n.thirtyDays)),
-                  DropdownMenuItem(value: 0, child: Text(context.l10n.unlimited)),
+                  DropdownMenuItem(
+                      value: 3, child: Text(context.l10n.threeDays)),
+                  DropdownMenuItem(
+                      value: 7, child: Text(context.l10n.sevenDays)),
+                  DropdownMenuItem(
+                      value: 14, child: Text(context.l10n.fourteenDays)),
+                  DropdownMenuItem(
+                      value: 30, child: Text(context.l10n.thirtyDays)),
+                  DropdownMenuItem(
+                      value: 0, child: Text(context.l10n.unlimited)),
                 ],
                 onChanged: (value) {
                   if (value != null) expiresInDays = value;
@@ -215,8 +225,12 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
           TextButton(
             onPressed: () async {
               await _createInvite(
-                email: emailController.text.isNotEmpty ? emailController.text : null,
-                message: messageController.text.isNotEmpty ? messageController.text : null,
+                email: emailController.text.isNotEmpty
+                    ? emailController.text
+                    : null,
+                message: messageController.text.isNotEmpty
+                    ? messageController.text
+                    : null,
                 expiresInDays: expiresInDays,
               );
               if (context.mounted) {
@@ -237,9 +251,10 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
   }) async {
     try {
       final user = ref.read(authProvider);
-      final inviterName =
-          (user.displayName?.trim().isNotEmpty == true ? user.displayName : user.email)
-              ?.trim();
+      final inviterName = (user.displayName?.trim().isNotEmpty == true
+              ? user.displayName
+              : user.email)
+          ?.trim();
       final selectedHousehold = ref.read(selectedHouseholdObjectProvider);
       final householdName = selectedHousehold?.id == widget.householdId
           ? selectedHousehold?.name
@@ -337,7 +352,8 @@ class _InviteCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isExpired = invite.expiresAt != null && invite.expiresAt!.isBefore(DateTime.now());
+    final isExpired =
+        invite.expiresAt != null && invite.expiresAt!.isBefore(DateTime.now());
     final isPending = invite.status == InviteStatus.pending;
 
     return Card(
@@ -376,7 +392,8 @@ class _InviteCard extends StatelessWidget {
             const SizedBox(height: 12),
             Row(
               children: [
-                Icon(Icons.schedule, size: 14, color: colorScheme.mutedForeground),
+                Icon(Icons.schedule,
+                    size: 14, color: colorScheme.mutedForeground),
                 const SizedBox(width: 4),
                 Text(
                   invite.expiresAt == null
@@ -393,7 +410,9 @@ class _InviteCard extends StatelessWidget {
                 ),
               ],
             ),
-            if (isPending && !isExpired && (onCopy != null || onRevoke != null)) ...[
+            if (isPending &&
+                !isExpired &&
+                (onCopy != null || onRevoke != null)) ...[
               const SizedBox(height: 12),
               Row(
                 children: [
@@ -411,7 +430,8 @@ class _InviteCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                  if (onCopy != null && onRevoke != null) const SizedBox(width: 8),
+                  if (onCopy != null && onRevoke != null)
+                    const SizedBox(width: 8),
                   if (onRevoke != null)
                     Expanded(
                       child: DestructiveAdaptiveButton(
@@ -494,9 +514,10 @@ class _StatusBadge extends StatelessWidget {
     };
   }
 
-  String _getLocalizedStatus(BuildContext context, bool isExpired, InviteStatus status) {
+  String _getLocalizedStatus(
+      BuildContext context, bool isExpired, InviteStatus status) {
     if (isExpired) return context.l10n.expired.toUpperCase();
-    
+
     switch (status) {
       case InviteStatus.pending:
         return context.l10n.pending.toUpperCase();

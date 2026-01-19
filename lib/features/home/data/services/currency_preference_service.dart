@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class CurrencyPreferenceService {
   static const String _selectedCurrencyKey = 'selected_currency';
   static const String _currencyOrderKey = 'currency_order';
-  
+
   // In-memory cache to reduce SharedPreferences reads
   String? _cachedCurrency;
   List<String>? _cachedOrder;
@@ -14,7 +14,7 @@ class CurrencyPreferenceService {
   /// Returns null if no currency has been selected
   Future<String?> getSelectedCurrency() async {
     if (_cachedCurrency != null) return _cachedCurrency;
-    
+
     final prefs = await SharedPreferences.getInstance();
     _cachedCurrency = prefs.getString(_selectedCurrencyKey);
     return _cachedCurrency;
@@ -38,7 +38,7 @@ class CurrencyPreferenceService {
   /// Returns null if no custom order has been set
   Future<List<String>?> getCurrencyOrder() async {
     if (_cachedOrder != null) return _cachedOrder;
-    
+
     final prefs = await SharedPreferences.getInstance();
     final orderString = prefs.getString(_currencyOrderKey);
     if (orderString != null && orderString.isNotEmpty) {

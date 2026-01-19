@@ -47,13 +47,16 @@ final momTrendProvider = Provider<Map<String, double>>((ref) {
     final d = DateTime(now.year, now.month - i, 1);
     return DateTime(d.year, d.month); // normalized
   });
-  final keys = months.map((d) => '${d.year}-${d.month.toString().padLeft(2, '0')}').toList();
+  final keys = months
+      .map((d) => '${d.year}-${d.month.toString().padLeft(2, '0')}')
+      .toList();
   final map = {for (final k in keys) k: 0.0};
 
   for (final e in data.allExpenses) {
     // Expense-only
     if ((e.type ?? 'expense').toLowerCase() == 'income') continue;
-    if (setCurrency != null && (e.currency?.toUpperCase() != setCurrency)) continue;
+    if (setCurrency != null && (e.currency?.toUpperCase() != setCurrency))
+      continue;
     final key = '${e.date.year}-${e.date.month.toString().padLeft(2, '0')}';
     if (map.containsKey(key)) {
       map[key] = (map[key] ?? 0) + e.amount.abs();
@@ -68,13 +71,15 @@ final momTrendProvider = Provider<Map<String, double>>((ref) {
         if (item.type != 'expense') continue;
         // Only include active recurring transactions as of now
         if (!_isActiveNow(item, now)) continue;
-        if (setCurrency != null && item.currency.toUpperCase() != setCurrency) continue;
+        if (setCurrency != null && item.currency.toUpperCase() != setCurrency)
+          continue;
         for (final month in months) {
           final start = DateTime(month.year, month.month, 1);
           final end = DateTime(month.year, month.month + 1, 0);
           final count = _occurrencesInMonth(item, start, end);
           if (count > 0) {
-            final key = '${start.year}-${start.month.toString().padLeft(2, '0')}';
+            final key =
+                '${start.year}-${start.month.toString().padLeft(2, '0')}';
             map[key] = (map[key] ?? 0) + item.amount.abs() * count;
           }
         }
@@ -85,7 +90,6 @@ final momTrendProvider = Provider<Map<String, double>>((ref) {
   );
   return map;
 });
-
 
 int _occurrencesInMonth(
   RecurringTransaction item,
@@ -106,20 +110,23 @@ int _occurrencesInMonth(
   final freq = rule.frequency.toLowerCase();
   switch (freq) {
     case 'daily':
-      return _countOccurrencesByStep(
-          anchor, monthStart, _minDate(monthEnd, endLocal), Duration(days: interval));
+      return _countOccurrencesByStep(anchor, monthStart,
+          _minDate(monthEnd, endLocal), Duration(days: interval));
     case 'weekly':
-      return _countOccurrencesByStep(
-          anchor, monthStart, _minDate(monthEnd, endLocal), Duration(days: 7 * interval));
+      return _countOccurrencesByStep(anchor, monthStart,
+          _minDate(monthEnd, endLocal), Duration(days: 7 * interval));
     case 'biweekly':
-      return _countOccurrencesByStep(
-          anchor, monthStart, _minDate(monthEnd, endLocal), const Duration(days: 14));
+      return _countOccurrencesByStep(anchor, monthStart,
+          _minDate(monthEnd, endLocal), const Duration(days: 14));
     case 'monthly':
       return _occursMonthly(anchor, interval, monthStart) ? 1 : 0;
     case 'yearly':
       return _occursYearly(anchor, interval, monthStart) ? 1 : 0;
     default:
-      return (anchor.year == monthStart.year && anchor.month == monthStart.month) ? 1 : 0;
+      return (anchor.year == monthStart.year &&
+              anchor.month == monthStart.month)
+          ? 1
+          : 0;
   }
 }
 
@@ -143,11 +150,14 @@ DateTime _firstOnOrAfter(DateTime anchor, DateTime start, Duration step) {
   final diffDays = start.difference(anchor).inDays;
   final stepDays = step.inDays;
   final remainder = diffDays % stepDays;
-  return remainder == 0 ? start : start.add(Duration(days: stepDays - remainder));
+  return remainder == 0
+      ? start
+      : start.add(Duration(days: stepDays - remainder));
 }
 
 bool _occursMonthly(DateTime anchor, int interval, DateTime monthStart) {
-  final months = (monthStart.year - anchor.year) * 12 + (monthStart.month - anchor.month);
+  final months =
+      (monthStart.year - anchor.year) * 12 + (monthStart.month - anchor.month);
   if (months < 0) return false;
   return months % interval == 0;
 }
@@ -171,6 +181,7 @@ bool _isActiveNow(RecurringTransaction item, DateTime now) {
   if (end == null) return true;
   return !end.isBefore(now);
 }
+
 /// Budget runway gauge inputs (estimated days until budget consumed)
 class RunwayInfo {
   final double daysRemaining;
@@ -191,7 +202,8 @@ final runwayProvider = Provider<RunwayInfo>((ref) {
   final filter = ref.watch(homeFilterProvider);
 
   if (expenses.isEmpty || budgets.isEmpty) {
-    return const RunwayInfo(daysRemaining: 0, budgetRemaining: 0, avgDailySpend: 0, gauge: 0);
+    return const RunwayInfo(
+        daysRemaining: 0, budgetRemaining: 0, avgDailySpend: 0, gauge: 0);
   }
 
   // Date range window
@@ -200,9 +212,11 @@ final runwayProvider = Provider<RunwayInfo>((ref) {
     filter.customStartDate,
     filter.customEndDate,
   );
-  final from = DateTime(range['from']!.year, range['from']!.month, range['from']!.day);
+  final from =
+      DateTime(range['from']!.year, range['from']!.month, range['from']!.day);
   final to = DateTime(range['to']!.year, range['to']!.month, range['to']!.day);
-  final daysInWindow = (to.difference(from).inDays + 1).clamp(1, 365).toDouble();
+  final daysInWindow =
+      (to.difference(from).inDays + 1).clamp(1, 365).toDouble();
 
   // Total spent and average daily spend
   final totalSpent = expenses.fold<double>(0, (s, e) => s + e.amount.abs());
@@ -210,11 +224,15 @@ final runwayProvider = Provider<RunwayInfo>((ref) {
 
   // Budget for window (sum of entries in range)
   final totalBudget = budgets.fold<double>(0, (s, b) => s + b.amount);
-  final budgetRemaining = (totalBudget - totalSpent).clamp(0.0, double.infinity).toDouble();
+  final budgetRemaining =
+      (totalBudget - totalSpent).clamp(0.0, double.infinity).toDouble();
 
   // Days remaining based on average spend
-  final daysRemaining = avgDailySpend > 0 ? (budgetRemaining / avgDailySpend) : daysInWindow;
-  final gauge = totalBudget > 0 ? (totalSpent / totalBudget).clamp(0.0, 1.0).toDouble() : 0.0;
+  final daysRemaining =
+      avgDailySpend > 0 ? (budgetRemaining / avgDailySpend) : daysInWindow;
+  final gauge = totalBudget > 0
+      ? (totalSpent / totalBudget).clamp(0.0, 1.0).toDouble()
+      : 0.0;
 
   return RunwayInfo(
     daysRemaining: daysRemaining.toDouble(),

@@ -114,6 +114,7 @@ class _InviteMembersPageState extends ConsumerState<InviteMembersPage> {
       ),
     );
   }
+
   Widget _buildResultContent(
     ColorScheme colorScheme, {
     required String inviteUrl,
@@ -461,8 +462,7 @@ class _HouseholdInvitesTabState extends ConsumerState<HouseholdInvitesTab> {
                       child: Text(
                         context.l10n.skipForNow,
                         style: TextStyle(
-                          color:
-                              Theme.of(context).colorScheme.mutedForeground,
+                          color: Theme.of(context).colorScheme.mutedForeground,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -527,9 +527,10 @@ class _HouseholdInvitesTabState extends ConsumerState<HouseholdInvitesTab> {
   }) async {
     try {
       final user = ref.read(authProvider);
-      final inviterName =
-          (user.displayName?.trim().isNotEmpty == true ? user.displayName : user.email)
-              ?.trim();
+      final inviterName = (user.displayName?.trim().isNotEmpty == true
+              ? user.displayName
+              : user.email)
+          ?.trim();
       final household = ref.read(householdProvider(widget.householdId)).value;
       final householdName = widget.householdName?.trim().isNotEmpty == true
           ? widget.householdName?.trim()
@@ -965,7 +966,8 @@ class _InviteCard extends StatelessWidget {
                                   ? ''
                                   : (isExpired
                                       ? ''
-                                      : _formatDate(invite.expiresAt!, context)),
+                                      : _formatDate(
+                                          invite.expiresAt!, context)),
                               style: TextStyle(
                                 fontSize: 13,
                                 color: colorScheme.mutedForeground,
@@ -1299,4 +1301,3 @@ class _ExpirySelector extends StatelessWidget {
     return '$days ${context.l10n.days}';
   }
 }
-

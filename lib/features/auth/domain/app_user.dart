@@ -23,7 +23,8 @@ class AppUser with _$AppUser {
       : AppUser(
           uid: session.user.id,
           email: session.user.email ?? '',
-          displayName: session.user.userMetadata?['full_name'] ?? session.user.userMetadata?['name'],
+          displayName: session.user.userMetadata?['full_name'] ??
+              session.user.userMetadata?['name'],
           photoUrl: session.user.userMetadata?['avatar_url'],
         );
 

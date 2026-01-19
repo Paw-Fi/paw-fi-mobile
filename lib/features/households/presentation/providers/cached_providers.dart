@@ -12,9 +12,9 @@ class RequestDeduplicator<T> {
   final Map<String, Completer<T>> _pending = {};
   final Map<String, (T, DateTime)> _cache = {};
   final Duration cacheDuration;
-  
+
   RequestDeduplicator({this.cacheDuration = const Duration(seconds: 30)});
-  
+
   Future<T> deduplicate(
     String key,
     Future<T> Function() fetch,
@@ -25,27 +25,29 @@ class RequestDeduplicator<T> {
       final (data, timestamp) = cached;
       final age = DateTime.now().difference(timestamp);
       if (age < cacheDuration) {
-        debugPrint('✅ [CACHE HIT] Returning cached data for $key (age: ${age.inSeconds}s)');
+        debugPrint(
+            '✅ [CACHE HIT] Returning cached data for $key (age: ${age.inSeconds}s)');
         return data;
       }
-      debugPrint('⏰ [CACHE EXPIRED] Cache expired for $key (age: ${age.inSeconds}s > ${cacheDuration.inSeconds}s)');
+      debugPrint(
+          '⏰ [CACHE EXPIRED] Cache expired for $key (age: ${age.inSeconds}s > ${cacheDuration.inSeconds}s)');
       _cache.remove(key);
     } else {
       debugPrint('❌ [CACHE MISS] No cache found for $key');
     }
-    
+
     // Check if request is already pending
     final pending = _pending[key];
     if (pending != null && !pending.isCompleted) {
       debugPrint('⏳ [DEDUP] Request already pending for $key, waiting...');
       return pending.future;
     }
-    
+
     // Start new request
     debugPrint('🔄 [FETCH] Starting new request for $key');
     final completer = Completer<T>();
     _pending[key] = completer;
-    
+
     try {
       final result = await fetch();
       final isCurrent = _pending[key] == completer;
@@ -67,7 +69,7 @@ class RequestDeduplicator<T> {
       }
     }
   }
-  
+
   void invalidate(String key) {
     final hadCache = _cache.containsKey(key);
     _cache.remove(key);
@@ -79,7 +81,7 @@ class RequestDeduplicator<T> {
       debugPrint('🗑️ [INVALIDATE] Dropped pending request for: $key');
     }
   }
-  
+
   void invalidateAll() {
     final count = _cache.length;
     _cache.clear();
@@ -113,13 +115,16 @@ final cachedHouseholdExpensesProvider =
       householdOptimisticExpensesProvider
           .select((state) => state[params.householdId] ?? const []),
     );
-    
+
     final result = await _expensesDeduplicator.deduplicate(
       key,
       () {
-        debugPrint('🌐 [CACHED_EXPENSES] Fetching from base provider for: $key');
-        return ref.read(householdExpensesProvider(params).future)
-            .trackPerformance('household_expenses', details: 'household=${params.householdId}');
+        debugPrint(
+            '🌐 [CACHED_EXPENSES] Fetching from base provider for: $key');
+        return ref
+            .read(householdExpensesProvider(params).future)
+            .trackPerformance('household_expenses',
+                details: 'household=${params.householdId}');
       },
     );
 
@@ -128,9 +133,9 @@ final cachedHouseholdExpensesProvider =
           .read(householdOptimisticExpensesProvider.notifier)
           .pruneIfInServer(params.householdId, result);
     }
-    
+
     final merged = mergeHouseholdExpenses(result, optimistic);
-    
+
     debugPrint(
         '✅ [CACHED_EXPENSES] Returning ${merged.length} expenses for key: $key');
     return merged;
@@ -142,20 +147,22 @@ final cachedHouseholdSplitsProvider =
     FutureProvider.family<List<ExpenseSplitGroup>, HouseholdSplitsParams>(
   (ref, params) async {
     final key = 'splits_${params.householdId}_${params.dateRange}';
-    
+
     debugPrint('📊 [CACHED_SPLITS] Provider called for key: $key');
 
     final optimistic = ref.watch(
       householdOptimisticSplitsProvider
           .select((state) => state[params.householdId] ?? const []),
     );
-    
+
     final result = await _splitsDeduplicator.deduplicate(
       key,
       () {
         debugPrint('🌐 [CACHED_SPLITS] Fetching from base provider for: $key');
-        return ref.read(householdSplitsProvider(params).future)
-            .trackPerformance('household_splits', details: 'household=${params.householdId}');
+        return ref
+            .read(householdSplitsProvider(params).future)
+            .trackPerformance('household_splits',
+                details: 'household=${params.householdId}');
       },
     );
 
@@ -164,10 +171,11 @@ final cachedHouseholdSplitsProvider =
           .read(householdOptimisticSplitsProvider.notifier)
           .pruneIfInServer(params.householdId, result);
     }
-    
+
     final merged = mergeHouseholdSplits(result, optimistic);
-    
-    debugPrint('✅ [CACHED_SPLITS] Returning ${merged.length} splits for key: $key');
+
+    debugPrint(
+        '✅ [CACHED_SPLITS] Returning ${merged.length} splits for key: $key');
     return merged;
   },
 );
@@ -177,13 +185,15 @@ final cacheInvalidatorProvider = Provider((ref) => CacheInvalidator());
 
 class CacheInvalidator {
   void invalidateHouseholdData(String householdId) {
-    debugPrint('🗑️ [CACHE_INVALIDATOR] Invalidating cache for household $householdId');
+    debugPrint(
+        '🗑️ [CACHE_INVALIDATOR] Invalidating cache for household $householdId');
     // Invalidate all cached keys for this household
     _expensesDeduplicator.invalidateAll();
     _splitsDeduplicator.invalidateAll();
-    debugPrint('✅ [CACHE_INVALIDATOR] Cache invalidated for household $householdId');
+    debugPrint(
+        '✅ [CACHE_INVALIDATOR] Cache invalidated for household $householdId');
   }
-  
+
   void invalidateAll() {
     debugPrint('🗑️ [CACHE_INVALIDATOR] Invalidating ALL caches');
     _expensesDeduplicator.invalidateAll();

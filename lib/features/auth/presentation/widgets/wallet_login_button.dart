@@ -11,18 +11,19 @@ import 'package:moneko/core/util/constants.dart';
 import 'package:moneko/core/web/web3_auth.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+
 /// Web3 Wallet Sign-In button using Supabase Auth (Web3 provider)
-/// 
+///
 /// IMPORTANT: This button ONLY works on Flutter Web
 /// - Uses browser wallet extensions (MetaMask, Phantom, etc.)
 /// - Connects via JS interop to window.ethereum / window.solana
 /// - Calls Supabase JS SDK's signInWithWeb3() method
-/// 
+///
 /// Requirements:
 /// 1. Enable Web3 providers in Supabase Dashboard → Authentication → Providers
 /// 2. Add redirect URLs in Supabase Dashboard → Authentication → URL Configuration
 /// 3. Install browser wallet extension (MetaMask for Ethereum, Phantom for Solana)
-/// 
+///
 /// The button is hidden on mobile platforms.
 class WalletLoginButton extends HookConsumerWidget {
   final String? redirectUrl;
@@ -62,7 +63,7 @@ class WalletLoginButton extends HookConsumerWidget {
         // Capture l10n before async call
         final walletSignInStatement = context.l10n.walletSignInStatement;
 
-        // Step 2: Call web3SignIn from JS interop  
+        // Step 2: Call web3SignIn from JS interop
         final sessionData = await web3SignIn(
           chain: chain,
           statement: walletSignInStatement,
@@ -131,14 +132,15 @@ class WalletLoginButton extends HookConsumerWidget {
         // Step 4: Navigate to callback screen (consistent with OAuth flow)
         if (context.mounted) {
           final next = redirectUrl ?? '/dashboard';
-          final uri = Uri(path: '/auth/callback', queryParameters: {'next': next});
+          final uri =
+              Uri(path: '/auth/callback', queryParameters: {'next': next});
           context.go(uri.toString());
         }
       } catch (e) {
         debugPrint('❌ [Web3] Authentication error: $e');
-        
+
         if (!context.mounted) return;
-        
+
         // Normalize error message for display
         final errorMsg = _normalizeErrorMessage(e.toString());
         error.value = errorMsg;
@@ -216,7 +218,7 @@ class WalletLoginButton extends HookConsumerWidget {
     } catch (e) {
       throw Exception('Failed to set session in Supabase client: $e');
     }
-    
+
     // Verify session was set
     if (supabase.auth.currentSession == null) {
       throw Exception('Session not established after setSession call');
@@ -235,7 +237,8 @@ class WalletLoginButton extends HookConsumerWidget {
     final lowerError = normalized.toLowerCase();
 
     // Map common errors to user-friendly messages
-    if (lowerError.contains('supabase js') && lowerError.contains('not available')) {
+    if (lowerError.contains('supabase js') &&
+        lowerError.contains('not available')) {
       return 'Configuration error: Supabase JS SDK not loaded. Please refresh the page and try again.';
     }
 
@@ -256,11 +259,13 @@ class WalletLoginButton extends HookConsumerWidget {
       return 'You cancelled the wallet connection or signature. Please try again when ready.';
     }
 
-    if (lowerError.contains('web3 provider') && lowerError.contains('disabled')) {
+    if (lowerError.contains('web3 provider') &&
+        lowerError.contains('disabled')) {
       return 'Web3 authentication is disabled. Please contact support or enable Web3 providers (Ethereum/Solana) in Supabase Dashboard.';
     }
 
-    if (lowerError.contains('signinwithweb3') || lowerError.contains('not found')) {
+    if (lowerError.contains('signinwithweb3') ||
+        lowerError.contains('not found')) {
       return 'Web3 authentication method not available. Please ensure you\'re using the latest Supabase version.';
     }
 

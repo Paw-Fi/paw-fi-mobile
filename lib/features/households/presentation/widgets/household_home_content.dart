@@ -597,8 +597,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                             return const SizedBox.shrink();
                           }
 
-                          final transactions =
-                              expensesAsync.valueOrNull ?? [];
+                          final transactions = expensesAsync.valueOrNull ?? [];
 
                           return Padding(
                             padding:

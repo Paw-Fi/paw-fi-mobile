@@ -135,9 +135,8 @@ extension AppColorScheme on ColorScheme {
       brightness == Brightness.dark ? AppTheme.lightForeground : foreground;
 
   /// Segmented control unselected text
-  Color get tabUnselectedForeground => brightness == Brightness.dark
-      ? tabInactiveForeground
-      : mutedForeground;
+  Color get tabUnselectedForeground =>
+      brightness == Brightness.dark ? tabInactiveForeground : mutedForeground;
 
   /// Tab bar default text color (non-iOS)
   Color get tabDefaultForeground =>
@@ -532,9 +531,7 @@ class AppTheme {
     }
     final hsl = HSLColor.fromColor(baseColor);
     // Increased lightness preservation for better visibility in dark mode
-    return hsl
-        .withLightness((hsl.lightness - 0.10).clamp(0.0, 1.0))
-        .toColor();
+    return hsl.withLightness((hsl.lightness - 0.10).clamp(0.0, 1.0)).toColor();
   }
 
   /// Pockets: progress gradient tuned for the current theme

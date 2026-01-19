@@ -347,7 +347,8 @@ void main() {
     });
 
     test('handles multiple query parameters', () {
-      final uri = Uri.parse('moneko://payment?status=success&session_id=123&extra=value');
+      final uri = Uri.parse(
+          'moneko://payment?status=success&session_id=123&extra=value');
       expect(DeepLinks.isPaymentCallback(uri), true);
     });
 
@@ -389,7 +390,7 @@ void main() {
     test('payment success URL has correct format', () {
       final url = DeepLinks.paymentSuccess();
       final uri = Uri.parse(url);
-      
+
       expect(uri.scheme, 'moneko');
       expect(uri.host, 'payment');
       expect(uri.queryParameters['status'], 'success');
@@ -398,7 +399,7 @@ void main() {
     test('payment success URL with session ID has both parameters', () {
       final url = DeepLinks.paymentSuccess(sessionId: 'sess_abc123');
       final uri = Uri.parse(url);
-      
+
       expect(uri.queryParameters['status'], 'success');
       expect(uri.queryParameters['session_id'], 'sess_abc123');
     });
@@ -406,7 +407,7 @@ void main() {
     test('payment failed URL includes error message', () {
       final url = DeepLinks.paymentFailed('Insufficient funds');
       final uri = Uri.parse(url);
-      
+
       expect(uri.queryParameters['status'], 'failed');
       expect(uri.queryParameters['error'], 'Insufficient funds');
     });
@@ -414,14 +415,14 @@ void main() {
     test('payment failed URL encodes special characters', () {
       final url = DeepLinks.paymentFailed('Error: Card declined!');
       final uri = Uri.parse(url);
-      
+
       expect(uri.queryParameters['error'], 'Error: Card declined!');
     });
 
     test('payment canceled URL has correct format', () {
       final url = DeepLinks.paymentCanceled();
       final uri = Uri.parse(url);
-      
+
       expect(uri.scheme, 'moneko');
       expect(uri.host, 'payment');
       expect(uri.queryParameters['status'], 'canceled');

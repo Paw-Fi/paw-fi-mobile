@@ -52,13 +52,12 @@ class PocketsGridSection extends HookConsumerWidget {
     final notifier = ref.read(pocketsProvider(scopeParams).notifier);
     final filter = ref.watch(homeFilterProvider);
     final analytics = ref.watch(analyticsProvider);
-    final rawCurrency =
-        (filter.selectedCurrency?.trim().isNotEmpty == true
-                ? filter.selectedCurrency!.trim()
-                : (analytics.preferredCurrency?.trim().isNotEmpty == true
-                    ? analytics.preferredCurrency!.trim()
-                    : 'USD'))
-            .toUpperCase();
+    final rawCurrency = (filter.selectedCurrency?.trim().isNotEmpty == true
+            ? filter.selectedCurrency!.trim()
+            : (analytics.preferredCurrency?.trim().isNotEmpty == true
+                ? analytics.preferredCurrency!.trim()
+                : 'USD'))
+        .toUpperCase();
     final selectedCurrency = rawCurrency;
 
     // Local state for Envelope Mode
@@ -233,8 +232,8 @@ class PocketsGridSection extends HookConsumerWidget {
           ],
           PocketsHeaderCard(
             totalBudget: totalBudget,
-            totalAllocated: pocketsForDisplay
-                .fold(0.0, (sum, e) => sum + e.getLimit(totalBudget)),
+            totalAllocated: pocketsForDisplay.fold(
+                0.0, (sum, e) => sum + e.getLimit(totalBudget)),
             totalSpent: totalSpent,
             periodMonth: state.periodMonth,
             previousBudget: state.previousBudget,

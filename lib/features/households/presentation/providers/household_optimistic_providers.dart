@@ -69,7 +69,8 @@ class OptimisticHouseholdExpensesNotifier
     state = next;
   }
 
-  void replaceExpense(String householdId, String oldExpenseId, ExpenseEntry entry) {
+  void replaceExpense(
+      String householdId, String oldExpenseId, ExpenseEntry entry) {
     final existing = state[householdId] ?? const <ExpenseEntry>[];
     final filtered = existing.where((e) => e.id != oldExpenseId).toList();
     final updated = <ExpenseEntry>[entry, ...filtered];
@@ -80,8 +81,7 @@ class OptimisticHouseholdExpensesNotifier
     final existing = state[householdId];
     if (existing == null || existing.isEmpty) return;
     final serverIds = server.map((e) => e.id).toSet();
-    final filtered =
-        existing.where((e) => !serverIds.contains(e.id)).toList();
+    final filtered = existing.where((e) => !serverIds.contains(e.id)).toList();
     if (filtered.length == existing.length) return;
     final next = {...state};
     if (filtered.isEmpty) {
@@ -119,9 +119,8 @@ class OptimisticHouseholdSplitsNotifier
     final existing = state[householdId];
     if (existing == null || existing.isEmpty) return;
     final serverExpenseIds = server.map((g) => g.expenseId).toSet();
-    final filtered = existing
-        .where((g) => !serverExpenseIds.contains(g.expenseId))
-        .toList();
+    final filtered =
+        existing.where((g) => !serverExpenseIds.contains(g.expenseId)).toList();
     if (filtered.length == existing.length) return;
     final next = {...state};
     if (filtered.isEmpty) {

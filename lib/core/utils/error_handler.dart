@@ -5,7 +5,7 @@ class ErrorHandler {
   /// Maps technical errors to user-friendly messages
   static String getUserFriendlyMessage(dynamic error) {
     if (error == null) {
-      return 'An unexpected error occurred. Please try again.'; 
+      return 'An unexpected error occurred. Please try again.';
     }
 
     final errorString = error.toString().toLowerCase();
@@ -142,9 +142,7 @@ class ErrorHandler {
     if (error.statusCode == '413') {
       return 'File is too large (max 5MB).';
     }
-    return error.message.isNotEmpty
-        ? error.message
-        : 'Storage error occurred.';
+    return error.message.isNotEmpty ? error.message : 'Storage error occurred.';
   }
 
   /// Extracts error code from error object if available

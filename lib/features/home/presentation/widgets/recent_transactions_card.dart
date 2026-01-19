@@ -224,8 +224,8 @@ Widget buildRecentTransactionsCard(
                             SlidableAction(
                               onPressed: (_) async {
                                 final l10n = context.l10n;
-                                final uid =
-                                    Supabase.instance.client.auth.currentUser?.id;
+                                final uid = Supabase
+                                    .instance.client.auth.currentUser?.id;
                                 if (uid == null) return;
                                 try {
                                   final res = await Supabase
@@ -249,7 +249,8 @@ Widget buildRecentTransactionsCard(
                                       ref
                                           .read(cacheInvalidatorProvider)
                                           .invalidateHouseholdData(householdId);
-                                      ref.invalidate(userHouseholdsProvider(uid));
+                                      ref.invalidate(
+                                          userHouseholdsProvider(uid));
                                       ref.invalidate(householdExpensesProvider);
                                       ref.invalidate(
                                           cachedHouseholdExpensesProvider);

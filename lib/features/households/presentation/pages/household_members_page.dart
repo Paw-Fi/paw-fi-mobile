@@ -9,6 +9,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+
 /// Household Members Management Page
 /// View members, update roles, remove members
 class HouseholdMembersPage extends ConsumerWidget {
@@ -50,7 +51,8 @@ class HouseholdMembersPage extends ConsumerWidget {
       ),
       body: membersAsync.when(
         data: (members) => RefreshIndicator(
-          onRefresh: () => ref.read(householdMembersProvider(householdId).notifier).load(),
+          onRefresh: () =>
+              ref.read(householdMembersProvider(householdId).notifier).load(),
           child: ListView.builder(
             padding: const EdgeInsets.all(16),
             itemCount: members.length,
@@ -60,7 +62,8 @@ class HouseholdMembersPage extends ConsumerWidget {
                 member: member,
                 householdId: householdId,
                 onRemove: () => _confirmRemoveMember(context, ref, member),
-                onUpdateRole: (role) => _updateMemberRole(context, ref, member, role),
+                onUpdateRole: (role) =>
+                    _updateMemberRole(context, ref, member, role),
               );
             },
           ),
@@ -70,7 +73,8 @@ class HouseholdMembersPage extends ConsumerWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.error_outline, size: 48, color: colorScheme.destructive),
+              Icon(Icons.error_outline,
+                  size: 48, color: colorScheme.destructive),
               const SizedBox(height: 16),
               Text(
                 context.l10n.errorLoadingMembers,
@@ -78,7 +82,9 @@ class HouseholdMembersPage extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
               AdaptiveButton(
-                onPressed: () => ref.read(householdMembersProvider(householdId).notifier).load(),
+                onPressed: () => ref
+                    .read(householdMembersProvider(householdId).notifier)
+                    .load(),
                 style: AdaptiveButtonStyle.bordered,
                 label: context.l10n.retry,
               ),
@@ -89,12 +95,14 @@ class HouseholdMembersPage extends ConsumerWidget {
     );
   }
 
-  void _confirmRemoveMember(BuildContext context, WidgetRef ref, HouseholdMember member) {
+  void _confirmRemoveMember(
+      BuildContext context, WidgetRef ref, HouseholdMember member) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(context.l10n.removeMember),
-        content: Text('${context.l10n.confirmRemoveMember} ${member.userName ?? member.userEmail}?'),
+        content: Text(
+            '${context.l10n.confirmRemoveMember} ${member.userName ?? member.userEmail}?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -102,7 +110,9 @@ class HouseholdMembersPage extends ConsumerWidget {
           ),
           TextButton(
             onPressed: () async {
-              await ref.read(householdMembersProvider(householdId).notifier).removeMember(member.id);
+              await ref
+                  .read(householdMembersProvider(householdId).notifier)
+                  .removeMember(member.id);
               if (context.mounted) Navigator.pop(context);
             },
             style: TextButton.styleFrom(
@@ -115,10 +125,14 @@ class HouseholdMembersPage extends ConsumerWidget {
     );
   }
 
-  Future<void> _updateMemberRole(BuildContext context, WidgetRef ref, HouseholdMember member, HouseholdRole role) async {
-    await ref.read(householdMembersProvider(householdId).notifier).updateRole(member.id, role);
+  Future<void> _updateMemberRole(BuildContext context, WidgetRef ref,
+      HouseholdMember member, HouseholdRole role) async {
+    await ref
+        .read(householdMembersProvider(householdId).notifier)
+        .updateRole(member.id, role);
     if (context.mounted) {
-      AppToast.success(context, '${context.l10n.updatedMemberRole} ${member.userName ?? member.userEmail} to ${role.toJson()}');
+      AppToast.success(context,
+          '${context.l10n.updatedMemberRole} ${member.userName ?? member.userEmail} to ${role.toJson()}');
     }
   }
 }
@@ -174,7 +188,8 @@ class _MemberCard extends StatelessWidget {
                   Row(
                     children: [
                       RoleBadge(role: member.role),
-                      if (member.userEmail != null && member.userName != null) ...[
+                      if (member.userEmail != null &&
+                          member.userName != null) ...[
                         const SizedBox(width: 8),
                         Text(
                           member.userEmail!,

@@ -3,22 +3,28 @@ import 'package:fl_chart/fl_chart.dart';
 
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-Widget buildLongTermProjectionChart(BuildContext context, ColorScheme colorScheme, List<ExpenseEntry> expenses, List<DailyBudgetEntry> budgets) {
+
+Widget buildLongTermProjectionChart(
+    BuildContext context,
+    ColorScheme colorScheme,
+    List<ExpenseEntry> expenses,
+    List<DailyBudgetEntry> budgets) {
   // Calculate average monthly spend from historical data
   double avgMonthly = 0.0;
-  
+
   if (expenses.isNotEmpty) {
     // Group expenses by month
     final Map<String, double> monthlyTotals = {};
     for (final expense in expenses) {
-      final monthKey = '${expense.date.year}-${expense.date.month.toString().padLeft(2, '0')}';
+      final monthKey =
+          '${expense.date.year}-${expense.date.month.toString().padLeft(2, '0')}';
       monthlyTotals[monthKey] = (monthlyTotals[monthKey] ?? 0) + expense.amount;
     }
-    
+
     // Calculate average from available months
-    avgMonthly = monthlyTotals.isEmpty 
-      ? 0.0 
-      : monthlyTotals.values.reduce((a, b) => a + b) / monthlyTotals.length;
+    avgMonthly = monthlyTotals.isEmpty
+        ? 0.0
+        : monthlyTotals.values.reduce((a, b) => a + b) / monthlyTotals.length;
   }
 
   // Project 18 months using the calculated average
@@ -31,7 +37,8 @@ Widget buildLongTermProjectionChart(BuildContext context, ColorScheme colorSchem
       gridData: const FlGridData(show: false),
       titlesData: FlTitlesData(
         leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        rightTitles:
+            const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         bottomTitles: AxisTitles(
           sideTitles: SideTitles(
@@ -40,7 +47,8 @@ Widget buildLongTermProjectionChart(BuildContext context, ColorScheme colorSchem
             getTitlesWidget: (value, meta) {
               return Text(
                 'M${value.toInt() + 1}',
-                style: TextStyle(fontSize: 10, color: colorScheme.mutedForeground),
+                style:
+                    TextStyle(fontSize: 10, color: colorScheme.mutedForeground),
               );
             },
           ),

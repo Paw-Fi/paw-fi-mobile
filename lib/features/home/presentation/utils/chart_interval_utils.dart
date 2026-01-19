@@ -52,10 +52,8 @@ class HourRange {
 /// Groups expenses by the appropriate interval with fixed bucket counts
 /// Returns exactly 7 data points for daily/yearly, 6 for hourly/monthly
 Map<DateTime, double> groupExpensesByInterval(
-  List<ExpenseEntry> expenses,
-  String intervalType,
-  {DateTime? rangeStart, DateTime? rangeEnd}
-) {
+    List<ExpenseEntry> expenses, String intervalType,
+    {DateTime? rangeStart, DateTime? rangeEnd}) {
   // Exclude income entries; this util is used for spending charts
   final spendOnly = expenses
       .where((e) => (e.type ?? 'expense').toLowerCase() != 'income')
@@ -158,12 +156,10 @@ Map<DateTime, double> _groupBySevenDays(
       : newestExpenseDate;
 
   // Ensure start <= end to avoid negative spans.
-  final start = normalizedEnd.isBefore(normalizedStart)
-      ? normalizedEnd
-      : normalizedStart;
-  final end = normalizedEnd.isBefore(normalizedStart)
-      ? normalizedStart
-      : normalizedEnd;
+  final start =
+      normalizedEnd.isBefore(normalizedStart) ? normalizedEnd : normalizedStart;
+  final end =
+      normalizedEnd.isBefore(normalizedStart) ? normalizedStart : normalizedEnd;
 
   final daySpan = end.difference(start).inDays + 1;
   final bucketCount = daySpan < 7 ? daySpan : 7;

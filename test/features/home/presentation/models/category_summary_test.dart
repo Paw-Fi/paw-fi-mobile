@@ -159,7 +159,7 @@ void main() {
       );
 
       expect(summary.amount, -100.0);
-      
+
       final percentage = summary.getPercentage(1000.0);
       expect(percentage, -10.0);
     });
@@ -306,7 +306,7 @@ void main() {
       expect(percentages[1], 30.0);
       expect(percentages[2], 20.0);
       expect(percentages[3], 10.0);
-      
+
       // Sum should equal 100%
       final sum = percentages.reduce((a, b) => a + b);
       expect(sum, 100.0);

@@ -8,7 +8,8 @@ class IncomeSummary {
   final String currency;
   final Map<String, double> categoryBreakdown;
   final Map<String, CurrencyBreakdown>? currencyBreakdown;
-  final Map<String, double>? memberBreakdown; // For household income (privacy-aware)
+  final Map<String, double>?
+      memberBreakdown; // For household income (privacy-aware)
   final int transactionCount;
   final Period period;
 
@@ -25,12 +26,15 @@ class IncomeSummary {
   });
 
   factory IncomeSummary.fromJson(Map<String, dynamic> json) {
-    final categoryBreakdownRaw = json['categoryBreakdown'] as Map<String, dynamic>?;
+    final categoryBreakdownRaw =
+        json['categoryBreakdown'] as Map<String, dynamic>?;
     final categoryBreakdown = categoryBreakdownRaw?.map(
-      (key, value) => MapEntry(key, (value as num).toDouble()),
-    ) ?? {};
+          (key, value) => MapEntry(key, (value as num).toDouble()),
+        ) ??
+        {};
 
-    final currencyBreakdownRaw = json['currencyBreakdown'] as Map<String, dynamic>?;
+    final currencyBreakdownRaw =
+        json['currencyBreakdown'] as Map<String, dynamic>?;
     final currencyBreakdown = currencyBreakdownRaw?.map(
       (key, value) => MapEntry(
         key,

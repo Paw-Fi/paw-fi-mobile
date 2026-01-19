@@ -14,7 +14,7 @@ class CategoryPickerBottomSheet extends StatelessWidget {
     required this.selectedCategories,
     required this.onChanged,
     this.isSingleSelect = false,
-    this.title="",
+    this.title = "",
   });
 
   final List<String> allCategories;
@@ -107,112 +107,111 @@ class CategoryPicker extends HookWidget {
     }
 
     return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.9,
-      ),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.appBackground,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onTap: () => FocusScope.of(context).unfocus(),
-          child: Stack(
-            children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _CategoryPickerHeader(
-                    title: title,
-                    onClose: onClose ?? () => Navigator.of(context).pop(),
-                  ),
-                  const SizedBox(height: 8),
-                  Expanded(
-                    child: ListView(
-                      keyboardDismissBehavior:
-                          ScrollViewKeyboardDismissBehavior.onDrag,
-                      children: [
-                        for (final entry in filtered.entries)
-                          _CategoryGroupSection(
-                            groupTitle:
-                                getCategoryGroupTranslation(context, entry.key),
-                            categories: entry.value,
-                            selected: selected.value,
-                            onToggle: handleToggle,
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: 16,
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: searchBackground,
-                  borderRadius: BorderRadius.circular(28),
-                  border: Border.all(color: colorScheme.border),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      PlatformInfo.isIOS
-                          ? CupertinoIcons.search
-                          : Icons.search,
-                      color: colorScheme.primary,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: TextField(
-                        controller: searchController,
-                        decoration: InputDecoration(
-                          isDense: true,
-                          border: InputBorder.none,
-                          hintText: context.l10n.search,
-                          hintStyle: TextStyle(
-                            color: colorScheme.mutedForeground,
-                            fontSize: 14,
-                          ),
-                        ),
-                        style: TextStyle(
-                          color: colorScheme.foreground,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.9,
+        ),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.appBackground,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () => FocusScope.of(context).unfocus(),
+            child: Stack(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _CategoryPickerHeader(
+                        title: title,
+                        onClose: onClose ?? () => Navigator.of(context).pop(),
                       ),
-                    ),
-                    if (searchQuery.value.isNotEmpty) ...[
-                      const SizedBox(width: 4),
-                      GestureDetector(
-                        onTap: () => searchController.clear(),
-                        child: Icon(
-                          PlatformInfo.isIOS
-                              ? CupertinoIcons.xmark_circle_fill
-                              : Icons.clear,
-                          color: colorScheme.mutedForeground,
-                          size: 18,
+                      const SizedBox(height: 8),
+                      Expanded(
+                        child: ListView(
+                          keyboardDismissBehavior:
+                              ScrollViewKeyboardDismissBehavior.onDrag,
+                          children: [
+                            for (final entry in filtered.entries)
+                              _CategoryGroupSection(
+                                groupTitle: getCategoryGroupTranslation(
+                                    context, entry.key),
+                                categories: entry.value,
+                                selected: selected.value,
+                                onToggle: handleToggle,
+                              ),
+                          ],
                         ),
                       ),
                     ],
-                  ],
+                  ),
                 ),
-              ),
+                Positioned(
+                  left: 16,
+                  right: 16,
+                  bottom: 16,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: searchBackground,
+                      borderRadius: BorderRadius.circular(28),
+                      border: Border.all(color: colorScheme.border),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          PlatformInfo.isIOS
+                              ? CupertinoIcons.search
+                              : Icons.search,
+                          color: colorScheme.primary,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextField(
+                            controller: searchController,
+                            decoration: InputDecoration(
+                              isDense: true,
+                              border: InputBorder.none,
+                              hintText: context.l10n.search,
+                              hintStyle: TextStyle(
+                                color: colorScheme.mutedForeground,
+                                fontSize: 14,
+                              ),
+                            ),
+                            style: TextStyle(
+                              color: colorScheme.foreground,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        if (searchQuery.value.isNotEmpty) ...[
+                          const SizedBox(width: 4),
+                          GestureDetector(
+                            onTap: () => searchController.clear(),
+                            child: Icon(
+                              PlatformInfo.isIOS
+                                  ? CupertinoIcons.xmark_circle_fill
+                                  : Icons.clear,
+                              color: colorScheme.mutedForeground,
+                              size: 18,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
-    )
-    );
+          ),
+        ));
   }
 }
 
@@ -294,8 +293,8 @@ class _CategoryPickerHeader extends StatelessWidget {
           Text(
             title,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+                  fontWeight: FontWeight.w600,
+                ),
           ),
           InkWell(
             onTap: onClose,
@@ -305,9 +304,15 @@ class _CategoryPickerHeader extends StatelessWidget {
               height: 40,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.8),
+                color: Theme.of(context)
+                    .colorScheme
+                    .surface
+                    .withValues(alpha: 0.8),
                 border: Border.all(
-                  color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
+                  color: Theme.of(context)
+                      .colorScheme
+                      .outline
+                      .withValues(alpha: 0.2),
                   width: 1,
                 ),
               ),
@@ -389,11 +394,11 @@ class _CategoryTile extends StatelessWidget {
     final icon = getCategoryIcon(categoryKey);
     final label = getCategoryTranslation(context, categoryKey);
 
-    final circleColor = isSelected
-        ? color
-        : colorScheme.surface.withValues(alpha: 0.0);
-    final iconColor =
-        isSelected ? colorScheme.primaryForeground : color.withValues(alpha: 0.4);
+    final circleColor =
+        isSelected ? color : colorScheme.surface.withValues(alpha: 0.0);
+    final iconColor = isSelected
+        ? colorScheme.primaryForeground
+        : color.withValues(alpha: 0.4);
 
     return GestureDetector(
       onTap: onTap,
@@ -408,17 +413,21 @@ class _CategoryTile extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: circleColor,
-                border: isSelected ? null : Border.all(
-                  color: color.withValues(alpha: 0.2),
-                  width: 1.5,
-                ),
-                boxShadow: isSelected ? [
-                  BoxShadow(
-                    color: color.withValues(alpha: 0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  )
-                ] : null,
+                border: isSelected
+                    ? null
+                    : Border.all(
+                        color: color.withValues(alpha: 0.2),
+                        width: 1.5,
+                      ),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: color.withValues(alpha: 0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        )
+                      ]
+                    : null,
               ),
               child: Icon(
                 icon,

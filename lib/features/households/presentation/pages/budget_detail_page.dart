@@ -32,7 +32,7 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
   bool _isEditing = false;
   bool _isSaving = false;
   bool _isDeleting = false;
-  
+
   late TextEditingController _nameController;
   late TextEditingController _amountController;
   late TextEditingController _warnThresholdController;
@@ -104,7 +104,9 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
                   const CircularProgressIndicator(),
                   const SizedBox(height: 16),
                   Text(
-                    _isDeleting ? context.l10n.deletingBudget : context.l10n.savingChanges,
+                    _isDeleting
+                        ? context.l10n.deletingBudget
+                        : context.l10n.savingChanges,
                     style: TextStyle(color: colorScheme.mutedForeground),
                   ),
                 ],
@@ -132,7 +134,9 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
                     enabled: _isEditing,
                     keyboardType: TextInputType.number,
                     colorScheme: colorScheme,
-                    prefix: widget.budget.currency == 'USD' ? '\$' : widget.budget.currency,
+                    prefix: widget.budget.currency == 'USD'
+                        ? '\$'
+                        : widget.budget.currency,
                   ),
 
                   const SizedBox(height: 16),
@@ -294,7 +298,8 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
               borderRadius: BorderRadius.circular(8),
             ),
             filled: !enabled,
-            fillColor: enabled ? null : colorScheme.muted.withValues(alpha: 0.3),
+            fillColor:
+                enabled ? null : colorScheme.muted.withValues(alpha: 0.3),
           ),
         ),
       ],
@@ -342,9 +347,12 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
       _isEditing = false;
       // Reset controllers to original values
       _nameController.text = widget.budget.name;
-      _amountController.text = (widget.budget.amountCents / 100).toStringAsFixed(2);
-      _warnThresholdController.text = (widget.budget.warnThreshold * 100).toStringAsFixed(0);
-      _alertThresholdController.text = (widget.budget.alertThreshold * 100).toStringAsFixed(0);
+      _amountController.text =
+          (widget.budget.amountCents / 100).toStringAsFixed(2);
+      _warnThresholdController.text =
+          (widget.budget.warnThreshold * 100).toStringAsFixed(0);
+      _alertThresholdController.text =
+          (widget.budget.alertThreshold * 100).toStringAsFixed(0);
       _isActive = widget.budget.isActive;
     });
   }
@@ -419,7 +427,7 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
 
   Future<void> _confirmDelete() async {
     final colorScheme = Theme.of(context).colorScheme;
-    
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -434,7 +442,8 @@ class _BudgetDetailPageState extends ConsumerState<BudgetDetailPage> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: colorScheme.destructive),
+            style:
+                TextButton.styleFrom(foregroundColor: colorScheme.destructive),
             child: Text(context.l10n.delete),
           ),
         ],

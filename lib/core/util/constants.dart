@@ -6,7 +6,8 @@ abstract class Constants {
   static String get supabaseAnon => dotenv.env['SUPABASE_ANON_KEY'] ?? '';
 
   // Environment type
-  static const String environment = String.fromEnvironment('ENV', defaultValue: 'production');
+  static const String environment =
+      String.fromEnvironment('ENV', defaultValue: 'production');
   static bool get isDevelopment => environment == 'development';
   static bool get isProduction => environment == 'production';
 }

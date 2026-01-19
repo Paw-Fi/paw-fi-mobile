@@ -92,7 +92,7 @@ class SelectedHouseholdNotifier extends StateNotifier<SelectedHouseholdState> {
 
       final households =
           preloadedHouseholds ?? await _waitForHouseholds(_userId);
-      
+
       if (households == null || households.isEmpty) {
         debugPrint('📭 No households found for user (or load failed)');
         state = const SelectedHouseholdState(isLoading: false);
@@ -216,8 +216,7 @@ class SelectedHouseholdNotifier extends StateNotifier<SelectedHouseholdState> {
       }
 
       // Fallback: fetch household details (may fail offline). Still persist ID even if null.
-      resolved ??=
-          await ref.read(householdProvider(householdId).future);
+      resolved ??= await ref.read(householdProvider(householdId).future);
 
       // Update state
       state = SelectedHouseholdState(
@@ -229,12 +228,13 @@ class SelectedHouseholdNotifier extends StateNotifier<SelectedHouseholdState> {
 
       // Persist to storage
       await _saveToStorage(householdId);
-      
+
       if (_operationId != operationId) return;
       if (resolved != null) {
         debugPrint('✅ Selected household: ${resolved.name}');
       } else {
-        debugPrint('⚠️ Selected household persisted but could not be resolved yet');
+        debugPrint(
+            '⚠️ Selected household persisted but could not be resolved yet');
       }
     } catch (e, stack) {
       debugPrint('❌ Error selecting household: $e');
@@ -259,7 +259,7 @@ class SelectedHouseholdNotifier extends StateNotifier<SelectedHouseholdState> {
   /// Refresh current household data
   Future<void> refresh() async {
     if (state.householdId == null) return;
-    
+
     debugPrint('🔄 Refreshing household: ${state.householdId}');
     await selectHousehold(state.householdId!);
   }
@@ -290,14 +290,12 @@ class SelectedHouseholdNotifier extends StateNotifier<SelectedHouseholdState> {
     final perUserKey = _selectedHouseholdIdKeyForUser(_userId);
 
     final perUserSaved = prefs.getString(perUserKey);
-    if (perUserSaved != null &&
-        households.any((h) => h.id == perUserSaved)) {
+    if (perUserSaved != null && households.any((h) => h.id == perUserSaved)) {
       return perUserSaved;
     }
 
     final legacySaved = prefs.getString(_kLegacySelectedHouseholdIdKey);
-    if (legacySaved != null &&
-        households.any((h) => h.id == legacySaved)) {
+    if (legacySaved != null && households.any((h) => h.id == legacySaved)) {
       // Migrate legacy → per-user once we confirm it is valid for this account.
       try {
         await prefs.setString(perUserKey, legacySaved);
@@ -347,7 +345,8 @@ final selectedHouseholdInitializerProvider = Provider<void>((ref) {
   ref.listen(
     selectedHouseholdProvider,
     (previous, next) {
-      debugPrint('🔔 Selected household state changed: ${next.household?.name ?? "none"}');
+      debugPrint(
+          '🔔 Selected household state changed: ${next.household?.name ?? "none"}');
     },
   );
 });

@@ -35,7 +35,8 @@ class AuthCallbackScreen extends HookConsumerWidget {
           // Web: if tokens are present in fragment, set session proactively
           if (kIsWeb) {
             final frag = Uri.base.fragment;
-            if (frag.contains('access_token') && frag.contains('refresh_token')) {
+            if (frag.contains('access_token') &&
+                frag.contains('refresh_token')) {
               final params = Uri.splitQueryString(frag);
               final refreshToken = params['refresh_token'];
               if (refreshToken != null && refreshToken.isNotEmpty) {
@@ -57,7 +58,8 @@ class AuthCallbackScreen extends HookConsumerWidget {
               // Check if this is a new user (created_at within last 5 minutes)
               final user = session.user;
               final createdAt = DateTime.parse(user.createdAt);
-              final isNewUser = DateTime.now().difference(createdAt).inMinutes < 5;
+              final isNewUser =
+                  DateTime.now().difference(createdAt).inMinutes < 5;
 
               if (isNewUser) {
                 // New user - redirect to avatar customizer
@@ -136,9 +138,14 @@ class AuthCallbackScreen extends HookConsumerWidget {
       for (final id in identities) {
         final idDyn = id as dynamic;
         final provider = (idDyn.provider ?? idDyn['provider'])?.toString();
-        if (provider == 'web3' || provider == 'ethereum' || provider == 'solana') {
+        if (provider == 'web3' ||
+            provider == 'ethereum' ||
+            provider == 'solana') {
           final data = (idDyn.identityData ?? idDyn['identity_data']) as Map?;
-          walletAddress = (data?['wallet_address'] ?? data?['address'] ?? data?['publicKey'])?.toString();
+          walletAddress = (data?['wallet_address'] ??
+                  data?['address'] ??
+                  data?['publicKey'])
+              ?.toString();
           chain = (data?['chain'] ?? data?['network'])?.toString();
           if (walletAddress != null) break;
         }
@@ -161,8 +168,9 @@ class AuthCallbackScreen extends HookConsumerWidget {
 
       // Update auth metadata if no display name
       final meta = (u.userMetadata as Map?) ?? const {};
-      final hasName = (meta['full_name']?.toString().trim().isNotEmpty == true) ||
-          (meta['name']?.toString().trim().isNotEmpty == true);
+      final hasName =
+          (meta['full_name']?.toString().trim().isNotEmpty == true) ||
+              (meta['name']?.toString().trim().isNotEmpty == true);
       if (!hasName) {
         try {
           await supabase.auth.updateUser(UserAttributes(data: {

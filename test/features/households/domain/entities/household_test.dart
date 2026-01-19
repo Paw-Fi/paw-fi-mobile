@@ -432,7 +432,7 @@ void main() {
       final now = DateTime(2024, 1, 1);
       final expiresAt = DateTime(2024, 1, 7);
       final acceptedAt = DateTime(2024, 1, 2);
-      
+
       final invite = HouseholdInvite(
         id: 'inv_1',
         token: 'abc123',
@@ -510,7 +510,7 @@ void main() {
     test('toJson serializes invite correctly', () {
       final now = DateTime(2024, 1, 1);
       final expiresAt = DateTime(2024, 1, 7);
-      
+
       final invite = HouseholdInvite(
         id: 'inv_1',
         token: 'abc123',
@@ -534,7 +534,7 @@ void main() {
 
     test('toJson handles null expiresAt correctly', () {
       final now = DateTime(2024, 1, 1);
-      
+
       final invite = HouseholdInvite(
         id: 'inv_1',
         token: 'abc123',

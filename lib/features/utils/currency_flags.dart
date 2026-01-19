@@ -56,7 +56,7 @@ String? getCurrencyFlagPath(String currencyCode) {
     'RSD': 'serbia',
     'HUF': 'hungary',
   };
-  
+
   final flagName = flagMap[code];
   return flagName != null ? 'lib/assets/images/flags/$flagName.png' : null;
 }

@@ -13,7 +13,8 @@ class GoalsListPage extends ConsumerStatefulWidget {
   ConsumerState<GoalsListPage> createState() => _GoalsListPageState();
 }
 
-class _GoalsListPageState extends ConsumerState<GoalsListPage> with SingleTickerProviderStateMixin {
+class _GoalsListPageState extends ConsumerState<GoalsListPage>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   // String? _householdId;
   // String? _userId;
@@ -40,54 +41,54 @@ class _GoalsListPageState extends ConsumerState<GoalsListPage> with SingleTicker
     return Stack(
       children: [
         Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.goals),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.filter_list),
-            onPressed: () {
-              // TODO: Implement filter sheet
-            },
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: [
-            Tab(text: l10n.all),
-            Tab(text: l10n.savings),
-            Tab(text: l10n.paydown),
-          ],
-        ),
-      ),
-      body: Column(
-        children: [
-          // Summary card
-          summaryState.when(
-            data: (summary) => _buildSummaryCard(summary, colorScheme),
-            loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
-          ),
-          // Goals list
-          Expanded(
-            child: TabBarView(
+          appBar: AppBar(
+            title: Text(l10n.goals),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.filter_list),
+                onPressed: () {
+                  // TODO: Implement filter sheet
+                },
+              ),
+            ],
+            bottom: TabBar(
               controller: _tabController,
-              children: [
-                _buildGoalsList(goalsState, null),
-                _buildGoalsList(goalsState, 'savings'),
-                _buildGoalsList(goalsState, 'paydown'),
+              tabs: [
+                Tab(text: l10n.all),
+                Tab(text: l10n.savings),
+                Tab(text: l10n.paydown),
               ],
             ),
           ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          showCreateGoalSheet(context);
-        },
-        icon: const Icon(Icons.add),
-        label: Text(l10n.createGoal),
-      ),
-    ),
+          body: Column(
+            children: [
+              // Summary card
+              summaryState.when(
+                data: (summary) => _buildSummaryCard(summary, colorScheme),
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
+              ),
+              // Goals list
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildGoalsList(goalsState, null),
+                    _buildGoalsList(goalsState, 'savings'),
+                    _buildGoalsList(goalsState, 'paydown'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          floatingActionButton: FloatingActionButton.extended(
+            onPressed: () {
+              showCreateGoalSheet(context);
+            },
+            icon: const Icon(Icons.add),
+            label: Text(l10n.createGoal),
+          ),
+        ),
       ],
     );
   }
@@ -165,7 +166,8 @@ class _GoalsListPageState extends ConsumerState<GoalsListPage> with SingleTicker
     );
   }
 
-  Widget _buildGoalsList(AsyncValue<List<dynamic>> goalsState, String? category) {
+  Widget _buildGoalsList(
+      AsyncValue<List<dynamic>> goalsState, String? category) {
     return goalsState.when(
       data: (goals) {
         final filteredGoals = category != null

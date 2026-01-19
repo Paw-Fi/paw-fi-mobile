@@ -57,7 +57,8 @@ class _PaywallContentState extends ConsumerState<_PaywallContent> {
   Future<void> _handleRefresh() async {
     if (!mounted) return;
 
-    final subscriptionNotifier = ref.read(subscriptionNotifierProvider.notifier);
+    final subscriptionNotifier =
+        ref.read(subscriptionNotifierProvider.notifier);
     final referralNotifier = ref.read(referralCodeCheckerProvider.notifier);
 
     await subscriptionNotifier.refresh();

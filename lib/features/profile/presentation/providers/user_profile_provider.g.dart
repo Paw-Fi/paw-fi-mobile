@@ -148,8 +148,7 @@ mixin UserProfileRef on AutoDisposeFutureProviderRef<UserProfile?> {
 }
 
 class _UserProfileProviderElement
-    extends AutoDisposeFutureProviderElement<UserProfile?>
-    with UserProfileRef {
+    extends AutoDisposeFutureProviderElement<UserProfile?> with UserProfileRef {
   _UserProfileProviderElement(super.provider);
 
   @override

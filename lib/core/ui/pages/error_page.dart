@@ -51,8 +51,8 @@ class ErrorPage extends ConsumerWidget {
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
                   Icon(
                     Icons.error_outline,
                     color: colorScheme.errorAccent,

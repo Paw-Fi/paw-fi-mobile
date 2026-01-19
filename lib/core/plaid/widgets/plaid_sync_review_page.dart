@@ -137,7 +137,8 @@ class PlaidSyncReviewPage extends StatelessWidget {
     );
   }
 
-  Map<_MonthKey, List<SyncedTransaction>> _groupByMonth(List<SyncedTransaction> items) {
+  Map<_MonthKey, List<SyncedTransaction>> _groupByMonth(
+      List<SyncedTransaction> items) {
     final map = <_MonthKey, List<SyncedTransaction>>{};
     for (final tx in items) {
       final key = _MonthKey(tx.expense.date.year, tx.expense.date.month);
@@ -203,12 +204,14 @@ class _MonthSection extends StatelessWidget {
               child: TransactionListTile(
                 onTap: () => onEdit(tx),
                 category: tx.expense.category ?? 'other',
-                title: getCategoryTranslation(context, tx.expense.category ?? 'other'),
+                title: getCategoryTranslation(
+                    context, tx.expense.category ?? 'other'),
                 description: tx.expense.rawText,
                 date: tx.expense.date,
                 amount: tx.expense.amount,
                 currency: tx.expense.currency ?? 'USD',
-                isIncome: (tx.expense.type ?? 'expense').toLowerCase() == 'income',
+                isIncome:
+                    (tx.expense.type ?? 'expense').toLowerCase() == 'income',
               ),
             ),
           const SizedBox(height: 8),
@@ -229,7 +232,10 @@ class _MonthKey {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is _MonthKey && runtimeType == other.runtimeType && year == other.year && month == other.month;
+      other is _MonthKey &&
+          runtimeType == other.runtimeType &&
+          year == other.year &&
+          month == other.month;
 
   @override
   int get hashCode => year.hashCode ^ month.hashCode;

@@ -26,7 +26,7 @@ class UserProfile {
 @riverpod
 Future<UserProfile?> userProfile(UserProfileRef ref, String userId) async {
   final client = Supabase.instance.client;
-  
+
   final data = await client
       .from('users')
       .select('full_name, avatar_url, is_creator')
@@ -34,6 +34,6 @@ Future<UserProfile?> userProfile(UserProfileRef ref, String userId) async {
       .maybeSingle();
 
   if (data == null) return null;
-  
+
   return UserProfile.fromJson(data);
 }

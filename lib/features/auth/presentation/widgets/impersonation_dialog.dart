@@ -17,7 +17,8 @@ class ImpersonationDialog extends ConsumerStatefulWidget {
   }
 
   @override
-  ConsumerState<ImpersonationDialog> createState() => _ImpersonationDialogState();
+  ConsumerState<ImpersonationDialog> createState() =>
+      _ImpersonationDialogState();
 }
 
 class _ImpersonationDialogState extends ConsumerState<ImpersonationDialog> {
@@ -60,7 +61,8 @@ class _ImpersonationDialogState extends ConsumerState<ImpersonationDialog> {
       Navigator.of(context).pop();
     } else {
       setState(() {
-        _errorMessage = context.l10n.failedToImpersonateUserPleaseCheckTheEmailAndTryAgain;
+        _errorMessage =
+            context.l10n.failedToImpersonateUserPleaseCheckTheEmailAndTryAgain;
       });
     }
   }
@@ -114,7 +116,8 @@ class _ImpersonationDialogState extends ConsumerState<ImpersonationDialog> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    context.l10n.youWillSeeDataFromThisUsersPerspectiveWithoutLoggingInAsThem,
+                    context.l10n
+                        .youWillSeeDataFromThisUsersPerspectiveWithoutLoggingInAsThem,
                     style: TextStyle(
                       fontSize: 12,
                       color: infoBase.withValues(alpha: 0.95),

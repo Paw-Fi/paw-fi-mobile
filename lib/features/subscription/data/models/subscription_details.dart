@@ -22,11 +22,13 @@ class SubscriptionDetails {
           : null,
       features: json['features'] != null
           ? (json['features'] as List)
-              .map((f) => SubscriptionFeature.fromJson(f as Map<String, dynamic>))
+              .map((f) =>
+                  SubscriptionFeature.fromJson(f as Map<String, dynamic>))
               .toList()
           : null,
       paymentMethod: json['payment_method'] != null
-          ? PaymentMethod.fromJson(json['payment_method'] as Map<String, dynamic>)
+          ? PaymentMethod.fromJson(
+              json['payment_method'] as Map<String, dynamic>)
           : null,
       invoices: json['invoices'] != null
           ? (json['invoices'] as List)
@@ -38,10 +40,11 @@ class SubscriptionDetails {
   }
 
   String get planDisplayName {
-    if (subscription?.plan == null || subscription?.plan?.toLowerCase() == 'free') {
+    if (subscription?.plan == null ||
+        subscription?.plan?.toLowerCase() == 'free') {
       return 'Free';
     }
-    
+
     switch (subscription!.plan!.toLowerCase()) {
       case 'lifetime':
         return 'Lifetime';
@@ -57,10 +60,11 @@ class SubscriptionDetails {
   }
 
   String get statusDisplayName {
-    if (subscription?.plan == null || subscription?.plan?.toLowerCase() == 'free') {
+    if (subscription?.plan == null ||
+        subscription?.plan?.toLowerCase() == 'free') {
       return 'Free plan';
     }
-    
+
     switch (subscription!.status?.toLowerCase()) {
       case 'active':
         return isLifetime ? 'Active • Lifetime' : 'Active';
@@ -80,11 +84,12 @@ class SubscriptionDetails {
       return null;
     }
 
-    if (subscription!.status?.toLowerCase() == 'trialing' && subscription!.currentPeriodEnd != null) {
+    if (subscription!.status?.toLowerCase() == 'trialing' &&
+        subscription!.currentPeriodEnd != null) {
       final trialEnd = subscription!.currentPeriodEnd!;
       final now = DateTime.now();
       final daysLeft = trialEnd.difference(now).inDays;
-      
+
       if (daysLeft > 0) {
         return 'Trial ends in $daysLeft days';
       } else {
@@ -92,15 +97,18 @@ class SubscriptionDetails {
       }
     }
 
-    if (subscription!.status?.toLowerCase() == 'active' && daysUntilNextPayment != null && daysUntilNextPayment! > 0) {
+    if (subscription!.status?.toLowerCase() == 'active' &&
+        daysUntilNextPayment != null &&
+        daysUntilNextPayment! > 0) {
       return 'Renews in $daysUntilNextPayment days';
     }
 
-    if (subscription!.status?.toLowerCase() == 'canceled' && subscription!.currentPeriodEnd != null) {
+    if (subscription!.status?.toLowerCase() == 'canceled' &&
+        subscription!.currentPeriodEnd != null) {
       final endDate = subscription!.currentPeriodEnd!;
       final now = DateTime.now();
       final daysLeft = endDate.difference(now).inDays;
-      
+
       if (daysLeft > 0) {
         return 'Access ends in $daysLeft days';
       } else {
@@ -112,10 +120,11 @@ class SubscriptionDetails {
   }
 
   bool get hasActiveSubscription {
-    if (subscription?.plan == null || subscription?.plan?.toLowerCase() == 'free') {
+    if (subscription?.plan == null ||
+        subscription?.plan?.toLowerCase() == 'free') {
       return false;
     }
-    
+
     final status = subscription!.status?.toLowerCase();
     return status == 'active' || status == 'trialing';
   }
@@ -141,7 +150,8 @@ class SubscriptionDetails {
   }
 
   bool get isFree {
-    return subscription?.plan == null || subscription?.plan?.toLowerCase() == 'free';
+    return subscription?.plan == null ||
+        subscription?.plan?.toLowerCase() == 'free';
   }
 }
 
@@ -219,12 +229,12 @@ class Invoice {
   factory Invoice.fromJson(Map<String, dynamic> json) {
     return Invoice(
       id: json['id']?.toString() ?? '',
-      amountPaid: json['amount_paid'] != null 
-          ? (json['amount_paid'] as num).toDouble() 
+      amountPaid: json['amount_paid'] != null
+          ? (json['amount_paid'] as num).toDouble()
           : 0.0,
       currency: json['currency']?.toString() ?? 'USD',
       status: json['status']?.toString() ?? 'unknown',
-      created: json['created'] != null 
+      created: json['created'] != null
           ? DateTime.tryParse(json['created'].toString()) ?? DateTime.now()
           : DateTime.now(),
       hostedInvoiceUrl: json['hosted_invoice_url'] as String?,

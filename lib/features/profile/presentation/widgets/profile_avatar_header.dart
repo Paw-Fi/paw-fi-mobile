@@ -12,22 +12,29 @@ Widget buildProfileAvatarHeader(BuildContext context, WidgetRef ref, user) {
 
   return profileAsync.when(
     loading: () => const Center(child: CircularProgressIndicator()),
-    error: (error, stack) => Center(child: Text(context.l10n.errorLoadingProfile)),
+    error: (error, stack) =>
+        Center(child: Text(context.l10n.errorLoadingProfile)),
     data: (profile) {
       final dbName = profile?.fullName;
       final dbAvatarUrl = profile?.avatarUrl;
 
       final displayName = (dbName?.trim().isNotEmpty == true)
           ? dbName!.trim()
-          : (user.displayName?.trim().isNotEmpty == true ? user.displayName!.trim() : context.l10n.user);
+          : (user.displayName?.trim().isNotEmpty == true
+              ? user.displayName!.trim()
+              : context.l10n.user);
 
       final initials = displayName.isNotEmpty
           ? displayName.substring(0, 1).toUpperCase()
-          : (user.email.isNotEmpty ? user.email.substring(0, 1).toUpperCase() : 'U');
+          : (user.email.isNotEmpty
+              ? user.email.substring(0, 1).toUpperCase()
+              : 'U');
 
       final avatarUrl = (dbAvatarUrl != null && dbAvatarUrl.isNotEmpty)
           ? dbAvatarUrl
-          : (user.photoUrl != null && user.photoUrl!.isNotEmpty ? user.photoUrl : null);
+          : (user.photoUrl != null && user.photoUrl!.isNotEmpty
+              ? user.photoUrl
+              : null);
 
       return Column(
         children: [
@@ -61,16 +68,17 @@ Widget buildProfileAvatarHeader(BuildContext context, WidgetRef ref, user) {
                 color: colorScheme.card,
               ),
               clipBehavior: Clip.antiAlias,
-          child: GestureDetector(
-            onTap: () => context.push('/avatar'),
-            child: avatarUrl != null
-                ? Image.network(
-                    avatarUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => _InitialsFallback(initials),
-                  )
-                : _InitialsFallback(initials),
-          ),
+              child: GestureDetector(
+                onTap: () => context.push('/avatar'),
+                child: avatarUrl != null
+                    ? Image.network(
+                        avatarUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) =>
+                            _InitialsFallback(initials),
+                      )
+                    : _InitialsFallback(initials),
+              ),
             ),
           ),
           const SizedBox(height: 20),
@@ -97,8 +105,7 @@ Widget buildProfileAvatarHeader(BuildContext context, WidgetRef ref, user) {
               ),
               const SizedBox(width: 8),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: AppTheme.monekoPrimary,
                   borderRadius: BorderRadius.circular(999),

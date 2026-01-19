@@ -24,16 +24,16 @@ class BetaPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    
+
     // Use theme colors with fallbacks if not provided
-    final bgColor = backgroundColor ?? 
-        (scheme.brightness == Brightness.dark 
-            ? scheme.warning.withValues(alpha: 0.2) 
+    final bgColor = backgroundColor ??
+        (scheme.brightness == Brightness.dark
+            ? scheme.warning.withValues(alpha: 0.2)
             : scheme.warning.withValues(alpha: 0.1));
-    
-    final txtColor = textColor ?? 
-        (scheme.brightness == Brightness.dark 
-            ? scheme.warning 
+
+    final txtColor = textColor ??
+        (scheme.brightness == Brightness.dark
+            ? scheme.warning
             : scheme.warning);
 
     return Container(

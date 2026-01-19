@@ -8,7 +8,7 @@ import 'dart:async';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 /// Performs Web3 sign-in using browser wallet extensions
-/// 
+///
 /// This function:
 /// 1. Detects the appropriate wallet provider (ethereum/solana)
 /// 2. Requests wallet connection and accounts
@@ -27,8 +27,9 @@ Future<Map<String, dynamic>?> web3SignIn({
   required String anonKey,
 }) async {
   try {
-    FirebaseCrashlytics.instance.log('[Web3Auth] Starting authentication for chain: $chain');
-    
+    FirebaseCrashlytics.instance
+        .log('[Web3Auth] Starting authentication for chain: $chain');
+
     // Use external helpers to access window properties
     if (!_hasSupabase()) {
       throw Exception(
@@ -37,11 +38,11 @@ Future<Map<String, dynamic>?> web3SignIn({
         'is included in index.html',
       );
     }
-    
+
     FirebaseCrashlytics.instance.log('[Web3Auth] Supabase JS SDK detected');
-    
+
     final chainLower = chain.toLowerCase();
-    
+
     // Connect to wallet based on chain
     if (chainLower == 'ethereum') {
       await _connectEthereumWallet();
@@ -50,9 +51,10 @@ Future<Map<String, dynamic>?> web3SignIn({
     } else {
       throw Exception('Unsupported chain: $chain. Use "ethereum" or "solana"');
     }
-    
-    FirebaseCrashlytics.instance.log('[Web3Auth] Wallet connected, calling signInWithWeb3');
-    
+
+    FirebaseCrashlytics.instance
+        .log('[Web3Auth] Wallet connected, calling signInWithWeb3');
+
     // Call external JS function that handles the Supabase auth
     final jsResult = await _callSupabaseWeb3SignIn(
       projectUrl,
@@ -60,12 +62,12 @@ Future<Map<String, dynamic>?> web3SignIn({
       chainLower,
       statement,
     ).toDart;
-    
+
     // Convert JSObject to Dart Map
     final sessionData = _jsObjectToDart(jsResult);
-    
+
     FirebaseCrashlytics.instance.log('[Web3Auth] Authentication successful');
-    
+
     return sessionData;
   } catch (e) {
     FirebaseCrashlytics.instance.log('[Web3Auth] Error: $e');
@@ -96,7 +98,7 @@ Map<String, dynamic> _jsObjectToDart(JSAny? jsObj) {
   if (jsObj == null) {
     throw Exception('Received null JS object');
   }
-  
+
   // Use dart:convert to safely convert
   final jsonString = _jsObjectToJsonString(jsObj);
   return _parseJsonString(jsonString);
@@ -104,7 +106,6 @@ Map<String, dynamic> _jsObjectToDart(JSAny? jsObj) {
 
 @JS('JSON.stringify')
 external String _jsObjectToJsonString(JSAny obj);
-
 
 Map<String, dynamic> _parseJsonString(String jsonString) {
   // We'll manually extract the values since JSON.parse returns JSAny

@@ -26,10 +26,12 @@ import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 /// Manage budgets, privacy preferences, and household settings
 class HouseholdSettingsPage extends ConsumerStatefulWidget {
   final String householdId;
+  final int? initialTab;
 
   const HouseholdSettingsPage({
     super.key,
     required this.householdId,
+    this.initialTab,
   });
 
   @override
@@ -55,13 +57,22 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage>
   @override
   Widget build(BuildContext context) {
     final householdAsync = ref.watch(householdProvider(widget.householdId));
-    final shouldShowAllTabs =
-        householdAsync.asData?.value?.isPortfolio != true;
+    final shouldShowAllTabs = householdAsync.asData?.value?.isPortfolio != true;
     final desiredTabCount = shouldShowAllTabs ? 3 : 1;
 
     if (_tabController == null || _tabController!.length != desiredTabCount) {
       _tabController?.dispose();
-      _tabController = TabController(length: desiredTabCount, vsync: this);
+      // Use initialTab if provided and valid, otherwise default to 0
+      final initialIndex = (widget.initialTab != null &&
+              widget.initialTab! >= 0 &&
+              widget.initialTab! < desiredTabCount)
+          ? widget.initialTab!
+          : 0;
+      _tabController = TabController(
+        length: desiredTabCount,
+        vsync: this,
+        initialIndex: initialIndex,
+      );
       _tabController!.addListener(() {
         if (mounted) setState(() {});
       });
@@ -140,7 +151,7 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
   String? _selectedImageUrl;
   File? _selectedImageFile;
   bool _isSaving = false;
-   bool _isDeleting = false;
+  bool _isDeleting = false;
 
   @override
   void dispose() {
@@ -229,7 +240,8 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
                           hintText: context.l10n.pleaseEnterHouseholdName,
                           border: InputBorder.none,
                           hintStyle: TextStyle(
-                            color: colorScheme.mutedForeground.withValues(alpha: 0.6),
+                            color: colorScheme.mutedForeground
+                                .withValues(alpha: 0.6),
                             fontWeight: FontWeight.w400,
                           ),
                         ),
@@ -288,8 +300,8 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
                                             child: Icon(
                                               Icons.home_filled,
                                               size: 64,
-                                              color:
-                                                  colorScheme.mutedForeground.withValues(alpha: 0.5),
+                                              color: colorScheme.mutedForeground
+                                                  .withValues(alpha: 0.5),
                                             ),
                                           ),
                                         )
@@ -298,7 +310,8 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
                                           child: Icon(
                                             Icons.home_filled,
                                             size: 64,
-                                            color: colorScheme.mutedForeground.withValues(alpha: 0.5),
+                                            color: colorScheme.mutedForeground
+                                                .withValues(alpha: 0.5),
                                           ),
                                         ),
                             ),
@@ -327,7 +340,8 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
                                     shape: BoxShape.circle,
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.1),
+                                        color:
+                                            Colors.black.withValues(alpha: 0.1),
                                         blurRadius: 8,
                                         offset: const Offset(0, 2),
                                       ),
@@ -750,7 +764,8 @@ class _MemberCard extends StatelessWidget {
                             Text(
                               '•',
                               style: TextStyle(
-                                color: colorScheme.mutedForeground.withValues(alpha: 0.5),
+                                color: colorScheme.mutedForeground
+                                    .withValues(alpha: 0.5),
                                 fontSize: 12,
                               ),
                             ),
@@ -877,7 +892,6 @@ class _MemberCard extends StatelessWidget {
   }
 }
 
-
 class _PermissionNotice extends StatelessWidget {
   final String? message;
 
@@ -956,4 +970,3 @@ class _SectionHeader extends StatelessWidget {
     );
   }
 }
-

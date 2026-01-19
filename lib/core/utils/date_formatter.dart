@@ -15,7 +15,8 @@ String formatLocalizedDate(
   final locale = Localizations.localeOf(context);
 
   // Normalize language code for special cases (e.g. custom locales)
-  final languageCode = _normalizeLanguageCode(locale.languageCode.toLowerCase());
+  final languageCode =
+      _normalizeLanguageCode(locale.languageCode.toLowerCase());
   final intlLocale = _resolveIntlLocale(locale, languageCode);
 
   try {
@@ -57,7 +58,8 @@ String formatLocalizedMonth(
   bool abbreviated = true,
 }) {
   final locale = Localizations.localeOf(context);
-  final languageCode = _normalizeLanguageCode(locale.languageCode.toLowerCase());
+  final languageCode =
+      _normalizeLanguageCode(locale.languageCode.toLowerCase());
   final intlLocale = _resolveIntlLocale(locale, languageCode);
 
   final pattern = _getMonthPattern(languageCode, abbreviated);
@@ -86,15 +88,36 @@ String _getMonthPattern(String languageCode, bool abbreviated) {
   }
 }
 
-String _manualFormatMonth(DateTime date, String languageCode, bool abbreviated) {
+String _manualFormatMonth(
+    DateTime date, String languageCode, bool abbreviated) {
   // English abbreviations/full names as ultimate fallback
   const monthAbbr = <String>[
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
   const monthFull = <String>[
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
   ];
 
   switch (languageCode) {
@@ -104,7 +127,9 @@ String _manualFormatMonth(DateTime date, String languageCode, bool abbreviated) 
     case 'ko':
       return '${date.month}월';
     default:
-      return abbreviated ? monthAbbr[date.month - 1] : monthFull[date.month - 1];
+      return abbreviated
+          ? monthAbbr[date.month - 1]
+          : monthFull[date.month - 1];
   }
 }
 
@@ -227,8 +252,18 @@ String _manualFormatDate(
 ) {
   // Month abbreviations fallback (English only as ultimate fallback)
   const monthAbbr = <String>[
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
   switch (languageCode) {

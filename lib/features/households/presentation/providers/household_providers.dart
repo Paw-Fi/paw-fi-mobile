@@ -566,7 +566,8 @@ final householdExpensesProvider =
           .cast<String>()
           .toSet()
           .toList();
-      FirebaseCrashlytics.instance.log('🔍 Found ${userIds.length} unique user IDs: $userIds');
+      FirebaseCrashlytics.instance
+          .log('🔍 Found ${userIds.length} unique user IDs: $userIds');
 
       Map<String, Map<String, dynamic>> usersMap = {};
       if (userIds.isNotEmpty) {
@@ -612,14 +613,16 @@ final householdExpensesProvider =
       return mergeHouseholdExpenses(entries, optimistic);
     } on TimeoutException catch (e, st) {
       FirebaseCrashlytics.instance.log(
-        '⚠️ householdExpensesProvider timeout for ' 
+        '⚠️ householdExpensesProvider timeout for '
         '${params.householdId} (limit=${params.limit}): $e',
       );
-      FirebaseCrashlytics.instance.log('❌ Error loading household expenses (timeout): $e\n$st');
+      FirebaseCrashlytics.instance
+          .log('❌ Error loading household expenses (timeout): $e\n$st');
       // Bubble up to UI to show consistent error state
       rethrow;
     } catch (e, st) {
-      FirebaseCrashlytics.instance.log('❌ Error loading household expenses: $e\n$st');
+      FirebaseCrashlytics.instance
+          .log('❌ Error loading household expenses: $e\n$st');
       // Bubble up to UI to show consistent error state
       rethrow;
     }
@@ -819,7 +822,8 @@ final householdSettlementHistoryProvider = FutureProvider.autoDispose
     final events = <SettlementEvent>[];
     for (final row in byId.values) {
       final createdAtStr = row['created_at'] as String?;
-      final settledAt = createdAtStr != null ? DateTime.tryParse(createdAtStr) : null;
+      final settledAt =
+          createdAtStr != null ? DateTime.tryParse(createdAtStr) : null;
       if (settledAt == null) continue;
 
       final payerUserId = row['payer_user_id'] as String?;
@@ -855,8 +859,8 @@ final householdSettlementHistoryProvider = FutureProvider.autoDispose
     events.sort((a, b) => b.settledAt.compareTo(a.settledAt));
     final limited =
         params.limit > 0 ? events.take(params.limit).toList() : events;
-    FirebaseCrashlytics.instance
-        .log('[settlement_history] aggregated events=${limited.length} household=${params.householdId}');
+    FirebaseCrashlytics.instance.log(
+        '[settlement_history] aggregated events=${limited.length} household=${params.householdId}');
     return limited;
   } catch (e, st) {
     FirebaseCrashlytics.instance.log(

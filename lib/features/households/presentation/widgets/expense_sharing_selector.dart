@@ -14,7 +14,8 @@ class ExpenseSharingSelector extends ConsumerStatefulWidget {
   final ShareScope selectedScope;
   final String? selectedHouseholdId;
   final List<String>? selectedMemberIds;
-  final Function(ShareScope scope, String? householdId, List<String>? memberIds) onChanged;
+  final Function(ShareScope scope, String? householdId, List<String>? memberIds)
+      onChanged;
 
   const ExpenseSharingSelector({
     super.key,
@@ -25,10 +26,12 @@ class ExpenseSharingSelector extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<ExpenseSharingSelector> createState() => _ExpenseSharingSelectorState();
+  ConsumerState<ExpenseSharingSelector> createState() =>
+      _ExpenseSharingSelectorState();
 }
 
-class _ExpenseSharingSelectorState extends ConsumerState<ExpenseSharingSelector> {
+class _ExpenseSharingSelectorState
+    extends ConsumerState<ExpenseSharingSelector> {
   late ShareScope _scope;
   String? _householdId;
   List<String> _memberIds = [];
@@ -179,7 +182,9 @@ class _ExpenseSharingSelectorState extends ConsumerState<ExpenseSharingSelector>
               children: [
                 const Icon(Icons.person_add, size: 20),
                 const SizedBox(width: 8),
-                Text(_memberIds.isEmpty ? context.l10n.selectMembers : context.l10n.membersSelectedCount(_memberIds.length)) ,
+                Text(_memberIds.isEmpty
+                    ? context.l10n.selectMembers
+                    : context.l10n.membersSelectedCount(_memberIds.length)),
               ],
             ),
           ),
@@ -198,14 +203,16 @@ class _ExpenseSharingSelectorState extends ConsumerState<ExpenseSharingSelector>
     final membersAsync = ref.watch(householdMembersProvider(_householdId!));
     return membersAsync.when(
       data: (members) {
-        final selectedMembers = members.where((m) => _memberIds.contains(m.userId)).toList();
+        final selectedMembers =
+            members.where((m) => _memberIds.contains(m.userId)).toList();
 
         return Wrap(
           spacing: 8,
           runSpacing: 8,
           children: selectedMembers.map((member) {
             return Chip(
-              label: Text(member.userId), // In real app, fetch user name from profiles
+              label: Text(
+                  member.userId), // In real app, fetch user name from profiles
               deleteIcon: const Icon(Icons.close, size: 18),
               onDeleted: () {
                 setState(() {
@@ -271,7 +278,9 @@ class _SharingScopeOption extends StatelessWidget {
             Icon(
               icon,
               size: 24,
-              color: isSelected ? colorScheme.primary : colorScheme.mutedForeground,
+              color: isSelected
+                  ? colorScheme.primary
+                  : colorScheme.mutedForeground,
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -337,7 +346,8 @@ class _MemberPickerSheetState extends ConsumerState<_MemberPickerSheet> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final membersAsync = ref.watch(householdMembersProvider(widget.householdId));
+    final membersAsync =
+        ref.watch(householdMembersProvider(widget.householdId));
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -374,8 +384,10 @@ class _MemberPickerSheetState extends ConsumerState<_MemberPickerSheet> {
                     final isSelected = _selectedIds.contains(member.userId);
 
                     return CheckboxListTile(
-                      title: Text(member.userId), // In real app, fetch user name
-                      subtitle: Text(member.role.toString().split('.').last.toUpperCase()),
+                      title:
+                          Text(member.userId), // In real app, fetch user name
+                      subtitle: Text(
+                          member.role.toString().split('.').last.toUpperCase()),
                       value: isSelected,
                       onChanged: (bool? selected) {
                         setState(() {

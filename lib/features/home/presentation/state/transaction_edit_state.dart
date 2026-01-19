@@ -17,7 +17,7 @@ class TransactionEditState {
   final bool isLoading;
   final String? error;
   final ExpenseEntry? optimisticUpdate; // Temporary updated version shown in UI
-  
+
   const TransactionEditState({
     this.editingExpenseId,
     this.currentField,
@@ -25,7 +25,7 @@ class TransactionEditState {
     this.error,
     this.optimisticUpdate,
   });
-  
+
   TransactionEditState copyWith({
     String? editingExpenseId,
     EditField? currentField,
@@ -40,7 +40,9 @@ class TransactionEditState {
       currentField: currentField ?? this.currentField,
       isLoading: isLoading ?? this.isLoading,
       error: clearError ? null : (error ?? this.error),
-      optimisticUpdate: clearOptimisticUpdate ? null : (optimisticUpdate ?? this.optimisticUpdate),
+      optimisticUpdate: clearOptimisticUpdate
+          ? null
+          : (optimisticUpdate ?? this.optimisticUpdate),
     );
   }
 }

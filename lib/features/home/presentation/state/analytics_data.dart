@@ -11,7 +11,8 @@ class AnalyticsData {
   final bool isLoading;
   final String? error;
   final String? preferredCurrency;
-  final bool? hasLoadedOnce; // Track if we've successfully loaded data at least once (nullable for hot reload compatibility)
+  final bool?
+      hasLoadedOnce; // Track if we've successfully loaded data at least once (nullable for hot reload compatibility)
 
   AnalyticsData({
     this.contact,

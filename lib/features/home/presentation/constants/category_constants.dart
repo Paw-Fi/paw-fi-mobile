@@ -649,9 +649,8 @@ List<String> getIncomeCategories() {
 /// Expense-only canonical categories (all allowed minus income-focused and umbrella 'income')
 List<String> getExpenseCategories() {
   final incomeCats = {...getIncomeCategories(), 'income'};
-  final keys = categoryColors.keys
-      .where((k) => !incomeCats.contains(k))
-      .toList();
+  final keys =
+      categoryColors.keys.where((k) => !incomeCats.contains(k)).toList();
   keys.sort((a, b) => a.compareTo(b));
   return keys;
 }
@@ -779,12 +778,12 @@ String normalizeCategory(String rawCategory) {
     'work': 'business expenses',
     'professional': 'business expenses',
   };
-  
+
   // Direct mapping lookup
   if (categoryMappings.containsKey(normalized)) {
     return categoryMappings[normalized]!;
   }
-  
+
   // Fuzzy matching for partial matches (prefer word-level matches)
   final words = normalized
       .split(RegExp(r'[^a-z0-9]+'))
@@ -802,12 +801,12 @@ String normalizeCategory(String rawCategory) {
       return entry.value;
     }
   }
-  
+
   // Check if it's already a valid canonical category
   if (categoryColors.containsKey(normalized)) {
     return normalized;
   }
-  
+
   // Return as-is if no mapping found (will be treated as "other")
   return normalized;
 }

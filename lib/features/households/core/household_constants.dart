@@ -1,6 +1,5 @@
 /// Constants for household feature
 class HouseholdConstants {
-
   /// Default invitation expiration in days
   static const int defaultInviteExpirationDays = 7;
 
@@ -12,6 +11,7 @@ class HouseholdConstants {
 
   /// Maximum household name length
   static const int maxNameLength = 50;
+
   /// Token validation regex pattern (UUID-like format)
   /// Matches UUIDs and base64-encoded tokens (32+ chars, alphanumeric + hyphens)
   static final RegExp tokenPattern = RegExp(
@@ -44,12 +44,14 @@ class HouseholdConstants {
   /// Accessibility labels for join page
   static const String joinPageHeaderLabel = 'Join household page';
   static const String joinHeroLabel = 'Join a household with invitation link';
-  static const String joinInstructionsLabel = 'Paste the invitation link you received from a household member';
+  static const String joinInstructionsLabel =
+      'Paste the invitation link you received from a household member';
   static const String inviteLinkInputLabel = 'Enter invitation link';
   static const String pasteButtonLabel = 'Paste invitation link from clipboard';
   static const String clearInputButtonLabel = 'Clear invitation link input';
   static const String validatingButtonLabel = 'Validating invitation link';
-  static const String benefitsCardLabel = 'Benefits of joining household: view shared budgets, track financial health, collaborate on decisions';
+  static const String benefitsCardLabel =
+      'Benefits of joining household: view shared budgets, track financial health, collaborate on decisions';
   static const String joiningHouseholdLabel = 'Joining household, please wait';
   static const String joinSuccessLabel = 'Successfully joined household';
   static const String goToHouseholdButtonLabel = 'Go to household overview';

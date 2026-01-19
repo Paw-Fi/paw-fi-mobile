@@ -68,10 +68,12 @@ class IncomeEntry {
           ? (json['normalizedAmountMajor'] as num).toDouble()
           : null,
       baseCurrency: json['baseCurrency'] as String?,
-      fxRate: json['fxRate'] != null ? (json['fxRate'] as num).toDouble() : null,
+      fxRate:
+          json['fxRate'] != null ? (json['fxRate'] as num).toDouble() : null,
       isRecurring: json['isRecurring'] as bool? ?? false,
       recurrenceRule: json['recurrenceRule'] != null
-          ? RecurrenceRule.fromJson(json['recurrenceRule'] as Map<String, dynamic>)
+          ? RecurrenceRule.fromJson(
+              json['recurrenceRule'] as Map<String, dynamic>)
           : null,
       parentRecurringId: json['parentRecurringId'] as String?,
       attachments: (json['attachments'] as List<dynamic>?)
@@ -166,7 +168,8 @@ class IncomeEntry {
 
 /// Recurrence rule for recurring income (v1.5)
 class RecurrenceRule {
-  final String frequency; // 'daily', 'weekly', 'biweekly', 'monthly', 'yearly', 'custom'
+  final String
+      frequency; // 'daily', 'weekly', 'biweekly', 'monthly', 'yearly', 'custom'
   final DateTime anchorDate;
   final DateTime? endDate;
   final int? interval; // For custom frequency (e.g., every 2 weeks)

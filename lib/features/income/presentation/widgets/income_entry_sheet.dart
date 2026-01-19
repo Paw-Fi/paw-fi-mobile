@@ -105,7 +105,7 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
     final amount = double.tryParse(amountText);
 
     if (amount == null || amount <= 0) {
-       AppToast.error(context, context.l10n.enterValidAmountGreaterThan0);
+      AppToast.error(context, context.l10n.enterValidAmountGreaterThan0);
       return;
     }
 
@@ -127,29 +127,31 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
       );
 
       // Generate idempotency key
-      final idempotencyKey = _shareWithHousehold && selectedHousehold.householdId != null
-          ? '${DateTime.now().millisecondsSinceEpoch}_${user.uid}'
-          : null;
+      final idempotencyKey =
+          _shareWithHousehold && selectedHousehold.householdId != null
+              ? '${DateTime.now().millisecondsSinceEpoch}_${user.uid}'
+              : null;
 
       final income = await ref.read(incomeSaveProvider.notifier).saveIncome(
-        userId: user.uid,
-        amount: amount,
-        category: _selectedCategory,
-        currency: ref.read(selectedCurrencyProvider),
-        date: dateTime,
-        description: _descriptionController.text.trim(),
-        source: _sourceController.text.trim(),
-        ownerType: _selectedOwnerType,
-        privacyScope: _selectedPrivacyScope,
-        householdId: _shareWithHousehold ? selectedHousehold.householdId : null,
-        idempotencyKey: idempotencyKey,
-      );
+            userId: user.uid,
+            amount: amount,
+            category: _selectedCategory,
+            currency: ref.read(selectedCurrencyProvider),
+            date: dateTime,
+            description: _descriptionController.text.trim(),
+            source: _sourceController.text.trim(),
+            ownerType: _selectedOwnerType,
+            privacyScope: _selectedPrivacyScope,
+            householdId:
+                _shareWithHousehold ? selectedHousehold.householdId : null,
+            idempotencyKey: idempotencyKey,
+          );
 
       if (income != null && mounted) {
         Navigator.of(context).pop();
         AppToast.success(context, context.l10n.incomeAdded);
       } else if (mounted) {
-         AppToast.error(context, 'Failed to save income');
+        AppToast.error(context, 'Failed to save income');
       }
     } catch (e) {
       if (mounted) {
@@ -281,10 +283,12 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
                     // Amount
                     TextFormField(
                       controller: _amountController,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
                       decoration: InputDecoration(
                         labelText: context.l10n.amount,
-                        prefixText: resolveCurrencySymbol(ref.watch(selectedCurrencyProvider)),
+                        prefixText: resolveCurrencySymbol(
+                            ref.watch(selectedCurrencyProvider)),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -294,7 +298,8 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
                         if (value == null || value.isEmpty) {
                           return context.l10n.enterValidAmountGreaterThan0;
                         }
-                        final amount = double.tryParse(value.replaceAll(',', ''));
+                        final amount =
+                            double.tryParse(value.replaceAll(',', ''));
                         if (amount == null || amount <= 0) {
                           return context.l10n.enterValidAmountGreaterThan0;
                         }
@@ -307,13 +312,16 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
                     // Currency Selector
                     GestureDetector(
                       onTap: () async {
-                        final result = await showCurrencySelectorModal(context, ref);
+                        final result =
+                            await showCurrencySelectorModal(context, ref);
                         if (result != null) {
-                          ref.read(selectedCurrencyProvider.notifier).state = result;
+                          ref.read(selectedCurrencyProvider.notifier).state =
+                              result;
                         }
                       },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 16),
                         decoration: BoxDecoration(
                           border: Border.all(color: colorScheme.border),
                           borderRadius: BorderRadius.circular(8),
@@ -335,7 +343,8 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                Icon(Icons.arrow_drop_down, color: colorScheme.mutedForeground),
+                                Icon(Icons.arrow_drop_down,
+                                    color: colorScheme.mutedForeground),
                               ],
                             ),
                           ],
@@ -375,8 +384,8 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
                     TextFormField(
                       controller: _sourceController,
                       decoration: InputDecoration(
-                        labelText: context.l10n.source ,
-                        hintText: context.l10n.sourceHint ,
+                        labelText: context.l10n.source,
+                        hintText: context.l10n.sourceHint,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -407,17 +416,20 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
                           child: GestureDetector(
                             onTap: _selectDate,
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 16),
                               decoration: BoxDecoration(
                                 border: Border.all(color: colorScheme.border),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     context.l10n.date,
-                                    style: TextStyle(color: colorScheme.foreground),
+                                    style: TextStyle(
+                                        color: colorScheme.foreground),
                                   ),
                                   Text(
                                     DateFormat.yMMMd().format(_selectedDate),
@@ -436,17 +448,20 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
                           child: GestureDetector(
                             onTap: _selectTime,
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 16),
                               decoration: BoxDecoration(
                                 border: Border.all(color: colorScheme.border),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     context.l10n.time,
-                                    style: TextStyle(color: colorScheme.foreground),
+                                    style: TextStyle(
+                                        color: colorScheme.foreground),
                                   ),
                                   Text(
                                     _selectedTime.format(context),
@@ -529,7 +544,8 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                         ),
-                        items: ['full', 'balances_only', 'private'].map((scope) {
+                        items:
+                            ['full', 'balances_only', 'private'].map((scope) {
                           return DropdownMenuItem(
                             value: scope,
                             child: Text(_getPrivacyScopeLabel(scope)),
@@ -574,7 +590,8 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
                             ? const SizedBox(
                                 height: 20,
                                 width: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
                               )
                             : Text(context.l10n.save),
                       ),

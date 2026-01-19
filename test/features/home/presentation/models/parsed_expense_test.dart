@@ -363,7 +363,7 @@ void main() {
 
     test('handles different currency symbols', () {
       final symbols = ['\$', '€', '£', '¥', '₹', 'R\$', 'kr'];
-      
+
       for (final symbol in symbols) {
         final expense = ParsedExpense(
           amount: 100.0,

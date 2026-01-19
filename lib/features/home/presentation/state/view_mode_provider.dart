@@ -68,7 +68,8 @@ class ViewModeNotifier extends StateNotifier<ViewModeState> {
   Future<void> _persist(ViewMode mode) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_storageKey, mode == ViewMode.household ? 'household' : 'personal');
+      await prefs.setString(
+          _storageKey, mode == ViewMode.household ? 'household' : 'personal');
     } catch (_) {
       // ignore persistence errors
     }

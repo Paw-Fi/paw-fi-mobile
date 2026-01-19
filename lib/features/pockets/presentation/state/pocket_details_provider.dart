@@ -118,8 +118,10 @@ final pocketDetailsProvider =
   }
 
   query = switch (scopeType) {
-    PocketsScopeType.personal => query.eq('user_id', authUser.uid).isFilter('household_id', null),
-    PocketsScopeType.portfolio => query.eq('user_id', authUser.uid).eq('household_id', householdId!),
+    PocketsScopeType.personal =>
+      query.eq('user_id', authUser.uid).isFilter('household_id', null),
+    PocketsScopeType.portfolio =>
+      query.eq('user_id', authUser.uid).eq('household_id', householdId!),
     PocketsScopeType.household => query.eq('household_id', householdId!),
   };
 
@@ -136,8 +138,10 @@ final pocketDetailsProvider =
       .inFilter('category', categories);
 
   prevQuery = switch (scopeType) {
-    PocketsScopeType.personal => prevQuery.eq('user_id', authUser.uid).isFilter('household_id', null),
-    PocketsScopeType.portfolio => prevQuery.eq('user_id', authUser.uid).eq('household_id', householdId!),
+    PocketsScopeType.personal =>
+      prevQuery.eq('user_id', authUser.uid).isFilter('household_id', null),
+    PocketsScopeType.portfolio =>
+      prevQuery.eq('user_id', authUser.uid).eq('household_id', householdId!),
     PocketsScopeType.household => prevQuery.eq('household_id', householdId!),
   };
 

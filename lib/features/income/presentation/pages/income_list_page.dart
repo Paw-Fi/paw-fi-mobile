@@ -12,7 +12,6 @@ import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
-
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 
 class IncomeListPage extends ConsumerStatefulWidget {
@@ -41,10 +40,11 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
 
   Future<void> _acknowledgeIncome(IncomeEntry income) async {
     final user = ref.read(authProvider);
-    final success = await ref.read(incomeAcknowledgeProvider.notifier).acknowledgeIncome(
-      user.uid,
-      income.id,
-    );
+    final success =
+        await ref.read(incomeAcknowledgeProvider.notifier).acknowledgeIncome(
+              user.uid,
+              income.id,
+            );
 
     if (success && mounted) {
       AppToast.success(context, context.l10n.incomeAcknowledged);
@@ -97,7 +97,8 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.error_outline, size: 64, color: colorScheme.destructive),
+              Icon(Icons.error_outline,
+                  size: 64, color: colorScheme.destructive),
               const SizedBox(height: 16),
               Text(
                 error.toString(),
@@ -174,9 +175,8 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
     String currentUserId,
   ) {
     final isOwner = income.id.contains(currentUserId); // Simplified check
-    final needsAcknowledgement = income.householdId != null &&
-        !income.isAcknowledged &&
-        !isOwner;
+    final needsAcknowledgement =
+        income.householdId != null && !income.isAcknowledged && !isOwner;
 
     final categoryIcon = getIncomeCategoryIcon(income.category);
     final categoryColor = Color(
@@ -306,7 +306,8 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
                       ),
                     ),
                   ],
-                  if (income.description != null && income.description!.isNotEmpty) ...[
+                  if (income.description != null &&
+                      income.description!.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Text(
                       income.description!,
@@ -326,7 +327,8 @@ class _IncomeListPageState extends ConsumerState<IncomeListPage> {
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: _getPrivacyScopeColor(
                             income.privacyScope,

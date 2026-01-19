@@ -16,7 +16,6 @@ import '../providers/household_providers.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 
 class HouseholdImagePicker {
-
   static Future<void> showImageSourceModal({
     required BuildContext context,
     required WidgetRef ref,
@@ -39,7 +38,8 @@ class HouseholdImagePicker {
             padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
             decoration: BoxDecoration(
               color: colorScheme.appBackground,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(28)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -76,7 +76,8 @@ class HouseholdImagePicker {
                           color: colorScheme.muted.withValues(alpha: 0.5),
                           shape: BoxShape.circle,
                         ),
-                        child: Icon(Icons.close, size: 18, color: colorScheme.mutedForeground),
+                        child: Icon(Icons.close,
+                            size: 18, color: colorScheme.mutedForeground),
                       ),
                       onPressed: () => Navigator.pop(context),
                     ),
@@ -87,7 +88,8 @@ class HouseholdImagePicker {
                 // Grid with camera, gallery, and presets
                 Expanded(
                   child: coverImagesAsync.when(
-                    loading: () => const Center(child: CircularProgressIndicator()),
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
                     error: (error, stack) {
                       appLog(
                         'Failed to load household cover images',
@@ -105,7 +107,8 @@ class HouseholdImagePicker {
                     data: (coverImages) {
                       return GridView.builder(
                         physics: const BouncingScrollPhysics(),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 2,
                           crossAxisSpacing: 12,
                           mainAxisSpacing: 12,
@@ -281,9 +284,7 @@ class HouseholdImagePicker {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected
-                ? colorScheme.primary
-                : colorScheme.surfaceBorder,
+            color: isSelected ? colorScheme.primary : colorScheme.surfaceBorder,
             width: isSelected ? 3 : 1,
           ),
           boxShadow: [
@@ -330,7 +331,8 @@ class HouseholdImagePicker {
                       children: [
                         Icon(
                           Icons.broken_image_rounded,
-                          color: colorScheme.mutedForeground.withValues(alpha: 0.5),
+                          color: colorScheme.mutedForeground
+                              .withValues(alpha: 0.5),
                           size: 24,
                         ),
                       ],
@@ -363,8 +365,8 @@ class HouseholdImagePicker {
                       ),
                     ],
                   ),
-                  child: Icon(Icons.check_rounded,
-                      color: Colors.white, size: 16),
+                  child:
+                      Icon(Icons.check_rounded, color: Colors.white, size: 16),
                 ),
               ),
             ],
@@ -465,10 +467,10 @@ class HouseholdImagePicker {
       final appDir = await getApplicationDocumentsDirectory();
       final fileName =
           '${DateTime.now().millisecondsSinceEpoch}${(sourceFile.path.contains('.') ? '.${sourceFile.path.split('.').last}' : '')}';
-      final permanentPath =
-          '${appDir.path}/household_images/$fileName';
+      final permanentPath = '${appDir.path}/household_images/$fileName';
 
-      final dir = Directory(permanentPath.substring(0, permanentPath.lastIndexOf('/')));
+      final dir =
+          Directory(permanentPath.substring(0, permanentPath.lastIndexOf('/')));
       if (!await dir.exists()) {
         await dir.create(recursive: true);
       }

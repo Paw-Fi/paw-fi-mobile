@@ -115,8 +115,7 @@ class _OtpInputState extends State<OtpInput> {
                   boxShadow: [
                     if (isActive && _focusNode.hasFocus)
                       BoxShadow(
-                        color:
-                            colorScheme.primary.withValues(alpha: 0.1),
+                        color: colorScheme.primary.withValues(alpha: 0.1),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),

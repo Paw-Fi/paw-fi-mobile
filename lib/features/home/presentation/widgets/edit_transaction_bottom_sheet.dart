@@ -24,7 +24,7 @@ class EditTransactionBottomSheet extends ConsumerStatefulWidget {
   final ExpenseEntry expense;
   final EditField field;
   final dynamic currentValue;
-  
+
   const EditTransactionBottomSheet({
     required this.expenseId,
     required this.expense,
@@ -32,42 +32,45 @@ class EditTransactionBottomSheet extends ConsumerStatefulWidget {
     required this.currentValue,
     super.key,
   });
-  
+
   @override
-  ConsumerState<EditTransactionBottomSheet> createState() => _EditTransactionBottomSheetState();
+  ConsumerState<EditTransactionBottomSheet> createState() =>
+      _EditTransactionBottomSheetState();
 }
 
-class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBottomSheet> {
+class _EditTransactionBottomSheetState
+    extends ConsumerState<EditTransactionBottomSheet> {
   late TextEditingController _controller;
   String? _error;
   String? _selectedCategory;
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
   String? _selectedCurrency;
-  
+
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController(text: _getInitialValue());
-    
+
     if (widget.field == EditField.category) {
       _selectedCategory = widget.currentValue?.toString().toLowerCase();
     }
-    
+
     if (widget.field == EditField.date) {
       _selectedDate = widget.currentValue as DateTime;
     }
-    
+
     if (widget.field == EditField.time) {
       final dateTime = widget.currentValue as DateTime;
       _selectedTime = TimeOfDay(hour: dateTime.hour, minute: dateTime.minute);
     }
-    
+
     if (widget.field == EditField.currency) {
-      _selectedCurrency = widget.currentValue?.toString().toUpperCase() ?? 'USD';
+      _selectedCurrency =
+          widget.currentValue?.toString().toUpperCase() ?? 'USD';
     }
   }
-  
+
   String _getInitialValue() {
     switch (widget.field) {
       case EditField.amount:
@@ -85,13 +88,13 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
         return widget.currentValue?.toString() ?? 'USD';
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final editState = ref.watch(transactionEditProvider);
     final isLoading = editState.isLoading;
-    
+
     return Container(
       decoration: BoxDecoration(
         color: colorScheme.card,
@@ -119,7 +122,7 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
             ),
           ),
           const SizedBox(height: 16),
-          
+
           // Title
           Text(
             _getTitle(),
@@ -130,12 +133,12 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
             ),
           ),
           const SizedBox(height: 16),
-          
+
           // Input field based on type
           _buildInputField(colorScheme),
-          
+
           const SizedBox(height: 24),
-          
+
           // Actions
           Row(
             children: [
@@ -165,7 +168,7 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
       ),
     );
   }
-  
+
   Widget _buildInputField(ColorScheme colorScheme) {
     if (widget.field == EditField.category) {
       return _buildCategoryPicker(colorScheme);
@@ -178,7 +181,9 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
     } else {
       return TextField(
         controller: _controller,
-        autofocus: widget.field != EditField.date && widget.field != EditField.time && widget.field != EditField.currency,
+        autofocus: widget.field != EditField.date &&
+            widget.field != EditField.time &&
+            widget.field != EditField.currency,
         keyboardType: _getKeyboardType(),
         maxLines: widget.field == EditField.description ? 3 : 1,
         inputFormatters: widget.field == EditField.amount
@@ -193,8 +198,8 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
           labelText: _getLabel(),
           labelStyle: TextStyle(color: colorScheme.foreground),
           errorText: _error,
-          prefixText: widget.field == EditField.amount 
-              ? resolveCurrencySymbol(widget.expense.currency) 
+          prefixText: widget.field == EditField.amount
+              ? resolveCurrencySymbol(widget.expense.currency)
               : null,
           prefixStyle: TextStyle(
             fontSize: 16,
@@ -213,10 +218,12 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
       );
     }
   }
-  
+
   Widget _buildCategoryPicker(ColorScheme colorScheme) {
-    final isIncome = (widget.expense.type ?? 'expense').toLowerCase() == 'income';
-    final baseCategories = isIncome ? getIncomeCategories() : getExpenseCategories();
+    final isIncome =
+        (widget.expense.type ?? 'expense').toLowerCase() == 'income';
+    final baseCategories =
+        isIncome ? getIncomeCategories() : getExpenseCategories();
     final categories = () {
       final current = (widget.currentValue?.toString().toLowerCase());
       if (current != null && !baseCategories.contains(current)) {
@@ -234,8 +241,9 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
         builder: (sheetContext) {
           return CategoryPickerBottomSheet(
             allCategories: categories,
-            selectedCategories:
-                _selectedCategory != null ? <String>[_selectedCategory!] : const [],
+            selectedCategories: _selectedCategory != null
+                ? <String>[_selectedCategory!]
+                : const [],
             isSingleSelect: true,
             onChanged: (value) {
               final next = value.isNotEmpty ? value.first : null;
@@ -260,7 +268,7 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
     final selectedCategoryLabel = _selectedCategory != null
         ? getCategoryTranslation(context, _selectedCategory!)
         : null;
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -302,8 +310,9 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
                       color: _selectedCategory != null
                           ? selectedCategoryColor
                           : colorScheme.foreground,
-                      fontWeight:
-                          _selectedCategory != null ? FontWeight.w600 : FontWeight.w400,
+                      fontWeight: _selectedCategory != null
+                          ? FontWeight.w600
+                          : FontWeight.w400,
                     ),
                   ),
                 ),
@@ -319,7 +328,7 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
       ],
     );
   }
-  
+
   Widget _buildDatePicker(ColorScheme colorScheme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -343,10 +352,12 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
             ),
             child: Row(
               children: [
-                Icon(Icons.calendar_today, color: colorScheme.foreground, size: 20),
+                Icon(Icons.calendar_today,
+                    color: colorScheme.foreground, size: 20),
                 const SizedBox(width: 12),
                 Text(
-                  DateFormat('EEEE, MMMM d, yyyy').format(_selectedDate ?? DateTime.now()),
+                  DateFormat('EEEE, MMMM d, yyyy')
+                      .format(_selectedDate ?? DateTime.now()),
                   style: TextStyle(
                     color: colorScheme.foreground,
                     fontSize: 16,
@@ -359,7 +370,7 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
       ],
     );
   }
-  
+
   Future<void> _selectDate(BuildContext context) async {
     final now = DateTime.now();
     final picked = await showDatePicker(
@@ -368,7 +379,7 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
       firstDate: DateTime(2000),
       lastDate: now, // Prevent future dates
     );
-    
+
     if (picked != null && mounted) {
       setState(() {
         _selectedDate = picked;
@@ -376,7 +387,7 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
       });
     }
   }
-  
+
   Widget _buildTimePicker(ColorScheme colorScheme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -400,10 +411,12 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
             ),
             child: Row(
               children: [
-                Icon(Icons.access_time, color: colorScheme.foreground, size: 20),
+                Icon(Icons.access_time,
+                    color: colorScheme.foreground, size: 20),
                 const SizedBox(width: 12),
                 Text(
-                  _selectedTime?.format(context) ?? TimeOfDay.now().format(context),
+                  _selectedTime?.format(context) ??
+                      TimeOfDay.now().format(context),
                   style: TextStyle(
                     color: colorScheme.foreground,
                     fontSize: 16,
@@ -416,14 +429,14 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
       ],
     );
   }
-  
+
   Future<void> _selectTime(BuildContext context) async {
     final now = TimeOfDay.now();
     final picked = await showTimePicker(
       context: context,
       initialTime: _selectedTime ?? now,
     );
-    
+
     if (picked != null && mounted) {
       setState(() {
         _selectedTime = picked;
@@ -431,10 +444,10 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
       });
     }
   }
-  
+
   Widget _buildCurrencyPicker(ColorScheme colorScheme) {
     final currencies = getAvailableCurrencyOptions();
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -456,7 +469,8 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: _selectedCurrency,
-              icon: Icon(Icons.keyboard_arrow_down, size: 20, color: colorScheme.mutedForeground),
+              icon: Icon(Icons.keyboard_arrow_down,
+                  size: 20, color: colorScheme.mutedForeground),
               isExpanded: true,
               dropdownColor: colorScheme.card,
               style: TextStyle(color: colorScheme.foreground, fontSize: 15),
@@ -464,7 +478,7 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
                 return currencies.entries.map((entry) {
                   final flagPath = getCurrencyFlagPath(entry.key);
                   final symbol = resolveCurrencySymbol(entry.key);
-                  
+
                   return Row(
                     children: [
                       if (flagPath != null) ...[
@@ -483,7 +497,8 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
                               flagPath,
                               fit: BoxFit.cover,
                               errorBuilder: (_, __, ___) => Center(
-                                child: Text(symbol, style: const TextStyle(fontSize: 11)),
+                                child: Text(symbol,
+                                    style: const TextStyle(fontSize: 11)),
                               ),
                             ),
                           ),
@@ -501,7 +516,7 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
               items: currencies.entries.map((entry) {
                 final flagPath = getCurrencyFlagPath(entry.key);
                 final symbol = resolveCurrencySymbol(entry.key);
-                
+
                 return DropdownMenuItem<String>(
                   value: entry.key,
                   child: Row(
@@ -522,7 +537,8 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
                               flagPath,
                               fit: BoxFit.cover,
                               errorBuilder: (_, __, ___) => Center(
-                                child: Text(symbol, style: const TextStyle(fontSize: 12)),
+                                child: Text(symbol,
+                                    style: const TextStyle(fontSize: 12)),
                               ),
                             ),
                           ),
@@ -537,7 +553,8 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
                             color: colorScheme.muted.withValues(alpha: 0.3),
                           ),
                           child: Center(
-                            child: Text(symbol, style: const TextStyle(fontSize: 12)),
+                            child: Text(symbol,
+                                style: const TextStyle(fontSize: 12)),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -567,7 +584,7 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
       ],
     );
   }
-  
+
   Future<void> _handleSave() async {
     // Validate
     final validation = _validate();
@@ -575,58 +592,61 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
       setState(() => _error = validation);
       return;
     }
-    
+
     // Prepare updates
     final updates = _prepareUpdates();
-    
+
     if (updates.isEmpty) {
       // No changes made
       Navigator.pop(context);
       return;
     }
-    
+
     // Call notifier with optimistic update
-    final success = await ref.read(transactionEditProvider.notifier).updateExpense(
-      widget.expenseId,
-      updates,
-    );
-    
+    final success =
+        await ref.read(transactionEditProvider.notifier).updateExpense(
+              widget.expenseId,
+              updates,
+            );
+
     if (!mounted) return;
-    
+
     if (success) {
       if (!mounted) return;
       Navigator.pop(context);
-      
+
       // Show currency change notification if currency was changed
-      if (widget.field == EditField.currency && updates.containsKey('currency')) {
+      if (widget.field == EditField.currency &&
+          updates.containsKey('currency')) {
         // Close the transaction detail sheet as well
         if (mounted) {
           Navigator.pop(context);
         }
-        
+
         await _showCurrencyChangeNotification(updates['currency'] as String);
       }
-      
+
       if (!mounted) return;
       // Prefer AppToast over SnackBar for visibility above sheets
       AppToast.success(context, '${_getLabel()} updated successfully');
     } else {
       final error = ref.read(transactionEditProvider).error;
       setState(() => _error = error);
-      
+
       AppToast.error(context, error ?? 'Failed to update');
     }
   }
-  
+
   Future<void> _showCurrencyChangeNotification(String newCurrency) async {
     final prefs = await SharedPreferences.getInstance();
-    final dontShowAgain = prefs.getBool('dont_show_currency_change_notification') ?? false;
-    
+    final dontShowAgain =
+        prefs.getBool('dont_show_currency_change_notification') ?? false;
+
     if (dontShowAgain || !mounted) return;
-    
+
     final colorScheme = Theme.of(context).colorScheme;
     bool checkboxValue = false;
-    
+
     if (!mounted) return;
     await showDialog(
       context: context,
@@ -751,7 +771,8 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
                   child: ElevatedButton(
                     onPressed: () async {
                       if (checkboxValue) {
-                        await prefs.setBool('dont_show_currency_change_notification', true);
+                        await prefs.setBool(
+                            'dont_show_currency_change_notification', true);
                       }
                       if (context.mounted) {
                         Navigator.of(dialogContext).pop();
@@ -781,7 +802,7 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
       ),
     );
   }
-  
+
   String? _validate() {
     switch (widget.field) {
       case EditField.amount:
@@ -800,7 +821,7 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
           return 'Amount must be less than 1,000,000';
         }
         return null;
-        
+
       case EditField.description:
         final text = _controller.text.trim();
         if (text.isEmpty) {
@@ -810,13 +831,13 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
           return 'Description must be less than 1000 characters';
         }
         return null;
-        
+
       case EditField.category:
         if (_selectedCategory == null || _selectedCategory!.isEmpty) {
           return 'Please select a category';
         }
         return null;
-        
+
       case EditField.date:
         if (_selectedDate == null) {
           return 'Please select a date';
@@ -833,13 +854,13 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
           return 'Date cannot be in the future';
         }
         return null;
-      
+
       case EditField.time:
         if (_selectedTime == null) {
           return 'Please select a time';
         }
         return null;
-        
+
       case EditField.currency:
         if (_selectedCurrency == null || _selectedCurrency!.isEmpty) {
           return 'Please select a currency';
@@ -850,10 +871,10 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
         return null;
     }
   }
-  
+
   Map<String, dynamic> _prepareUpdates() {
     final updates = <String, dynamic>{};
-    
+
     switch (widget.field) {
       case EditField.amount:
         final amount = double.parse(_controller.text);
@@ -862,21 +883,21 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
           updates['amount_cents'] = newAmountCents;
         }
         break;
-        
+
       case EditField.category:
         final newCategory = _selectedCategory?.toLowerCase();
         if (newCategory != widget.expense.category) {
           updates['category'] = newCategory;
         }
         break;
-        
+
       case EditField.description:
         final newText = _controller.text.trim();
         if (newText != widget.expense.rawText) {
           updates['raw_text'] = newText;
         }
         break;
-        
+
       case EditField.date:
         final newDateStr =
             DateFormat('yyyy-MM-dd').format(toLocalTime(_selectedDate!));
@@ -886,7 +907,7 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
           updates['date'] = newDateStr;
         }
         break;
-      
+
       case EditField.time:
         final oldTime = widget.expense.createdAt;
         final newTime = _selectedTime!;
@@ -903,7 +924,7 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
           updates['created_at'] = updatedDateTime.toIso8601String();
         }
         break;
-        
+
       case EditField.currency:
         final newCurrency = _selectedCurrency!.toUpperCase();
         if (newCurrency != widget.expense.currency?.toUpperCase()) {
@@ -911,32 +932,44 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
         }
         break;
     }
-    
+
     return updates;
   }
-  
+
   String _getTitle() {
     switch (widget.field) {
-      case EditField.amount: return 'Edit Amount';
-      case EditField.category: return 'Edit Category';
-      case EditField.description: return 'Edit Description';
-      case EditField.date: return 'Edit Date';
-      case EditField.time: return 'Edit Time';
-      case EditField.currency: return 'Edit Currency';
+      case EditField.amount:
+        return 'Edit Amount';
+      case EditField.category:
+        return 'Edit Category';
+      case EditField.description:
+        return 'Edit Description';
+      case EditField.date:
+        return 'Edit Date';
+      case EditField.time:
+        return 'Edit Time';
+      case EditField.currency:
+        return 'Edit Currency';
     }
   }
-  
+
   String _getLabel() {
     switch (widget.field) {
-      case EditField.amount: return 'Amount';
-      case EditField.category: return 'Category';
-      case EditField.description: return 'Description';
-      case EditField.date: return 'Date';
-      case EditField.time: return 'Time';
-      case EditField.currency: return 'Currency';
+      case EditField.amount:
+        return 'Amount';
+      case EditField.category:
+        return 'Category';
+      case EditField.description:
+        return 'Description';
+      case EditField.date:
+        return 'Date';
+      case EditField.time:
+        return 'Time';
+      case EditField.currency:
+        return 'Currency';
     }
   }
-  
+
   TextInputType _getKeyboardType() {
     switch (widget.field) {
       case EditField.amount:
@@ -947,7 +980,7 @@ class _EditTransactionBottomSheetState extends ConsumerState<EditTransactionBott
         return TextInputType.text;
     }
   }
-  
+
   @override
   void dispose() {
     _controller.dispose();

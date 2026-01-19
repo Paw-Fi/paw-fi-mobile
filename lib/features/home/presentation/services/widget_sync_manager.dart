@@ -15,9 +15,12 @@ import 'package:moneko/features/households/data/services/household_service.dart'
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
 
 String _colorToHex(Color color) {
-  final r = ((color.r * 255.0).round() & 0xff).toRadixString(16).padLeft(2, '0');
-  final g = ((color.g * 255.0).round() & 0xff).toRadixString(16).padLeft(2, '0');
-  final b = ((color.b * 255.0).round() & 0xff).toRadixString(16).padLeft(2, '0');
+  final r =
+      ((color.r * 255.0).round() & 0xff).toRadixString(16).padLeft(2, '0');
+  final g =
+      ((color.g * 255.0).round() & 0xff).toRadixString(16).padLeft(2, '0');
+  final b =
+      ((color.b * 255.0).round() & 0xff).toRadixString(16).padLeft(2, '0');
   return '#${r.toUpperCase()}${g.toUpperCase()}${b.toUpperCase()}';
 }
 
@@ -105,21 +108,23 @@ class WidgetSyncManager extends HookConsumerWidget {
         try {
           var budgetsQuery = Supabase.instance.client
               .from('budgets')
-              .select('id,currency,total_budget_cents,period_month,household_id')
+              .select(
+                  'id,currency,total_budget_cents,period_month,household_id')
               .eq('user_id', user.uid)
               .eq('period_month', monthStr);
-          
+
           // Include personal (household_id null) and portfolio households
           if (portfolioIds.isEmpty) {
             budgetsQuery = budgetsQuery.isFilter('household_id', null);
           } else {
-            budgetsQuery = budgetsQuery
-                .or('household_id.is.null,household_id.in.(${portfolioIds.join(',')})');
+            budgetsQuery = budgetsQuery.or(
+                'household_id.is.null,household_id.in.(${portfolioIds.join(',')})');
           }
-          
+
           final budgetsRes = await budgetsQuery;
 
-          final rows = (budgetsRes as List?)?.cast<Map<String, dynamic>>() ?? [];
+          final rows =
+              (budgetsRes as List?)?.cast<Map<String, dynamic>>() ?? [];
           for (final row in rows) {
             final code = (row['currency'] as String?)?.toUpperCase();
             if (code == null || code.isEmpty) continue;
@@ -174,9 +179,8 @@ class WidgetSyncManager extends HookConsumerWidget {
                 .from('envelope_category_links')
                 .select('envelope_id,category')
                 .inFilter('envelope_id', envIds);
-            final categoryLinksRows = (categoryLinksRes as List?)
-                    ?.cast<Map<String, dynamic>>() ??
-                [];
+            final categoryLinksRows =
+                (categoryLinksRes as List?)?.cast<Map<String, dynamic>>() ?? [];
 
             final categoriesByEnvelopeId = <String, List<String>>{};
             for (final row in categoryLinksRows) {
@@ -213,8 +217,7 @@ class WidgetSyncManager extends HookConsumerWidget {
             for (final row in envRows) {
               final id = row['id'] as String;
               final name = row['name'] as String? ?? '';
-              final pct =
-                  (row['budget_percentage'] as num?)?.toDouble() ?? 0.0;
+              final pct = (row['budget_percentage'] as num?)?.toDouble() ?? 0.0;
               final envelopeBudget = totalBudget * (pct / 100.0);
               final spent = spentById[id] ?? 0.0;
               final color = row['color'] as String? ?? '#7458FF';
@@ -313,8 +316,7 @@ class WidgetSyncManager extends HookConsumerWidget {
 
             final expensesRes = await client
                 .from('expenses')
-                .select(
-                    'amount_cents,category,type,household_id,currency,date')
+                .select('amount_cents,category,type,household_id,currency,date')
                 .eq('household_id', householdId)
                 .eq('currency', currency)
                 .gte('date', monthStart.toIso8601String())
@@ -338,7 +340,8 @@ class WidgetSyncManager extends HookConsumerWidget {
                 final cat =
                     (row['category'] as String? ?? '').toLowerCase().trim();
                 if (categories.contains(cat)) {
-                  final cents = (row['amount_cents'] as num?)?.toDouble() ?? 0.0;
+                  final cents =
+                      (row['amount_cents'] as num?)?.toDouble() ?? 0.0;
                   spent += cents / 100.0;
                 }
               }
@@ -349,8 +352,7 @@ class WidgetSyncManager extends HookConsumerWidget {
             for (final row in envRows) {
               final id = row['id'] as String;
               final name = row['name'] as String? ?? '';
-              final pct =
-                  (row['budget_percentage'] as num?)?.toDouble() ?? 0.0;
+              final pct = (row['budget_percentage'] as num?)?.toDouble() ?? 0.0;
               final envelopeBudget = totalBudget * (pct / 100.0);
               final spent = spentById[id] ?? 0.0;
               final color = row['color'] as String? ?? '#7458FF';
@@ -424,19 +426,18 @@ class WidgetSyncManager extends HookConsumerWidget {
                     .eq('currency', currency)
                     .gte('date', monthStr)
                     .lte('date', endDateStr);
-                
+
                 // Include personal (household_id null) and portfolio households
                 if (portfolioIds.isEmpty) {
                   expenseQuery = expenseQuery.isFilter('household_id', null);
                 } else {
-                  expenseQuery = expenseQuery
-                      .or('household_id.is.null,household_id.in.(${portfolioIds.join(',')})');
+                  expenseQuery = expenseQuery.or(
+                      'household_id.is.null,household_id.in.(${portfolioIds.join(',')})');
                 }
 
                 final expensesRes = await expenseQuery;
-                scopeExpenses = (expensesRes as List?)
-                        ?.cast<Map<String, dynamic>>() ??
-                    [];
+                scopeExpenses =
+                    (expensesRes as List?)?.cast<Map<String, dynamic>>() ?? [];
               } catch (e) {
                 debugPrint(
                     'Error fetching personal expenses for widget ($currency): $e');
@@ -446,8 +447,7 @@ class WidgetSyncManager extends HookConsumerWidget {
               for (final row in scopeExpenses) {
                 final type = (row['type'] as String?)?.toLowerCase();
                 if (type == 'income') continue;
-                final cents =
-                    (row['amount_cents'] as num?)?.toDouble() ?? 0.0;
+                final cents = (row['amount_cents'] as num?)?.toDouble() ?? 0.0;
                 totalSpent += cents / 100.0;
               }
 
@@ -529,11 +529,9 @@ class WidgetSyncManager extends HookConsumerWidget {
               for (final row in scopeExpenses) {
                 final type = (row['type'] as String?)?.toLowerCase();
                 if (type == 'income') continue;
-                final cents =
-                    (row['amount_cents'] as num?)?.toDouble() ?? 0.0;
+                final cents = (row['amount_cents'] as num?)?.toDouble() ?? 0.0;
                 final amount = cents / 100.0;
-                final cat =
-                    (row['category'] as String? ?? 'Uncategorized');
+                final cat = (row['category'] as String? ?? 'Uncategorized');
                 categoryMap[cat] = (categoryMap[cat] ?? 0) + amount;
               }
 
@@ -541,20 +539,19 @@ class WidgetSyncManager extends HookConsumerWidget {
                   .sorted((a, b) => b.value.compareTo(a.value))
                   .take(4)
                   .map((e) {
-                    final color = getCategoryColor(e.key);
-                    final hex = _colorToHex(color);
-                    return WidgetPocketData(
-                      name: e.key,
-                      spent: e.value,
-                      budget: 0,
-                      color: hex,
-                      currency: currency,
-                      // Use the raw category key as an icon identifier so
-                      // platform widgets can map it to a native icon.
-                      icon: e.key,
-                    );
-                  })
-                  .toList();
+                final color = getCategoryColor(e.key);
+                final hex = _colorToHex(color);
+                return WidgetPocketData(
+                  name: e.key,
+                  spent: e.value,
+                  budget: 0,
+                  color: hex,
+                  currency: currency,
+                  // Use the raw category key as an icon identifier so
+                  // platform widgets can map it to a native icon.
+                  icon: e.key,
+                );
+              }).toList();
             } else {
               // --- HOUSEHOLD SCOPE ---
               // Optimization: Only fetch if we suspect there's data?
@@ -627,21 +624,18 @@ class WidgetSyncManager extends HookConsumerWidget {
                 );
 
                 // Top Categories
-                topCategories = summary.categoryBreakdown
-                    .take(4)
-                    .map((cat) {
-                          final color = getCategoryColor(cat.category);
-                          final hex = _colorToHex(color);
-                          return WidgetPocketData(
-                            name: cat.category,
-                            spent: cat.amountCents / 100.0,
-                            budget: 0,
-                            color: hex,
-                            currency: currency,
-                            icon: cat.category,
-                          );
-                        })
-                    .toList();
+                topCategories = summary.categoryBreakdown.take(4).map((cat) {
+                  final color = getCategoryColor(cat.category);
+                  final hex = _colorToHex(color);
+                  return WidgetPocketData(
+                    name: cat.category,
+                    spent: cat.amountCents / 100.0,
+                    budget: 0,
+                    color: hex,
+                    currency: currency,
+                    icon: cat.category,
+                  );
+                }).toList();
               } catch (e) {
                 // Ignore unauthorized errors (logout/expired session) to avoid noisy logs
                 if (e is FunctionException && e.status == 401) {

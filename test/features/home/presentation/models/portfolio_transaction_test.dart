@@ -19,7 +19,9 @@ void main() {
       expect(transaction.amount, 50.0);
     });
 
-    test('Portfolio transaction has non-null household_id but should be treated as personal', () {
+    test(
+        'Portfolio transaction has non-null household_id but should be treated as personal',
+        () {
       // This represents a transaction in a portfolio household
       final transaction = ExpenseEntry(
         id: 'tx_2',
@@ -37,7 +39,9 @@ void main() {
       // That logic is handled by householdScopeProvider
     });
 
-    test('True household transaction has non-null household_id and is not portfolio', () {
+    test(
+        'True household transaction has non-null household_id and is not portfolio',
+        () {
       final transaction = ExpenseEntry(
         id: 'tx_3',
         userId: 'user_1',
@@ -52,7 +56,8 @@ void main() {
       expect(transaction.householdId, 'household_1');
     });
 
-    test('Transaction filtering logic - personal includes null and portfolio', () {
+    test('Transaction filtering logic - personal includes null and portfolio',
+        () {
       final transactions = [
         ExpenseEntry(
           id: 'tx_1',
@@ -98,7 +103,8 @@ void main() {
       expect(personalTransactions.map((t) => t.id), ['tx_1', 'tx_2']);
     });
 
-    test('Transaction filtering logic - household excludes null and portfolio', () {
+    test('Transaction filtering logic - household excludes null and portfolio',
+        () {
       final transactions = [
         ExpenseEntry(
           id: 'tx_1',
@@ -247,11 +253,11 @@ void main() {
       );
 
       final portfolioIds = <String>{};
-      
+
       // Should be shown in personal view
       final isPersonal = personalTransaction.householdId == null ||
           portfolioIds.contains(personalTransaction.householdId);
-      
+
       expect(isPersonal, true);
     });
 
@@ -268,11 +274,11 @@ void main() {
       );
 
       final portfolioIds = {'portfolio_1'};
-      
+
       // Should be shown in personal view
       final isPersonal = portfolioTransaction.householdId == null ||
           portfolioIds.contains(portfolioTransaction.householdId);
-      
+
       expect(isPersonal, true);
     });
 
@@ -289,11 +295,11 @@ void main() {
       );
 
       final portfolioIds = {'portfolio_1'};
-      
+
       // Should NOT be shown in personal view
       final isPersonal = householdTransaction.householdId == null ||
           portfolioIds.contains(householdTransaction.householdId);
-      
+
       expect(isPersonal, false);
     });
 

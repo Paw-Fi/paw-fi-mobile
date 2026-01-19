@@ -70,7 +70,8 @@ class ImpersonationBanner extends ConsumerWidget {
               },
               style: TextButton.styleFrom(
                 foregroundColor: warningBase,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               ),
               child: const Text(
                 'EXIT',

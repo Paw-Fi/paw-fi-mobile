@@ -128,9 +128,8 @@ class PageIndicator extends StatelessWidget {
           height: 8,
           margin: const EdgeInsets.symmetric(horizontal: 4),
           decoration: BoxDecoration(
-            color: currentPage == index
-                ? colorScheme.primary
-                : colorScheme.muted,
+            color:
+                currentPage == index ? colorScheme.primary : colorScheme.muted,
             borderRadius: BorderRadius.circular(4),
           ),
         ),

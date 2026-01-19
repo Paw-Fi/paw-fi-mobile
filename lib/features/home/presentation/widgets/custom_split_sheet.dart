@@ -121,7 +121,8 @@ class GroupSplitEditorSection extends StatelessWidget {
   final String currencySymbol;
   final SplitType? initialSplitType;
   final List<MemberSplit>? initialSplits;
-  final void Function(SplitType splitType, List<MemberSplit> splits) onSplitChanged;
+  final void Function(SplitType splitType, List<MemberSplit> splits)
+      onSplitChanged;
   final bool showNotYetSplitBanner;
   final String? notYetSplitMessage;
   final Key? splitEditorKey;

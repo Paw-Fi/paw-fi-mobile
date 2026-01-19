@@ -259,7 +259,7 @@ class InvitationShareSheet extends StatelessWidget {
             PrimaryAdaptiveButton(
               onPressed: onClose ?? () => Navigator.pop(context),
               child: Text(
-                AppLocalizations.of(context)!.done,              
+                AppLocalizations.of(context)!.done,
               ),
             ),
             // Done button

@@ -12,6 +12,7 @@ import 'package:moneko/features/home/presentation/widgets/unified_transaction_sh
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/presentation/widgets/household_invitation_sheet.dart';
+import 'package:moneko/features/households/presentation/pages/household_settings_page.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/widget_launch_provider.dart';
 import 'package:go_router/go_router.dart';
@@ -25,7 +26,7 @@ class DeepLinkService {
 
   /// Initialize the deep link listener
   Future<void> initialize(WidgetRef ref, BuildContext context) async {
-    debugPrint('🔗 Initializing deep link service...');
+    debugPrint('Initializing deep link service...');
 
     // Handle the initial link if the app was opened from a deep link
     try {
@@ -213,6 +214,7 @@ class DeepLinkService {
     // Supports both formats:
     // - Deep link: moneko://households/join?token=abc123
     // - Universal link: https://moneko.io/invites/abc123
+    // Note: Push notifications also use the deep link format above.
     if (DeepLinks.isHouseholdInvitation(uri)) {
       String? token;
 
@@ -272,13 +274,16 @@ class DeepLinkService {
     }
 
     // Handle household deep link: moneko://household/{household_id}
+    // With optional sub-routes: moneko://household/{household_id}/settings?tab=2
     if (DeepLinks.isHouseholdLink(uri)) {
       final householdId = uri.pathSegments.first;
       final subRoute = uri.pathSegments.length > 1 ? uri.pathSegments[1] : null;
+      final queryParams = uri.queryParameters;
       debugPrint(
-          '🏠 Household deep link received: $householdId (sub: $subRoute)');
+          '🏠 Household deep link received: $householdId (sub: $subRoute, params: $queryParams)');
 
-      _handleHouseholdDeepLink(householdId, ref, subRoute: subRoute);
+      _handleHouseholdDeepLink(householdId, ref,
+          subRoute: subRoute, queryParams: queryParams);
       return;
     }
 
@@ -356,8 +361,9 @@ class DeepLinkService {
 
   /// Handle household deep link - switch to household mode and select household
   void _handleHouseholdDeepLink(String householdId, WidgetRef ref,
-      {String? subRoute}) async {
+      {String? subRoute, Map<String, String>? queryParams}) async {
     debugPrint('🏠 Switching to household mode for: $householdId');
+    debugPrint('📍 Sub-route: $subRoute, Query params: $queryParams');
 
     // Wait a bit to ensure app is fully loaded
     await Future.delayed(const Duration(milliseconds: 300));
@@ -375,17 +381,40 @@ class DeepLinkService {
           .read(selectedHouseholdProvider.notifier)
           .selectHousehold(householdId);
 
-      // Navigate to dashboard (which will show household content)
-      if (navigatorContext.mounted) {
-        navigatorContext.go('/dashboard');
-      }
-
-      debugPrint('✅ Switched to household: $householdId');
-
       // Handle sub-routes if any
-      if (subRoute != null) {
-        debugPrint('📍 Sub-route requested: $subRoute');
-        // TODO: Handle sub-routes like /splits when implemented
+      if (subRoute == 'settings' && queryParams != null) {
+        debugPrint('📍 Settings sub-route with params: $queryParams');
+
+        // Parse tab parameter (0 = settings, 1 = members, 2 = invitations)
+        final tabParam = queryParams['tab'];
+        final initialTab = tabParam != null ? int.tryParse(tabParam) : null;
+
+        debugPrint('🏠 Opening household settings with tab: $initialTab');
+
+        // Navigate to household settings page with initial tab
+        if (navigatorContext.mounted) {
+          Navigator.of(navigatorContext).push(
+            MaterialPageRoute(
+              builder: (_) => HouseholdSettingsPage(
+                householdId: householdId,
+                initialTab: initialTab,
+              ),
+            ),
+          );
+        }
+      } else {
+        // Navigate to dashboard (which will show household content)
+        if (navigatorContext.mounted) {
+          navigatorContext.go('/dashboard');
+        }
+
+        debugPrint('✅ Switched to household: $householdId');
+
+        // Handle other sub-routes if any
+        if (subRoute != null) {
+          debugPrint('📍 Other sub-route requested: $subRoute');
+          // TODO: Handle sub-routes like /splits when implemented
+        }
       }
     } catch (e) {
       debugPrint('❌ Error handling household deep link: $e');

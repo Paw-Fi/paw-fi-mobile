@@ -67,7 +67,8 @@ class _RegistrationFormView extends HookConsumerWidget {
     useEffect(() {
       void nameListener() => nameHasFocus.value = nameFocusNode.hasFocus;
       void emailListener() => emailHasFocus.value = emailFocusNode.hasFocus;
-      void passwordListener() => passwordHasFocus.value = passwordFocusNode.hasFocus;
+      void passwordListener() =>
+          passwordHasFocus.value = passwordFocusNode.hasFocus;
 
       nameFocusNode.addListener(nameListener);
       emailFocusNode.addListener(emailListener);
@@ -148,7 +149,8 @@ class _RegistrationFormView extends HookConsumerWidget {
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
             physics: const BouncingScrollPhysics(),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 440),
@@ -204,12 +206,14 @@ class _RegistrationFormView extends HookConsumerWidget {
                       borderRadius: BorderRadius.circular(24),
                       boxShadow: [
                         BoxShadow(
-                          color: theme.colorScheme.foreground.withValues(alpha: 0.05),
+                          color: theme.colorScheme.foreground
+                              .withValues(alpha: 0.05),
                           blurRadius: 20,
                           offset: const Offset(0, 4),
                         ),
                         BoxShadow(
-                          color: theme.colorScheme.foreground.withValues(alpha: 0.03),
+                          color: theme.colorScheme.foreground
+                              .withValues(alpha: 0.03),
                           blurRadius: 40,
                           offset: const Offset(0, 8),
                         ),
@@ -241,15 +245,18 @@ class _RegistrationFormView extends HookConsumerWidget {
                                   decoration: BoxDecoration(
                                     gradient: LinearGradient(
                                       colors: [
-                                        theme.colorScheme.border.withValues(alpha: 0.0),
-                                        theme.colorScheme.border.withValues(alpha: 0.5),
+                                        theme.colorScheme.border
+                                            .withValues(alpha: 0.0),
+                                        theme.colorScheme.border
+                                            .withValues(alpha: 0.5),
                                       ],
                                     ),
                                   ),
                                 ),
                               ),
                               Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 16),
                                 child: Text(
                                   context.l10n.orContinueWithEmail,
                                   style: TextStyle(
@@ -264,8 +271,10 @@ class _RegistrationFormView extends HookConsumerWidget {
                                   decoration: BoxDecoration(
                                     gradient: LinearGradient(
                                       colors: [
-                                        theme.colorScheme.border.withValues(alpha: 0.5),
-                                        theme.colorScheme.border.withValues(alpha: 0.0),
+                                        theme.colorScheme.border
+                                            .withValues(alpha: 0.5),
+                                        theme.colorScheme.border
+                                            .withValues(alpha: 0.0),
                                       ],
                                     ),
                                   ),
@@ -300,7 +309,8 @@ class _RegistrationFormView extends HookConsumerWidget {
                               decoration: InputDecoration(
                                 hintText: context.l10n.fullName,
                                 hintStyle: TextStyle(
-                                  color: theme.colorScheme.mutedForeground.withValues(alpha: 0.6),
+                                  color: theme.colorScheme.mutedForeground
+                                      .withValues(alpha: 0.6),
                                 ),
                                 border: InputBorder.none,
                                 contentPadding: const EdgeInsets.symmetric(
@@ -340,7 +350,8 @@ class _RegistrationFormView extends HookConsumerWidget {
                               decoration: InputDecoration(
                                 hintText: context.l10n.emailAddress,
                                 hintStyle: TextStyle(
-                                  color: theme.colorScheme.mutedForeground.withValues(alpha: 0.6),
+                                  color: theme.colorScheme.mutedForeground
+                                      .withValues(alpha: 0.6),
                                 ),
                                 border: InputBorder.none,
                                 contentPadding: const EdgeInsets.symmetric(
@@ -378,7 +389,8 @@ class _RegistrationFormView extends HookConsumerWidget {
                               decoration: InputDecoration(
                                 hintText: context.l10n.createPassword,
                                 hintStyle: TextStyle(
-                                  color: theme.colorScheme.mutedForeground.withValues(alpha: 0.6),
+                                  color: theme.colorScheme.mutedForeground
+                                      .withValues(alpha: 0.6),
                                 ),
                                 border: InputBorder.none,
                                 contentPadding: const EdgeInsets.symmetric(
@@ -386,7 +398,8 @@ class _RegistrationFormView extends HookConsumerWidget {
                                   vertical: 16,
                                 ),
                                 suffixIcon: IconButton(
-                                  onPressed: () => showPassword.value = !showPassword.value,
+                                  onPressed: () =>
+                                      showPassword.value = !showPassword.value,
                                   icon: Icon(
                                     showPassword.value
                                         ? Icons.visibility_off_outlined
@@ -419,19 +432,23 @@ class _RegistrationFormView extends HookConsumerWidget {
                               duration: const Duration(milliseconds: 500),
                               curve: Curves.elasticOut,
                               builder: (context, value, child) {
-                                final shake = errorShake.value ? (1 - value) * 10 : 0.0;
+                                final shake =
+                                    errorShake.value ? (1 - value) * 10 : 0.0;
                                 return Transform.translate(
-                                  offset: Offset(shake * (value % 2 == 0 ? 1 : -1), 0),
+                                  offset: Offset(
+                                      shake * (value % 2 == 0 ? 1 : -1), 0),
                                   child: child,
                                 );
                               },
                               child: Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: theme.colorScheme.destructive.withValues(alpha: 0.1),
+                                  color: theme.colorScheme.destructive
+                                      .withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
-                                    color: theme.colorScheme.destructive.withValues(alpha: 0.3),
+                                    color: theme.colorScheme.destructive
+                                        .withValues(alpha: 0.3),
                                   ),
                                 ),
                                 child: Row(
@@ -467,7 +484,8 @@ class _RegistrationFormView extends HookConsumerWidget {
                                 gradient: LinearGradient(
                                   colors: [
                                     theme.colorScheme.primary,
-                                    theme.colorScheme.primary.withValues(alpha: 0.85),
+                                    theme.colorScheme.primary
+                                        .withValues(alpha: 0.85),
                                   ],
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
@@ -475,14 +493,16 @@ class _RegistrationFormView extends HookConsumerWidget {
                                 borderRadius: BorderRadius.circular(12),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                                    color: theme.colorScheme.primary
+                                        .withValues(alpha: 0.3),
                                     blurRadius: 12,
                                     offset: const Offset(0, 4),
                                   ),
                                 ],
                               ),
                               child: Material(
-                                color: theme.colorScheme.surface.withValues(alpha: 0.0),
+                                color: theme.colorScheme.surface
+                                    .withValues(alpha: 0.0),
                                 child: InkWell(
                                   onTap: isLoading.value ? null : handleSignUp,
                                   borderRadius: BorderRadius.circular(12),
@@ -493,8 +513,10 @@ class _RegistrationFormView extends HookConsumerWidget {
                                             height: 24,
                                             child: CircularProgressIndicator(
                                               strokeWidth: 2.5,
-                                              valueColor: AlwaysStoppedAnimation<Color>(
-                                                theme.colorScheme.primaryForeground,
+                                              valueColor:
+                                                  AlwaysStoppedAnimation<Color>(
+                                                theme.colorScheme
+                                                    .primaryForeground,
                                               ),
                                             ),
                                           )
@@ -503,7 +525,8 @@ class _RegistrationFormView extends HookConsumerWidget {
                                             style: TextStyle(
                                               fontSize: 16,
                                               fontWeight: FontWeight.w600,
-                                              color: theme.colorScheme.primaryForeground,
+                                              color: theme.colorScheme
+                                                  .primaryForeground,
                                             ),
                                           ),
                                   ),
@@ -540,7 +563,8 @@ class _RegistrationFormView extends HookConsumerWidget {
                         ),
                       ),
                       GestureDetector(
-                        onTap: isLoading.value ? null : () => context.go('/login'),
+                        onTap:
+                            isLoading.value ? null : () => context.go('/login'),
                         child: Text(
                           context.l10n.signInLower,
                           style: TextStyle(
@@ -573,7 +597,7 @@ class _OTPVerificationView extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme =   Theme.of(context);
+    final theme = Theme.of(context);
     final otpValue = useState<String>('');
     final error = useState<String?>(null);
     final isVerifying = useState(false);
@@ -718,10 +742,12 @@ class _OTPVerificationView extends HookConsumerWidget {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.destructive.withValues(alpha: 0.1),
+                        color: theme.colorScheme.destructive
+                            .withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: theme.colorScheme.destructive.withValues(alpha: 0.3),
+                          color: theme.colorScheme.destructive
+                              .withValues(alpha: 0.3),
                         ),
                       ),
                       child: Row(
@@ -756,14 +782,16 @@ class _OTPVerificationView extends HookConsumerWidget {
                           return SizedBox(
                             width: double.infinity,
                             child: PrimaryAdaptiveButton(
-                              onPressed: (isVerifying.value || otpValue.value.length != 6)
+                              onPressed: (isVerifying.value ||
+                                      otpValue.value.length != 6)
                                   ? null
                                   : handleVerifyOtp,
                               child: isVerifying.value
                                   ? const SizedBox(
                                       width: 20,
                                       height: 20,
-                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2),
                                     )
                                   : Text(context.l10n.verifyEmail),
                             ),
@@ -787,10 +815,12 @@ class _OTPVerificationView extends HookConsumerWidget {
                           textAlign: TextAlign.center,
                         ),
                         TextButton(
-                          onPressed: resendCooldown.value > 0 ? null : handleResend,
+                          onPressed:
+                              resendCooldown.value > 0 ? null : handleResend,
                           child: Text(
                             resendCooldown.value > 0
-                                ? context.l10n.resendInSeconds(resendCooldown.value)
+                                ? context.l10n
+                                    .resendInSeconds(resendCooldown.value)
                                 : context.l10n.resendVerificationEmail,
                           ),
                         ),

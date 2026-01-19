@@ -8,7 +8,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 /// color picker based on the platform or configuration.
 class AdaptiveColorPicker {
   /// Shows a color picker dialog adapted for the current platform.
-  /// 
+  ///
   /// [context] - The build context
   /// [startingColor] - The initial color to display
   /// [onColorChanged] - Callback called when color is selected
@@ -22,7 +22,7 @@ class AdaptiveColorPicker {
     // ===========================================
     // COLOR PICKER SELECTION - MANUAL SWITCHING
     // ===========================================
-    // 
+    //
     // FOR iOS BUILD: Uncomment iOS section, comment Web section
     // FOR WEB BUILD: Comment iOS section, uncomment Web section
     //

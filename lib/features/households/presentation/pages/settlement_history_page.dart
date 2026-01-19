@@ -798,8 +798,7 @@ class _SettlementDetailsSheetState extends State<SettlementDetailsSheet> {
             .fold<int>(0, (s, l) => s + l.amountCents)
         : widget.event.participantToPayerCents;
     final isExpress = widget.event.isExpressNetting == true;
-    final shouldShowOffsets =
-        isExpress && forwardTotal > 0 && reverseTotal > 0;
+    final shouldShowOffsets = isExpress && forwardTotal > 0 && reverseTotal > 0;
 
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
     final actorId = widget.event.settledByUserId;

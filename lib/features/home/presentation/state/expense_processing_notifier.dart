@@ -11,7 +11,11 @@ class ExpenseProcessingNotifier extends StateNotifier<ProcessingState> {
   ExpenseProcessingNotifier() : super(ProcessingState());
 
   Future<void> processText(String text, String phone) async {
-    state = state.copyWith(isProcessing: true, message: 'Processing expense...', progress: 0.1, clearExpense: true);
+    state = state.copyWith(
+        isProcessing: true,
+        message: 'Processing expense...',
+        progress: 0.1,
+        clearExpense: true);
 
     try {
       final response = await supabase.functions.invoke(
@@ -29,16 +33,21 @@ class ExpenseProcessingNotifier extends StateNotifier<ProcessingState> {
 
         // The response structure is: {success: true, data: {type: 'expense', items: [...], expenses: [...]}}
         // We need the 'expenses' array which has the actual DB records
-        if (responseData != null && responseData['expenses'] != null && responseData['expenses'].isNotEmpty) {
+        if (responseData != null &&
+            responseData['expenses'] != null &&
+            responseData['expenses'].isNotEmpty) {
           try {
-            final expenseData = responseData['expenses'][0]; // Get first expense from DB
+            final expenseData =
+                responseData['expenses'][0]; // Get first expense from DB
             createdExpense = ExpenseEntry(
               id: expenseData['id'] ?? '',
               contactId: expenseData['contact_id'] ?? '',
               amountCents: expenseData['amount_cents'] ?? 0,
               category: expenseData['category'],
-              date: DateTime.parse(expenseData['date'] ?? DateTime.now().toIso8601String()),
-              createdAt: DateTime.parse(expenseData['created_at'] ?? DateTime.now().toIso8601String()),
+              date: DateTime.parse(
+                  expenseData['date'] ?? DateTime.now().toIso8601String()),
+              createdAt: DateTime.parse(expenseData['created_at'] ??
+                  DateTime.now().toIso8601String()),
               rawText: expenseData['raw_text'],
               currency: expenseData['currency'],
               receiptImageUrl: expenseData['receipt_image_url'],
@@ -46,7 +55,9 @@ class ExpenseProcessingNotifier extends StateNotifier<ProcessingState> {
           } catch (parseError) {
             debugPrint('Error parsing expense data: $parseError');
           }
-        } else if (responseData != null && responseData['items'] != null && responseData['items'].isNotEmpty) {
+        } else if (responseData != null &&
+            responseData['items'] != null &&
+            responseData['items'].isNotEmpty) {
           // Fallback: If 'expenses' array is missing, create from 'items' (Gemini parsed data)
           try {
             final item = responseData['items'][0];
@@ -56,7 +67,8 @@ class ExpenseProcessingNotifier extends StateNotifier<ProcessingState> {
               contactId: '',
               amountCents: amountCents,
               category: item['category'] ?? 'uncategorized',
-              date: DateTime.parse(item['date'] ?? DateTime.now().toIso8601String().split('T')[0]),
+              date: DateTime.parse(item['date'] ??
+                  DateTime.now().toIso8601String().split('T')[0]),
               createdAt: DateTime.now(),
               rawText: text,
               currency: item['currency'] ?? 'USD',
@@ -68,19 +80,31 @@ class ExpenseProcessingNotifier extends StateNotifier<ProcessingState> {
         }
 
         // Mark as complete
-        state = state.copyWith(isProcessing: false, progress: 1.0, createdExpense: createdExpense, clearMessage: true);
+        state = state.copyWith(
+            isProcessing: false,
+            progress: 1.0,
+            createdExpense: createdExpense,
+            clearMessage: true);
       } else {
         final error = response.data?['error'] ?? 'Failed to process expense';
         throw Exception(error);
       }
     } catch (e) {
-      state = state.copyWith(isProcessing: false, message: 'Error: ${e.toString()}', clearMessage: false);
+      state = state.copyWith(
+          isProcessing: false,
+          message: 'Error: ${e.toString()}',
+          clearMessage: false);
       rethrow;
     }
   }
 
   Future<void> processImage(File imageFile, String phone) async {
-    state = state.copyWith(isProcessing: true, message: 'Processing receipt image...', progress: 0.1, clearExpense: true, localImagePath: imageFile.path);
+    state = state.copyWith(
+        isProcessing: true,
+        message: 'Processing receipt image...',
+        progress: 0.1,
+        clearExpense: true,
+        localImagePath: imageFile.path);
 
     try {
       // Read image bytes
@@ -122,12 +146,15 @@ class ExpenseProcessingNotifier extends StateNotifier<ProcessingState> {
 
         ExpenseEntry? createdExpense;
 
-        if (responseData != null && responseData['expenses'] != null && responseData['expenses'].isNotEmpty) {
+        if (responseData != null &&
+            responseData['expenses'] != null &&
+            responseData['expenses'].isNotEmpty) {
           try {
             debugPrint('=== EXPENSES ARRAY ===');
             debugPrint(responseData['expenses']);
 
-            final expenseData = responseData['expenses'][0]; // Get first expense
+            final expenseData =
+                responseData['expenses'][0]; // Get first expense
             debugPrint('=== FIRST EXPENSE ===');
             debugPrint(expenseData);
 
@@ -136,14 +163,17 @@ class ExpenseProcessingNotifier extends StateNotifier<ProcessingState> {
               contactId: expenseData['contact_id'] ?? '',
               amountCents: expenseData['amount_cents'] ?? 0,
               category: expenseData['category'],
-              date: DateTime.parse(expenseData['date'] ?? DateTime.now().toIso8601String()),
-              createdAt: DateTime.parse(expenseData['created_at'] ?? DateTime.now().toIso8601String()),
+              date: DateTime.parse(
+                  expenseData['date'] ?? DateTime.now().toIso8601String()),
+              createdAt: DateTime.parse(expenseData['created_at'] ??
+                  DateTime.now().toIso8601String()),
               rawText: expenseData['raw_text'],
               currency: expenseData['currency'],
               receiptImageUrl: expenseData['receipt_image_url'],
             );
             debugPrint('=== CREATED EXPENSE ENTRY ===');
-            debugPrint('Category: ${createdExpense.category}, Amount: ${createdExpense.amount}');
+            debugPrint(
+                'Category: ${createdExpense.category}, Amount: ${createdExpense.amount}');
           } catch (parseError) {
             debugPrint('Error parsing expense data: $parseError');
           }
@@ -155,13 +185,20 @@ class ExpenseProcessingNotifier extends StateNotifier<ProcessingState> {
         }
 
         // Mark as complete
-        state = state.copyWith(isProcessing: false, progress: 1.0, createdExpense: createdExpense, clearMessage: true);
+        state = state.copyWith(
+            isProcessing: false,
+            progress: 1.0,
+            createdExpense: createdExpense,
+            clearMessage: true);
       } else {
         final error = response.data?['error'] ?? 'Failed to process receipt';
         throw Exception(error);
       }
     } catch (e) {
-      state = state.copyWith(isProcessing: false, message: 'Error: ${e.toString()}', clearMessage: false);
+      state = state.copyWith(
+          isProcessing: false,
+          message: 'Error: ${e.toString()}',
+          clearMessage: false);
       rethrow;
     }
   }

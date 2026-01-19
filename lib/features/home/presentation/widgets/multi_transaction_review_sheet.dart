@@ -156,7 +156,8 @@ class _MultiTransactionReviewSheetState
   void initState() {
     super.initState();
 
-    _drafts = widget.transactions.map((t) => _TransactionDraft(value: t)).toList();
+    _drafts =
+        widget.transactions.map((t) => _TransactionDraft(value: t)).toList();
 
     final scope = ref.read(householdScopeProvider);
     _shareWithHousehold = scope.isHouseholdView;
@@ -212,7 +213,8 @@ class _MultiTransactionReviewSheetState
     }
   }
 
-  void _setHouseholdSelection(String householdId, {bool userInitiated = false}) {
+  void _setHouseholdSelection(String householdId,
+      {bool userInitiated = false}) {
     setState(() {
       _selectedHouseholdId = householdId;
       if (userInitiated) _userSelectedHousehold = true;
@@ -534,8 +536,7 @@ class _MultiTransactionReviewSheetState
           now.minute,
         );
         final updatedTx = tx.copyWith(date: dateWithTime);
-        final hasSplits =
-            draft.splits != null && draft.splits!.isNotEmpty;
+        final hasSplits = draft.splits != null && draft.splits!.isNotEmpty;
         final splitType = (!_isIncomeMode && _shareWithHousehold && hasSplits)
             ? (draft.splitType ?? SplitType.amount)
             : null;
@@ -546,16 +547,18 @@ class _MultiTransactionReviewSheetState
 
         try {
           if (_isIncomeMode) {
-            final saved = await ref.read(incomeSaveProvider.notifier).saveIncome(
-                  userId: user.uid,
-                  amount: updatedTx.amount,
-                  category:
-                      updatedTx.category.isNotEmpty ? updatedTx.category : 'income',
-                  currency: updatedTx.currency,
-                  date: updatedTx.date,
-                  description: updatedTx.description,
-                  householdId: householdId,
-                );
+            final saved =
+                await ref.read(incomeSaveProvider.notifier).saveIncome(
+                      userId: user.uid,
+                      amount: updatedTx.amount,
+                      category: updatedTx.category.isNotEmpty
+                          ? updatedTx.category
+                          : 'income',
+                      currency: updatedTx.currency,
+                      date: updatedTx.date,
+                      description: updatedTx.description,
+                      householdId: householdId,
+                    );
             if (saved == null) {
               final state = ref.read(incomeSaveProvider);
               final err = state.whenOrNull(error: (e, _) => e);
@@ -606,7 +609,8 @@ class _MultiTransactionReviewSheetState
     }
 
     if (successCount == 0) {
-      AppToast.error(context, 'Nothing was saved. Please review and try again.');
+      AppToast.error(
+          context, 'Nothing was saved. Please review and try again.');
       return;
     }
 
@@ -628,8 +632,7 @@ class _MultiTransactionReviewSheetState
     final totalsLabel = totals.entries
         .map((e) => '${e.key} ${e.value.toStringAsFixed(2)}')
         .join(' • ');
-    final allSelected =
-        _drafts.isNotEmpty && _selectedCount == _drafts.length;
+    final allSelected = _drafts.isNotEmpty && _selectedCount == _drafts.length;
     final selectionLabel =
         allSelected ? context.l10n.deselectAll : context.l10n.selectAll;
 
@@ -648,346 +651,353 @@ class _MultiTransactionReviewSheetState
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-            Container(
-              margin: const EdgeInsets.only(top: 10, bottom: 6),
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: colorScheme.border,
-                borderRadius: BorderRadius.circular(2),
+              Container(
+                margin: const EdgeInsets.only(top: 10, bottom: 6),
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: colorScheme.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-            Padding(
-              padding:
-                  const EdgeInsets.only(left: 8, top: 4, bottom: 8, right: 16),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: Icon(Icons.chevron_left,
-                        color: colorScheme.foreground, size: 28),
-                    onPressed: _isSaving ? null : () => Navigator.pop(context),
-                    padding: const EdgeInsets.all(8),
-                    constraints: const BoxConstraints(),
-                  ),
-                  Expanded(
-                    child: Text(
-                      '${context.l10n.confirm} ${context.l10n.transactions}',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.foreground,
+              Padding(
+                padding: const EdgeInsets.only(
+                    left: 8, top: 4, bottom: 8, right: 16),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.chevron_left,
+                          color: colorScheme.foreground, size: 28),
+                      onPressed:
+                          _isSaving ? null : () => Navigator.pop(context),
+                      padding: const EdgeInsets.all(8),
+                      constraints: const BoxConstraints(),
+                    ),
+                    Expanded(
+                      child: Text(
+                        '${context.l10n.confirm} ${context.l10n.transactions}',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.foreground,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
-                      textAlign: TextAlign.center,
                     ),
-                  ),
-                  IconButton(
-                    icon: _isSaving
-                        ? SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                colorScheme.foreground,
-                              ),
-                            ),
-                          )
-                        : Icon(
-                            Icons.check_rounded,
-                            color: colorScheme.foreground,
-                            size: 28,
-                          ),
-                    onPressed: _isSaving ? null : _handleSave,
-                    padding: const EdgeInsets.all(8),
-                    constraints: const BoxConstraints(),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      '$_selectedCount / ${_drafts.length} ${context.l10n.items} • ${context.l10n.totalAmount}: $totalsLabel',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: colorScheme.mutedForeground,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            householdsAsync.when(
-              data: (List<Household> households) {
-                if (households.isEmpty) return const SizedBox();
-
-                final headerSelectedId =
-                    selectedHouseholdState.householdId ??
-                        selectedHouseholdState.household?.id;
-                final headerInList = headerSelectedId != null &&
-                    households.any((h) => h.id == headerSelectedId);
-                final preferredId =
-                    headerInList ? headerSelectedId : households.first.id;
-                final selectedIsValid = _selectedHouseholdId != null &&
-                    _selectedHouseholdId!.isNotEmpty &&
-                    households.any((h) => h.id == _selectedHouseholdId);
-
-                if (_shareWithHousehold && households.isNotEmpty) {
-                  final shouldAutoSelect = !selectedIsValid ||
-                      (!_userSelectedHousehold &&
-                          _selectedHouseholdId != preferredId);
-                  if (shouldAutoSelect && _selectedHouseholdId != preferredId) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (!mounted) return;
-                      _setHouseholdSelection(preferredId);
-                    });
-                  }
-                }
-
-                final dropdownValue =
-                    selectedIsValid ? _selectedHouseholdId : preferredId;
-
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: colorScheme.muted.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                context.l10n.shareWithHousehold,
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                  color: colorScheme.foreground,
+                    IconButton(
+                      icon: _isSaving
+                          ? SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  colorScheme.foreground,
                                 ),
                               ),
+                            )
+                          : Icon(
+                              Icons.check_rounded,
+                              color: colorScheme.foreground,
+                              size: 28,
                             ),
-                            MonekoSwitch(
-                              value: _shareWithHousehold,
-                              onChanged: _isSaving
-                                  ? null
-                                  : (value) {
-                                      setState(() {
-                                        _shareWithHousehold = value;
-                                        if (!value) {
-                                          _membersError = null;
-                                          _householdMembers = null;
-                                          _isLoadingMembers = false;
-                                          _resetDraftSplits(clearPayers: true);
-                                        }
-                                      });
-                                      if (value) {
-                                        final nextId = selectedIsValid
-                                            ? _selectedHouseholdId
-                                            : preferredId;
-                                        if (nextId != null &&
-                                            nextId.isNotEmpty) {
-                                          _setHouseholdSelection(nextId);
-                                        }
-                                      }
-                                    },
-                            ),
-                          ],
+                      onPressed: _isSaving ? null : _handleSave,
+                      padding: const EdgeInsets.all(8),
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '$_selectedCount / ${_drafts.length} ${context.l10n.items} • ${context.l10n.totalAmount}: $totalsLabel',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: colorScheme.mutedForeground,
+                          fontWeight: FontWeight.w500,
                         ),
-                        if (_shareWithHousehold) ...[
-                          const SizedBox(height: 8),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              householdsAsync.when(
+                data: (List<Household> households) {
+                  if (households.isEmpty) return const SizedBox();
+
+                  final headerSelectedId = selectedHouseholdState.householdId ??
+                      selectedHouseholdState.household?.id;
+                  final headerInList = headerSelectedId != null &&
+                      households.any((h) => h.id == headerSelectedId);
+                  final preferredId =
+                      headerInList ? headerSelectedId : households.first.id;
+                  final selectedIsValid = _selectedHouseholdId != null &&
+                      _selectedHouseholdId!.isNotEmpty &&
+                      households.any((h) => h.id == _selectedHouseholdId);
+
+                  if (_shareWithHousehold && households.isNotEmpty) {
+                    final shouldAutoSelect = !selectedIsValid ||
+                        (!_userSelectedHousehold &&
+                            _selectedHouseholdId != preferredId);
+                    if (shouldAutoSelect &&
+                        _selectedHouseholdId != preferredId) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (!mounted) return;
+                        _setHouseholdSelection(preferredId);
+                      });
+                    }
+                  }
+
+                  final dropdownValue =
+                      selectedIsValid ? _selectedHouseholdId : preferredId;
+
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: colorScheme.muted.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Row(
                             children: [
                               Expanded(
                                 child: Text(
-                                  context.l10n.household,
+                                  context.l10n.shareWithHousehold,
                                   style: TextStyle(
-                                    fontSize: 13,
-                                    color: colorScheme.mutedForeground,
-                                    fontWeight: FontWeight.w500,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    color: colorScheme.foreground,
                                   ),
                                 ),
                               ),
-                              DropdownButtonHideUnderline(
-                                child: DropdownButton<String>(
-                                  value: dropdownValue,
-                                  items: households
-                                      .map(
-                                        (h) => DropdownMenuItem<String>(
-                                          value: h.id,
-                                          child: Text(
-                                            h.name,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                      )
-                                      .toList(),
-                                  onChanged: _isSaving
-                                      ? null
-                                      : (value) {
-                                          if (value == null) return;
-                                          _setHouseholdSelection(
-                                            value,
-                                            userInitiated: true,
-                                          );
-                                        },
-                                ),
+                              MonekoSwitch(
+                                value: _shareWithHousehold,
+                                onChanged: _isSaving
+                                    ? null
+                                    : (value) {
+                                        setState(() {
+                                          _shareWithHousehold = value;
+                                          if (!value) {
+                                            _membersError = null;
+                                            _householdMembers = null;
+                                            _isLoadingMembers = false;
+                                            _resetDraftSplits(
+                                                clearPayers: true);
+                                          }
+                                        });
+                                        if (value) {
+                                          final nextId = selectedIsValid
+                                              ? _selectedHouseholdId
+                                              : preferredId;
+                                          if (nextId != null &&
+                                              nextId.isNotEmpty) {
+                                            _setHouseholdSelection(nextId);
+                                          }
+                                        }
+                                      },
                               ),
                             ],
                           ),
-                          const SizedBox(height: 6),
-                        ],
-                      ],
-                    ),
-                  ),
-                );
-              },
-              loading: () => const SizedBox(),
-              error: (_, __) => const SizedBox(),
-            ),
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: GestureDetector(
-                  onTap: _isSaving
-                      ? null
-                      : (allSelected ? _clearAll : _selectAll),
-                  child: Text(
-                    selectionLabel,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: _isSaving
-                          ? colorScheme.mutedForeground
-                          : colorScheme.primary,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Flexible(
-              child: ListView.separated(
-                controller: _scrollController,
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                itemCount: _drafts.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 10),
-                itemBuilder: (context, index) {
-                  final draft = _drafts[index];
-                  final tx = draft.value;
-                  final dateLabel = _formatRelativeDate(tx.date, context);
-                  final categoryLabel = getCategoryTranslation(context, tx.category);
-                  final owedLabel = (_shareWithHousehold &&
-                          !_isIncomeMode &&
-                          _householdMembers != null)
-                      ? _buildOwedLabel(
-                          draft: draft,
-                          currentUserId: user.uid,
-                          members: _householdMembers!,
-                        )
-                      : null;
-
-                  final error = draft.error;
-                  final borderColor = error != null
-                      ? colorScheme.error.withValues(alpha: 0.6)
-                      : colorScheme.border.withValues(alpha: 0.6);
-
-                  return Container(
-                    decoration: BoxDecoration(
-                      color: colorScheme.muted.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: borderColor),
-                    ),
-                    child: ListTile(
-                      onTap: _isSaving ? null : () => _handleEditTransaction(index),
-                      leading: Checkbox(
-                        value: draft.selected,
-                        onChanged: _isSaving
-                            ? null
-                            : (value) {
-                                setState(() {
-                                  draft.selected = value ?? false;
-                                });
-                              },
-                      ),
-                      title: Text(
-                        '${_isIncomeMode ? '+' : '-'}${tx.currencySymbol}${tx.amount.toStringAsFixed(2)}  •  $categoryLabel',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.foreground,
-                        ),
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 2),
-                          Text(
-                            '$dateLabel • ${tx.currency.toUpperCase()}',
-                            style: TextStyle(
-                              color: colorScheme.mutedForeground,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
+                          if (_shareWithHousehold) ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    context.l10n.household,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: colorScheme.mutedForeground,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                                DropdownButtonHideUnderline(
+                                  child: DropdownButton<String>(
+                                    value: dropdownValue,
+                                    items: households
+                                        .map(
+                                          (h) => DropdownMenuItem<String>(
+                                            value: h.id,
+                                            child: Text(
+                                              h.name,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        )
+                                        .toList(),
+                                    onChanged: _isSaving
+                                        ? null
+                                        : (value) {
+                                            if (value == null) return;
+                                            _setHouseholdSelection(
+                                              value,
+                                              userInitiated: true,
+                                            );
+                                          },
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                          if ((tx.description ?? '').trim().isNotEmpty) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              tx.description!.trim(),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: colorScheme.mutedForeground,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                          if (owedLabel != null) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              owedLabel,
-                              style: TextStyle(
-                                color: colorScheme.mutedForeground,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                          if (error != null) ...[
                             const SizedBox(height: 6),
-                            Text(
-                              error,
-                              style: TextStyle(
-                                color: colorScheme.error,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
                           ],
                         ],
-                      ),
-                      trailing: Icon(
-                        PlatformInfo.isIOS ? CupertinoIcons.pencil : Icons.edit,
-                        color: colorScheme.mutedForeground,
                       ),
                     ),
                   );
                 },
+                loading: () => const SizedBox(),
+                error: (_, __) => const SizedBox(),
               ),
-            ),
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: GestureDetector(
+                    onTap: _isSaving
+                        ? null
+                        : (allSelected ? _clearAll : _selectAll),
+                    child: Text(
+                      selectionLabel,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: _isSaving
+                            ? colorScheme.mutedForeground
+                            : colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Flexible(
+                child: ListView.separated(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  itemCount: _drafts.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    final draft = _drafts[index];
+                    final tx = draft.value;
+                    final dateLabel = _formatRelativeDate(tx.date, context);
+                    final categoryLabel =
+                        getCategoryTranslation(context, tx.category);
+                    final owedLabel = (_shareWithHousehold &&
+                            !_isIncomeMode &&
+                            _householdMembers != null)
+                        ? _buildOwedLabel(
+                            draft: draft,
+                            currentUserId: user.uid,
+                            members: _householdMembers!,
+                          )
+                        : null;
+
+                    final error = draft.error;
+                    final borderColor = error != null
+                        ? colorScheme.error.withValues(alpha: 0.6)
+                        : colorScheme.border.withValues(alpha: 0.6);
+
+                    return Container(
+                      decoration: BoxDecoration(
+                        color: colorScheme.muted.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: borderColor),
+                      ),
+                      child: ListTile(
+                        onTap: _isSaving
+                            ? null
+                            : () => _handleEditTransaction(index),
+                        leading: Checkbox(
+                          value: draft.selected,
+                          onChanged: _isSaving
+                              ? null
+                              : (value) {
+                                  setState(() {
+                                    draft.selected = value ?? false;
+                                  });
+                                },
+                        ),
+                        title: Text(
+                          '${_isIncomeMode ? '+' : '-'}${tx.currencySymbol}${tx.amount.toStringAsFixed(2)}  •  $categoryLabel',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.foreground,
+                          ),
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 2),
+                            Text(
+                              '$dateLabel • ${tx.currency.toUpperCase()}',
+                              style: TextStyle(
+                                color: colorScheme.mutedForeground,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            if ((tx.description ?? '').trim().isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                tx.description!.trim(),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: colorScheme.mutedForeground,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                            if (owedLabel != null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                owedLabel,
+                                style: TextStyle(
+                                  color: colorScheme.mutedForeground,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                            if (error != null) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                error,
+                                style: TextStyle(
+                                  color: colorScheme.error,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        trailing: Icon(
+                          PlatformInfo.isIOS
+                              ? CupertinoIcons.pencil
+                              : Icons.edit,
+                          color: colorScheme.mutedForeground,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                 child: SizedBox(
@@ -1001,9 +1011,7 @@ class _MultiTransactionReviewSheetState
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
                               valueColor: AlwaysStoppedAnimation<Color>(
-                                Theme.of(context)
-                                    .colorScheme
-                                    .primaryForeground,
+                                Theme.of(context).colorScheme.primaryForeground,
                               ),
                             ),
                           )
@@ -1089,8 +1097,8 @@ class _EditTransactionSheetState extends State<_EditTransactionSheet> {
   @override
   void initState() {
     super.initState();
-    _amountController =
-        TextEditingController(text: widget.transaction.amount.toStringAsFixed(2));
+    _amountController = TextEditingController(
+        text: widget.transaction.amount.toStringAsFixed(2));
     _descriptionController =
         TextEditingController(text: widget.transaction.description ?? '');
     _date = _dateOnly(toLocalTime(widget.transaction.date));
@@ -1277,8 +1285,7 @@ class _EditTransactionSheetState extends State<_EditTransactionSheet> {
 
     switch (type) {
       case SplitType.amount:
-        final includedCount =
-            splits.where((s) => s.includedInAmount).length;
+        final includedCount = splits.where((s) => s.includedInAmount).length;
         if (includedCount == 0) {
           return context.l10n.atLeastOneMember;
         }
@@ -1393,8 +1400,9 @@ class _EditTransactionSheetState extends State<_EditTransactionSheet> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final dateLabel = DateFormat.yMMMMd(Localizations.localeOf(context).toString())
-        .format(toLocalTime(_date));
+    final dateLabel =
+        DateFormat.yMMMMd(Localizations.localeOf(context).toString())
+            .format(toLocalTime(_date));
     final categoryLabel = getCategoryTranslation(context, _category);
 
     return Container(

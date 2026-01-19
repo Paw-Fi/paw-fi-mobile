@@ -26,7 +26,8 @@ class ParsedExpense {
 
   factory ParsedExpense.fromJson(Map<String, dynamic> json) {
     return ParsedExpense(
-      isIncome: (json['type']?.toString().toLowerCase() == 'income') || (json['isIncome'] == true),
+      isIncome: (json['type']?.toString().toLowerCase() == 'income') ||
+          (json['isIncome'] == true),
       amount: (json['amount'] as num).toDouble(),
       category: normalizeCategory(json['category'] as String),
       currency: json['currency'] as String,

@@ -163,13 +163,13 @@ final homeFilteredExpensesProvider = Provider<List<ExpenseEntry>>((ref) {
             (expense.currency?.toUpperCase() == selectedCurrency);
 
         final activeOk = switch (scope.activeAccountType) {
-          ActiveAccountType.personal =>
-            expense.householdId == null || (expense.householdId?.isEmpty ?? false),
+          ActiveAccountType.personal => expense.householdId == null ||
+              (expense.householdId?.isEmpty ?? false),
           ActiveAccountType.portfolio =>
             scope.activeAccountHouseholdId != null &&
                 expense.householdId == scope.activeAccountHouseholdId,
-          ActiveAccountType.household =>
-            selectedHouseholdId != null && expense.householdId == selectedHouseholdId,
+          ActiveAccountType.household => selectedHouseholdId != null &&
+              expense.householdId == selectedHouseholdId,
         };
 
         return dateOk && currencyOk && activeOk;
@@ -206,9 +206,8 @@ final homeFilteredTransactionsProvider = Provider<List<ExpenseEntry>>((ref) {
     final activeOk = switch (scope.activeAccountType) {
       ActiveAccountType.personal =>
         tx.householdId == null || (tx.householdId?.isEmpty ?? false),
-      ActiveAccountType.portfolio =>
-        scope.activeAccountHouseholdId != null &&
-            tx.householdId == scope.activeAccountHouseholdId,
+      ActiveAccountType.portfolio => scope.activeAccountHouseholdId != null &&
+          tx.householdId == scope.activeAccountHouseholdId,
       ActiveAccountType.household =>
         selectedHouseholdId != null && tx.householdId == selectedHouseholdId,
     };
@@ -372,8 +371,7 @@ final currencySummariesProvider = Provider<List<CurrencySummary>>((ref) {
 
       final budgetDay = DateTime(b.date.year, b.date.month, b.date.day);
       if (budgetDay.isBefore(from) || budgetDay.isAfter(to)) continue;
-      byCurBudgets[currencyCode] =
-          (byCurBudgets[currencyCode] ?? 0) + b.amount;
+      byCurBudgets[currencyCode] = (byCurBudgets[currencyCode] ?? 0) + b.amount;
     }
   }
 

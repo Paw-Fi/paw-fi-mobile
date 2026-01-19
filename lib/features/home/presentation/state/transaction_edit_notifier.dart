@@ -13,9 +13,9 @@ import 'package:moneko/features/pockets/presentation/state/pockets_providers.dar
 /// Manages transaction editing with optimistic UI updates and automatic rollback on error
 class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
   final Ref ref;
-  
+
   TransactionEditNotifier(this.ref) : super(const TransactionEditState());
-  
+
   /// Update an expense field with optimistic UI update
   /// Returns true on success, false on failure
   Future<bool> updateExpense(
@@ -33,7 +33,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       editingExpenseId: expenseId,
       clearError: true,
     );
-    
+
     try {
       // ═══════════════════════════════════════════════════════════════
       // STEP 1: Try optimistic UI update (if expense is in local cache)
@@ -49,7 +49,8 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       final analyticsData = ref.read(analyticsProvider);
       final currentExpenses = analyticsData.allExpenses;
 
-      final originalExpenseIndex = currentExpenses.indexWhere((e) => e.id == expenseId);
+      final originalExpenseIndex =
+          currentExpenses.indexWhere((e) => e.id == expenseId);
 
       // If expense found in local cache, apply optimistic update
       if (originalExpenseIndex != -1) {
@@ -60,8 +61,10 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
 
         if (kDebugMode) {
           debugPrint('💾 Applying optimistic update for expense $expenseId');
-          debugPrint('   Original: ${originalExpense.amount} ${originalExpense.currency}');
-          debugPrint('   Updated:  ${optimisticExpense.amount} ${optimisticExpense.currency}');
+          debugPrint(
+              '   Original: ${originalExpense.amount} ${originalExpense.currency}');
+          debugPrint(
+              '   Updated:  ${optimisticExpense.amount} ${optimisticExpense.currency}');
         }
 
         // 3. Update UI immediately (optimistic)
@@ -71,7 +74,8 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
         // Expense not in cache - likely a household expense
         // This is NOT an error, just skip optimistic update
         if (kDebugMode) {
-          debugPrint('💾 Expense not in local cache (household expense), skipping optimistic update');
+          debugPrint(
+              '💾 Expense not in local cache (household expense), skipping optimistic update');
         }
       }
 
@@ -103,24 +107,25 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
         'update-expense',
         body: requestBody,
       );
-      
+
       // Check response
       if (response.data == null) {
         throw Exception('No response from server');
       }
-      
+
       final responseData = response.data as Map<String, dynamic>;
-      
+
       if (responseData['success'] != true) {
-        final errorMessage = responseData['error'] as String? ?? 'Update failed';
+        final errorMessage =
+            responseData['error'] as String? ?? 'Update failed';
         final errorCode = responseData['code'] as String? ?? 'UNKNOWN_ERROR';
         throw Exception('$errorCode: $errorMessage');
       }
-      
+
       if (kDebugMode) {
         debugPrint('✅ Backend update successful');
       }
-      
+
       // ═══════════════════════════════════════════════════════════════
       // STEP 3: Reload data from backend to sync all providers
       // ═══════════════════════════════════════════════════════════════
@@ -162,7 +167,6 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       );
 
       return true;
-      
     } catch (e) {
       // 6. Error: Rollback optimistic update
       debugPrint('❌ Update failed: $e');
@@ -170,7 +174,8 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       try {
         final analyticsData = ref.read(analyticsProvider);
         final currentExpenses = analyticsData.allExpenses;
-        final originalExpenseIndex = currentExpenses.indexWhere((exp) => exp.id == expenseId);
+        final originalExpenseIndex =
+            currentExpenses.indexWhere((exp) => exp.id == expenseId);
 
         if (originalExpenseIndex != -1) {
           // Find the expense that was there before our optimistic update
@@ -195,7 +200,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       return false;
     }
   }
-  
+
   /// Apply field updates to an expense, creating a new instance
   ExpenseEntry _applyUpdates(
     ExpenseEntry expense,
@@ -203,39 +208,39 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
   ) {
     return expense.copyWith(
       amountCents: updates['amount_cents'] as int? ?? expense.amountCents,
-      category: updates.containsKey('category') 
-          ? (updates['category'] as String?) 
+      category: updates.containsKey('category')
+          ? (updates['category'] as String?)
           : expense.category,
       rawText: updates.containsKey('raw_text')
           ? (updates['raw_text'] as String?)
           : expense.rawText,
-      date: updates['date'] != null 
-          ? DateTime.parse(updates['date'] as String) 
+      date: updates['date'] != null
+          ? DateTime.parse(updates['date'] as String)
           : expense.date,
       currency: updates['currency'] as String? ?? expense.currency,
     );
   }
-  
+
   /// Apply optimistic update to the analytics provider state
   void _applyOptimisticUpdateToProvider(ExpenseEntry updatedExpense) {
     final analytics = ref.read(analyticsProvider);
-    
+
     // Update both expenses and allExpenses lists
     final updatedExpenses = analytics.expenses.map((e) {
       return e.id == updatedExpense.id ? updatedExpense : e;
     }).toList();
-    
+
     final updatedAllExpenses = analytics.allExpenses.map((e) {
       return e.id == updatedExpense.id ? updatedExpense : e;
     }).toList();
-    
+
     // Update provider state
     ref.read(analyticsProvider.notifier).state = analytics.copyWith(
       expenses: updatedExpenses,
       allExpenses: updatedAllExpenses,
     );
   }
-  
+
   /// Extract a concise backend error message.
   ///
   /// If this came from a Supabase `FunctionException`, we try to read
@@ -266,7 +271,8 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
 
         final backendMessage = details['error'];
         if (backendMessage is String) {
-          if (backendMessage.trim().toLowerCase() == 'failed to fetch expense') {
+          if (backendMessage.trim().toLowerCase() ==
+              'failed to fetch expense') {
             return 'Failed to update expense';
           }
           return backendMessage;
@@ -278,7 +284,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
 
     return error.toString();
   }
-  
+
   /// Clear any error state
   void clearError() {
     state = state.copyWith(clearError: true);
@@ -286,6 +292,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
 }
 
 /// Provider for transaction editing state
-final transactionEditProvider = StateNotifierProvider<TransactionEditNotifier, TransactionEditState>(
+final transactionEditProvider =
+    StateNotifierProvider<TransactionEditNotifier, TransactionEditState>(
   (ref) => TransactionEditNotifier(ref),
 );

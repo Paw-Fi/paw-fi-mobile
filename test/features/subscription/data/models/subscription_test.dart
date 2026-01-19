@@ -23,7 +23,7 @@ void main() {
       final now = DateTime(2024, 1, 1);
       final periodEnd = DateTime(2024, 2, 1);
       final nextPayment = DateTime(2024, 2, 1);
-      
+
       final subscription = Subscription(
         id: 'sub_1',
         userId: 'user_1',
@@ -123,13 +123,16 @@ void main() {
       final subscription = Subscription.fromJson(json);
 
       expect(subscription.createdAt, isNotNull);
-      expect(subscription.createdAt.isBefore(DateTime.now().add(const Duration(seconds: 1))), true);
+      expect(
+          subscription.createdAt
+              .isBefore(DateTime.now().add(const Duration(seconds: 1))),
+          true);
     });
 
     test('toJson serializes subscription correctly', () {
       final now = DateTime(2024, 1, 1);
       final periodEnd = DateTime(2024, 2, 1);
-      
+
       final subscription = Subscription(
         id: 'sub_1',
         userId: 'user_1',
@@ -246,7 +249,9 @@ void main() {
       expect(subscription.isSubscribed, false);
     });
 
-    test('returns false for active status without stripe subscription or binding', () {
+    test(
+        'returns false for active status without stripe subscription or binding',
+        () {
       final subscription = Subscription(
         id: 'sub_1',
         userId: 'user_1',

@@ -11,6 +11,7 @@ import 'package:moneko/features/home/presentation/state/view_mode_provider.dart'
 import 'package:moneko/core/app/router.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+
 class HouseholdInvitationSheet extends ConsumerStatefulWidget {
   final String token;
 
@@ -49,15 +50,18 @@ class _HouseholdInvitationSheetState
 
     try {
       await ref.read(userHouseholdsProvider(userId).notifier).load();
-      debugPrint('✅ [HouseholdInvitationSheet] Household list refreshed successfully');
+      debugPrint(
+          '✅ [HouseholdInvitationSheet] Household list refreshed successfully');
     } catch (e) {
-      debugPrint('⚠️ [HouseholdInvitationSheet] Failed to refresh household list: $e');
+      debugPrint(
+          '⚠️ [HouseholdInvitationSheet] Failed to refresh household list: $e');
       // Continue anyway - this is not a critical failure
     }
   }
 
   Future<void> _acceptInvite() async {
-    debugPrint('🏠 [HouseholdInvitationSheet] Starting invitation acceptance flow');
+    debugPrint(
+        '🏠 [HouseholdInvitationSheet] Starting invitation acceptance flow');
     final repo = ref.read(householdRepositoryProvider);
     try {
       // First, validate the invite to get household_id
@@ -105,7 +109,8 @@ class _HouseholdInvitationSheetState
             });
           } catch (e) {
             // If accept fails with 409 (already member), still show success
-            if (e.toString().contains('409') || e.toString().contains('already')) {
+            if (e.toString().contains('409') ||
+                e.toString().contains('already')) {
               debugPrint(
                   '🏠 [HouseholdInvitationSheet] Already a member (from accept call), showing success anyway');
 
@@ -119,7 +124,8 @@ class _HouseholdInvitationSheetState
                 _isProcessing = false;
               });
             } else {
-              debugPrint('❌ [HouseholdInvitationSheet] Error accepting invite: $e');
+              debugPrint(
+                  '❌ [HouseholdInvitationSheet] Error accepting invite: $e');
               rethrow;
             }
           }
@@ -237,7 +243,7 @@ class _HouseholdInvitationSheetState
               ),
             ),
             const SizedBox(height: 24),
-           PrimaryAdaptiveButton(
+            PrimaryAdaptiveButton(
               onPressed: () => Navigator.of(context).pop(),
               child: Text(context.l10n.close),
             ),
@@ -258,7 +264,8 @@ class _HouseholdInvitationSheetState
                   Expanded(
                     child: Text(
                       _householdName != null
-                          ? context.l10n.joinedHouseholdWithName(_householdName!)
+                          ? context.l10n
+                              .joinedHouseholdWithName(_householdName!)
                           : context.l10n.joinedHousehold,
                       style: TextStyle(
                         fontSize: 14,

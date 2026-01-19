@@ -8,11 +8,13 @@ import '../../domain/entities/expense_split.dart';
 import '../../domain/entities/household.dart';
 import '../providers/household_providers.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+
 /// Split Builder Page
 /// Interactive expense splitting tool
 class SplitBuilderPage extends ConsumerStatefulWidget {
   final String householdId;
-  final String? expenseId; // FIXED: Changed from transactionId to match database schema
+  final String?
+      expenseId; // FIXED: Changed from transactionId to match database schema
   final int? totalAmountCents;
 
   const SplitBuilderPage({
@@ -36,7 +38,8 @@ class _SplitBuilderPageState extends ConsumerState<SplitBuilderPage> {
   void initState() {
     super.initState();
     if (widget.totalAmountCents != null) {
-      _amountController.text = (widget.totalAmountCents! / 100).toStringAsFixed(2);
+      _amountController.text =
+          (widget.totalAmountCents! / 100).toStringAsFixed(2);
     }
   }
 
@@ -48,7 +51,8 @@ class _SplitBuilderPageState extends ConsumerState<SplitBuilderPage> {
 
   @override
   Widget build(BuildContext context) {
-    final membersAsync = ref.watch(householdMembersProvider(widget.householdId));
+    final membersAsync =
+        ref.watch(householdMembersProvider(widget.householdId));
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
@@ -78,7 +82,8 @@ class _SplitBuilderPageState extends ConsumerState<SplitBuilderPage> {
                   labelText: context.l10n.totalAmount,
                   prefixText: context.l10n.dollarSign,
                 ),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
               ),
               const SizedBox(height: 24),
 
@@ -101,7 +106,9 @@ class _SplitBuilderPageState extends ConsumerState<SplitBuilderPage> {
                 items: members
                     .map((m) => DropdownMenuItem(
                           value: m.userId,
-                          child: Text(m.userName ?? m.userEmail ?? context.l10n.unknown),
+                          child: Text(m.userName ??
+                              m.userEmail ??
+                              context.l10n.unknown),
                         ))
                     .toList(),
                 onChanged: (value) {
@@ -177,7 +184,8 @@ class _SplitBuilderPageState extends ConsumerState<SplitBuilderPage> {
         ),
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) => Center(
-          child: Text('${context.l10n.error}: $error', style: TextStyle(color: colorScheme.destructive)),
+          child: Text('${context.l10n.error}: $error',
+              style: TextStyle(color: colorScheme.destructive)),
         ),
       ),
     );
@@ -231,7 +239,8 @@ class _SplitBuilderPageState extends ConsumerState<SplitBuilderPage> {
       }).toList();
 
       final request = SplitRequest(
-        expenseId: widget.expenseId ?? 'temp_${DateTime.now().millisecondsSinceEpoch}',
+        expenseId:
+            widget.expenseId ?? 'temp_${DateTime.now().millisecondsSinceEpoch}',
         householdId: widget.householdId,
         payerUserId: _selectedPayer!,
         splitType: _selectedType,
@@ -289,7 +298,8 @@ class _SplitTypeSelector extends StatelessWidget {
                     color: isSelected
                         ? colorScheme.primaryForeground
                         : colorScheme.foreground,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    fontWeight:
+                        isSelected ? FontWeight.bold : FontWeight.normal,
                     fontSize: 12,
                   ),
                 ),
@@ -345,9 +355,11 @@ class _SplitMemberRow extends StatelessWidget {
               decoration: InputDecoration(
                 labelText: _getSuffix(),
                 border: const OutlineInputBorder(),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               ),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
               onChanged: (text) {
                 final val = double.tryParse(text) ?? 0;
                 onChanged(val);
@@ -441,7 +453,8 @@ class _SplitPreview extends StatelessWidget {
         return splitValues[userId] ?? 0;
       case SplitType.shares:
         final shares = splitValues[userId] ?? 0;
-        final totalShares = splitValues.values.fold(0.0, (sum, val) => sum + val);
+        final totalShares =
+            splitValues.values.fold(0.0, (sum, val) => sum + val);
         return totalShares > 0 ? totalAmount * (shares / totalShares) : 0;
     }
   }

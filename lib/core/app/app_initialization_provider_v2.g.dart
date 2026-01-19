@@ -9,13 +9,13 @@ part of 'app_initialization_provider_v2.dart';
 String _$appInitializationV2Hash() => r'b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7';
 
 /// Improved app initialization provider with cache-first strategy
-/// 
+///
 /// Architecture:
 /// 1. Load from cache immediately (if available) → instant UI
 /// 2. Fetch fresh data in background
 /// 3. Update UI when fresh data arrives
 /// 4. Handle errors gracefully
-/// 
+///
 /// Features:
 /// - Cache-first loading (instant startup)
 /// - Single backend RPC call (fast & reliable)

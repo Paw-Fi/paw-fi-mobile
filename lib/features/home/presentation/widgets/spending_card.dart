@@ -150,255 +150,253 @@ class _SpendingCardState extends State<SpendingCard> {
       ),
       padding: const EdgeInsets.all(24.0),
       child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header Section
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.dateFilter.getSpentLabel(context).toUpperCase(),
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 1.0,
-                        color: widget.colorScheme.mutedForeground,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      displayText,
-                      style: TextStyle(
-                        fontSize: 36,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -1.0,
-                        color: widget.colorScheme.foreground,
-                        height: 1.1,
-                      ),
-                    ),
-                  ],
-                ),
-                if (sortedDates.length > _windowSize)
-                  _buildNavigationControls(maxWindowStart),
-              ],
-            ),
-
-            const SizedBox(height: 32),
-
-            // Chart Section
-            SizedBox(
-              height: 160,
-              child: LineChart(
-                LineChartData(
-                  gridData: const FlGridData(show: false),
-                  titlesData: FlTitlesData(
-                    leftTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false)),
-                    rightTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false)),
-                    topTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false)),
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        interval: 1,
-                        reservedSize: 34,
-                        getTitlesWidget: (value, meta) {
-                          if (value.toInt() >= visibleDates.length ||
-                              value.toInt() < 0) {
-                            return const SizedBox();
-                          }
-                          final date = visibleDates[value.toInt()];
-                          final locale = Localizations.localeOf(context);
-
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 8.0),
-                            child: widget.dateFilter == DateRangeFilter.thisMonth
-                                ? Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        DateFormat('d', locale.toLanguageTag())
-                                            .format(date),
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
-                                          color: widget
-                                              .colorScheme.mutedForeground,
-                                          height: 1.0,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        DateFormat(
-                                          'MMM',
-                                          locale.toLanguageTag(),
-                                        ).format(date),
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w500,
-                                          color: widget
-                                              .colorScheme.mutedForeground,
-                                          height: 1.0,
-                                        ),
-                                      ),
-                                    ],
-                                  )
-                                : Text(
-                                    formatDateForInterval(date, intervalType),
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w500,
-                                      color: widget
-                                          .colorScheme.mutedForeground,
-                                    ),
-                                  ),
-                          );
-                        },
-                      ),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Section
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.dateFilter.getSpentLabel(context).toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.0,
+                      color: widget.colorScheme.mutedForeground,
                     ),
                   ),
-                  borderData: FlBorderData(show: false),
-                  lineTouchData: LineTouchData(
-                    enabled: true,
-                    touchSpotThreshold: 24,
-                    touchTooltipData: LineTouchTooltipData(
-                      getTooltipColor: (touchedSpot) =>
-                          widget.colorScheme.surface,
-                      tooltipBorder: BorderSide(
-                          color: widget.colorScheme.outline
-                              .withValues(alpha: 0.1)),
-                      tooltipRoundedRadius: 12,
-                      tooltipPadding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
-                      getTooltipItems: (touchedSpots) {
-                        return touchedSpots.map((spot) {
-                          if (spot.spotIndex >= visibleDates.length) {
-                            return null;
-                          }
-                          final date = visibleDates[spot.spotIndex];
-                          final locale = Localizations.localeOf(context);
-                          final formattedDate = widget.dateFilter ==
-                                      DateRangeFilter.thisMonth &&
-                                  intervalType == 'daily'
-                              ? DateFormat(
-                                  'd MMM',
-                                  locale.toLanguageTag(),
-                                ).format(date)
-                              : formatDateForInterval(date, intervalType);
-                          final currencyCode =
-                              widget.selectedCurrency ?? 'USD';
-                          final symbol = resolveCurrencySymbol(currencyCode);
-                          final localizedY =
-                              formatLocalizedNumber(context, spot.y);
-                          final amount = '$symbol$localizedY';
-                          return LineTooltipItem(
-                            '$formattedDate\n',
-                            TextStyle(
-                              color: widget.colorScheme.mutedForeground,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            children: [
-                              TextSpan(
-                                text: amount,
-                                style: TextStyle(
-                                  color: widget.colorScheme.foreground,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
+                  const SizedBox(height: 8),
+                  Text(
+                    displayText,
+                    style: TextStyle(
+                      fontSize: 36,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -1.0,
+                      color: widget.colorScheme.foreground,
+                      height: 1.1,
+                    ),
+                  ),
+                ],
+              ),
+              if (sortedDates.length > _windowSize)
+                _buildNavigationControls(maxWindowStart),
+            ],
+          ),
+
+          const SizedBox(height: 32),
+
+          // Chart Section
+          SizedBox(
+            height: 160,
+            child: LineChart(
+              LineChartData(
+                gridData: const FlGridData(show: false),
+                titlesData: FlTitlesData(
+                  leftTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false)),
+                  topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false)),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      interval: 1,
+                      reservedSize: 34,
+                      getTitlesWidget: (value, meta) {
+                        if (value.toInt() >= visibleDates.length ||
+                            value.toInt() < 0) {
+                          return const SizedBox();
+                        }
+                        final date = visibleDates[value.toInt()];
+                        final locale = Localizations.localeOf(context);
+
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: widget.dateFilter == DateRangeFilter.thisMonth
+                              ? Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      DateFormat('d', locale.toLanguageTag())
+                                          .format(date),
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color:
+                                            widget.colorScheme.mutedForeground,
+                                        height: 1.0,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      DateFormat(
+                                        'MMM',
+                                        locale.toLanguageTag(),
+                                      ).format(date),
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w500,
+                                        color:
+                                            widget.colorScheme.mutedForeground,
+                                        height: 1.0,
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : Text(
+                                  formatDateForInterval(date, intervalType),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                    color: widget.colorScheme.mutedForeground,
+                                  ),
                                 ),
-                              ),
-                            ],
-                          );
-                        }).toList();
+                        );
                       },
                     ),
-                    touchCallback:
-                        (FlTouchEvent event, LineTouchResponse? touchResponse) {
-                      setState(() {
-                        if (event is FlPanEndEvent ||
-                            event is FlPanCancelEvent ||
-                            event is FlTapUpEvent ||
-                            event is FlTapCancelEvent ||
-                            event is FlLongPressEnd) {
-                          _touchedIndex = null;
-                          return;
-                        }
-                        if (touchResponse == null ||
-                            touchResponse.lineBarSpots == null) {
-                          _touchedIndex = null;
-                          return;
-                        }
-                        _touchedIndex =
-                            touchResponse.lineBarSpots!.first.spotIndex;
-                      });
-                    },
-                    handleBuiltInTouches: true,
                   ),
-                  lineBarsData: [
-                    LineChartBarData(
-                      spots: adjustedVisibleData,
-                      isCurved: true,
-                      curveSmoothness: 0.35,
-                      color: widget.colorScheme.primary,
-                      barWidth: 3,
-                      isStrokeCapRound: true,
-                      dotData: FlDotData(
-                        show: true,
-                        getDotPainter: (spot, percent, barData, index) {
-                          // Highlight the last point (current/most recent)
-                          final isLastPoint =
-                              index == adjustedVisibleData.length - 1 &&
-                                  _currentWindowStart + index ==
-                                      allCumulativeData.length - 1;
-
-                          if (isLastPoint) {
-                            return FlDotCirclePainter(
-                              radius: 6,
-                              color: widget.colorScheme.primary,
-                              strokeWidth: 4,
-                              strokeColor: widget.colorScheme.surface,
-                            );
-                          }
-                          // Show dots on touch
-                          if (_touchedIndex != null && index == _touchedIndex) {
-                            return FlDotCirclePainter(
-                              radius: 6,
-                              color: widget.colorScheme.primary,
-                              strokeWidth: 4,
-                              strokeColor: widget.colorScheme.surface,
-                            );
-                          }
-                          return FlDotCirclePainter(
-                              radius: 0,
-                              color:
-                                  widget.colorScheme.surface.withValues(alpha: 0.0));
-                        },
-                      ),
-                      belowBarData: BarAreaData(
-                        show: true,
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            widget.colorScheme.primary.withValues(alpha: 0.2),
-                            widget.colorScheme.primary.withValues(alpha: 0.0),
+                ),
+                borderData: FlBorderData(show: false),
+                lineTouchData: LineTouchData(
+                  enabled: true,
+                  touchSpotThreshold: 24,
+                  touchTooltipData: LineTouchTooltipData(
+                    getTooltipColor: (touchedSpot) =>
+                        widget.colorScheme.surface,
+                    tooltipBorder: BorderSide(
+                        color:
+                            widget.colorScheme.outline.withValues(alpha: 0.1)),
+                    tooltipRoundedRadius: 12,
+                    tooltipPadding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    getTooltipItems: (touchedSpots) {
+                      return touchedSpots.map((spot) {
+                        if (spot.spotIndex >= visibleDates.length) {
+                          return null;
+                        }
+                        final date = visibleDates[spot.spotIndex];
+                        final locale = Localizations.localeOf(context);
+                        final formattedDate =
+                            widget.dateFilter == DateRangeFilter.thisMonth &&
+                                    intervalType == 'daily'
+                                ? DateFormat(
+                                    'd MMM',
+                                    locale.toLanguageTag(),
+                                  ).format(date)
+                                : formatDateForInterval(date, intervalType);
+                        final currencyCode = widget.selectedCurrency ?? 'USD';
+                        final symbol = resolveCurrencySymbol(currencyCode);
+                        final localizedY =
+                            formatLocalizedNumber(context, spot.y);
+                        final amount = '$symbol$localizedY';
+                        return LineTooltipItem(
+                          '$formattedDate\n',
+                          TextStyle(
+                            color: widget.colorScheme.mutedForeground,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          children: [
+                            TextSpan(
+                              text: amount,
+                              style: TextStyle(
+                                color: widget.colorScheme.foreground,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
                           ],
-                        ),
+                        );
+                      }).toList();
+                    },
+                  ),
+                  touchCallback:
+                      (FlTouchEvent event, LineTouchResponse? touchResponse) {
+                    setState(() {
+                      if (event is FlPanEndEvent ||
+                          event is FlPanCancelEvent ||
+                          event is FlTapUpEvent ||
+                          event is FlTapCancelEvent ||
+                          event is FlLongPressEnd) {
+                        _touchedIndex = null;
+                        return;
+                      }
+                      if (touchResponse == null ||
+                          touchResponse.lineBarSpots == null) {
+                        _touchedIndex = null;
+                        return;
+                      }
+                      _touchedIndex =
+                          touchResponse.lineBarSpots!.first.spotIndex;
+                    });
+                  },
+                  handleBuiltInTouches: true,
+                ),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: adjustedVisibleData,
+                    isCurved: true,
+                    curveSmoothness: 0.35,
+                    color: widget.colorScheme.primary,
+                    barWidth: 3,
+                    isStrokeCapRound: true,
+                    dotData: FlDotData(
+                      show: true,
+                      getDotPainter: (spot, percent, barData, index) {
+                        // Highlight the last point (current/most recent)
+                        final isLastPoint =
+                            index == adjustedVisibleData.length - 1 &&
+                                _currentWindowStart + index ==
+                                    allCumulativeData.length - 1;
+
+                        if (isLastPoint) {
+                          return FlDotCirclePainter(
+                            radius: 6,
+                            color: widget.colorScheme.primary,
+                            strokeWidth: 4,
+                            strokeColor: widget.colorScheme.surface,
+                          );
+                        }
+                        // Show dots on touch
+                        if (_touchedIndex != null && index == _touchedIndex) {
+                          return FlDotCirclePainter(
+                            radius: 6,
+                            color: widget.colorScheme.primary,
+                            strokeWidth: 4,
+                            strokeColor: widget.colorScheme.surface,
+                          );
+                        }
+                        return FlDotCirclePainter(
+                            radius: 0,
+                            color: widget.colorScheme.surface
+                                .withValues(alpha: 0.0));
+                      },
+                    ),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          widget.colorScheme.primary.withValues(alpha: 0.2),
+                          widget.colorScheme.primary.withValues(alpha: 0.0),
+                        ],
                       ),
                     ),
-                  ],
-                  minY: 0,
-                  maxY: maxY > 0 ? (maxY * 1.2).ceilToDouble() : 100,
-                ),
+                  ),
+                ],
+                minY: 0,
+                maxY: maxY > 0 ? (maxY * 1.2).ceilToDouble() : 100,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
+      ),
     );
   }
 

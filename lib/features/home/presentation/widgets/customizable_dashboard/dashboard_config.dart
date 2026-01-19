@@ -127,17 +127,20 @@ class DashboardWidgetConfig {
     // Handle migration from old enum names
     final String? typeName = json['type'] as String?;
     String migratedTypeName = typeName ?? 'spendingSummary';
-    
-    FirebaseCrashlytics.instance.log('🔍 DashboardConfig.fromJson: original type=$typeName');
-    
+
+    FirebaseCrashlytics.instance
+        .log('🔍 DashboardConfig.fromJson: original type=$typeName');
+
     if (migratedTypeName == 'categoryBreakdown') {
       migratedTypeName = 'recentTransactions';
-      FirebaseCrashlytics.instance.log('🔄 Migrated categoryBreakdown -> recentTransactions');
+      FirebaseCrashlytics.instance
+          .log('🔄 Migrated categoryBreakdown -> recentTransactions');
     } else if (migratedTypeName == 'householdCategoryBreakdown') {
       migratedTypeName = 'householdRecentTransactions';
-      FirebaseCrashlytics.instance.log('🔄 Migrated householdCategoryBreakdown -> householdRecentTransactions');
+      FirebaseCrashlytics.instance.log(
+          '🔄 Migrated householdCategoryBreakdown -> householdRecentTransactions');
     }
-    
+
     return DashboardWidgetConfig(
       id: json['id'] as String,
       type: DashboardWidgetType.values.firstWhere(

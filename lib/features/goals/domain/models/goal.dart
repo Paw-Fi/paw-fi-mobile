@@ -87,7 +87,8 @@ class Goal {
               .toList() ??
           [],
       baseCurrency: json['base_currency'] as String?,
-      fxRate: json['fx_rate'] != null ? (json['fx_rate'] as num).toDouble() : null,
+      fxRate:
+          json['fx_rate'] != null ? (json['fx_rate'] as num).toDouble() : null,
       normalizedTargetAmount: json['normalized_target_amount'] != null
           ? (json['normalized_target_amount'] as num) / 100
           : null,
@@ -196,8 +197,10 @@ class Goal {
       acknowledgedBy: acknowledgedBy ?? this.acknowledgedBy,
       baseCurrency: baseCurrency ?? this.baseCurrency,
       fxRate: fxRate ?? this.fxRate,
-      normalizedTargetAmount: normalizedTargetAmount ?? this.normalizedTargetAmount,
-      normalizedCurrentAmount: normalizedCurrentAmount ?? this.normalizedCurrentAmount,
+      normalizedTargetAmount:
+          normalizedTargetAmount ?? this.normalizedTargetAmount,
+      normalizedCurrentAmount:
+          normalizedCurrentAmount ?? this.normalizedCurrentAmount,
       icon: icon ?? this.icon,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

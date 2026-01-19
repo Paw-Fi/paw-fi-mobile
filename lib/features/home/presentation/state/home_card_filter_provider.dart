@@ -34,7 +34,8 @@ class CardDateFilterState {
   }) {
     return CardDateFilterState(
       dateRangeFilter: dateRangeFilter ?? this.dateRangeFilter,
-      customStartDate: clearCustom ? null : (customStartDate ?? this.customStartDate),
+      customStartDate:
+          clearCustom ? null : (customStartDate ?? this.customStartDate),
       customEndDate: clearCustom ? null : (customEndDate ?? this.customEndDate),
     );
   }
@@ -44,7 +45,8 @@ class CardDateFilterState {
 class CardDateFilterNotifier extends StateNotifier<CardDateFilterState> {
   CardDateFilterNotifier() : super(const CardDateFilterState());
 
-  void setFilter(DateRangeFilter filter, {DateTime? startDate, DateTime? endDate}) {
+  void setFilter(DateRangeFilter filter,
+      {DateTime? startDate, DateTime? endDate}) {
     state = state.copyWith(
       dateRangeFilter: filter,
       customStartDate: startDate,

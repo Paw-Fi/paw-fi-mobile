@@ -23,19 +23,19 @@ String getInitials(String? name, {String fallback = 'U'}) {
   if (name == null || name.isEmpty) {
     return fallback;
   }
-  
+
   // If it's an email, use the part before @
   if (name.contains('@')) {
     name = name.split('@').first;
   }
-  
+
   // Split by whitespace or special characters
   final parts = name.split(RegExp(r'[\s._-]+'));
-  
+
   if (parts.length >= 2) {
     return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
   }
-  
+
   return name[0].toUpperCase();
 }
 
@@ -44,14 +44,14 @@ class RoleBadge extends StatelessWidget {
   final HouseholdRole role;
 
   const RoleBadge({
-    super.key, 
+    super.key,
     required this.role,
   });
 
   @override
   Widget build(BuildContext context) {
     final color = getRoleColor(role, Theme.of(context).colorScheme);
-    
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
@@ -107,7 +107,7 @@ class MemberAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = getRoleColor(role, Theme.of(context).colorScheme);
     final initials = getInitials(name ?? email);
-    
+
     if (avatarUrl != null && avatarUrl!.isNotEmpty) {
       return CircleAvatar(
         radius: radius,
@@ -116,7 +116,7 @@ class MemberAvatar extends StatelessWidget {
         onBackgroundImageError: (_, __) {},
       );
     }
-    
+
     return CircleAvatar(
       radius: radius,
       backgroundColor: color,

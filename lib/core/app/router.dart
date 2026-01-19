@@ -31,10 +31,10 @@ GoRouter router(RouterRef ref) {
   final hasSubscription = ref.watch(hasActiveSubscriptionProvider);
   final isSubscriptionLoaded = ref.watch(isSubscriptionLoadedProvider);
   final prefs = ref.watch(sharedPreferencesProvider);
-  
+
   // Use V2 initialization provider (cache-first, faster)
   final appInitStateV2 = ref.watch(appInitializationV2Provider);
-  
+
   // Keep subscription provider alive
   ref.watch(subscriptionNotifierProvider);
 
@@ -205,9 +205,11 @@ GoRouter router(RouterRef ref) {
         }
 
         // V2: Surface fatal initialization failures ONLY if no cached data available
-        if (appInitStateV2.state == AppInitState.failed && appInitStateV2.data == null) {
+        if (appInitStateV2.state == AppInitState.failed &&
+            appInitStateV2.data == null) {
           if (!isOnErrorPage) {
-            debugPrint('❌ [RouterV2] Init failed with no cache, showing error page');
+            debugPrint(
+                '❌ [RouterV2] Init failed with no cache, showing error page');
             return '/error';
           }
           return null;
@@ -216,7 +218,8 @@ GoRouter router(RouterRef ref) {
         // V2: Don't block on splash - navigate immediately after auth check
         // Splash screen only shown briefly during initial app load
         if (isOnSplashPage) {
-          debugPrint('🚀 [RouterV2] On splash, redirecting immediately based on auth');
+          debugPrint(
+              '🚀 [RouterV2] On splash, redirecting immediately based on auth');
           // Redirect from splash to appropriate page
           if (isAuthenticated) {
             if (!hasOnboarded) {
@@ -232,7 +235,7 @@ GoRouter router(RouterRef ref) {
                 return '/paywall';
               }
             }
-            return '/dashboard';  // Navigate immediately, UI will show skeletons
+            return '/dashboard'; // Navigate immediately, UI will show skeletons
           } else {
             return '/login';
           }

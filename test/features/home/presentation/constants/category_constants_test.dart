@@ -263,7 +263,8 @@ void main() {
 
     test('handles special characters', () {
       expect(normalizeCategory('food & drinks'), 'food & drinks');
-      expect(normalizeCategory('laundry / dry cleaning'), 'laundry / dry cleaning');
+      expect(normalizeCategory('laundry / dry cleaning'),
+          'laundry / dry cleaning');
     });
 
     test('handles mixed case with spaces', () {

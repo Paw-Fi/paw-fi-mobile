@@ -562,13 +562,14 @@ class _ScenarioPlanningTabContentState
                                       }
 
                                       // Stream the AI scenario planner response (NDJSON)
-                                      final client = supabase; // SupabaseClient from core/resources/lib/supabase.dart
+                                      final client =
+                                          supabase; // SupabaseClient from core/resources/lib/supabase.dart
                                       final uri = Uri.parse(
                                         '${Constants.supabaseUrl}/functions/v1/ai-scenario-planner',
                                       );
 
-                                      final accessToken =
-                                          client.auth.currentSession?.accessToken;
+                                      final accessToken = client
+                                          .auth.currentSession?.accessToken;
                                       if (accessToken == null ||
                                           accessToken.isEmpty) {
                                         throw Exception(
@@ -588,8 +589,8 @@ class _ScenarioPlanningTabContentState
                                         ..headers.addAll(headers)
                                         ..body = jsonEncode(payload);
 
-                                      final navigator =
-                                          Navigator.of(context, rootNavigator: true);
+                                      final navigator = Navigator.of(context,
+                                          rootNavigator: true);
                                       final noAnalysisAvailableMsg =
                                           context.l10n.noAnalysisAvailable;
 
@@ -678,8 +679,8 @@ class _ScenarioPlanningTabContentState
                                             }
                                             break;
                                           case 'error':
-                                            final msg = obj['error'] ??
-                                                'Unknown error';
+                                            final msg =
+                                                obj['error'] ?? 'Unknown error';
                                             throw Exception('$msg');
                                           case 'done':
                                             isCompleteNotifier.value = true;

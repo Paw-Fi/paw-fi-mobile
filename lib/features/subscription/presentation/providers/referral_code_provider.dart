@@ -16,7 +16,8 @@ class ReferralCodeChecker extends _$ReferralCodeChecker {
 
   Future<bool> _checkReferralCode(String userId) async {
     try {
-      appLog('Checking if user has referral code: $userId', name: 'ReferralCodeProvider');
+      appLog('Checking if user has referral code: $userId',
+          name: 'ReferralCodeProvider');
 
       final response = await supabase
           .from('referral_codes')
@@ -27,10 +28,12 @@ class ReferralCodeChecker extends _$ReferralCodeChecker {
       final responseList = response as List;
       final hasReferralCode = responseList.isNotEmpty;
 
-      appLog('User has referral code: $hasReferralCode', name: 'ReferralCodeProvider');
+      appLog('User has referral code: $hasReferralCode',
+          name: 'ReferralCodeProvider');
       return hasReferralCode;
     } catch (e, stack) {
-      appLog('Error checking referral code', name: 'ReferralCodeProvider', error: e, stackTrace: stack);
+      appLog('Error checking referral code',
+          name: 'ReferralCodeProvider', error: e, stackTrace: stack);
       return false;
     }
   }

@@ -773,9 +773,7 @@ class _UnifiedTransactionSheetState
     bool isPortfolioHousehold(String? householdId) {
       if (householdId == null) return false;
       try {
-        return householdList
-            .firstWhere((h) => h.id == householdId)
-            .isPortfolio;
+        return householdList.firstWhere((h) => h.id == householdId).isPortfolio;
       } catch (_) {
         return false;
       }
@@ -998,8 +996,7 @@ class _UnifiedTransactionSheetState
                         _membersError = null;
                         _isLoadingMembers = false;
                       });
-                      final isPortfolioSelection =
-                          isPortfolioHousehold(value);
+                      final isPortfolioSelection = isPortfolioHousehold(value);
                       if (!isPortfolioSelection) {
                         debugPrint(
                             '🔄 [HOUSEHOLD DROPDOWN] Calling _loadMembers for: $value');
@@ -2246,7 +2243,8 @@ class _UnifiedTransactionSheetState
         final effectiveHouseholdId = switch (householdScope.activeAccountType) {
           ActiveAccountType.personal =>
             _isSharedWithHousehold ? selectedHousehold : null,
-          ActiveAccountType.portfolio => householdScope.activeAccountHouseholdId,
+          ActiveAccountType.portfolio =>
+            householdScope.activeAccountHouseholdId,
           ActiveAccountType.household =>
             _isSharedWithHousehold ? selectedHousehold : null,
         };
@@ -2318,8 +2316,7 @@ class _UnifiedTransactionSheetState
 
           // Refresh the household where income was saved (if shared)
           if (effectiveHouseholdId != null) {
-            debugPrint(
-                ' Refreshing saved household UI: $effectiveHouseholdId');
+            debugPrint(' Refreshing saved household UI: $effectiveHouseholdId');
             _refreshHouseholdUiAfterExpenseChange(effectiveHouseholdId);
           }
 
@@ -2351,7 +2348,7 @@ class _UnifiedTransactionSheetState
               behavior: SnackBarBehavior.floating,
             ),
           );
-                } else {
+        } else {
           // Save EXPENSE
           // Create updated expense with time
           final expenseWithTime = expense.copyWith(date: expenseDateTime);
@@ -2415,8 +2412,7 @@ class _UnifiedTransactionSheetState
 
           // Step 1: Refresh the household where expense was saved (if shared)
           if (effectiveHouseholdId != null) {
-            debugPrint(
-                ' Refreshing saved household UI: $effectiveHouseholdId');
+            debugPrint(' Refreshing saved household UI: $effectiveHouseholdId');
             _refreshHouseholdUiAfterExpenseChange(effectiveHouseholdId);
           }
 
@@ -2755,8 +2751,7 @@ class _UnifiedTransactionSheetState
       );
 
       if (response.data == null || response.data['success'] != true) {
-        throw Exception(
-            response.data?['error'] ?? failedToDeleteExpenseMsg);
+        throw Exception(response.data?['error'] ?? failedToDeleteExpenseMsg);
       }
 
       debugPrint(' Expense deleted successfully');

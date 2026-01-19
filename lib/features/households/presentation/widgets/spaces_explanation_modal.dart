@@ -100,8 +100,7 @@ class SpacesExplanationModal extends StatelessWidget {
                             context,
                             title: context.l10n.privateSpace,
                             subtitle: context.l10n.yourPersonalVault,
-                            description:
-                                context.l10n.privateSpaceDescription,
+                            description: context.l10n.privateSpaceDescription,
                             imagePath:
                                 "lib/assets/images/household/private_space_illustration.png",
                             accentColor: const Color(0xFF6366F1), // Indigo
@@ -115,8 +114,7 @@ class SpacesExplanationModal extends StatelessWidget {
                             context,
                             title: context.l10n.sharedSpace,
                             subtitle: context.l10n.betterTogether,
-                            description:
-                                context.l10n.sharedSpaceDescription2,
+                            description: context.l10n.sharedSpaceDescription2,
                             imagePath:
                                 "lib/assets/images/household/shared_space_illustration.png",
                             accentColor: const Color(0xFFEC4899), // Pink

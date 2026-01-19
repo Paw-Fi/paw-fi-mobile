@@ -263,7 +263,8 @@ class _DashboardWidgetWrapperState extends ConsumerState<DashboardWidgetWrapper>
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.12),
+              color:
+                  Theme.of(context).colorScheme.shadow.withValues(alpha: 0.12),
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),

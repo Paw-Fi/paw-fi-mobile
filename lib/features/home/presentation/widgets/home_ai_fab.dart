@@ -665,12 +665,18 @@ Future<void> _processExpense(
         final errorMatch = RegExp(r'error: ([^,]+)').firstMatch(detailsStr);
         if (errorMatch != null) {
           errorMessage = errorMatch.group(1)?.replaceAll("'", '').trim() ??
-              (context.mounted ? context.l10n.failedToAnalyze : 'Failed to analyze');
+              (context.mounted
+                  ? context.l10n.failedToAnalyze
+                  : 'Failed to analyze');
         } else {
-          errorMessage = context.mounted ? context.l10n.failedToAnalyze : 'Failed to analyze';
+          errorMessage = context.mounted
+              ? context.l10n.failedToAnalyze
+              : 'Failed to analyze';
         }
       } else {
-        errorMessage = context.mounted ? context.l10n.failedToAnalyze : 'Failed to analyze';
+        errorMessage = context.mounted
+            ? context.l10n.failedToAnalyze
+            : 'Failed to analyze';
       }
     } else {
       errorMessage = e.toString();

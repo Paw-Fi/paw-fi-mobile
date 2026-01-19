@@ -6,7 +6,8 @@ class ProcessingState {
   final String? message;
   final double? progress;
   final ExpenseEntry? createdExpense;
-  final String? localImagePath; // For showing local photo instead of waiting for upload
+  final String?
+      localImagePath; // For showing local photo instead of waiting for upload
 
   ProcessingState({
     this.isProcessing = false,
@@ -29,7 +30,8 @@ class ProcessingState {
       isProcessing: isProcessing ?? this.isProcessing,
       message: clearMessage ? null : (message ?? this.message),
       progress: progress ?? this.progress,
-      createdExpense: clearExpense ? null : (createdExpense ?? this.createdExpense),
+      createdExpense:
+          clearExpense ? null : (createdExpense ?? this.createdExpense),
       localImagePath: localImagePath ?? this.localImagePath,
     );
   }

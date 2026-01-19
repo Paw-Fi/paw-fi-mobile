@@ -4,7 +4,9 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-Widget buildRunningBalanceChart(BuildContext context, ColorScheme colorScheme, List<ExpenseEntry> expenses, List<DailyBudgetEntry> budgets) {
+
+Widget buildRunningBalanceChart(BuildContext context, ColorScheme colorScheme,
+    List<ExpenseEntry> expenses, List<DailyBudgetEntry> budgets) {
   // Group by date
   final Map<String, double> dailySpent = {};
   final Map<String, double> dailyBudget = {};
@@ -23,7 +25,8 @@ Widget buildRunningBalanceChart(BuildContext context, ColorScheme colorScheme, L
 
   if (dates.isEmpty) {
     return Center(
-      child: Text(context.l10n.noDataAvailable, style: TextStyle(color: colorScheme.mutedForeground)),
+      child: Text(context.l10n.noDataAvailable,
+          style: TextStyle(color: colorScheme.mutedForeground)),
     );
   }
 
@@ -51,7 +54,7 @@ Widget buildRunningBalanceChart(BuildContext context, ColorScheme colorScheme, L
     if (absY > maxValue) maxValue = absY;
   }
   final double interval = maxValue > 0 ? maxValue / 4 : 100;
-  
+
   return LineChart(
     LineChartData(
       gridData: FlGridData(
@@ -68,7 +71,8 @@ Widget buildRunningBalanceChart(BuildContext context, ColorScheme colorScheme, L
       ),
       titlesData: FlTitlesData(
         leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        rightTitles:
+            const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         bottomTitles: AxisTitles(
           sideTitles: SideTitles(
@@ -79,7 +83,8 @@ Widget buildRunningBalanceChart(BuildContext context, ColorScheme colorScheme, L
               final date = DateTime.parse(dates[value.toInt()]);
               return Text(
                 '${date.month}/${date.day}',
-                style: TextStyle(fontSize: 10, color: colorScheme.mutedForeground),
+                style:
+                    TextStyle(fontSize: 10, color: colorScheme.mutedForeground),
               );
             },
           ),

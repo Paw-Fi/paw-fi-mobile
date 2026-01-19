@@ -15,10 +15,12 @@ class HouseholdInvitationHandlerPage extends ConsumerStatefulWidget {
   const HouseholdInvitationHandlerPage({super.key, required this.token});
 
   @override
-  ConsumerState<HouseholdInvitationHandlerPage> createState() => _HouseholdInvitationHandlerPageState();
+  ConsumerState<HouseholdInvitationHandlerPage> createState() =>
+      _HouseholdInvitationHandlerPageState();
 }
 
-class _HouseholdInvitationHandlerPageState extends ConsumerState<HouseholdInvitationHandlerPage> {
+class _HouseholdInvitationHandlerPageState
+    extends ConsumerState<HouseholdInvitationHandlerPage> {
   String? _error;
   bool _accepted = false;
   String? _householdId;
@@ -26,26 +28,31 @@ class _HouseholdInvitationHandlerPageState extends ConsumerState<HouseholdInvita
   @override
   void initState() {
     super.initState();
-    debugPrint('🏠 [HouseholdInvitationHandler] Initializing with token: ${widget.token}');
+    debugPrint(
+        '🏠 [HouseholdInvitationHandler] Initializing with token: ${widget.token}');
     WidgetsBinding.instance.addPostFrameCallback((_) => _acceptInvite());
   }
 
   Future<void> _acceptInvite() async {
-    debugPrint('🏠 [HouseholdInvitationHandler] Starting invitation acceptance flow');
+    debugPrint(
+        '🏠 [HouseholdInvitationHandler] Starting invitation acceptance flow');
     final repo = ref.read(householdRepositoryProvider);
     try {
       // First, validate the invite to get household_id
       // This avoids trying to re-accept an already accepted invite
       debugPrint('🏠 [HouseholdInvitationHandler] Validating invitation...');
       final validateResponse = await repo.validateInvite(widget.token);
-      debugPrint('🏠 [HouseholdInvitationHandler] Validation response: $validateResponse');
+      debugPrint(
+          '🏠 [HouseholdInvitationHandler] Validation response: $validateResponse');
 
       final householdId = validateResponse['household']?['id'] as String?;
-      final errorCode = (validateResponse['error_code'] ?? '').toString().toUpperCase();
+      final errorCode =
+          (validateResponse['error_code'] ?? '').toString().toUpperCase();
 
       // Treat ALREADY_MEMBER as success even if valid=false
       if (errorCode == 'ALREADY_MEMBER' && householdId != null) {
-        debugPrint('🏠 [HouseholdInvitationHandler] User already a member, navigating to household');
+        debugPrint(
+            '🏠 [HouseholdInvitationHandler] User already a member, navigating to household');
         setState(() {
           _accepted = true;
           _householdId = householdId;
@@ -54,43 +61,51 @@ class _HouseholdInvitationHandlerPageState extends ConsumerState<HouseholdInvita
       }
 
       if (validateResponse['valid'] == true) {
-
         if (householdId != null) {
-
           // Invite is valid and not already accepted, proceed to accept
           try {
-            debugPrint('🏠 [HouseholdInvitationHandler] Accepting invitation...');
+            debugPrint(
+                '🏠 [HouseholdInvitationHandler] Accepting invitation...');
             final data = await repo.acceptInvite(widget.token);
-            debugPrint('🏠 [HouseholdInvitationHandler] Successfully accepted! Household ID: ${data['household_id']}');
+            debugPrint(
+                '🏠 [HouseholdInvitationHandler] Successfully accepted! Household ID: ${data['household_id']}');
             setState(() {
               _accepted = true;
               _householdId = data['household_id'] as String? ?? householdId;
             });
           } catch (e) {
             // If accept fails with 409 (already member), still navigate
-            if (e.toString().contains('409') || e.toString().contains('already')) {
-              debugPrint('🏠 [HouseholdInvitationHandler] Already a member (from accept call), navigating anyway');
+            if (e.toString().contains('409') ||
+                e.toString().contains('already')) {
+              debugPrint(
+                  '🏠 [HouseholdInvitationHandler] Already a member (from accept call), navigating anyway');
               setState(() {
                 _accepted = true;
                 _householdId = householdId;
               });
             } else {
-              debugPrint('❌ [HouseholdInvitationHandler] Error accepting invite: $e');
+              debugPrint(
+                  '❌ [HouseholdInvitationHandler] Error accepting invite: $e');
               rethrow;
             }
           }
         } else {
-          debugPrint('❌ [HouseholdInvitationHandler] Missing household ID in validation response');
-          setState(() => _error = 'Invalid invitation: missing household information');
+          debugPrint(
+              '❌ [HouseholdInvitationHandler] Missing household ID in validation response');
+          setState(() =>
+              _error = 'Invalid invitation: missing household information');
         }
       } else {
         // Validation failed
-        final errorMsg = validateResponse['error'] as String? ?? 'Invalid invitation';
-        debugPrint('❌ [HouseholdInvitationHandler] Validation failed: $errorMsg');
+        final errorMsg =
+            validateResponse['error'] as String? ?? 'Invalid invitation';
+        debugPrint(
+            '❌ [HouseholdInvitationHandler] Validation failed: $errorMsg');
         setState(() => _error = errorMsg);
       }
     } catch (e) {
-      debugPrint('❌ [HouseholdInvitationHandler] Exception during invitation flow: $e');
+      debugPrint(
+          '❌ [HouseholdInvitationHandler] Exception during invitation flow: $e');
       setState(() => _error = e.toString());
     }
   }
@@ -101,7 +116,7 @@ class _HouseholdInvitationHandlerPageState extends ConsumerState<HouseholdInvita
 
     if (_error != null) {
       return Scaffold(
-        backgroundColor: colors.surface,       
+        backgroundColor: colors.surface,
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -110,9 +125,13 @@ class _HouseholdInvitationHandlerPageState extends ConsumerState<HouseholdInvita
               children: [
                 Icon(Icons.error_outline, size: 48, color: colors.destructive),
                 const SizedBox(height: 12),
-                Text('Invitation error', style: TextStyle(color: colors.foreground, fontWeight: FontWeight.w600)),
+                Text('Invitation error',
+                    style: TextStyle(
+                        color: colors.foreground, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 8),
-                Text(_error!, style: TextStyle(color: colors.mutedForeground), textAlign: TextAlign.center),
+                Text(_error!,
+                    style: TextStyle(color: colors.mutedForeground),
+                    textAlign: TextAlign.center),
               ],
             ),
           ),
@@ -144,7 +163,8 @@ class _HouseholdInvitationHandlerPageState extends ConsumerState<HouseholdInvita
           children: [
             const CircularProgressIndicator(),
             const SizedBox(height: 12),
-            Text(context.l10n.joiningHousehold, style: TextStyle(color: colors.mutedForeground)),
+            Text(context.l10n.joiningHousehold,
+                style: TextStyle(color: colors.mutedForeground)),
           ],
         ),
       ),

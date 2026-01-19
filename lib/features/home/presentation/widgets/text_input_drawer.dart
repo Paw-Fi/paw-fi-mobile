@@ -127,7 +127,8 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
       _isRecording = true;
       _recordingStartTime = DateTime.now();
       final currentInset = MediaQuery.of(context).viewInsets.bottom;
-      _keyboardInsetOnRecordStart = currentInset > 0 ? currentInset : _keyboardInsetOnRecordStart;
+      _keyboardInsetOnRecordStart =
+          currentInset > 0 ? currentInset : _keyboardInsetOnRecordStart;
     });
     _micScaleController.forward();
 
@@ -149,7 +150,8 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
     }
 
     final duration = DateTime.now().difference(startedAt);
-    debugPrint('🎙️ Recording finished. Duration: ${duration.inMilliseconds} ms');
+    debugPrint(
+        '🎙️ Recording finished. Duration: ${duration.inMilliseconds} ms');
 
     if (duration.inMilliseconds < 1000) {
       HapticFeedback.vibrate();
@@ -172,8 +174,8 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
     final file = File(path);
     if (!await file.exists()) {
       if (widget.parentContext.mounted) {
-        AppToast.error(
-            widget.parentContext, widget.parentContext.l10n.recordingFileMissing);
+        AppToast.error(widget.parentContext,
+            widget.parentContext.l10n.recordingFileMissing);
       }
       return;
     }
@@ -346,9 +348,8 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
                             height: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor:
-                                  AlwaysStoppedAnimation<Color>(
-                                      scheme.onPrimary),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                  scheme.onPrimary),
                             ),
                           )
                         : Text(dynamicTitle),

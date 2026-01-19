@@ -50,7 +50,8 @@ class FallbackCupertinoLocalizationDelegate
 
 /// Custom localization resolution callback
 /// Returns the locale if supported, otherwise returns a fallback
-Locale? _localeResolutionCallback(Locale? locale, Iterable<Locale> supportedLocales) {
+Locale? _localeResolutionCallback(
+    Locale? locale, Iterable<Locale> supportedLocales) {
   if (locale == null) {
     return supportedLocales.first;
   }
@@ -58,7 +59,8 @@ Locale? _localeResolutionCallback(Locale? locale, Iterable<Locale> supportedLoca
   // 1) Exact match: language + (optional) country
   for (final supported in supportedLocales) {
     if (supported.languageCode == locale.languageCode &&
-        (supported.countryCode == null || supported.countryCode == locale.countryCode)) {
+        (supported.countryCode == null ||
+            supported.countryCode == locale.countryCode)) {
       return supported;
     }
   }
@@ -97,4 +99,5 @@ Locale? _localeResolutionCallback(Locale? locale, Iterable<Locale> supportedLoca
 }
 
 /// Get the locale resolution callback for the app
-LocaleResolutionCallback get localeResolutionCallback => _localeResolutionCallback;
+LocaleResolutionCallback get localeResolutionCallback =>
+    _localeResolutionCallback;

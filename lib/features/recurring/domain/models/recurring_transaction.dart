@@ -42,9 +42,10 @@ class RecurringTransaction {
   });
 
   factory RecurringTransaction.fromJson(Map<String, dynamic> json) {
-    debugPrint('🔍 Parsing RecurringTransaction from JSON: ${json.keys.toList()}');
+    debugPrint(
+        '🔍 Parsing RecurringTransaction from JSON: ${json.keys.toList()}');
     debugPrint('🔍 Raw JSON: ${jsonEncode(json)}');
-    
+
     // Infer type from source field (income) or default to expense
     // Backend doesn't always return 'type' field, so we need to infer it
     String inferredType;
@@ -57,16 +58,17 @@ class RecurringTransaction {
       // Default to expense
       inferredType = 'expense';
     }
-    
+
     debugPrint('🔍 Inferred type: $inferredType');
     debugPrint('🔍 Attachments type: ${json['attachments'].runtimeType}');
     debugPrint('🔍 Attachments value: ${json['attachments']}');
-    
+
     // Parse recurrence_rule - handle both string and Map formats
-    dynamic recurrenceRuleData = json['recurrenceRule'] ?? json['recurrence_rule'];
+    dynamic recurrenceRuleData =
+        json['recurrenceRule'] ?? json['recurrence_rule'];
     debugPrint('🔍 recurrenceRuleData type: ${recurrenceRuleData.runtimeType}');
     debugPrint('🔍 recurrenceRuleData value: $recurrenceRuleData');
-    
+
     RecurrenceRule? parsedRecurrenceRule;
     if (recurrenceRuleData != null) {
       if (recurrenceRuleData is String) {
@@ -86,11 +88,12 @@ class RecurringTransaction {
         parsedRecurrenceRule = RecurrenceRule.fromJson(recurrenceRuleData);
       }
     }
-    
+
     // Normalize amount from various possible fields
     final amountMajor = (json['amountMajor'] as num?)?.toDouble();
     final amountCentsNum = (json['amount_cents'] as num?);
-    final amountFromCents = amountCentsNum != null ? amountCentsNum.toDouble() / 100 : null;
+    final amountFromCents =
+        amountCentsNum != null ? amountCentsNum.toDouble() / 100 : null;
     final amountLegacy = (json['amount'] as num?)?.toDouble();
 
     return RecurringTransaction(
@@ -123,16 +126,17 @@ class RecurringTransaction {
               : null),
     );
   }
-  
+
   /// Parse attachments from various formats (List, String, null)
   static List<Attachment> _parseAttachments(dynamic value) {
-    debugPrint('🔍 _parseAttachments called with type: ${value.runtimeType}, value: $value');
-    
+    debugPrint(
+        '🔍 _parseAttachments called with type: ${value.runtimeType}, value: $value');
+
     if (value == null) {
       debugPrint('🔍 Attachments is null, returning empty list');
       return [];
     }
-    
+
     if (value is String) {
       debugPrint('🔍 Attachments is String: "$value"');
       // Backend might return JSON string, parse it
@@ -154,7 +158,7 @@ class RecurringTransaction {
       }
       return [];
     }
-    
+
     if (value is List) {
       debugPrint('🔍 Attachments is List with ${value.length} items');
       try {
@@ -166,7 +170,7 @@ class RecurringTransaction {
         return [];
       }
     }
-    
+
     debugPrint('⚠️ Attachments is unexpected type: ${value.runtimeType}');
     return [];
   }
@@ -184,7 +188,8 @@ class RecurringTransaction {
       'privacyScope': privacyScope,
       'householdId': householdId,
       'payerUserId': payerUserId,
-      if (recurrenceRule != null) 'recurrenceRule': recurrenceRule?.toJson(), // Safe null access
+      if (recurrenceRule != null)
+        'recurrenceRule': recurrenceRule?.toJson(), // Safe null access
       'type': type,
       'attachments': attachments.map((e) => e.toJson()).toList(),
       'createdAt': createdAt.toIso8601String(),
@@ -236,7 +241,7 @@ class RecurringTransaction {
     if (recurrenceRule == null) {
       return date;
     }
-    
+
     final rule = recurrenceRule!; // Safe after null check
     final reference = from ?? DateTime.now();
     final anchor = rule.anchorDate;
@@ -308,7 +313,7 @@ class RecurringTransaction {
   /// Get human-readable frequency text
   String get frequencyText {
     if (recurrenceRule == null) return 'One-time';
-    
+
     final rule = recurrenceRule!; // Safe after null check
     switch (rule.frequency) {
       case 'daily':

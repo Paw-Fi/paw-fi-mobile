@@ -113,7 +113,8 @@ class _BudgetDashboardDemoScreenState extends State<BudgetDashboardDemoScreen> {
                   Text(
                     'Total Balance',
                     style: TextStyle(
-                      color: colorScheme.primaryForeground.withValues(alpha: 0.8),
+                      color:
+                          colorScheme.primaryForeground.withValues(alpha: 0.8),
                       fontSize: 16,
                     ),
                   ),

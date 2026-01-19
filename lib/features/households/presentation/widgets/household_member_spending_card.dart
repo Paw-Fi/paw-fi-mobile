@@ -398,7 +398,8 @@ Widget _buildMemberRow(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: colorScheme.primary.withValues(alpha: 0.12),
+                              color:
+                                  colorScheme.primary.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -457,7 +458,8 @@ Widget _buildMemberRow(
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: colorScheme.mutedForeground.withValues(alpha: 0.5),
+                        color:
+                            colorScheme.mutedForeground.withValues(alpha: 0.5),
                         letterSpacing: -0.1,
                       ),
                     ),

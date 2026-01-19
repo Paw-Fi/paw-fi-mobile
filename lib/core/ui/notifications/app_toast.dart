@@ -113,7 +113,8 @@ class AppToast {
 
     final effectiveContext = _findUsableContext(context);
     if (effectiveContext == null) {
-      debugPrint('AppToast: No mounted context available; action toast dropped.');
+      debugPrint(
+          'AppToast: No mounted context available; action toast dropped.');
       return;
     }
 
@@ -188,7 +189,9 @@ class AppToast {
   static bool _hasMaterialLocalizations(BuildContext context) {
     // Use `Localizations.of` for backwards compatibility with Flutter SDKs
     // where `maybeOf` is not available.
-    return Localizations.of<MaterialLocalizations>(context, MaterialLocalizations) != null;
+    return Localizations.of<MaterialLocalizations>(
+            context, MaterialLocalizations) !=
+        null;
   }
 
   /// Fallback to a MaterialBanner at the top of the screen when no overlay is
@@ -201,7 +204,8 @@ class AppToast {
   ) {
     final messenger = ScaffoldMessenger.maybeOf(context);
     if (messenger == null || !_hasMaterialLocalizations(context)) {
-      debugPrint('AppToast: No Overlay/ScaffoldMessenger or missing MaterialLocalizations; toast dropped.');
+      debugPrint(
+          'AppToast: No Overlay/ScaffoldMessenger or missing MaterialLocalizations; toast dropped.');
       return;
     }
 

@@ -52,9 +52,11 @@ class DeviceRegistrationService {
         final userId = _supabase.auth.currentUser?.id;
         if (userId != null && userId.isNotEmpty) {
           final prefs = await SharedPreferences.getInstance();
-          final prompted = prefs.getBool('notifications_prompted:$userId') ?? false;
+          final prompted =
+              prefs.getBool('notifications_prompted:$userId') ?? false;
           if (!prompted) {
-            debugPrint('⏭️ Skipping notification permission prompt until onboarding page triggers it');
+            debugPrint(
+                '⏭️ Skipping notification permission prompt until onboarding page triggers it');
             return;
           }
         }
@@ -506,7 +508,8 @@ class DeviceRegistrationService {
     try {
       // If there's no session, just clear local cache and exit silently
       if (_supabase.auth.currentSession == null) {
-        debugPrint('⚠️ No active session during unregister; skipping backend call');
+        debugPrint(
+            '⚠️ No active session during unregister; skipping backend call');
       }
       // Get user ID before it's cleared by logout
       final userId = _supabase.auth.currentUser?.id;
@@ -575,7 +578,8 @@ class DeviceRegistrationService {
       _initialized = false;
     } catch (e) {
       if (e is FunctionException && e.status == 401) {
-        debugPrint('⚠️ Unregister skipped: session unauthorized (likely logged out)');
+        debugPrint(
+            '⚠️ Unregister skipped: session unauthorized (likely logged out)');
       } else {
         debugPrint('❌ Error unregistering device: $e');
       }

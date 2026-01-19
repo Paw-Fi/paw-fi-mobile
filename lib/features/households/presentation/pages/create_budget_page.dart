@@ -35,7 +35,8 @@ class CreateBudgetPage extends HookConsumerWidget {
     final warnThreshold = useState<double>(0.8);
     final alertThreshold = useState<double>(1.0);
     final isCreating = useState<bool>(false);
-    final selectedCurrency = useState<String>((initialCurrency ?? 'USD').toUpperCase());
+    final selectedCurrency =
+        useState<String>((initialCurrency ?? 'USD').toUpperCase());
 
     Future<void> createBudget() async {
       // Validation
@@ -62,7 +63,8 @@ class CreateBudgetPage extends HookConsumerWidget {
       }
 
       if (warnThreshold.value > alertThreshold.value) {
-        _showError(context, context.l10n.warningThresholdMustBeLessThanOrEqualToAlert);
+        _showError(
+            context, context.l10n.warningThresholdMustBeLessThanOrEqualToAlert);
         return;
       }
 
@@ -79,7 +81,7 @@ class CreateBudgetPage extends HookConsumerWidget {
         debugPrint('  - alertThreshold: ${alertThreshold.value}');
         debugPrint('  - budgetType: ${selectedType.value.toJson()}');
         debugPrint('  - countSplitPortionOnly: ${countSplitPortionOnly.value}');
-        
+
         await ref
             .read(householdBudgetsProvider(householdId).notifier)
             .createBudget(
@@ -94,7 +96,7 @@ class CreateBudgetPage extends HookConsumerWidget {
             );
 
         debugPrint('✅ Budget created successfully');
-        
+
         if (context.mounted) {
           AppToast.success(context, context.l10n.budgetCreatedSuccessfully);
           Navigator.pop(context);
@@ -104,7 +106,7 @@ class CreateBudgetPage extends HookConsumerWidget {
         debugPrint('Error type: ${e.runtimeType}');
         debugPrint('Error message: $e');
         debugPrint('Stack trace: $stackTrace');
-        
+
         if (context.mounted) {
           final l10n = context.l10n;
           _showError(context, '${l10n.failedToCreateBudget}: $e');
@@ -116,7 +118,7 @@ class CreateBudgetPage extends HookConsumerWidget {
 
     return AdaptiveScaffold(
       appBar: AdaptiveAppBar(
-        title:  context.l10n.createBudget,
+        title: context.l10n.createBudget,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -171,9 +173,11 @@ class CreateBudgetPage extends HookConsumerWidget {
                       fillColor: colorScheme.card,
                       prefixText: context.l10n.dollarPrefix,
                     ),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
                     inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                      FilteringTextInputFormatter.allow(
+                          RegExp(r'^\d+\.?\d{0,2}')),
                     ],
                   ),
                 ),
@@ -190,7 +194,8 @@ class CreateBudgetPage extends HookConsumerWidget {
                     }
                   },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14),
                     decoration: BoxDecoration(
                       color: colorScheme.card,
                       borderRadius: BorderRadius.circular(8),
@@ -233,7 +238,8 @@ class CreateBudgetPage extends HookConsumerWidget {
             const SizedBox(height: 8),
             GestureDetector(
               onTap: () async {
-                final result = await showTransactionSelectionSheet<BudgetPeriod>(
+                final result =
+                    await showTransactionSelectionSheet<BudgetPeriod>(
                   context: context,
                   items: BudgetPeriod.values,
                   getLabel: (period) => _formatPeriod(context, period),
@@ -245,7 +251,8 @@ class CreateBudgetPage extends HookConsumerWidget {
               },
               child: Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 decoration: BoxDecoration(
                   color: colorScheme.card,
                   borderRadius: BorderRadius.circular(8),

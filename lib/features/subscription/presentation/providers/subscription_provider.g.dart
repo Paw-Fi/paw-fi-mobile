@@ -6,8 +6,7 @@ part of 'subscription_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$subscriptionNotifierHash() =>
-    r'3f7e9d5c8b2a4e6f1d9c7a5b3e1f8d6c';
+String _$subscriptionNotifierHash() => r'3f7e9d5c8b2a4e6f1d9c7a5b3e1f8d6c';
 
 /// See also [SubscriptionNotifier].
 @ProviderFor(SubscriptionNotifier)
@@ -23,8 +22,7 @@ final subscriptionNotifierProvider = AutoDisposeAsyncNotifierProvider<
 );
 
 typedef _$SubscriptionNotifier = AutoDisposeAsyncNotifier<Subscription?>;
-String _$hasActiveSubscriptionHash() =>
-    r'8e2f7c4d6a9b1e5f3c8d7a4b2e6f9c1d';
+String _$hasActiveSubscriptionHash() => r'8e2f7c4d6a9b1e5f3c8d7a4b2e6f9c1d';
 
 /// See also [hasActiveSubscription].
 @ProviderFor(hasActiveSubscription)
@@ -41,8 +39,7 @@ final hasActiveSubscriptionProvider = AutoDisposeProvider<bool>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef HasActiveSubscriptionRef = AutoDisposeProviderRef<bool>;
-String _$isSubscriptionLoadedHash() =>
-    r'1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d';
+String _$isSubscriptionLoadedHash() => r'1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d';
 
 /// See also [isSubscriptionLoaded].
 @ProviderFor(isSubscriptionLoaded)

@@ -54,7 +54,8 @@ void navigateToHousehold(BuildContext context, WidgetRef ref) async {
 }
 
 /// Show household onboarding modal (create or join)
-void showHouseholdOnboardingModal(BuildContext context, WidgetRef ref, String userId) {
+void showHouseholdOnboardingModal(
+    BuildContext context, WidgetRef ref, String userId) {
   final colorScheme = Theme.of(context).colorScheme;
 
   showDialog(
@@ -149,7 +150,8 @@ void showHouseholdOnboardingModal(BuildContext context, WidgetRef ref, String us
 }
 
 /// Show create household dialog
-void _showCreateHouseholdDialog(BuildContext context, WidgetRef ref, String userId) {
+void _showCreateHouseholdDialog(
+    BuildContext context, WidgetRef ref, String userId) {
   final colorScheme = Theme.of(context).colorScheme;
   final nameController = TextEditingController();
 
@@ -208,15 +210,19 @@ void _showCreateHouseholdDialog(BuildContext context, WidgetRef ref, String user
                   child: AdaptiveButton(
                     onPressed: () async {
                       if (nameController.text.isEmpty) {
-                        AppToast.info(context, context.l10n.pleaseEnterHouseholdName);
+                        AppToast.info(
+                            context, context.l10n.pleaseEnterHouseholdName);
                         return;
                       }
 
                       try {
                         // Determine currency: default to user's preferred or USD
                         final analytics = ref.read(analyticsProvider);
-                        final preferred = analytics.preferredCurrency?.toUpperCase();
-                        final currency = isSupportedCurrencyCode(preferred) ? preferred! : 'USD';
+                        final preferred =
+                            analytics.preferredCurrency?.toUpperCase();
+                        final currency = isSupportedCurrencyCode(preferred)
+                            ? preferred!
+                            : 'USD';
                         // Create household
                         await ref
                             .read(userHouseholdsProvider(userId).notifier)
@@ -226,7 +232,8 @@ void _showCreateHouseholdDialog(BuildContext context, WidgetRef ref, String user
                             );
 
                         // Get the created household from the state
-                        final householdsAsync = ref.read(userHouseholdsProvider(userId));
+                        final householdsAsync =
+                            ref.read(userHouseholdsProvider(userId));
                         final households = householdsAsync.value ?? [];
 
                         if (context.mounted && households.isNotEmpty) {
@@ -235,7 +242,8 @@ void _showCreateHouseholdDialog(BuildContext context, WidgetRef ref, String user
                         }
                       } catch (e) {
                         if (context.mounted) {
-                          AppToast.error(context, context.l10n.errorCreatingHousehold);
+                          AppToast.error(
+                              context, context.l10n.errorCreatingHousehold);
                         }
                       }
                     },

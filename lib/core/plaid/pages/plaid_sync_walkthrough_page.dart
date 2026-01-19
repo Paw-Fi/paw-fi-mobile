@@ -37,14 +37,14 @@ class _PlaidSyncWalkthroughPageState
   bool _isSuccess = false;
   bool _postRefreshComplete = false;
   bool _postRefreshScheduled = false;
-  final int _numPages = 3; // Intro, Security, Benefits (Country selection commented out)
+  final int _numPages =
+      3; // Intro, Security, Benefits (Country selection commented out)
 
   @override
   void dispose() {
     _pageController.dispose();
     super.dispose();
   }
-
 
   void _nextPage() {
     if (_currentPage < _numPages - 1) {
@@ -83,7 +83,6 @@ class _PlaidSyncWalkthroughPageState
       Navigator.of(context).pop();
     }
   }
-
 
   Future<void> _refreshAfterSync(String userId) async {
     final viewMode = ref.read(viewModeProvider);
@@ -468,8 +467,8 @@ class _PlaidSyncWalkthroughPageState
                       height: 58,
                       child: _currentPage == _numPages - 1
                           ? FilledButton(
-                             // onPressed: _isSyncing ? null : _performSync,
-                               onPressed: () => Navigator.of(context).pop(),
+                              // onPressed: _isSyncing ? null : _performSync,
+                              onPressed: () => Navigator.of(context).pop(),
                               style: FilledButton.styleFrom(
                                 backgroundColor: colorScheme.primary,
                                 foregroundColor: colorScheme.onPrimary,
