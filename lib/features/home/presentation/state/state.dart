@@ -6,6 +6,7 @@ export 'expense_processing_notifier.dart';
 export 'expense_processing_provider.dart';
 export 'home_filter_provider.dart';
 export 'home_card_filter_provider.dart';
+export 'home_export_provider.dart';
 export 'derived_selectors.dart';
 export 'currency_transaction_counts_provider.dart';
 export 'transaction_edit_state.dart';

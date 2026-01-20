@@ -12,6 +12,7 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/utils/sub_page_top_padding.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
+import 'package:moneko/shared/widgets/moneko_selector_button.dart';
 
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
@@ -143,7 +144,7 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
                 child: SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
                   padding: EdgeInsets.only(
-                    top: getSubPageTopPadding(context) ,
+                    top: getSubPageTopPadding(context),
                     left: 24,
                     right: 24,
                     bottom: 120, // Space for bottom bar
@@ -166,9 +167,9 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
                             });
                           },
                         ),
-      
+
                         const SizedBox(height: 36),
-      
+
                         // Shared/Members Card
                         _buildMembersCard(colorScheme),
                       ],
@@ -185,194 +186,78 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
   }
 
   Widget _buildMembersCard(ColorScheme colorScheme) {
-    final user = Supabase.instance.client.auth.currentUser;
-    final userName = user?.userMetadata?['full_name'] ?? 'Me';
-
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: colorScheme.cardSurface,
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.shadow.withValues(alpha: 0.06),
-            blurRadius: 32,
-            offset: const Offset(0, 10),
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Who can see and add expense?',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: colorScheme.foreground,
+              letterSpacing: -0.3,
+            ),
           ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          children: [
-            // Header + Switch
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            'Shared With Others',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: colorScheme.foreground,
-                              letterSpacing: -0.3,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          GestureDetector(
-                            onTap: _showSpacesInfo,
-                            child: Icon(
-                              Icons.info_outline_rounded,
-                              size: 18,
-                              color: colorScheme.primary.withValues(alpha: 0.6),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Everyone can see and add expenses.',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: colorScheme.mutedForeground,
-                          height: 1.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 16),
-                AdaptiveSwitch(
-                  value: _isSharedSpace,
-                  onChanged: (value) => setState(() => _isSharedSpace = value),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 36), // Breathing room instead of divider
-
-            // Members List - Owner
-            Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: colorScheme.muted,
-                    shape: BoxShape.circle,
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    userName.substring(0, 1).toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: colorScheme.foreground,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        userName,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.foreground,
-                        ),
-                      ),
-                      Text(
-                        'Owner',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: colorScheme.mutedForeground,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (_isSharedSpace)
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: colorScheme.successSurface,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.check_rounded,
-                      size: 14,
-                      color: colorScheme.success,
-                    ),
-                  ),
-              ],
-            ),
-
-            // Add Friends (Invite)
-            if (_isSharedSpace) ...[
-              const SizedBox(height: 28), // Spacing instead of divider
-              Material(
-                color: colorScheme.surface.withValues(alpha: 0.0),
-                child: InkWell(
-                  onTap: () {},
-                  borderRadius: BorderRadius.circular(20),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: colorScheme.primary
-                              .withValues(alpha: 0.08), // Very subtle purple bg
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons
-                              .add_rounded, // Simple plus is often cleaner than person_add
-                          color: colorScheme.primary,
-                          size: 22,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Add Friends',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: colorScheme.foreground,
-                              ),
-                            ),
-                            Text(
-                              "Invite link generated next",
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: colorScheme.mutedForeground,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+          const SizedBox(height: 20),
+          AdaptivePopupMenuButton.widget<bool>(
+            items: [
+              AdaptivePopupMenuItem(
+                label: 'All group members',
+                value: true,
+                icon: PlatformInfo.isIOS26OrHigher()
+                    ? 'person.2'
+                    : Icons.group_outlined,
+              ),
+              AdaptivePopupMenuItem(
+                label: 'Just myself',
+                value: false,
+                icon: PlatformInfo.isIOS26OrHigher()
+                    ? 'person'
+                    : Icons.person_outline,
               ),
             ],
-          ],
-        ),
+            onSelected: (index, item) {
+              if (item.value != null && mounted) {
+                setState(() {
+                  _isSharedSpace = item.value!;
+                });
+              }
+            },
+            child: IgnorePointer(
+              child: MonekoSelectorButton(
+                label: _isSharedSpace ? 'All group members' : 'Just myself',
+                onPressed: () {},
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text.rich(
+            TextSpan(
+              style: TextStyle(
+                fontSize: 14,
+                color: colorScheme.mutedForeground,
+                height: 1.5,
+              ),
+              children: [
+                TextSpan(
+                  text: _isSharedSpace
+                      ? 'Everyone in this space can view and add transactions. You’ll be able to invite members next. '
+                      : 'Only you can see and add transactions in this space. ',
+                ),
+                TextSpan(
+                  text: 'How it works',
+                  style: TextStyle(
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  recognizer: TapGestureRecognizer()..onTap = _showSpacesInfo,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

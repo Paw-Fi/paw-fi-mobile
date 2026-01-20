@@ -43,6 +43,7 @@ import 'package:moneko/features/home/presentation/widgets/customizable_dashboard
 import 'package:moneko/features/insights/presentation/widgets/category_guide_dialog.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:go_router/go_router.dart';
+import 'package:moneko/features/home/presentation/utils/transaction_exporter.dart';
 
 // ============================================================================
 // HOME PAGE
@@ -60,6 +61,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   final TextEditingController _textController = TextEditingController();
 
   late final SpotlightTourController _fabTourController;
+  late final ProviderSubscription<int> _exportSubscription;
   String? _lastHomeDebugSignature;
 
   @override
@@ -67,6 +69,13 @@ class _HomePageState extends ConsumerState<HomePage> {
     super.initState();
 
     _fabTourController = ref.read(homeSpotlightControllerProvider);
+    _exportSubscription = ref.listenManual<int>(
+      homeExportRequestProvider,
+      (previous, next) {
+        if (previous == next) return;
+        _exportAllTransactions();
+      },
+    );
 
     // Initialize filters on first mount
     // NOTE: Analytics data is loaded by app_initialization_provider - no need to trigger here
@@ -213,8 +222,30 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   @override
   void dispose() {
+    _exportSubscription.close();
     _textController.dispose();
     super.dispose();
+  }
+
+  Future<void> _exportAllTransactions() async {
+    final user = ref.read(authProvider);
+    final analyticsData = ref.read(analyticsProvider);
+    final householdsAsync = ref.read(userHouseholdsProvider(user.uid));
+    final households = householdsAsync.valueOrNull ?? const <Household>[];
+    final householdNames = {
+      for (final household in households) household.id: household.name,
+    };
+
+    final personalLabel = user.displayName?.trim().isNotEmpty == true
+        ? user.displayName!.trim()
+        : user.email;
+
+    await exportAllTransactionsAsExcelSheet(
+      context,
+      analyticsData.allExpenses,
+      personalLabel: personalLabel,
+      householdNames: householdNames,
+    );
   }
 
   String _resolveLogTargetLabelForAi() {

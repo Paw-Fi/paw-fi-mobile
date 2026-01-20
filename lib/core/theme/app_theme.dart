@@ -388,6 +388,10 @@ extension AppColorScheme on ColorScheme {
   Color get appleGroupedBackground => brightness == Brightness.dark
       ? AppTheme.iosSystemGroupedBackgroundDark
       : AppTheme.iosSystemGroupedBackground;
+
+  Color get appleInputBackground => brightness == Brightness.dark
+      ? AppTheme.iosInputDark
+      : AppTheme.iosInputLight;
 }
 
 /// Moneko app theme configuration matching web's Tailwind design system

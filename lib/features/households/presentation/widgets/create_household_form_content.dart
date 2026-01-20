@@ -134,7 +134,7 @@ class CreateHouseholdFormContent extends ConsumerWidget {
       textField: true,
       child: Container(
         decoration: BoxDecoration(
-          color: colorScheme.cardSurface,
+          color: colorScheme.appleInputBackground,
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(

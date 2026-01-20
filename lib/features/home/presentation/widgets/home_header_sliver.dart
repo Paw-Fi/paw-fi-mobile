@@ -355,6 +355,13 @@ class HomeHeaderSliver extends ConsumerWidget {
             : Icons.settings_outlined,
         value: 'settings',
       ),
+      AdaptivePopupMenuItem(
+        label: context.l10n.exportTransactions,
+        icon: PlatformInfo.isIOS26OrHigher()
+            ? 'square.and.arrow.up'
+            : Icons.file_download_rounded,
+        value: 'export_all',
+      ),
     ];
 
     if (selectedHouseholdIdForSettings != null) {
@@ -408,6 +415,10 @@ class HomeHeaderSliver extends ConsumerWidget {
               builder: (_) => const SettingsPage(),
             ),
           );
+        }
+
+        if (item.value == 'export_all') {
+          ref.read(homeExportRequestProvider.notifier).state += 1;
         }
 
         if (item.value == 'manage_household' &&

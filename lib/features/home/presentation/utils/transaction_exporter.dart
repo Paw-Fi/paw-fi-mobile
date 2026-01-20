@@ -35,46 +35,66 @@ Future<void> exportTransactionsAsExcelSheet(
     if (excelBytes == null) {
       throw Exception('Failed to generate Excel file');
     }
-
-    final timestamp = DateFormat('yyyyMMdd_HHmm').format(DateTime.now());
-    final fileName = '${fileNamePrefix}_$timestamp.xlsx';
-    final bytes = Uint8List.fromList(excelBytes);
-
-    if (kIsWeb) {
-      debugPrint('[exportTransactionsAsExcelSheet] sharing in web: $fileName');
-      await Share.shareXFiles(
-        [
-          XFile.fromData(
-            bytes,
-            mimeType:
-                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            name: fileName,
-          ),
-        ],
-        subject: fileName,
-        sharePositionOrigin: shareOrigin,
-      );
-      return;
-    }
-
-    final directory = await getTemporaryDirectory();
-    final file = File('${directory.path}/$fileName');
-    debugPrint('[exportTransactionsAsExcelSheet] temp file: ${file.path}');
-    await file.writeAsBytes(bytes, flush: true);
-    debugPrint('[exportTransactionsAsExcelSheet] share file');
-
-    await Share.shareXFiles(
-      [
-        XFile(file.path,
-            mimeType:
-                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-      ],
-      subject: fileName,
-      sharePositionOrigin: shareOrigin,
+    await _shareExcelBytes(
+      context,
+      excelBytes,
+      shareOrigin: shareOrigin,
+      fileNamePrefix: fileNamePrefix,
+      logPrefix: '[exportTransactionsAsExcelSheet]',
     );
   } catch (e, stack) {
     debugPrint(
       '[exportTransactionsAsExcelSheet] failed: $e\n$stack',
+    );
+    if (context.mounted) {
+      AppToast.error(
+        context,
+        '${context.l10n.anUnexpectedErrorOccurred} (${e.toString()})',
+      );
+    }
+  }
+}
+
+Future<void> exportAllTransactionsAsExcelSheet(
+  BuildContext context,
+  List<ExpenseEntry> expenses, {
+  required String personalLabel,
+  Map<String, String> householdNames = const {},
+  String fileNamePrefix = 'moneko_full_export',
+}) async {
+  if (expenses.isEmpty) {
+    AppToast.info(context, context.l10n.noTransactionsFound);
+    return;
+  }
+
+  final shareOrigin = _resolveShareOrigin(context);
+
+  debugPrint(
+      '[exportAllTransactionsAsExcelSheet] count=${expenses.length} web=$kIsWeb');
+
+  try {
+    final excelBytes = await _buildFullExportExcel(
+      expenses,
+      personalLabel: personalLabel,
+      householdNames: householdNames,
+    );
+
+    if (!context.mounted) return;
+
+    if (excelBytes == null) {
+      throw Exception('Failed to generate Excel file');
+    }
+
+    await _shareExcelBytes(
+      context,
+      excelBytes,
+      shareOrigin: shareOrigin,
+      fileNamePrefix: fileNamePrefix,
+      logPrefix: '[exportAllTransactionsAsExcelSheet]',
+    );
+  } catch (e, stack) {
+    debugPrint(
+      '[exportAllTransactionsAsExcelSheet] failed: $e\n$stack',
     );
     if (context.mounted) {
       AppToast.error(
@@ -94,6 +114,51 @@ Rect? _resolveShareOrigin(BuildContext context) {
     }
   }
   return null;
+}
+
+Future<void> _shareExcelBytes(
+  BuildContext context,
+  List<int> excelBytes, {
+  required Rect? shareOrigin,
+  required String fileNamePrefix,
+  required String logPrefix,
+}) async {
+  final timestamp = DateFormat('yyyyMMdd_HHmm').format(DateTime.now());
+  final fileName = '${fileNamePrefix}_$timestamp.xlsx';
+  final bytes = Uint8List.fromList(excelBytes);
+
+  if (kIsWeb) {
+    debugPrint('$logPrefix sharing in web: $fileName');
+    await Share.shareXFiles(
+      [
+        XFile.fromData(
+          bytes,
+          mimeType:
+              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          name: fileName,
+        ),
+      ],
+      subject: fileName,
+      sharePositionOrigin: shareOrigin,
+    );
+    return;
+  }
+
+  final directory = await getTemporaryDirectory();
+  final file = File('${directory.path}/$fileName');
+  debugPrint('$logPrefix temp file: ${file.path}');
+  await file.writeAsBytes(bytes, flush: true);
+  debugPrint('$logPrefix share file');
+
+  await Share.shareXFiles(
+    [
+      XFile(file.path,
+          mimeType:
+              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    ],
+    subject: fileName,
+    sharePositionOrigin: shareOrigin,
+  );
 }
 
 Future<List<int>?> _buildExcel(List<ExpenseEntry> expenses) async {
@@ -255,4 +320,282 @@ Future<List<int>?> _buildExcel(List<ExpenseEntry> expenses) async {
   addSummaryRow('Top Category Amount', topCategoryAmount);
 
   return excel.encode();
+}
+
+Future<List<int>?> _buildFullExportExcel(
+  List<ExpenseEntry> expenses, {
+  required String personalLabel,
+  required Map<String, String> householdNames,
+}) async {
+  final excel = Excel.createExcel();
+  final existingNames = <String>{};
+
+  final defaultSheet = excel.getDefaultSheet();
+  if (defaultSheet != null) {
+    excel.rename(defaultSheet, 'Overview');
+    existingNames.add('Overview');
+  }
+
+  _buildOverviewSheet(
+    excel['Overview'],
+    expenses,
+    personalLabel: personalLabel,
+    householdNames: householdNames,
+  );
+
+  final allSheetName = _uniqueSheetName(existingNames, 'All Transactions');
+  _appendTransactionsSheet(
+    excel[allSheetName],
+    expenses,
+    personalLabel: personalLabel,
+    householdNames: householdNames,
+  );
+  existingNames.add(allSheetName);
+
+  final grouped = _groupExpensesByAccount(expenses);
+  for (final entry in grouped.entries) {
+    final sheetName = _uniqueSheetName(
+      existingNames,
+      _resolveAccountSheetName(
+        entry.key,
+        householdNames: householdNames,
+      ),
+    );
+    _appendTransactionsSheet(
+      excel[sheetName],
+      entry.value,
+      personalLabel: personalLabel,
+      householdNames: householdNames,
+    );
+    existingNames.add(sheetName);
+  }
+
+  return excel.encode();
+}
+
+void _buildOverviewSheet(
+  Sheet sheet,
+  List<ExpenseEntry> expenses, {
+  required String personalLabel,
+  required Map<String, String> householdNames,
+}) {
+  final dateFormat = DateFormat('yyyy-MM-dd');
+  DateTime? minDate;
+  DateTime? maxDate;
+
+  for (final expense in expenses) {
+    if (minDate == null || expense.date.isBefore(minDate)) {
+      minDate = expense.date;
+    }
+    if (maxDate == null || expense.date.isAfter(maxDate)) {
+      maxDate = expense.date;
+    }
+  }
+
+  final range = (minDate != null && maxDate != null)
+      ? '${dateFormat.format(minDate)} to ${dateFormat.format(maxDate)}'
+      : '-';
+
+  sheet.appendRow([
+    TextCellValue('Exported At'),
+    TextCellValue(DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now())),
+  ]);
+  sheet.appendRow([TextCellValue('Date Range'), TextCellValue(range)]);
+  sheet.appendRow([TextCellValue('')]);
+
+  sheet.appendRow([
+    TextCellValue('Account'),
+    TextCellValue('Currency'),
+    TextCellValue('Transactions'),
+    TextCellValue('Total Income'),
+    TextCellValue('Total Expenses'),
+    TextCellValue('Net'),
+  ]);
+
+  final summaries = <String, _AccountSummary>{};
+  for (final expense in expenses) {
+    final accountLabel = _resolveAccountLabel(
+      expense,
+      personalLabel: personalLabel,
+      householdNames: householdNames,
+    );
+    final currency = (expense.currency ?? 'UNKNOWN').toUpperCase();
+    final key = '$accountLabel::$currency';
+    final summary = summaries.putIfAbsent(
+      key,
+      () => _AccountSummary(accountLabel: accountLabel, currency: currency),
+    );
+    summary.count += 1;
+    final amount = expense.amount.abs();
+    final isIncome = (expense.type ?? 'expense').toLowerCase() == 'income';
+    if (isIncome) {
+      summary.totalIncome += amount;
+    } else {
+      summary.totalExpense += amount;
+    }
+  }
+
+  final sortedSummaries = summaries.values.toList()
+    ..sort((a, b) {
+      final account = a.accountLabel.compareTo(b.accountLabel);
+      if (account != 0) return account;
+      return a.currency.compareTo(b.currency);
+    });
+
+  for (final summary in sortedSummaries) {
+    sheet.appendRow([
+      TextCellValue(summary.accountLabel),
+      TextCellValue(summary.currency),
+      IntCellValue(summary.count),
+      DoubleCellValue(summary.totalIncome),
+      DoubleCellValue(summary.totalExpense),
+      DoubleCellValue(summary.totalIncome - summary.totalExpense),
+    ]);
+  }
+}
+
+void _appendTransactionsSheet(
+  Sheet sheet,
+  List<ExpenseEntry> expenses, {
+  required String personalLabel,
+  required Map<String, String> householdNames,
+}) {
+  final headers = [
+    'Date',
+    'Account',
+    'User',
+    'Description',
+    'Category',
+    'Amount',
+    'Currency',
+    'Type',
+    'Notes',
+  ];
+
+  sheet.appendRow(headers.map((h) => TextCellValue(h)).toList());
+
+  final dateFormat = DateFormat('yyyy-MM-dd');
+  final rows = expenses.toList()
+    ..sort((a, b) => b.date.compareTo(a.date));
+
+  for (final expense in rows) {
+    final date = dateFormat.format(expense.date);
+    final accountLabel = _resolveAccountLabel(
+      expense,
+      personalLabel: personalLabel,
+      householdNames: householdNames,
+    );
+    final userLabel = _resolveUserLabel(
+      expense,
+      personalLabel: personalLabel,
+    );
+    final description = expense.rawText ?? '';
+    final category = expense.category ?? 'Uncategorized';
+    final amountVal = expense.amount;
+    final currency = (expense.currency ?? 'UNKNOWN').toUpperCase();
+    final type = expense.type ?? 'expense';
+
+    sheet.appendRow([
+      TextCellValue(date),
+      TextCellValue(accountLabel),
+      TextCellValue(userLabel),
+      TextCellValue(description),
+      TextCellValue(category),
+      DoubleCellValue(amountVal),
+      TextCellValue(currency),
+      TextCellValue(type),
+      TextCellValue(''),
+    ]);
+  }
+}
+
+Map<String?, List<ExpenseEntry>> _groupExpensesByAccount(
+    List<ExpenseEntry> expenses) {
+  final grouped = <String?, List<ExpenseEntry>>{};
+  for (final expense in expenses) {
+    final key = (expense.householdId != null && expense.householdId!.isNotEmpty)
+        ? expense.householdId
+        : null;
+    grouped.putIfAbsent(key, () => []).add(expense);
+  }
+  return grouped;
+}
+
+String _resolveAccountSheetName(
+  String? householdId, {
+  required Map<String, String> householdNames,
+}) {
+  if (householdId == null || householdId.isEmpty) {
+    return 'Personal';
+  }
+  return householdNames[householdId] ?? 'Household';
+}
+
+String _resolveAccountLabel(
+  ExpenseEntry expense, {
+  required String personalLabel,
+  required Map<String, String> householdNames,
+}) {
+  if (expense.householdId == null || expense.householdId!.isEmpty) {
+    return personalLabel.isNotEmpty ? personalLabel : 'Personal';
+  }
+  return householdNames[expense.householdId] ?? 'Household';
+}
+
+String _resolveUserLabel(
+  ExpenseEntry expense, {
+  required String personalLabel,
+}) {
+  final trimmed = expense.userName?.trim() ?? '';
+  if (trimmed.isNotEmpty) return trimmed;
+  if (expense.householdId == null || expense.householdId!.isEmpty) {
+    return personalLabel;
+  }
+  return '';
+}
+
+String _uniqueSheetName(Set<String> existingNames, String baseName) {
+  final sanitized = _sanitizeSheetName(baseName);
+  if (!existingNames.contains(sanitized)) {
+    return sanitized;
+  }
+
+  var index = 2;
+  while (true) {
+    final suffix = ' ($index)';
+    final maxLength = 31 - suffix.length;
+    final safeLength = sanitized.length < maxLength ? sanitized.length : maxLength;
+    final candidate =
+        _sanitizeSheetName(sanitized.substring(0, safeLength)) + suffix;
+    if (!existingNames.contains(candidate)) {
+      return candidate;
+    }
+    index += 1;
+  }
+}
+
+String _sanitizeSheetName(String value) {
+  final sanitized = value
+      .replaceAll(RegExp(r'[\\/\[\]\*\?:]'), '-')
+      .trim();
+  if (sanitized.isEmpty) {
+    return 'Sheet';
+  }
+  if (sanitized.length > 31) {
+    return sanitized.substring(0, 31);
+  }
+  return sanitized;
+}
+
+class _AccountSummary {
+  _AccountSummary({
+    required this.accountLabel,
+    required this.currency,
+  });
+
+  final String accountLabel;
+  final String currency;
+  int count = 0;
+  double totalIncome = 0.0;
+  double totalExpense = 0.0;
 }
