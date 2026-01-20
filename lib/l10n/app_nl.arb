@@ -1754,5 +1754,14 @@
   "resubscribeToContinueEnjoying": "Neem opnieuw een abonnement om Premium-functies en inzichten te blijven gebruiken.",
   "continuePremiumAccess": "Premium-toegang voortzetten",
   "allPremiumFeatures": "Alle Premiumfuncties",
-  "resubscribe": "Opnieuw abonneren"
+  "resubscribe": "Opnieuw abonneren",
+  "allGroupMembers": "Alle groepsleden",
+  "justMyself": "Alleen ik",
+  "privateSpaceDescriptionFooter": "Alleen jij kunt deze ruimte zien.",
+  "sharedSpaceDescriptionFooter": "Alle leden kunnen saldi en transacties bekijken.",
+  "spaceVisibility": "Privacy van de Space",
+  "whoCanSeeAndAddExpense": "Wie kan uitgaven zien en toevoegen?",
+  "dangerZone": "Gevarenzone",
+  "deleteHousehold": "Space verwijderen",
+  "saved": "Opgeslagen"
 }

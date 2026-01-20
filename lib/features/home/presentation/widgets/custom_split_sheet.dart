@@ -895,7 +895,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
               // Split Type Selector - Modern Segmented Style
               Container(
                 padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(                 
+                decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(

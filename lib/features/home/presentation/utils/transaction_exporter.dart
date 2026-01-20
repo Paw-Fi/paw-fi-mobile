@@ -475,8 +475,7 @@ void _appendTransactionsSheet(
   sheet.appendRow(headers.map((h) => TextCellValue(h)).toList());
 
   final dateFormat = DateFormat('yyyy-MM-dd');
-  final rows = expenses.toList()
-    ..sort((a, b) => b.date.compareTo(a.date));
+  final rows = expenses.toList()..sort((a, b) => b.date.compareTo(a.date));
 
   for (final expense in rows) {
     final date = dateFormat.format(expense.date);
@@ -564,7 +563,8 @@ String _uniqueSheetName(Set<String> existingNames, String baseName) {
   while (true) {
     final suffix = ' ($index)';
     final maxLength = 31 - suffix.length;
-    final safeLength = sanitized.length < maxLength ? sanitized.length : maxLength;
+    final safeLength =
+        sanitized.length < maxLength ? sanitized.length : maxLength;
     final candidate =
         _sanitizeSheetName(sanitized.substring(0, safeLength)) + suffix;
     if (!existingNames.contains(candidate)) {
@@ -575,9 +575,7 @@ String _uniqueSheetName(Set<String> existingNames, String baseName) {
 }
 
 String _sanitizeSheetName(String value) {
-  final sanitized = value
-      .replaceAll(RegExp(r'[\\/\[\]\*\?:]'), '-')
-      .trim();
+  final sanitized = value.replaceAll(RegExp(r'[\\/\[\]\*\?:]'), '-').trim();
   if (sanitized.isEmpty) {
     return 'Sheet';
   }

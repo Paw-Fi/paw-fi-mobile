@@ -37,7 +37,10 @@ class CreateHouseholdFormContent extends ConsumerWidget {
         const SizedBox(height: 48),
 
         // Minimalist Floating Input
-        _buildNameInput(context, colorScheme),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10.0),
+          child: _buildNameInput(context, colorScheme),
+        ),
       ],
     );
   }
@@ -63,7 +66,8 @@ class CreateHouseholdFormContent extends ConsumerWidget {
               height: 120,
               decoration: BoxDecoration(
                 color: colorScheme.cardSurface,
-                borderRadius: BorderRadius.circular(40), // Softer, more organic radius
+                borderRadius:
+                    BorderRadius.circular(40), // Softer, more organic radius
                 boxShadow: [
                   BoxShadow(
                     color: colorScheme.shadow.withValues(alpha: 0.08),

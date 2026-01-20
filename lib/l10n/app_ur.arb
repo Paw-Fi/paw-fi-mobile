@@ -1753,5 +1753,14 @@
   "resubscribeToContinueEnjoying": "پریمیم فیچرز اور تجزیات جاری رکھنے کے لیے دوبارہ سبسکرائب کریں۔",
   "continuePremiumAccess": "پریمیم رسائی جاری رکھیں",
   "allPremiumFeatures": "تمام پریمیم فیچرز",
-  "resubscribe": "دوبارہ سبسکرائب کریں"
+  "resubscribe": "دوبارہ سبسکرائب کریں",
+  "allGroupMembers": "گروپ کے تمام ممبران",
+  "justMyself": "صرف میں",
+  "privateSpaceDescriptionFooter": "صرف آپ اس جگہ کو دیکھ سکتے ہیں۔",
+  "sharedSpaceDescriptionFooter": "تمام ممبران بیلنس اور لین دین دیکھ سکتے ہیں۔",
+  "spaceVisibility": "اسپیس کی پرائیویسی",
+  "whoCanSeeAndAddExpense": "اخراجات کون دیکھ اور شامل کر سکتا ہے؟",
+  "dangerZone": "خطرناک زون",
+  "deleteHousehold": "اسپیس حذف کریں",
+  "saved": "محفوظ ہو گیا"
 }

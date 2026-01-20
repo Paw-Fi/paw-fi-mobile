@@ -1754,5 +1754,14 @@
   "resubscribeToContinueEnjoying": "Rinnova l’abbonamento per non perdere le funzioni e gli approfondimenti Premium.",
   "continuePremiumAccess": "Continua con l’accesso Premium",
   "allPremiumFeatures": "Tutte le funzioni Premium",
-  "resubscribe": "Rinnova abbonamento"
+  "resubscribe": "Rinnova abbonamento",
+  "allGroupMembers": "Tutti i membri del gruppo",
+  "justMyself": "Solo io",
+  "privateSpaceDescriptionFooter": "Solo tu puoi visualizzare questo spazio.",
+  "sharedSpaceDescriptionFooter": "Tutti i membri possono vedere saldi e transazioni.",
+  "spaceVisibility": "Visibilità dello spazio",
+  "whoCanSeeAndAddExpense": "Chi può vedere e aggiungere spese?",
+  "dangerZone": "Zona di pericolo",
+  "deleteHousehold": "Elimina spazio",
+  "saved": "Salvato"
 }

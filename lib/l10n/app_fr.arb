@@ -1807,5 +1807,14 @@
   "resubscribeToContinueEnjoying": "Réabonnez-vous pour continuer à profiter des fonctionnalités et analyses Premium.",
   "continuePremiumAccess": "Continuer l’accès Premium",
   "allPremiumFeatures": "Toutes les fonctionnalités Premium",
-  "resubscribe": "Réactiver l’abonnement"
+  "resubscribe": "Réactiver l’abonnement",
+  "allGroupMembers": "Tous les membres du groupe",
+  "justMyself": "Seulement moi",
+  "privateSpaceDescriptionFooter": "Vous seul pouvez voir cet espace.",
+  "sharedSpaceDescriptionFooter": "Tous les membres peuvent consulter les soldes et les transactions.",
+  "spaceVisibility": "Visibilité de l'espace",
+  "whoCanSeeAndAddExpense": "Qui peut voir et ajouter des dépenses ?",
+  "dangerZone": "Zone de danger",
+  "deleteHousehold": "Supprimer l'espace",
+  "saved": "Enregistré"
 }

@@ -192,7 +192,7 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Who can see and add expense?',
+            context.l10n.whoCanSeeAndAddExpense,
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w700,
@@ -204,14 +204,14 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
           AdaptivePopupMenuButton.widget<bool>(
             items: [
               AdaptivePopupMenuItem(
-                label: 'All group members',
+                label: context.l10n.allGroupMembers,
                 value: true,
                 icon: PlatformInfo.isIOS26OrHigher()
                     ? 'person.2'
                     : Icons.group_outlined,
               ),
               AdaptivePopupMenuItem(
-                label: 'Just myself',
+                label: context.l10n.justMyself,
                 value: false,
                 icon: PlatformInfo.isIOS26OrHigher()
                     ? 'person'
@@ -227,7 +227,9 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
             },
             child: IgnorePointer(
               child: MonekoSelectorButton(
-                label: _isSharedSpace ? 'All group members' : 'Just myself',
+                label: _isSharedSpace
+                    ? context.l10n.allGroupMembers
+                    : context.l10n.justMyself,
                 onPressed: () {},
               ),
             ),
@@ -247,7 +249,7 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
                       : 'Only you can see and add transactions in this space. ',
                 ),
                 TextSpan(
-                  text: 'How it works',
+                  text: context.l10n.howItWorks,
                   style: TextStyle(
                     color: colorScheme.primary,
                     fontWeight: FontWeight.w600,

@@ -1803,5 +1803,14 @@
   "resubscribeToContinueEnjoying": "重新订阅，继续享受高级功能和洞察。",
   "continuePremiumAccess": "继续使用高级版",
   "allPremiumFeatures": "所有高级功能",
-  "resubscribe": "重新订阅"
+  "resubscribe": "重新订阅",
+  "allGroupMembers": "所有群成员",
+  "justMyself": "仅限本人",
+  "privateSpaceDescriptionFooter": "只有您可以查看此空间。",
+  "sharedSpaceDescriptionFooter": "所有成员均可查看余额和交易。",
+  "spaceVisibility": "空间可见性",
+  "whoCanSeeAndAddExpense": "谁可以查看并添加支出？",
+  "dangerZone": "危险区域",
+  "deleteHousehold": "删除空间",
+  "saved": "已保存"
 }

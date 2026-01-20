@@ -1799,5 +1799,14 @@
   "resubscribeToContinueEnjoying": "Оформіть підписку знову, щоб і надалі користуватися преміум-функціями та аналітикою.",
   "continuePremiumAccess": "Продовжити преміум-доступ",
   "allPremiumFeatures": "Усі преміум-функції",
-  "resubscribe": "Поновити підписку"
+  "resubscribe": "Поновити підписку",
+  "allGroupMembers": "Усі учасники групи",
+  "justMyself": "Тільки я",
+  "privateSpaceDescriptionFooter": "Тільки ви можете бачити цей розділ.",
+  "sharedSpaceDescriptionFooter": "Усі учасники можуть бачити баланс та транзакції.",
+  "spaceVisibility": "Налаштування доступу",
+  "whoCanSeeAndAddExpense": "Хто може бачити та додавати витрати?",
+  "dangerZone": "Небезпечна зона",
+  "deleteHousehold": "Видалити розділ",
+  "saved": "Збережено"
 }

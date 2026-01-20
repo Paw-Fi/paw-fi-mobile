@@ -959,7 +959,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                           ),
                         ),
 
-                      const SizedBox(height: 20),
+                        const SizedBox(height: 20),
 
                         _buildLabel(context.l10n.amount, colorScheme),
                         const SizedBox(height: 8),
@@ -980,8 +980,8 @@ class AddRecurringSheet extends HookConsumerWidget {
                             decoration: InputDecoration(
                               hintText: '0.00',
                               hintStyle: TextStyle(
-                                color:
-                                    colorScheme.onSurface.withValues(alpha: 0.3),
+                                color: colorScheme.onSurface
+                                    .withValues(alpha: 0.3),
                               ),
                               border: InputBorder.none,
                               contentPadding: const EdgeInsets.symmetric(
@@ -993,14 +993,15 @@ class AddRecurringSheet extends HookConsumerWidget {
                                         color: colorScheme.primary,
                                       ),
                                       splashRadius: 18,
-                                      onPressed: () => amountFocusNode.unfocus(),
+                                      onPressed: () =>
+                                          amountFocusNode.unfocus(),
                                     )
                                   : null,
                             ),
                           ),
                         ),
 
-                      const SizedBox(height: 20),
+                        const SizedBox(height: 20),
 
                         _buildDetailCard(
                           colorScheme: colorScheme,
@@ -1025,9 +1026,9 @@ class AddRecurringSheet extends HookConsumerWidget {
                           },
                         ),
 
-                      const SizedBox(height: 20),
+                        const SizedBox(height: 20),
 
-                      // Currency selector
+                        // Currency selector
                         _buildDetailCard(
                           colorScheme: colorScheme,
                           label: context.l10n.currency,
@@ -1043,93 +1044,94 @@ class AddRecurringSheet extends HookConsumerWidget {
                           },
                         ),
 
-                      const SizedBox(height: 20),
-
-                      // Household sharing + split (expenses only, non-portfolio contexts)
-                      if (canShowSharingSection) ...[
-                        householdsAsync.when(
-                          data: (households) {
-                            final shareableHouseholds = households
-                                .where((h) => !h.isPortfolio)
-                                .toList(growable: false);
-
-                            final selectedId = selectedHouseholdId.value;
-                            final hasValidShareSelection = selectedId != null &&
-                                shareableHouseholds
-                                    .any((h) => h.id == selectedId);
-                            if (isSharedWithHousehold.value &&
-                                !hasValidShareSelection) {
-                              isSharedWithHousehold.value = false;
-                              selectedHouseholdId.value = null;
-                              customSplitType.value = null;
-                              customSplits.value = null;
-                            }
-                            if (!hasAmountForSplit) {
-                              // Require an amount before configuring splits
-                              return Text(
-                                context.l10n.pleaseEnterAmount,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: colorScheme.mutedForeground,
-                                ),
-                              );
-                            }
-
-                            if (shareableHouseholds.isEmpty) {
-                              return const SizedBox.shrink();
-                            }
-
-                            if (!isExpense) {
-                              // For income: only allow sharing toggle, no split editor
-                              return _buildSharingToggleOnly(
-                                context,
-                                colorScheme,
-                                shareableHouseholds,
-                                isSharedWithHousehold,
-                                selectedHouseholdId,
-                              );
-                            }
-
-                            final householdId = selectedHouseholdId.value;
-                            final isHouseholdModeEnabled =
-                                isSharedWithHousehold.value &&
-                                    householdId != null &&
-                                    householdId.isNotEmpty;
-                            final isPortfolio = householdId != null &&
-                                householdScope.isPortfolioId(householdId);
-
-                            if (!isHouseholdModeEnabled || isPortfolio) {
-                              return _buildSharingToggleOnly(
-                                context,
-                                colorScheme,
-                                shareableHouseholds,
-                                isSharedWithHousehold,
-                                selectedHouseholdId,
-                              );
-                            }
-
-                            return _buildSharingAndSplitSection(
-                              context: context,
-                              colorScheme: colorScheme,
-                              households: shareableHouseholds,
-                              isSharedWithHousehold: isSharedWithHousehold,
-                              selectedHouseholdId: selectedHouseholdId,
-                              membersAsync: membersAsync,
-                              selectedPayerUserId: selectedPayerUserId,
-                              customSplitType: customSplitType,
-                              customSplits: customSplits,
-                              amountController: amountController,
-                              currencySymbol:
-                                  resolveCurrencySymbol(selectedCurrency.value),
-                              isEditing: isEditing,
-                              currentUserId: user.id,
-                            );
-                          },
-                          loading: () => const SizedBox.shrink(),
-                          error: (_, __) => const SizedBox.shrink(),
-                        ),
                         const SizedBox(height: 20),
-                      ],
+
+                        // Household sharing + split (expenses only, non-portfolio contexts)
+                        if (canShowSharingSection) ...[
+                          householdsAsync.when(
+                            data: (households) {
+                              final shareableHouseholds = households
+                                  .where((h) => !h.isPortfolio)
+                                  .toList(growable: false);
+
+                              final selectedId = selectedHouseholdId.value;
+                              final hasValidShareSelection =
+                                  selectedId != null &&
+                                      shareableHouseholds
+                                          .any((h) => h.id == selectedId);
+                              if (isSharedWithHousehold.value &&
+                                  !hasValidShareSelection) {
+                                isSharedWithHousehold.value = false;
+                                selectedHouseholdId.value = null;
+                                customSplitType.value = null;
+                                customSplits.value = null;
+                              }
+                              if (!hasAmountForSplit) {
+                                // Require an amount before configuring splits
+                                return Text(
+                                  context.l10n.pleaseEnterAmount,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: colorScheme.mutedForeground,
+                                  ),
+                                );
+                              }
+
+                              if (shareableHouseholds.isEmpty) {
+                                return const SizedBox.shrink();
+                              }
+
+                              if (!isExpense) {
+                                // For income: only allow sharing toggle, no split editor
+                                return _buildSharingToggleOnly(
+                                  context,
+                                  colorScheme,
+                                  shareableHouseholds,
+                                  isSharedWithHousehold,
+                                  selectedHouseholdId,
+                                );
+                              }
+
+                              final householdId = selectedHouseholdId.value;
+                              final isHouseholdModeEnabled =
+                                  isSharedWithHousehold.value &&
+                                      householdId != null &&
+                                      householdId.isNotEmpty;
+                              final isPortfolio = householdId != null &&
+                                  householdScope.isPortfolioId(householdId);
+
+                              if (!isHouseholdModeEnabled || isPortfolio) {
+                                return _buildSharingToggleOnly(
+                                  context,
+                                  colorScheme,
+                                  shareableHouseholds,
+                                  isSharedWithHousehold,
+                                  selectedHouseholdId,
+                                );
+                              }
+
+                              return _buildSharingAndSplitSection(
+                                context: context,
+                                colorScheme: colorScheme,
+                                households: shareableHouseholds,
+                                isSharedWithHousehold: isSharedWithHousehold,
+                                selectedHouseholdId: selectedHouseholdId,
+                                membersAsync: membersAsync,
+                                selectedPayerUserId: selectedPayerUserId,
+                                customSplitType: customSplitType,
+                                customSplits: customSplits,
+                                amountController: amountController,
+                                currencySymbol: resolveCurrencySymbol(
+                                    selectedCurrency.value),
+                                isEditing: isEditing,
+                                currentUserId: user.id,
+                              );
+                            },
+                            loading: () => const SizedBox.shrink(),
+                            error: (_, __) => const SizedBox.shrink(),
+                          ),
+                          const SizedBox(height: 20),
+                        ],
 
                         _buildDetailCard(
                           colorScheme: colorScheme,
@@ -1155,7 +1157,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                           },
                         ),
 
-                      const SizedBox(height: 20),
+                        const SizedBox(height: 20),
 
                         _buildDetailCard(
                           colorScheme: colorScheme,
@@ -1175,9 +1177,9 @@ class AddRecurringSheet extends HookConsumerWidget {
                           },
                         ),
 
-                      const SizedBox(height: 20),
+                        const SizedBox(height: 20),
 
-                      // End date toggle (clickable container)
+                        // End date toggle (clickable container)
                         GestureDetector(
                           onTap: () {
                             hasEndDate.value = !hasEndDate.value;
@@ -1186,7 +1188,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                             }
                           },
                           child: MonekoInput(
-                            padding: const EdgeInsets.symmetric(vertical:4),
+                            padding: const EdgeInsets.symmetric(vertical: 4),
                             child: Row(
                               children: [
                                 Checkbox(
@@ -1216,39 +1218,39 @@ class AddRecurringSheet extends HookConsumerWidget {
                           ),
                         ),
 
-                      // End date picker (if enabled)
-                      if (hasEndDate.value) ...[
-                        const SizedBox(height: 12),
-                        _buildDetailCard(
-                          colorScheme: colorScheme,
-                          label: context.l10n.endDate,
-                          value: endDate.value != null
-                              ? formatLocalizedDate(context, endDate.value!,
-                                  includeYear: true)
-                              : context.l10n.selectEndDate,
-                          isValuePlaceholder: endDate.value == null,
-                          onTap: () async {
-                            final result = await showTransactionDatePicker(
-                              context: context,
-                              currentDate: endDate.value ??
-                                  startDate.value
-                                      .add(const Duration(days: 365)),
-                              firstDate: startDate.value,
-                              lastDate: DateTime(2030),
-                            );
-                            if (result != null) {
-                              endDate.value = result;
-                            }
-                          },
-                        ),
-                      ],
+                        // End date picker (if enabled)
+                        if (hasEndDate.value) ...[
+                          const SizedBox(height: 12),
+                          _buildDetailCard(
+                            colorScheme: colorScheme,
+                            label: context.l10n.endDate,
+                            value: endDate.value != null
+                                ? formatLocalizedDate(context, endDate.value!,
+                                    includeYear: true)
+                                : context.l10n.selectEndDate,
+                            isValuePlaceholder: endDate.value == null,
+                            onTap: () async {
+                              final result = await showTransactionDatePicker(
+                                context: context,
+                                currentDate: endDate.value ??
+                                    startDate.value
+                                        .add(const Duration(days: 365)),
+                                firstDate: startDate.value,
+                                lastDate: DateTime(2030),
+                              );
+                              if (result != null) {
+                                endDate.value = result;
+                              }
+                            },
+                          ),
+                        ],
 
-                      const SizedBox(height: 20),
+                        const SizedBox(height: 20),
 
-                      // Description
-                      _buildLabel(
-                          context.l10n.descriptionOptional, colorScheme),
-                      const SizedBox(height: 8),
+                        // Description
+                        _buildLabel(
+                            context.l10n.descriptionOptional, colorScheme),
+                        const SizedBox(height: 8),
                         MonekoInput(
                           child: TextField(
                             controller: descriptionController,
@@ -1269,11 +1271,11 @@ class AddRecurringSheet extends HookConsumerWidget {
                           ),
                         ),
 
-                      // Source (for income only)
-                      if (!isExpense) ...[
-                        const SizedBox(height: 20),
-                        _buildLabel(context.l10n.sourceOptional, colorScheme),
-                        const SizedBox(height: 8),
+                        // Source (for income only)
+                        if (!isExpense) ...[
+                          const SizedBox(height: 20),
+                          _buildLabel(context.l10n.sourceOptional, colorScheme),
+                          const SizedBox(height: 8),
                           MonekoInput(
                             child: TextField(
                               controller: sourceController,
@@ -1293,17 +1295,17 @@ class AddRecurringSheet extends HookConsumerWidget {
                               ),
                             ),
                           ),
-                      ],
+                        ],
 
-                      const SizedBox(height: 24),
+                        const SizedBox(height: 24),
 
-                      // Reminder toggle (clickable container)
+                        // Reminder toggle (clickable container)
                         GestureDetector(
                           onTap: () {
                             hasReminder.value = !hasReminder.value;
                           },
                           child: MonekoInput(
-                            padding: const EdgeInsets.symmetric(vertical:4),
+                            padding: const EdgeInsets.symmetric(vertical: 4),
                             child: Row(
                               children: [
                                 Checkbox(
@@ -1329,199 +1331,203 @@ class AddRecurringSheet extends HookConsumerWidget {
                           ),
                         ),
 
-                      // Reminder configuration (if enabled)
-                      if (hasReminder.value) ...[
-                        const SizedBox(height: 12),
-                        MonekoInput(
-                          child: Builder(
-                            builder: (context) {
-                              // Detect word order based on language
-                              final lang = Localizations.localeOf(context)
-                                  .languageCode
-                                  .toLowerCase();
-                              final useSOV = {
-                                'zh',
-                                'ja',
-                                'ko',
-                                'hi',
-                                'ur',
-                                'tr',
-                                'fa'
-                              }.contains(lang);
-                          
-                              // Build UI components
-                              final valueInput = GestureDetector(
-                                onTap: () async {
-                                  final numbers =
-                                      List.generate(31, (index) => index + 1);
-                                  final result = await MonekoListPicker.show<int>(
-                                    context: context,
-                                    items: numbers,
-                                    labelBuilder: (number) => number.toString(),
-                                    initial: reminderValue.value,
-                                  );
-                                  if (result != null) {
-                                    reminderValue.value = result;
-                                  }
-                                },
-                                child: Container(
-                                  width: 80,
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 14),
-                                  decoration: BoxDecoration(
-                                    color:
-                                        colorScheme.muted.withValues(alpha: 0.08),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        reminderValue.value.toString(),
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w600,
-                                          color: colorScheme.foreground,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Icon(
-                                        Icons.arrow_drop_down,
-                                        color: colorScheme.mutedForeground,
-                                        size: 20,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                          
-                              final unitPicker = GestureDetector(
-                                onTap: () async {
-                                  final result =
-                                      await showTransactionSelectionSheet<String>(
-                                    context: context,
-                                    items: ['days'],
-                                    getLabel: (unit) {
-                                      if (unit == 'days')
-                                        return context.l10n.days;
-                                      if (unit == 'hours')
-                                        return context.l10n.hours;
-                                      return unit;
-                                    },
-                                    initial: reminderUnit.value,
-                                  );
-                                  if (result != null) {
-                                    reminderUnit.value = result;
-                                  }
-                                },
-                                child: IntrinsicWidth(
+                        // Reminder configuration (if enabled)
+                        if (hasReminder.value) ...[
+                          const SizedBox(height: 12),
+                          MonekoInput(
+                            child: Builder(
+                              builder: (context) {
+                                // Detect word order based on language
+                                final lang = Localizations.localeOf(context)
+                                    .languageCode
+                                    .toLowerCase();
+                                final useSOV = {
+                                  'zh',
+                                  'ja',
+                                  'ko',
+                                  'hi',
+                                  'ur',
+                                  'tr',
+                                  'fa'
+                                }.contains(lang);
+
+                                // Build UI components
+                                final valueInput = GestureDetector(
+                                  onTap: () async {
+                                    final numbers =
+                                        List.generate(31, (index) => index + 1);
+                                    final result =
+                                        await MonekoListPicker.show<int>(
+                                      context: context,
+                                      items: numbers,
+                                      labelBuilder: (number) =>
+                                          number.toString(),
+                                      initial: reminderValue.value,
+                                    );
+                                    if (result != null) {
+                                      reminderValue.value = result;
+                                    }
+                                  },
                                   child: Container(
-                                    constraints: const BoxConstraints(
-                                        minWidth: 80), // Minimum width
+                                    width: 80,
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 16, vertical: 14),
+                                        horizontal: 12, vertical: 14),
                                     decoration: BoxDecoration(
-                                    color: colorScheme.muted
-                                        .withValues(alpha: 0.08),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
+                                      color: colorScheme.muted
+                                          .withValues(alpha: 0.08),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
                                     child: Row(
-                                      mainAxisSize: MainAxisSize.min,
                                       mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
+                                          MainAxisAlignment.center,
                                       children: [
                                         Text(
-                                          reminderUnit.value == 'days'
-                                              ? context.l10n.days
-                                              : context.l10n.hours,
+                                          reminderValue.value.toString(),
                                           style: TextStyle(
                                             fontSize: 16,
-                                            color: colorScheme.foreground,
                                             fontWeight: FontWeight.w600,
+                                            color: colorScheme.foreground,
                                           ),
                                         ),
-                                        const SizedBox(width: 8),
+                                        const SizedBox(width: 4),
                                         Icon(
                                           Icons.arrow_drop_down,
                                           color: colorScheme.mutedForeground,
-                                          size: 24,
+                                          size: 20,
                                         ),
                                       ],
                                     ),
                                   ),
-                                ),
-                              );
-                          
-                              // Arrange based on word order
-                              List<Widget> rowChildren;
-                              if (useSOV) {
-                                // SOV languages: beforePrefix [value][unit]beforeSuffix
-                                // Chinese: 在 2天之前
-                                rowChildren = [
-                                  Text(
-                                    context.l10n.beforePrefix,
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: colorScheme.onSurface,
-                                    fontWeight: FontWeight.w500,
+                                );
+
+                                final unitPicker = GestureDetector(
+                                  onTap: () async {
+                                    final result =
+                                        await showTransactionSelectionSheet<
+                                            String>(
+                                      context: context,
+                                      items: ['days'],
+                                      getLabel: (unit) {
+                                        if (unit == 'days')
+                                          return context.l10n.days;
+                                        if (unit == 'hours')
+                                          return context.l10n.hours;
+                                        return unit;
+                                      },
+                                      initial: reminderUnit.value,
+                                    );
+                                    if (result != null) {
+                                      reminderUnit.value = result;
+                                    }
+                                  },
+                                  child: IntrinsicWidth(
+                                    child: Container(
+                                      constraints: const BoxConstraints(
+                                          minWidth: 80), // Minimum width
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 16, vertical: 14),
+                                      decoration: BoxDecoration(
+                                        color: colorScheme.muted
+                                            .withValues(alpha: 0.08),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            reminderUnit.value == 'days'
+                                                ? context.l10n.days
+                                                : context.l10n.hours,
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              color: colorScheme.foreground,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Icon(
+                                            Icons.arrow_drop_down,
+                                            color: colorScheme.mutedForeground,
+                                            size: 24,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  valueInput,
-                                  const SizedBox(width: 12),
-                                  unitPicker,
-                                  const SizedBox(width: 12),
-                                  Text(
-                                    context.l10n.beforeSuffix,
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: colorScheme.onSurface,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  ),
-                                ];
-                              } else {
-                                // Default SVO: [value] [unit] before
-                                // English: 2 days before
-                                rowChildren = [
-                                  valueInput,
-                                  const SizedBox(width: 12),
-                                  unitPicker,
-                                  const SizedBox(width: 12),
-                                  Text(
-                                    context.l10n.before,
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: colorScheme.onSurface,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  ),
-                                ];
-                              }
-                          
-                              return Row(
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: rowChildren,
-                              );
-                            },
+                                );
+
+                                // Arrange based on word order
+                                List<Widget> rowChildren;
+                                if (useSOV) {
+                                  // SOV languages: beforePrefix [value][unit]beforeSuffix
+                                  // Chinese: 在 2天之前
+                                  rowChildren = [
+                                    Text(
+                                      context.l10n.beforePrefix,
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: colorScheme.onSurface,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    valueInput,
+                                    const SizedBox(width: 12),
+                                    unitPicker,
+                                    const SizedBox(width: 12),
+                                    Text(
+                                      context.l10n.beforeSuffix,
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: colorScheme.onSurface,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ];
+                                } else {
+                                  // Default SVO: [value] [unit] before
+                                  // English: 2 days before
+                                  rowChildren = [
+                                    valueInput,
+                                    const SizedBox(width: 12),
+                                    unitPicker,
+                                    const SizedBox(width: 12),
+                                    Text(
+                                      context.l10n.before,
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: colorScheme.onSurface,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ];
+                                }
+
+                                return Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: rowChildren,
+                                );
+                              },
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          context.l10n.youWillBeNotifiedBeforeEachOccurrence(
-                            reminderValue.value,
-                            reminderUnit.value == 'days'
-                                ? context.l10n.days
-                                : context.l10n.hours,
+                          const SizedBox(height: 8),
+                          Text(
+                            context.l10n.youWillBeNotifiedBeforeEachOccurrence(
+                              reminderValue.value,
+                              reminderUnit.value == 'days'
+                                  ? context.l10n.days
+                                  : context.l10n.hours,
+                            ),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: colorScheme.mutedForeground,
+                              fontStyle: FontStyle.italic,
+                            ),
                           ),
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: colorScheme.mutedForeground,
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                      ],
+                        ],
 
                         // Save button
                         const SizedBox(height: 24),
@@ -1730,7 +1736,8 @@ class AddRecurringSheet extends HookConsumerWidget {
               ),
               if (isSharedWithHousehold.value)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                   decoration: BoxDecoration(
                     color: colorScheme.muted.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(12),

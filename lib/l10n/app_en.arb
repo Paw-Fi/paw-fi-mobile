@@ -937,7 +937,7 @@
   "expenseDeletedSuccessfully": "Expense deleted successfully",
   "failedToDeleteExpense": "Failed to delete expense",
   "expenseNotFoundOrDeleted": "Expense not found or has been deleted",
-  "onlyAdminsAndOwnersCanEditHouseholdSettings": "Only admins and owners can edit group settings",
+  "onlyAdminsAndOwnersCanEditHouseholdSettings": "Only admins and owners can edit space settings",
   "onlyAdminsAndOwnersCanCreateInvitations": "Only admins and owners can create invitations",
   "shareInvitationForHousehold": "Share invitation for {groupName} group",
   "@shareInvitationForHousehold": {
@@ -1830,5 +1830,10 @@
   "dangerZone": "Danger Zone",
   "deleteHousehold": "Delete Space",
   "saved": "Saved",
-  "onlyAdminsAndOwnersCanEditHouseholdSettings": "Only admins and owners can edit space settings"
+  "allGroupMembers": "All group members",
+  "justMyself": "Just myself",
+  "privateSpaceDescriptionFooter": "Only you can view this space.",
+  "sharedSpaceDescriptionFooter": "All members can view balances and transactions.",
+  "spaceVisibility": "Space Visibility",
+  "whoCanSeeAndAddExpense": "Who can see and add expenses?"
 }

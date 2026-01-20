@@ -1807,5 +1807,14 @@
   "resubscribeToContinueEnjoying": "再登録してプレミアム機能と分析を引き続き利用しましょう。",
   "continuePremiumAccess": "プレミアム利用を続ける",
   "allPremiumFeatures": "すべてのプレミアム機能",
-  "resubscribe": "再登録"
+  "resubscribe": "再登録",
+  "allGroupMembers": "グループ全員",
+  "justMyself": "自分のみ",
+  "privateSpaceDescriptionFooter": "このスペースを表示できるのはあなただけです。",
+  "sharedSpaceDescriptionFooter": "メンバー全員が残高と取引履歴を確認できます。",
+  "spaceVisibility": "共有設定",
+  "whoCanSeeAndAddExpense": "誰が支出を表示・追加できますか？",
+  "dangerZone": "デンジャーゾーン",
+  "deleteHousehold": "スペースを削除",
+  "saved": "保存済み"
 }

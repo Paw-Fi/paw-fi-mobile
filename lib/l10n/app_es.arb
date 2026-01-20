@@ -1809,5 +1809,14 @@
   "resubscribeToContinueEnjoying": "Vuelve a suscribirte para seguir disfrutando de funciones y análisis Premium.",
   "continuePremiumAccess": "Continuar con acceso Premium",
   "allPremiumFeatures": "Todas las funciones Premium",
-  "resubscribe": "Volver a suscribirse"
+  "resubscribe": "Volver a suscribirse",
+  "allGroupMembers": "Todos los miembros del grupo",
+  "justMyself": "Solo yo",
+  "privateSpaceDescriptionFooter": "Solo tú puedes ver este espacio.",
+  "sharedSpaceDescriptionFooter": "Todos los miembros pueden ver los saldos y las transacciones.",
+  "spaceVisibility": "Visibilidad del espacio",
+  "whoCanSeeAndAddExpense": "¿Quién puede ver y añadir gastos?",
+  "dangerZone": "Zona de peligro",
+  "deleteHousehold": "Eliminar espacio",
+  "saved": "Guardado"
 }

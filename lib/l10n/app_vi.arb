@@ -1806,5 +1806,14 @@
   "resubscribeToContinueEnjoying": "Đăng ký lại để tiếp tục sử dụng các tính năng và phân tích Premium.",
   "continuePremiumAccess": "Tiếp tục dùng Premium",
   "allPremiumFeatures": "Tất cả tính năng Premium",
-  "resubscribe": "Đăng ký lại"
+  "resubscribe": "Đăng ký lại",
+  "allGroupMembers": "Tất cả thành viên nhóm",
+  "justMyself": "Chỉ mình tôi",
+  "privateSpaceDescriptionFooter": "Chỉ bạn mới có thể xem không gian này.",
+  "sharedSpaceDescriptionFooter": "Tất cả thành viên có thể xem số dư và giao dịch.",
+  "spaceVisibility": "Quyền riêng tư",
+  "whoCanSeeAndAddExpense": "Ai có thể xem và thêm chi tiêu?",
+  "dangerZone": "Vùng nguy hiểm",
+  "deleteHousehold": "Xóa không gian",
+  "saved": "Đã lưu"
 }

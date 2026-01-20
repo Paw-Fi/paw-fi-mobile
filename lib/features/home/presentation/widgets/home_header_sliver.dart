@@ -25,6 +25,7 @@ import 'package:moneko/features/households/presentation/pages/create_space_page.
 import 'package:moneko/features/households/presentation/pages/household_settings_page.dart';
 import 'package:moneko/features/profile/presentation/pages/settings_page.dart';
 import 'package:moneko/shared/widgets/moneko_avatar.dart';
+import 'package:moneko/features/home/presentation/utils/transaction_exporter.dart';
 
 Household _resolveSelectedHousehold(
   SelectedHouseholdState selectedState,
@@ -181,6 +182,24 @@ class HomeHeaderSliver extends ConsumerWidget {
             ),
       maxLength: 18,
     );
+
+    Future<void> exportAllTransactions() async {
+      final analyticsData = ref.read(analyticsProvider);
+      final households = householdsAsync.valueOrNull ?? const <Household>[];
+      final householdNames = {
+        for (final household in households) household.id: household.name,
+      };
+      final personalLabel = user.displayName?.trim().isNotEmpty == true
+          ? user.displayName!.trim()
+          : user.email;
+
+      await exportAllTransactionsAsExcelSheet(
+        context,
+        analyticsData.allExpenses,
+        personalLabel: personalLabel,
+        householdNames: householdNames,
+      );
+    }
 
     // Profile Pill (Left)
     final profilePill = AdaptivePopupMenuButton.widget(
@@ -408,7 +427,7 @@ class HomeHeaderSliver extends ConsumerWidget {
         ),
       ),
       items: menuItems,
-      onSelected: (index, item) {
+      onSelected: (index, item) async {
         if (item.value == 'settings') {
           Navigator.of(context).push(
             MaterialPageRoute(
@@ -418,7 +437,7 @@ class HomeHeaderSliver extends ConsumerWidget {
         }
 
         if (item.value == 'export_all') {
-          ref.read(homeExportRequestProvider.notifier).state += 1;
+          await exportAllTransactions();
         }
 
         if (item.value == 'manage_household' &&

@@ -1757,5 +1757,14 @@
   "resubscribeToContinueEnjoying": "Оформите подписку снова, чтобы продолжить пользоваться премиум-функциями и аналитикой.",
   "continuePremiumAccess": "Продолжить премиум-доступ",
   "allPremiumFeatures": "Все премиум-функции",
-  "resubscribe": "Возобновить подписку"
+  "resubscribe": "Возобновить подписку",
+  "allGroupMembers": "Все участники группы",
+  "justMyself": "Только я",
+  "privateSpaceDescriptionFooter": "Этот раздел доступен только вам.",
+  "sharedSpaceDescriptionFooter": "Все участники могут видеть баланс и транзакции.",
+  "spaceVisibility": "Настройки доступа",
+  "whoCanSeeAndAddExpense": "Кто может видеть и добавлять расходы?",
+  "dangerZone": "Опасная зона",
+  "deleteHousehold": "Удалить раздел",
+  "saved": "Сохранено"
 }

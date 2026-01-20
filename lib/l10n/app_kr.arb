@@ -1620,5 +1620,14 @@
   "resubscribeToContinueEnjoying": "프리미엄 기능과 인사이트를 계속 이용하려면 다시 구독하세요.",
   "continuePremiumAccess": "프리미엄 이용 계속하기",
   "allPremiumFeatures": "모든 프리미엄 기능",
-  "resubscribe": "다시 구독"
+  "resubscribe": "다시 구독",
+  "allGroupMembers": "모든 그룹 멤버",
+  "justMyself": "나만 보기",
+  "privateSpaceDescriptionFooter": "본인만 이 공간을 볼 수 있습니다.",
+  "sharedSpaceDescriptionFooter": "모든 멤버가 잔액과 거래 내역을 볼 수 있습니다.",
+  "spaceVisibility": "공간 공개 설정",
+  "whoCanSeeAndAddExpense": "누가 지출을 확인하고 추가할 수 있나요?",
+  "dangerZone": "위험 구역",
+  "deleteHousehold": "공간 삭제",
+  "saved": "저장됨"
 }

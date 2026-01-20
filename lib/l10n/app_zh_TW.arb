@@ -1751,5 +1751,14 @@
   "resubscribeToContinueEnjoying": "重新訂閱，繼續享受 Premium 功能與分析。",
   "continuePremiumAccess": "繼續使用 Premium",
   "allPremiumFeatures": "所有 Premium 功能",
-  "resubscribe": "重新訂閱"
+  "resubscribe": "重新訂閱",
+  "allGroupMembers": "所有群組成員",
+  "justMyself": "僅限自己",
+  "privateSpaceDescriptionFooter": "只有您可以查看此空間。",
+  "sharedSpaceDescriptionFooter": "所有成員均可查看餘額和交易。",
+  "spaceVisibility": "空間可見性",
+  "whoCanSeeAndAddExpense": "誰可以查看並新增支出？",
+  "dangerZone": "危險區域",
+  "deleteHousehold": "刪除空間",
+  "saved": "已儲存"
 }

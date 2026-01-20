@@ -24,7 +24,7 @@ class InviteMembersPage extends ConsumerWidget {
         title: context.l10n.inviteMembers,
       ),
       body: Padding(
-        padding:  EdgeInsets.only(top:getSubPageTopPadding(context)),
+        padding: EdgeInsets.only(top: getSubPageTopPadding(context)),
         child: CustomScrollView(
           slivers: [
             SliverPadding(
@@ -34,11 +34,11 @@ class InviteMembersPage extends ConsumerWidget {
               ),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
-                   HouseholdMembersPanel(
-                     householdId: householdId,
-                     householdName: householdName,
-                     onDone: onDone,
-                   ),
+                  HouseholdMembersPanel(
+                    householdId: householdId,
+                    householdName: householdName,
+                    onDone: onDone,
+                  ),
                 ]),
               ),
             ),
