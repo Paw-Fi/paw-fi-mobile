@@ -1698,7 +1698,7 @@
   "inviteLink": "دعوت نامہ لنک",
   "generatedInNextStep": "اگلے مرحلے میں تیار کیا جائے گا",
   "continue": "جاری رکھیں",
-  "createPrivateSpace": "نجی جگہ بنائیں",
+  "createPrivateSpace": "نجی اسپیس بنائیں",
   "pleaseEnterValidSpaceName": "براہ کرم جگہ کا درست نام درج کریں",
   "chooseYourSpace": "اپنی جگہ منتخب کریں",
   "spacesHelpOrganize": "جگہیں آپ کو اپنے پیسوں کو بامعنی طریقوں سے منظم کرنے میں مدد دیتی ہیں۔ یہاں ان کا فرق بتایا گیا ہے:",
@@ -1762,5 +1762,11 @@
   "whoCanSeeAndAddExpense": "اخراجات کون دیکھ اور شامل کر سکتا ہے؟",
   "dangerZone": "خطرناک زون",
   "deleteHousehold": "اسپیس حذف کریں",
-  "saved": "محفوظ ہو گیا"
+  "saved": "محفوظ ہو گیا",
+  "everyoneInSpaceCanViewAndAddTransactions": "اس اسپیس میں ہر کوئی لین دین دیکھ اور شامل کر سکتا ہے۔ آپ اگلے مرحلے میں ممبران کو مدعو کر سکیں گے۔",
+  "onlyYouCanSeeAndAddTransactionsInThisSpace": "صرف آپ اس اسپیس میں لین دین دیکھ اور شامل کر سکتے ہیں۔",
+  "nameThisSpace": "اس اسپیس کا نام رکھیں",
+  "spaceDeletedSuccessfully": "اسپیس کامیابی کے ساتھ حذف ہو گئی",
+  "failedToDelete": "حذف کرنے میں ناکامی",
+  "continueButton": "جاری رکھیں"
 }

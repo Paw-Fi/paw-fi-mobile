@@ -1751,7 +1751,7 @@
   "inviteLink": "Liên kết mời",
   "generatedInNextStep": "Được tạo trong bước tiếp theo",
   "continue": "Tiếp tục",
-  "createPrivateSpace": "Tạo không gian riêng",
+  "createPrivateSpace": "Tạo không gian riêng tư",
   "pleaseEnterValidSpaceName": "Vui lòng nhập tên không gian hợp lệ",
   "chooseYourSpace": "Chọn không gian của bạn",
   "spacesHelpOrganize": "Không gian giúp bạn sắp xếp tiền bạc của mình một cách có ý nghĩa. Đây là sự khác biệt giữa chúng:",
@@ -1815,5 +1815,11 @@
   "whoCanSeeAndAddExpense": "Ai có thể xem và thêm chi tiêu?",
   "dangerZone": "Vùng nguy hiểm",
   "deleteHousehold": "Xóa không gian",
-  "saved": "Đã lưu"
+  "saved": "Đã lưu",
+  "everyoneInSpaceCanViewAndAddTransactions": "Mọi người trong không gian này đều có thể xem và thêm giao dịch. Bạn sẽ có thể mời thành viên ở bước tiếp theo.",
+  "onlyYouCanSeeAndAddTransactionsInThisSpace": "Chỉ bạn mới có thể xem và thêm giao dịch trong không gian này.",
+  "nameThisSpace": "Đặt tên cho không gian",
+  "spaceDeletedSuccessfully": "Đã xóa không gian thành công",
+  "failedToDelete": "Không thể xóa",
+  "continueButton": "Tiếp tục"
 }

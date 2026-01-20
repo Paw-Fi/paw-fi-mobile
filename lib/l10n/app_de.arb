@@ -1752,7 +1752,7 @@
   "inviteLink": "Einladungslink",
   "generatedInNextStep": "Wird im nächsten Schritt erstellt",
   "continue": "Weiter",
-  "createPrivateSpace": "Privaten Space erstellen",
+  "createPrivateSpace": "Privaten Bereich erstellen",
   "pleaseEnterValidSpaceName": "Bitte gib einen gültigen Space-Namen ein",
   "chooseYourSpace": "Wähle deinen Space",
   "spacesHelpOrganize": "Spaces helfen dir, dein Geld sinnvoll zu organisieren. So unterscheiden sie sich:",
@@ -1816,5 +1816,11 @@
   "whoCanSeeAndAddExpense": "Wer kann Ausgaben sehen und hinzufügen?",
   "dangerZone": "Gefahrenbereich",
   "deleteHousehold": "Bereich löschen",
-  "saved": "Gespeichert"
+  "saved": "Gespeichert",
+  "everyoneInSpaceCanViewAndAddTransactions": "Jeder in diesem Bereich kann Transaktionen ansehen und hinzufügen. Im nächsten Schritt kannst du Mitglieder einladen.",
+  "onlyYouCanSeeAndAddTransactionsInThisSpace": "Nur du kannst Transaktionen in diesem Bereich sehen und hinzufügen.",
+  "nameThisSpace": "Bereich benennen",
+  "spaceDeletedSuccessfully": "Bereich erfolgreich gelöscht",
+  "failedToDelete": "Löschen fehlgeschlagen",
+  "continueButton": "Weiter"
 }

@@ -179,7 +179,7 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, s) => Center(child: Text('Error: $e')),
+        error: (e, s) => Center(child: Text('${context.l10n.error}: $e')),
       ),
     );
   }
@@ -503,13 +503,13 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
 
         if (mounted) {
           // ignore: use_build_context_synchronously
-          AppToast.success(context, 'Space deleted successfully');
+          AppToast.success(context, context.l10n.spaceDeletedSuccessfully);
           Navigator.of(context).pop();
         }
       } catch (e) {
         if (mounted) {
           // ignore: use_build_context_synchronously
-          AppToast.error(context, 'Failed to delete: $e');
+          AppToast.error(context, '${context.l10n.failedToDelete}: $e');
           setState(() => _isDeletingHousehold = false);
         }
       }

@@ -245,8 +245,8 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
               children: [
                 TextSpan(
                   text: _isSharedSpace
-                      ? 'Everyone in this space can view and add transactions. You’ll be able to invite members next. '
-                      : 'Only you can see and add transactions in this space. ',
+                      ? context.l10n.everyoneInSpaceCanViewAndAddTransactions
+                      : context.l10n.onlyYouCanSeeAndAddTransactionsInThisSpace,
                 ),
                 TextSpan(
                   text: context.l10n.howItWorksTitle,
@@ -291,7 +291,7 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
             child: isLoading
                 ? const CircularProgressIndicator.adaptive()
                 : Text(
-                    _isSharedSpace ? 'Continue' : 'Create Private Space',
+                    _isSharedSpace ? context.l10n.continueButton : context.l10n.createPrivateSpace,
                     style: const TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 17,

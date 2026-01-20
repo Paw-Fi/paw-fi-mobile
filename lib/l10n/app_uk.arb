@@ -1744,7 +1744,7 @@
   "inviteLink": "Посилання для запрошення",
   "generatedInNextStep": "Буде створено на наступному кроці",
   "continue": "Продовжити",
-  "createPrivateSpace": "Створити особистий простір",
+  "createPrivateSpace": "Створити особистий розділ",
   "pleaseEnterValidSpaceName": "Будь ласка, введіть коректну назву простору",
   "chooseYourSpace": "Виберіть свій простір",
   "spacesHelpOrganize": "Простори допомагають ефективно організувати ваші фінанси. Ось у чому їхні відмінності:",
@@ -1808,5 +1808,11 @@
   "whoCanSeeAndAddExpense": "Хто може бачити та додавати витрати?",
   "dangerZone": "Небезпечна зона",
   "deleteHousehold": "Видалити розділ",
-  "saved": "Збережено"
+  "saved": "Збережено",
+  "everyoneInSpaceCanViewAndAddTransactions": "Усі в цьому розділі можуть бачити та додавати транзакції. На наступному кроці ви зможете запросити учасників.",
+  "onlyYouCanSeeAndAddTransactionsInThisSpace": "Тільки ви можете бачити та додавати транзакції в цьому розділі.",
+  "nameThisSpace": "Назва розділу",
+  "spaceDeletedSuccessfully": "Розділ успішно видалено",
+  "failedToDelete": "Не вдалося видалити",
+  "continueButton": "Продовжити"
 }

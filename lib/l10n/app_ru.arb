@@ -1702,7 +1702,7 @@
   "inviteLink": "Ссылка-приглашение",
   "generatedInNextStep": "Будет создано на следующем шаге",
   "continue": "Продолжить",
-  "createPrivateSpace": "Создать личное пространство",
+  "createPrivateSpace": "Создать личный раздел",
   "pleaseEnterValidSpaceName": "Пожалуйста, введите корректное название пространства",
   "chooseYourSpace": "Выберите пространство",
   "spacesHelpOrganize": "Пространства помогают эффективно организовать ваши финансы. Вот в чем их различия:",
@@ -1766,5 +1766,11 @@
   "whoCanSeeAndAddExpense": "Кто может видеть и добавлять расходы?",
   "dangerZone": "Опасная зона",
   "deleteHousehold": "Удалить раздел",
-  "saved": "Сохранено"
+  "saved": "Сохранено",
+  "everyoneInSpaceCanViewAndAddTransactions": "Все участники этого раздела могут видеть и добавлять транзакции. На следующем этапе вы сможете пригласить участников.",
+  "onlyYouCanSeeAndAddTransactionsInThisSpace": "Только вы можете видеть и добавлять транзакции в этом разделе.",
+  "nameThisSpace": "Название раздела",
+  "spaceDeletedSuccessfully": "Раздел успешно удален",
+  "failedToDelete": "Не удалось удалить",
+  "continueButton": "Продолжить"
 }

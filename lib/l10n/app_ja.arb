@@ -1816,5 +1816,11 @@
   "whoCanSeeAndAddExpense": "誰が支出を表示・追加できますか？",
   "dangerZone": "デンジャーゾーン",
   "deleteHousehold": "スペースを削除",
-  "saved": "保存済み"
+  "saved": "保存済み",
+  "everyoneInSpaceCanViewAndAddTransactions": "このスペースの全員が取引の確認と追加を行えます。次のステップでメンバーを招待できます。",
+  "onlyYouCanSeeAndAddTransactionsInThisSpace": "このスペースで取引を確認・追加できるのはあなただけです。",
+  "nameThisSpace": "スペースの名前",
+  "spaceDeletedSuccessfully": "スペースを削除しました",
+  "failedToDelete": "削除に失敗しました",
+  "continueButton": "次へ"
 }

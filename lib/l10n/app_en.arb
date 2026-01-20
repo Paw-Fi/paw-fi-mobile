@@ -69,7 +69,7 @@
   "resendVerificationEmail": "resend verification email",
   "continueWithGoogle": "Continue with Google",
   "signingInWithGoogle": "Signing in with Google...",
-  "error": "Error: {error}",
+  "error": "Error",
   "@error": {
     "placeholders": {
       "error": {
@@ -1835,5 +1835,11 @@
   "privateSpaceDescriptionFooter": "Only you can view this space.",
   "sharedSpaceDescriptionFooter": "All members can view balances and transactions.",
   "spaceVisibility": "Space Visibility",
-  "whoCanSeeAndAddExpense": "Who can see and add expenses?"
+  "whoCanSeeAndAddExpense": "Who can see and add expenses?",
+  "everyoneInSpaceCanViewAndAddTransactions": "Everyone in this space can view and add transactions. You'll be able to invite members next.",
+  "onlyYouCanSeeAndAddTransactionsInThisSpace": "Only you can see and add transactions in this space.",
+  "nameThisSpace": "Name This Space",
+  "spaceDeletedSuccessfully": "Space deleted successfully",
+  "failedToDelete": "Failed to delete",
+  "continueButton": "Continue"
 }

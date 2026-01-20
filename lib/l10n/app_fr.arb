@@ -1816,5 +1816,11 @@
   "whoCanSeeAndAddExpense": "Qui peut voir et ajouter des dépenses ?",
   "dangerZone": "Zone de danger",
   "deleteHousehold": "Supprimer l'espace",
-  "saved": "Enregistré"
+  "saved": "Enregistré",
+  "everyoneInSpaceCanViewAndAddTransactions": "Tous les membres de cet espace peuvent voir et ajouter des transactions. Vous pourrez inviter des membres à l'étape suivante.",
+  "onlyYouCanSeeAndAddTransactionsInThisSpace": "Vous seul pouvez voir et ajouter des transactions dans cet espace.",
+  "nameThisSpace": "Nommer cet espace",
+  "spaceDeletedSuccessfully": "Espace supprimé avec succès",
+  "failedToDelete": "Échec de la suppression",
+  "continueButton": "Continuer"
 }

@@ -1696,7 +1696,7 @@
   "inviteLink": "邀請連結",
   "generatedInNextStep": "將在下一步生成",
   "continue": "繼續",
-  "createPrivateSpace": "建立私人空間",
+  "createPrivateSpace": "建立私密空間",
   "pleaseEnterValidSpaceName": "請輸入有效的空間名稱",
   "chooseYourSpace": "選擇您的空間",
   "spacesHelpOrganize": "空間可以幫助您有條理地管理資金。以下是它們的區別：",
@@ -1760,5 +1760,11 @@
   "whoCanSeeAndAddExpense": "誰可以查看並新增支出？",
   "dangerZone": "危險區域",
   "deleteHousehold": "刪除空間",
-  "saved": "已儲存"
+  "saved": "已儲存",
+  "everyoneInSpaceCanViewAndAddTransactions": "此空間中的每個人都可以查看和新增交易。您可以在下一步邀請成員。",
+  "onlyYouCanSeeAndAddTransactionsInThisSpace": "只有您可以查看並在此空間中新增交易。",
+  "nameThisSpace": "空間名稱",
+  "spaceDeletedSuccessfully": "空間已成功刪除",
+  "failedToDelete": "刪除失敗",
+  "continueButton": "繼續"
 }
