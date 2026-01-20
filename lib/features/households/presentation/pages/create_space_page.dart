@@ -249,7 +249,7 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
                       : 'Only you can see and add transactions in this space. ',
                 ),
                 TextSpan(
-                  text: context.l10n.howItWorks,
+                  text: context.l10n.howItWorksTitle,
                   style: TextStyle(
                     color: colorScheme.primary,
                     fontWeight: FontWeight.w600,

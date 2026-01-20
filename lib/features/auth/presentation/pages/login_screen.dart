@@ -5,6 +5,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/auth/presentation/widgets/apple_login_button.dart';
 import 'package:moneko/features/auth/presentation/widgets/wallet_login_button.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 
@@ -211,6 +212,11 @@ class LoginScreen extends HookConsumerWidget {
                         children: [
                           // OAuth Sign In
                           GoogleLoginButton(
+                            redirectUrl: '/dashboard',
+                            disabled: isLoading.value,
+                          ),
+                          const SizedBox(height: 12),
+                          AppleLoginButton(
                             redirectUrl: '/dashboard',
                             disabled: isLoading.value,
                           ),

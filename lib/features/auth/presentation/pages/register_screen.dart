@@ -3,6 +3,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/auth/presentation/widgets/apple_login_button.dart';
 import 'package:moneko/features/auth/presentation/widgets/wallet_login_button.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -226,12 +227,17 @@ class _RegistrationFormView extends HookConsumerWidget {
                         children: [
                           // OAuth Sign Up
                           GoogleLoginButton(
-                            redirectUrl: '/avatar',
+                            redirectUrl: '/dashboard',
+                            disabled: isLoading.value,
+                          ),
+                          const SizedBox(height: 12),
+                          AppleLoginButton(
+                            redirectUrl: '/dashboard',
                             disabled: isLoading.value,
                           ),
                           const SizedBox(height: 12),
                           WalletLoginButton(
-                            redirectUrl: '/avatar',
+                            redirectUrl: '/dashboard',
                             disabled: isLoading.value,
                           ),
                           const SizedBox(height: 24),

@@ -73,6 +73,8 @@ dependencies:
   web: ^1.1.0
   flutter_zoom_drawer: ^3.2.0
   adaptive_platform_ui: ^0.1.100
+  crypto: ^3.0.3
+  sign_in_with_apple: ^6.1.1
   reorderable_grid_view: ^2.2.8
   plaid_flutter: ^5.0.5
   home_widget: ^0.8.1

@@ -95,11 +95,7 @@ class _HouseholdMembersSectionState
           canManageMembers,
           currentUserRole,
           currentUserId,
-        ),
-        _buildInvitationsList(
-          context,
-          historyInvites,
-        ),
+        ),    
       ],
     );
   }
