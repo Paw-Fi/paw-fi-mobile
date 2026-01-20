@@ -8,6 +8,7 @@ import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:moneko/shared/widgets/moneko_input.dart';
 
 enum SplitType { equal, amount, percentage, shares }
 
@@ -149,23 +150,17 @@ class GroupSplitEditorSection extends StatelessWidget {
         ? selectedPayerUserId
         : (members.isNotEmpty ? members.first.userId : null);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.muted.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(16),
-      ),
+    return MonekoInput(
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
         children: [
           if (showNotYetSplitBanner && (notYetSplitMessage ?? '').isNotEmpty)
             Container(
-              margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+              margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: colorScheme.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: colorScheme.primary.withValues(alpha: 0.3),
-                ),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
                 children: [
@@ -179,7 +174,7 @@ class GroupSplitEditorSection extends StatelessWidget {
                     child: Text(
                       notYetSplitMessage!,
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 14,
                         color: colorScheme.primary,
                         fontWeight: FontWeight.w500,
                       ),
@@ -188,41 +183,62 @@ class GroupSplitEditorSection extends StatelessWidget {
                 ],
               ),
             ),
+
+          // "Who Paid" Row
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               children: [
                 Expanded(
                   child: Text(
                     context.l10n.whoPaid,
                     style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: colorScheme.foreground,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: colorScheme.onSurface,
                     ),
                   ),
                 ),
-                DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: effectivePayerId,
-                    items: members
-                        .map(
-                          (m) => DropdownMenuItem<String>(
-                            value: m.userId,
-                            child: Text(
-                              m.userName ?? m.userEmail ?? context.l10n.member,
-                              overflow: TextOverflow.ellipsis,
+                MonekoInput(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  borderRadius: BorderRadius.circular(8),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: effectivePayerId,
+                      isDense: true,
+                      icon: Icon(Icons.keyboard_arrow_down_rounded,
+                          color: colorScheme.onSurface.withValues(alpha: 0.5),
+                          size: 20),
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: colorScheme.onSurface,
+                      ),
+                      items: members
+                          .map(
+                            (m) => DropdownMenuItem<String>(
+                              value: m.userId,
+                              child: Text(
+                                m.userName ??
+                                    m.userEmail ??
+                                    context.l10n.member,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: onPayerChanged,
+                          )
+                          .toList(),
+                      onChanged: onPayerChanged,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 8),
+
+          const Divider(height: 1, thickness: 0.5, indent: 16, endIndent: 16),
+          const SizedBox(height: 16),
+
           CustomSplitEditor(
             key: splitEditorKey,
             members: members,
@@ -868,70 +884,56 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Material(
+      color: Colors.transparent,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Entire split sheet with grey background
-          Container(
-            decoration: BoxDecoration(
-              color: colorScheme.homeSplitSheetBackground,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              children: [
-                // Split Type Selector - minimal with pipe separators
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+          Column(
+            children: [
+              // Split Type Selector - Modern Segmented Style
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(                 
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _buildTypeChip(
-                        colorScheme, context.l10n.amount, SplitType.amount),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Text(
-                        '|',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: colorScheme.mutedForeground
-                              .withValues(alpha: 0.3),
-                        ),
-                      ),
-                    ),
-                    _buildTypeChip(colorScheme, context.l10n.percent,
-                        SplitType.percentage),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Text(
-                        '|',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: colorScheme.mutedForeground
-                              .withValues(alpha: 0.3),
-                        ),
-                      ),
-                    ),
-                    _buildTypeChip(
-                        colorScheme, context.l10n.splitShare, SplitType.shares),
+                    Expanded(
+                        child: _buildTypeChip(colorScheme, context.l10n.amount,
+                            SplitType.amount)),
+                    Expanded(
+                        child: _buildTypeChip(colorScheme, context.l10n.percent,
+                            SplitType.percentage)),
+                    Expanded(
+                        child: _buildTypeChip(colorScheme,
+                            context.l10n.splitShare, SplitType.shares)),
                   ],
                 ),
+              ),
 
-                const SizedBox(height: 16),
+              const SizedBox(height: 24),
 
-                // Member List
-                ListView.separated(
+              // Member List
+              MonekoInput(
+                child: ListView.separated(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   padding: EdgeInsets.zero,
                   itemCount: _memberSplits.length,
-                  separatorBuilder: (context, index) =>
-                      const SizedBox(height: 8),
+                  separatorBuilder: (context, index) => Divider(
+                      height: 1,
+                      thickness: 0.5,
+                      indent: 16,
+                      color: colorScheme.outline.withValues(alpha: 0.1)),
                   itemBuilder: (context, index) {
                     return _buildMemberRow(colorScheme, index);
                   },
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
 
           // Validation Error
@@ -987,12 +989,27 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
         _validate();
         _queueNotify();
       },
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-          color: isSelected ? colorScheme.primary : colorScheme.mutedForeground,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? colorScheme.primary.withValues(alpha: 0.1)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            color: isSelected
+                ? colorScheme.primary
+                : colorScheme.onSurface.withValues(alpha: 0.6),
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
       ),
     );
@@ -1101,7 +1118,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
     final isIncluded = _isMemberIncludedAt(index);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
       child: Row(
         children: [
           // More rounded checkbox
@@ -1204,33 +1221,30 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
       ),
       decoration: InputDecoration(
         isDense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        filled: false,
-        border: UnderlineInputBorder(
-          borderSide: BorderSide(
-            color: enabled
-                ? colorScheme.mutedForeground.withValues(alpha: 0.4)
-                : colorScheme.mutedForeground.withValues(alpha: 0.2),
-            width: 1,
-          ),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        filled: true,
+        fillColor: enabled
+            ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)
+            : colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide.none,
         ),
-        enabledBorder: UnderlineInputBorder(
-          borderSide: BorderSide(
-            color: colorScheme.mutedForeground.withValues(alpha: 0.4),
-            width: 1,
-          ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide.none,
         ),
-        focusedBorder: UnderlineInputBorder(
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
           borderSide: BorderSide(
-            color: colorScheme.primary,
+            color: colorScheme.primary.withValues(alpha: 0.5),
             width: 1.5,
           ),
         ),
-        disabledBorder: UnderlineInputBorder(
-          borderSide: BorderSide(
-            color: colorScheme.mutedForeground.withValues(alpha: 0.2),
-            width: 1,
-          ),
+        disabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide.none,
         ),
         prefixText: prefix.isNotEmpty ? prefix : null,
         prefixStyle: TextStyle(
@@ -1301,7 +1315,7 @@ class _CustomSplitSheetState extends State<_CustomSplitSheet> {
         maxHeight: MediaQuery.of(context).size.height * 0.85,
       ),
       decoration: BoxDecoration(
-        color: colorScheme.card,
+        color: colorScheme.appleGroupedBackground,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(

@@ -383,6 +383,11 @@ extension AppColorScheme on ColorScheme {
   Color get homeSplitSheetBackground => brightness == Brightness.dark
       ? AppTheme.darkCardBg
       : AppTheme.lightSplitSheetBg;
+
+  /// Apple-style grouped background for transaction sheets
+  Color get appleGroupedBackground => brightness == Brightness.dark
+      ? AppTheme.iosSystemGroupedBackgroundDark
+      : AppTheme.iosSystemGroupedBackground;
 }
 
 /// Moneko app theme configuration matching web's Tailwind design system
@@ -415,6 +420,14 @@ class AppTheme {
   static const Color lightInputBg = Color(0xFFF9FAFB); // Gray-50
 
   static const Color lightBorder = Color(0xFFE5E7EB); // --subtle-border
+
+  // Apple-style system grouped background
+  static const Color iosSystemGroupedBackground = Color(0xFFF2F2F6);
+  static const Color iosSystemGroupedBackgroundDark = Color(0xFF1C1C1E);
+
+  // Apple-style input backgrounds
+  static const Color iosInputLight = Color(0xFFFFFFFF);
+  static const Color iosInputDark = Color(0xFF2C2C2E);
 
   // REVISED: Darker muted text for WCAG compliance (Gray-600)
   static const Color lightMuted = Color(0xFF4B5563);

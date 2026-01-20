@@ -23,10 +23,9 @@ import 'package:moneko/features/home/presentation/state/home_filter_provider.dar
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/utils/currency.dart';
-import 'package:moneko/shared/widgets/moneko_avatar.dart';
 
 /// Single unified page to create either a Private Space or a Group Space (Household).
-/// Refactored for a premium, Apple-like feel with distinct usage modes.
+/// Refactored for a premium, Apple iOS 26-like feel with card-based layout.
 class CreateSpacePage extends ConsumerStatefulWidget {
   const CreateSpacePage({
     super.key,
@@ -115,44 +114,11 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
   }
 
   void _showSpacesInfo() {
+    final colorScheme = Theme.of(context).colorScheme;
     showDialog(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.5),
+      barrierColor: colorScheme.scrim.withValues(alpha: 0.5),
       builder: (context) => const SpacesExplanationModal(),
-    );
-  }
-
-  Widget _buildSpaceDescription(ColorScheme colorScheme) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: RichText(
-        textAlign: TextAlign.center,
-        text: TextSpan(
-          style: TextStyle(
-            fontSize: 13,
-            color: colorScheme.mutedForeground,
-            height: 1.4,
-          ),
-          children: [
-            TextSpan(
-              text: _isSharedSpace
-                  ? context.l10n.sharedSpacesDescription
-                  : context.l10n.privateSpacesDescription,
-            ),
-            TextSpan(
-              text: context.l10n.howDoSpacesWork,
-              style: TextStyle(
-                fontSize: 13,
-                color: colorScheme.primary,
-                fontWeight: FontWeight.w600,
-                decoration: TextDecoration.underline,
-                decorationColor: colorScheme.primary,
-              ),
-              recognizer: TapGestureRecognizer()..onTap = _showSpacesInfo,
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -160,36 +126,51 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final isLoading = _isCreating || _isUploadingImage;
-    final currentUser = ref.watch(authProvider);
+
+    // Use the theme background for an airy, unified surface.
+    final backgroundColor = colorScheme.appBackground;
 
     return AdaptiveScaffold(
       appBar: AdaptiveAppBar(
-        title: context.l10n.createSpace, // TODO: Localize
+        title: context.l10n.createSpace,
       ),
-      body: SafeArea(
-        child: Material(
-          color: colorScheme.appBackground,
+      body: Container(
+        color: backgroundColor,
+        child: SafeArea(
           child: Column(
             children: [
               Expanded(
                 child: SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
                   padding: EdgeInsets.only(
-                    top: getSubPageTopPadding(context),
-                    left: 16,
-                    right: 16,
-                    bottom: 24,
+                    top: getSubPageTopPadding(context) ,
+                    left: 24,
+                    right: 24,
+                    bottom: 120, // Space for bottom bar
                   ),
                   child: Form(
                     key: _formKey,
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildSpaceDescription(colorScheme),
-                        const SizedBox(height: 20),
-                        _buildFormCard(colorScheme, isLoading),
-                        const SizedBox(height: 20),
-                        _buildMembersSection(colorScheme, currentUser),
+                        // Form Card
+                        CreateHouseholdFormContent(
+                          nameController: _nameController,
+                          selectedImageUrl: _selectedImageUrl,
+                          selectedImageFile: _selectedImageFile,
+                          isLoading: isLoading,
+                          onImageSelected: (imageUrl, imageFile) {
+                            if (!mounted) return;
+                            setState(() {
+                              _selectedImageUrl = imageUrl;
+                              _selectedImageFile = imageFile;
+                            });
+                          },
+                        ),
+      
+                        const SizedBox(height: 36),
+      
+                        // Shared/Members Card
+                        _buildMembersCard(colorScheme),
                       ],
                     ),
                   ),
@@ -203,77 +184,97 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
     );
   }
 
-  Widget _buildFormCard(ColorScheme colorScheme, bool isLoading) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: colorScheme.cardSurface,
-        borderRadius: BorderRadius.circular(20),
-        // subtle border for "crisp" feel rather than just shadow
-        border: Border.all(
-            color: colorScheme.border.withValues(alpha: 0.04), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: CreateHouseholdFormContent(
-        nameController: _nameController,
-        selectedImageUrl: _selectedImageUrl,
-        selectedImageFile: _selectedImageFile,
-        isLoading: isLoading,
-        onImageSelected: (imageUrl, imageFile) {
-          if (!mounted) return;
-          setState(() {
-            _selectedImageUrl = imageUrl;
-            _selectedImageFile = imageFile;
-          });
-        },
-      ),
-    );
-  }
+  Widget _buildMembersCard(ColorScheme colorScheme) {
+    final user = Supabase.instance.client.auth.currentUser;
+    final userName = user?.userMetadata?['full_name'] ?? 'Me';
 
-  Widget _buildMembersSection(ColorScheme colorScheme, AppUser currentUser) {
     return Container(
+      width: double.infinity,
       decoration: BoxDecoration(
         color: colorScheme.cardSurface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-            color: colorScheme.border.withValues(alpha: 0.04), width: 1),
+        borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
+            color: colorScheme.shadow.withValues(alpha: 0.06),
+            blurRadius: 32,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
-      child: Column(
-        children: [
-          // "Settings-like" Switch Row
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            child: Row(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          children: [
+            // Header + Switch
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            'Shared With Others',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: colorScheme.foreground,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          GestureDetector(
+                            onTap: _showSpacesInfo,
+                            child: Icon(
+                              Icons.info_outline_rounded,
+                              size: 18,
+                              color: colorScheme.primary.withValues(alpha: 0.6),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Everyone can see and add expenses.',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: colorScheme.mutedForeground,
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                AdaptiveSwitch(
+                  value: _isSharedSpace,
+                  onChanged: (value) => setState(() => _isSharedSpace = value),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 36), // Breathing room instead of divider
+
+            // Members List - Owner
+            Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  width: 44,
+                  height: 44,
                   decoration: BoxDecoration(
-                    color: _isSharedSpace
-                        ? colorScheme.primary.withValues(alpha: 0.1)
-                        : colorScheme.muted.withValues(alpha: 0.1),
+                    color: colorScheme.muted,
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(
-                    _isSharedSpace
-                        ? Icons.group_rounded
-                        : Icons.lock_outline_rounded,
-                    size: 20,
-                    color: _isSharedSpace
-                        ? colorScheme.primary
-                        : colorScheme.mutedForeground,
+                  alignment: Alignment.center,
+                  child: Text(
+                    userName.substring(0, 1).toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: colorScheme.foreground,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -282,263 +283,133 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _isSharedSpace
-                            ? context.l10n.sharedSpace
-                            : context.l10n.privateSpace,
+                        userName,
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                           color: colorScheme.foreground,
-                          letterSpacing: -0.3,
                         ),
                       ),
-                      const SizedBox(height: 2),
                       Text(
-                        _isSharedSpace
-                            ? context.l10n.inviteMembers
-                            : context.l10n.onlyYou, // Keep it short/clean
+                        'Owner',
                         style: TextStyle(
                           fontSize: 13,
+                          fontWeight: FontWeight.w500,
                           color: colorScheme.mutedForeground,
                         ),
                       ),
                     ],
                   ),
                 ),
-                AdaptiveSwitch(
-                  value: _isSharedSpace,
-                  onChanged: (value) => setState(() => _isSharedSpace = value),
-                  activeColor: colorScheme.primary,
-                ),
+                if (_isSharedSpace)
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: colorScheme.successSurface,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.check_rounded,
+                      size: 14,
+                      color: colorScheme.success,
+                    ),
+                  ),
               ],
             ),
-          ),
 
-          // Divider inserted only if we have list content (which we always do)
-          Padding(
-            padding: const EdgeInsets.only(left: 60),
-            child: Divider(
-              height: 1,
-              color: colorScheme.border.withValues(alpha: 0.08),
-            ),
-          ),
-
-          // Content
-          AnimatedSize(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOutCubic,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-              child: _isSharedSpace
-                  ? _buildSharedMembersList(colorScheme, currentUser)
-                  : _buildPrivateMembersList(colorScheme, currentUser),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSharedMembersList(ColorScheme colorScheme, AppUser currentUser) {
-    return Column(
-      key: const ValueKey('shared'),
-      children: [
-        _buildMemberRow(
-          colorScheme,
-          currentUser.displayName ?? context.l10n.you, // TODO: Localize
-          context.l10n.owner, // TODO: Localize
-          currentUser.photoUrl,
-          userId: currentUser.uid,
-        ),
-        const SizedBox(height: 16),
-        _buildInvitePlaceholderRow(colorScheme),
-      ],
-    );
-  }
-
-  Widget _buildPrivateMembersList(
-      ColorScheme colorScheme, AppUser currentUser) {
-    return Column(
-      key: const ValueKey('private'),
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildMemberRow(
-          colorScheme,
-          currentUser.displayName ?? context.l10n.you, // TODO: Localize
-          context.l10n.ownerPrivate, // TODO: Localize
-          currentUser.photoUrl,
-          userId: currentUser.uid,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMemberRow(
-    ColorScheme colorScheme,
-    String name,
-    String role,
-    String? fallbackAvatarUrl, {
-    String? userId,
-  }) {
-    final avatarWidget = userId != null
-        ? MonekoAvatar.supabaseUser(
-            size: 40,
-            userId: userId,
-            fallbackImageUrl: fallbackAvatarUrl,
-            borderWidth: 1.5,
-            borderColor: colorScheme.surface,
-          )
-        : MonekoAvatar.network(
-            size: 40,
-            fallbackIcon: Icons.person_rounded,
-            imageUrl: fallbackAvatarUrl,
-            borderWidth: 1.5,
-            borderColor: colorScheme.surface,
-          );
-
-    return Row(
-      children: [
-        // Avatar with subtle shadow
-        Container(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.08),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: avatarWidget,
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                name,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.foreground,
-                  letterSpacing: -0.2,
-                ),
-              ),
-              Text(
-                role,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: colorScheme.mutedForeground,
+            // Add Friends (Invite)
+            if (_isSharedSpace) ...[
+              const SizedBox(height: 28), // Spacing instead of divider
+              Material(
+                color: colorScheme.surface.withValues(alpha: 0.0),
+                child: InkWell(
+                  onTap: () {},
+                  borderRadius: BorderRadius.circular(20),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: colorScheme.primary
+                              .withValues(alpha: 0.08), // Very subtle purple bg
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons
+                              .add_rounded, // Simple plus is often cleaner than person_add
+                          color: colorScheme.primary,
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Add Friends',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.foreground,
+                              ),
+                            ),
+                            Text(
+                              "Invite link generated next",
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: colorScheme.mutedForeground,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
-          ),
+          ],
         ),
-      ],
-    );
-  }
-
-  Widget _buildInvitePlaceholderRow(ColorScheme colorScheme) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: colorScheme.muted.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: colorScheme.border.withValues(alpha: 0.06),
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: colorScheme.surface,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.link_rounded,
-              size: 18,
-              color: colorScheme.primary,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  context.l10n.inviteLink,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.foreground,
-                    letterSpacing: -0.2,
-                  ),
-                ),
-                Text(
-                  context.l10n.generatedInNextStep, // TODO: Localize
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: colorScheme.mutedForeground,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
 
   Widget _buildBottomBar(ColorScheme colorScheme, bool isLoading) {
+    final scaffoldBackgroundColor = Theme.of(context).scaffoldBackgroundColor;
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
       decoration: BoxDecoration(
-        color: colorScheme.surface.withValues(alpha: 0.8), // Glass effect base
-        border: Border(
-          top: BorderSide(color: colorScheme.border.withValues(alpha: 0.1)),
+        // Floating effect via gradient fade or just subtle background
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            scaffoldBackgroundColor.withValues(alpha: 0.0),
+            scaffoldBackgroundColor.withValues(alpha: 0.8),
+            scaffoldBackgroundColor,
+          ],
+          stops: const [0.0, 0.4, 1.0],
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
       ),
       child: SafeArea(
         top: false,
         child: SizedBox(
-          height: 52,
+          height: 56, // Slightly taller button
           child: PrimaryAdaptiveButton(
             onPressed: isLoading ? null : _handleCreation,
             child: isLoading
                 ? const CircularProgressIndicator.adaptive()
-                : Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        _isSharedSpace
-                            ? context.l10n
-                                .continueAction // Cleaner "Continue" vs "Next"
-                            : context.l10n.createPrivateSpace, // TODO: Localize
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 16,
-                          letterSpacing: -0.2,
-                        ),
-                      ),
-                      if (_isSharedSpace) ...[
-                        const SizedBox(width: 8),
-                        // More subtle arrow
-                        const Icon(Icons.arrow_forward_rounded, size: 20),
-                      ],
-                    ],
+                : Text(
+                    _isSharedSpace ? 'Continue' : 'Create Private Space',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 17,
+                      letterSpacing: -0.3,
+                    ),
                   ),
           ),
         ),
@@ -628,15 +499,13 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
 
   Future<void> _generateInvitationAndNavigate(
       String householdId, String householdName) async {
-    // Navigate to the InviteMembersPage directly
-    // The invite link will be generated there based on user configuration
     if (!mounted) return;
     setState(() => _isCreating = false);
 
     final done = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (context) => InviteMembersPage(
-          householdId: householdId, // Pass ID instead of pre-generated URL
+          householdId: householdId,
           householdName: householdName,
           onDone: () => Navigator.of(context).pop(true),
         ),

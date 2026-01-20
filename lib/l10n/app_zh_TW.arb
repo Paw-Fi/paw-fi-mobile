@@ -1736,5 +1736,20 @@
   "splitGroupNotFound": "未找到分攤小組",
   "coverImageSemanticLabel": "封面圖片",
   "managePrivateSpace": "管理私人空間",
-  "manageSharedSpace": "管理共享空間"
+  "manageSharedSpace": "管理共享空間",
+  "claimFreeTrial": "領取免費試用",
+  "youreAllSet": "都準備好了！",
+  "claimYourFreeTrialToUnlockAllFeatures": "啟用免費試用，解鎖所有功能",
+  "startYourJourneyWithMoneko": "開始你的 Moneko 旅程",
+  "oneMonthFreePremiumAccess": "1 個月免費 Premium 體驗",
+  "premiumFeatures": "Premium 功能",
+  "syncAcrossDevices": "跨裝置同步",
+  "sharedSpacesAndBudgets": "共享空間與預算",
+  "joinDiscordForMonthVoucher": "加入 Discord 領取 {months} 個月優惠序號",
+  "joinOurDiscordForVoucher": "加入我們的 Discord，取得 {months} 個月免費使用的兌換碼！",
+  "yourSubscriptionHasExpired": "你的訂閱已到期",
+  "resubscribeToContinueEnjoying": "重新訂閱，繼續享受 Premium 功能與分析。",
+  "continuePremiumAccess": "繼續使用 Premium",
+  "allPremiumFeatures": "所有 Premium 功能",
+  "resubscribe": "重新訂閱"
 }

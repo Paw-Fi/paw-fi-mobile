@@ -1738,5 +1738,20 @@
   "splitGroupNotFound": "تقسیم والا گروپ نہیں ملا",
   "coverImageSemanticLabel": "کوراج امیج",
   "managePrivateSpace": "نجی جگہ کا انتظام کریں",
-  "manageSharedSpace": "مشترک جگہ کا انتظام کریں"
+  "manageSharedSpace": "مشترک جگہ کا انتظام کریں",
+  "claimFreeTrial": "مفت آزمائش شروع کریں",
+  "youreAllSet": "سب تیار ہے!",
+  "claimYourFreeTrialToUnlockAllFeatures": "تمام فیچرز کھولنے کے لیے مفت آزمائش حاصل کریں",
+  "startYourJourneyWithMoneko": "Moneko کے ساتھ اپنا سفر شروع کریں",
+  "oneMonthFreePremiumAccess": "1 ماہ کی مفت پریمیم رسائی",
+  "premiumFeatures": "پریمیم فیچرز",
+  "syncAcrossDevices": "تمام ڈیوائسز پر ہم آہنگی",
+  "sharedSpacesAndBudgets": "مشترکہ اسپیسز اور بجٹس",
+  "joinDiscordForMonthVoucher": "Discord میں شامل ہو کر {months} ماہ کا واؤچر حاصل کریں",
+  "joinOurDiscordForVoucher": "ہمارے Discord میں شامل ہو کر {months} ماہ کی مفت رسائی کا کوڈ حاصل کریں!",
+  "yourSubscriptionHasExpired": "آپ کی سبسکرپشن ختم ہو چکی ہے",
+  "resubscribeToContinueEnjoying": "پریمیم فیچرز اور تجزیات جاری رکھنے کے لیے دوبارہ سبسکرائب کریں۔",
+  "continuePremiumAccess": "پریمیم رسائی جاری رکھیں",
+  "allPremiumFeatures": "تمام پریمیم فیچرز",
+  "resubscribe": "دوبارہ سبسکرائب کریں"
 }

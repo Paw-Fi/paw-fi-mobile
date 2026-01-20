@@ -1739,5 +1739,20 @@
   "splitGroupNotFound": "Split-groep niet gevonden",
   "coverImageSemanticLabel": "Coverafbeelding",
   "managePrivateSpace": "Private ruimte beheren",
-  "manageSharedSpace": "Gedeelde ruimte beheren"
+  "manageSharedSpace": "Gedeelde ruimte beheren",
+  "claimFreeTrial": "Gratis proefperiode starten",
+  "youreAllSet": "Je bent er klaar voor!",
+  "claimYourFreeTrialToUnlockAllFeatures": "Start je gratis proefperiode om alle functies te ontgrendelen",
+  "startYourJourneyWithMoneko": "Begin je reis met Moneko",
+  "oneMonthFreePremiumAccess": "1 maand gratis Premium-toegang",
+  "premiumFeatures": "Premiumfuncties",
+  "syncAcrossDevices": "Synchroniseer tussen apparaten",
+  "sharedSpacesAndBudgets": "Gedeelde ruimtes en budgetten",
+  "joinDiscordForMonthVoucher": "Word lid van Discord voor een voucher van {months} maanden",
+  "joinOurDiscordForVoucher": "Word lid van onze Discord en ontvang een code voor {months} maanden gratis toegang!",
+  "yourSubscriptionHasExpired": "Je abonnement is verlopen",
+  "resubscribeToContinueEnjoying": "Neem opnieuw een abonnement om Premium-functies en inzichten te blijven gebruiken.",
+  "continuePremiumAccess": "Premium-toegang voortzetten",
+  "allPremiumFeatures": "Alle Premiumfuncties",
+  "resubscribe": "Opnieuw abonneren"
 }

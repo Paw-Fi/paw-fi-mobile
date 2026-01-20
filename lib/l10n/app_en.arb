@@ -1826,5 +1826,9 @@
   "resubscribeToContinueEnjoying": "Resubscribe to continue enjoying premium features and insights.",
   "continuePremiumAccess": "Continue premium access",
   "allPremiumFeatures": "All premium features",
-  "resubscribe": "Resubscribe"
+  "resubscribe": "Resubscribe",
+  "dangerZone": "Danger Zone",
+  "deleteHousehold": "Delete Space",
+  "saved": "Saved",
+  "onlyAdminsAndOwnersCanEditHouseholdSettings": "Only admins and owners can edit space settings"
 }

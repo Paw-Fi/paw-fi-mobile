@@ -412,19 +412,13 @@ class DeepLinkService {
       if (subRoute == 'settings' && queryParams != null) {
         debugPrint('📍 Settings sub-route with params: $queryParams');
 
-        // Parse tab parameter (0 = settings, 1 = members, 2 = invitations)
-        final tabParam = queryParams['tab'];
-        final initialTab = tabParam != null ? int.tryParse(tabParam) : null;
-
-        debugPrint('🏠 Opening household settings with tab: $initialTab');
-
-        // Navigate to household settings page with initial tab
+        // Navigate to household settings page
+        // Tab parameter is ignored as we use a single page layout now
         if (navigatorContext.mounted) {
           Navigator.of(navigatorContext).push(
             MaterialPageRoute(
               builder: (_) => HouseholdSettingsPage(
                 householdId: householdId,
-                initialTab: initialTab,
               ),
             ),
           );

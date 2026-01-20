@@ -1792,5 +1792,20 @@
   "splitGroupNotFound": "グループが見つかりません",
   "coverImageSemanticLabel": "カバー画像",
   "managePrivateSpace": "プライベートスペースを管理",
-  "manageSharedSpace": "共有スペースを管理"
+  "manageSharedSpace": "共有スペースを管理",
+  "claimFreeTrial": "無料トライアルを開始",
+  "youreAllSet": "準備完了！",
+  "claimYourFreeTrialToUnlockAllFeatures": "無料トライアルで全機能をアンロック",
+  "startYourJourneyWithMoneko": "Monekoで新しい一歩を始めよう",
+  "oneMonthFreePremiumAccess": "プレミアムを1か月無料で",
+  "premiumFeatures": "プレミアム機能",
+  "syncAcrossDevices": "デバイス間で同期",
+  "sharedSpacesAndBudgets": "共有スペースと予算",
+  "joinDiscordForMonthVoucher": "Discordに参加して{months}か月分のクーポンを獲得",
+  "joinOurDiscordForVoucher": "公式Discordに参加して{months}か月分の無料コードをゲット！",
+  "yourSubscriptionHasExpired": "サブスクリプションの有効期限が切れました",
+  "resubscribeToContinueEnjoying": "再登録してプレミアム機能と分析を引き続き利用しましょう。",
+  "continuePremiumAccess": "プレミアム利用を続ける",
+  "allPremiumFeatures": "すべてのプレミアム機能",
+  "resubscribe": "再登録"
 }

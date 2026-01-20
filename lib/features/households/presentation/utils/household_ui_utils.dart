@@ -50,26 +50,14 @@ class RoleBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = getRoleColor(role, Theme.of(context).colorScheme);
+    final color = Theme.of(context).colorScheme.mutedForeground;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: color.withValues(alpha: 0.2),
-          width: 1,
-        ),
-      ),
-      child: Text(
-        _getLocalizedRole(context, role),
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: color,
-          letterSpacing: 0.3,
-        ),
+    return Text(
+      _getLocalizedRole(context, role),
+      style: TextStyle(
+        fontSize: 15,
+        color: color,
+        fontWeight: FontWeight.w400,
       ),
     );
   }

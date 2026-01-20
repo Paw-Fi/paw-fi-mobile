@@ -1784,5 +1784,20 @@
   "splitGroupNotFound": "Група не знайдена",
   "coverImageSemanticLabel": "Обкладинка",
   "managePrivateSpace": "Керування особистим простором",
-  "manageSharedSpace": "Керування спільним простором"
+  "manageSharedSpace": "Керування спільним простором",
+  "claimFreeTrial": "Спробувати безкоштовно",
+  "youreAllSet": "Усе готово!",
+  "claimYourFreeTrialToUnlockAllFeatures": "Активуйте пробний період, щоб розблокувати всі функції",
+  "startYourJourneyWithMoneko": "Почніть свою подорож з Moneko",
+  "oneMonthFreePremiumAccess": "1 місяць безкоштовного Premium-доступу",
+  "premiumFeatures": "Преміум-функції",
+  "syncAcrossDevices": "Синхронізація між пристроями",
+  "sharedSpacesAndBudgets": "Спільні простори та бюджети",
+  "joinDiscordForMonthVoucher": "Приєднуйтесь до Discord та отримайте ваучер на {months} місяців",
+  "joinOurDiscordForVoucher": "Приєднуйтесь до нашого Discord і отримайте код на {months} місяців безкоштовного доступу!",
+  "yourSubscriptionHasExpired": "Термін дії підписки закінчився",
+  "resubscribeToContinueEnjoying": "Оформіть підписку знову, щоб і надалі користуватися преміум-функціями та аналітикою.",
+  "continuePremiumAccess": "Продовжити преміум-доступ",
+  "allPremiumFeatures": "Усі преміум-функції",
+  "resubscribe": "Поновити підписку"
 }

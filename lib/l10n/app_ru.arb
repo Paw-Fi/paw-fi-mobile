@@ -1742,5 +1742,20 @@
   "splitGroupNotFound": "Группа не найдена",
   "coverImageSemanticLabel": "Обложка",
   "managePrivateSpace": "Управление личным пространством",
-  "manageSharedSpace": "Управление общим пространством"
+  "manageSharedSpace": "Управление общим пространством",
+  "claimFreeTrial": "Попробовать бесплатно",
+  "youreAllSet": "Всё готово!",
+  "claimYourFreeTrialToUnlockAllFeatures": "Активируйте пробный период, чтобы разблокировать все функции",
+  "startYourJourneyWithMoneko": "Начните свой путь с Moneko",
+  "oneMonthFreePremiumAccess": "1 месяц бесплатного Premium-доступа",
+  "premiumFeatures": "Премиум-функции",
+  "syncAcrossDevices": "Синхронизация между устройствами",
+  "sharedSpacesAndBudgets": "Общие пространства и бюджеты",
+  "joinDiscordForMonthVoucher": "Присоединяйтесь к Discord и получите ваучер на {months} месяцев",
+  "joinOurDiscordForVoucher": "Присоединяйтесь к нашему Discord и получите код на {months} месяцев бесплатного доступа!",
+  "yourSubscriptionHasExpired": "Срок действия подписки истёк",
+  "resubscribeToContinueEnjoying": "Оформите подписку снова, чтобы продолжить пользоваться премиум-функциями и аналитикой.",
+  "continuePremiumAccess": "Продолжить премиум-доступ",
+  "allPremiumFeatures": "Все премиум-функции",
+  "resubscribe": "Возобновить подписку"
 }

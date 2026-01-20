@@ -1792,5 +1792,20 @@
   "splitGroupNotFound": "Split-Gruppe nicht gefunden",
   "coverImageSemanticLabel": "Titelbild",
   "managePrivateSpace": "Privaten Raum verwalten",
-  "manageSharedSpace": "Geteilten Raum verwalten"
+  "manageSharedSpace": "Geteilten Raum verwalten",
+  "claimFreeTrial": "Kostenlose Testversion starten",
+  "youreAllSet": "Alles erledigt!",
+  "claimYourFreeTrialToUnlockAllFeatures": "Starte deine kostenlose Testversion und schalte alle Funktionen frei",
+  "startYourJourneyWithMoneko": "Starte deine Reise mit Moneko",
+  "oneMonthFreePremiumAccess": "1 Monat kostenloser Premium-Zugang",
+  "premiumFeatures": "Premium-Funktionen",
+  "syncAcrossDevices": "Geräteübergreifend synchronisieren",
+  "sharedSpacesAndBudgets": "Geteilte Budgets & Spaces",
+  "joinDiscordForMonthVoucher": "Tritt unserem Discord bei und erhalte einen Gutschein für {months} Monate",
+  "joinOurDiscordForVoucher": "Tritt unserem Discord bei und erhalte einen Gutscheincode für {months} Monate kostenlosen Zugang!",
+  "yourSubscriptionHasExpired": "Dein Abonnement ist abgelaufen",
+  "resubscribeToContinueEnjoying": "Erneuere dein Abonnement, um Premium-Funktionen und Analysen weiter zu nutzen.",
+  "continuePremiumAccess": "Premium-Zugang fortsetzen",
+  "allPremiumFeatures": "Alle Premium-Funktionen",
+  "resubscribe": "Erneut abonnieren"
 }

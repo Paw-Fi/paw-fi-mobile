@@ -1791,5 +1791,20 @@
   "splitGroupNotFound": "Không tìm thấy nhóm chia sẻ",
   "coverImageSemanticLabel": "Ảnh bìa",
   "managePrivateSpace": "Quản lý không gian riêng tư",
-  "manageSharedSpace": "Quản lý không gian chia sẻ"
+  "manageSharedSpace": "Quản lý không gian chia sẻ",
+  "claimFreeTrial": "Bắt đầu dùng thử miễn phí",
+  "youreAllSet": "Mọi thứ đã sẵn sàng!",
+  "claimYourFreeTrialToUnlockAllFeatures": "Bắt đầu dùng thử miễn phí để mở khóa tất cả tính năng",
+  "startYourJourneyWithMoneko": "Bắt đầu hành trình cùng Moneko",
+  "oneMonthFreePremiumAccess": "1 tháng sử dụng Premium miễn phí",
+  "premiumFeatures": "Tính năng Premium",
+  "syncAcrossDevices": "Đồng bộ trên nhiều thiết bị",
+  "sharedSpacesAndBudgets": "Không gian & ngân sách dùng chung",
+  "joinDiscordForMonthVoucher": "Tham gia Discord để nhận voucher {months} tháng",
+  "joinOurDiscordForVoucher": "Tham gia Discord của chúng tôi để nhận mã dùng miễn phí {months} tháng!",
+  "yourSubscriptionHasExpired": "Gói đăng ký của bạn đã hết hạn",
+  "resubscribeToContinueEnjoying": "Đăng ký lại để tiếp tục sử dụng các tính năng và phân tích Premium.",
+  "continuePremiumAccess": "Tiếp tục dùng Premium",
+  "allPremiumFeatures": "Tất cả tính năng Premium",
+  "resubscribe": "Đăng ký lại"
 }

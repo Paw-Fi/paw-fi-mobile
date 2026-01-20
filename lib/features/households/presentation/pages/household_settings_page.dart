@@ -1,37 +1,35 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/utils/sub_page_top_padding.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
-import 'package:moneko/shared/widgets/destructive_adaptive_button.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-// removed shared budgets UI from settings; budgets are managed elsewhere
-import '../../domain/entities/household.dart';
-import '../providers/household_providers.dart';
-import '../providers/selected_household_provider.dart';
-import '../widgets/household_image_picker.dart';
-import '../utils/household_ui_utils.dart';
-import '../../../../core/config/storage_config.dart';
-import 'invite_members_page.dart';
+
+import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
-import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
+import '../../../../core/config/storage_config.dart';
+
+import '../../domain/entities/household.dart';
+import '../providers/household_providers.dart';
+import '../providers/selected_household_provider.dart';
+import '../widgets/create_household_form_content.dart';
+import '../utils/household_ui_utils.dart';
 
 /// Household Settings Page
-/// Manage budgets, privacy preferences, and household settings
+/// Single page layout for managing household settings, members, and invitations.
 class HouseholdSettingsPage extends ConsumerStatefulWidget {
   final String householdId;
-  final int? initialTab;
 
   const HouseholdSettingsPage({
     super.key,
     required this.householdId,
-    this.initialTab,
   });
 
   @override
@@ -39,119 +37,22 @@ class HouseholdSettingsPage extends ConsumerStatefulWidget {
       _HouseholdSettingsPageState();
 }
 
-class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage>
-    with SingleTickerProviderStateMixin {
-  TabController? _tabController;
+class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
+  // General Settings State
+  final _nameController = TextEditingController();
+  String? _selectedImageUrl;
+  File? _selectedImageFile;
+  bool _isSavingSettings = false;
+  bool _isDeletingHousehold = false;
 
   @override
   void initState() {
     super.initState();
+    // Initial fetch of invites since they might not be loaded yet
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(householdInvitesProvider(widget.householdId).notifier).load();
+    });
   }
-
-  @override
-  void dispose() {
-    _tabController?.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final householdAsync = ref.watch(householdProvider(widget.householdId));
-    final shouldShowAllTabs = householdAsync.asData?.value?.isPortfolio != true;
-    final desiredTabCount = shouldShowAllTabs ? 3 : 1;
-
-    if (_tabController == null || _tabController!.length != desiredTabCount) {
-      _tabController?.dispose();
-      // Use initialTab if provided and valid, otherwise default to 0
-      final initialIndex = (widget.initialTab != null &&
-              widget.initialTab! >= 0 &&
-              widget.initialTab! < desiredTabCount)
-          ? widget.initialTab!
-          : 0;
-      _tabController = TabController(
-        length: desiredTabCount,
-        vsync: this,
-        initialIndex: initialIndex,
-      );
-      _tabController!.addListener(() {
-        if (mounted) setState(() {});
-      });
-    }
-
-    return AdaptiveScaffold(
-      appBar: AdaptiveAppBar(
-        title: context.l10n.householdSettings,
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.only(top: getSubPageTopPadding(context)),
-          child: Material(
-            child: Container(
-              color: Theme.of(context).colorScheme.appBackground,
-              child: Column(
-                children: [
-                  if (shouldShowAllTabs)
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: SizedBox(
-                        height: 48,
-                        width: double.infinity,
-                        child: AdaptiveSegmentedControl(
-                          labels: [
-                            context.l10n.settings,
-                            context.l10n.members,
-                            context.l10n.invitations,
-                          ],
-                          selectedIndex: _tabController!.index,
-                          onValueChanged: (index) =>
-                              _tabController!.animateTo(index),
-                        ),
-                      ),
-                    ),
-                  Expanded(
-                    child: TabBarView(
-                      controller: _tabController,
-                      physics: shouldShowAllTabs
-                          ? null
-                          : const NeverScrollableScrollPhysics(),
-                      children: shouldShowAllTabs
-                          ? [
-                              _GeneralTab(householdId: widget.householdId),
-                              _MembersTab(householdId: widget.householdId),
-                              HouseholdInvitesTab(
-                                  householdId: widget.householdId),
-                            ]
-                          : [
-                              _GeneralTab(householdId: widget.householdId),
-                            ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// General Tab
-class _GeneralTab extends ConsumerStatefulWidget {
-  final String householdId;
-
-  const _GeneralTab({required this.householdId});
-
-  @override
-  ConsumerState<_GeneralTab> createState() => _GeneralTabState();
-}
-
-class _GeneralTabState extends ConsumerState<_GeneralTab> {
-  final _nameController = TextEditingController();
-  String? _selectedImageUrl;
-  File? _selectedImageFile;
-  bool _isSaving = false;
-  bool _isDeleting = false;
 
   @override
   void dispose() {
@@ -164,641 +65,514 @@ class _GeneralTabState extends ConsumerState<_GeneralTab> {
     final householdAsync = ref.watch(householdProvider(widget.householdId));
     final membersAsync =
         ref.watch(householdMembersProvider(widget.householdId));
+    final invitesAsync =
+        ref.watch(householdInvitesProvider(widget.householdId));
+
     final colorScheme = Theme.of(context).colorScheme;
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
 
-    return householdAsync.when(
-      data: (household) {
-        if (household == null) {
-          return Center(
-            child: Text(
-              context.l10n.householdNotFound,
-              style: TextStyle(color: colorScheme.destructive),
+    return AdaptiveScaffold(
+      appBar: AdaptiveAppBar(
+        title: context.l10n.householdSettings,
+      ),
+      body: householdAsync.when(
+        data: (household) {
+          if (household == null) {
+            return Center(
+              child: Text(
+                context.l10n.householdNotFound,
+                style: TextStyle(color: colorScheme.destructive),
+              ),
+            );
+          }
+
+          final invites = invitesAsync.asData?.value ?? [];
+          final pendingInvites =
+              invites.where((invite) => invite.status == InviteStatus.pending).toList();
+          final historyInvites =
+              invites.where((invite) => invite.status != InviteStatus.pending).toList();
+
+          // Permissions
+          final currentUserMember = membersAsync.asData?.value.firstWhere(
+            (m) => m.userId == currentUserId,
+            orElse: () => HouseholdMember(
+              id: '',
+              householdId: '',
+              userId: currentUserId ?? '',
+              role: HouseholdRole.member,
+              joinedAt: DateTime.now(),
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
             ),
           );
-        }
 
-        final isOwner = household.ownerId == currentUserId;
+          final currentUserRole =
+              currentUserMember?.role ?? HouseholdRole.member;
+          final isOwner = household.ownerId == currentUserId;
+          final canEditSettings = currentUserRole == HouseholdRole.owner ||
+              currentUserRole == HouseholdRole.admin;
+          final canManageMembers = canEditSettings;
 
-        // Get current user's role
-        final currentUserMember = membersAsync.asData?.value.firstWhere(
-          (m) => m.userId == currentUserId,
-          orElse: () => throw Exception('Current user not found in household'),
-        );
+          // Initialize controller if this is the first load
+          if (_nameController.text.isEmpty && !_isSavingSettings) {
+            _nameController.text = household.name;
+          }
+          if (_selectedImageUrl == null &&
+              _selectedImageFile == null &&
+              !_isSavingSettings) {
+            _selectedImageUrl = household.coverImageUrl;
+          }
 
-        final currentUserRole = currentUserMember?.role ?? HouseholdRole.member;
-        final canEdit = currentUserRole == HouseholdRole.owner ||
-            currentUserRole == HouseholdRole.admin;
-
-        // Initialize controller with current name if not already set
-        if (_nameController.text.isEmpty) {
-          _nameController.text = household.name;
-        }
-        if (_selectedImageUrl == null && _selectedImageFile == null) {
-          _selectedImageUrl = household.coverImageUrl;
-        }
-
-        return RefreshIndicator(
-          onRefresh: () async {
-            ref.invalidate(householdProvider(widget.householdId));
-            ref.invalidate(householdMembersProvider(widget.householdId));
-          },
-          child: CustomScrollView(
-            slivers: [
-              SliverPadding(
-                padding: const EdgeInsets.all(16),
-                sliver: SliverList(
-                  delegate: SliverChildListDelegate([
-                    // Permission notice for members
-                    if (!canEdit) ...[
-                      _PermissionNotice(
-                        message: context
-                            .l10n.onlyAdminsAndOwnersCanEditHouseholdSettings,
-                      ),
-                      const SizedBox(height: 24),
-                    ],
-
-                    // Household Name Section
-                    _SectionHeader(
-                      title: context.l10n.householdName,
+          return RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(householdProvider(widget.householdId));
+              ref.invalidate(householdMembersProvider(widget.householdId));
+              ref.invalidate(householdInvitesProvider(widget.householdId));
+              // Small delay to ensure refresh indicator shows up smoothly
+              await Future.delayed(const Duration(milliseconds: 500));
+            },
+            child: Padding(
+              padding:  EdgeInsets.only(top: getSubPageTopPadding(context) ),
+              child: CustomScrollView(
+                slivers: [
+                  SliverPadding(
+                    padding: EdgeInsets.only(
+                      top: getSubPageTopPadding(context),
+                      bottom: 40,
                     ),
-                    const SizedBox(height: 8),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: colorScheme.card,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: colorScheme.surfaceBorder,
+                    sliver: SliverList(
+                      delegate: SliverChildListDelegate([
+                        // 1. General Settings Section
+                        _buildGeneralSettingsSection(
+                          context,
+                          canEditSettings,
+                          household,
                         ),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 4),
-                      child: TextField(
-                        controller: _nameController,
-                        enabled: canEdit,
-                        decoration: InputDecoration(
-                          hintText: context.l10n.pleaseEnterHouseholdName,
-                          border: InputBorder.none,
-                          hintStyle: TextStyle(
-                            color: colorScheme.mutedForeground
-                                .withValues(alpha: 0.6),
-                            fontWeight: FontWeight.w400,
+              
+                        // 2. Members Section
+                        if (membersAsync.hasValue)
+                          _buildMembersSection(
+                            context,
+                            membersAsync.value!,
+                            pendingInvites,
+                            canManageMembers,
+                            currentUserRole,
+                            currentUserId,
                           ),
+              
+                        // 3. Invitations Section
+                        _buildInvitationsSection(
+                          context,
+                          historyInvites,
                         ),
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: colorScheme.foreground,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        maxLength: 50,
-                        buildCounter: (context,
-                                {required currentLength,
-                                required isFocused,
-                                maxLength}) =>
-                            null,
-                      ),
+              
+                        // 4. Danger Zone (Delete)
+                        if (isOwner) _buildDangerZone(context, household),
+                      ]),
                     ),
-                    const SizedBox(height: 32),
-
-                    // Cover Photo Section
-                    _SectionHeader(
-                      title: context.l10n.coverPhoto,
-                    ),
-                    const SizedBox(height: 8),
-                    GestureDetector(
-                      onTap: canEdit
-                          ? () => _showImagePicker(context, household)
-                          : null,
-                      child: Container(
-                        height: 220,
-                        decoration: BoxDecoration(
-                          color: colorScheme.card,
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(
-                            color: colorScheme.surfaceBorder,
-                          ),
-                        ),
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            // Image preview
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(24),
-                              child: _selectedImageFile != null
-                                  ? Image.file(
-                                      _selectedImageFile!,
-                                      fit: BoxFit.cover,
-                                    )
-                                  : _selectedImageUrl != null
-                                      ? Image.network(
-                                          _selectedImageUrl!,
-                                          fit: BoxFit.cover,
-                                          errorBuilder:
-                                              (context, error, stack) =>
-                                                  Container(
-                                            color: colorScheme.muted,
-                                            child: Icon(
-                                              Icons.home_filled,
-                                              size: 64,
-                                              color: colorScheme.mutedForeground
-                                                  .withValues(alpha: 0.5),
-                                            ),
-                                          ),
-                                        )
-                                      : Container(
-                                          color: colorScheme.muted,
-                                          child: Icon(
-                                            Icons.home_filled,
-                                            size: 64,
-                                            color: colorScheme.mutedForeground
-                                                .withValues(alpha: 0.5),
-                                          ),
-                                        ),
-                            ),
-                            // Overlay button
-                            if (canEdit) ...[
-                              Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(24),
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topCenter,
-                                    end: Alignment.bottomCenter,
-                                    colors: [
-                                      Colors.transparent,
-                                      Colors.black.withValues(alpha: 0.4),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              Positioned(
-                                bottom: 16,
-                                right: 16,
-                                child: Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.9),
-                                    shape: BoxShape.circle,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color:
-                                            Colors.black.withValues(alpha: 0.1),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Icon(
-                                    Icons.camera_alt_outlined,
-                                    size: 20,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 40),
-
-                    // Save Button
-                    if (canEdit)
-                      PrimaryAdaptiveButton(
-                        onPressed:
-                            _isSaving ? null : () => _saveChanges(household),
-                        child: _isSaving
-                            ? SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                      colorScheme.primaryForeground),
-                                ),
-                              )
-                            : Text(context.l10n.saveChanges),
-                      ),
-                    if (isOwner) ...[
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        child: DestructiveAdaptiveButton(
-                          onPressed: _isDeleting
-                              ? null
-                              : () => _confirmDeleteHousehold(household),
-                          child: _isDeleting
-                              ? SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      colorScheme.primaryForeground,
-                                    ),
-                                  ),
-                                )
-                              : Text(context.l10n.delete),
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 40),
-                  ]),
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        );
-      },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(
-        child: Text(
-          '${context.l10n.errorLoadingHousehold}: $error',
-          style: TextStyle(color: colorScheme.destructive),
-        ),
+            ),
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, s) => Center(child: Text('Error: $e')),
       ),
     );
   }
 
-  void _showImagePicker(BuildContext context, Household household) {
-    HouseholdImagePicker.showImageSourceModal(
-      context: context,
-      ref: ref,
-      currentImageUrl: _selectedImageUrl,
-      onImageSelected: (imageUrl, imageFile) {
-        setState(() {
-          _selectedImageUrl = imageUrl;
-          _selectedImageFile = imageFile;
-        });
-      },
+  // --- Sections ---
+
+  Widget _buildGeneralSettingsSection(
+    BuildContext context,
+    bool canEdit,
+    Household household,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (!canEdit)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text(
+              context.l10n.onlyAdminsAndOwnersCanEditHouseholdSettings,
+              style: TextStyle(
+                fontSize: 13,
+                color: Theme.of(context).colorScheme.mutedForeground,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: AbsorbPointer(
+            absorbing: !canEdit,
+            child: Opacity(
+              opacity: canEdit ? 1.0 : 0.7,
+              child: CreateHouseholdFormContent(
+                nameController: _nameController,
+                selectedImageUrl: _selectedImageUrl,
+                selectedImageFile: _selectedImageFile,
+                isLoading: _isSavingSettings,
+                onImageSelected: (imageUrl, imageFile) {
+                  setState(() {
+                    _selectedImageUrl = imageUrl;
+                    _selectedImageFile = imageFile;
+                  });
+                },
+              ),
+            ),
+          ),
+        ),
+        if (canEdit) ...[
+          const SizedBox(height: 24),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: PrimaryAdaptiveButton(
+              onPressed:
+                  _isSavingSettings ? null : () => _saveSettings(household),
+              child: _isSavingSettings
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(context.l10n.saveChanges),
+            ),
+          ),
+        ],
+        const SizedBox(height: 32),
+      ],
     );
   }
 
-  Future<void> _confirmDeleteHousehold(Household household) async {
-    final pageContext = context;
-    final l10n = pageContext.l10n;
-
-    final result = await MonekoAlertDialog.show(
-      context: pageContext,
-      title: l10n.delete,
-      description: l10n.confirmDeleteBudget,
-      confirmLabel: l10n.delete,
-      cancelLabel: l10n.cancel,
-      barrierDismissible: false,
-      isDestructive: true,
-    );
-
-    if (result?.confirmed == true) {
-      if (pageContext.mounted) {
-        await _deleteHousehold(pageContext);
-      }
-    }
-  }
-
-  Future<void> _deleteHousehold(BuildContext pageContext) async {
-    if (!mounted || _isDeleting) return;
-
-    setState(() {
-      _isDeleting = true;
-    });
-
-    try {
-      final repository = ref.read(householdRepositoryProvider);
-      await repository.deleteHousehold(widget.householdId);
-
-      final user = ref.read(authProvider);
-      final userId = user.uid;
-
-      await ref.read(userHouseholdsProvider(userId).notifier).load();
-      await ref.read(selectedHouseholdProvider.notifier).initialize();
-
-      if (!pageContext.mounted) return;
-
-      // Show success toast before popping
-      AppToast.success(
-        pageContext,
-        'Space deleted successfully',
-      );
-
-      if (Navigator.of(pageContext).canPop()) {
-        Navigator.of(pageContext).pop();
-      }
-    } catch (e) {
-      if (pageContext.mounted) {
-        AppToast.error(
-          pageContext,
-          'Failed to delete household: $e',
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isDeleting = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _saveChanges(Household household) async {
-    if (_nameController.text.trim().isEmpty) {
-      AppToast.error(context, context.l10n.pleaseEnterHouseholdName);
-      return;
-    }
-
-    setState(() {
-      _isSaving = true;
-    });
-
-    try {
-      String? imageUrl = _selectedImageUrl;
-
-      // Upload image if file was selected
-      if (_selectedImageFile != null) {
-        imageUrl = await _uploadImage(_selectedImageFile!);
-      }
-
-      // Update household via repository
-      final repository = ref.read(householdRepositoryProvider);
-      await repository.updateHousehold(
-        householdId: widget.householdId,
-        name: _nameController.text.trim(),
-        coverImageUrl: imageUrl,
-      );
-
-      // Invalidate providers to refresh UI
-      ref.invalidate(householdProvider(widget.householdId));
-      ref.invalidate(userHouseholdsProvider(ref.read(authProvider).uid));
-
-      // Refresh selected household if this is the selected one
-      final selectedState = ref.read(selectedHouseholdProvider);
-      if (selectedState.householdId == widget.householdId) {
-        // final user = ref.read(authProvider); // Available if needed
-        await ref.read(selectedHouseholdProvider.notifier).refresh();
-      }
-
-      if (mounted) {
-        AppToast.success(context, context.l10n.householdUpdatedSuccessfully);
-      }
-    } catch (e) {
-      if (mounted) {
-        AppToast.error(context, '${context.l10n.failedToUpdateHousehold}: $e');
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSaving = false;
-        });
-      }
-    }
-  }
-
-  Future<String?> _uploadImage(File imageFile) async {
-    try {
-      final supabase = Supabase.instance.client;
-      final user = ref.read(authProvider);
-      final ext = imageFile.path.contains('.')
-          ? '.${imageFile.path.split('.').last.toLowerCase()}'
-          : '';
-      final fileName =
-          '${StorageConfig.householdCoversPath}/${user.uid}/${DateTime.now().millisecondsSinceEpoch}$ext';
-
-      await supabase.storage
-          .from(StorageConfig.publicBucket)
-          .upload(fileName, imageFile);
-
-      final publicUrl = supabase.storage
-          .from(StorageConfig.publicBucket)
-          .getPublicUrl(fileName);
-
-      return publicUrl;
-    } catch (e) {
-      debugPrint('Error uploading image: $e');
-      rethrow;
-    }
-  }
-
-  ColorScheme get colorScheme => Theme.of(context).colorScheme;
-}
-
-/// Members Tab - Clean, minimal design
-class _MembersTab extends ConsumerWidget {
-  final String householdId;
-
-  const _MembersTab({required this.householdId});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final membersAsync = ref.watch(householdMembersProvider(householdId));
+  Widget _buildMembersSection(
+    BuildContext context,
+    List<HouseholdMember> members,
+    List<HouseholdInvite> pendingInvites,
+    bool canManage,
+    HouseholdRole currentUserRole,
+    String? currentUserId,
+  ) {
     final colorScheme = Theme.of(context).colorScheme;
-    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
 
-    return membersAsync.when(
-      data: (members) {
-        final currentUserMember = members.firstWhere(
-          (m) => m.userId == currentUserId,
-          orElse: () => throw Exception('Current user not found in household'),
-        );
-        final currentUserRole = currentUserMember.role;
-        final canManageMembers = currentUserRole == HouseholdRole.owner ||
-            currentUserRole == HouseholdRole.admin;
+    return _buildSettingsSection(
+      context,
+      title: context.l10n.members,
+      children: [
+        // Member List
+        ...members.map((member) {
+          final isMe = member.userId == currentUserId;
+          // Permission check logic
+          final isTargetOwner = member.role == HouseholdRole.owner;
+          final canModifyThisUser = canManage &&
+              ((currentUserRole == HouseholdRole.owner && !isTargetOwner) ||
+                  (currentUserRole == HouseholdRole.admin &&
+                      member.role == HouseholdRole.member));
 
-        return RefreshIndicator(
-          onRefresh: () =>
-              ref.read(householdMembersProvider(householdId).notifier).load(),
-          child: CustomScrollView(
-            slivers: [
-              SliverPadding(
-                padding: const EdgeInsets.all(16),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final member = members[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: _MemberCard(
-                          member: member,
-                          householdId: householdId,
-                          currentUserRole: currentUserRole,
-                          canManageMembers: canManageMembers,
-                          onRemove: () =>
-                              _confirmRemoveMember(context, ref, member),
-                          onUpdateRole: (role) =>
-                              _updateMemberRole(context, ref, member, role),
-                        ),
-                      );
-                    },
-                    childCount: members.length,
+          // Don't let users remove/edit themselves here (usually handled in profile or leave flow)
+          final isActionable = canModifyThisUser && !isMe;
+
+          return _buildSettingsTile(
+            context: context,
+            leading: MemberAvatar(
+              role: member.role,
+              avatarUrl: member.avatarUrl,
+              name: member.userName,
+              email: member.userEmail,
+              radius: 20,
+            ),
+            title: Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    (member.userName?.isNotEmpty == true
+                            ? member.userName!
+                            : member.userEmail) ??
+                        context.l10n.unknown,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight: isMe ? FontWeight.w600 : FontWeight.w400,
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
-        );
-      },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, size: 48, color: colorScheme.destructive),
-            const SizedBox(height: 16),
-            Text(
-              context.l10n.errorLoadingMembers,
-              style: TextStyle(color: colorScheme.foreground),
+                if (isMe) ...[
+                  const SizedBox(width: 8),
+                  _buildInlinePill(
+                    context,
+                    label: context.l10n.you,
+                  ),
+                ],
+              ],
             ),
-            const SizedBox(height: 16),
-            TextButton(
-              onPressed: () => ref
-                  .read(householdMembersProvider(householdId).notifier)
-                  .load(),
-              child: Text(context.l10n.retry),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _confirmRemoveMember(
-      BuildContext context, WidgetRef ref, HouseholdMember member) async {
-    final result = await MonekoAlertDialog.show(
-      context: context,
-      title: context.l10n.removeMember,
-      description:
-          '${context.l10n.confirmRemoveMember} ${member.userName ?? member.userEmail}?',
-      confirmLabel: context.l10n.remove,
-      cancelLabel: context.l10n.cancel,
-      barrierDismissible: true,
-    );
-
-    if (result?.confirmed == true) {
-      await ref
-          .read(householdMembersProvider(householdId).notifier)
-          .removeMember(member.id);
-    }
-  }
-
-  Future<void> _updateMemberRole(BuildContext context, WidgetRef ref,
-      HouseholdMember member, HouseholdRole role) async {
-    await ref
-        .read(householdMembersProvider(householdId).notifier)
-        .updateRole(member.id, role);
-    if (context.mounted) {
-      AppToast.success(context,
-          '${context.l10n.updatedMemberRole} ${member.userName ?? member.userEmail}');
-    }
-  }
-}
-
-/// Member Card Widget - Clean list item
-class _MemberCard extends StatelessWidget {
-  final HouseholdMember member;
-  final String householdId;
-  final HouseholdRole currentUserRole;
-  final bool canManageMembers;
-  final VoidCallback onRemove;
-  final Function(HouseholdRole) onUpdateRole;
-
-  const _MemberCard({
-    required this.member,
-    required this.householdId,
-    required this.currentUserRole,
-    required this.canManageMembers,
-    required this.onRemove,
-    required this.onUpdateRole,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final isOwner = member.role == HouseholdRole.owner;
-
-    final canManageThisMember = canManageMembers &&
-        ((currentUserRole == HouseholdRole.owner && !isOwner) ||
-            (currentUserRole == HouseholdRole.admin &&
-                member.role == HouseholdRole.member));
-
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: colorScheme.surfaceBorder,
-        ),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: canManageThisMember ? () => _showOptions(context) : null,
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
+            subtitle: member.userName?.isNotEmpty == true
+                ? Text(member.userEmail ?? '')
+                : null,
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                MemberAvatar(
-                  role: member.role,
-                  avatarUrl: member.avatarUrl,
-                  name: member.userName,
-                  email: member.userEmail,
-                  radius: 20,
+                Text(
+                  _memberRoleLabel(context, member.role),
+                  style:  TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: colorScheme.mutedForeground,
+                  ),
                 ),
-                const SizedBox(width: 12),
+                if (isActionable) ...[
+                  const SizedBox(width: 8),
+                  Icon(
+                    CupertinoIcons.chevron_right,
+                    size: 14,
+                    color: colorScheme.mutedForeground.withValues(alpha: 0.5),
+                  ),
+                ],
+              ],
+            ),
+            onTap: isActionable ? () => _showMemberActionSheet(member) : null,
+          );
+        }),
+        ...pendingInvites.map((invite) {
+          final isExpired = invite.expiresAt != null &&
+              invite.expiresAt!.isBefore(DateTime.now());
+
+          return _buildSettingsTile(
+            context: context,
+            leading: _buildIconBadge(
+              context,
+              icon: CupertinoIcons.mail,
+              iconColor: colorScheme.mutedForeground,
+              backgroundColor:
+                  colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+            ),
+            title: Text(
+              invite.invitedEmail ?? context.l10n.anyoneWithLink,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            subtitle: Text(_formatExpiryDate(invite.expiresAt, context)),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  isExpired
+                      ? context.l10n.expired
+                      : context.l10n.pending,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: colorScheme.mutedForeground,
+                  ),
+                ),
+                if (canManage) ...[
+                  const SizedBox(width: 8),
+                  Icon(
+                    CupertinoIcons.chevron_right,
+                    size: 14,
+                    color: colorScheme.mutedForeground.withValues(alpha: 0.5),
+                  ),
+                ],
+              ],
+            ),
+            onTap: canManage ? () => _showInviteActionSheet(invite) : null,
+          );
+        }),
+        // "Invite New Member" Tile
+        if (canManage)
+          _buildSettingsTile(
+            context: context,
+            leading: _buildIconBadge(
+              context,
+              icon: CupertinoIcons.person_add,
+              iconColor: colorScheme.mutedForeground,
+              backgroundColor:
+                  colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+            ),
+            title: Text(
+              context.l10n.inviteNewMember,
+              style: TextStyle(
+                color: colorScheme.foreground,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            trailing: Icon(
+              CupertinoIcons.chevron_right,
+              size: 14,
+              color: colorScheme.mutedForeground.withValues(alpha: 0.5),
+            ),
+            onTap: () => _showCreateInviteDialog(context),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildInvitationsSection(
+    BuildContext context,
+    List<HouseholdInvite> historyInvites,
+  ) {
+    if (historyInvites.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      children: [
+        _buildSettingsSection(
+          context,
+          title: context.l10n.invitationHistory,
+          children: historyInvites.map((invite) {
+            final colorScheme = Theme.of(context).colorScheme;
+
+            return _buildSettingsTile(
+              context: context,
+              title: Text(
+                invite.invitedEmail ?? context.l10n.anyoneWithLink,
+                style: TextStyle(color: colorScheme.mutedForeground),
+              ),
+              trailing: Text(
+                _inviteStatusLabel(context, invite.status),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: colorScheme.mutedForeground,
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDangerZone(BuildContext context, Household household) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return _buildSettingsSection(
+      context,
+      title: context.l10n.dangerZone,
+      children: [
+        _buildSettingsTile(
+          context: context,
+          title: Text(
+            context.l10n.deleteHousehold,
+            style: TextStyle(
+              color: colorScheme.destructive,
+            ),
+          ),
+          trailing: _isDeletingHousehold
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2))
+              : Icon(
+                  CupertinoIcons.trash,
+                  size: 20,
+                  color: colorScheme.destructive,
+                ),
+          onTap: _isDeletingHousehold
+              ? null
+              : () => _confirmDeleteHousehold(household),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSettingsSection(
+    BuildContext context, {
+    required String title,
+    required List<Widget> children,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title.toUpperCase(),
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 1.0,
+              color: colorScheme.mutedForeground,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            decoration: BoxDecoration(
+              color: colorScheme.cardSurface,
+              borderRadius: BorderRadius.circular(28),
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Column(
+              children: _withSectionDividers(context, children),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSettingsTile({
+    required BuildContext context,
+    required Widget title,
+    Widget? subtitle,
+    Widget? leading,
+    Widget? trailing,
+    VoidCallback? onTap,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final hasSubtitle = subtitle != null;
+
+    return Material(
+      color: colorScheme.surface.withValues(alpha: 0.0),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: hasSubtitle ? 58 : 50),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            child: Row(
+              crossAxisAlignment:
+                  hasSubtitle ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+              children: [
+                if (leading != null) ...[
+                  leading,
+                  const SizedBox(width: 12),
+                ],
                 Expanded(
                   child: Column(
+                    mainAxisAlignment:
+                        hasSubtitle ? MainAxisAlignment.start : MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        (() {
-                          final name = member.userName?.trim();
-                          if (name != null && name.isNotEmpty) return name;
-                          return member.userEmail ?? context.l10n.unknown;
-                        })(),
+                      DefaultTextStyle.merge(
                         style: TextStyle(
                           fontSize: 15,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w500,
                           color: colorScheme.foreground,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        child: title,
                       ),
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          RoleBadge(role: member.role),
-                          if (member.userEmail != null &&
-                              member.userName != null) ...[
-                            const SizedBox(width: 6),
-                            Text(
-                              '•',
-                              style: TextStyle(
-                                color: colorScheme.mutedForeground
-                                    .withValues(alpha: 0.5),
-                                fontSize: 12,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                member.userEmail!,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: colorScheme.mutedForeground,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 4),
+                        DefaultTextStyle.merge(
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w400,
+                            color: colorScheme.mutedForeground,
+                          ),
+                          child: subtitle,
+                        ),
+                      ],
                     ],
                   ),
                 ),
-                if (canManageThisMember)
-                  Icon(
-                    Icons.more_horiz_rounded,
-                    color: colorScheme.mutedForeground.withValues(alpha: 0.7),
-                    size: 20,
-                  ),
+                if (trailing != null) ...[
+                  const SizedBox(width: 12),
+                  trailing,
+                ],
               ],
             ),
           ),
@@ -807,172 +581,533 @@ class _MemberCard extends StatelessWidget {
     );
   }
 
-  void _showOptions(BuildContext context) {
+  List<Widget> _withSectionDividers(
+    BuildContext context,
+    List<Widget> children,
+  ) {
+    if (children.isEmpty) return [];
     final colorScheme = Theme.of(context).colorScheme;
-    if (Platform.isIOS) {
-      showCupertinoModalPopup(
-        context: context,
-        builder: (ctx) => CupertinoActionSheet(
-          actions: [
-            if (member.role != HouseholdRole.admin)
-              CupertinoActionSheetAction(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  onUpdateRole(HouseholdRole.admin);
-                },
-                child: Text(context.l10n.makeAdmin),
-              ),
-            if (member.role != HouseholdRole.member)
-              CupertinoActionSheetAction(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  onUpdateRole(HouseholdRole.member);
-                },
-                child: Text(context.l10n.makeMember),
-              ),
-            CupertinoActionSheetAction(
-              isDestructiveAction: true,
-              onPressed: () {
-                Navigator.pop(ctx);
-                onRemove();
-              },
-              child: Text(context.l10n.remove),
-            ),
-          ],
-          cancelButton: CupertinoActionSheetAction(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(context.l10n.cancel),
-          ),
+
+    return List<Widget>.generate(children.length * 2 - 1, (index) {
+      if (index.isEven) {
+        return children[index ~/ 2];
+      }
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Divider(
+          height: 1,
+          thickness: 0.5,
+          color: colorScheme.border.withValues(alpha: 0.22),
         ),
       );
-    } else {
-      showModalBottomSheet(
-        context: context,
-        useSafeArea: true,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        builder: (context) => Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 8),
-            Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: colorScheme.muted.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 8),
-            if (member.role != HouseholdRole.admin)
-              ListTile(
-                title: Text(context.l10n.makeAdmin),
-                onTap: () {
-                  Navigator.pop(context);
-                  onUpdateRole(HouseholdRole.admin);
-                },
-              ),
-            if (member.role != HouseholdRole.member)
-              ListTile(
-                title: Text(context.l10n.makeMember),
-                onTap: () {
-                  Navigator.pop(context);
-                  onUpdateRole(HouseholdRole.member);
-                },
-              ),
-            const Divider(),
-            ListTile(
-              title: Text(context.l10n.remove),
-              textColor: colorScheme.destructive,
-              onTap: () {
-                Navigator.pop(context);
-                onRemove();
-              },
-            ),
-            SizedBox(height: MediaQuery.of(context).padding.bottom),
-          ],
-        ),
-      );
+    });
+  }
+
+  Widget _buildIconBadge(
+    BuildContext context, {
+    required IconData icon,
+    required Color iconColor,
+    required Color backgroundColor,
+  }) {
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        shape: BoxShape.circle,
+      ),
+      child: Icon(icon, size: 20, color: iconColor),
+    );
+  }
+
+  String _inviteStatusLabel(BuildContext context, InviteStatus status) {
+    switch (status) {
+      case InviteStatus.accepted:
+        return context.l10n.accepted;
+      case InviteStatus.revoked:
+        return context.l10n.revoked;
+      case InviteStatus.expired:
+        return context.l10n.expired;
+      case InviteStatus.pending:
+        return context.l10n.pending;
     }
   }
-}
 
-class _PermissionNotice extends StatelessWidget {
-  final String? message;
+  String _memberRoleLabel(BuildContext context, HouseholdRole role) {
+    switch (role) {
+      case HouseholdRole.owner:
+        return context.l10n.owner;
+      case HouseholdRole.admin:
+        return context.l10n.admin;
+      case HouseholdRole.member:
+        return context.l10n.member;
+    }
+  }
 
-  const _PermissionNotice({this.message});
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildInlinePill(
+    BuildContext context, {
+    required String label,
+  }) {
     final colorScheme = Theme.of(context).colorScheme;
+
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: colorScheme.card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: colorScheme.surfaceBorder,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.shadow.withValues(alpha: 0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(999),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            Icons.info_outline_rounded,
-            size: 20,
-            color: colorScheme.mutedForeground.withValues(alpha: 0.7),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              message ?? context.l10n.onlyAdminsAndOwnersCanCreateInvitations,
-              style: TextStyle(
-                fontSize: 13,
-                color: colorScheme.mutedForeground,
-                fontWeight: FontWeight.w500,
-                height: 1.4,
-              ),
-            ),
-          ),
-        ],
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          color: colorScheme.mutedForeground,
+        ),
       ),
     );
   }
+
+  // --- Logic & Actions ---
+
+  Future<void> _saveSettings(Household household) async {
+    if (_nameController.text.trim().isEmpty) {
+      AppToast.error(context, context.l10n.pleaseEnterHouseholdName);
+      return;
+    }
+
+    setState(() => _isSavingSettings = true);
+
+    try {
+      String? imageUrl = _selectedImageUrl;
+      if (_selectedImageFile != null) {
+        imageUrl = await _uploadImage(_selectedImageFile!);
+      }
+
+      await ref.read(householdRepositoryProvider).updateHousehold(
+            householdId: widget.householdId,
+            name: _nameController.text.trim(),
+            coverImageUrl: imageUrl,
+          );
+
+      ref.invalidate(householdProvider(widget.householdId));
+      // Also refresh the user households list globally
+      ref.invalidate(userHouseholdsProvider(ref.read(authProvider).uid));
+      // Refresh selected household config
+      await ref.read(selectedHouseholdProvider.notifier).refresh();
+
+      if (mounted) {
+        // ignore: use_build_context_synchronously
+        AppToast.success(context, context.l10n.householdUpdatedSuccessfully);
+      }
+    } catch (e) {
+      if (mounted) {
+        // ignore: use_build_context_synchronously
+        AppToast.error(context, '${context.l10n.failedToUpdateHousehold}: $e');
+      }
+    } finally {
+      if (mounted) setState(() => _isSavingSettings = false);
+    }
+  }
+
+  Future<String?> _uploadImage(File imageFile) async {
+    final supabase = Supabase.instance.client;
+    final user = ref.read(authProvider);
+    final ext = imageFile.path.contains('.')
+        ? '.${imageFile.path.split('.').last.toLowerCase()}'
+        : '';
+    final fileName =
+        '${StorageConfig.householdCoversPath}/${user.uid}/${DateTime.now().millisecondsSinceEpoch}$ext';
+
+    await supabase.storage
+        .from(StorageConfig.publicBucket)
+        .upload(fileName, imageFile);
+
+    return supabase.storage
+        .from(StorageConfig.publicBucket)
+        .getPublicUrl(fileName);
+  }
+
+  Future<void> _confirmDeleteHousehold(Household household) async {
+    final confirmed = await MonekoAlertDialog.show(
+      context: context,
+      title: context.l10n.delete,
+      description: context
+          .l10n.confirmDeleteBudget, // Should ideally be confirmDeleteHousehold
+      confirmLabel: context.l10n.delete,
+      cancelLabel: context.l10n.cancel,
+      isDestructive: true,
+    );
+
+    if (confirmed?.confirmed == true) {
+      setState(() => _isDeletingHousehold = true);
+      try {
+        await ref
+            .read(householdRepositoryProvider)
+            .deleteHousehold(widget.householdId);
+
+        // Refresh global state
+        final userId = ref.read(authProvider).uid;
+        await ref.read(userHouseholdsProvider(userId).notifier).load();
+        await ref.read(selectedHouseholdProvider.notifier).initialize();
+
+        if (mounted) {
+          // ignore: use_build_context_synchronously
+          AppToast.success(context, 'Space deleted successfully');
+          Navigator.of(context).pop();
+        }
+      } catch (e) {
+        if (mounted) {
+          // ignore: use_build_context_synchronously
+          AppToast.error(context, 'Failed to delete: $e');
+          setState(() => _isDeletingHousehold = false);
+        }
+      }
+    }
+  }
+
+  // --- Member Actions ---
+
+  void _showMemberActionSheet(HouseholdMember member) {
+    showCupertinoModalPopup(
+      context: context,
+      builder: (ctx) => CupertinoActionSheet(
+        title: Text('${member.userName ?? member.userEmail}'),
+        actions: [
+          if (member.role != HouseholdRole.admin)
+            CupertinoActionSheetAction(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _updateMemberRole(member, HouseholdRole.admin);
+              },
+              child: Text(context.l10n.makeAdmin),
+            ),
+          if (member.role != HouseholdRole.member)
+            CupertinoActionSheetAction(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _updateMemberRole(member, HouseholdRole.member);
+              },
+              child: Text(context.l10n.makeMember),
+            ),
+          CupertinoActionSheetAction(
+            isDestructiveAction: true,
+            onPressed: () {
+              Navigator.pop(ctx);
+              _confirmRemoveMember(member);
+            },
+            child: Text(context.l10n.remove),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(ctx),
+          child: Text(context.l10n.cancel),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _updateMemberRole(
+      HouseholdMember member, HouseholdRole role) async {
+    try {
+      await ref
+          .read(householdMembersProvider(widget.householdId).notifier)
+          .updateRole(member.id, role);
+      if (mounted) {
+        // ignore: use_build_context_synchronously
+        AppToast.success(context, context.l10n.saved);
+      }
+    } catch (e) {
+      if (mounted) {
+        // ignore: use_build_context_synchronously
+        AppToast.error(context, 'Failed to update role: $e');
+      }
+    }
+  }
+
+  Future<void> _confirmRemoveMember(HouseholdMember member) async {
+    final confirmed = await MonekoAlertDialog.show(
+      context: context,
+      title: context.l10n.removeMember,
+      description:
+          '${context.l10n.confirmRemoveMember} ${member.userName ?? member.userEmail}?',
+      confirmLabel: context.l10n.remove,
+      cancelLabel: context.l10n.cancel,
+      isDestructive: true,
+    );
+
+    if (confirmed?.confirmed == true) {
+      try {
+        await ref
+            .read(householdMembersProvider(widget.householdId).notifier)
+            .removeMember(member.id);
+        if (mounted) {
+          // ignore: use_build_context_synchronously
+          AppToast.success(context, 'Member removed');
+        }
+      } catch (e) {
+        if (mounted) {
+          // ignore: use_build_context_synchronously
+          AppToast.error(context, 'Failed to remove member: $e');
+        }
+      }
+    }
+  }
+
+  // --- Invite Actions ---
+
+  void _showCreateInviteDialog(BuildContext context) async {
+    int expiresInDays = 7;
+    final expiryNotifier = ValueNotifier<int>(expiresInDays);
+
+    final result = await MonekoAlertDialog.show(
+      context: context,
+      title: context.l10n.createInvitation,
+      confirmLabel: context.l10n.create,
+      cancelLabel: context.l10n.cancel,
+      inputConfig: MonekoAlertDialogInputConfig(
+        placeholder: context.l10n.emailOptional,
+        keyboardType: TextInputType.emailAddress,
+      ),
+      secondaryInputConfig: MonekoAlertDialogInputConfig(
+        placeholder: context.l10n.personalMessageOptional,
+      ),
+      content: ValueListenableBuilder<int>(
+        valueListenable: expiryNotifier,
+        builder: (context, value, _) {
+          return _ExpirySelector(
+            selectedDays: value,
+            onChanged: (newValue) {
+              expiresInDays = newValue;
+              expiryNotifier.value = newValue;
+            },
+          );
+        },
+      ),
+    );
+
+    if (result?.confirmed == true) {
+      final email = result!.text?.trim();
+      final message = result.secondaryText?.trim();
+
+      // Get names for better invite context
+      final user = ref.read(authProvider);
+      final inviterName =
+          (user.displayName?.isNotEmpty == true ? user.displayName : user.email)
+              ?.trim();
+      final household = ref.read(householdProvider(widget.householdId)).value;
+
+      try {
+        final token = await ref
+            .read(householdInvitesProvider(widget.householdId).notifier)
+            .createInvite(
+              invitedEmail: (email != null && email.isNotEmpty) ? email : null,
+              personalMessage:
+                  (message != null && message.isNotEmpty) ? message : null,
+              expiresInDays: expiresInDays,
+              inviterName: inviterName,
+              householdName: household?.name,
+            );
+
+        if (mounted) {
+          // ignore: use_build_context_synchronously
+          AppToast.success(context, context.l10n.invitationCreatedSuccessfully);
+          final inviteUrl = 'https://moneko.io/invites/$token';
+          Clipboard.setData(ClipboardData(text: inviteUrl));
+          // ignore: use_build_context_synchronously
+          AppToast.success(context, context.l10n.inviteLinkCopiedToClipboard);
+        }
+      } catch (e) {
+        if (mounted) {
+          // ignore: use_build_context_synchronously
+          AppToast.error(context, '${context.l10n.errorCreatingInvite}: $e');
+        }
+      }
+    }
+  }
+
+  void _showInviteActionSheet(HouseholdInvite invite) {
+    showCupertinoModalPopup(
+      context: context,
+      builder: (ctx) => CupertinoActionSheet(
+        title: Text(invite.invitedEmail ?? context.l10n.anyoneWithLink),
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(ctx);
+              final inviteUrl = 'https://moneko.io/invites/${invite.token}';
+              Clipboard.setData(ClipboardData(text: inviteUrl));
+              AppToast.success(
+                  context, context.l10n.inviteLinkCopiedToClipboard);
+            },
+            child: Text(context.l10n.copyLink),
+          ),
+          CupertinoActionSheetAction(
+            isDestructiveAction: true,
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await ref
+                    .read(householdInvitesProvider(widget.householdId).notifier)
+                    .revokeInvite(inviteId: invite.id);
+                if (mounted) {
+                  // ignore: use_build_context_synchronously
+                  AppToast.success(context, context.l10n.invitationRevoked);
+                }
+              } catch (e) {
+                if (mounted) {
+                  // ignore: use_build_context_synchronously
+                  AppToast.error(
+                      context, '${context.l10n.errorRevokingInvite}: $e');
+                }
+              }
+            },
+            child: Text(context.l10n.revokeInvitation),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(ctx),
+          child: Text(context.l10n.cancel),
+        ),
+      ),
+    );
+  }
+
+  String _formatExpiryDate(DateTime? date, BuildContext context) {
+    if (date == null) return context.l10n.noExpiry;
+    final now = DateTime.now();
+    final difference = date.difference(now);
+
+    if (difference.inDays > 0) {
+      return 'Expires in ${difference.inDays} day${difference.inDays > 1 ? 's' : ''}';
+    } else if (difference.inHours > 0) {
+      return 'Expires in ${difference.inHours} hour${difference.inHours > 1 ? 's' : ''}';
+    } else if (difference.inDays < 0) {
+      return 'Expired ${difference.inDays.abs()} day${difference.inDays.abs() > 1 ? 's' : ''} ago';
+    }
+    return 'Expires soon';
+  }
 }
 
-class _SectionHeader extends StatelessWidget {
-  final String title;
+// Helpers
 
-  const _SectionHeader({
-    required this.title,
+class _ExpirySelector extends StatelessWidget {
+  final int selectedDays;
+  final ValueChanged<int> onChanged;
+
+  const _ExpirySelector({
+    required this.selectedDays,
+    required this.onChanged,
   });
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.only(left: 4, bottom: 8, top: 4),
-      child: Row(
-        children: [
-          Text(
-            title.toUpperCase(),
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: colorScheme.mutedForeground,
-              letterSpacing: 1.0,
+    final label = _getLabel(context, selectedDays);
+
+    if (Platform.isIOS) {
+      return GestureDetector(
+        onTap: () => _showIOSPicker(context),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          decoration: BoxDecoration(
+            color: colorScheme.inputBackground,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: colorScheme.controlBorder,
             ),
           ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                context.l10n.expiresIn,
+                style: TextStyle(
+                  color: colorScheme.mutedForeground,
+                  fontSize: 15,
+                ),
+              ),
+              Row(
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: colorScheme.foreground,
+                      fontWeight: FontWeight.w500,
+                      fontSize: 15,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    CupertinoIcons.chevron_up_chevron_down,
+                    size: 14,
+                    color: colorScheme.mutedForeground,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Android Fallback
+    return DropdownButtonFormField<int>(
+// ignore: deprecated_member_use
+      value: selectedDays,
+      decoration: InputDecoration(labelText: context.l10n.expiresIn),
+      items: [
+        DropdownMenuItem(value: 1, child: Text(context.l10n.oneDay)),
+        DropdownMenuItem(value: 3, child: Text(context.l10n.threeDays)),
+        DropdownMenuItem(value: 7, child: Text(context.l10n.sevenDays)),
+        DropdownMenuItem(value: 14, child: Text(context.l10n.fourteenDays)),
+        DropdownMenuItem(value: 30, child: Text(context.l10n.thirtyDays)),
+        DropdownMenuItem(value: 0, child: Text(context.l10n.unlimited)),
+      ],
+      onChanged: (val) {
+        if (val != null) onChanged(val);
+      },
+    );
+  }
+
+  String _getLabel(BuildContext context, int days) {
+    if (days == 0) return context.l10n.unlimited;
+    if (days == 1) return context.l10n.oneDay;
+    if (days == 3) return context.l10n.threeDays;
+    if (days == 7) return context.l10n.sevenDays;
+    if (days == 14) return context.l10n.fourteenDays;
+    if (days == 30) return context.l10n.thirtyDays;
+    return '$days ${context.l10n.days}';
+  }
+
+  Future<void> _showIOSPicker(BuildContext context) async {
+    final result = await showCupertinoModalPopup<int>(
+      context: context,
+      builder: (ctx) => CupertinoActionSheet(
+        title: Text(context.l10n.expiresIn),
+        actions: [
+          _buildAction(ctx, 1),
+          _buildAction(ctx, 3),
+          _buildAction(ctx, 7),
+          _buildAction(ctx, 14),
+          _buildAction(ctx, 30),
+          _buildAction(ctx, 0),
         ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(ctx),
+          child: Text(context.l10n.cancel),
+        ),
       ),
+    );
+
+    if (result != null) {
+      onChanged(result);
+    }
+  }
+
+  CupertinoActionSheetAction _buildAction(BuildContext context, int days) {
+    return CupertinoActionSheetAction(
+      onPressed: () => Navigator.pop(context, days),
+      child: Text(_getLabel(context, days)),
     );
   }
 }

@@ -1794,5 +1794,20 @@
   "splitGroupNotFound": "No se encontró el grupo de gastos",
   "coverImageSemanticLabel": "Imagen de portada",
   "managePrivateSpace": "Gestionar espacio privado",
-  "manageSharedSpace": "Gestionar espacio compartido"
+  "manageSharedSpace": "Gestionar espacio compartido",
+  "claimFreeTrial": "Iniciar prueba gratuita",
+  "youreAllSet": "¡Todo listo!",
+  "claimYourFreeTrialToUnlockAllFeatures": "Empieza tu prueba gratuita para desbloquear todas las funciones",
+  "startYourJourneyWithMoneko": "Comienza tu viaje con Moneko",
+  "oneMonthFreePremiumAccess": "1 mes de acceso Premium gratis",
+  "premiumFeatures": "Funciones Premium",
+  "syncAcrossDevices": "Sincronización entre dispositivos",
+  "sharedSpacesAndBudgets": "Espacios y presupuestos compartidos",
+  "joinDiscordForMonthVoucher": "Únete a Discord y consigue un cupón de {months} meses",
+  "joinOurDiscordForVoucher": "Únete a nuestro Discord y consigue un código de cupón para {months} meses gratis",
+  "yourSubscriptionHasExpired": "Tu suscripción ha caducado",
+  "resubscribeToContinueEnjoying": "Vuelve a suscribirte para seguir disfrutando de funciones y análisis Premium.",
+  "continuePremiumAccess": "Continuar con acceso Premium",
+  "allPremiumFeatures": "Todas las funciones Premium",
+  "resubscribe": "Volver a suscribirse"
 }
