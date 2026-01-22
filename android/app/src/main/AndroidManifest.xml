@@ -24,6 +24,8 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- Required for Supabase/auth and any network calls in release builds -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Required for Google Play Billing (subscriptions / in-app purchases) -->
+    <uses-permission android:name="com.android.vending.BILLING" />
     <!-- Helpful for connectivity checks and some libraries -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />

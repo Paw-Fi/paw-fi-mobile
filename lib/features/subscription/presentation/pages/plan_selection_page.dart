@@ -1,61 +1,63 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
-// import 'package:moneko/features/subscription/data/models/subscription_details.dart'; // Removed unused import
 import 'package:moneko/core/ui/notifications/app_toast.dart';
-import 'package:moneko/core/theme/app_theme.dart'; // Colors are here
+import 'package:moneko/core/core.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
+import 'package:moneko/features/subscription/presentation/providers/subscription_products_provider.dart';
+import 'package:moneko/features/subscription/presentation/providers/iap_controller_provider.dart';
+import 'package:moneko/features/subscription/data/models/subscription_product.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 // --- DATA ---
-// Minimalist structure, focus on key differentiator
 class PlanOption {
-  final String id;
+  final String id; // Unique ID for UI selection
+  final String serverPlanId; // 'plus' or 'lifetime'
+  final String? billingInterval; // 'monthly', 'yearly', or null for lifetime
+  // iOS-only (IAP). Android uses Stripe web checkout.
+  final String? storeProductId;
+  final SubscriptionProduct? catalogProduct;
   final String name;
-  final double monthlyPrice;
-  final double yearlyPrice;
+  final String? storePrice;
+  final double? displayPriceUsd;
+  final double? originalPriceUsd;
   final String tagline;
-  final bool popular;
-  final bool isLifetime;
+  final bool isPopular;
+  final String? badgeText;
 
   const PlanOption({
     required this.id,
+    required this.serverPlanId,
+    this.billingInterval,
+    this.storeProductId,
+    this.catalogProduct,
     required this.name,
-    required this.monthlyPrice,
-    required this.yearlyPrice,
+    required this.storePrice,
+    this.displayPriceUsd,
+    this.originalPriceUsd,
     required this.tagline,
-    this.popular = false,
-    this.isLifetime = false,
+    this.isPopular = false,
+    this.badgeText,
   });
-}
 
-const List<PlanOption> _kPlans = [
-  PlanOption(
-    id: 'free',
-    name: 'Starter',
-    monthlyPrice: 0,
-    yearlyPrice: 0,
-    tagline: 'Basic budgeting & manual tracking.',
-  ),
-  PlanOption(
-    id: 'plus',
-    name: 'Plus',
-    monthlyPrice: 7.99,
-    yearlyPrice: 49.0, // ~4.08/mo
-    tagline: 'Unlimited AI, Sync, & Smart Insights.',
-    popular: true,
-  ),
-  PlanOption(
-    id: 'lifetime',
-    name: 'Lifetime',
-    monthlyPrice: 149.0,
-    yearlyPrice: 149.0,
-    tagline: 'One-time payment. Forever Access.',
-    isLifetime: true,
-  ),
-];
+  String get periodDisplay {
+    if (billingInterval == 'monthly') return '/mo';
+    if (billingInterval == 'yearly') return '/yr';
+    return 'once';
+  }
+
+  String get priceDisplay {
+    if (storePrice != null && storePrice!.isNotEmpty) return storePrice!;
+    if (displayPriceUsd != null)
+      return '\$${displayPriceUsd!.toStringAsFixed(2)}';
+    return '...';
+  }
+}
 
 // --- PAGE ---
 class PlanSelectionPage extends HookConsumerWidget {
@@ -64,282 +66,635 @@ class PlanSelectionPage extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final subscriptionAsync = ref.watch(subscriptionManagementProvider);
+    final productsAsync = ref.watch(subscriptionProductsProvider);
+    final iapStateAsync = ref.watch(iapControllerProvider);
     final isLoading = useState(false);
     final colorScheme = Theme.of(context).colorScheme;
 
     // View State
-    final billingInterval = useState<String>('yearly');
-    final selectedPlanId = useState<String?>(null);
-
-    // Effect: Set initial selection based on current subscription
-    useEffect(() {
-      if (subscriptionAsync.value != null) {
-        final current = subscriptionAsync.value!.subscription?.plan ?? 'free';
-        // Only override if user hasn't manually selected yet (or first load)
-        if (selectedPlanId.value == null) {
-          selectedPlanId.value = current;
-          // Also try to set interval if possible (not yet in model, defaulting to yearly is fine)
-        }
-      }
-      return null;
-    }, [subscriptionAsync.value]);
-
-    // Helpers
-    int getPlanLevel(String id) {
-      if (id == 'lifetime') return 3;
-      if (id == 'plus') return 2;
-      return 1; // free
-    }
+    final selectedPlanId = useState<String>('lifetime');
 
     final currentSub = subscriptionAsync.value;
     final currentPlanId = currentSub?.subscription?.plan ?? 'free';
+    final currentInterval = currentSub?.subscription?.billingInterval;
+    final currentProvider = currentSub?.subscription?.provider;
+
+    final isIos = defaultTargetPlatform == TargetPlatform.iOS;
+
+    final List<PlanOption> plans;
+    if (isIos) {
+      // iOS uses IAP. Store product IDs:
+      // - lifetime: lifetime_earlybird
+      // - yearly: yearly
+      // - monthly: monthly
+      final storeDetailsById =
+          iapStateAsync.value?.productDetailsById ?? const {};
+      final catalogProducts =
+          productsAsync.value ?? const <SubscriptionProduct>[];
+
+      final effectiveCatalogProducts = catalogProducts.isNotEmpty
+          ? catalogProducts
+          : const <SubscriptionProduct>[
+              SubscriptionProduct(
+                id: 'fallback_lifetime_ios',
+                platform: 'ios',
+                plan: 'lifetime',
+                billingInterval: null,
+                storeProductId: 'lifetime_earlybird',
+                displayName: 'Lifetime',
+                tagline: 'Pay once, own it forever.',
+                badgeText: 'LIMITED',
+                isPopular: false,
+                displayPriceUsd: 39.99,
+                originalPriceUsd: null,
+                sortOrder: 0,
+              ),
+              SubscriptionProduct(
+                id: 'fallback_plus_yearly_ios',
+                platform: 'ios',
+                plan: 'plus',
+                billingInterval: 'yearly',
+                storeProductId: 'yearly',
+                displayName: 'Yearly',
+                tagline: 'Best value for 12 months.',
+                badgeText: 'SAVE 50%',
+                isPopular: true,
+                displayPriceUsd: 29.99,
+                originalPriceUsd: 59.99,
+                sortOrder: 10,
+              ),
+              SubscriptionProduct(
+                id: 'fallback_plus_monthly_ios',
+                platform: 'ios',
+                plan: 'plus',
+                billingInterval: 'monthly',
+                storeProductId: 'monthly',
+                displayName: 'Monthly',
+                tagline: 'Flexible. Cancel anytime.',
+                badgeText: null,
+                isPopular: false,
+                displayPriceUsd: 5.99,
+                originalPriceUsd: 7.99,
+                sortOrder: 20,
+              ),
+            ];
+
+      plans = effectiveCatalogProducts.map((p) {
+        final details = storeDetailsById[p.storeProductId];
+        return PlanOption(
+          id: p.optionId,
+          serverPlanId: p.plan,
+          billingInterval: p.billingInterval,
+          storeProductId: p.storeProductId,
+          catalogProduct: p,
+          name: p.displayName,
+          storePrice: details?.price,
+          displayPriceUsd: p.displayPriceUsd,
+          originalPriceUsd: p.originalPriceUsd,
+          tagline: p.tagline,
+          isPopular: p.isPopular,
+          badgeText: p.badgeText,
+        );
+      }).toList();
+    } else {
+      // Android remains Stripe checkout (web) for now.
+      plans = const [
+        PlanOption(
+          id: 'lifetime',
+          serverPlanId: 'lifetime',
+          billingInterval: null,
+          name: 'Lifetime',
+          storePrice: null,
+          displayPriceUsd: 39.99,
+          tagline: 'Pay once, own it forever.',
+          badgeText: 'LIMITED',
+        ),
+        PlanOption(
+          id: 'plus_yearly',
+          serverPlanId: 'plus',
+          billingInterval: 'yearly',
+          name: 'Yearly',
+          storePrice: null,
+          displayPriceUsd: 29.99,
+          originalPriceUsd: 59.99,
+          tagline: 'Best value for 12 months.',
+          isPopular: true,
+          badgeText: 'SAVE 50%',
+        ),
+        PlanOption(
+          id: 'plus_monthly',
+          serverPlanId: 'plus',
+          billingInterval: 'monthly',
+          name: 'Monthly',
+          storePrice: null,
+          displayPriceUsd: 5.99,
+          originalPriceUsd: 7.99,
+          tagline: 'Flexible. Cancel anytime.',
+        ),
+      ];
+    }
+
+    final lifetimePlan =
+        plans.where((p) => p.serverPlanId == 'lifetime').toList();
+    final subPlans = plans.where((p) => p.serverPlanId != 'lifetime').toList();
+
+    // Effect: If user is already on a plan, try to select it visually
+    useEffect(() {
+      if (plans.isNotEmpty && !plans.any((p) => p.id == selectedPlanId.value)) {
+        selectedPlanId.value = plans.first.id;
+      }
+
+      if (currentPlanId == 'lifetime') {
+        selectedPlanId.value = 'lifetime';
+      } else if (currentPlanId == 'plus') {
+        if (currentInterval == 'monthly') {
+          selectedPlanId.value = 'plus_monthly';
+        } else {
+          selectedPlanId.value = 'plus_yearly';
+        }
+      }
+      return null;
+    }, [currentPlanId, currentInterval, plans.length]);
+
+    // Helpers
+    final activePlanOption = plans.firstWhere(
+      (p) => p.id == selectedPlanId.value,
+      orElse: () => plans.first,
+    );
+
+    bool isCurrentPlan(PlanOption option) {
+      if (option.serverPlanId == 'lifetime' && currentPlanId == 'lifetime') {
+        return true;
+      }
+      if (option.serverPlanId == currentPlanId &&
+          option.billingInterval == currentInterval) {
+        return true;
+      }
+      return false;
+    }
 
     // DIRECT RETURN FOR LIFETIME USERS
     if (currentPlanId == 'lifetime') {
       return const _LifetimeView();
     }
 
-    // Derived values for the currently SELECTABLE plan
-    final activePlanOption = _kPlans.firstWhere(
-      (p) => p.id == (selectedPlanId.value ?? 'plus'),
-      orElse: () => _kPlans[1], // Default to Plus
-    );
+    if (isIos && productsAsync.isLoading) {
+      return AdaptiveScaffold(
+        appBar: const AdaptiveAppBar(title: ''),
+        body: Material(
+          color: colorScheme.appBackground,
+          child: const Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
+    if (isIos && (productsAsync.hasError || plans.isEmpty)) {
+      return AdaptiveScaffold(
+        appBar: const AdaptiveAppBar(title: ''),
+        body: Material(
+          color: colorScheme.appBackground,
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Unable to load subscription options',
+                    style: TextStyle(
+                      color: colorScheme.onSurface,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                  PrimaryAdaptiveButton(
+                    onPressed: () => ref
+                        .read(subscriptionProductsProvider.notifier)
+                        .refresh(),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    Future<void> onManageStoreSubscription() async {
+      final storeProductId = currentSub?.subscription?.storeProductId;
+      final uri = defaultTargetPlatform == TargetPlatform.iOS
+          ? Uri.parse('https://apps.apple.com/account/subscriptions')
+          : Uri.parse(
+              'https://play.google.com/store/account/subscriptions?package=com.moneko.mobile${storeProductId != null ? '&sku=$storeProductId' : ''}',
+            );
+
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!ok && context.mounted) {
+        AppToast.error(context, 'Unable to open subscription settings');
+      }
+    }
+
+    Future<void> startStripeCheckout(PlanOption option) async {
+      final session = supabase.auth.currentSession;
+      if (session == null) throw Exception('No active session');
+
+      // IMPORTANT: Do not URI-encode the Stripe placeholder.
+      final successBase = Uri.https('moneko.io', '/checkout', {
+        'status': 'success',
+        'source': 'mobile',
+        'redirectUrl': DeepLinks.paymentCallback,
+        'plan': option.serverPlanId,
+        if (option.billingInterval != null) 'billing': option.billingInterval,
+      }).toString();
+
+      final cancelBase = Uri.https('moneko.io', '/checkout', {
+        'status': 'canceled',
+        'source': 'mobile',
+        'redirectUrl': DeepLinks.paymentCallback,
+        'plan': option.serverPlanId,
+        if (option.billingInterval != null) 'billing': option.billingInterval,
+      }).toString();
+
+      final response = await supabase.functions.invoke(
+        'create-checkout-session',
+        body: {
+          'plan': option.serverPlanId,
+          if (option.serverPlanId != 'lifetime')
+            'billingInterval': option.billingInterval,
+          'successUrl': '$successBase&session_id={CHECKOUT_SESSION_ID}',
+          'cancelUrl': '$cancelBase&session_id={CHECKOUT_SESSION_ID}',
+        },
+      );
+
+      if (response.data != null && response.data['checkoutUrl'] != null) {
+        final checkoutUrl = response.data['checkoutUrl'] as String;
+        await launchUrl(
+          Uri.parse(checkoutUrl),
+          mode: LaunchMode.externalApplication,
+        );
+      } else {
+        throw Exception('No checkout URL received');
+      }
+    }
 
     // Action Logic
     Future<void> onMainAction() async {
-      if (activePlanOption.id == currentPlanId) {
-        // Same plan selected.
-        // Check if interval is different (only for Plus)
-        if (activePlanOption.id == 'plus') {
-          // Logic to check if we are swapping interval?
-          // Since we don't have current interval from backend easily, we assume
-          // this button is only clickable if sensible.
-          // For now, let's allow "Update Interval" flow if it's Plus.
-          final result = await MonekoAlertDialog.show(
-            context: context,
-            title: 'Update Billing Cycle',
-            description:
-                'Switch your Plus plan to ${billingInterval.value} billing?',
-            confirmLabel: 'Confirm',
-            cancelLabel: 'Cancel',
-          );
-          if (result?.confirmed == true) {
-            // ... logic
-            isLoading.value = true;
-            try {
-              await ref
-                  .read(subscriptionManagementProvider.notifier)
-                  .changePlan(
-                    plan: 'plus',
-                    billingInterval: billingInterval.value,
-                  );
-              if (context.mounted) AppToast.success(context, 'Plan updated');
-            } catch (e) {
-              if (context.mounted) AppToast.error(context, e.toString());
-            } finally {
-              isLoading.value = false;
+      if (isCurrentPlan(activePlanOption)) {
+        // Already on this plan
+        AppToast.info(context, 'You are already on this plan.');
+        return;
+      }
+
+      // Android subscription upgrades/downgrades require passing ChangeSubscriptionParam
+      // with the existing PurchaseDetails. To avoid accidental double subscriptions,
+      // we direct users to manage plan changes in Google Play for now.
+      final isPlayStore = currentProvider == 'play_store';
+      final isAndroid = defaultTargetPlatform == TargetPlatform.android;
+      final isIntervalSwitch = currentPlanId == 'plus' &&
+          activePlanOption.serverPlanId == 'plus' &&
+          currentInterval != null &&
+          activePlanOption.billingInterval != null &&
+          currentInterval != activePlanOption.billingInterval;
+
+      if (isAndroid && isPlayStore && isIntervalSwitch) {
+        await onManageStoreSubscription();
+        return;
+      }
+
+      // Smart Dialog Copy
+      String title = 'Confirm Selection';
+      String description =
+          'Switch to ${activePlanOption.name} for ${activePlanOption.priceDisplay}?';
+      String confirmLabel = 'Confirm';
+
+      if (activePlanOption.serverPlanId == 'lifetime') {
+        title = 'Secure Lifetime Access';
+        description =
+            'Get unlimited access forever for a one-time payment of ${activePlanOption.priceDisplay}. No recurring fees.';
+        confirmLabel = 'Get Lifetime';
+      } else if (currentPlanId == 'plus' &&
+          activePlanOption.serverPlanId == 'plus') {
+        // Switching interval
+        if (activePlanOption.billingInterval == 'yearly') {
+          title = 'Switch to Yearly?';
+          description =
+              'Upgrade to annual billing for ${activePlanOption.priceDisplay}/year.';
+          confirmLabel = 'Switch & Save';
+        } else {
+          title = 'Switch to Monthly?';
+          description =
+              'Switch to monthly billing for ${activePlanOption.priceDisplay}/mo.';
+          confirmLabel = 'Switch';
+        }
+      }
+
+      // Confirm Change
+      final result = await MonekoAlertDialog.show(
+        context: context,
+        title: title,
+        description: description,
+        confirmLabel: confirmLabel,
+        cancelLabel: 'Cancel',
+      );
+
+      if (result?.confirmed == true) {
+        isLoading.value = true;
+        try {
+          if (isIos) {
+            final catalog = activePlanOption.catalogProduct;
+            if (catalog == null) throw Exception('Missing iOS product mapping');
+
+            await ref.read(iapControllerProvider.notifier).buy(catalog);
+            if (context.mounted) {
+              AppToast.info(context, 'Complete the purchase in the App Store');
             }
+          } else {
+            await startStripeCheckout(activePlanOption);
           }
-        }
-        return;
-      }
-
-      final currentLevel = getPlanLevel(currentPlanId);
-      final newLevel = getPlanLevel(activePlanOption.id);
-
-      // Downgrade / Cancel
-      if (newLevel < currentLevel) {
-        // e.g. Plus -> Free
-        final result = await MonekoAlertDialog.show(
-          context: context,
-          title: 'Cancel Subscription', // Minimal text
-          description:
-              'Downgrade to Starter? You will lose premium features at the end of the period.',
-          confirmLabel: 'Confirm',
-          cancelLabel: 'Keep Plan',
-          isDestructive: true,
-        );
-        if (result?.confirmed == true) {
-          isLoading.value = true;
-          try {
-            await ref
-                .read(subscriptionManagementProvider.notifier)
-                .cancelSubscription();
-            if (context.mounted)
-              AppToast.success(context, 'Subscription cancelled');
-          } catch (e) {
-            if (context.mounted) AppToast.error(context, e.toString());
-          } finally {
-            isLoading.value = false;
+        } catch (e) {
+          if (context.mounted) {
+            AppToast.error(context, e.toString());
           }
-        }
-        return;
-      }
-
-      // Upgrade (Free -> Plus, Plus -> Lifetime)
-      if (newLevel > currentLevel) {
-        final isLifetime = activePlanOption.isLifetime;
-        final price = isLifetime
-            ? activePlanOption.monthlyPrice
-            : (billingInterval.value == 'monthly'
-                ? activePlanOption.monthlyPrice
-                : activePlanOption.yearlyPrice);
-
-        final period = isLifetime
-            ? 'one-time'
-            : (billingInterval.value == 'monthly' ? '/mo' : '/yr');
-
-        final result = await MonekoAlertDialog.show(
-          context: context,
-          title: 'Confirm Upgrade',
-          description:
-              'Upgrade to ${activePlanOption.name} for \$${price.toStringAsFixed(2)}$period?',
-          confirmLabel: 'Pay & Upgrade',
-          cancelLabel: 'Cancel',
-        );
-
-        if (result?.confirmed == true) {
-          isLoading.value = true;
-          try {
-            await ref.read(subscriptionManagementProvider.notifier).changePlan(
-                  plan: activePlanOption.id,
-                  billingInterval: isLifetime ? null : billingInterval.value,
-                );
-            if (context.mounted)
-              AppToast.success(context, 'Welcome to ${activePlanOption.name}!');
-          } catch (e) {
-            if (context.mounted)
-              AppToast.error(
-                  context, e.toString()); // Simplify error handling for brevity
-          } finally {
-            isLoading.value = false;
-          }
+        } finally {
+          isLoading.value = false;
         }
       }
     }
 
-    // Button Text Logic
-    String getButtonText() {
-      if (isLoading.value) return 'Processing...';
-      if (activePlanOption.id == currentPlanId) {
-        if (activePlanOption.id == 'plus') return 'Update Billing Cycle';
-        return 'Current Plan';
+    Future<void> onRestorePurchases() async {
+      isLoading.value = true;
+      try {
+        if (isIos) {
+          await ref.read(iapControllerProvider.notifier).restorePurchases();
+        }
+        await ref.read(subscriptionManagementProvider.notifier).refresh();
+        if (context.mounted) {
+          AppToast.success(context, 'Subscription status restored');
+        }
+      } catch (e) {
+        if (context.mounted) {
+          AppToast.error(context, 'Failed to restore: ${e.toString()}');
+        }
+      } finally {
+        isLoading.value = false;
       }
-      if (getPlanLevel(activePlanOption.id) < getPlanLevel(currentPlanId))
-        return 'Downgrade to ${activePlanOption.name}';
-      return 'Upgrade to ${activePlanOption.name}';
     }
 
-    bool isButtonEnabled() {
-      if (isLoading.value) return false;
-      if (activePlanOption.id == 'free' && currentPlanId == 'free')
-        return false; // Already free
-      if (activePlanOption.id == 'lifetime' && currentPlanId == 'lifetime')
-        return false;
+    Future<void> onCancelSubscription() async {
+      final result = await MonekoAlertDialog.show(
+        context: context,
+        title: 'Cancel Subscription',
+        description:
+            'Are you sure? You will lose access to premium features at the end of your current billing period.',
+        confirmLabel: 'Confirm Cancellation',
+        cancelLabel: 'Keep Plan',
+        isDestructive: true,
+      );
 
-      // Ensure user can't "upgrade" to same plan unless it's Plus (interval switch)
-      // Ideally we check if interval is actually different, but for now we allow the button to trigger the check
-      return true;
+      if (result?.confirmed == true) {
+        isLoading.value = true;
+        try {
+          await ref
+              .read(subscriptionManagementProvider.notifier)
+              .cancelSubscription();
+          if (context.mounted) {
+            AppToast.success(context, 'Subscription cancelled');
+          }
+        } catch (e) {
+          if (context.mounted) {
+            AppToast.error(context, e.toString());
+          }
+        } finally {
+          isLoading.value = false;
+        }
+      }
     }
 
     return AdaptiveScaffold(
-      appBar: AdaptiveAppBar(title: 'Membership'), // Shorter title
+      appBar: const AdaptiveAppBar(title: ''),
       body: Material(
         color: colorScheme.appBackground,
         child: SafeArea(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 24),
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        // Header
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: colorScheme.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(100),
+                          ),
+                          child: Text(
+                            'EARLY BIRD SALE',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: colorScheme.primary,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Unlock Full Access',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Secure the lowest price before it\'s gone.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: colorScheme.mutedForeground,
+                          ),
+                        ),
+                        const SizedBox(height: 32),
 
-              // 1. Billing Toggle (Top Center)
-              // Only meaningful if not viewing Lifetime solely?
-              // Actually, standard UI shows this at top.
-              Center(
-                child: _MinimalToggle(
-                  value: billingInterval.value,
-                  onChanged: (v) => billingInterval.value = v,
-                ),
-              ),
+                        // --- HERO: LIFETIME PLAN ---
+                        if (lifetimePlan.isNotEmpty)
+                          _LifetimeHeroCard(
+                            plan: lifetimePlan.first,
+                            isSelected:
+                                selectedPlanId.value == lifetimePlan.first.id,
+                            onTap: () =>
+                                selectedPlanId.value = lifetimePlan.first.id,
+                          ),
 
-              const Spacer(), // Push content to center roughly or use flex
+                        const SizedBox(height: 24),
 
-              // 2. Plan List (The Core)
-              // Minimal rows.
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  children: _kPlans.map((plan) {
-                    final isSelected = selectedPlanId.value == plan.id;
-                    return _MinimalPlanRow(
-                      plan: plan,
-                      isSelected: isSelected,
-                      billing: billingInterval.value,
-                      onTap: () => selectedPlanId.value = plan.id,
-                    );
-                  }).toList(),
-                ),
-              ),
+                        Row(
+                          children: [
+                            Expanded(
+                                child: Divider(
+                                    color: colorScheme.outlineVariant
+                                        .withValues(alpha: 0.5))),
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
+                              child: Text('OR SUBSCRIBE',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: colorScheme.mutedForeground
+                                          .withValues(alpha: 0.6))),
+                            ),
+                            Expanded(
+                                child: Divider(
+                                    color: colorScheme.outlineVariant
+                                        .withValues(alpha: 0.5))),
+                          ],
+                        ),
 
-              const SizedBox(height: 32),
+                        const SizedBox(height: 24),
 
-              // 3. Simple Summary of Selection
-              AnimatedOpacity(
-                duration: const Duration(milliseconds: 200),
-                opacity: 1.0,
-                child: Column(
-                  children: [
-                    Text(
-                      activePlanOption.tagline,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: colorScheme.onSurface,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 15,
-                      ),
+                        // --- STANDARD: SUBSCRIPTION PLANS ---
+                        ...subPlans.map((plan) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: _AppleStylePlanCard(
+                              plan: plan,
+                              isSelected: selectedPlanId.value == plan.id,
+                              onTap: () => selectedPlanId.value = plan.id,
+                            ),
+                          );
+                        }),
+
+                        const SizedBox(height: 12),
+
+                        // Features Link
+                        GestureDetector(
+                          onTap: () {
+                            showModalBottomSheet(
+                                context: context,
+                                backgroundColor: Colors.transparent,
+                                isScrollControlled: true,
+                                builder: (_) => const _CleanFeatureSheet());
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.all(12.0),
+                            child: Text(
+                              'Compare features',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: colorScheme.primary,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                      ],
                     ),
-                    const SizedBox(height: 8),
-                    GestureDetector(
-                      onTap: () {
-                        // TODO: Show feature modal
-                        showModalBottomSheet(
-                            context: context,
-                            builder: (_) =>
-                                _FeatureSheet(plan: activePlanOption));
-                      },
+                  ),
+                ),
+              ),
+
+              // Bottom Actions
+              Container(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+                decoration: BoxDecoration(
+                  color: colorScheme.appBackground,
+                  border: Border(
+                      top: BorderSide(
+                          color: colorScheme.outlineVariant
+                              .withValues(alpha: 0.5))),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    PrimaryAdaptiveButton(
+                      onPressed: isLoading.value ? null : onMainAction,
                       child: Text(
-                        'See features',
-                        style: TextStyle(
-                          color: colorScheme.primary, // Using primary for link
-                          fontSize: 14,
+                        isLoading.value
+                            ? 'Processing...'
+                            : (activePlanOption.serverPlanId == 'lifetime'
+                                ? 'Get Lifetime Access for ${activePlanOption.priceDisplay}'
+                                : 'Subscribe for ${activePlanOption.priceDisplay} ${activePlanOption.billingInterval == 'monthly' ? '/mo' : '/yr'}'),
+                        style: const TextStyle(
+                          fontSize: 16,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
-                  ],
-                ),
-              ),
 
-              const Spacer(flex: 2),
-
-              // 4. Sticky Bottom Action
-              Container(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  children: [
-                    PrimaryAdaptiveButton(
-                      onPressed: isButtonEnabled() ? onMainAction : null,
-                      child: Text(getButtonText()),
-                    ),
-                    const SizedBox(height: 12),
-                    if (activePlanOption.monthlyPrice > 0)
-                      Text(
-                        'Recurring billing. Cancel anytime.',
-                        style: TextStyle(
-                          color: colorScheme.mutedForeground,
-                          fontSize: 12,
+                    // Cancel / Manage Subscription Button
+                    // ONLY shown if user is NOT on free plan
+                    if (currentPlanId != 'free' &&
+                        (currentProvider == null ||
+                            (currentProvider != 'app_store' &&
+                                currentProvider != 'play_store'))) ...[
+                      const SizedBox(height: 16),
+                      GestureDetector(
+                        onTap: isLoading.value ? null : onCancelSubscription,
+                        child: Text(
+                          'Cancel Subscription',
+                          style: TextStyle(
+                            color: colorScheme.mutedForeground,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            decoration: TextDecoration.underline,
+                            decorationColor: colorScheme.mutedForeground
+                                .withValues(alpha: 0.5),
+                          ),
                         ),
                       ),
+                    ],
+
+                    if (currentPlanId != 'free' &&
+                        (currentProvider == 'app_store' ||
+                            currentProvider == 'play_store') &&
+                        currentPlanId != 'lifetime') ...[
+                      const SizedBox(height: 16),
+                      GestureDetector(
+                        onTap:
+                            isLoading.value ? null : onManageStoreSubscription,
+                        child: Text(
+                          'Manage Subscription',
+                          style: TextStyle(
+                            color: colorScheme.primary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            decoration: TextDecoration.underline,
+                            decorationColor:
+                                colorScheme.primary.withValues(alpha: 0.5),
+                          ),
+                        ),
+                      ),
+                    ],
+
+                    // Restore Purchases (Always visible)
+                    const SizedBox(height: 24),
+                    GestureDetector(
+                      onTap: isLoading.value ? null : onRestorePurchases,
+                      child: Text(
+                        'Restore Purchases',
+                        style: TextStyle(
+                          color: colorScheme.mutedForeground
+                              .withValues(alpha: 0.7),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                   ],
                 ),
               ),
@@ -351,158 +706,16 @@ class PlanSelectionPage extends HookConsumerWidget {
   }
 }
 
-// --- WIDGETS ---
+// --- COMPONENTS ---
 
-class _LifetimeView extends StatelessWidget {
-  const _LifetimeView();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return AdaptiveScaffold(
-      appBar: AdaptiveAppBar(title: 'Membership'),
-      body: Material(
-        color: scheme.appBackground,
-        child: Padding(
-          padding: const EdgeInsets.all(32.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: scheme.surface,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: scheme.primary.withOpacity(0.15),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    )
-                  ],
-                ),
-                child: Icon(Icons.verified_rounded,
-                    size: 64, color: scheme.primary),
-              ),
-              const SizedBox(height: 32),
-              Text(
-                'Lifetime Member',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: scheme.onSurface,
-                  letterSpacing: -0.5,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Thank you for your support!',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: scheme.primary,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'You have successfully unlocked all features forever. Your early belief in our mission means the world to us.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: scheme.mutedForeground,
-                  height: 1.5,
-                ),
-              ),
-              const Spacer(flex: 2),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _MinimalToggle extends StatelessWidget {
-  final String value;
-  final ValueChanged<String> onChanged; // 'monthly' | 'yearly'
-
-  const _MinimalToggle({required this.value, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: scheme.surface, // Subtle bg
-        borderRadius: BorderRadius.circular(100),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _ToggleItem(
-              text: 'Monthly',
-              isActive: value == 'monthly',
-              onTap: () => onChanged('monthly')),
-          _ToggleItem(
-              text: 'Yearly (-25%)',
-              isActive: value == 'yearly',
-              onTap: () => onChanged('yearly')),
-        ],
-      ),
-    );
-  }
-}
-
-class _ToggleItem extends StatelessWidget {
-  final String text;
-  final bool isActive;
-  final VoidCallback onTap;
-
-  const _ToggleItem(
-      {required this.text, required this.isActive, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isActive
-              ? scheme.primary
-              : Colors.transparent, // Active = Primary fill
-          borderRadius: BorderRadius.circular(100),
-        ),
-        child: Text(
-          text,
-          style: TextStyle(
-            color: isActive ? scheme.onPrimary : scheme.mutedForeground,
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _MinimalPlanRow extends StatelessWidget {
+class _LifetimeHeroCard extends StatelessWidget {
   final PlanOption plan;
   final bool isSelected;
-  final String billing;
   final VoidCallback onTap;
 
-  const _MinimalPlanRow({
+  const _LifetimeHeroCard({
     required this.plan,
     required this.isSelected,
-    required this.billing,
     required this.onTap,
   });
 
@@ -510,45 +723,248 @@ class _MinimalPlanRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    // Calculate Price Display
-    String priceStr;
-    if (plan.monthlyPrice == 0) {
-      priceStr = 'Free';
-    } else if (plan.isLifetime) {
-      priceStr = '\$${plan.monthlyPrice.toStringAsFixed(0)}';
-    } else {
-      // If billing is yearly, show monthly equivalent or total?
-      // User prompt said "user cant view all .. at once".
-      // Let's show monthly equivalent for yearly toggle to make it look cheaper (standard UX)
-      final p =
-          billing == 'monthly' ? plan.monthlyPrice : (plan.yearlyPrice / 12);
-      priceStr = '\$${p.toStringAsFixed(2)}/mo';
-    }
+    // Premium Gold/Primary tint styling
+    final borderColor =
+        isSelected ? scheme.primary : Colors.amber.withValues(alpha: 0.5);
+    final backgroundColor =
+        isSelected ? scheme.primary.withValues(alpha: 0.05) : scheme.surface;
 
     return GestureDetector(
       onTap: onTap,
-      behavior: HitTestBehavior.opaque,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: backgroundColor,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: borderColor, width: 2),
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                          color: scheme.primary.withValues(alpha: 0.15),
+                          blurRadius: 24,
+                          offset: const Offset(0, 8))
+                    ]
+                  : [
+                      BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4))
+                    ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'FOUNDER\'S DEAL',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: scheme.primary,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          plan.name,
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w700,
+                            color: scheme.onSurface,
+                          ),
+                        ),
+                      ],
+                    ),
+                    // Checkbox
+                    Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color:
+                              isSelected ? scheme.primary : Colors.transparent,
+                          border: Border.all(
+                              color: isSelected
+                                  ? scheme.primary
+                                  : scheme.outlineVariant,
+                              width: 2)),
+                      child: isSelected
+                          ? Icon(Icons.check, size: 16, color: scheme.onPrimary)
+                          : null,
+                    )
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    if (plan.originalPriceUsd != null) ...[
+                      Text(
+                        '\$${plan.originalPriceUsd!.toStringAsFixed(0)}',
+                        style: TextStyle(
+                          fontSize: 20,
+                          decoration: TextDecoration.lineThrough,
+                          color: scheme.mutedForeground.withValues(alpha: 0.6),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    Text(
+                      plan.priceDisplay,
+                      style: TextStyle(
+                        fontSize: 36,
+                        fontWeight: FontWeight.w800,
+                        color: scheme.onSurface,
+                        letterSpacing: -1,
+                        height: 1,
+                      ),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.only(left: 6, bottom: 6),
+                      child: Text(
+                        'once',
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Pay once, enjoy forever. This plan will be removed after the Early Bird sale ends.',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: scheme.onSurface.withValues(alpha: 0.7),
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                      color: Colors.amber.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                          color: Colors.amber.withValues(alpha: 0.2))),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.warning_amber_rounded,
+                          size: 14, color: Colors.amber),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Offer expires soon',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.amber[800] ?? Colors.amber,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              ],
+            ),
+          ),
+          // Floating Badge
+          Positioned(
+            top: -10,
+            right: 24,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.circular(100),
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.2),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2))
+                  ]),
+              child: const Text(
+                'BEST VALUE',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5),
+              ),
+            ),
+          )
+        ],
+      ),
+    );
+  }
+}
+
+class _AppleStylePlanCard extends StatelessWidget {
+  final PlanOption plan;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _AppleStylePlanCard({
+    required this.plan,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    final backgroundColor = scheme.surface;
+    final borderColor = isSelected
+        ? scheme.primary
+        : scheme.outlineVariant.withValues(alpha: 0.3);
+
+    return GestureDetector(
+      onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          // No borders, just fill change
-          color: isSelected ? scheme.surface : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-          // Maybe very subtle border for unselected? No, user said "less border".
-          // We rely on the Text Color & Layout to define rows.
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: borderColor, width: 2),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                      color: scheme.primary.withValues(alpha: 0.1),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4))
+                ]
+              : [
+                  BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2))
+                ],
         ),
         child: Row(
           children: [
-            // 1. Selector Circle (Radio-like)
+            // Radio Indicator
             Container(
-              width: 20,
-              height: 20,
+              width: 22,
+              height: 22,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: isSelected ? scheme.primary : scheme.outlineVariant,
+                  color: isSelected
+                      ? scheme.primary
+                      : scheme.outlineVariant.withValues(alpha: 0.8),
                   width: 2,
                 ),
                 color: isSelected ? scheme.primary : Colors.transparent,
@@ -556,45 +972,84 @@ class _MinimalPlanRow extends StatelessWidget {
               child: isSelected
                   ? Center(
                       child:
-                          Icon(Icons.check, size: 12, color: scheme.onPrimary))
+                          Icon(Icons.check, size: 14, color: scheme.onPrimary))
                   : null,
             ),
             const SizedBox(width: 16),
 
-            // 2. Name
-            Text(
-              plan.name,
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-                color: scheme.onSurface, // Always visible
-              ),
-            ),
-            if (plan.popular) ...[
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.purple.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: const Text('PRO',
-                    style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.purple)),
-              ),
-            ],
-
-            const Spacer(),
-
-            // 3. Price
-            Text(
-              priceStr,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                color: isSelected ? scheme.onSurface : scheme.mutedForeground,
+            // Content
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        plan.name,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: scheme.onSurface,
+                        ),
+                      ),
+                      if (plan.badgeText != null) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: scheme.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            plan.badgeText!,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: scheme.primary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      if (plan.originalPriceUsd != null) ...[
+                        Text(
+                          '\$${plan.originalPriceUsd!.toStringAsFixed(2)}',
+                          style: TextStyle(
+                            fontSize: 14,
+                            decoration: TextDecoration.lineThrough,
+                            color:
+                                scheme.mutedForeground.withValues(alpha: 0.7),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                      ],
+                      Text(
+                        plan.priceDisplay,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: scheme.onSurface,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      Text(
+                        plan.periodDisplay,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: scheme.mutedForeground,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],
@@ -604,64 +1059,132 @@ class _MinimalPlanRow extends StatelessWidget {
   }
 }
 
-class _FeatureSheet extends StatelessWidget {
-  final PlanOption plan;
-  const _FeatureSheet({required this.plan});
+class _CleanFeatureSheet extends StatelessWidget {
+  const _CleanFeatureSheet();
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    // Hardcoded feature lists for display
-    // In real app, these might come from the PlanOption object
-    List<String> getFeatures() {
-      if (plan.id == 'free')
-        return ['Manual Tracking', 'Basic Charts', '1 Goal'];
-      if (plan.id == 'plus')
-        return [
-          'Everything in Free',
-          'Unlimited AI Coach',
-          'Bank Sync',
-          'Unlimited Goals',
-          'Export CSV'
-        ];
-      return [
-        'Everything in Plus',
-        'Lifetime Access',
-        'Founder Badge',
-        'Priority Support'
-      ];
-    }
+    final features = [
+      'Unlimited AI Insights',
+      'Automatic Bank Sync',
+      'Smart Budgeting Goals',
+      'Export to CSV',
+      'Recurring Bill Tracking',
+      'Priority Support',
+      'Ad-free Experience',
+    ];
 
     return Container(
-      padding: const EdgeInsets.all(24),
-      width: double.infinity,
-      color: scheme.surface,
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: const EdgeInsets.fromLTRB(24, 32, 24, 48),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(plan.name,
-              style:
-                  const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          Text(plan.tagline, style: TextStyle(color: scheme.mutedForeground)),
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: scheme.outlineVariant,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
           const SizedBox(height: 24),
-          ...getFeatures().map((f) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
+          Text(
+            'Included in Premium',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              color: scheme.onSurface,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 24),
+          ...features.map((f) => Padding(
+                padding: const EdgeInsets.only(bottom: 16),
                 child: Row(
                   children: [
-                    Icon(Icons.check, size: 18, color: scheme.primary),
-                    const SizedBox(width: 12),
-                    Text(f, style: const TextStyle(fontSize: 16)),
+                    Icon(Icons.check_circle_outline_rounded,
+                        size: 22, color: scheme.primary),
+                    const SizedBox(width: 14),
+                    Text(f,
+                        style: TextStyle(
+                            fontSize: 16,
+                            color: scheme.onSurface.withValues(alpha: 0.8),
+                            fontWeight: FontWeight.w400)),
                   ],
                 ),
               )),
-          const SizedBox(height: 24),
-          PrimaryAdaptiveButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close')),
         ],
+      ),
+    );
+  }
+}
+
+class _LifetimeView extends StatelessWidget {
+  const _LifetimeView();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return AdaptiveScaffold(
+      appBar: const AdaptiveAppBar(title: ''),
+      body: Material(
+        color: scheme.appBackground,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: scheme.surface,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: scheme.primary.withValues(alpha: 0.1),
+                        blurRadius: 30,
+                        offset: const Offset(0, 10),
+                      )
+                    ],
+                  ),
+                  child: Icon(Icons.verified_rounded,
+                      size: 48, color: scheme.primary),
+                ),
+                const SizedBox(height: 32),
+                Text(
+                  'Lifetime Member',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w700,
+                    color: scheme.onSurface,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'You have full access forever.\nThank you for supporting Moneko.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 16,
+                    height: 1.5,
+                    color: scheme.mutedForeground,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

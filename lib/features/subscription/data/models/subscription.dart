@@ -5,6 +5,8 @@ class Subscription {
   final String userId;
   final String? stripeSubscriptionId;
   final String? stripeCustomerId;
+  final String? provider; // stripe | app_store | play_store
+  final String? storeProductId;
   final String? plan;
   final String? status;
   final DateTime? currentPeriodEnd;
@@ -12,6 +14,7 @@ class Subscription {
   final bool? cancelAtPeriodEnd;
   final String? boundToUserId;
   final String? boundToHouseholdId;
+  final String? billingInterval; // Added field
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -20,6 +23,8 @@ class Subscription {
     required this.userId,
     this.stripeSubscriptionId,
     this.stripeCustomerId,
+    this.provider,
+    this.storeProductId,
     this.plan,
     this.status,
     this.currentPeriodEnd,
@@ -27,6 +32,7 @@ class Subscription {
     this.cancelAtPeriodEnd,
     this.boundToUserId,
     this.boundToHouseholdId,
+    this.billingInterval, // Added param
     required this.createdAt,
     this.updatedAt,
   });
@@ -37,6 +43,8 @@ class Subscription {
       userId: json['user_id']?.toString() ?? '',
       stripeSubscriptionId: json['stripe_subscription_id'] as String?,
       stripeCustomerId: json['stripe_customer_id'] as String?,
+      provider: json['provider'] as String?,
+      storeProductId: json['store_product_id'] as String?,
       plan: json['plan'] as String?,
       status: json['status'] as String?,
       currentPeriodEnd: json['current_period_end'] != null
@@ -48,6 +56,7 @@ class Subscription {
       cancelAtPeriodEnd: json['cancel_at_period_end'] as bool?,
       boundToUserId: json['bound_to_user_id'] as String?,
       boundToHouseholdId: json['bound_to_household_id'] as String?,
+      billingInterval: json['billing_interval'] as String?, // Added mapping
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
           : DateTime.now(),
@@ -63,6 +72,8 @@ class Subscription {
       'user_id': userId,
       'stripe_subscription_id': stripeSubscriptionId,
       'stripe_customer_id': stripeCustomerId,
+      'provider': provider,
+      'store_product_id': storeProductId,
       'plan': plan,
       'status': status,
       'current_period_end': currentPeriodEnd?.toIso8601String(),
@@ -70,6 +81,7 @@ class Subscription {
       'cancel_at_period_end': cancelAtPeriodEnd,
       'bound_to_user_id': boundToUserId,
       'bound_to_household_id': boundToHouseholdId,
+      'billing_interval': billingInterval, // Added mapping
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
     };
@@ -136,4 +148,6 @@ class Subscription {
 
   /// Helper to check if user is on free plan
   bool get isFreePlan => plan == 'free' || plan == null;
+
+  bool get isIap => provider == 'app_store' || provider == 'play_store';
 }

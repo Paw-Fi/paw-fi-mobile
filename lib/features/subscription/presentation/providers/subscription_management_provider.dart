@@ -16,9 +16,9 @@ class SubscriptionManagementNotifier
 
   Future<SubscriptionDetails?> _fetchSubscriptionDetails(String userId) async {
     try {
-      // Use GET method with query parameters, similar to web version
       final response = await supabase.functions.invoke(
-        'get-subscription?userId=${Uri.encodeComponent(userId)}',
+        // Authenticated edge function - returns subscription for current user
+        'get-subscription',
         method: HttpMethod.get,
       );
 

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
@@ -6,9 +8,11 @@ import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/core/core.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/constants/links.dart';
+import 'package:moneko/features/subscription/presentation/pages/plan_selection_page.dart';
 import '../providers/subscription_provider.dart';
 import '../providers/referral_code_provider.dart';
 
@@ -122,49 +126,58 @@ class _PaywallContentState extends ConsumerState<_PaywallContent> {
       return;
     }
 
-    setState(() => _isLoading = true);
-
     try {
-      final session = supabase.auth.currentSession;
-      if (session == null) throw Exception('No active session');
+      // Android remains Stripe web checkout for now.
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        setState(() => _isLoading = true);
 
-      // IMPORTANT: Do not URI-encode the Stripe placeholder.
-      final successBase = Uri.https('moneko.io', '/checkout', {
-        'status': 'success',
-        'source': 'mobile',
-        'redirectUrl': DeepLinks.paymentCallback,
-        'plan': 'plus',
-        'billing': 'monthly',
-        'flow': flow,
-      }).toString();
-      final cancelBase = Uri.https('moneko.io', '/checkout', {
-        'status': 'canceled',
-        'source': 'mobile',
-        'redirectUrl': DeepLinks.paymentCallback,
-        'plan': 'plus',
-        'billing': 'monthly',
-        'flow': flow,
-      }).toString();
-
-      final response = await supabase.functions.invoke(
-        'create-checkout-session',
-        body: {
+        // IMPORTANT: Do not URI-encode the Stripe placeholder.
+        final successBase = Uri.https('moneko.io', '/checkout', {
+          'status': 'success',
+          'source': 'mobile',
+          'redirectUrl': DeepLinks.paymentCallback,
           'plan': 'plus',
-          'billingInterval': 'monthly',
-          'successUrl': '$successBase&session_id={CHECKOUT_SESSION_ID}',
-          'cancelUrl': '$cancelBase&session_id={CHECKOUT_SESSION_ID}',
-        },
-      );
+          'billing': 'monthly',
+          'flow': flow,
+        }).toString();
+        final cancelBase = Uri.https('moneko.io', '/checkout', {
+          'status': 'canceled',
+          'source': 'mobile',
+          'redirectUrl': DeepLinks.paymentCallback,
+          'plan': 'plus',
+          'billing': 'monthly',
+          'flow': flow,
+        }).toString();
 
-      if (response.data != null && response.data['checkoutUrl'] != null) {
-        final checkoutUrl = response.data['checkoutUrl'] as String;
-        await launchUrl(
-          Uri.parse(checkoutUrl),
-          mode: LaunchMode.externalApplication,
+        final response = await supabase.functions.invoke(
+          'create-checkout-session',
+          body: {
+            'plan': 'plus',
+            'billingInterval': 'monthly',
+            'successUrl': '$successBase&session_id={CHECKOUT_SESSION_ID}',
+            'cancelUrl': '$cancelBase&session_id={CHECKOUT_SESSION_ID}',
+          },
         );
-      } else {
-        throw Exception('No checkout URL received');
+
+        if (response.data != null && response.data['checkoutUrl'] != null) {
+          final checkoutUrl = response.data['checkoutUrl'] as String;
+          await launchUrl(
+            Uri.parse(checkoutUrl),
+            mode: LaunchMode.externalApplication,
+          );
+        } else {
+          throw Exception('No checkout URL received');
+        }
+        return;
       }
+
+      // iOS uses native IAP (PlanSelectionPage).
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => const PlanSelectionPage(),
+        ),
+      );
     } catch (e) {
       if (mounted) {
         AppToast.error(context, ErrorHandler.getUserFriendlyMessage(e));
