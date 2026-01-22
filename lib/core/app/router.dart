@@ -6,6 +6,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/avatar/presentation/pages/avatar_customizer_screen.dart';
 import 'package:moneko/features/subscription/presentation/pages/paywall_screen.dart';
+import 'package:moneko/features/subscription/presentation/pages/plan_selection_page.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/core/navigation/main_shell.dart';
 import 'package:moneko/core/app/app_initialization_provider_v2.dart';
@@ -98,6 +99,13 @@ GoRouter router(RouterRef ref) {
         builder: (context, state) {
           final mode = state.uri.queryParameters['mode'];
           return PaywallScreen(mode: PaywallModeX.fromQuery(mode));
+        },
+      ),
+      GoRoute(
+        path: '/plan-selection',
+        builder: (context, state) {
+          final mode = state.uri.queryParameters['mode'];
+          return PlanSelectionPage(mode: PlanSelectionModeX.fromQuery(mode));
         },
       ),
 
@@ -200,6 +208,7 @@ GoRouter router(RouterRef ref) {
         final isOnboardingPage = state.matchedLocation == '/avatar' ||
             state.matchedLocation == '/onboarding';
         final isOnPaywallPage = state.matchedLocation == '/paywall';
+        final isOnPlanSelectionPage = state.matchedLocation == '/plan-selection';
         final isOnErrorPage = state.matchedLocation == '/error';
 
         if (kDebugMode) {
@@ -240,9 +249,9 @@ GoRouter router(RouterRef ref) {
                 final everSubscribed =
                     prefs.getBool('ever_subscribed:${auth.uid}') ?? false;
                 if (everSubscribed) {
-                  return '/paywall?mode=resubscribe';
+                  return '/plan-selection?mode=resubscribe';
                 } else {
-                  return '/paywall?mode=trial';
+                  return '/plan-selection?mode=trial';
                 }
               }
             }
@@ -264,6 +273,10 @@ GoRouter router(RouterRef ref) {
 
         // Allow paywall page for authenticated users (mobile only)
         if (!kIsWeb && isOnPaywallPage && isAuthenticated) {
+          return null;
+        }
+
+        if (!kIsWeb && isOnPlanSelectionPage && isAuthenticated) {
           return null;
         }
 
@@ -290,9 +303,9 @@ GoRouter router(RouterRef ref) {
             final everSubscribed =
                 prefs.getBool('ever_subscribed:${auth.uid}') ?? false;
             if (everSubscribed) {
-              return '/paywall?mode=resubscribe';
+              return '/plan-selection?mode=resubscribe';
             } else {
-              return '/paywall?mode=trial';
+              return '/plan-selection?mode=trial';
             }
           }
           return '/dashboard';
@@ -306,14 +319,15 @@ GoRouter router(RouterRef ref) {
             isSubscriptionLoaded &&
             !hasSubscription &&
             !isOnPaywallPage &&
+            !isOnPlanSelectionPage &&
             !isOnboardingPage) {
           // Check if user ever had a subscription to determine paywall mode
           final everSubscribed =
               prefs.getBool('ever_subscribed:${auth.uid}') ?? false;
           if (everSubscribed) {
-            return '/paywall?mode=resubscribe';
+            return '/plan-selection?mode=resubscribe';
           } else {
-            return '/paywall?mode=trial';
+            return '/plan-selection?mode=trial';
           }
         }
 

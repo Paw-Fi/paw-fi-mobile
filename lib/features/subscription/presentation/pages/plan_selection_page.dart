@@ -14,6 +14,27 @@ import 'package:moneko/features/subscription/presentation/providers/iap_controll
 import 'package:moneko/features/subscription/data/models/subscription_product.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+enum PlanSelectionMode {
+  trial,
+  resubscribe,
+}
+
+extension PlanSelectionModeX on PlanSelectionMode {
+  static PlanSelectionMode fromQuery(String? value) {
+    return switch (value) {
+      'resubscribe' => PlanSelectionMode.resubscribe,
+      _ => PlanSelectionMode.trial,
+    };
+  }
+
+  String get queryValue {
+    return switch (this) {
+      PlanSelectionMode.trial => 'trial',
+      PlanSelectionMode.resubscribe => 'resubscribe',
+    };
+  }
+}
+
 // --- DATA ---
 class PlanOption {
   final String id; // Unique ID for UI selection
@@ -52,16 +73,21 @@ class PlanOption {
   }
 
   String get priceDisplay {
-    if (storePrice != null && storePrice!.isNotEmpty) return storePrice!;
-    if (displayPriceUsd != null)
+    if (storePrice != null && storePrice!.isNotEmpty) {
+      return storePrice!;
+    }
+    if (displayPriceUsd != null) {
       return '\$${displayPriceUsd!.toStringAsFixed(2)}';
+    }
     return '...';
   }
 }
 
 // --- PAGE ---
 class PlanSelectionPage extends HookConsumerWidget {
-  const PlanSelectionPage({super.key});
+  const PlanSelectionPage({super.key, this.mode = PlanSelectionMode.resubscribe});
+
+  final PlanSelectionMode mode;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -73,6 +99,7 @@ class PlanSelectionPage extends HookConsumerWidget {
 
     // View State
     final selectedPlanId = useState<String>('lifetime');
+    final hasAcknowledgedAutoRenew = useState(false);
 
     final currentSub = subscriptionAsync.value;
     final currentPlanId = currentSub?.subscription?.plan ?? 'free';
@@ -204,6 +231,22 @@ class PlanSelectionPage extends HookConsumerWidget {
         selectedPlanId.value = plans.first.id;
       }
 
+      if (mode == PlanSelectionMode.trial && currentPlanId == 'free') {
+        final monthly =
+            plans.where((p) => p.serverPlanId == 'plus' && p.billingInterval == 'monthly').toList();
+        final yearly =
+            plans.where((p) => p.serverPlanId == 'plus' && p.billingInterval == 'yearly').toList();
+        final firstRecurring = (monthly.isNotEmpty
+                ? monthly.first
+                : yearly.isNotEmpty
+                    ? yearly.first
+                    : null) ??
+            plans.first;
+
+        selectedPlanId.value = firstRecurring.id;
+        return null;
+      }
+
       if (currentPlanId == 'lifetime') {
         selectedPlanId.value = 'lifetime';
       } else if (currentPlanId == 'plus') {
@@ -214,13 +257,28 @@ class PlanSelectionPage extends HookConsumerWidget {
         }
       }
       return null;
-    }, [currentPlanId, currentInterval, plans.length]);
+    }, [mode, currentPlanId, currentInterval, plans.length]);
 
     // Helpers
     final activePlanOption = plans.firstWhere(
       (p) => p.id == selectedPlanId.value,
       orElse: () => plans.first,
     );
+
+    final requiresAutoRenewAcknowledgement =
+        activePlanOption.serverPlanId != 'lifetime';
+    final canConfirmAutoRenew =
+        !requiresAutoRenewAcknowledgement || hasAcknowledgedAutoRenew.value;
+
+    useEffect(() {
+      if (!requiresAutoRenewAcknowledgement) {
+        hasAcknowledgedAutoRenew.value = true;
+        return null;
+      }
+
+      hasAcknowledgedAutoRenew.value = false;
+      return null;
+    }, [activePlanOption.id]);
 
     bool isCurrentPlan(PlanOption option) {
       if (option.serverPlanId == 'lifetime' && currentPlanId == 'lifetime') {
@@ -308,6 +366,7 @@ class PlanSelectionPage extends HookConsumerWidget {
         'redirectUrl': DeepLinks.paymentCallback,
         'plan': option.serverPlanId,
         if (option.billingInterval != null) 'billing': option.billingInterval,
+        'flow': mode.queryValue,
       }).toString();
 
       final cancelBase = Uri.https('moneko.io', '/checkout', {
@@ -316,6 +375,7 @@ class PlanSelectionPage extends HookConsumerWidget {
         'redirectUrl': DeepLinks.paymentCallback,
         'plan': option.serverPlanId,
         if (option.billingInterval != null) 'billing': option.billingInterval,
+        'flow': mode.queryValue,
       }).toString();
 
       final response = await supabase.functions.invoke(
@@ -508,10 +568,12 @@ class PlanSelectionPage extends HookConsumerWidget {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        const Text(
-                          'Unlock Full Access',
+                        Text(
+                          mode == PlanSelectionMode.trial
+                              ? 'Start your free trial'
+                              : 'Subscribe Now',
                           textAlign: TextAlign.center,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.w700,
                             letterSpacing: -0.5,
@@ -519,7 +581,9 @@ class PlanSelectionPage extends HookConsumerWidget {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Secure the lowest price before it\'s gone.',
+                          mode == PlanSelectionMode.trial
+                              ? 'Pick a plan. You won\'t be charged until your trial ends.'
+                              : 'Pick a plan to get back to full access.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 16,
@@ -620,8 +684,54 @@ class PlanSelectionPage extends HookConsumerWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    if (requiresAutoRenewAcknowledgement) ...[
+                      CheckboxListTile(
+                        value: hasAcknowledgedAutoRenew.value,
+                        onChanged: isLoading.value
+                            ? null
+                            : (value) => hasAcknowledgedAutoRenew.value =
+                                value ?? false,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        activeColor: colorScheme.primary,
+                        checkColor: colorScheme.onPrimary,
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(
+                          mode == PlanSelectionMode.trial
+                              ? 'I understand that after my trial, my subscription will auto-renew at ${activePlanOption.priceDisplay}${activePlanOption.billingInterval == 'monthly' ? '/mo' : '/yr'} unless I cancel.'
+                              : 'I understand that my subscription will auto-renew at ${activePlanOption.priceDisplay}${activePlanOption.billingInterval == 'monthly' ? '/mo' : '/yr'} unless I cancel.',
+                          style: TextStyle(
+                            color: colorScheme.mutedForeground,
+                            fontSize: 13,
+                            height: 1.35,
+                          ),
+                        ),
+                        subtitle: Text(
+                          'You can cancel anytime in Settings.',
+                          style: TextStyle(
+                            color: colorScheme.mutedForeground
+                                .withValues(alpha: 0.85),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                      if (!canConfirmAutoRenew) ...[
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Please check the box above to continue.',
+                            style: TextStyle(
+                              color: colorScheme.mutedForeground,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                    ],
                     PrimaryAdaptiveButton(
-                      onPressed: isLoading.value ? null : onMainAction,
+                      onPressed:
+                          isLoading.value || !canConfirmAutoRenew ? null : onMainAction,
                       child: Text(
                         isLoading.value
                             ? 'Processing...'

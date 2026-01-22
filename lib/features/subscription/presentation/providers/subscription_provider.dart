@@ -50,7 +50,7 @@ class SubscriptionNotifier extends _$SubscriptionNotifier {
       );
 
       // Track if user ever had a subscription for paywall mode determination
-      if (subscription.isSubscribed) {
+      if (_hasEverSubscribed(subscription)) {
         try {
           final prefs = ref.read(sharedPreferencesProvider);
           await prefs.setBool('ever_subscribed:$userId', true);
@@ -68,6 +68,22 @@ class SubscriptionNotifier extends _$SubscriptionNotifier {
           name: 'SubscriptionProvider', error: e, stackTrace: stack);
       return null;
     }
+  }
+
+  bool _hasEverSubscribed(Subscription subscription) {
+    final plan = (subscription.plan ?? '').toLowerCase();
+    if (plan.isNotEmpty && plan != 'free') return true;
+
+    final status = (subscription.status ?? '').toLowerCase();
+    final hasStripeSubscriptionId =
+        (subscription.stripeSubscriptionId?.isNotEmpty ?? false);
+    final isIap = subscription.isIap;
+
+    if (status == 'trialing') return true;
+    if (hasStripeSubscriptionId) return true;
+    if (isIap) return true;
+
+    return false;
   }
 
   Future<void> refresh() async {

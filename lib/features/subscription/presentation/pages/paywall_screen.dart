@@ -8,7 +8,6 @@ import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/core/core.dart';
-import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/constants/links.dart';
@@ -175,7 +174,11 @@ class _PaywallContentState extends ConsumerState<_PaywallContent> {
       if (!mounted) return;
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) => const PlanSelectionPage(),
+          builder: (_) => PlanSelectionPage(
+            mode: widget.mode == PaywallMode.trial
+                ? PlanSelectionMode.trial
+                : PlanSelectionMode.resubscribe,
+          ),
         ),
       );
     } catch (e) {

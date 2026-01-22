@@ -191,8 +191,8 @@ class OnboardingFlowPage extends HookConsumerWidget {
         // 1) Mark onboarding completed so router won't bounce user back here after returning.
         await _markOnboardingCompleted(ref);
         if (!context.mounted) return;
-        // 2) Start checkout on the paywall (which launches the website flow and returns via deep link).
-        context.go('/paywall?mode=trial');
+        // 2) Send user to in-app trial flow.
+        context.go('/plan-selection?mode=trial');
         return;
       }
 
