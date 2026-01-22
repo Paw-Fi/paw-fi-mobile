@@ -8,6 +8,7 @@ import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
+import 'package:moneko/features/pockets/presentation/constants/budget_templates.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 
 /// Scope for pockets: personal or household.
@@ -282,6 +283,9 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       // 2. Analytics preferred currency
       // 3. Fallback to USD
       final analytics = ref.read(analyticsProvider);
+      final hasExplicitCurrency =
+          filter.selectedCurrency != null &&
+              filter.selectedCurrency!.trim().isNotEmpty;
       final initialCurrency = (filter.selectedCurrency?.toUpperCase() ??
               analytics.preferredCurrency?.toUpperCase() ??
               'USD')
@@ -310,7 +314,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
 
       // If no budget was found with the selected currency, fall back to any
       // budget for this scope/month (unique constraint is on scope+period).
-      if (budgetRow == null) {
+      if (budgetRow == null && !hasExplicitCurrency) {
         var fallbackBudgetQuery = supabase
             .from('budgets')
             .select('id,total_budget_cents,household_id,user_id,currency')
@@ -1196,6 +1200,130 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     } catch (e) {
       if (!mounted) return;
       state = state.copyWith(error: e.toString());
+    }
+  }
+
+  Future<void> createBudgetFromTemplate({
+    required double totalBudget,
+    required List<PocketTemplate> pockets,
+  }) async {
+    if (!mounted) return;
+
+    final authUser = ref.read(authProvider);
+    if (authUser.isEmpty) {
+      state = state.copyWith(error: 'Not authenticated');
+      return;
+    }
+
+    state = state.copyWith(isLoading: true, clearError: true);
+
+    try {
+      final filter = ref.read(homeFilterProvider);
+      final analytics = ref.read(analyticsProvider);
+      final selectedCurrency = (filter.selectedCurrency?.toUpperCase() ??
+              analytics.preferredCurrency?.toUpperCase() ??
+              'USD')
+          .toUpperCase();
+
+      final viewedMonth = params.periodMonth ?? DateTime.now();
+      final monthStart = DateTime(viewedMonth.year, viewedMonth.month, 1);
+      final periodMonth = _formatDate(monthStart);
+
+      final scopeType = params.scope;
+      final isScopedToHousehold = scopeType != PocketsScopeType.personal;
+      final householdId = params.householdId;
+
+      if (isScopedToHousehold && householdId == null) {
+        throw Exception('No household selected for scoped budget');
+      }
+
+      // 1. Upsert Budget
+      final nowIso = DateTime.now().toIso8601String();
+      final budgetPayload = <String, dynamic>{
+        'user_id': authUser.uid,
+        'household_id': isScopedToHousehold ? householdId : null,
+        'currency': selectedCurrency,
+        'period_month': periodMonth,
+        'total_budget_cents': (totalBudget * 100).round(),
+        'updated_at': nowIso,
+      };
+
+      // Check if we already have a budget ID in state or DB
+      String? budgetId = state.budgetId;
+      if (budgetId == null) {
+        final existing = await _findBudgetRowForPeriod(
+          periodMonth: periodMonth,
+          isHousehold: isScopedToHousehold,
+          householdId: householdId,
+          userId: authUser.uid,
+          currency: null,
+        );
+        budgetId = existing?['id'] as String?;
+      }
+
+      // Use upsert-like logic
+      if (budgetId != null) {
+        await supabase.from('budgets').update(budgetPayload).eq('id', budgetId);
+      } else {
+        final res = await supabase
+            .from('budgets')
+            .insert(budgetPayload)
+            .select('id')
+            .single();
+        budgetId = res['id'] as String;
+      }
+
+      // 2. Create Pockets & Links
+      final linksPayload = <Map<String, dynamic>>[];
+
+      for (final template in pockets) {
+        final insertRes = await supabase
+            .from('budget_envelopes')
+            .insert(<String, dynamic>{
+              'user_id': authUser.uid,
+              'budget_id': budgetId,
+              'name': template.name,
+              'budget_percentage': template.percentage *
+                  100, // Convert 0.5 -> 50.0 for DB? Wait, existing logic uses 0-100 float?
+              // Checking existing code: 'budget_percentage' seems to be stored as float 0-100 based on clamp(0.0, 100.0) in _normalizeToHundred
+              // Yes, Line 545: (row['budget_percentage'] as num?)?.toDouble() ?? 0.0;
+              // And Line 1178: 'budget_percentage': p.percentage
+              // But my PocketTemplate uses 0.0-1.0 (e.g. 0.60).
+              // So I must multiply by 100 here.
+              'household_id': isScopedToHousehold ? householdId : null,
+              'currency': selectedCurrency,
+              'color': template.color != null
+                  ? '#${template.color!.value.toRadixString(16).padLeft(8, '0').substring(2)}' // Simple hex
+                  : null,
+              'icon': template.iconName,
+              'updated_at': nowIso,
+            })
+            .select('id')
+            .single();
+
+        final newEnvId = insertRes['id'] as String;
+
+        // 3. Prepare Links
+        for (final cat in template.suggestedCategories) {
+          linksPayload.add({
+            'envelope_id': newEnvId,
+            'category': cat.toLowerCase(),
+          });
+        }
+      }
+
+      if (linksPayload.isNotEmpty) {
+        await supabase.from('envelope_category_links').insert(linksPayload);
+      }
+
+      // 4. Refresh
+      await _load();
+      ref.read(analyticsProvider.notifier).refresh(authUser.uid);
+      ref.read(widgetSyncVersionProvider.notifier).state++;
+    } catch (e) {
+      if (!mounted) return;
+      state = state.copyWith(isLoading: false, error: e.toString());
+      rethrow;
     }
   }
 

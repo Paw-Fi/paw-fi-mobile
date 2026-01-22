@@ -18,6 +18,7 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/pockets/presentation/widgets/pockets_grid_section.dart';
+import 'package:moneko/features/pockets/presentation/widgets/create_budget_from_template_sheet.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -488,9 +489,14 @@ class _PocketsMonthView extends HookConsumerWidget {
 
     // When a new month starts, users often have zero budget and no pockets yet.
     // If we can detect a previous month budget, offer a quick start action.
-    final showCopyBudget = pocketsState.editing.isEmpty &&
+    final showCopyBudget = !pocketsState.isLoading &&
+        pocketsState.editing.isEmpty &&
         pocketsState.totalBudget == 0 &&
         pocketsState.previousBudget > 0;
+
+    final showTemplateOption = !pocketsState.isLoading &&
+        pocketsState.editing.isEmpty &&
+        pocketsState.totalBudget == 0;
 
     final isCopyingPockets = useState(false);
 
@@ -580,6 +586,56 @@ class _PocketsMonthView extends HookConsumerWidget {
                   },
                   isCopying: isCopyingPockets.value,
                   colorScheme: colorScheme,
+                ),
+              ),
+            ),
+          if (showTemplateOption && !showCopyBudget)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                child: _CreateFromTemplateBanner(
+                  colorScheme: colorScheme,
+                  onTap: () {
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      isDismissible: false,
+                      enableDrag: false,
+                      backgroundColor:
+                          Colors.transparent, // Sheet handles its own styling
+                      builder: (context) => CreateBudgetFromTemplateSheet(
+                        scopeParams: scopeParams,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          if (showTemplateOption && showCopyBudget)
+            SliverToBoxAdapter(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: PlainAdaptiveButton(
+                    onPressed: () {
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        isDismissible: false,
+                        enableDrag: false,
+                        backgroundColor: Colors.transparent,
+                        builder: (context) => CreateBudgetFromTemplateSheet(
+                          scopeParams: scopeParams,
+                        ),
+                      );
+                    },
+                    child: Text(
+                      context.l10n.createFromTemplate,
+                      style: TextStyle(
+                          color: colorScheme.primary,
+                          fontWeight: FontWeight.w600),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -675,6 +731,60 @@ class _CopyBudgetBanner extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _CreateFromTemplateBanner extends StatelessWidget {
+  const _CreateFromTemplateBanner({
+    required this.colorScheme,
+    required this.onTap,
+  });
+
+  final ColorScheme colorScheme;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: colorScheme.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: colorScheme.outline.withValues(alpha: 0.1),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: colorScheme.shadow.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Text(
+              context.l10n.createFromTemplateDesc,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: PrimaryAdaptiveButton(
+                onPressed: onTap,
+                child: Text(context.l10n.createFromTemplate),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

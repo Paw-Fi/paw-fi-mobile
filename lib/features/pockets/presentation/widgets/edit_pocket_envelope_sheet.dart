@@ -18,6 +18,7 @@ import 'package:moneko/features/home/presentation/widgets/category_picker_bottom
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
+import 'package:moneko/features/pockets/presentation/constants/budget_templates.dart';
 import 'package:moneko/features/pockets/presentation/constants/pocket_icon_constants.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
@@ -30,20 +31,24 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
     super.key,
     required this.scopeParams,
     this.existingEnvelope,
+    this.template,
     required this.totalBudget,
     required this.unallocatedBudget,
     required this.budgetId,
     this.allPockets = const [],
     this.onDeleteCompleted,
+    this.onSaveOffline,
   });
 
   final PocketsScopeParams scopeParams;
   final PocketEnvelope? existingEnvelope;
+  final PocketTemplate? template;
   final double totalBudget;
   final double unallocatedBudget;
   final String? budgetId;
   final List<PocketEnvelope> allPockets;
   final VoidCallback? onDeleteCompleted;
+  final ValueChanged<PocketTemplate>? onSaveOffline;
 
   static const int _pctPrecision =
       4; // use finer precision to preserve large amounts
@@ -81,12 +86,12 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
         ref.watch(homeFilterProvider).selectedCurrency ?? 'USD';
 
     final nameController = useTextEditingController(
-      text: existingEnvelope?.name ?? '',
+      text: existingEnvelope?.name ?? template?.name ?? '',
     );
     final percentageController = useTextEditingController(
       text: existingEnvelope != null
           ? existingEnvelope!.percentage.toStringAsFixed(_pctPrecision)
-          : '',
+          : '', // Do not use template percentage as requested
     );
 
     useListenable(percentageController);
@@ -145,9 +150,28 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
       return null;
     }, [percentageController.text]);
 
-    final selectedCategories = useState<List<String>>(<String>[]);
-    final selectedColor = useState<String?>(existingEnvelope?.color);
-    final selectedIcon = useState<String?>(existingEnvelope?.icon);
+    final selectedCategories = useState<List<String>>(
+        existingEnvelope == null ? (template?.suggestedCategories ?? []) : []);
+
+    // Helper to extract hex from template color
+    String? getTemplateColorHex() {
+      if (template?.color == null) return null;
+      // Convert to ARGB32 int first (replaces deprecated .value)
+      // Note: toARGB32() returns int in 0xAARRGGBB format
+      // We need #RRGGBB
+      final value = (template!.color!.r * 255).round() << 16 |
+          (template!.color!.g * 255).round() << 8 |
+          (template!.color!.b * 255).round();
+
+      final hex = value.toRadixString(16).padLeft(6, '0');
+      return '#$hex';
+    }
+
+    final selectedColor =
+        useState<String?>(existingEnvelope?.color ?? getTemplateColorHex());
+
+    final selectedIcon =
+        useState<String?>(existingEnvelope?.icon ?? template?.iconName);
     final isLoading = useState<bool>(false);
     final isMounted = useIsMounted();
     final currency = selectedCurrency;
@@ -231,6 +255,28 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
 
       if (isMounted()) {
         isLoading.value = true;
+      }
+
+      // Offline mode: Return data directly without DB calls
+      if (onSaveOffline != null) {
+        final newTemplate = PocketTemplate(
+          name: name,
+          percentage: double.parse(
+                  percentage.clamp(0, 100).toStringAsFixed(_pctPrecision)) /
+              100.0,
+          iconName: selectedIcon.value ?? 'category',
+          suggestedCategories: selectedCategories.value,
+          color: selectedColor.value != null
+              ? Color(int.parse(selectedColor.value!.replaceFirst('#', ''),
+                      radix: 16) +
+                  0xFF000000)
+              : null,
+        );
+        onSaveOffline!(newTemplate);
+        if (context.mounted) {
+          Navigator.of(context).pop();
+        }
+        return;
       }
 
       try {
@@ -771,60 +817,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                       0xFF000000)
                                   : colorScheme.primary;
 
-                              IconData iconData;
-                              switch (iconName) {
-                                case 'shopping_bag':
-                                  iconData = Icons.shopping_bag;
-                                  break;
-                                case 'restaurant':
-                                  iconData = Icons.restaurant;
-                                  break;
-                                case 'directions_car':
-                                  iconData = Icons.directions_car;
-                                  break;
-                                case 'home':
-                                  iconData = Icons.home;
-                                  break;
-                                case 'flight':
-                                  iconData = Icons.flight;
-                                  break;
-                                case 'medical_services':
-                                  iconData = Icons.medical_services;
-                                  break;
-                                case 'school':
-                                  iconData = Icons.school;
-                                  break;
-                                case 'pets':
-                                  iconData = Icons.pets;
-                                  break;
-                                case 'sports_esports':
-                                  iconData = Icons.sports_esports;
-                                  break;
-                                case 'fitness_center':
-                                  iconData = Icons.fitness_center;
-                                  break;
-                                case 'local_cafe':
-                                  iconData = Icons.local_cafe;
-                                  break;
-                                case 'local_bar':
-                                  iconData = Icons.local_bar;
-                                  break;
-                                case 'movie':
-                                  iconData = Icons.movie;
-                                  break;
-                                case 'music_note':
-                                  iconData = Icons.music_note;
-                                  break;
-                                case 'savings':
-                                  iconData = Icons.savings;
-                                  break;
-                                case 'account_balance':
-                                  iconData = Icons.account_balance;
-                                  break;
-                                default:
-                                  iconData = Icons.category;
-                              }
-
+                              final iconData = getPocketIconData(iconName);
                               final isSelected = selectedIcon.value == iconName;
 
                               return GestureDetector(
